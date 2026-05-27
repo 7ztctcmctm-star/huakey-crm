@@ -1,0 +1,214 @@
+const pool = require('../config/database');
+
+const LogLevel = {
+  SUCCESS: 1,
+  FAIL: 0
+};
+
+const ModuleType = {
+  CUSTOMER: '客户管理',
+  OPPORTUNITY: '商机管理',
+  QUOTATION: '报价管理',
+  CONTRACT: '合同管理',
+  PAYMENT: '回款管理',
+  SERVICE: '售后服务',
+  USER: '用户管理',
+  SYSTEM: '系统管理'
+};
+
+async function logAction({ module, action, method, url, params, ipAddress, userId, userName, description, status = 1, errorMsg = null }) {
+  try {
+    let paramsStr = null;
+    if (params) {
+      if (typeof params === 'object') {
+        try {
+          paramsStr = JSON.stringify(params);
+          if (paramsStr.length > 2000) {
+            paramsStr = paramsStr.substring(0, 2000) + '...[truncated]';
+          }
+        } catch (e) {
+          paramsStr = String(params);
+        }
+      } else {
+        paramsStr = String(params);
+      }
+    }
+
+    if (paramsStr && paramsStr.length > 2000) {
+      paramsStr = paramsStr.substring(0, 2000) + '...[truncated]';
+    }
+
+    await pool.query(
+      `INSERT INTO sys_log (module, action, method, url, params, ip_address, user_id, user_name, description, status, error_msg)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [module, action, method || 'POST', url, paramsStr, ipAddress, userId, userName, description, status, errorMsg]
+    );
+  } catch (error) {
+    console.error('记录操作日志失败:', error);
+  }
+}
+
+function getIpAddress(req) {
+  return req.headers['x-forwarded-for'] ||
+         req.headers['x-real-ip'] ||
+         req.connection?.remoteAddress ||
+         req.socket?.remoteAddress ||
+         req.ip ||
+         '0.0.0.0';
+}
+
+function extractUserInfo(req) {
+  return {
+    userId: req.user?.id || req.user?.userId || null,
+    userName: req.user?.real_name || req.user?.realName || req.user?.username || null
+  };
+}
+
+function logMiddleware(module) {
+  return async (req, res, next) => {
+    const originalJson = res.json.bind(res);
+
+    res.json = function(data) {
+      const { userId, userName } = extractUserInfo(req);
+      const action = `${module}_${req.method === 'POST' ? 'create' : req.method === 'PUT' || req.method === 'UPDATE' ? 'update' : 'delete'}`;
+      const status = data?.code === 200 ? LogLevel.SUCCESS : LogLevel.FAIL;
+
+      logAction({
+        module,
+        action,
+        method: req.method,
+        url: req.originalUrl,
+        params: req.method === 'GET' ? req.query : req.body,
+        ipAddress: getIpAddress(req),
+        userId,
+        userName,
+        description: `${module} - ${req.method} ${req.originalUrl}`,
+        status,
+        errorMsg: status === LogLevel.FAIL ? (data?.message || JSON.stringify(data)) : null
+      }).catch(err => console.error('日志记录失败:', err));
+
+      return originalJson(data);
+    };
+
+    next();
+  };
+}
+
+const MODULE_MAP = {
+  'customer': '客户管理',
+  'follow-up': '客户管理',
+  'opportunity': '商机管理',
+  'quote': '报价管理',
+  'contract': '合同管理',
+  'service': '售后服务',
+  'user': '用户管理',
+  'auth': '系统管理',
+  'report': '数据报表'
+};
+
+const ACTION_MAP = {
+  'list': '查询列表',
+  'detail': '查看详情',
+  'add': '新增',
+  'create': '新增',
+  'update': '编辑',
+  'edit': '编辑',
+  'delete': '删除',
+  'remove': '删除',
+  'login': '登录',
+  'logout': '登出',
+  'register': '注册',
+  'profile': '获取用户信息',
+  'pool': '客户池',
+  'modules': '模块列表',
+  'clear': '清理',
+  'dashboard-stats': '仪表盘统计',
+  'import': '导入',
+  'export': '导出'
+};
+
+function getModuleFromUrl(url) {
+  const match = url.match(/^\/api\/([^\/\?]+)/);
+  if (!match) return '系统管理';
+  const segment = match[1].toLowerCase();
+  return MODULE_MAP[segment] || '系统管理';
+}
+
+function getActionFromUrl(url, method) {
+  if (method === 'GET') {
+    const segments = url.replace(/^\/api\/[^\/]+\/?/, '').split('/').filter(Boolean);
+    const last = segments[segments.length - 1] || 'list';
+    return ACTION_MAP[last] || '查询';
+  }
+  if (method === 'POST') {
+    if (url.includes('/add') || url.includes('/create')) return '新增';
+    if (url.includes('/update') || url.includes('/edit')) return '编辑';
+    if (url.includes('/delete') || url.includes('/remove')) return '删除';
+    if (url.includes('/list')) return '查询列表';
+    if (url.includes('/login')) return '登录';
+    if (url.includes('/logout')) return '登出';
+    if (url.includes('/register')) return '注册';
+    if (url.includes('/clear')) return '清理';
+    if (url.includes('/import')) return '导入';
+    if (url.includes('/export')) return '导出';
+    return '操作';
+  }
+  if (method === 'PUT' || method === 'PATCH') return '编辑';
+  if (method === 'DELETE') return '删除';
+  return '请求';
+}
+
+// 全局自动日志中间件
+function globalLogMiddleware(req, res, next) {
+  // 跳过日志相关请求，避免无限循环
+  if (req.originalUrl.startsWith('/api/log')) {
+    return next();
+  }
+  // 跳过健康检查和根路径
+  if (req.originalUrl === '/api/health' || req.originalUrl === '/api/') {
+    return next();
+  }
+  // 跳过登录/登出（auth路由已自行记录详细日志）
+  if (req.originalUrl === '/api/auth/login' || req.originalUrl === '/api/auth/logout') {
+    return next();
+  }
+
+  const startTime = Date.now();
+  const originalJson = res.json.bind(res);
+
+  res.json = function (data) {
+    const responseTime = Date.now() - startTime;
+    const module = getModuleFromUrl(req.originalUrl);
+    const action = getActionFromUrl(req.originalUrl, req.method);
+    const status = (data && data.code === 200) ? 1 : 0;
+    const { userId, userName } = extractUserInfo(req);
+
+    logAction({
+      module,
+      action,
+      method: req.method,
+      url: req.originalUrl,
+      params: req.method === 'GET' ? req.query : req.body,
+      ipAddress: getIpAddress(req),
+      userId,
+      userName,
+      description: `${module} - ${action} [${responseTime}ms]`,
+      status,
+      errorMsg: status === 0 ? (data?.message || '操作失败') : null
+    }).catch(err => console.error('日志记录失败:', err));
+
+    return originalJson(data);
+  };
+
+  next();
+}
+
+module.exports = {
+  logAction,
+  getIpAddress,
+  extractUserInfo,
+  logMiddleware,
+  globalLogMiddleware,
+  LogLevel,
+  ModuleType
+};
