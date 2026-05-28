@@ -1,8 +1,26 @@
 const express = require('express');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { validate, Joi } = require('../middleware/validate');
 
 const router = express.Router();
+
+const deptAddSchema = Joi.object({
+  name: Joi.string().required().max(100),
+  parent_id: Joi.number().integer().min(0).optional().default(0),
+  sort: Joi.number().integer().min(0).optional().default(0)
+});
+
+const deptUpdateSchema = Joi.object({
+  id: Joi.number().integer().required(),
+  name: Joi.string().max(100).optional(),
+  parent_id: Joi.number().integer().min(0).optional().default(0),
+  sort: Joi.number().integer().min(0).optional().default(0)
+});
+
+const deptDeleteSchema = Joi.object({
+  id: Joi.number().integer().required()
+});
 
 const requireAdmin = (req, res, next) => {
   if (!req.user.manageAll && req.user.roleId !== 1) {
@@ -20,10 +38,9 @@ router.post('/list', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/add', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/add', authenticateToken, requireAdmin, validate(deptAddSchema), async (req, res) => {
   try {
     const { name, parent_id, sort } = req.body;
-    if (!name) return res.status(400).json({ code: 400, message: '部门名称不能为空', data: null });
     const [result] = await pool.query(
       'INSERT INTO sys_dept (name, parent_id, sort) VALUES (?, ?, ?)',
       [name, parent_id || 0, sort || 0]
@@ -34,10 +51,9 @@ router.post('/add', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-router.post('/update', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/update', authenticateToken, requireAdmin, validate(deptUpdateSchema), async (req, res) => {
   try {
     const { id, name, parent_id, sort } = req.body;
-    if (!id) return res.status(400).json({ code: 400, message: '部门ID不能为空', data: null });
     await pool.query(
       'UPDATE sys_dept SET name=?, parent_id=?, sort=? WHERE id=?',
       [name, parent_id || 0, sort || 0, id]
@@ -48,7 +64,7 @@ router.post('/update', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-router.post('/delete', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/delete', authenticateToken, requireAdmin, validate(deptDeleteSchema), async (req, res) => {
   try {
     const { id } = req.body;
     await pool.query('DELETE FROM sys_dept WHERE id=?', [id]);

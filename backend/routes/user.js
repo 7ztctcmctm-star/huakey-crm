@@ -2,11 +2,43 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { validate, Joi } = require('../middleware/validate');
 
 const router = express.Router();
 
+const userListSchema = Joi.object({
+  page: Joi.number().integer().min(1).optional().default(1),
+  pageSize: Joi.number().integer().min(1).max(200).optional().default(10),
+  username: Joi.string().allow('').optional().max(50),
+  realName: Joi.string().allow('').optional().max(50)
+});
+
+const userAddSchema = Joi.object({
+  username: Joi.string().required().max(50).trim(),
+  password: Joi.string().required().min(6).max(100),
+  real_name: Joi.string().allow(null, '').optional().max(50),
+  phone: Joi.string().allow(null, '').optional().max(20),
+  email: Joi.string().email().allow(null, '').optional().max(100),
+  dept_id: Joi.number().integer().allow(null).optional(),
+  role_id: Joi.number().integer().allow(null).optional()
+});
+
+const userUpdateSchema = Joi.object({
+  id: Joi.number().integer().required(),
+  real_name: Joi.string().allow(null, '').optional().max(50),
+  phone: Joi.string().allow(null, '').optional().max(20),
+  email: Joi.string().email().allow(null, '').optional().max(100),
+  dept_id: Joi.number().integer().allow(null).optional(),
+  role_id: Joi.number().integer().allow(null).optional(),
+  status: Joi.number().integer().valid(0, 1).optional()
+});
+
+const userDeleteSchema = Joi.object({
+  id: Joi.number().integer().required()
+});
+
 // 1. 获取用户列表
-router.post('/list', authenticateToken, async (req, res) => {
+router.post('/list', authenticateToken, validate(userListSchema), async (req, res) => {
   try {
     const { page = 1, pageSize = 10, username, realName } = req.body;
 
@@ -67,18 +99,9 @@ router.post('/list', authenticateToken, async (req, res) => {
 });
 
 // 2. 添加用户
-router.post('/add', authenticateToken, async (req, res) => {
+router.post('/add', authenticateToken, validate(userAddSchema), async (req, res) => {
   try {
     const { username, password, real_name, phone, email, dept_id, role_id } = req.body;
-
-    // 参数验证
-    if (!username || !password) {
-      return res.status(400).json({
-        code: 400,
-        message: '用户名和密码不能为空',
-        data: null
-      });
-    }
 
     // 检查用户名是否已存在（仅检查未删除的用户）
     const [existingUsers] = await pool.query(
@@ -120,17 +143,9 @@ router.post('/add', authenticateToken, async (req, res) => {
 });
 
 // 3. 修改用户
-router.post('/update', authenticateToken, async (req, res) => {
+router.post('/update', authenticateToken, validate(userUpdateSchema), async (req, res) => {
   try {
     const { id, real_name, phone, email, dept_id, role_id, status } = req.body;
-
-    if (!id) {
-      return res.status(400).json({
-        code: 400,
-        message: '用户ID不能为空',
-        data: null
-      });
-    }
 
     // 检查用户是否存在
     const [users] = await pool.query(
@@ -206,17 +221,9 @@ router.post('/update', authenticateToken, async (req, res) => {
 });
 
 // 4. 删除用户（逻辑删除）
-router.post('/delete', authenticateToken, async (req, res) => {
+router.post('/delete', authenticateToken, validate(userDeleteSchema), async (req, res) => {
   try {
     const { id } = req.body;
-
-    if (!id) {
-      return res.status(400).json({
-        code: 400,
-        message: '用户ID不能为空',
-        data: null
-      });
-    }
 
     // 检查用户是否存在
     const [users] = await pool.query(

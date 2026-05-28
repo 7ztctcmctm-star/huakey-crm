@@ -3,6 +3,9 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { validate, Joi } = require('../middleware/validate');
 const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
+const { logFieldChanges } = require('../utils/fieldLog');
+
+const MODULE_NAME = '商机管理';
 
 const router = express.Router();
 
@@ -223,12 +226,14 @@ router.post('/update',
     const { clause: permissionWhere, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'o');
 
     const [rows] = await pool.query(
-      `SELECT id FROM crm_opportunity o WHERE o.id = ? AND o.deleted_at IS NULL AND ${permissionWhere}`,
+      `SELECT o.id, o.customer_id, o.name, o.expected_amount, o.expected_date, o.stage, o.win_rate, o.remark, o.owner_id
+       FROM crm_opportunity o WHERE o.id = ? AND o.deleted_at IS NULL AND ${permissionWhere}`,
       [id, ...permParams]
     );
     if (rows.length === 0) {
       return res.status(403).json({ code: 403, message: '无权修改该商机', data: null });
     }
+    const oldData = rows[0];
 
     const updates = [];
     const params = [];
@@ -278,6 +283,18 @@ router.post('/update',
       `UPDATE crm_opportunity SET ${updates.join(', ')} WHERE id = ?`,
       params
     );
+
+    // 记录字段变更
+    const oppFields = ['customer_id', 'name', 'expected_amount', 'expected_date', 'stage', 'win_rate', 'remark', 'owner_id'];
+    const newData = { customer_id, name, expected_amount, expected_date, stage, win_rate, remark, owner_id };
+    await logFieldChanges(req, {
+      module: MODULE_NAME,
+      action: '编辑',
+      oldData,
+      newData,
+      allowedFields: oppFields,
+      description: `修改商机 "${oldData.name}" 字段变更`
+    });
 
     res.json({ code: 200, message: '修改商机成功', data: null });
   } catch (error) {

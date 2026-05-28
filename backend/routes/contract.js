@@ -9,6 +9,7 @@ const { getDataPermission, buildPermissionClause } = require('../utils/permissio
 const MODULE_NAME = '合同管理';
 
 const { createRouteLogger } = require('../middleware/logger');
+const { logFieldChanges } = require('../utils/fieldLog');
 const logAction = createRouteLogger(MODULE_NAME);
 
 /**
@@ -304,19 +305,26 @@ router.post('/add', authenticateToken, checkPermission('contract:add'), validate
 router.post('/update', authenticateToken, checkPermission('contract:edit'), validate(updateContractSchema), async (req, res) => {
   const { id, customer_id, opportunity_id, amount, sign_date, delivery_date, payment_terms, status, remark, plans, delete_plan_ids } = req.body;
   const connection = await pool.getConnection();
-  
+
   try {
+    // 查询旧记录用于字段变更对比
+    const [oldRows] = await pool.query(
+      'SELECT customer_id, opportunity_id, amount, sign_date, delivery_date, payment_terms, status, remark FROM crm_contract WHERE id=? AND deleted_at IS NULL',
+      [id]
+    );
+    const oldData = oldRows.length > 0 ? oldRows[0] : null;
+
     await connection.beginTransaction();
-    
+
     await connection.query(
       'UPDATE crm_contract SET customer_id=?, opportunity_id=?, amount=?, sign_date=?, delivery_date=?, payment_terms=?, status=?, remark=? WHERE id=?',
       [customer_id, opportunity_id || null, amount, sign_date, delivery_date, payment_terms, status, remark, id]
     );
-    
+
     if (delete_plan_ids && delete_plan_ids.length > 0) {
       await connection.query('DELETE FROM crm_payment_plan WHERE id IN (?)', [delete_plan_ids]);
     }
-    
+
     if (plans && plans.length > 0) {
       for (const plan of plans) {
         if (plan.id) {
@@ -332,9 +340,23 @@ router.post('/update', authenticateToken, checkPermission('contract:edit'), vali
         }
       }
     }
-    
+
     await connection.commit();
     await logAction(req, 'update', `修改合同: ID=${id}`);
+
+    if (oldData) {
+      const contractFields = ['customer_id', 'opportunity_id', 'amount', 'sign_date', 'delivery_date', 'payment_terms', 'status', 'remark'];
+      const newData = { customer_id, opportunity_id, amount, sign_date, delivery_date, payment_terms, status, remark };
+      await logFieldChanges(req, {
+        module: MODULE_NAME,
+        action: '编辑',
+        oldData,
+        newData,
+        allowedFields: contractFields,
+        description: `修改合同 #${id} 字段变更`
+      });
+    }
+
     res.json({ code: 200, message: '修改合同成功', data: null });
   } catch (error) {
     await connection.rollback();
@@ -779,6 +801,112 @@ router.post('/payment/summary', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('对账汇总错误:', error);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
+  }
+});
+
+// 对账单导出
+router.post('/payment/statement-export', authenticateToken, async (req, res) => {
+  try {
+    const { keyword, start_date, end_date } = req.body;
+
+    let where = 'WHERE c.deleted_at IS NULL AND c.status IN (1,2,3)';
+    const params = [];
+    if (keyword) {
+      where += ' AND cu.company_name LIKE ?';
+      params.push(`%${keyword}%`);
+    }
+
+    // Sheet1: 客户汇总
+    const [summaryRows] = await pool.query(
+      `SELECT cu.company_name, cu.contact_name, cu.phone,
+              COUNT(DISTINCT c.id) as contract_count,
+              COALESCE(SUM(c.amount), 0) as total_amount,
+              COALESCE(SUM(cp.paid), 0) as paid_amount,
+              COALESCE(SUM(c.amount), 0) - COALESCE(SUM(cp.paid), 0) as outstanding_amount
+       FROM crm_contract c
+       JOIN crm_customer cu ON c.customer_id = cu.id
+       LEFT JOIN (
+         SELECT contract_id, SUM(pay_amount) as paid
+         FROM crm_payment WHERE deleted_at IS NULL GROUP BY contract_id
+       ) cp ON cp.contract_id = c.id
+       ${where}
+       GROUP BY cu.id, cu.company_name, cu.contact_name, cu.phone
+       HAVING total_amount > 0
+       ORDER BY outstanding_amount DESC`,
+      params
+    );
+
+    const summaryData = summaryRows.map(r => ({
+      '客户名称': r.company_name,
+      '联系人': r.contact_name || '',
+      '电话': r.phone || '',
+      '合同数': r.contract_count,
+      '合同总额': parseFloat(r.total_amount),
+      '已回款': parseFloat(r.paid_amount),
+      '未回款': parseFloat(r.outstanding_amount),
+      '回款率': r.total_amount > 0 ? Math.round(parseFloat(r.paid_amount) / parseFloat(r.total_amount) * 100) + '%' : '100%'
+    }));
+
+    // Sheet2: 回款明细
+    let detailWhere = 'WHERE c.deleted_at IS NULL AND p.deleted_at IS NULL';
+    const detailParams = [];
+    if (keyword) {
+      detailWhere += ' AND cu.company_name LIKE ?';
+      detailParams.push(`%${keyword}%`);
+    }
+    if (start_date) {
+      detailWhere += ' AND p.pay_date >= ?';
+      detailParams.push(start_date);
+    }
+    if (end_date) {
+      detailWhere += ' AND p.pay_date <= ?';
+      detailParams.push(end_date);
+    }
+
+    const [detailRows] = await pool.query(
+      `SELECT cu.company_name, c.contract_no, c.amount as contract_amount,
+              pp.plan_date, pp.plan_amount,
+              p.pay_date, p.pay_amount, p.pay_method, p.remark
+       FROM crm_payment p
+       JOIN crm_contract c ON p.contract_id = c.id
+       JOIN crm_customer cu ON c.customer_id = cu.id
+       LEFT JOIN crm_payment_plan pp ON p.plan_id = pp.id
+       ${detailWhere}
+       ORDER BY cu.company_name, c.contract_no, p.pay_date`,
+      detailParams
+    );
+
+    const detailData = detailRows.map(r => ({
+      '客户名称': r.company_name,
+      '合同编号': r.contract_no,
+      '合同金额': parseFloat(r.contract_amount),
+      '计划日期': r.plan_date || '-',
+      '计划金额': r.plan_amount ? parseFloat(r.plan_amount) : '-',
+      '回款日期': r.pay_date,
+      '回款金额': parseFloat(r.pay_amount),
+      '回款方式': r.pay_method || '',
+      '备注': r.remark || ''
+    }));
+
+    const wb = XLSX.utils.book_new();
+    if (summaryData.length > 0) {
+      const ws1 = XLSX.utils.json_to_sheet(summaryData);
+      XLSX.utils.book_append_sheet(wb, ws1, '客户汇总');
+    }
+    if (detailData.length > 0) {
+      const ws2 = XLSX.utils.json_to_sheet(detailData);
+      XLSX.utils.book_append_sheet(wb, ws2, '回款明细');
+    }
+
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=statement.xlsx');
+    res.send(buf);
+
+    await logAction(req, 'export', `导出对账单 ${summaryRows.length}个客户 ${detailRows.length}条回款`);
+  } catch (error) {
+    console.error('对账单导出错误:', error);
+    res.status(500).json({ code: 500, message: '导出对账单失败', data: null });
   }
 });
 

@@ -1,8 +1,27 @@
 const express = require('express');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { validate, Joi } = require('../middleware/validate');
 
 const router = express.Router();
+
+const roleAddSchema = Joi.object({
+  name: Joi.string().required().max(100),
+  code: Joi.string().required().max(50),
+  description: Joi.string().allow(null, '').optional()
+});
+
+const roleUpdateSchema = Joi.object({
+  id: Joi.number().integer().required(),
+  name: Joi.string().max(100).optional(),
+  code: Joi.string().max(50).optional(),
+  description: Joi.string().allow(null, '').optional(),
+  status: Joi.number().integer().valid(0, 1).optional().default(1)
+});
+
+const roleDeleteSchema = Joi.object({
+  id: Joi.number().integer().required()
+});
 
 router.post('/list', authenticateToken, async (req, res) => {
   try {
@@ -20,12 +39,9 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
-router.post('/add', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/add', authenticateToken, requireAdmin, validate(roleAddSchema), async (req, res) => {
   try {
     const { name, code, description } = req.body;
-    if (!name || !code) {
-      return res.status(400).json({ code: 400, message: '角色名称和编码不能为空', data: null });
-    }
     const [result] = await pool.query(
       'INSERT INTO sys_role (name, code, description) VALUES (?, ?, ?)',
       [name, code, description || null]
@@ -36,10 +52,9 @@ router.post('/add', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-router.post('/update', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/update', authenticateToken, requireAdmin, validate(roleUpdateSchema), async (req, res) => {
   try {
     const { id, name, code, description, status } = req.body;
-    if (!id) return res.status(400).json({ code: 400, message: '角色ID不能为空', data: null });
     await pool.query(
       'UPDATE sys_role SET name=?, code=?, description=?, status=? WHERE id=?',
       [name, code, description, status !== undefined ? status : 1, id]
@@ -50,7 +65,7 @@ router.post('/update', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-router.post('/delete', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/delete', authenticateToken, requireAdmin, validate(roleDeleteSchema), async (req, res) => {
   try {
     const { id } = req.body;
     await pool.query('DELETE FROM sys_role WHERE id=?', [id]);

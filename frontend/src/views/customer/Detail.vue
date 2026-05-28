@@ -457,6 +457,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Plus, Edit, EditPen, Delete, User, Clock, Share } from '@element-plus/icons-vue'
 import { post, get as getRequest } from '@/utils/request'
 import { formatTime } from '@/composables/useFormat'
+import { recordVisit } from '@/composables/useRecentVisit'
 import { ALL_SOURCE_VALUES } from '@/constants/source'
 
 const route = useRoute()
@@ -568,6 +569,8 @@ const fetchDetail = async () => {
       followRecords.value = res.data.followRecords || []
       fetchOpportunities()
       fetchContracts()
+      // 记录最近访问
+      recordVisit('customer', parseInt(route.params.id), customer.company_name)
     }
   } catch (error) {
     console.error('获取客户详情失败:', error)

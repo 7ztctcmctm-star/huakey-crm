@@ -60,6 +60,9 @@
           </el-table>
         </el-tab-pane>
         <el-tab-pane label="客户对账" name="summary">
+          <div style="margin-bottom: 12px; text-align: right;">
+            <el-button type="warning" :loading="statementExportLoading" @click="handleStatementExport">导出对账单</el-button>
+          </div>
           <el-table v-loading="summaryLoading" :data="summaryData" stripe border style="width: 100%">
             <el-table-column prop="company_name" label="客户名称" min-width="180" show-overflow-tooltip />
             <el-table-column prop="contract_count" label="合同数" width="80" align="center" />
@@ -191,6 +194,7 @@ const uploadHeaders = { Authorization: `Bearer ${localStorage.getItem('token') |
 // 对账汇总
 const summaryLoading = ref(false)
 const summaryData = ref([])
+const statementExportLoading = ref(false)
 
 // 快速回款录入
 const quickPayVisible = ref(false)
@@ -364,6 +368,28 @@ const handleExport = async () => {
     ElMessage.error('导出失败')
   } finally {
     exportLoading.value = false
+  }
+}
+
+const handleStatementExport = async () => {
+  statementExportLoading.value = true
+  try {
+    const res = await request.post('/contract/payment/statement-export', {
+      keyword: keyword.value || undefined,
+      start_date: dateRange.value?.[0] || undefined,
+      end_date: dateRange.value?.[1] || undefined
+    }, { responseType: 'blob' })
+    const url = window.URL.createObjectURL(new Blob([res]))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `对账单_${new Date().toISOString().slice(0, 10)}.xlsx`
+    link.click()
+    window.URL.revokeObjectURL(url)
+    ElMessage.success('导出成功')
+  } catch {
+    ElMessage.error('导出失败')
+  } finally {
+    statementExportLoading.value = false
   }
 }
 

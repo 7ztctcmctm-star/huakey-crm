@@ -280,6 +280,15 @@ router.post('/assign', authenticateToken, checkPermission('service:edit'), async
       [assignee_id, id]
     );
 
+    // 写入新工单通知
+    const [assigneeInfo] = await pool.query('SELECT real_name FROM sys_user WHERE id = ?', [assignee_id]);
+    const [orderInfo] = await pool.query('SELECT order_no, title FROM crm_service_order WHERE id = ?', [id]);
+    await pool.query(
+      `INSERT INTO crm_notification (type, title, content, business_type, business_id, from_user_id, to_user_id)
+       VALUES ('service_assigned', '新工单分配', ?, 'service_order', ?, ?, ?)`,
+      [`新工单 #${orderInfo[0]?.order_no} "${orderInfo[0]?.title}" 已分配给您，请及时处理`, id, req.user.userId, assignee_id]
+    );
+
     res.json({ code: 200, message: '分配成功', data: null });
   } catch (error) {
     console.error(error);
@@ -306,6 +315,18 @@ router.post('/batch-assign', authenticateToken, checkPermission('service:edit'),
     await pool.query(
       `UPDATE crm_service_order SET status = 2, assignee_id = ? WHERE id IN (${placeholders}) AND deleted_at IS NULL AND status = 1`,
       [assignee_id, ...ids]
+    );
+
+    // 批量写入新工单通知（去重：只写一条汇总通知）
+    const [orders] = await pool.query(
+      `SELECT order_no, title FROM crm_service_order WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
+      ids
+    );
+    const summary = orders.map(o => `#${o.order_no}`).join('、');
+    await pool.query(
+      `INSERT INTO crm_notification (type, title, content, business_type, business_id, from_user_id, to_user_id)
+       VALUES ('service_assigned', '新工单分配', ?, 'service_order', ?, ?, ?)`,
+      [`${ids.length}个工单 ${summary} 已批量分配给您，请及时处理`, ids[0], req.user.userId, assignee_id]
     );
 
     res.json({ code: 200, message: `已批量分配 ${ids.length} 个工单`, data: { count: ids.length } });

@@ -2,8 +2,47 @@ const express = require('express');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
+const { validate, Joi } = require('../middleware/validate');
 
 const router = express.Router();
+
+const productAddSchema = Joi.object({
+  name: Joi.string().required().max(200),
+  code: Joi.string().max(100).allow('', null),
+  category: Joi.string().max(100).allow('', null),
+  unit: Joi.string().max(20).allow('', null),
+  price: Joi.number().precision(2).min(0).allow(null),
+  cost_price: Joi.number().precision(2).min(0).allow(null),
+  stock: Joi.number().integer().min(0).allow(null),
+  description: Joi.string().max(2000).allow('', null)
+});
+
+const productUpdateSchema = Joi.object({
+  id: Joi.number().integer().positive().required(),
+  name: Joi.string().max(200).allow('', null),
+  code: Joi.string().max(100).allow('', null),
+  category: Joi.string().max(100).allow('', null),
+  unit: Joi.string().max(20).allow('', null),
+  price: Joi.number().precision(2).min(0).allow(null),
+  cost_price: Joi.number().precision(2).min(0).allow(null),
+  stock: Joi.number().integer().min(0).allow(null),
+  status: Joi.number().integer().valid(0, 1).allow(null),
+  description: Joi.string().max(2000).allow('', null)
+});
+
+const productDeleteSchema = Joi.object({
+  id: Joi.number().integer().positive().required()
+});
+
+const productListSchema = Joi.object({
+  page: Joi.number().integer().min(1).optional().default(1),
+  pageSize: Joi.number().integer().min(1).max(200).optional().default(20),
+  keyword: Joi.string().allow('').optional(),
+  name: Joi.string().allow('').optional(),
+  code: Joi.string().allow('').optional(),
+  category: Joi.string().allow('').optional(),
+  status: Joi.number().integer().valid(0, 1).allow('', null).optional()
+});
 
 const requireAdmin = (req, res, next) => {
   if (!req.user.manageAll && req.user.roleId !== 1) {
@@ -13,7 +52,7 @@ const requireAdmin = (req, res, next) => {
 };
 
 // 1. 产品列表
-router.post('/list', authenticateToken, async (req, res) => {
+router.post('/list', authenticateToken, validate(productListSchema), async (req, res) => {
   try {
     const { page = 1, pageSize = 20, keyword, name, code, category, status } = req.body;
     const offset = (page - 1) * pageSize;
@@ -73,13 +112,9 @@ router.post('/list', authenticateToken, async (req, res) => {
 });
 
 // 2. 新增产品
-router.post('/add', authenticateToken, checkPermission('product:add'), requireAdmin, async (req, res) => {
+router.post('/add', authenticateToken, checkPermission('product:add'), requireAdmin, validate(productAddSchema), async (req, res) => {
   try {
     const { name, code, category, unit, price, cost_price, stock, description } = req.body;
-
-    if (!name) {
-      return res.status(400).json({ code: 400, message: '产品名称不能为空', data: null });
-    }
 
     const [result] = await pool.query(
       `INSERT INTO crm_product (name, code, category, unit, price, cost_price, stock, description)
@@ -95,13 +130,9 @@ router.post('/add', authenticateToken, checkPermission('product:add'), requireAd
 });
 
 // 3. 编辑产品
-router.post('/update', authenticateToken, checkPermission('product:edit'), requireAdmin, async (req, res) => {
+router.post('/update', authenticateToken, checkPermission('product:edit'), requireAdmin, validate(productUpdateSchema), async (req, res) => {
   try {
     const { id, name, code, category, unit, price, cost_price, stock, status, description } = req.body;
-
-    if (!id) {
-      return res.status(400).json({ code: 400, message: '产品ID不能为空', data: null });
-    }
 
     const [rows] = await pool.query('SELECT id FROM crm_product WHERE id = ?', [id]);
     if (rows.length === 0) {
@@ -135,12 +166,9 @@ router.post('/update', authenticateToken, checkPermission('product:edit'), requi
 });
 
 // 4. 删除产品（逻辑删除）
-router.post('/delete', authenticateToken, checkPermission('product:delete'), requireAdmin, async (req, res) => {
+router.post('/delete', authenticateToken, checkPermission('product:delete'), requireAdmin, validate(productDeleteSchema), async (req, res) => {
   try {
     const { id } = req.body;
-    if (!id) {
-      return res.status(400).json({ code: 400, message: '产品ID不能为空', data: null });
-    }
     await pool.query('UPDATE crm_product SET status = 0 WHERE id = ?', [id]);
     res.json({ code: 200, message: '删除产品成功', data: null });
   } catch (error) {

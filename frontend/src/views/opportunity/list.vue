@@ -614,7 +614,7 @@ const handlePushConfirm = async () => {
   const targetLabel = stageOptions.find(s => s.value === pushTargetStage.value)?.label || pushTargetStage.value
   try {
     await ElMessageBox.confirm(
-      `确定将商机"${pushRow.value.name}"推进到【${targetLabel】】阶段？`,
+      `确定将商机"${pushRow.value.name}"推进到【${targetLabel}】阶段？`,
       '推进确认',
       { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
     )

@@ -130,6 +130,102 @@
               {{ item.name }}
             </el-breadcrumb-item>
           </el-breadcrumb>
+
+          <!-- 全局搜索 -->
+          <el-popover
+            placement="bottom-start"
+            :width="420"
+            trigger="manual"
+            v-model:visible="searchVisible"
+            popper-class="global-search-popover"
+          >
+            <template #reference>
+              <el-input
+                v-model="searchKeyword"
+                placeholder="搜索客户、合同、商机..."
+                :prefix-icon="Search"
+                clearable
+                class="global-search-input"
+                @input="onSearchInput"
+                @focus="onSearchFocus"
+                @keydown.enter="doSearch"
+              @blur="onSearchBlur"
+              />
+            </template>
+            <div v-loading="searchLoading" class="search-results">
+              <div v-if="searchKeyword.length < 2" class="search-hint">请输入至少2个字符</div>
+              <template v-else>
+                <div v-if="searchResults.customers.length > 0" class="search-group">
+                  <div class="search-group-title">客户</div>
+                  <div
+                    v-for="item in searchResults.customers"
+                    :key="'c' + item.id"
+                    class="search-item"
+                    @click="goTo('/customer/detail/' + item.id)"
+                  >
+                    <span class="search-item-name">{{ item.company_name }}</span>
+                    <span class="search-item-sub">{{ item.contact_name }} {{ item.phone }}</span>
+                  </div>
+                </div>
+                <div v-if="searchResults.contracts.length > 0" class="search-group">
+                  <div class="search-group-title">合同</div>
+                  <div
+                    v-for="item in searchResults.contracts"
+                    :key="'ct' + item.id"
+                    class="search-item"
+                    @click="goTo('/contract/detail/' + item.id)"
+                  >
+                    <span class="search-item-name">{{ item.contract_no }}</span>
+                    <span class="search-item-sub">{{ item.customer_name }}</span>
+                  </div>
+                </div>
+                <div v-if="searchResults.opportunities.length > 0" class="search-group">
+                  <div class="search-group-title">商机</div>
+                  <div
+                    v-for="item in searchResults.opportunities"
+                    :key="'o' + item.id"
+                    class="search-item"
+                    @click="goTo('/opportunity')"
+                  >
+                    <span class="search-item-name">{{ item.name }}</span>
+                    <span class="search-item-sub">{{ item.customer_name }} · {{ item.stage_name }}</span>
+                  </div>
+                </div>
+                <div v-if="searchResults.quotes.length > 0" class="search-group">
+                  <div class="search-group-title">报价</div>
+                  <div
+                    v-for="item in searchResults.quotes"
+                    :key="'q' + item.id"
+                    class="search-item"
+                    @click="goTo('/quotation/edit/' + item.id)"
+                  >
+                    <span class="search-item-name">{{ item.quote_no }}</span>
+                    <span class="search-item-sub">{{ item.customer_name }}</span>
+                  </div>
+                </div>
+                <div
+                  v-if="searchResults.customers.length === 0 && searchResults.contracts.length === 0 && searchResults.opportunities.length === 0 && searchResults.quotes.length === 0"
+                  class="search-hint"
+                >未找到匹配结果</div>
+              </template>
+            </div>
+          </el-popover>
+
+          <!-- 最近访问 -->
+          <el-popover placement="bottom-start" :width="300" trigger="click" popper-class="recent-visit-popover">
+            <template #reference>
+              <el-button link class="recent-visit-btn" title="最近访问">
+                <el-icon :size="18"><Clock /></el-icon>
+              </el-button>
+            </template>
+            <div style="font-size:14px;font-weight:600;margin-bottom:8px">最近访问</div>
+            <div v-if="recentVisits.length === 0" style="text-align:center;padding:20px;color:#909399;font-size:13px">暂无访问记录</div>
+            <div v-for="item in recentVisits" :key="item.type + item.id" class="recent-visit-item" @click="goToVisit(item)">
+              <el-tag size="small" :type="item.type === 'customer' ? '' : 'success'" style="margin-right:8px">{{ getVisitTypeLabel(item.type) }}</el-tag>
+              <span class="recent-visit-name">{{ item.name }}</span>
+              <span class="recent-visit-time">{{ relativeTime(item.time) }}</span>
+            </div>
+          </el-popover>
         </div>
         
         <div class="header-right">
@@ -187,7 +283,51 @@
     <!-- 逾期提醒弹窗 -->
     <el-dialog v-model="showReminderDialog" title="待办提醒" width="700px">
       <el-tabs v-model="reminderTab">
-        <el-tab-pane label="跟进提醒" name="follow">
+        <el-tab-pane :label="`今日待跟进 (${todayList.length})`" name="today">
+          <el-table :data="todayList" stripe border max-height="400">
+            <el-table-column prop="company_name" label="公司名称" min-width="150" show-overflow-tooltip />
+            <el-table-column prop="plan_content" label="计划内容" min-width="200" show-overflow-tooltip />
+            <el-table-column prop="plan_time" label="计划时间" width="160">
+              <template #default="{ row }">
+                {{ row.plan_time ? formatTime(row.plan_time) : '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" width="80" align="center">
+              <template #default>
+                <el-tag type="primary" size="small">待跟进</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="100">
+              <template #default="{ row }">
+                <el-button type="primary" link @click="goToCustomer(row.customer_id)">去跟进</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <div v-if="todayList.length === 0" style="text-align:center;padding:20px;color:#909399">今天没有待跟进的客户</div>
+        </el-tab-pane>
+        <el-tab-pane :label="`明日待跟进 (${upcomingList.length})`" name="upcoming">
+          <el-table :data="upcomingList" stripe border max-height="400">
+            <el-table-column prop="company_name" label="公司名称" min-width="150" show-overflow-tooltip />
+            <el-table-column prop="plan_content" label="计划内容" min-width="200" show-overflow-tooltip />
+            <el-table-column prop="plan_time" label="计划时间" width="160">
+              <template #default="{ row }">
+                {{ row.plan_time ? formatTime(row.plan_time) : '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" width="80" align="center">
+              <template #default>
+                <el-tag type="warning" size="small">即将到期</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="100">
+              <template #default="{ row }">
+                <el-button type="primary" link @click="goToCustomer(row.customer_id)">去跟进</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <div v-if="upcomingList.length === 0" style="text-align:center;padding:20px;color:#909399">明天没有待跟进的客户</div>
+        </el-tab-pane>
+        <el-tab-pane label="逾期跟进" name="follow">
           <el-table :data="reminderList" stripe border max-height="400" v-loading="reminderLoading">
             <el-table-column prop="company_name" label="公司名称" min-width="150" show-overflow-tooltip />
             <el-table-column prop="overdue_days" label="逾期天数" width="100" align="center">
@@ -228,8 +368,31 @@
           </el-table>
           <div v-if="preWarningList.length === 0" style="text-align:center;padding:20px;color:#909399">暂无接近逾期的客户</div>
         </el-tab-pane>
-        <el-tab-pane :label="`逾期回款 (${paymentOverdueList.length})`" name="payment">
-          <el-table :data="paymentOverdueList" stripe border max-height="400" v-loading="paymentOverdueLoading">
+        <el-tab-pane :label="`回款提醒 (${paymentOverdueList.length + paymentUpcomingList.length})`" name="payment">
+          <div v-if="paymentUpcomingList.length > 0" style="margin-bottom: 16px">
+            <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #e6a23c">即将到期</div>
+            <el-table :data="paymentUpcomingList" stripe border max-height="200">
+              <el-table-column prop="customer_name" label="客户名称" min-width="140" show-overflow-tooltip />
+              <el-table-column prop="contract_no" label="合同编号" width="140" />
+              <el-table-column prop="plan_date" label="计划日期" width="110" />
+              <el-table-column label="未回金额" width="120" align="right">
+                <template #default="{ row }">¥{{ fmt(row.plan_amount - row.paid_amount) }}</template>
+              </el-table-column>
+              <el-table-column label="状态" width="100" align="center">
+                <template #default="{ row }">
+                  <el-tag type="warning" size="small">还剩{{ row.days_left }}天</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="100">
+                <template #default="{ row }">
+                  <el-button type="primary" link @click="goToContract(row.contract_id)">查看合同</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+          <div v-if="paymentUpcomingList.length === 0" style="text-align:center;padding:10px;color:#909399;font-size:13px">近期无即将到期的回款</div>
+          <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #f56c6c">已逾期</div>
+          <el-table :data="paymentOverdueList" stripe border max-height="250" v-loading="paymentOverdueLoading">
             <el-table-column prop="customer_name" label="客户名称" min-width="140" show-overflow-tooltip />
             <el-table-column prop="contract_no" label="合同编号" width="140" />
             <el-table-column prop="plan_date" label="计划日期" width="110" />
@@ -247,6 +410,7 @@
               </template>
             </el-table-column>
           </el-table>
+          <div v-if="paymentOverdueList.length === 0" style="text-align:center;padding:10px;color:#909399;font-size:13px">暂无逾期回款</div>
         </el-tab-pane>
         <el-tab-pane :label="`审批待办 (${pendingApprovals.length})`" name="approval">
           <el-table :data="pendingApprovals" stripe border max-height="400">
@@ -289,6 +453,23 @@
           </el-table>
           <div v-if="urgeNotifications.length === 0" style="text-align:center;padding:20px;color:#909399">暂无催办通知</div>
         </el-tab-pane>
+        <el-tab-pane :label="`新工单 (${newServiceNotifications.length})`" name="newService">
+          <el-table :data="newServiceNotifications" stripe border max-height="400">
+            <el-table-column prop="content" label="工单信息" min-width="300" show-overflow-tooltip />
+            <el-table-column prop="from_user_name" label="分配人" width="100" />
+            <el-table-column prop="create_time" label="时间" width="160">
+              <template #default="{ row }">
+                {{ formatTime(row.create_time) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="100">
+              <template #default="{ row }">
+                <el-button type="primary" link @click="goToNewService(row)">去处理</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <div v-if="newServiceNotifications.length === 0" style="text-align:center;padding:20px;color:#909399">暂无新工单</div>
+        </el-tab-pane>
         <el-tab-pane :label="`超时工单 (${overdueServices.length})`" name="overdueService">
           <el-table :data="overdueServices" stripe border max-height="400">
             <el-table-column prop="order_no" label="工单号" width="140" />
@@ -322,7 +503,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
@@ -330,6 +511,8 @@ import { useUser } from '@/composables/useUser'
 import AiChat from '@/components/AiChat.vue'
 import RecycleBin from '@/components/RecycleBin.vue'
 import { formatTime } from '@/composables/useFormat'
+import { getVisits, getVisitPath, getVisitTypeLabel } from '@/composables/useRecentVisit'
+import { relativeTime } from '@/composables/useRelativeTime'
 import {
   HomeFilled,
   UserFilled,
@@ -350,11 +533,17 @@ import {
   DataBoard,
   Delete,
   DataAnalysis,
-  ChatDotRound
+  ChatDotRound,
+  Search,
+  Clock
 } from '@element-plus/icons-vue'
 
+const { clearUser } = useUser()
 const route = useRoute()
 const router = useRouter()
+
+// 路由变化时刷新最近访问列表
+watch(() => route.path, () => { recentVisits.value = getVisits() })
 
 // 菜单折叠状态
 const isCollapse = ref(false)
@@ -399,10 +588,56 @@ const hasAnyMenuPermission = (permissionCodes) => {
 }
 
 // 提醒相关
+// 全局搜索
+const searchKeyword = ref('')
+const searchVisible = ref(false)
+const searchLoading = ref(false)
+const searchResults = ref({ customers: [], contracts: [], opportunities: [], quotes: [] })
+let searchTimer = null
+
+const doSearch = async () => {
+  if (searchKeyword.value.trim().length < 2) {
+    searchResults.value = { customers: [], contracts: [], opportunities: [], quotes: [] }
+    return
+  }
+  searchLoading.value = true
+  try {
+    const res = await request.get('/search/global', { params: { keyword: searchKeyword.value.trim() } })
+    if (res.code === 200) {
+      searchResults.value = res.data
+    }
+  } catch { /* ignore */ }
+  finally { searchLoading.value = false }
+}
+
+const onSearchInput = () => {
+  searchVisible.value = searchKeyword.value.trim().length >= 1
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(doSearch, 500)
+}
+
+const onSearchFocus = () => {
+  if (searchKeyword.value.trim().length >= 1) {
+    searchVisible.value = true
+  }
+}
+
+const onSearchBlur = () => {
+  setTimeout(() => { searchVisible.value = false }, 200)
+}
+
+const goTo = (path) => {
+  searchVisible.value = false
+  searchKeyword.value = ''
+  router.push(path)
+}
+
 const showReminderDialog = ref(false)
 const showRecycleBin = ref(false)
 const reminderTab = ref('follow')
 const reminderList = ref([])
+const todayList = ref([])
+const upcomingList = ref([])
 const unreadReminderCount = ref(0)
 const urgeUnreadCount = ref(0)
 const totalUnreadCount = computed(() => unreadReminderCount.value + urgeUnreadCount.value)
@@ -411,9 +646,19 @@ const preWarningList = ref([])
 const pendingApprovals = ref([])
 const overdueDaysConfig = ref(15)
 const paymentOverdueList = ref([])
+const paymentUpcomingList = ref([])
 const paymentOverdueLoading = ref(false)
 const urgeNotifications = ref([])
 const overdueServices = ref([])
+const newServiceNotifications = ref([])
+
+// 最近访问
+const recentVisits = ref(getVisits())
+const goToVisit = (item) => {
+  const path = getVisitPath(item)
+  router.push(path)
+  recentVisits.value = getVisits()
+}
 
 // 浏览器通知
 const prevTotalUnread = ref(0)
@@ -444,11 +689,14 @@ const fetchReminders = async () => {
     const res = await request.get('/reminder/my-reminders')
     if (res.code === 200) {
       reminderList.value = res.data.list || []
+      todayList.value = res.data.today_list || []
+      upcomingList.value = res.data.upcoming_list || []
       unreadReminderCount.value = res.data.unread_count || 0
       preWarningList.value = res.data.pre_warning_list || []
       pendingApprovals.value = res.data.pending_approvals || []
       urgeNotifications.value = res.data.urge_notifications || []
       urgeUnreadCount.value = res.data.urge_unread_count || 0
+      newServiceNotifications.value = res.data.new_services || []
       overdueServices.value = res.data.overdue_services || []
       if (res.data.overdue_days) overdueDaysConfig.value = res.data.overdue_days
 
@@ -468,6 +716,7 @@ const fetchPaymentOverdue = async () => {
     const res = await request.get('/reminder/payment-overdue')
     if (res.code === 200) {
       paymentOverdueList.value = res.data.list || []
+      paymentUpcomingList.value = res.data.upcoming || []
     }
   } catch (e) { /* ignore */ }
   finally { paymentOverdueLoading.value = false }
@@ -516,6 +765,12 @@ const goToService = (row) => {
   router.push(`/service?id=${row.id}`)
 }
 
+const goToNewService = async (row) => {
+  showReminderDialog.value = false
+  try { await request.post('/reminder/notification-read', { notification_id: row.id }) } catch {}
+  router.push(`/service?id=${row.business_id}`)
+}
+
 // 从localStorage获取用户信息
 const getUserInfo = () => {
   const storedUserInfo = localStorage.getItem('userInfo')
@@ -527,7 +782,7 @@ const getUserInfo = () => {
 getUserInfo()
 fetchReminders()
 // 每5分钟刷新一次提醒
-const reminderTimer = setInterval(fetchReminders, 5 * 60 * 1000)
+const reminderTimer = setInterval(fetchReminders, 2 * 60 * 1000)
 onUnmounted(() => clearInterval(reminderTimer))
 
 // 切换菜单折叠
@@ -622,6 +877,96 @@ const handleLogout = () => {
 .header-left {
   display: flex;
   align-items: center;
+}
+
+.global-search-input {
+  width: 260px;
+  margin-left: 16px;
+}
+
+.global-search-input :deep(.el-input__wrapper) {
+  border-radius: 20px;
+  background: var(--c-bg);
+}
+
+.recent-visit-btn {
+  margin-left: 8px;
+  color: var(--c-text-secondary);
+}
+.recent-visit-btn:hover {
+  color: var(--c-primary);
+}
+.recent-visit-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 4px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 13px;
+}
+.recent-visit-item:hover {
+  background: var(--c-bg);
+}
+.recent-visit-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.recent-visit-time {
+  color: var(--c-text-tertiary);
+  font-size: 12px;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.search-results {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.search-hint {
+  text-align: center;
+  padding: 20px;
+  color: #909399;
+  font-size: 13px;
+}
+
+.search-group {
+  margin-bottom: 8px;
+}
+
+.search-group-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #909399;
+  padding: 4px 8px;
+  background: #f5f7fa;
+  border-radius: 4px;
+  margin-bottom: 4px;
+}
+
+.search-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.search-item:hover {
+  background: #f5f7fa;
+}
+
+.search-item-name {
+  font-size: 14px;
+  color: #303133;
+}
+
+.search-item-sub {
+  font-size: 12px;
+  color: #909399;
 }
 
 .collapse-btn {

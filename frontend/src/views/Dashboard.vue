@@ -514,7 +514,7 @@ const submitQuickFollow = async () => {
       content: quickFollowForm.value.content,
       next_time: quickFollowForm.value.next_time || undefined
     }
-    await request.post('/followUp/add', body)
+    await request.post('/follow-up/add', body)
     ElMessage.success('跟进记录已保存')
     quickFollowVisible.value = false
     fetchTodayTasks()
@@ -560,7 +560,7 @@ const submitBatchFollow = async () => {
   if (items.length === 0) return ElMessage.warning('请至少填写一条完整的跟进记录')
   batchFollowLoading.value = true
   try {
-    const res = await request.post('/followUp/batch-add', { items })
+    const res = await request.post('/follow-up/batch-add', { items })
     if (res.code === 200) {
       ElMessage.success(res.message)
       batchFollowVisible.value = false

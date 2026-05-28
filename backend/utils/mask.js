@@ -79,11 +79,51 @@ const maskSensitiveData = (data, fields = []) => {
   return result;
 };
 
+// 日志脱敏：自动识别常见敏感字段并脱敏
+const SENSITIVE_FIELDS = {
+  password: '******',
+  old_password: '******',
+  new_password: '******',
+  confirm_password: '******',
+  pwd: '******'
+};
+
+const MASK_FIELDS = ['phone', 'mobile', 'telephone', 'email', 'id_card', 'idcard', 'bank_card', 'bankcard', 'account_no'];
+
+function maskLogParams(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  const result = Array.isArray(obj) ? [...obj] : { ...obj };
+
+  for (const key of Object.keys(result)) {
+    const lowerKey = key.toLowerCase();
+
+    // 密码类字段：直接替换
+    if (lowerKey in SENSITIVE_FIELDS) {
+      result[key] = SENSITIVE_FIELDS[lowerKey];
+      continue;
+    }
+
+    // 其他敏感字段：部分脱敏
+    if (MASK_FIELDS.includes(lowerKey)) {
+      result[key] = maskSensitiveData({ [key]: result[key] }, [key])[key];
+      continue;
+    }
+
+    // 嵌套对象：递归处理
+    if (result[key] && typeof result[key] === 'object' && !(result[key] instanceof Date)) {
+      result[key] = maskLogParams(result[key]);
+    }
+  }
+
+  return result;
+}
+
 module.exports = {
   maskPhone,
   maskEmail,
   maskIdCard,
   maskBankCard,
   maskName,
-  maskSensitiveData
+  maskSensitiveData,
+  maskLogParams
 };

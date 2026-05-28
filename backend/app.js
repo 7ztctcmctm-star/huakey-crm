@@ -81,6 +81,7 @@ const followPlanRoutes = require('./routes/followPlan');
 const analysisRoutes = require('./routes/analysis');
 const integrationRoutes = require('./routes/integration');
 const uploadRoutes = require('./routes/upload');
+const searchRoutes = require('./routes/search');
 
 // API 路由前缀 /api
 const apiRouter = express.Router();
@@ -144,6 +145,7 @@ apiRouter.use('/ai', aiRoutes);
 apiRouter.use('/analysis', analysisRoutes);
 apiRouter.use('/integration', integrationRoutes);
 apiRouter.use('/upload', uploadRoutes);
+apiRouter.use('/search', searchRoutes);
 
 // 系统健康检查（管理员）
 const { authenticateToken } = require('./middleware/auth');
@@ -327,6 +329,18 @@ cron.schedule('0 1 * * *', async () => {
     console.log(`[公海回收] 已释放 ${released} 个客户（超过${AUTO_RELEASE_DAYS}天未跟进）`);
   } catch (error) {
     console.error('[公海回收] 执行失败:', error.message);
+  }
+}, { timezone: 'Asia/Shanghai' });
+
+// 定时任务：跟进提醒生成（每天8:30，生成逾期/今日/明日提醒）
+const { generateReminders } = require('./scripts/generate_reminders');
+cron.schedule('30 8 * * *', async () => {
+  console.log('[提醒生成] 开始执行...');
+  try {
+    await generateReminders(pool);
+    console.log('[提醒生成] 执行完成');
+  } catch (error) {
+    console.error('[提醒生成] 执行失败:', error.message);
   }
 }, { timezone: 'Asia/Shanghai' });
 

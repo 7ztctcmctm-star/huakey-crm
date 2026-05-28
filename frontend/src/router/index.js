@@ -45,13 +45,13 @@ const router = createRouter({
         {
           path: 'customer/list',
           name: 'CustomerList',
-          component: () => import('../views/customer/list.vue'),
+          component: () => import('../views/customer/List.vue'),
           meta: { title: '客户列表', permission: 'customer:list' }
         },
         {
           path: 'customer/detail/:id',
           name: 'CustomerDetail',
-          component: () => import('../views/customer/detail.vue'),
+          component: () => import('../views/customer/Detail.vue'),
           meta: { title: '客户详情' }
         },
         {

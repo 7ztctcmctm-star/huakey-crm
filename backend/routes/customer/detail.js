@@ -66,6 +66,7 @@ const deleteCustomerSchema = Joi.object({
 });
 
 const { createRouteLogger } = require('../../middleware/logger');
+const { logFieldChanges } = require('../../utils/fieldLog');
 const logAction = createRouteLogger(MODULE_NAME);
 
 const { getDataPermission, buildPermissionClause } = require('../../utils/permission');
@@ -284,7 +285,7 @@ router.post('/update', authenticateToken, checkPermission('customer:edit'), vali
     }
 
     const [customers] = await pool.query(
-      'SELECT id, owner_id FROM crm_customer WHERE id = ? AND status != 0',
+      'SELECT id, owner_id, company_name, contact_name, phone, email, address, industry, source, level, status, remark FROM crm_customer WHERE id = ? AND status != 0',
       [id]
     );
 
@@ -338,7 +339,15 @@ router.post('/update', authenticateToken, checkPermission('customer:edit'), vali
       params
     );
 
-    await logAction(req, 'update', `修改客户: ID=${id}`);
+    await logAction(req, 'update', `修改客户: ${customer.company_name}`);
+    await logFieldChanges(req, {
+      module: MODULE_NAME,
+      action: '编辑',
+      oldData: customer,
+      newData: updateFields,
+      allowedFields,
+      description: `修改客户 "${customer.company_name}" 字段变更`
+    });
 
     res.json({
       code: 200,

@@ -64,6 +64,15 @@
         <el-button type="success" :icon="Upload" @click="openImport" v-permission="'customer:import'">导入Excel</el-button>
         <el-button type="warning" :icon="Download" :loading="exportLoading" @click="handleExport" v-permission="'customer:export'">导出Excel</el-button>
         <el-button :icon="DataAnalysis" @click="showQualityCheck = true" v-permission="'data_quality:check'">质量检查</el-button>
+        <el-button
+          type="success"
+          :icon="ChatLineRound"
+          :disabled="selectedRows.length === 0"
+          @click="openBatchFollow"
+          v-permission="'customer:edit'"
+        >
+          批量跟进 ({{ selectedRows.length }})
+        </el-button>
         <el-divider direction="vertical" />
         <el-radio-group v-model="viewMode" @change="switchViewMode" size="default">
           <el-radio-button value="all">全部客户</el-radio-button>
@@ -104,7 +113,7 @@
       </div>
 
       <!-- 批量操作提示条 -->
-      <div v-if="isBoss && selectedRows.length > 0" class="batch-bar">
+      <div v-if="selectedRows.length > 0" class="batch-bar">
         <el-icon><Select /></el-icon>
         <span>已选择 <strong>{{ selectedRows.length }}</strong> 项</span>
       </div>
@@ -127,7 +136,7 @@
             <el-button type="primary" @click="handleAdd" v-permission="'customer:add'">新增第一个客户</el-button>
           </el-empty>
         </template>
-        <el-table-column v-if="isBoss" type="selection" width="50" />
+        <el-table-column type="selection" width="50" />
         <el-table-column prop="company_name" label="公司名称" min-width="180" show-overflow-tooltip />
         <el-table-column prop="owner_name" label="负责人" width="110">
           <template #default="{ row }">
@@ -349,6 +358,34 @@
       <template #footer>
         <el-button @click="quickFollowVisible = false">取消</el-button>
         <el-button type="primary" :loading="quickFollowLoading" @click="submitQuickFollow">提交</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 批量跟进弹窗 -->
+    <el-dialog v-model="batchFollowVisible" title="批量跟进" width="480px" @closed="resetBatchFollow">
+      <div style="margin-bottom: 16px; color: var(--c-text-secondary); font-size: 13px">
+        将对选中的 <strong style="color: var(--c-primary)">{{ selectedRows.length }}</strong> 个客户记录相同的跟进内容
+      </div>
+      <el-form ref="batchFollowFormRef" :model="batchFollowForm" :rules="batchFollowRules" label-width="90px">
+        <el-form-item label="跟进方式">
+          <el-select v-model="batchFollowForm.follow_type" style="width:100%">
+            <el-option label="电话" value="电话" />
+            <el-option label="微信" value="微信" />
+            <el-option label="拜访" value="拜访" />
+            <el-option label="邮件" value="邮件" />
+            <el-option label="其他" value="其他" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="跟进内容" prop="content">
+          <el-input v-model="batchFollowForm.content" type="textarea" :rows="3" placeholder="请输入跟进内容（将应用于所有选中客户）" />
+        </el-form-item>
+        <el-form-item label="下次跟进">
+          <el-date-picker v-model="batchFollowForm.next_time" type="datetime" placeholder="选择时间" style="width:100%" value-format="YYYY-MM-DD HH:mm:ss" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="batchFollowVisible = false">取消</el-button>
+        <el-button type="primary" :loading="batchFollowLoading" @click="submitBatchFollow">提交</el-button>
       </template>
     </el-dialog>
   </div>
@@ -807,7 +844,7 @@ const submitQuickFollow = async () => {
     if (!valid) return
     quickFollowLoading.value = true
     try {
-      const res = await post('/followUp/add', {
+      const res = await post('/follow-up/add', {
         customer_id: quickFollowCustomer.value.id,
         follow_type: quickFollowForm.follow_type,
         content: quickFollowForm.content,
@@ -822,6 +859,59 @@ const submitQuickFollow = async () => {
       ElMessage.error('提交失败')
     } finally {
       quickFollowLoading.value = false
+    }
+  })
+}
+
+// 批量跟进
+const batchFollowVisible = ref(false)
+const batchFollowLoading = ref(false)
+const batchFollowFormRef = ref(null)
+const batchFollowForm = reactive({
+  follow_type: '电话',
+  content: '',
+  next_time: null
+})
+const batchFollowRules = {
+  content: [{ required: true, message: '请输入跟进内容', trigger: 'blur' }]
+}
+
+const openBatchFollow = () => {
+  if (selectedRows.value.length === 0) return
+  batchFollowVisible.value = true
+}
+
+const resetBatchFollow = () => {
+  batchFollowFormRef.value?.resetFields()
+  batchFollowForm.follow_type = '电话'
+  batchFollowForm.content = ''
+  batchFollowForm.next_time = null
+}
+
+const submitBatchFollow = async () => {
+  if (!batchFollowFormRef.value) return
+  await batchFollowFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    batchFollowLoading.value = true
+    try {
+      const items = selectedRows.value.map(row => ({
+        customer_id: row.id,
+        follow_type: batchFollowForm.follow_type,
+        content: batchFollowForm.content,
+        next_time: batchFollowForm.next_time || null
+      }))
+      const res = await post('/follow-up/batch-add', { items })
+      if (res.code === 200) {
+        ElMessage.success(res.message)
+        batchFollowVisible.value = false
+        selectedRows.value = []
+        tableRef.value?.clearSelection()
+        fetchList()
+      }
+    } catch (e) {
+      ElMessage.error('批量跟进失败')
+    } finally {
+      batchFollowLoading.value = false
     }
   })
 }

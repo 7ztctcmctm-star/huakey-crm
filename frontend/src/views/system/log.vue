@@ -114,12 +114,31 @@
           <span class="error-text">{{ currentLog.error_msg }}</span>
         </el-descriptions-item>
       </el-descriptions>
+
+      <!-- 字段变更对比 -->
+      <div v-if="changedFieldsList.length > 0" style="margin-top: 16px">
+        <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px">字段变更明细</div>
+        <el-table :data="changedFieldsList" stripe border size="small">
+          <el-table-column prop="label" label="字段" width="120" />
+          <el-table-column prop="field" label="字段名" width="140" />
+          <el-table-column label="变更前" min-width="150">
+            <template #default="{ row }">
+              <span class="old-value">{{ row.old ?? '(空)' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="变更后" min-width="150">
+            <template #default="{ row }">
+              <span class="new-value">{{ row.new ?? '(空)' }}</span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Delete, Download } from '@element-plus/icons-vue'
 import request from '@/utils/request'
@@ -255,6 +274,16 @@ const formatParams = (params) => {
   }
 }
 
+// 解析字段变更列表
+const changedFieldsList = computed(() => {
+  if (!currentLog.value?.changed_fields) return []
+  try {
+    return JSON.parse(currentLog.value.changed_fields)
+  } catch {
+    return []
+  }
+})
+
 onMounted(() => {
   handleQuery()
   fetchModules()
@@ -318,5 +347,15 @@ onMounted(() => {
 
 .error-text {
   color: var(--c-accent);
+}
+
+.old-value {
+  color: #f56c6c;
+  text-decoration: line-through;
+}
+
+.new-value {
+  color: #67c23a;
+  font-weight: 600;
 }
 </style>

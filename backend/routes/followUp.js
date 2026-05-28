@@ -2,11 +2,44 @@ const express = require('express');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
+const { validate, Joi } = require('../middleware/validate');
 
 const router = express.Router();
 
+const followUpAddSchema = Joi.object({
+  customer_id: Joi.number().integer().positive().required(),
+  contact_id: Joi.number().integer().positive().allow(null),
+  follow_type: Joi.string().max(50).allow('', null),
+  content: Joi.string().required().max(5000),
+  next_time: Joi.date().iso().allow(null),
+  next_content: Joi.string().max(1000).allow('', null),
+  attachment_ids: Joi.array().items(Joi.number().integer().positive()).allow(null)
+});
+
+const followUpBatchAddSchema = Joi.object({
+  items: Joi.array().items(Joi.object({
+    customer_id: Joi.number().integer().positive().required(),
+    content: Joi.string().required().max(5000),
+    follow_type: Joi.string().max(50).allow('', null),
+    next_time: Joi.date().iso().allow(null)
+  })).min(1).max(20).required()
+});
+
+const followUpUpdateSchema = Joi.object({
+  id: Joi.number().integer().positive().required(),
+  contact_id: Joi.number().integer().positive().allow(null),
+  follow_type: Joi.string().max(50).allow('', null),
+  content: Joi.string().required().max(5000),
+  next_time: Joi.date().iso().allow(null),
+  next_content: Joi.string().max(1000).allow('', null)
+});
+
+const followUpDeleteSchema = Joi.object({
+  id: Joi.number().integer().positive().required()
+});
+
 // 1. 添加跟进记录
-router.post('/add', authenticateToken, checkPermission('customer:edit'), async (req, res) => {
+router.post('/add', authenticateToken, checkPermission('customer:edit'), validate(followUpAddSchema), async (req, res) => {
   try {
     const { customer_id, contact_id, follow_type, content, next_time, next_content } = req.body;
 
@@ -84,7 +117,7 @@ router.post('/add', authenticateToken, checkPermission('customer:edit'), async (
 });
 
 // 批量添加跟进记录
-router.post('/batch-add', authenticateToken, checkPermission('customer:edit'), async (req, res) => {
+router.post('/batch-add', authenticateToken, checkPermission('customer:edit'), validate(followUpBatchAddSchema), async (req, res) => {
   const connection = await pool.getConnection();
   try {
     const { items } = req.body;
@@ -236,7 +269,7 @@ router.get('/remind', authenticateToken, async (req, res) => {
 });
 
 // 4. 编辑跟进记录
-router.post('/update', authenticateToken, checkPermission('customer:edit'), async (req, res) => {
+router.post('/update', authenticateToken, checkPermission('customer:edit'), validate(followUpUpdateSchema), async (req, res) => {
   try {
     const { id, contact_id, follow_type, content, next_time, next_content } = req.body;
 
@@ -272,7 +305,7 @@ router.post('/update', authenticateToken, checkPermission('customer:edit'), asyn
 });
 
 // 5. 删除跟进记录
-router.post('/delete', authenticateToken, checkPermission('customer:delete'), async (req, res) => {
+router.post('/delete', authenticateToken, checkPermission('customer:delete'), validate(followUpDeleteSchema), async (req, res) => {
   try {
     const { id } = req.body;
 

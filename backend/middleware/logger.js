@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const { maskLogParams } = require('../utils/mask');
 
 const LogLevel = {
   SUCCESS: 1,
@@ -16,21 +17,24 @@ const ModuleType = {
   SYSTEM: '系统管理'
 };
 
-async function logAction({ module, action, method, url, params, ipAddress, userId, userName, description, status = 1, errorMsg = null }) {
+async function logAction({ module, action, method, url, params, ipAddress, userId, userName, description, status = 1, errorMsg = null, changedFields = null, oldValue = null, newValue = null }) {
   try {
+    // 脱敏处理
+    const maskedParams = params && typeof params === 'object' ? maskLogParams(params) : params;
+
     let paramsStr = null;
-    if (params) {
-      if (typeof params === 'object') {
+    if (maskedParams) {
+      if (typeof maskedParams === 'object') {
         try {
-          paramsStr = JSON.stringify(params);
+          paramsStr = JSON.stringify(maskedParams);
           if (paramsStr.length > 2000) {
             paramsStr = paramsStr.substring(0, 2000) + '...[truncated]';
           }
         } catch (e) {
-          paramsStr = String(params);
+          paramsStr = String(maskedParams);
         }
       } else {
-        paramsStr = String(params);
+        paramsStr = String(maskedParams);
       }
     }
 
@@ -38,10 +42,14 @@ async function logAction({ module, action, method, url, params, ipAddress, userI
       paramsStr = paramsStr.substring(0, 2000) + '...[truncated]';
     }
 
+    const changedFieldsStr = changedFields ? JSON.stringify(changedFields).substring(0, 2000) : null;
+    const oldValueStr = oldValue ? JSON.stringify(oldValue).substring(0, 2000) : null;
+    const newValueStr = newValue ? JSON.stringify(newValue).substring(0, 2000) : null;
+
     await pool.query(
-      `INSERT INTO sys_log (module, action, method, url, params, ip_address, user_id, user_name, description, status, error_msg)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [module, action, method || 'POST', url, paramsStr, ipAddress, userId, userName, description, status, errorMsg]
+      `INSERT INTO sys_log (module, action, method, url, params, ip_address, user_id, user_name, description, status, error_msg, changed_fields, old_value, new_value)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [module, action, method || 'POST', url, paramsStr, ipAddress, userId, userName, description, status, errorMsg, changedFieldsStr, oldValueStr, newValueStr]
     );
   } catch (error) {
     console.error('记录操作日志失败:', error);

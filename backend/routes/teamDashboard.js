@@ -445,4 +445,69 @@ router.get('/pending-approvals', authenticateToken, async (req, res) => {
   }
 });
 
+// 8. 卡住的商机（阶段停留超过N天未推进）
+router.get('/stuck-opportunities', authenticateToken, async (req, res) => {
+  try {
+    const isBoss = req.user.viewAll || req.user.roleId === 1 || req.user.roleId === 2;
+    if (!isBoss) {
+      return res.status(403).json({ code: 403, message: '仅主管可查看', data: null });
+    }
+
+    const { getConfig } = require('../utils/config');
+    const stuckDays = parseInt(await getConfig('opportunity_stuck_days', '14')) || 14;
+
+    let deptFilter = '';
+    const params = [stuckDays];
+
+    // 主管只看本部门，管理员看全部
+    if (!req.user.viewAll && req.user.roleId !== 1) {
+      const [deptUsers] = await pool.query(
+        'SELECT id FROM sys_user WHERE dept_id = (SELECT dept_id FROM sys_user WHERE id = ?)',
+        [req.user.userId]
+      );
+      const userIds = deptUsers.map(u => u.id);
+      if (userIds.length > 0) {
+        const placeholders = userIds.map(() => '?').join(',');
+        deptFilter = ` AND o.owner_id IN (${placeholders})`;
+        params.push(...userIds);
+      } else {
+        deptFilter = ' AND o.owner_id = ?';
+        params.push(req.user.userId);
+      }
+    }
+
+    const [list] = await pool.query(
+      `SELECT o.id, o.name, o.stage, o.expected_amount, o.expected_date,
+              o.update_time,
+              DATEDIFF(NOW(), o.update_time) as stuck_days,
+              cu.company_name as customer_name,
+              u.real_name as owner_name
+       FROM crm_opportunity o
+       LEFT JOIN crm_customer cu ON o.customer_id = cu.id
+       LEFT JOIN sys_user u ON o.owner_id = u.id
+       WHERE o.deleted_at IS NULL
+         AND o.stage NOT IN (5, 6)
+         AND DATEDIFF(NOW(), o.update_time) >= ?
+         ${deptFilter}
+       ORDER BY stuck_days DESC
+       LIMIT 50`,
+      params
+    );
+
+    const STAGE_MAP = { 1: '询盘', 2: '需求确认', 3: '方案报价', 4: '谈判' };
+    const result = list.map(item => ({
+      ...item,
+      stage_name: STAGE_MAP[item.stage] || '未知'
+    }));
+
+    res.json({
+      code: 200, message: '查询成功',
+      data: { list: result, total: result.length, stuck_days: stuckDays }
+    });
+  } catch (error) {
+    console.error('卡住商机查询错误:', error);
+    res.status(500).json({ code: 500, message: '查询失败', data: null });
+  }
+});
+
 module.exports = router;

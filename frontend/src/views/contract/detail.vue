@@ -109,6 +109,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Plus } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { recordVisit } from '@/composables/useRecentVisit'
 
 const route = useRoute()
 const router = useRouter()
@@ -143,7 +144,11 @@ const fetchDetail = async () => {
   loading.value = true
   try {
     const r = await request.get(`/contract/detail/${route.params.id}`)
-    if (r.code === 200) detail.value = r.data
+    if (r.code === 200) {
+      detail.value = r.data
+      // 记录最近访问
+      recordVisit('contract', parseInt(route.params.id), r.data.contract_no || `合同#${route.params.id}`)
+    }
   } catch {
     ElMessage.error('加载详情失败')
   } finally {

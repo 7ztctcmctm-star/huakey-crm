@@ -59,6 +59,39 @@
       </el-col>
     </el-row>
 
+    <!-- 卡住商机区域 -->
+    <el-card shadow="never" class="stuck-card" v-if="stuckList.length > 0">
+      <template #header>
+        <span class="card-title stuck-title">
+          商机长期未推进（超过{{ stuckDays }}天）
+          <el-badge :value="stuckList.length" :max="99" type="danger" />
+        </span>
+      </template>
+      <el-table :data="stuckList" stripe border size="small" max-height="300">
+        <el-table-column prop="name" label="商机名称" min-width="140" show-overflow-tooltip />
+        <el-table-column prop="customer_name" label="客户名称" width="150" show-overflow-tooltip />
+        <el-table-column label="当前阶段" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="stageTagType(row.stage)" size="small">{{ row.stage_name }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="卡住天数" width="100" align="center">
+          <template #default="{ row }">
+            <span :class="row.stuck_days > 30 ? 'stuck-danger' : 'stuck-warning'">{{ row.stuck_days }}天</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="预期金额" width="130" align="right">
+          <template #default="{ row }">¥{{ formatAmount(row.expected_amount) }}</template>
+        </el-table-column>
+        <el-table-column prop="owner_name" label="负责人" width="90" />
+        <el-table-column label="操作" width="80" align="center">
+          <template #default="{ row }">
+            <el-button type="primary" size="small" link @click="$router.push('/opportunity')">查看</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
     <!-- 待审批区域 -->
     <el-card shadow="never" class="pending-card" v-if="pendingApprovals.length > 0">
       <template #header>
@@ -249,6 +282,25 @@ const overview = reactive({
 })
 
 const pendingApprovals = ref([])
+
+// 卡住商机
+const stuckList = ref([])
+const stuckDays = ref(14)
+
+const fetchStuckOpportunities = async () => {
+  try {
+    const res = await request.get('/team-dashboard/stuck-opportunities')
+    if (res.code === 200) {
+      stuckList.value = res.data.list || []
+      stuckDays.value = res.data.stuck_days || 14
+    }
+  } catch (e) { /* skip */ }
+}
+
+const stageTagType = (stage) => {
+  const map = { 1: 'info', 2: 'warning', 3: '', 4: 'danger' }
+  return map[stage] || 'info'
+}
 
 const fetchPendingApprovals = async () => {
   try {
@@ -441,11 +493,13 @@ onMounted(() => {
   fetchOverview()
   fetchSalesBreakdown()
   fetchPendingApprovals()
+  fetchStuckOpportunities()
 })
 onActivated(() => {
   fetchOverview()
   fetchSalesBreakdown()
   fetchPendingApprovals()
+  fetchStuckOpportunities()
 })
 </script>
 
@@ -467,7 +521,11 @@ onActivated(() => {
 
 .table-card { min-height: 300px; }
 .pending-card { margin-bottom: 16px; }
+.stuck-card { margin-bottom: 16px; }
 .card-title { font-size: 16px; font-weight: bold; }
+.stuck-title { color: var(--c-accent); }
+.stuck-danger { color: var(--c-accent); font-weight: bold; }
+.stuck-warning { color: #e6a23c; font-weight: bold; }
 
 .dialog-pagination { margin-top: 16px; display: flex; justify-content: flex-end; }
 :deep(.overdue-danger) { background-color: var(--c-accent-bg); }
