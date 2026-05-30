@@ -271,87 +271,86 @@ app.use((err, req, res, next) => {
 // 数据库连接池
 const pool = require('./config/database');
 
-// 定时任务：供应商评分计算（每天凌晨2点执行）
-const cron = require('node-cron');
-const { checkAllSuppliersScores } = require('./utils/scoring');
-const { checkQualificationExpiry, updateQualificationStatus } = require('./utils/qualification-reminder');
-
-cron.schedule('0 2 * * *', async () => {
-  console.log('=== 开始定时任务: 供应商评分 ===');
-  try {
-    await checkAllSuppliersScores();
-    await updateQualificationStatus();
-    await checkQualificationExpiry();
-    console.log('=== 定时任务完成 ===');
-  } catch (error) {
-    console.error('定时任务执行失败:', error.message);
-  }
-}, { timezone: 'Asia/Shanghai' });
-
-// 定时清理过期日志（每天凌晨3点，保留90天）
-cron.schedule('0 3 * * *', async () => {
-  try {
-    const result = await pool.query(
-      "DELETE FROM sys_log WHERE create_time < NOW() - INTERVAL '90 days'"
-    );
-    if (result.rowCount > 0) {
-      console.log(`[日志清理] 已清理 ${result.rowCount} 条过期日志`);
-    }
-  } catch (error) {
-    console.error('[日志清理] 清理失败:', error.message);
-  }
-}, { timezone: 'Asia/Shanghai' });
-
-// 定时任务：公海池自动回收（每天凌晨1点）
-// 超过N天未跟进的客户自动掉入公海
-const AUTO_RELEASE_DAYS = parseInt(process.env.AUTO_RELEASE_DAYS) || 30;
-cron.schedule('0 1 * * *', async () => {
-  console.log('[公海回收] 开始检查超期未跟进客户...');
-  try {
-    const { rows: customers } = await pool.query(
-      `SELECT id, company_name, owner_id FROM crm_customer
-       WHERE pool_status = 0 AND status != 0 AND owner_id IS NOT NULL
-         AND (last_follow_time IS NULL AND create_time < NOW() - ($1 * INTERVAL '1 day')
-           OR last_follow_time < NOW() - ($1 * INTERVAL '1 day'))`,
-      [AUTO_RELEASE_DAYS]
-    );
-    if (customers.length === 0) {
-      console.log('[公海回收] 无需要释放的客户');
-      return;
-    }
-    let released = 0;
-    for (const c of customers) {
-      await pool.query(
-        'UPDATE crm_customer SET pool_status = 1, owner_id = NULL, protect_until = NULL WHERE id = $1',
-        [c.id]
-      );
-      await pool.query(
-        `INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id)
-         VALUES ($1, 'auto_release', $2, NULL)`,
-        [c.id, c.owner_id]
-      );
-      released++;
-    }
-    console.log(`[公海回收] 已释放 ${released} 个客户（超过${AUTO_RELEASE_DAYS}天未跟进）`);
-  } catch (error) {
-    console.error('[公海回收] 执行失败:', error.message);
-  }
-}, { timezone: 'Asia/Shanghai' });
-
-// 定时任务：跟进提醒生成（每天8:30，生成逾期/今日/明日提醒）
-const { generateReminders } = require('./scripts/generate_reminders');
-cron.schedule('30 8 * * *', async () => {
-  console.log('[提醒生成] 开始执行...');
-  try {
-    await generateReminders(pool);
-    console.log('[提醒生成] 执行完成');
-  } catch (error) {
-    console.error('[提醒生成] 执行失败:', error.message);
-  }
-}, { timezone: 'Asia/Shanghai' });
-
-// 启动服务器（Vercel Serverless 环境不监听端口，由平台处理）
+// Vercel Serverless 环境：跳过 node-cron 和 app.listen（由平台处理）
 if (!process.env.VERCEL) {
+  const cron = require('node-cron');
+  const { checkAllSuppliersScores } = require('./utils/scoring');
+  const { checkQualificationExpiry, updateQualificationStatus } = require('./utils/qualification-reminder');
+
+  cron.schedule('0 2 * * *', async () => {
+    console.log('=== 开始定时任务: 供应商评分 ===');
+    try {
+      await checkAllSuppliersScores();
+      await updateQualificationStatus();
+      await checkQualificationExpiry();
+      console.log('=== 定时任务完成 ===');
+    } catch (error) {
+      console.error('定时任务执行失败:', error.message);
+    }
+  }, { timezone: 'Asia/Shanghai' });
+
+  // 定时清理过期日志（每天凌晨3点，保留90天）
+  cron.schedule('0 3 * * *', async () => {
+    try {
+      const result = await pool.query(
+        "DELETE FROM sys_log WHERE create_time < NOW() - INTERVAL '90 days'"
+      );
+      if (result.rowCount > 0) {
+        console.log(`[日志清理] 已清理 ${result.rowCount} 条过期日志`);
+      }
+    } catch (error) {
+      console.error('[日志清理] 清理失败:', error.message);
+    }
+  }, { timezone: 'Asia/Shanghai' });
+
+  // 定时任务：公海池自动回收
+  const AUTO_RELEASE_DAYS = parseInt(process.env.AUTO_RELEASE_DAYS) || 30;
+  cron.schedule('0 1 * * *', async () => {
+    console.log('[公海回收] 开始检查超期未跟进客户...');
+    try {
+      const { rows: customers } = await pool.query(
+        `SELECT id, company_name, owner_id FROM crm_customer
+         WHERE pool_status = 0 AND status != 0 AND owner_id IS NOT NULL
+           AND (last_follow_time IS NULL AND create_time < NOW() - ($1 * INTERVAL '1 day')
+             OR last_follow_time < NOW() - ($1 * INTERVAL '1 day'))`,
+        [AUTO_RELEASE_DAYS]
+      );
+      if (customers.length === 0) {
+        console.log('[公海回收] 无需要释放的客户');
+        return;
+      }
+      let released = 0;
+      for (const c of customers) {
+        await pool.query(
+          'UPDATE crm_customer SET pool_status = 1, owner_id = NULL, protect_until = NULL WHERE id = $1',
+          [c.id]
+        );
+        await pool.query(
+          `INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id)
+           VALUES ($1, 'auto_release', $2, NULL)`,
+          [c.id, c.owner_id]
+        );
+        released++;
+      }
+      console.log(`[公海回收] 已释放 ${released} 个客户（超过${AUTO_RELEASE_DAYS}天未跟进）`);
+    } catch (error) {
+      console.error('[公海回收] 执行失败:', error.message);
+    }
+  }, { timezone: 'Asia/Shanghai' });
+
+  // 定时任务：跟进提醒生成
+  const { generateReminders } = require('./scripts/generate_reminders');
+  cron.schedule('30 8 * * *', async () => {
+    console.log('[提醒生成] 开始执行...');
+    try {
+      await generateReminders(pool);
+      console.log('[提醒生成] 执行完成');
+    } catch (error) {
+      console.error('[提醒生成] 执行失败:', error.message);
+    }
+  }, { timezone: 'Asia/Shanghai' });
+
+  // 启动服务器
   app.listen(PORT, () => {
     console.log('Server running on port ' + PORT);
     console.log('API地址: http://localhost:' + PORT + '/api');
