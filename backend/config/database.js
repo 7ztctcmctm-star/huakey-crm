@@ -77,7 +77,10 @@ const testConnection = async () => {
     console.log('数据库连接测试成功 (PostgreSQL)');
   } catch (error) {
     console.error('数据库连接失败:', error.message);
-    process.exit(1);
+    // Vercel Serverless 环境不退出进程，让连接池自动重试
+    if (!process.env.VERCEL) {
+      process.exit(1);
+    }
   }
 };
 
