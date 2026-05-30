@@ -202,6 +202,8 @@ const fetchCustomer = async () => {
     const res = await request.get(`/report/customer${getDateParams()}`)
     if (res.code === 200) {
       Object.assign(customerData, res.data)
+      renderSourceChart(customerData.source_dist || [])
+      renderLevelChart(customerData.level_dist || [])
     }
   } catch (error) {
     console.error('获取客户数据失败:', error)
@@ -225,9 +227,7 @@ const fetchPerformance = async () => {
 }
 
 const initCharts = () => {
-  // source_dist 和 level_dist 已由 fetchCustomer() 获取，直接渲染
-  renderSourceChart(customerData.source_dist || [])
-  renderLevelChart(customerData.level_dist || [])
+  // source/level 图表已在 fetchCustomer() 成功后渲染
   Promise.all([fetchSalesFunnel(), fetchSalesTrend(), fetchPurchaseTrend(), fetchPurchaseBySupplier()])
 }
 
