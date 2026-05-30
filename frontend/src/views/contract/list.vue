@@ -114,7 +114,7 @@ const customerOptions = ref([]), opportunityOptions = ref([])
 const form = reactive({ customer_id: null, opportunity_id: null, amount: 0, sign_date: '', delivery_date: '', payment_terms: '', status: 1, remark: '', plans: [] })
 const rules = { customer_id: [{ required: true, message: '请选择客户', trigger: 'change' }], amount: [{ required: true, message: '请输入合同金额', trigger: 'blur' }] }
 
-const fmt = (v) => { if (!v && v !== 0) return '0.00'; return parseFloat(v).toLocaleString('zh-CN', { minimumFractionDigits: 2 }) }
+const fmt = (v) => { const n = Number(v); if (isNaN(n)) return '0.00'; return n.toLocaleString('zh-CN', { minimumFractionDigits: 2 }) }
 const statusType = (s) => ({ 1: 'info', 2: '', 3: 'success', 4: 'danger' }[s] || 'info')
 const statusText = (s) => ({ 1: '待执行', 2: '执行中', 3: '已完成', 4: '已取消' }[s] || '未知')
 // 审批状态

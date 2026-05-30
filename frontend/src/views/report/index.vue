@@ -222,7 +222,10 @@ const fetchPerformance = async () => {
 }
 
 const initCharts = () => {
-  Promise.all([fetchSalesFunnel(), fetchCustomerSource(), fetchSalesTrend(), fetchCustomerLevel(), fetchPurchaseTrend(), fetchPurchaseBySupplier()])
+  // source_dist 和 level_dist 已由 fetchCustomer() 获取，直接渲染
+  renderSourceChart(customerData.source_dist || [])
+  renderLevelChart(customerData.level_dist || [])
+  Promise.all([fetchSalesFunnel(), fetchSalesTrend(), fetchPurchaseTrend(), fetchPurchaseBySupplier()])
 }
 
 const fetchSalesFunnel = async () => {
@@ -269,17 +272,6 @@ const renderFunnelChart = (data) => {
       }))
     }]
   })
-}
-
-const fetchCustomerSource = async () => {
-  try {
-    const res = await request.get(`/report/customer${getDateParams()}`)
-    if (res.code === 200) {
-      renderSourceChart(res.data.source_dist)
-    }
-  } catch (error) {
-    console.error('获取客户来源失败:', error)
-  }
 }
 
 const renderSourceChart = (data) => {
@@ -348,17 +340,6 @@ const renderTrendChart = (data) => {
       }
     ]
   })
-}
-
-const fetchCustomerLevel = async () => {
-  try {
-    const res = await request.get(`/report/customer${getDateParams()}`)
-    if (res.code === 200) {
-      renderLevelChart(res.data.level_dist)
-    }
-  } catch (error) {
-    console.error('获取客户等级失败:', error)
-  }
 }
 
 const renderLevelChart = (data) => {

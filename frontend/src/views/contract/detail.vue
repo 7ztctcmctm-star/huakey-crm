@@ -126,8 +126,9 @@ const payRules = {
 }
 
 const fmt = (v) => {
-  if (!v && v !== 0) return '0.00'
-  return parseFloat(v).toLocaleString('zh-CN', { minimumFractionDigits: 2 })
+  const n = Number(v)
+  if (isNaN(n)) return '0.00'
+  return n.toLocaleString('zh-CN', { minimumFractionDigits: 2 })
 }
 const statusType = (s) => ({ 1: 'info', 2: '', 3: 'success', 4: 'danger' }[s] || 'info')
 const statusText = (s) => ({ 1: '待执行', 2: '执行中', 3: '已完成', 4: '已取消' }[s] || '未知')
