@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/backend/api/index" },
+    { "source": "/((?!api).*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    { "path": "/api/cron/daily-scoring", "schedule": "0 2 * * *" },
+    { "path": "/api/cron/clean-logs", "schedule": "0 3 * * *" },
+    { "path": "/api/cron/auto-release", "schedule": "0 1 * * *" },
+    { "path": "/api/cron/generate-reminders", "schedule": "30 8 * * *" }
+  ]
+}
