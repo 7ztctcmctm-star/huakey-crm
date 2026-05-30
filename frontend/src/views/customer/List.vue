@@ -35,6 +35,13 @@
         <el-form-item label="创建时间">
           <el-date-picker v-model="searchForm.dateRange" type="daterange" start-placeholder="开始日期" end-placeholder="结束日期" value-format="YYYY-MM-DD" style="width: 240px" />
         </el-form-item>
+        <el-form-item label="排序">
+          <el-select v-model="searchForm.sort" placeholder="默认排序" clearable style="width: 180px" @change="handleSearch">
+            <el-option label="最后跟进 ↑ 久未跟进优先" value="last_follow_time_asc" />
+            <el-option label="最后跟进 ↓ 最近跟进优先" value="last_follow_time_desc" />
+            <el-option label="创建时间 ↓ 最新优先" value="create_time_desc" />
+          </el-select>
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
           <el-button :icon="Refresh" @click="handleReset">重置</el-button>
@@ -510,6 +517,7 @@ const searchForm = reactive({
   level: '',
   status: '',
   dateRange: [],
+  sort: '',
   page: 1,
   pageSize: 10
 })
@@ -629,6 +637,7 @@ const fetchList = async () => {
       params.start_date = searchForm.dateRange[0]
       params.end_date = searchForm.dateRange[1]
     }
+    if (searchForm.sort) params.sort = searchForm.sort
     // 我的客户模式：只显示当前用户负责的客户
     if (viewMode.value === 'mine') {
       const stored = localStorage.getItem('userInfo')
@@ -679,6 +688,7 @@ const handleReset = () => {
   searchForm.level = ''
   searchForm.status = ''
   searchForm.dateRange = []
+  searchForm.sort = ''
   searchForm.page = 1
   fetchList()
 }

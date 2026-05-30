@@ -32,7 +32,9 @@ const customerListSchema = Joi.object({
   status: Joi.number().integer().valid(0, 1, 2, 3).allow('', null),
   owner_id: Joi.number().integer().positive().allow(null),
   start_date: Joi.string().isoDate().allow('', null),
-  end_date: Joi.string().isoDate().allow('', null)
+  end_date: Joi.string().isoDate().allow('', null),
+  overdue: Joi.boolean().allow(null),
+  sort: Joi.string().valid('create_time_desc', 'last_follow_time_asc', 'last_follow_time_desc').allow('', null)
 });
 
 const addCustomerSchema = Joi.object({
@@ -100,7 +102,8 @@ router.post('/list',
       owner_id,
       start_date,
       end_date,
-      overdue
+      overdue,
+      sort
     } = req.body;
 
     const offset = (page - 1) * pageSize;
@@ -169,6 +172,14 @@ router.post('/list',
     );
     const total = countResult[0].total;
 
+    // 排序
+    const SORT_MAP = {
+      'create_time_desc': 'c.create_time DESC',
+      'last_follow_time_asc': 'c.last_follow_time IS NULL ASC, c.last_follow_time ASC',
+      'last_follow_time_desc': 'c.last_follow_time DESC'
+    };
+    const orderBy = SORT_MAP[sort] || 'c.create_time DESC';
+
     const [list] = await pool.query(
       `SELECT
         c.id, c.company_name, c.contact_name, c.phone, c.email,
@@ -180,7 +191,7 @@ router.post('/list',
       FROM crm_customer c
       LEFT JOIN sys_user u ON c.owner_id = u.id
       ${whereClause}
-      ORDER BY c.create_time DESC
+      ORDER BY ${orderBy}
       LIMIT ? OFFSET ?`,
       [...params, parseInt(pageSize), parseInt(offset)]
     );
