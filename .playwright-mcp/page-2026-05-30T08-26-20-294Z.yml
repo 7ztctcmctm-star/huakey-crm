@@ -1,0 +1,199 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content":
+    - /url: "#geist-skip-nav"
+  - main [ref=e3]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - button "Open sidebar" [ref=e9] [cursor=pointer]:
+            - img [ref=e11]
+          - generic [ref=e15]:
+            - link "Other" [ref=e16] [cursor=pointer]:
+              - /url: /david-he-s-projects/huakey-crm
+              - img "Other" [ref=e17]:
+                - img "Other" [ref=e18]
+            - button [ref=e19] [cursor=pointer]:
+              - img [ref=e21]
+            - link "Back to team view" [ref=e25] [cursor=pointer]:
+              - /url: /david-he-s-projects/~/settings/general
+              - img [ref=e27]
+        - generic [ref=e31]: Project Settings
+        - button "Open page actions menu" [ref=e33] [cursor=pointer]:
+          - img [ref=e35]
+      - generic [ref=e45]:
+        - generic [ref=e47]:
+          - generic [ref=e48]:
+            - heading "Project Name" [level=4] [ref=e49]:
+              - generic [ref=e50]:
+                - link "Project Name" [ref=e51] [cursor=pointer]:
+                  - /url: "#project-name"
+                  - generic [ref=e52]: Project Name
+                - img [ref=e53]
+            - paragraph [ref=e55]: Used to identify your Project on the Dashboard, Vercel CLI, and in the URL of your Deployments.
+            - generic [ref=e56]:
+              - textbox "Project Name" [ref=e57]: huakey-crm
+              - generic [ref=e59]: vercel.com/david-he-s-projects/
+          - generic [ref=e60]:
+            - generic [ref=e62]:
+              - text: Learn more about
+              - link "Project Name" [ref=e63] [cursor=pointer]:
+                - /url: /docs/projects/overview#project-name
+                - text: Project Name
+                - img [ref=e64]
+            - button "Save" [disabled] [ref=e68]:
+              - generic [ref=e69]: Save
+        - generic [ref=e71]:
+          - generic [ref=e72]:
+            - heading "Project ID" [level=4] [ref=e73]:
+              - generic [ref=e74]:
+                - link "Project ID" [ref=e75] [cursor=pointer]:
+                  - /url: "#project-id"
+                  - generic [ref=e76]: Project ID
+                - img [ref=e77]
+            - paragraph [ref=e79]: Used when interacting with the Vercel API.
+            - generic [ref=e80]:
+              - generic [ref=e81]: prj_7BepeCVtomOQ0yr47HkRu1qBZAsh
+              - button "Copy to clipboard" [ref=e82] [cursor=pointer]:
+                - generic [ref=e84]:
+                  - img [ref=e86]
+                  - img [ref=e89]
+          - generic [ref=e93]:
+            - text: Learn more about
+            - link "Project ID" [ref=e94] [cursor=pointer]:
+              - /url: /docs/api?query=api#endpoints/projects
+              - text: Project ID
+              - img [ref=e95]
+        - generic [ref=e98]:
+          - generic [ref=e99]:
+            - heading "Vercel Toolbar" [level=4] [ref=e100]:
+              - generic [ref=e101]:
+                - link "Vercel Toolbar" [ref=e102] [cursor=pointer]:
+                  - /url: "#vercel-toolbar"
+                  - generic [ref=e103]: Vercel Toolbar
+                - img [ref=e104]
+            - paragraph [ref=e106]: Enable the Vercel Toolbar on your Deployments.
+            - generic [ref=e107]:
+              - generic [ref=e110]:
+                - generic [ref=e111]: Pre-Production Deployments
+                - generic [ref=e112]:
+                  - combobox "Pre-Production Deployments" [ref=e113] [cursor=pointer]:
+                    - option "Default (controlled at the team level)" [selected]
+                    - option "On"
+                    - option "Off"
+                  - generic:
+                    - img
+              - generic [ref=e116]:
+                - generic [ref=e117]: Production Deployments
+                - generic [ref=e118]:
+                  - combobox "Production Deployments" [ref=e119] [cursor=pointer]:
+                    - option "Default (controlled at the team level)" [selected]
+                    - option "On"
+                    - option "Off"
+                  - generic:
+                    - img
+            - generic [ref=e122]:
+              - img [ref=e124]
+              - generic [ref=e126]:
+                - text: To use the toolbar in production your team members need the
+                - link "Chrome extension" [ref=e127] [cursor=pointer]:
+                  - /url: https://chromewebstore.google.com/detail/vercel/lahhiofdgnbcgmemekkmjnpifojdaelb
+                - text: or to enable the toolbar for that domain in the toolbar menu. Learn more about using the
+                - link "toolbar in production" [ref=e128] [cursor=pointer]:
+                  - /url: /docs/vercel-toolbar/in-production-and-localhost/add-to-production
+                - text: .
+          - generic [ref=e129]:
+            - generic [ref=e131]:
+              - text: Learn more about the
+              - link "Vercel Toolbar" [ref=e132] [cursor=pointer]:
+                - /url: /docs/workflow-collaboration/vercel-toolbar
+                - text: Vercel Toolbar
+                - img [ref=e133]
+            - button "Save" [ref=e137] [cursor=pointer]:
+              - generic [ref=e138]: Save
+        - generic [ref=e140]:
+          - generic [ref=e141]:
+            - heading "Preview Deployment Suffix" [level=4] [ref=e143]:
+              - generic [ref=e144]:
+                - link "Preview Deployment Suffix" [ref=e145] [cursor=pointer]:
+                  - /url: "#preview-deployment-suffix"
+                  - generic [ref=e146]: Preview Deployment Suffix
+                - img [ref=e147]
+            - paragraph [ref=e149]:
+              - text: By default, the URL of every new Preview Deployment ends with
+              - code [ref=e150]: .vercel.app
+              - text: . This setting allows you to choose your own custom domain in place of this suffix. This takes precedence over the
+              - link "team-level preview deployment suffix" [ref=e151] [cursor=pointer]:
+                - /url: /david-he-s-projects/~/settings
+              - text: .
+            - generic [ref=e154]:
+              - generic "my-deployment." [ref=e156]
+              - textbox "vercel.app" [disabled] [ref=e159]
+          - generic [ref=e160]:
+            - generic [ref=e162]:
+              - text: This feature is available on the
+              - link "Pro plan" [ref=e163] [cursor=pointer]:
+                - /url: /pricing
+                - text: Pro plan
+                - img [ref=e164]
+              - text: for
+              - generic [ref=e166]: $100 per month
+              - text: .
+            - button "Upgrade" [ref=e169] [cursor=pointer]:
+              - generic [ref=e170]: Upgrade
+        - generic [ref=e172]:
+          - generic [ref=e173]:
+            - heading "Data Preferences" [level=4] [ref=e174]:
+              - generic [ref=e175]:
+                - link "Data Preferences" [ref=e176] [cursor=pointer]:
+                  - /url: "#data-preferences"
+                  - generic [ref=e177]: Data Preferences
+                - img [ref=e178]
+            - paragraph [ref=e180]: Vercel may train on and share code and chat data with AI model providers for training purposes only. If you turn this off, we will not share data going forward for this project.
+            - generic [ref=e182] [cursor=pointer]:
+              - checkbox "Improve models with this project’s data" [checked] [ref=e184]
+              - generic [ref=e187]: Improve models with this project’s data
+          - generic [ref=e188]:
+            - generic [ref=e190]:
+              - text: To change globally, open
+              - link "Team settings" [ref=e191] [cursor=pointer]:
+                - /url: /david-he-s-projects/~/settings#data-preferences
+            - button "Save" [disabled] [ref=e194]:
+              - generic [ref=e195]: Save
+        - generic [ref=e197]:
+          - generic [ref=e198]:
+            - heading "Transfer" [level=4] [ref=e199]:
+              - generic [ref=e201]: Transfer
+            - paragraph [ref=e202]: Transfer your project to another team without downtime or workflow interruptions.
+          - generic [ref=e203]:
+            - generic [ref=e205]:
+              - text: Learn more about
+              - link "Transferring Projects" [ref=e206] [cursor=pointer]:
+                - /url: /docs/projects/overview#transferring-a-project
+                - text: Transferring Projects
+                - img [ref=e207]
+            - button "Transfer" [ref=e211] [cursor=pointer]:
+              - generic [ref=e212]: Transfer
+        - generic [ref=e214]:
+          - generic [ref=e215]:
+            - heading "Delete Project" [level=4] [ref=e216]:
+              - generic [ref=e217]:
+                - link "Delete Project" [ref=e218] [cursor=pointer]:
+                  - /url: "#delete-project"
+                  - generic [ref=e219]: Delete Project
+                - img [ref=e220]
+            - paragraph [ref=e222]: Permanently delete this project and all deployments, domains, environment variables, serverless functions, and settings.
+            - separator [ref=e224]
+            - generic [ref=e225]:
+              - link "Visit Deployment" [ref=e228] [cursor=pointer]:
+                - /url: https://huakey-q98ej6f6y-david-he-s-projects.vercel.app
+              - generic [ref=e229]:
+                - generic "huakey-crm" [ref=e230]
+                - generic [ref=e231]: Last updated 3m ago
+          - button "Delete Project" [ref=e235] [cursor=pointer]:
+            - generic [ref=e236]: Delete Project
+  - alert [ref=e238]
+  - generic:
+    - generic:
+      - generic:
+        - generic:
+          - img
