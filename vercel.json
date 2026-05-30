@@ -2,7 +2,6 @@
   "version": 2,
   "buildCommand": "cd frontend && npm ci && npm run build",
   "outputDirectory": "frontend/dist",
-  "installCommand": "npm ci --prefix=backend --omit=dev && npm ci --prefix=frontend",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/backend/api/index" },
     { "source": "/((?!api).*)", "destination": "/index.html" }
