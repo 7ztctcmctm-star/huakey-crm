@@ -57,7 +57,8 @@ const listSchema = Joi.object({
   keyword: Joi.string().max(200).allow('', null),
   status: Joi.number().integer().valid(1, 2, 3, 4).allow('', null),
   customer_id: Joi.number().integer().positive().allow('', null),
-  approval_status: Joi.number().integer().valid(1, 2, 3).allow('', null)
+  approval_status: Joi.number().integer().valid(1, 2, 3).allow('', null),
+  payment_status: Joi.string().valid('overdue', 'partial', 'completed', 'pending').allow('', null)
 });
 
 const addContractSchema = Joi.object({
@@ -121,11 +122,19 @@ const paymentDeleteSchema = Joi.object({
 
 
 router.post('/list', authenticateToken, validate(listSchema), async (req, res) => {
-  const { page = 1, pageSize = 10, keyword = '', status = '', customer_id = '', approval_status = '' } = req.body;
+  const { page = 1, pageSize = 10, keyword = '', status = '', customer_id = '', approval_status = '', payment_status = '' } = req.body;
   const offset = (page - 1) * pageSize;
 
   const permission = await getDataPermission(req.user);
   const { clause: permissionClause, params: permParams } = buildPermissionClause(permission, 'c', 'create_by');
+
+  // 回款状态子查询条件
+  const PAYMENT_STATUS_CLAUSE = {
+    overdue: `EXISTS (SELECT 1 FROM crm_payment_plan pp WHERE pp.contract_id = c.id AND pp.status = 'overdue')`,
+    partial: `EXISTS (SELECT 1 FROM crm_payment p WHERE p.contract_id = c.id AND p.deleted_at IS NULL) AND EXISTS (SELECT 1 FROM crm_payment_plan pp WHERE pp.contract_id = c.id AND pp.status != 'completed')`,
+    completed: `EXISTS (SELECT 1 FROM crm_payment_plan pp WHERE pp.contract_id = c.id) AND NOT EXISTS (SELECT 1 FROM crm_payment_plan pp WHERE pp.contract_id = c.id AND pp.status != 'completed')`,
+    pending: `NOT EXISTS (SELECT 1 FROM crm_payment p WHERE p.contract_id = c.id AND p.deleted_at IS NULL)`
+  };
 
   let sql = `SELECT c.*, cu.company_name as customer_name, u.real_name as create_by_name,
     (SELECT COALESCE(SUM(p.pay_amount), 0) FROM crm_payment p WHERE p.contract_id = c.id AND p.deleted_at IS NULL) as paid_amount,
@@ -153,7 +162,10 @@ router.post('/list', authenticateToken, validate(listSchema), async (req, res) =
     sql += ' AND c.approval_status = ?';
     params.push(approval_status);
   }
-  
+  if (payment_status && PAYMENT_STATUS_CLAUSE[payment_status]) {
+    sql += ` AND ${PAYMENT_STATUS_CLAUSE[payment_status]}`;
+  }
+
   sql += ' ORDER BY c.create_time DESC LIMIT ?, ?';
   params.push(offset, pageSize);
   
@@ -177,7 +189,14 @@ router.post('/list', authenticateToken, validate(listSchema), async (req, res) =
       countSql += ' AND c.customer_id = ?';
       countParams.push(customer_id);
     }
-    
+    if (approval_status) {
+      countSql += ' AND c.approval_status = ?';
+      countParams.push(approval_status);
+    }
+    if (payment_status && PAYMENT_STATUS_CLAUSE[payment_status]) {
+      countSql += ` AND ${PAYMENT_STATUS_CLAUSE[payment_status]}`;
+    }
+
     const [countResult] = await pool.query(countSql, countParams);
     
     res.json({ code: 200, message: '查询成功', data: { list: rows, total: countResult[0].total } });

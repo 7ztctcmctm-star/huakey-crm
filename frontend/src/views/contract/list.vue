@@ -18,6 +18,12 @@
             <el-option label="待审批" :value="1" /><el-option label="已通过" :value="2" /><el-option label="已拒绝" :value="3" />
           </el-select>
         </el-form-item>
+        <el-form-item label="回款">
+          <el-select v-model="searchForm.payment_status" placeholder="全部" clearable style="width:140px">
+            <el-option label="已逾期" value="overdue" /><el-option label="部分回款" value="partial" />
+            <el-option label="已回清" value="completed" /><el-option label="待回款" value="pending" />
+          </el-select>
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
           <el-button :icon="Refresh" @click="handleReset">重置</el-button>
@@ -108,7 +114,7 @@ const router = useRouter()
 const route = useRoute()
 
 const loading = ref(false), tableData = ref([]), total = ref(0), page = ref(1), pageSize = ref(20), exportLoading = ref(false)
-const searchForm = reactive({ keyword: '', status: '', approval_status: '' })
+const searchForm = reactive({ keyword: '', status: '', approval_status: '', payment_status: '' })
 const formVisible = ref(false), isEdit = ref(false), saveLoading = ref(false), formRef = ref(null), editId = ref(null)
 const customerOptions = ref([]), opportunityOptions = ref([])
 const form = reactive({ customer_id: null, opportunity_id: null, amount: 0, sign_date: '', delivery_date: '', payment_terms: '', status: 1, remark: '', plans: [] })
@@ -132,7 +138,7 @@ const fetchCustomers = async () => { try { const r = await request.post('/custom
 const fetchOpportunities = async () => { try { const r = await request.get('/contract/opportunity-list'); if (r.code === 200) opportunityOptions.value = r.data } catch { /**/ } }
 
 const handleSearch = () => { page.value = 1; fetchList() }
-const handleReset = () => { searchForm.keyword = ''; searchForm.status = ''; searchForm.approval_status = ''; handleSearch() }
+const handleReset = () => { searchForm.keyword = ''; searchForm.status = ''; searchForm.approval_status = ''; searchForm.payment_status = ''; handleSearch() }
 
 const handleView = (row) => {
   router.push(`/contract/detail/${row.id}`)
