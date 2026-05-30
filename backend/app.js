@@ -350,10 +350,12 @@ cron.schedule('30 8 * * *', async () => {
   }
 }, { timezone: 'Asia/Shanghai' });
 
-// 启动服务器
-app.listen(PORT, () => {
-  console.log('Server running on port ' + PORT);
-  console.log('API地址: http://localhost:' + PORT + '/api');
-});
+// 启动服务器（Vercel Serverless 环境不监听端口，由平台处理）
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log('Server running on port ' + PORT);
+    console.log('API地址: http://localhost:' + PORT + '/api');
+  });
+}
 
 module.exports = app;
