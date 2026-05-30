@@ -1,0 +1,9 @@
+{
+  "name": "huakey-crm",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install:all": "cd frontend && npm ci && cd ../backend && npm ci --omit=dev",
+    "build": "cd frontend && npm run build"
+  }
+}
