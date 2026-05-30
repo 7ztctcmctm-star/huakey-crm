@@ -1,4 +1,10 @@
 {
+  "functions": {
+    "api/index.cjs": {
+      "memory": 512,
+      "maxDuration": 30
+    }
+  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index" },
     { "source": "/((?!api).*)", "destination": "/index.html" }
