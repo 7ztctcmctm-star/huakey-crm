@@ -1,0 +1,612 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content":
+    - /url: "#geist-skip-nav"
+  - main [ref=e3]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - button "Open sidebar" [ref=e9] [cursor=pointer]:
+            - img [ref=e11]
+          - generic [ref=e15]:
+            - link "Other" [ref=e16] [cursor=pointer]:
+              - /url: /david-he-s-projects/huakey-crm
+              - img "Other" [ref=e17]:
+                - img "Other" [ref=e18]
+            - button [ref=e19] [cursor=pointer]:
+              - img [ref=e21]
+            - link "Back to team view" [ref=e25] [cursor=pointer]:
+              - /url: /david-he-s-projects/~/deployments
+              - img [ref=e27]
+        - generic [ref=e31]: Deployments
+        - button "Open page actions menu" [ref=e33] [cursor=pointer]:
+          - img [ref=e35]
+      - generic [ref=e40]:
+        - generic [ref=e41]:
+          - combobox [ref=e43]:
+            - generic [ref=e44]:
+              - generic:
+                - img
+              - searchbox "All Branches…" [ref=e45]
+              - button "Open menu" [ref=e46] [cursor=pointer]:
+                - img [ref=e47]
+          - combobox [ref=e50]:
+            - generic [ref=e51]:
+              - generic:
+                - img
+              - searchbox "All Authors…" [ref=e52]
+              - button "Open menu" [ref=e53] [cursor=pointer]:
+                - img [ref=e54]
+          - button "Menu" [ref=e58] [cursor=pointer]:
+            - generic [ref=e59]:
+              - generic [ref=e61]: All Environments
+              - img [ref=e63]
+          - button "Select Date Range" [ref=e68] [cursor=pointer]:
+            - img [ref=e70]
+            - generic [ref=e72]: Select Date Range
+          - generic [ref=e73]:
+            - button "Filter by deployment status. 6 of 7 statuses selected" [ref=e77] [cursor=pointer]:
+              - generic [ref=e78]:
+                - generic [ref=e84]: Status
+                - generic "6 of 7 statuses selected" [ref=e85]:
+                  - generic [ref=e86]: 6/7
+              - img [ref=e89]
+            - button "Deployments actions" [ref=e92] [cursor=pointer]:
+              - img [ref=e94]
+        - generic [ref=e97]:
+          - generic [ref=e98] [cursor=pointer]:
+            - generic [ref=e99]:
+              - link "View deployment huakey-a4ajn2cbn-david-he-s-projects.vercel.app" [ref=e100]:
+                - /url: /david-he-s-projects/huakey-crm/FSVTMWBwVv7RQkfpkE8ug9AzbjoU
+              - generic [ref=e103]: "fix: explicitly define api function in vercel.json"
+              - generic [ref=e104]:
+                - generic "This deployment had an error." [ref=e105]:
+                  - generic [ref=e109]: Error
+                - generic [ref=e110]: 1s
+            - generic [ref=e111]:
+              - link "Production" [ref=e115]:
+                - /url: https://huakey-a4ajn2cbn-david-he-s-projects.vercel.app
+                - generic [ref=e116]:
+                  - img [ref=e118]
+                  - text: Production
+              - link "dc2d0b3" [ref=e121]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/commit/dc2d0b3d56255b416f1038f61776ce5f23867772
+                - img [ref=e122]
+                - generic [ref=e124]: dc2d0b3
+              - link "main" [ref=e126]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/tree/main
+                - img [ref=e127]
+                - generic [ref=e129]: main
+              - generic [ref=e130]:
+                - generic [ref=e132]: 2m ago
+                - img "github/7ztctcmctm-star" [ref=e137]:
+                  - img "github/7ztctcmctm-star" [ref=e138]
+          - generic [ref=e139] [cursor=pointer]:
+            - generic [ref=e140]:
+              - link "View deployment huakey-jizzml7ar-david-he-s-projects.vercel.app" [ref=e141]:
+                - /url: /david-he-s-projects/huakey-crm/BFnK5Bk9bqytaa58kWj2rcAfCcg8
+              - generic [ref=e144]: "test: add minimal api function"
+              - generic [ref=e145]:
+                - generic "This deployment is ready." [ref=e146]:
+                  - generic [ref=e150]: Ready
+                - generic [ref=e151]: 25s
+            - generic [ref=e152]:
+              - link "Production" [ref=e156]:
+                - /url: https://huakey-jizzml7ar-david-he-s-projects.vercel.app
+                - generic [ref=e157]:
+                  - img [ref=e159]
+                  - text: Production
+              - link "8764882" [ref=e162]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/commit/87648826da69e0d4d4a6b0ddf1eca8fcb853d180
+                - img [ref=e163]
+                - generic [ref=e165]: "8764882"
+              - link "main" [ref=e167]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/tree/main
+                - img [ref=e168]
+                - generic [ref=e170]: main
+              - generic [ref=e171]:
+                - generic [ref=e173]: 4m ago
+                - img "github/7ztctcmctm-star" [ref=e178]:
+                  - img "github/7ztctcmctm-star" [ref=e179]
+          - generic [ref=e180] [cursor=pointer]:
+            - generic [ref=e181]:
+              - link "View deployment huakey-gfoc4nedz-david-he-s-projects.vercel.app" [ref=e182]:
+                - /url: /david-he-s-projects/huakey-crm/DEdvYoM5J48RrG2ZGbpJ6aFSJmSq
+              - generic [ref=e185]: "fix: add backend deps to frontend, use .cjs wrapper"
+              - generic [ref=e186]:
+                - generic "This deployment is ready." [ref=e187]:
+                  - generic [ref=e191]: Ready
+                - generic [ref=e192]: 28s
+            - generic [ref=e193]:
+              - link "Production" [ref=e197]:
+                - /url: https://huakey-gfoc4nedz-david-he-s-projects.vercel.app
+                - generic [ref=e198]:
+                  - img [ref=e200]
+                  - text: Production
+              - link "fd0714c" [ref=e203]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/commit/fd0714c80232fe54dc542ef146eb38c52566cc46
+                - img [ref=e204]
+                - generic [ref=e206]: fd0714c
+              - link "main" [ref=e208]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/tree/main
+                - img [ref=e209]
+                - generic [ref=e211]: main
+              - generic [ref=e212]:
+                - generic [ref=e214]: 10m ago
+                - img "github/7ztctcmctm-star" [ref=e219]:
+                  - img "github/7ztctcmctm-star" [ref=e220]
+          - generic [ref=e221] [cursor=pointer]:
+            - generic [ref=e222]:
+              - link "View deployment huakey-kpzuesrae-david-he-s-projects.vercel.app" [ref=e223]:
+                - /url: /david-he-s-projects/huakey-crm/2boXNrZH5UK95yazD9WBkC3P7Nhf
+              - generic [ref=e226]: "fix: move vercel.json to frontend/ directory"
+              - generic [ref=e227]:
+                - generic "This deployment is ready." [ref=e228]:
+                  - generic [ref=e232]: Ready
+                - generic [ref=e233]: 37s
+            - generic [ref=e234]:
+              - link "Production" [ref=e238]:
+                - /url: https://huakey-kpzuesrae-david-he-s-projects.vercel.app
+                - generic [ref=e239]:
+                  - img [ref=e241]
+                  - text: Production
+              - link "24dfaef" [ref=e244]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/commit/24dfaefa0d84940c159cc27385db2359008d4694
+                - img [ref=e245]
+                - generic [ref=e247]: 24dfaef
+              - link "main" [ref=e249]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/tree/main
+                - img [ref=e250]
+                - generic [ref=e252]: main
+              - generic [ref=e253]:
+                - generic [ref=e255]: 11m ago
+                - img "github/7ztctcmctm-star" [ref=e260]:
+                  - img "github/7ztctcmctm-star" [ref=e261]
+          - generic [ref=e262] [cursor=pointer]:
+            - generic [ref=e263]:
+              - link "View deployment huakey-q98ej6f6y-david-he-s-projects.vercel.app" [ref=e264]:
+                - /url: /david-he-s-projects/huakey-crm/VGZqt5ntn9FhTDF5S8n6t7G92E2s
+              - generic [ref=e267]: "feat: add API rewrites and cron jobs"
+              - generic [ref=e268]:
+                - generic "This deployment is ready." [ref=e269]:
+                  - generic [ref=e273]: Ready
+                - generic [ref=e274]: 23s
+            - generic [ref=e275]:
+              - link "Production" [ref=e279]:
+                - /url: https://huakey-q98ej6f6y-david-he-s-projects.vercel.app
+                - generic [ref=e280]:
+                  - img [ref=e282]
+                  - text: Production
+              - link "5ff7c7e" [ref=e286]:
+                - /url: /david-he-s-projects/huakey-crm/VGZqt5ntn9FhTDF5S8n6t7G92E2s/source
+                - img [ref=e287]
+                - generic [ref=e289]: 5ff7c7e
+              - link "main" [ref=e291]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/tree/main
+                - img [ref=e292]
+                - generic [ref=e294]: main
+              - generic [ref=e295]:
+                - generic [ref=e297]: 16m ago
+                - img "7ztctcmctm-star Avatar" [ref=e301]:
+                  - img "7ztctcmctm-star Avatar" [ref=e302]
+          - generic [ref=e303] [cursor=pointer]:
+            - generic [ref=e304]:
+              - link "View deployment huakey-kejchgp2c-david-he-s-projects.vercel.app" [ref=e305]:
+                - /url: /david-he-s-projects/huakey-crm/3qmKj5HQXGbdWH5VmhrPfvHfvEvf
+              - generic [ref=e308]: "feat: add API rewrites and cron jobs"
+              - generic [ref=e309]:
+                - generic "This deployment is ready." [ref=e310]:
+                  - generic [ref=e314]: Ready
+                - generic [ref=e315]: 22s
+            - generic [ref=e316]:
+              - link "Production" [ref=e320]:
+                - /url: https://huakey-kejchgp2c-david-he-s-projects.vercel.app
+                - generic [ref=e321]:
+                  - img [ref=e323]
+                  - text: Production
+              - link "5ff7c7e" [ref=e326]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/commit/5ff7c7e035357309636055cf9fce3532ccb621a9
+                - img [ref=e327]
+                - generic [ref=e329]: 5ff7c7e
+              - link "main" [ref=e331]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/tree/main
+                - img [ref=e332]
+                - generic [ref=e334]: main
+              - generic [ref=e335]:
+                - generic [ref=e337]: 18m ago
+                - img "github/7ztctcmctm-star" [ref=e342]:
+                  - img "github/7ztctcmctm-star" [ref=e343]
+          - generic [ref=e344] [cursor=pointer]:
+            - generic [ref=e345]:
+              - link "View deployment huakey-2mrrn72d4-david-he-s-projects.vercel.app" [ref=e346]:
+                - /url: /david-he-s-projects/huakey-crm/AHraLt114Y4s9c7PLGMqRnTcHTf9
+              - generic [ref=e349]: "fix: remove vercel.json, use Vercel auto-detection"
+              - generic [ref=e350]:
+                - generic "This deployment is ready." [ref=e351]:
+                  - generic [ref=e355]: Ready
+                - generic [ref=e356]: 20s
+            - generic [ref=e357]:
+              - link "Production" [ref=e361]:
+                - /url: https://huakey-2mrrn72d4-david-he-s-projects.vercel.app
+                - generic [ref=e362]:
+                  - img [ref=e364]
+                  - text: Production
+              - link "0db3045" [ref=e367]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/commit/0db30456670121e70a7dd8c65823670201c8826a
+                - img [ref=e368]
+                - generic [ref=e370]: 0db3045
+              - link "main" [ref=e372]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/tree/main
+                - img [ref=e373]
+                - generic [ref=e375]: main
+              - generic [ref=e376]:
+                - generic [ref=e378]: 23m ago
+                - img "github/7ztctcmctm-star" [ref=e383]:
+                  - img "github/7ztctcmctm-star" [ref=e384]
+          - generic [ref=e385] [cursor=pointer]:
+            - generic [ref=e386]:
+              - link "View deployment huakey-3an8lhtfx-david-he-s-projects.vercel.app" [ref=e387]:
+                - /url: /david-he-s-projects/huakey-crm/AYhmEoJ75aj5trmV2knD3KsK8833
+              - generic [ref=e390]: "fix: remove installCommand, let Vercel auto-detect"
+              - generic [ref=e391]:
+                - generic "This deployment had an error." [ref=e392]:
+                  - generic [ref=e396]: Error
+                - generic [ref=e397]: 3s
+            - generic [ref=e398]:
+              - link "Production" [ref=e402]:
+                - /url: https://huakey-3an8lhtfx-david-he-s-projects.vercel.app
+                - generic [ref=e403]:
+                  - img [ref=e405]
+                  - text: Production
+              - link "a8d8fb2" [ref=e408]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/commit/a8d8fb28645a65cdc3a04d68f28e6d788aa9c41d
+                - img [ref=e409]
+                - generic [ref=e411]: a8d8fb2
+              - link "main" [ref=e413]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/tree/main
+                - img [ref=e414]
+                - generic [ref=e416]: main
+              - generic [ref=e417]:
+                - generic [ref=e419]: 25m ago
+                - img "github/7ztctcmctm-star" [ref=e424]:
+                  - img "github/7ztctcmctm-star" [ref=e425]
+          - generic [ref=e426] [cursor=pointer]:
+            - generic [ref=e427]:
+              - link "View deployment huakey-6z3pt9qnd-david-he-s-projects.vercel.app" [ref=e428]:
+                - /url: /david-he-s-projects/huakey-crm/AHsJ9rQdtbwmtBxWFrzooW7ayEki
+              - generic [ref=e431]: "fix: use --prefix for install commands, add root package.json"
+              - generic [ref=e432]:
+                - generic "This deployment had an error." [ref=e433]:
+                  - generic [ref=e437]: Error
+                - generic [ref=e438]: 3s
+            - generic [ref=e439]:
+              - link "Production" [ref=e443]:
+                - /url: https://huakey-6z3pt9qnd-david-he-s-projects.vercel.app
+                - generic [ref=e444]:
+                  - img [ref=e446]
+                  - text: Production
+              - link "d0124e5" [ref=e449]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/commit/d0124e5c6ae0af6dd72ca6c6c2521e04c8fbd130
+                - img [ref=e450]
+                - generic [ref=e452]: d0124e5
+              - link "main" [ref=e454]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/tree/main
+                - img [ref=e455]
+                - generic [ref=e457]: main
+              - generic [ref=e458]:
+                - generic [ref=e460]: 28m ago
+                - img "github/7ztctcmctm-star" [ref=e465]:
+                  - img "github/7ztctcmctm-star" [ref=e466]
+          - generic [ref=e467] [cursor=pointer]:
+            - generic [ref=e468]:
+              - link "View deployment huakey-dh8ak0ui0-david-he-s-projects.vercel.app" [ref=e469]:
+                - /url: /david-he-s-projects/huakey-crm/B9Ek3vhYeJeJVd3jUcQLwKFKk3DL
+              - generic [ref=e472]: "fix: update vercel install command"
+              - generic [ref=e473]:
+                - generic "This deployment had an error." [ref=e474]:
+                  - generic [ref=e478]: Error
+                - generic [ref=e479]: 7s
+            - generic [ref=e480]:
+              - link "Production" [ref=e484]:
+                - /url: https://huakey-dh8ak0ui0-david-he-s-projects.vercel.app
+                - generic [ref=e485]:
+                  - img [ref=e487]
+                  - text: Production
+              - link "69e3630" [ref=e491]:
+                - /url: /david-he-s-projects/huakey-crm/B9Ek3vhYeJeJVd3jUcQLwKFKk3DL/source
+                - img [ref=e492]
+                - generic [ref=e494]: "69e3630"
+              - link "main" [ref=e496]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/tree/main
+                - img [ref=e497]
+                - generic [ref=e499]: main
+              - generic [ref=e500]:
+                - generic [ref=e502]: 29m ago
+                - img "7ztctcmctm-star Avatar" [ref=e506]:
+                  - img "7ztctcmctm-star Avatar" [ref=e507]
+          - generic [ref=e508] [cursor=pointer]:
+            - generic [ref=e509]:
+              - link "View deployment huakey-l4h4f1now-david-he-s-projects.vercel.app" [ref=e510]:
+                - /url: /david-he-s-projects/huakey-crm/3dgTbNZD6UckcnHZU1gDHxxF6u52
+              - generic [ref=e513]: "fix: update vercel install command"
+              - generic [ref=e514]:
+                - generic "This deployment had an error." [ref=e515]:
+                  - generic [ref=e519]: Error
+                - generic [ref=e520]: 4s
+            - generic [ref=e521]:
+              - link "Production" [ref=e525]:
+                - /url: https://huakey-l4h4f1now-david-he-s-projects.vercel.app
+                - generic [ref=e526]:
+                  - img [ref=e528]
+                  - text: Production
+              - link "69e3630" [ref=e531]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/commit/69e3630ff57bb0e2cc94ef3b9c9f50b704234155
+                - img [ref=e532]
+                - generic [ref=e534]: "69e3630"
+              - link "main" [ref=e536]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/tree/main
+                - img [ref=e537]
+                - generic [ref=e539]: main
+              - generic [ref=e540]:
+                - generic [ref=e542]: 29m ago
+                - img "github/7ztctcmctm-star" [ref=e547]:
+                  - img "github/7ztctcmctm-star" [ref=e548]
+          - generic [ref=e549] [cursor=pointer]:
+            - generic [ref=e550]:
+              - link "View deployment huakey-7djni36je-david-he-s-projects.vercel.app" [ref=e551]:
+                - /url: /david-he-s-projects/huakey-crm/FLq1SJiVw6xeAKhbFHYTw3Hc2oT9
+              - generic [ref=e554]: "feat: migrate to Vercel + Supabase (PostgreSQL)"
+              - generic [ref=e555]:
+                - generic "This deployment had an error." [ref=e556]:
+                  - generic [ref=e560]: Error
+                - generic [ref=e561]: 8s
+            - generic [ref=e562]:
+              - link "Production" [ref=e566]:
+                - /url: https://huakey-7djni36je-david-he-s-projects.vercel.app
+                - generic [ref=e567]:
+                  - img [ref=e569]
+                  - text: Production
+              - link "9c2deea" [ref=e573]:
+                - /url: /david-he-s-projects/huakey-crm/FLq1SJiVw6xeAKhbFHYTw3Hc2oT9/source
+                - img [ref=e574]
+                - generic [ref=e576]: 9c2deea
+              - link "main" [ref=e578]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/tree/main
+                - img [ref=e579]
+                - generic [ref=e581]: main
+              - generic [ref=e582]:
+                - generic [ref=e584]: 30m ago
+                - img "7ztctcmctm-star Avatar" [ref=e588]:
+                  - img "7ztctcmctm-star Avatar" [ref=e589]
+          - generic [ref=e590] [cursor=pointer]:
+            - generic [ref=e591]:
+              - link "View deployment huakey-1jbyhztjq-david-he-s-projects.vercel.app" [ref=e592]:
+                - /url: /david-he-s-projects/huakey-crm/2SDDvaQJjuQeNCi8Lq5SWDj8juZJ
+              - generic [ref=e595]: "feat: migrate to Vercel + Supabase (PostgreSQL)"
+              - generic [ref=e596]:
+                - generic "This deployment had an error." [ref=e597]:
+                  - generic [ref=e601]: Error
+                - generic [ref=e602]: 3s
+            - generic [ref=e603]:
+              - link "Production" [ref=e607]:
+                - /url: https://huakey-1jbyhztjq-david-he-s-projects.vercel.app
+                - generic [ref=e608]:
+                  - img [ref=e610]
+                  - text: Production
+              - link "9c2deea" [ref=e613]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/commit/9c2deeaf87a9f0dbbfc1f0b5174b274b458e636d
+                - img [ref=e614]
+                - generic [ref=e616]: 9c2deea
+              - link "main" [ref=e618]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/tree/main
+                - img [ref=e619]
+                - generic [ref=e621]: main
+              - generic [ref=e622]:
+                - generic [ref=e624]: 51m ago
+                - img "github/7ztctcmctm-star" [ref=e629]:
+                  - img "github/7ztctcmctm-star" [ref=e630]
+          - generic [ref=e631] [cursor=pointer]:
+            - generic [ref=e632]:
+              - link "View deployment huakey-czw18g2dg-david-he-s-projects.vercel.app" [ref=e633]:
+                - /url: /david-he-s-projects/huakey-crm/3dWSV6jZE1Su4sN7Vvg4zwKGx8g3
+              - generic [ref=e636]: "fix(report): 修复报表source/level图表渲染竞态问题"
+              - generic [ref=e637]:
+                - generic "This deployment is ready." [ref=e638]:
+                  - generic [ref=e642]: Ready
+                - generic [ref=e643]: 22s
+            - generic [ref=e644]:
+              - link "Production" [ref=e648]:
+                - /url: https://huakey-czw18g2dg-david-he-s-projects.vercel.app
+                - generic [ref=e649]:
+                  - img [ref=e651]
+                  - text: Production
+              - link "4005d0c" [ref=e654]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/commit/4005d0c09ad460358f6d8423c0655e97bca15369
+                - img [ref=e655]
+                - generic [ref=e657]: 4005d0c
+              - link "main" [ref=e659]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/tree/main
+                - img [ref=e660]
+                - generic [ref=e662]: main
+              - generic [ref=e663]:
+                - generic [ref=e665]: 6h ago
+                - img "github/7ztctcmctm-star" [ref=e670]:
+                  - img "github/7ztctcmctm-star" [ref=e671]
+          - generic [ref=e672] [cursor=pointer]:
+            - generic [ref=e673]:
+              - link "View deployment huakey-bhygaag8k-david-he-s-projects.vercel.app" [ref=e674]:
+                - /url: /david-he-s-projects/huakey-crm/81xKvXQFTyLrS5DUwYymaygNP7We
+              - generic [ref=e677]: "feat: add personal calendar subscription file"
+              - generic [ref=e678]:
+                - generic "This deployment is ready." [ref=e679]:
+                  - generic [ref=e683]: Ready
+                - generic [ref=e684]: 22s
+            - generic [ref=e685]:
+              - link "Production" [ref=e689]:
+                - /url: https://huakey-bhygaag8k-david-he-s-projects.vercel.app
+                - generic [ref=e690]:
+                  - img [ref=e692]
+                  - text: Production
+              - link "3ec39bc" [ref=e695]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/commit/3ec39bc224ab233c1c704ebf1c2e6e1835e311d4
+                - img [ref=e696]
+                - generic [ref=e698]: 3ec39bc
+              - link "main" [ref=e700]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/tree/main
+                - img [ref=e701]
+                - generic [ref=e703]: main
+              - generic [ref=e704]:
+                - generic [ref=e706]: 6h ago
+                - img "github/7ztctcmctm-star" [ref=e711]:
+                  - img "github/7ztctcmctm-star" [ref=e712]
+          - generic [ref=e713] [cursor=pointer]:
+            - generic [ref=e714]:
+              - link "View deployment huakey-63b2csqcv-david-he-s-projects.vercel.app" [ref=e715]:
+                - /url: /david-he-s-projects/huakey-crm/773StKdsRmxBuFniN97ZCEFfHqr1
+              - generic [ref=e718]: "fix(report): 报表页API失败时增加用户可见错误提示"
+              - generic [ref=e719]:
+                - generic "This deployment is ready." [ref=e720]:
+                  - generic [ref=e724]: Ready
+                - generic [ref=e725]: 22s
+            - generic [ref=e726]:
+              - link "Production" [ref=e730]:
+                - /url: https://huakey-63b2csqcv-david-he-s-projects.vercel.app
+                - generic [ref=e731]:
+                  - img [ref=e733]
+                  - text: Production
+              - link "7ef064f" [ref=e736]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/commit/7ef064fb450a4d49e6958958a2dd2d19b5c5b2e1
+                - img [ref=e737]
+                - generic [ref=e739]: 7ef064f
+              - link "main" [ref=e741]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/tree/main
+                - img [ref=e742]
+                - generic [ref=e744]: main
+              - generic [ref=e745]:
+                - generic [ref=e747]: 6h ago
+                - img "github/7ztctcmctm-star" [ref=e752]:
+                  - img "github/7ztctcmctm-star" [ref=e753]
+          - generic [ref=e754] [cursor=pointer]:
+            - generic [ref=e755]:
+              - link "View deployment huakey-73oz0dk07-david-he-s-projects.vercel.app" [ref=e756]:
+                - /url: /david-he-s-projects/huakey-crm/EhzdTjYkBpsfBkxCwPMtwUq1Aq95
+              - generic [ref=e759]: "fix(frontend): 修复合同NaN显示和报表重复API调用"
+              - generic [ref=e760]:
+                - generic "This deployment is ready." [ref=e761]:
+                  - generic [ref=e765]: Ready
+                - generic [ref=e766]: 22s
+            - generic [ref=e767]:
+              - link "Production" [ref=e771]:
+                - /url: https://huakey-73oz0dk07-david-he-s-projects.vercel.app
+                - generic [ref=e772]:
+                  - img [ref=e774]
+                  - text: Production
+              - link "f3c580b" [ref=e777]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/commit/f3c580b343a47ced32080105d22f3d5986c18917
+                - img [ref=e778]
+                - generic [ref=e780]: f3c580b
+              - link "main" [ref=e782]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/tree/main
+                - img [ref=e783]
+                - generic [ref=e785]: main
+              - generic [ref=e786]:
+                - generic [ref=e788]: 6h ago
+                - img "github/7ztctcmctm-star" [ref=e793]:
+                  - img "github/7ztctcmctm-star" [ref=e794]
+          - generic [ref=e795] [cursor=pointer]:
+            - generic [ref=e796]:
+              - link "View deployment huakey-j5lnkdk2t-david-he-s-projects.vercel.app" [ref=e797]:
+                - /url: /david-he-s-projects/huakey-crm/ADVuSzzJ9AnBPa4Sj936owMU1Vc7
+              - generic [ref=e800]: "fix(ai): 统一LLM调用层并修复相关问题"
+              - generic [ref=e801]:
+                - generic "This deployment is ready." [ref=e802]:
+                  - generic [ref=e806]: Ready
+                - generic [ref=e807]: 21s
+            - generic [ref=e808]:
+              - link "Production" [ref=e812]:
+                - /url: https://huakey-j5lnkdk2t-david-he-s-projects.vercel.app
+                - generic [ref=e813]:
+                  - img [ref=e815]
+                  - text: Production
+              - link "feea8c1" [ref=e818]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/commit/feea8c11cb4d8f3cdabba71412bb756213b89d05
+                - img [ref=e819]
+                - generic [ref=e821]: feea8c1
+              - link "main" [ref=e823]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/tree/main
+                - img [ref=e824]
+                - generic [ref=e826]: main
+              - generic [ref=e827]:
+                - generic [ref=e829]: 7h ago
+                - img "github/7ztctcmctm-star" [ref=e834]:
+                  - img "github/7ztctcmctm-star" [ref=e835]
+          - generic [ref=e836] [cursor=pointer]:
+            - generic [ref=e837]:
+              - link "View deployment huakey-qqgf753jl-david-he-s-projects.vercel.app" [ref=e838]:
+                - /url: /david-he-s-projects/huakey-crm/EBRF54XPAvS4WDKnx3euS6oykfGW
+              - generic [ref=e841]: CRM系统全面升级：添加参数校验、新功能模块及文档重构
+              - generic [ref=e842]:
+                - generic "This deployment is ready." [ref=e843]:
+                  - generic [ref=e847]: Ready
+                - generic [ref=e848]: 34s
+            - generic [ref=e849]:
+              - link "Production" [ref=e853]:
+                - /url: https://huakey-qqgf753jl-david-he-s-projects.vercel.app
+                - generic [ref=e854]:
+                  - img [ref=e856]
+                  - text: Production
+              - link "75e3519" [ref=e859]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/commit/75e3519f994a5753f69357782219ae7036b15777
+                - img [ref=e860]
+                - generic [ref=e862]: "75e3519"
+              - link "main" [ref=e864]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/tree/main
+                - img [ref=e865]
+                - generic [ref=e867]: main
+              - generic [ref=e868]:
+                - generic [ref=e870]: 2d ago
+                - img "github/7ztctcmctm-star" [ref=e875]:
+                  - img "github/7ztctcmctm-star" [ref=e876]
+          - generic [ref=e877] [cursor=pointer]:
+            - generic [ref=e878]:
+              - link "View deployment huakey-9zhb37y62-david-he-s-projects.vercel.app" [ref=e879]:
+                - /url: /david-he-s-projects/huakey-crm/GyngxWRssQhyKfFYHYopD6iEop5b
+              - generic [ref=e882]: 用最新版本覆盖
+              - generic [ref=e883]:
+                - generic "This deployment had an error." [ref=e884]:
+                  - generic [ref=e888]: Error
+                - generic [ref=e889]: 10s
+            - generic [ref=e890]:
+              - link "Production" [ref=e894]:
+                - /url: https://huakey-9zhb37y62-david-he-s-projects.vercel.app
+                - generic [ref=e895]:
+                  - img [ref=e897]
+                  - text: Production
+              - link "88f8a4f" [ref=e900]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/commit/88f8a4f7f97e7530a085362bd59e18dd8852c90f
+                - img [ref=e901]
+                - generic [ref=e903]: 88f8a4f
+              - link "main" [ref=e905]:
+                - /url: https://github.com/7ztctcmctm-star/huakey-crm/tree/main
+                - img [ref=e906]
+                - generic [ref=e908]: main
+              - generic [ref=e909]:
+                - generic [ref=e911]: 2d ago
+                - img "github/7ztctcmctm-star" [ref=e916]:
+                  - img "github/7ztctcmctm-star" [ref=e917]
+        - button "Load More" [ref=e918] [cursor=pointer]:
+          - generic [ref=e919]: Load More
+        - generic [ref=e920]:
+          - paragraph [ref=e921]:
+            - text: Deployment Retention is enabled for this project — some deployments will be deleted after a set time period.
+            - link "Learn more" [ref=e922] [cursor=pointer]:
+              - /url: /docs/security/deployment-retention
+              - text: Learn more
+              - img [ref=e923]
+          - button "View Recently Deleted" [ref=e925] [cursor=pointer]:
+            - generic [ref=e926]: View Recently Deleted
+  - alert [ref=e928]
+  - generic:
+    - generic:
+      - generic:
+        - generic:
+          - img
