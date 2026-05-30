@@ -163,7 +163,7 @@ router.post('/list',
     // 逾期跟进筛选：最后跟进时间超过配置天数的客户
     if (overdue === true || overdue === 'true' || overdue === 1) {
       const overdueDays = await getOverdueDays();
-      whereClause += ' AND DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) >= ?';
+      whereClause += ' AND EXTRACT(DAY FROM NOW() - COALESCE(c.last_follow_time, c.create_time)) >= ?';
       params.push(overdueDays);
     }
     const [countResult] = await pool.query(
@@ -247,10 +247,17 @@ router.post('/add', authenticateToken, checkPermission('customer:add'), validate
       });
     }
 
+    // 重复检测
+    const [duplicates] = await pool.query(
+      'SELECT id, company_name, phone, email FROM crm_customer WHERE company_name = ? AND status != 0 LIMIT 5',
+      [company_name]
+    );
+
     const [result] = await pool.query(
       `INSERT INTO crm_customer
         (company_name, contact_name, phone, email, address, industry, source, level, owner_id, status, remark)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+      RETURNING id`,
       [
         company_name,
         contact_name || null,
@@ -269,11 +276,20 @@ router.post('/add', authenticateToken, checkPermission('customer:add'), validate
 
     res.json({
       code: 200,
-      message: '添加客户成功',
-      data: { id: result.insertId }
+      message: duplicates.length > 0
+        ? `添加客户成功（注意：已有 ${duplicates.length} 个同名客户，可能重复）`
+        : '添加客户成功',
+      data: { id: result.insertId, possibleDuplicates: duplicates.length > 0 ? duplicates : null }
     });
   } catch (error) {
     console.error('添加客户错误:', error);
+    if (error.code === '23505') {
+      return res.status(409).json({
+        code: 409,
+        message: '检测到重复客户（相同公司名和电话已存在），请核对后重试',
+        data: null
+      });
+    }
     res.status(500).json({
       code: 500,
       message: '添加客户失败',
@@ -345,6 +361,21 @@ router.post('/update', authenticateToken, checkPermission('customer:edit'), vali
 
     params.push(id);
 
+    // 重复检测：公司名变更时检查是否与已有客户重名
+    if (updateFields.company_name && updateFields.company_name !== customer.company_name) {
+      const [dups] = await pool.query(
+        'SELECT id, company_name FROM crm_customer WHERE company_name = ? AND id != ? AND status != 0 LIMIT 5',
+        [updateFields.company_name, id]
+      );
+      if (dups.length > 0) {
+        return res.status(409).json({
+          code: 409,
+          message: `公司名称"${updateFields.company_name}"已存在（${dups.length} 个同名客户），请确认是否重复`,
+          data: { possibleDuplicates: dups }
+        });
+      }
+    }
+
     await pool.query(
       `UPDATE crm_customer SET ${setClauses.join(', ')} WHERE id = ?`,
       params
@@ -367,6 +398,13 @@ router.post('/update', authenticateToken, checkPermission('customer:edit'), vali
     });
   } catch (error) {
     console.error('修改客户错误:', error);
+    if (error.code === '23505') {
+      return res.status(409).json({
+        code: 409,
+        message: '检测到重复客户（相同公司名和电话已存在），请核对后重试',
+        data: null
+      });
+    }
     res.status(500).json({
       code: 500,
       message: '修改客户失败',

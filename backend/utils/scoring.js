@@ -47,12 +47,12 @@ const calculateSupplierScore = async (supplierId) => {
     await pool.query(
       `INSERT INTO crm_supplier_rating (supplier_id, quality_score, delivery_score, service_score, price_score, total_score, rating_period, evaluator_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, NULL)
-       ON DUPLICATE KEY UPDATE
-         quality_score = VALUES(quality_score),
-         delivery_score = VALUES(delivery_score),
-         service_score = VALUES(service_score),
-         price_score = VALUES(price_score),
-         total_score = VALUES(total_score)`,
+       ON CONFLICT (supplier_id, rating_period) DO UPDATE SET
+         quality_score = EXCLUDED.quality_score,
+         delivery_score = EXCLUDED.delivery_score,
+         service_score = EXCLUDED.service_score,
+         price_score = EXCLUDED.price_score,
+         total_score = EXCLUDED.total_score`,
       [supplierId, scores.quality, scores.delivery, scores.service, scores.price, totalScore, period]
     );
 
@@ -74,7 +74,7 @@ const calculateQualityScore = async (supplierId, rules) => {
        FROM crm_purchase_receipt pr
        JOIN crm_purchase_item pi ON pr.item_id = pi.id
        JOIN crm_purchase_order po ON pi.order_id = po.id
-       WHERE po.supplier_id = ? AND pr.receive_time >= DATE_SUB(NOW(), INTERVAL 90 DAY)`
+       WHERE po.supplier_id = ? AND pr.receive_time >= NOW() - INTERVAL '90 days'`
     , [supplierId]);
 
     if (!receipts.length || receipts[0].total_qty === 0) return null;
@@ -95,7 +95,7 @@ const calculateDeliveryScore = async (supplierId, rules) => {
        FROM crm_purchase_order
        WHERE supplier_id = ? AND status IN ('已完成', '部分收货')
          AND expected_date IS NOT NULL
-         AND create_time >= DATE_SUB(NOW(), INTERVAL 180 DAY)`
+         AND create_time >= NOW() - INTERVAL '180 days'`
     , [supplierId]);
 
     if (!orders.length || orders[0].total === 0) return null;
@@ -133,7 +133,7 @@ const calculatePriceScore = async (supplierId, rules) => {
       `SELECT AVG(pi.unit_price) as avg_price
        FROM crm_purchase_item pi
        JOIN crm_purchase_order po ON pi.order_id = po.id
-       WHERE po.supplier_id = ? AND po.create_time >= DATE_SUB(NOW(), INTERVAL 180 DAY)`
+       WHERE po.supplier_id = ? AND po.create_time >= NOW() - INTERVAL '180 days'`
     , [supplierId]);
 
     if (!avgPrice || !avgPrice.avg_price) return 3.5;
@@ -142,7 +142,7 @@ const calculatePriceScore = async (supplierId, rules) => {
       `SELECT AVG(pi.unit_price) as market_avg
        FROM crm_purchase_item pi
        JOIN crm_purchase_order po ON pi.order_id = po.id
-       WHERE po.create_time >= DATE_SUB(NOW(), INTERVAL 180 DAY)`
+       WHERE po.create_time >= NOW() - INTERVAL '180 days'`
     );
 
     if (!marketAvg || !marketAvg.market_avg) return 3.5;

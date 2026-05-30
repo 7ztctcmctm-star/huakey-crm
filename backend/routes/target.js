@@ -98,7 +98,7 @@ router.post('/set', authenticateToken, checkPermission('target'), async (req, re
     await pool.query(
       `INSERT INTO crm_sales_target (user_id, year, month, target_amount, create_by)
        VALUES (?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE target_amount = VALUES(target_amount), update_time = NOW()`,
+       ON CONFLICT (user_id, year, month) DO UPDATE SET target_amount = EXCLUDED.target_amount, update_time = NOW()`,
       [user_id, year, month, target_amount || 0, req.user.userId]
     );
 
@@ -125,7 +125,7 @@ router.post('/batch-set', authenticateToken, checkPermission('target'), async (r
       await connection.query(
         `INSERT INTO crm_sales_target (user_id, year, month, target_amount, create_by)
          VALUES (?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE target_amount = VALUES(target_amount), update_time = NOW()`,
+         ON CONFLICT (user_id, year, month) DO UPDATE SET target_amount = EXCLUDED.target_amount, update_time = NOW()`,
         [t.user_id, year, month, t.target_amount || 0, req.user.userId]
       );
     }

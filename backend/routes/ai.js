@@ -244,16 +244,16 @@ router.post('/generate-suggestions', authenticateToken, async (req, res) => {
     // 1. 客户跟进超期建议
     const [overdueCustomers] = await pool.query(`
       SELECT c.id, c.company_name, c.last_follow_time,
-             DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days
+             EXTRACT(DAY FROM NOW() - COALESCE(c.last_follow_time, c.create_time)) as overdue_days
       FROM crm_customer c
       WHERE c.status != 0 AND c.owner_id IS NOT NULL
-        AND (c.last_follow_time IS NULL OR c.last_follow_time < DATE_SUB(NOW(), INTERVAL 30 DAY))
+        AND (c.last_follow_time IS NULL OR c.last_follow_time < NOW() - INTERVAL '30 days')
       LIMIT 20
     `);
 
     for (const c of overdueCustomers) {
       const [exists] = await pool.query(
-        "SELECT id FROM crm_ai_suggestion WHERE type = 'follow_up' AND ref_id = ? AND create_time >= DATE_SUB(NOW(), INTERVAL 24 HOUR)",
+        "SELECT id FROM crm_ai_suggestion WHERE type = 'follow_up' AND ref_id = ? AND create_time >= NOW() - INTERVAL '24 hours'",
         [c.id]
       );
       if (exists.length === 0) {
@@ -269,16 +269,16 @@ router.post('/generate-suggestions', authenticateToken, async (req, res) => {
     // 2. 商机停滞建议
     const [staleOpps] = await pool.query(`
       SELECT o.id, o.name, o.expected_amount, o.stage, o.update_time,
-             DATEDIFF(NOW(), o.update_time) as stale_days, c.company_name
+             EXTRACT(DAY FROM NOW() - o.update_time) as stale_days, c.company_name
       FROM crm_opportunity o
       LEFT JOIN crm_customer c ON o.customer_id = c.id
-      WHERE o.stage NOT IN (5, 6) AND o.update_time < DATE_SUB(NOW(), INTERVAL 14 DAY)
+      WHERE o.stage NOT IN (5, 6) AND o.update_time < NOW() - INTERVAL '14 days'
       LIMIT 20
     `);
 
     for (const o of staleOpps) {
       const [exists] = await pool.query(
-        "SELECT id FROM crm_ai_suggestion WHERE type = 'opportunity' AND ref_id = ? AND create_time >= DATE_SUB(NOW(), INTERVAL 24 HOUR)",
+        "SELECT id FROM crm_ai_suggestion WHERE type = 'opportunity' AND ref_id = ? AND create_time >= NOW() - INTERVAL '24 hours'",
         [o.id]
       );
       if (exists.length === 0) {
@@ -302,7 +302,7 @@ router.post('/generate-suggestions', authenticateToken, async (req, res) => {
 
     for (const o of lowWinOpps) {
       const [exists] = await pool.query(
-        "SELECT id FROM crm_ai_suggestion WHERE type = 'pricing' AND ref_id = ? AND create_time >= DATE_SUB(NOW(), INTERVAL 24 HOUR)",
+        "SELECT id FROM crm_ai_suggestion WHERE type = 'pricing' AND ref_id = ? AND create_time >= NOW() - INTERVAL '24 hours'",
         [o.id]
       );
       if (exists.length === 0) {

@@ -18,7 +18,7 @@ const ALLOWED_MIME_TYPES = [
 const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.csv'];
 
 const upload = multer({
-  dest: path.join(__dirname, '../../uploads/'),
+  storage: multer.memoryStorage(), // 内存存储（兼容 Vercel Serverless）
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
@@ -63,12 +63,12 @@ router.post('/import-preview', authenticateToken, checkPermission('customer:impo
       return res.status(400).json({ code: 400, message: '请上传Excel文件', data: null });
     }
 
-    const workbook = XLSX.readFile(req.file.path);
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
     if (rows.length === 0) {
-      fs.unlinkSync(req.file.path);
+      // 内存存储，无需清理临时文件
       return res.status(400).json({ code: 400, message: 'Excel文件为空', data: null });
     }
 
@@ -113,7 +113,7 @@ router.post('/import-preview', authenticateToken, checkPermission('customer:impo
     });
 
     // 清理上传文件
-    fs.unlinkSync(req.file.path);
+    // 内存存储，无需清理临时文件
 
     res.json({
       code: 200,
@@ -127,7 +127,7 @@ router.post('/import-preview', authenticateToken, checkPermission('customer:impo
     });
   } catch (error) {
     console.error('导入预览错误:', error);
-    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    // 内存存储，无需清理临时文件
     res.status(500).json({ code: 500, message: '预览失败', data: null });
   }
 });
@@ -140,7 +140,7 @@ router.post('/import-confirm', authenticateToken, checkPermission('customer:impo
       return res.status(400).json({ code: 400, message: '请上传Excel文件', data: null });
     }
 
-    const workbook = XLSX.readFile(req.file.path);
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
@@ -215,7 +215,7 @@ router.post('/import-confirm', authenticateToken, checkPermission('customer:impo
 
     await logAction(req, 'import', `批量导入客户: 成功${success}条, 跳过重复${skippedCount}条, 验证失败${invalidRecords.length}条`);
 
-    fs.unlinkSync(req.file.path);
+    // 内存存储，无需清理临时文件
 
     res.json({
       code: 200,
@@ -234,7 +234,7 @@ router.post('/import-confirm', authenticateToken, checkPermission('customer:impo
   } catch (error) {
     await connection.rollback();
     console.error('导入错误:', error);
-    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    // 内存存储，无需清理临时文件
     res.status(500).json({ code: 500, message: '导入失败', data: null });
   } finally {
     connection.release();

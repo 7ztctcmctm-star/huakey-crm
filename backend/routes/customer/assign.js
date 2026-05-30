@@ -187,6 +187,25 @@ router.get('/sales-users', authenticateToken, async (req, res) => {
   }
 });
 
+// 获取当前用户的下属列表（通过manager_id关联）
+router.get('/my-subordinates', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const [users] = await pool.query(
+      `SELECT u.id, u.real_name, u.username, d.name as dept_name
+       FROM sys_user u
+       LEFT JOIN sys_dept d ON u.dept_id = d.id
+       WHERE u.status = 1 AND u.manager_id = ?
+       ORDER BY d.name, u.real_name`,
+      [userId]
+    );
+    res.json({ code: 200, message: '查询成功', data: users });
+  } catch (error) {
+    console.error('获取下属列表错误:', error);
+    res.status(500).json({ code: 500, message: '查询失败', data: null });
+  }
+});
+
 // 获取行业列表
 router.get('/industries/list', authenticateToken, async (req, res) => {
   try {

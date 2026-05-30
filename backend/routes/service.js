@@ -98,14 +98,14 @@ router.post('/list', authenticateToken, async (req, res) => {
 
   // 今日工单筛选
   if (created_today) {
-    sql += ' AND DATE(so.create_time) = CURDATE()';
+    sql += ' AND so.create_time::date = CURRENT_DATE';
   }
 
   // 超时工单筛选：紧急超2小时、高优超4小时，状态为待分配或已分配
   if (is_timeout) {
     sql += ` AND so.status IN (1, 2) AND (
-      (so.priority = 1 AND so.create_time < DATE_SUB(NOW(), INTERVAL 2 HOUR))
-      OR (so.priority = 2 AND so.create_time < DATE_SUB(NOW(), INTERVAL 4 HOUR))
+      (so.priority = 1 AND so.create_time < NOW() - INTERVAL '2 hours')
+      OR (so.priority = 2 AND so.create_time < NOW() - INTERVAL '4 hours')
     )`;
   }
 

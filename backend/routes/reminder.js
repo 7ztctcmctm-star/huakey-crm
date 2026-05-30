@@ -17,7 +17,7 @@ router.get('/my-reminders', authenticateToken, async (req, res) => {
     const [list] = await pool.query(
       `SELECT r.id, r.customer_id, r.reminder_type, r.reminder_date, r.is_read,
               c.company_name, c.contact_name, c.phone, c.last_follow_time,
-              DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days
+              EXTRACT(DAY FROM NOW() - COALESCE(c.last_follow_time, c.create_time)) as overdue_days
        FROM crm_follow_up_reminder r
        JOIN crm_customer c ON r.customer_id = c.id AND c.status != 0
        WHERE r.owner_id = ? AND r.reminder_type = 'overdue' AND r.is_dismissed = 0
@@ -63,11 +63,11 @@ router.get('/my-reminders', authenticateToken, async (req, res) => {
     // 接近逾期预警：最后跟进天数在 [preWarningDays, overdueDays) 之间
     const [preWarningList] = await pool.query(
       `SELECT c.id as customer_id, c.company_name, c.contact_name, c.phone, c.last_follow_time,
-              DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days
+              EXTRACT(DAY FROM NOW() - COALESCE(c.last_follow_time, c.create_time)) as overdue_days
        FROM crm_customer c
        WHERE c.owner_id = ? AND c.status NOT IN (0, 2, 3)
-         AND DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) >= ?
-         AND DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) < ?
+         AND EXTRACT(DAY FROM NOW() - COALESCE(c.last_follow_time, c.create_time)) >= ?
+         AND EXTRACT(DAY FROM NOW() - COALESCE(c.last_follow_time, c.create_time)) < ?
          AND c.id NOT IN (
            SELECT customer_id FROM crm_follow_up_reminder WHERE owner_id = ? AND is_dismissed = 0
          )
@@ -149,8 +149,8 @@ router.get('/my-reminders', authenticateToken, async (req, res) => {
        LEFT JOIN crm_customer cu ON so.customer_id = cu.id
        WHERE ${overdueServiceFilter}
          AND (
-           (so.priority = 1 AND so.create_time < DATE_SUB(NOW(), INTERVAL 2 HOUR))
-           OR (so.priority = 2 AND so.create_time < DATE_SUB(NOW(), INTERVAL 4 HOUR))
+           (so.priority = 1 AND so.create_time < NOW() - INTERVAL '2 hours')
+           OR (so.priority = 2 AND so.create_time < NOW() - INTERVAL '4 hours')
          )
        ORDER BY so.priority ASC, so.create_time ASC
        LIMIT 20`,
@@ -206,7 +206,7 @@ router.post('/overdue-list', authenticateToken, async (req, res) => {
       `SELECT COUNT(*) as total FROM crm_customer c
        WHERE c.status NOT IN (2, 3) AND c.status != 0
          AND (c.last_follow_time IS NULL
-           OR c.last_follow_time < DATE_SUB(NOW(), INTERVAL ? DAY))
+           OR c.last_follow_time < NOW() - (? * INTERVAL '1 day'))
          ${userFilter}`,
       params
     );
@@ -214,13 +214,13 @@ router.post('/overdue-list', authenticateToken, async (req, res) => {
     const [list] = await pool.query(
       `SELECT c.id, c.company_name, c.contact_name, c.phone, c.level, c.status,
               c.last_follow_time, c.create_time,
-              DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days,
+              EXTRACT(DAY FROM NOW() - COALESCE(c.last_follow_time, c.create_time)) as overdue_days,
               u.real_name as owner_name
        FROM crm_customer c
        LEFT JOIN sys_user u ON c.owner_id = u.id
        WHERE c.status NOT IN (2, 3) AND c.status != 0
          AND (c.last_follow_time IS NULL
-           OR c.last_follow_time < DATE_SUB(NOW(), INTERVAL ? DAY))
+           OR c.last_follow_time < NOW() - (? * INTERVAL '1 day'))
          ${userFilter}
        ORDER BY overdue_days DESC
        LIMIT ? OFFSET ?`,
@@ -306,12 +306,12 @@ router.get('/payment-overdue', authenticateToken, async (req, res) => {
               COALESCE(SUM(p.pay_amount), 0) as paid_amount,
               ct.id as contract_id, ct.contract_no,
               cu.company_name as customer_name,
-              DATEDIFF(NOW(), pp.plan_date) as overdue_days
+              (CURRENT_DATE - pp.plan_date) as overdue_days
        FROM crm_payment_plan pp
        JOIN crm_contract ct ON pp.contract_id = ct.id AND ct.deleted_at IS NULL
        JOIN crm_customer cu ON ct.customer_id = cu.id
        LEFT JOIN crm_payment p ON pp.id = p.plan_id AND p.deleted_at IS NULL
-       WHERE pp.plan_date < CURDATE()
+       WHERE pp.plan_date < CURRENT_DATE
          ${ownerFilter}
        GROUP BY pp.id
        HAVING paid_amount < pp.plan_amount
@@ -327,13 +327,13 @@ router.get('/payment-overdue', authenticateToken, async (req, res) => {
               COALESCE(SUM(p.pay_amount), 0) as paid_amount,
               ct.id as contract_id, ct.contract_no,
               cu.company_name as customer_name,
-              DATEDIFF(pp.plan_date, NOW()) as days_left
+              (pp.plan_date - CURRENT_DATE) as days_left
        FROM crm_payment_plan pp
        JOIN crm_contract ct ON pp.contract_id = ct.id AND ct.deleted_at IS NULL
        JOIN crm_customer cu ON ct.customer_id = cu.id
        LEFT JOIN crm_payment p ON pp.id = p.plan_id AND p.deleted_at IS NULL
-       WHERE pp.plan_date >= CURDATE()
-         AND pp.plan_date <= DATE_ADD(CURDATE(), INTERVAL 3 DAY)
+       WHERE pp.plan_date >= CURRENT_DATE
+         AND pp.plan_date <= CURRENT_DATE + INTERVAL '3 days'
          ${ownerFilter}
        GROUP BY pp.id
        HAVING paid_amount < pp.plan_amount

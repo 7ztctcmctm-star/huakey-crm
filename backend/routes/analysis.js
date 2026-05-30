@@ -7,12 +7,12 @@ const { authenticateToken } = require('../middleware/auth');
 router.get('/prediction', authenticateToken, async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT DATE_FORMAT(sign_date, '%Y-%m') as month,
+      SELECT TO_CHAR(sign_date, 'YYYY-MM') as month,
              COUNT(*) as count,
              COALESCE(SUM(amount), 0) as amount
       FROM crm_contract
-      WHERE deleted_at IS NULL AND sign_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
-      GROUP BY DATE_FORMAT(sign_date, '%Y-%m')
+      WHERE deleted_at IS NULL AND sign_date >= NOW() - INTERVAL '12 months'
+      GROUP BY TO_CHAR(sign_date, 'YYYY-MM')
       ORDER BY month
     `);
 
@@ -68,18 +68,18 @@ router.get('/churn-alert', authenticateToken, async (req, res) => {
       SELECT COUNT(*) as total FROM crm_customer
       WHERE status != 0 AND owner_id IS NOT NULL
         AND (last_follow_time IS NULL
-          OR last_follow_time < DATE_SUB(NOW(), INTERVAL ? DAY))
+          OR last_follow_time < NOW() - (? * INTERVAL '1 day'))
     `, [overdueDays]);
 
     const [list] = await pool.query(`
       SELECT c.id, c.company_name, c.contact_name, c.phone, c.level,
              c.last_follow_time, c.create_time, u.real_name as owner_name,
-             DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days
+             EXTRACT(DAY FROM NOW() - COALESCE(c.last_follow_time, c.create_time)) as overdue_days
       FROM crm_customer c
       LEFT JOIN sys_user u ON c.owner_id = u.id
       WHERE c.status != 0 AND c.owner_id IS NOT NULL
         AND (c.last_follow_time IS NULL
-          OR c.last_follow_time < DATE_SUB(NOW(), INTERVAL ? DAY))
+          OR c.last_follow_time < NOW() - (? * INTERVAL '1 day'))
       ORDER BY overdue_days DESC
       LIMIT ? OFFSET ?
     `, [overdueDays, parseInt(pageSize), parseInt(offset)]);
@@ -102,7 +102,7 @@ router.get('/anomaly', authenticateToken, async (req, res) => {
              COUNT(*) as count,
              COALESCE(SUM(amount), 0) as amount
       FROM crm_contract
-      WHERE deleted_at IS NULL AND create_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+      WHERE deleted_at IS NULL AND create_time >= NOW() - INTERVAL '30 days'
       GROUP BY DATE(create_time)
       ORDER BY date
     `);
@@ -154,7 +154,7 @@ router.get('/customer-score/:id', authenticateToken, async (req, res) => {
 
     // 跟进频次（近90天）
     const [followResult] = await pool.query(
-      'SELECT COUNT(*) as cnt FROM crm_follow_up WHERE customer_id = ? AND create_time >= DATE_SUB(NOW(), INTERVAL 90 DAY)',
+      'SELECT COUNT(*) as cnt FROM crm_follow_up WHERE customer_id = ? AND create_time >= NOW() - INTERVAL '90 days'',
       [id]
     );
 

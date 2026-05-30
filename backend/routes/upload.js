@@ -2,23 +2,19 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 const { authenticateToken } = require('../middleware/auth');
 const pool = require('../config/database');
+const { getSupabaseStorage } = require('../utils/supabaseStorage');
 
-const uploadDir = path.join(__dirname, '../uploads/attachments');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+// Supabase Storage 客户端（懒加载，未配置则回退本地存储）
+let supabaseStorage = null;
+const getStorage = async () => {
+  if (!supabaseStorage) supabaseStorage = await getSupabaseStorage();
+  return supabaseStorage;
+};
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const name = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
-    cb(null, name);
-  }
-});
+// 使用内存存储（兼容 Vercel Serverless，无本地磁盘）
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,
@@ -42,20 +38,44 @@ router.post('/file', authenticateToken, upload.single('file'), async (req, res) 
     }
 
     const file = req.file;
-    const filePath = `/uploads/attachments/${file.filename}`;
+    const ext = path.extname(file.originalname);
+    const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+
+    let filePath;
+    const storage = await getStorage();
+
+    if (storage) {
+      // 上传到 Supabase Storage
+      const { data, error } = await storage.upload(filename, file.buffer, {
+        contentType: file.mimetype,
+        cacheControl: '3600'
+      });
+      if (error) throw new Error(`Supabase Storage 上传失败: ${error.message}`);
+      const { data: urlData } = storage.getPublicUrl(filename);
+      filePath = urlData.publicUrl;
+    } else {
+      // 回退：本地文件存储
+      const fs = require('fs');
+      const uploadDir = path.join(__dirname, '../uploads/attachments');
+      if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+      fs.writeFileSync(path.join(uploadDir, filename), file.buffer);
+      filePath = `/uploads/attachments/${filename}`;
+    }
+
     const [result] = await pool.query(
       `INSERT INTO crm_attachment (business_type, business_id, file_name, file_path, file_size, file_type, create_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       RETURNING id`,
       [business_type || null, business_id || null, file.originalname, filePath, file.size, file.mimetype, req.user.userId]
     );
 
     res.json({
       code: 200, message: '上传成功',
-      data: [{ id: result.insertId, file_name: file.originalname, file_path: filePath, file_size: file.size, file_type: file.mimetype }]
+      data: [{ id: result.insertId || (result.rows && result.rows[0]?.id), file_name: file.originalname, file_path: filePath, file_size: file.size, file_type: file.mimetype }]
     });
   } catch (error) {
     console.error('文件上传错误:', error);
-    res.status(500).json({ code: 500, message: '上传失败', data: null });
+    res.status(500).json({ code: 500, message: error.message || '上传失败', data: null });
   }
 });
 
@@ -87,9 +107,19 @@ router.post('/delete', authenticateToken, async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ code: 404, message: '附件不存在', data: null });
 
     const attachment = rows[0];
-    // 删除物理文件
-    const fullPath = path.join(__dirname, '..', attachment.file_path);
-    if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+
+    // Supabase Storage 删除（如果是 Supabase URL）
+    const storage = await getStorage();
+    if (storage && attachment.file_path && !attachment.file_path.startsWith('/uploads/')) {
+      const urlParts = attachment.file_path.split('/');
+      const remoteFilename = urlParts[urlParts.length - 1];
+      await storage.remove([remoteFilename]).catch(e => console.warn('Supabase 文件删除失败（可能已不存在）:', e.message));
+    } else {
+      // 本地文件删除
+      const fs = require('fs');
+      const fullPath = path.join(__dirname, '..', attachment.file_path);
+      if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+    }
 
     await pool.query('DELETE FROM crm_attachment WHERE id = ?', [id]);
     res.json({ code: 200, message: '删除成功', data: null });

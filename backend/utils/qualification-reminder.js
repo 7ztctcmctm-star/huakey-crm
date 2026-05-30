@@ -98,10 +98,10 @@ const getExpiringSoonList = async (days = 30) => {
     targetDate.setDate(targetDate.getDate() + days);
 
     const [list] = await pool.query(
-      `SELECT q.*, s.name as supplier_name, DATEDIFF(q.expire_date, CURDATE()) as days_left
+      `SELECT q.*, s.name as supplier_name, (q.expire_date - CURRENT_DATE) as days_left
        FROM crm_supplier_qualification q
        JOIN crm_supplier s ON q.supplier_id = s.id
-       WHERE q.status = 1 AND q.expire_date <= ? AND q.expire_date > CURDATE()
+       WHERE q.status = 1 AND q.expire_date <= ? AND q.expire_date > CURRENT_DATE
        ORDER BY q.expire_date ASC`,
       [targetDate.toISOString().slice(0, 10)]
     );
@@ -115,10 +115,10 @@ const getExpiringSoonList = async (days = 30) => {
 const getExpiredList = async () => {
   try {
     const [list] = await pool.query(
-      `SELECT q.*, s.name as supplier_name, DATEDIFF(CURDATE(), q.expire_date) as days_expired
+      `SELECT q.*, s.name as supplier_name, (CURRENT_DATE - q.expire_date) as days_expired
        FROM crm_supplier_qualification q
        JOIN crm_supplier s ON q.supplier_id = s.id
-       WHERE q.status = 1 AND q.expire_date < CURDATE()
+       WHERE q.status = 1 AND q.expire_date < CURRENT_DATE
        ORDER BY q.expire_date ASC`
     );
     return list;
@@ -133,8 +133,8 @@ const updateQualificationStatus = async () => {
     const result = await pool.query(
       `UPDATE crm_supplier_qualification
        SET status = CASE
-         WHEN expire_date < CURDATE() THEN 3
-         WHEN expire_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 2
+         WHEN expire_date < CURRENT_DATE THEN 3
+         WHEN expire_date <= CURRENT_DATE + INTERVAL '30 days' THEN 2
          ELSE 1
        END
        WHERE status != 3`

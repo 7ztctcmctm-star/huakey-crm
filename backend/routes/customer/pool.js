@@ -154,6 +154,82 @@ router.post('/claim', authenticateToken, checkPermission('customer:pool'), valid
   }
 });
 
+// 批量认领公海客户
+router.post('/batch-claim', authenticateToken, checkPermission('customer:pool'), async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    const { customer_ids } = req.body;
+    const userId = req.user.userId;
+
+    if (!customer_ids || !Array.isArray(customer_ids) || customer_ids.length === 0) {
+      return res.status(400).json({ code: 400, message: '请选择要认领的客户', data: null });
+    }
+
+    if (customer_ids.length > 20) {
+      return res.status(400).json({ code: 400, message: '单次批量认领不能超过20条', data: null });
+    }
+
+    await connection.beginTransaction();
+
+    let claimed = 0;
+    const skipped = [];
+    const now = new Date();
+
+    for (const customerId of customer_ids) {
+      const [customers] = await connection.query(
+        'SELECT id, pool_status, pool_type, protect_until, owner_id, company_name FROM crm_customer WHERE id = ? AND status != 0',
+        [customerId]
+      );
+
+      if (customers.length === 0) { skipped.push(`${customerId}(不存在)`); continue; }
+      const customer = customers[0];
+
+      // 检查是否在公海
+      if (customer.pool_status !== 1) { skipped.push(`${customer.company_name}(不在公海)`); continue; }
+
+      // 私有池客户仅管理员可认领
+      if (customer.pool_type === 'private' && !req.user.manageAll && req.user.roleId !== 1 && req.user.roleId !== 2) {
+        skipped.push(`${customer.company_name}(私有池限制)`); continue;
+      }
+
+      // 检查保护期
+      if (customer.protect_until && new Date(customer.protect_until) > now) {
+        const remainDays = Math.ceil((new Date(customer.protect_until) - now) / (1000 * 60 * 60 * 24));
+        skipped.push(`${customer.company_name}(保护期剩余${remainDays}天)`); continue;
+      }
+
+      // 认领
+      const protectUntil = new Date(now);
+      protectUntil.setDate(protectUntil.getDate() + 7);
+
+      await connection.query(
+        'UPDATE crm_customer SET pool_status = 0, owner_id = ?, protect_until = ?, last_follow_time = NOW() WHERE id = ?',
+        [userId, protectUntil, customerId]
+      );
+
+      await connection.query(
+        'INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id) VALUES (?, \'claim\', ?, ?)',
+        [customerId, customer.owner_id, userId]
+      );
+
+      claimed++;
+    }
+
+    await connection.commit();
+
+    await logAction(req, 'batch-claim', `批量认领 ${claimed} 个客户`);
+
+    const msg = `成功认领 ${claimed} 个客户` + (skipped.length > 0 ? `，跳过: ${skipped.join('; ')}` : '');
+    res.json({ code: 200, message: msg, data: { claimed, skipped: skipped.length > 0 ? skipped : null } });
+  } catch (error) {
+    await connection.rollback();
+    console.error('批量认领错误:', error);
+    res.status(500).json({ code: 500, message: '批量认领失败', data: null });
+  } finally {
+    connection.release();
+  }
+});
+
 // 释放客户到公海
 router.post('/release', authenticateToken, checkPermission('customer:pool'), validate(releaseCustomerSchema), async (req, res) => {
   try {

@@ -14,6 +14,15 @@
         <el-form-item label="操作">
           <el-input v-model="filterForm.action" placeholder="请输入操作" clearable style="width: 150px" />
         </el-form-item>
+        <el-form-item label="操作类型">
+          <el-select v-model="filterForm.actionType" placeholder="全部" clearable style="width: 120px">
+            <el-option label="删除" value="delete" />
+            <el-option label="编辑" value="edit" />
+            <el-option label="新增" value="add" />
+            <el-option label="导出" value="export" />
+            <el-option label="导入" value="import" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="filterForm.status" placeholder="请选择状态" clearable style="width: 120px">
             <el-option label="成功" :value="1" />
@@ -33,6 +42,7 @@
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :icon="Search" @click="handleQuery">查询</el-button>
+          <el-button type="danger" plain @click="handleHighRisk">高风险操作</el-button>
           <el-button :icon="Refresh" @click="handleReset">重置</el-button>
         </el-form-item>
       </el-form>
@@ -153,6 +163,7 @@ const currentLog = ref(null)
 const filterForm = reactive({
   module: '',
   action: '',
+  actionType: '',
   status: ''
 })
 
@@ -170,6 +181,7 @@ const handleQuery = async () => {
       pageSize: pagination.pageSize,
       module: filterForm.module || undefined,
       action: filterForm.action || undefined,
+      actionType: filterForm.actionType || undefined,
       status: filterForm.status !== '' ? filterForm.status : undefined,
       startDate: dateRange.value?.[0] || undefined,
       endDate: dateRange.value?.[1] || undefined
@@ -191,10 +203,33 @@ const handleQuery = async () => {
 const handleReset = () => {
   filterForm.module = ''
   filterForm.action = ''
+  filterForm.actionType = ''
   filterForm.status = ''
   dateRange.value = []
   pagination.page = 1
   handleQuery()
+}
+
+const handleHighRisk = () => {
+  filterForm.module = ''
+  filterForm.action = ''
+  filterForm.actionType = ''
+  filterForm.status = ''
+  dateRange.value = []
+  pagination.page = 1
+  // 高风险操作：删除 + 导出 + 导入
+  loading.value = true
+  request.post('/log/list', {
+    page: pagination.page,
+    pageSize: pagination.pageSize,
+    actionType: ['delete', 'export', 'import']
+  }).then(res => {
+    if (res.code === 200) {
+      tableData.value = res.data.list
+      pagination.total = res.data.total
+    }
+  }).catch(() => ElMessage.error('查询失败'))
+    .finally(() => { loading.value = false })
 }
 
 const handleView = async (row) => {

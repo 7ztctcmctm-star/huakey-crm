@@ -13,7 +13,7 @@ const requireAdmin = (req, res, next) => {
 };
 
 router.post('/list', authenticateToken, async (req, res) => {
-  const { page = 1, pageSize = 20, module, action, status, startDate, endDate } = req.body;
+  const { page = 1, pageSize = 20, module, action, status, startDate, endDate, actionType, userId } = req.body;
   const offset = (page - 1) * pageSize;
 
   let whereClause = '1=1';
@@ -29,9 +29,35 @@ router.post('/list', authenticateToken, async (req, res) => {
     params.push(`%${action}%`);
   }
 
+  // 操作类型: delete/edit/add/export/import (支持字符串或数组)
+  const ACTION_TYPE_MAP = {
+    'delete': ['删除'],
+    'edit': ['编辑', '修改'],
+    'add': ['新增', '创建', '添加'],
+    'export': ['导出'],
+    'import': ['导入']
+  };
+  if (actionType) {
+    const types = Array.isArray(actionType) ? actionType : [actionType];
+    const allKeywords = [];
+    types.forEach(t => {
+      if (ACTION_TYPE_MAP[t]) allKeywords.push(...ACTION_TYPE_MAP[t]);
+    });
+    if (allKeywords.length > 0) {
+      const likeClauses = allKeywords.map(() => 'l.action LIKE ?').join(' OR ');
+      whereClause += ` AND (${likeClauses})`;
+      allKeywords.forEach(k => params.push(`%${k}%`));
+    }
+  }
+
   if (status !== undefined && status !== '') {
     whereClause += ' AND l.status = ?';
     params.push(status);
+  }
+
+  if (userId) {
+    whereClause += ' AND l.user_id = ?';
+    params.push(userId);
   }
 
   if (startDate) {
@@ -131,7 +157,7 @@ router.post('/clear', authenticateToken, requireAdmin, async (req, res) => {
 
   try {
     const [result] = await pool.query(
-      'DELETE FROM sys_log WHERE create_time < DATE_SUB(NOW(), INTERVAL ? DAY)',
+      "DELETE FROM sys_log WHERE create_time < NOW() - (? * INTERVAL '1 day')",
       [retentionDays]
     );
     res.json({ code: 200, message: `成功清理 ${result.affectedRows} 条过期日志`, data: null });

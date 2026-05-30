@@ -20,11 +20,11 @@ async function run() {
     const [overdue] = await pool.query(
       `SELECT c.id, c.company_name, c.owner_id, c.last_follow_time, c.create_time,
               COALESCE(c.last_follow_time, c.create_time) as ref_time,
-              DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as days
+              EXTRACT(DAY FROM NOW() - COALESCE(c.last_follow_time, c.create_time)) as days
        FROM crm_customer c
        WHERE c.pool_status = 0 AND c.status != 0 AND c.owner_id IS NOT NULL
-         AND ((c.last_follow_time IS NULL AND c.create_time < DATE_SUB(NOW(), INTERVAL ? DAY))
-           OR c.last_follow_time < DATE_SUB(NOW(), INTERVAL ? DAY))
+         AND ((c.last_follow_time IS NULL AND c.create_time < NOW() - (? * INTERVAL '1 day'))
+           OR c.last_follow_time < NOW() - (? * INTERVAL '1 day'))
        ORDER BY days DESC`,
       [OVERDUE_DAYS, OVERDUE_DAYS]
     );

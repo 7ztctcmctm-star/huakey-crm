@@ -245,7 +245,7 @@ router.get('/remind', authenticateToken, async (req, res) => {
       LEFT JOIN crm_contact co ON f.contact_id = co.id
       WHERE ${whereClause}
         AND f.next_time IS NOT NULL
-        AND DATE(f.next_time) = CURDATE()
+        AND f.next_time::date = CURRENT_DATE
       ORDER BY f.next_time ASC`,
       params
     );

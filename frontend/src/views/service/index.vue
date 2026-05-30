@@ -60,7 +60,12 @@
         @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="50" :selectable="(row) => row.status === 1" />
         <el-table-column prop="order_no" label="工单编号" min-width="140" show-overflow-tooltip />
-        <el-table-column prop="customer_name" label="客户名称" min-width="160" show-overflow-tooltip />
+        <el-table-column prop="customer_name" label="客户名称" min-width="160">
+          <template #default="{ row }">
+            <el-link v-if="row.customer_id" type="primary" @click="router.push(`/customer/detail/${row.customer_id}`)">{{ row.customer_name }}</el-link>
+            <span v-else>{{ row.customer_name }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="type" label="服务类型" width="90">
           <template #default="{ row }">
             <el-tag :type="getTypeTag(row.type)">{{ row.type }}</el-tag>
@@ -222,7 +227,7 @@
         <el-row :gutter="24">
           <el-col :span="12">
             <h4>客户信息</h4>
-            <div class="info-item"><span class="label">客户名称：</span>{{ detailData.customer_name }}</div>
+            <div class="info-item"><span class="label">客户名称：</span><el-link v-if="detailData.customer_id" type="primary" @click="router.push(`/customer/detail/${detailData.customer_id}`)">{{ detailData.customer_name }}</el-link><span v-else>{{ detailData.customer_name }}</span></div>
             <div class="info-item"><span class="label">联系人：</span>{{ detailData.customer_contact }}</div>
             <div class="info-item"><span class="label">联系电话：</span>{{ detailData.customer_phone }}</div>
             <div class="info-item"><span class="label">地址：</span>{{ detailData.customer_address }}</div>
@@ -281,7 +286,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import request from '@/utils/request'
@@ -295,6 +300,7 @@ const attachmentIds = ref([])
 const uploadRef = ref(null)
 
 const route = useRoute()
+const router = useRouter()
 const loading = ref(false)
 const tableData = ref([])
 // [新增] 视图切换：全部/我的工单（非管理员默认显示我的工单）

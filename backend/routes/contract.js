@@ -278,8 +278,9 @@ router.post('/add', authenticateToken, checkPermission('contract:add'), validate
     const contractId = result.insertId;
     
     if (plans && plans.length > 0) {
-      const planValues = plans.map(p => [contractId, p.plan_date, p.plan_amount, p.remark || null]);
-      await connection.query('INSERT INTO crm_payment_plan (contract_id, plan_date, plan_amount, remark) VALUES ?', [planValues]);
+      const placeholders = plans.map((_, i) => `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`).join(', ');
+      const flatValues = plans.flatMap(p => [contractId, p.plan_date, p.plan_amount, p.remark || null]);
+      await connection.query(`INSERT INTO crm_payment_plan (contract_id, plan_date, plan_amount, remark) VALUES ${placeholders}`, flatValues);
     }
     
     await connection.commit();
@@ -341,7 +342,8 @@ router.post('/update', authenticateToken, checkPermission('contract:edit'), vali
     );
 
     if (delete_plan_ids && delete_plan_ids.length > 0) {
-      await connection.query('DELETE FROM crm_payment_plan WHERE id IN (?)', [delete_plan_ids]);
+      const phs = delete_plan_ids.map((_, i) => '$' + (i + 1)).join(', ');
+      await connection.query(`DELETE FROM crm_payment_plan WHERE id IN (${phs})`, delete_plan_ids);
     }
 
     if (plans && plans.length > 0) {
@@ -610,7 +612,7 @@ router.post('/payment/list', authenticateToken, async (req, res) => {
 
     if (tab === 'overdue') {
       // 逾期未回款：回款计划已到期但未足额到账
-      let where = 'WHERE pp.plan_date < CURDATE() AND c.deleted_at IS NULL';
+      let where = 'WHERE pp.plan_date < CURRENT_DATE AND c.deleted_at IS NULL';
       if (keyword) {
         where += ' AND (c.contract_no LIKE ? OR cu.company_name LIKE ?)';
         params.push(`%${keyword}%`, `%${keyword}%`);
@@ -634,7 +636,7 @@ router.post('/payment/list', authenticateToken, async (req, res) => {
                 pp.plan_date, pp.plan_amount,
                 COALESCE(p.paid, 0) as paid_amount,
                 (pp.plan_amount - COALESCE(p.paid, 0)) as remain_amount,
-                DATEDIFF(CURDATE(), pp.plan_date) as overdue_days
+                (CURRENT_DATE - pp.plan_date) as overdue_days
          FROM crm_payment_plan pp
          JOIN crm_contract c ON pp.contract_id = c.id
          JOIN crm_customer cu ON c.customer_id = cu.id

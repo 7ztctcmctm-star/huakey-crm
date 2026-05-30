@@ -34,12 +34,12 @@ async function generateReminders(existingPool) {
     // ====== 1. 逾期提醒 ======
     const [overdueCustomers] = await pool.query(
       `SELECT c.id as customer_id, c.owner_id, c.company_name,
-              DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days
+              EXTRACT(DAY FROM NOW() - COALESCE(c.last_follow_time, c.create_time)) as overdue_days
        FROM crm_customer c
        WHERE c.status NOT IN (2, 3) AND c.status != 0
          AND c.owner_id IS NOT NULL
          AND (c.last_follow_time IS NULL
-           OR c.last_follow_time < DATE_SUB(NOW(), INTERVAL ? DAY))`,
+           OR c.last_follow_time < NOW() - (? * INTERVAL '1 day'))`,
       [OVERDUE_DAYS]
     );
 

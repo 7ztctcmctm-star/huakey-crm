@@ -32,7 +32,7 @@ router.get('/overview', authenticateToken, async (req, res) => {
     // 本周新增客户
     const [weekNew] = await pool.query(
       `SELECT COUNT(*) as count FROM crm_customer c
-       WHERE c.status != 0 AND YEARWEEK(c.create_time, 1) = YEARWEEK(NOW(), 1) ${userFilter}`,
+       WHERE c.status != 0 AND EXTRACT(YEAR FROM c.create_time) = EXTRACT(YEAR FROM NOW()) AND EXTRACT(WEEK FROM c.create_time) = EXTRACT(WEEK FROM NOW()) ${userFilter}`,
       params
     );
 
@@ -50,7 +50,7 @@ router.get('/overview', authenticateToken, async (req, res) => {
       `SELECT COUNT(*) as count FROM crm_customer c
        WHERE c.status NOT IN (2, 3) AND c.status != 0
          AND (c.last_follow_time IS NULL
-           OR c.last_follow_time < DATE_SUB(NOW(), INTERVAL ? DAY))
+           OR c.last_follow_time < NOW() - (? * INTERVAL '1 day'))
          ${userFilter}`,
       [...params, overdueDays]
     );
@@ -64,8 +64,8 @@ router.get('/overview', authenticateToken, async (req, res) => {
       paymentDateClause = 'p.pay_date >= ? AND p.pay_date < ?';
       oppParams.push(startDate, endDate + ' 23:59:59');
     } else {
-      contractDateClause = 'YEAR(ct.create_time) = YEAR(NOW()) AND MONTH(ct.create_time) = MONTH(NOW())';
-      paymentDateClause = 'YEAR(p.pay_date) = YEAR(NOW()) AND MONTH(p.pay_date) = MONTH(NOW())';
+      contractDateClause = 'EXTRACT(YEAR FROM ct.create_time) = EXTRACT(YEAR FROM NOW()) AND EXTRACT(MONTH FROM ct.create_time) = EXTRACT(MONTH FROM NOW())';
+      paymentDateClause = 'EXTRACT(YEAR FROM p.pay_date) = EXTRACT(YEAR FROM NOW()) AND EXTRACT(MONTH FROM p.pay_date) = EXTRACT(MONTH FROM NOW())';
     }
     const [contractAmount] = await pool.query(
       `SELECT COALESCE(SUM(ct.amount), 0) as total
@@ -185,8 +185,8 @@ router.get('/sales-breakdown', authenticateToken, async (req, res) => {
         FROM crm_contract ct
         LEFT JOIN crm_opportunity o ON ct.opportunity_id = o.id
         WHERE ct.deleted_at IS NULL AND o.owner_id IN (${placeholders})
-          AND ct.create_time >= DATE_FORMAT(NOW(), '%Y-%m-01')
-          AND ct.create_time < DATE_ADD(DATE_FORMAT(NOW(), '%Y-%m-01'), INTERVAL 1 MONTH)
+          AND ct.create_time >= DATE_TRUNC('month', NOW())::date
+          AND ct.create_time < DATE_TRUNC('month', NOW())::date + INTERVAL '1 month'
         GROUP BY o.owner_id
       ) ca ON ca.owner_id = u.id
       LEFT JOIN (
@@ -195,14 +195,14 @@ router.get('/sales-breakdown', authenticateToken, async (req, res) => {
         LEFT JOIN crm_contract ct ON p.contract_id = ct.id
         LEFT JOIN crm_opportunity o ON ct.opportunity_id = o.id
         WHERE p.deleted_at IS NULL AND o.owner_id IN (${placeholders})
-          AND p.pay_date >= DATE_FORMAT(NOW(), '%Y-%m-01')
-          AND p.pay_date < DATE_ADD(DATE_FORMAT(NOW(), '%Y-%m-01'), INTERVAL 1 MONTH)
+          AND p.pay_date >= DATE_TRUNC('month', NOW())::date
+          AND p.pay_date < DATE_TRUNC('month', NOW())::date + INTERVAL '1 month'
         GROUP BY o.owner_id
       ) pa ON pa.owner_id = u.id
       LEFT JOIN (
         SELECT owner_id, COUNT(*) as cnt FROM crm_customer
         WHERE owner_id IN (${placeholders}) AND status NOT IN (2, 3) AND status != 0
-          AND (last_follow_time IS NULL OR last_follow_time < DATE_SUB(NOW(), INTERVAL ? DAY))
+          AND (last_follow_time IS NULL OR last_follow_time < NOW() - (? * INTERVAL '1 day'))
         GROUP BY owner_id
       ) nf ON nf.owner_id = u.id
       WHERE u.id IN (${placeholders})`,
@@ -213,7 +213,7 @@ router.get('/sales-breakdown', authenticateToken, async (req, res) => {
     const [taskStats] = await pool.query(`
       SELECT user_id, SUM(cnt) as task_count FROM (
         SELECT create_by as user_id, COUNT(*) as cnt FROM crm_follow_up
-        WHERE create_by IN (${placeholders}) AND next_time IS NOT NULL AND DATE(next_time) = CURDATE()
+        WHERE create_by IN (${placeholders}) AND next_time IS NOT NULL AND next_time::date = CURRENT_DATE
         GROUP BY create_by
         UNION ALL
         SELECT assignee_id as user_id, COUNT(*) as cnt FROM crm_service_order
@@ -227,7 +227,7 @@ router.get('/sales-breakdown', authenticateToken, async (req, res) => {
     const [targetStats] = await pool.query(`
       SELECT user_id, COALESCE(SUM(target_amount), 0) as total
       FROM crm_sales_target
-      WHERE user_id IN (${placeholders}) AND year = YEAR(NOW()) AND month = MONTH(NOW())
+      WHERE user_id IN (${placeholders}) AND year = EXTRACT(YEAR FROM NOW()) AND month = EXTRACT(MONTH FROM NOW())
       GROUP BY user_id`,
       userIds
     );
@@ -282,18 +282,18 @@ router.post('/sales-overdue-customers', authenticateToken, async (req, res) => {
       `SELECT COUNT(*) as total FROM crm_customer
        WHERE owner_id = ? AND status NOT IN (2, 3) AND status != 0
          AND (last_follow_time IS NULL
-           OR last_follow_time < DATE_SUB(NOW(), INTERVAL ? DAY))`,
+           OR last_follow_time < NOW() - (? * INTERVAL '1 day'))`,
       [user_id, overdueDays]
     );
 
     const [list] = await pool.query(
       `SELECT id, company_name, contact_name, phone, level, status,
               last_follow_time, create_time,
-              DATEDIFF(NOW(), COALESCE(last_follow_time, create_time)) as overdue_days
+              EXTRACT(DAY FROM NOW() - COALESCE(last_follow_time, create_time)) as overdue_days
        FROM crm_customer
        WHERE owner_id = ? AND status NOT IN (2, 3) AND status != 0
          AND (last_follow_time IS NULL
-           OR last_follow_time < DATE_SUB(NOW(), INTERVAL ? DAY))
+           OR last_follow_time < NOW() - (? * INTERVAL '1 day'))
        ORDER BY overdue_days DESC
        LIMIT ? OFFSET ?`,
       [user_id, overdueDays, parseInt(pageSize), parseInt(offset)]
@@ -371,7 +371,7 @@ router.post('/urge-followup', authenticateToken, async (req, res) => {
       `SELECT id FROM crm_notification
        WHERE type = 'urge_followup' AND business_type = 'customer' AND business_id = ?
          AND to_user_id = ? AND is_dismissed = 0
-         AND DATE(create_time) = CURDATE()`,
+         AND create_time::date = CURRENT_DATE`,
       [customer_id, user_id]
     );
     if (existing.length > 0) {
@@ -479,7 +479,7 @@ router.get('/stuck-opportunities', authenticateToken, async (req, res) => {
     const [list] = await pool.query(
       `SELECT o.id, o.name, o.stage, o.expected_amount, o.expected_date,
               o.update_time,
-              DATEDIFF(NOW(), o.update_time) as stuck_days,
+              EXTRACT(DAY FROM NOW() - o.update_time) as stuck_days,
               cu.company_name as customer_name,
               u.real_name as owner_name
        FROM crm_opportunity o
@@ -487,7 +487,7 @@ router.get('/stuck-opportunities', authenticateToken, async (req, res) => {
        LEFT JOIN sys_user u ON o.owner_id = u.id
        WHERE o.deleted_at IS NULL
          AND o.stage NOT IN (5, 6)
-         AND DATEDIFF(NOW(), o.update_time) >= ?
+         AND EXTRACT(DAY FROM NOW() - o.update_time) >= ?
          ${deptFilter}
        ORDER BY stuck_days DESC
        LIMIT 50`,

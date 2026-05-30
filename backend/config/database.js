@@ -1,27 +1,80 @@
-const mysql = require('mysql2/promise');
+const { Pool } = require('pg');
 
-const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT) || 3306,
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'huakey_crm',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  enableKeepAlive: true,
-  keepAliveInitialDelay: 0
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
 });
 
 pool.on('error', (err) => {
   console.error('数据库连接池错误:', err.message);
 });
 
+// ============================================================
+// MySQL → PostgreSQL 兼容层
+// 自动转换 ? → $N 占位符、[rows] → { rows } 返回格式
+// ============================================================
+const _query = pool.query.bind(pool);
+pool.query = async function (sql, params) {
+  // 1. 转换 ? → $1, $2, $3 ...（pg 风格占位符）
+  if (params && params.length > 0) {
+    let idx = 0;
+    sql = sql.replace(/\?/g, () => `$${++idx}`);
+  }
+
+  // 2. 执行查询
+  const pgResult = await _query(sql, params);
+
+  // 3. 兼容 mysql2 返回格式：mysql2 返回 [rows] 或 [result]，pg 返回 { rows, rowCount }
+  //    INSERT/UPDATE/DELETE → 返回 [resultHeader]
+  //    SELECT/SHOW/DESCRIBE → 返回 [rows]
+  if (/^\s*(INSERT|UPDATE|DELETE|TRUNCATE)/i.test(sql.trim())) {
+    // 模拟 mysql2 的 ResultSetHeader
+    const header = {
+      insertId: pgResult.rows.length > 0 ? (pgResult.rows[0].id || pgResult.rows[0].insertId) : null,
+      affectedRows: pgResult.rowCount,
+      changedRows: pgResult.rowCount,
+    };
+    return [header, pgResult.fields];
+  }
+
+  // SELECT 等查询 → 返回 [rows, fields]
+  return [pgResult.rows, pgResult.fields];
+};
+
+// ============================================================
+// MySQL → PostgreSQL 事务兼容层
+// pool.getConnection() 模拟 mysql2 的事务 API
+// ============================================================
+pool.getConnection = async function () {
+  const client = await pool.connect();
+  const wrap = (sql, params) => {
+    if (params && params.length > 0 && Array.isArray(params)) {
+      let idx = 0;
+      sql = sql.replace(/\?/g, () => `$${++idx}`);
+    }
+    return client.query(sql, params);
+  };
+  return {
+    query: async function (sql, params) {
+      const pgResult = await wrap(sql, params);
+      if (/^\s*(INSERT|UPDATE|DELETE|TRUNCATE)/i.test(sql.trim())) {
+        return [{ insertId: pgResult.rows.length > 0 ? (pgResult.rows[0].id || pgResult.rows[0].insertId) : null, affectedRows: pgResult.rowCount, changedRows: pgResult.rowCount }, pgResult.fields];
+      }
+      return [pgResult.rows, pgResult.fields];
+    },
+    beginTransaction: async () => { await client.query('BEGIN'); },
+    commit: async () => { await client.query('COMMIT'); },
+    rollback: async () => { await client.query('ROLLBACK'); },
+    release: () => { client.release(); }
+  };
+};
+
 const testConnection = async () => {
   try {
-    const connection = await pool.getConnection();
-    console.log('数据库连接测试成功');
-    connection.release();
+    await _query('SELECT 1');
+    console.log('数据库连接测试成功 (PostgreSQL)');
   } catch (error) {
     console.error('数据库连接失败:', error.message);
     process.exit(1);

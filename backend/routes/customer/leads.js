@@ -171,11 +171,11 @@ router.get('/stats', authenticateToken, async (req, res) => {
 
     const [total] = await pool.query(`SELECT COUNT(*) as cnt FROM crm_customer WHERE ${permissionClause} AND status = 1`, permParams);
     const [month] = await pool.query(
-      `SELECT COUNT(*) as cnt FROM crm_customer WHERE ${permissionClause} AND status = 1 AND YEARWEEK(create_time,1) = YEARWEEK(NOW(),1)`,
+      `SELECT COUNT(*) as cnt FROM crm_customer WHERE ${permissionClause} AND status = 1 AND EXTRACT(YEAR FROM create_time) = EXTRACT(YEAR FROM NOW()) AND EXTRACT(WEEK FROM create_time) = EXTRACT(WEEK FROM NOW())`,
       permParams
     );
     const [converted] = await pool.query(
-      `SELECT COUNT(*) as cnt FROM crm_customer WHERE ${permissionClause} AND status = 2 AND converted_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`,
+      `SELECT COUNT(*) as cnt FROM crm_customer WHERE ${permissionClause} AND status = 2 AND converted_at >= NOW() - INTERVAL '30 days'`,
       permParams
     );
 

@@ -84,9 +84,9 @@
         <el-radio-group v-model="viewMode" @change="switchViewMode" size="default">
           <el-radio-button value="all">全部客户</el-radio-button>
           <el-radio-button value="mine">我的客户</el-radio-button>
-          <el-radio-button v-if="isBoss" value="staff">职员客户</el-radio-button>
+          <el-radio-button v-if="isBoss || isManager" value="staff">{{ isManager ? '下属客户' : '职员客户' }}</el-radio-button>
         </el-radio-group>
-        <template v-if="isBoss && viewMode === 'staff'">
+        <template v-if="(isBoss || isManager) && viewMode === 'staff'">
           <el-select
             v-model="staffFilterId"
             placeholder="选择职员"
@@ -94,7 +94,7 @@
             style="width: 150px"
             @change="switchViewMode"
           >
-            <el-option v-for="u in salesUsers" :key="u.id" :label="u.real_name" :value="u.id" />
+            <el-option v-for="u in staffOptions" :key="u.id" :label="u.real_name" :value="u.id" />
           </el-select>
         </template>
         <template v-if="isBoss">
@@ -421,11 +421,13 @@ const switchViewMode = () => {
   fetchList()
 }
 
-// 老板权限
+// 老板/经理权限
 const isBoss = ref(false)
+const isManager = ref(false)
 const selectedRows = ref([])
 const batchNewOwnerId = ref(null)
 const salesUsers = ref([])
+const subordinateUsers = ref([])
 const tableRef = ref(null)
 
 try {
@@ -433,14 +435,28 @@ try {
   if (stored) {
     const u = JSON.parse(stored)
     isBoss.value = u.manageAll === true || u.roleId === 1
+    isManager.value = !isBoss.value && u.roleId === 3
   }
 } catch (e) { /* ignore */ }
+
+// 职员选项：老板=全部销售，经理=直属下属
+const staffOptions = computed(() => {
+  return isBoss.value ? salesUsers.value : subordinateUsers.value
+})
 
 const fetchSalesUsers = async () => {
   if (!isBoss.value) return
   try {
     const res = await get('/customer/sales-users')
     if (res.code === 200) salesUsers.value = res.data
+  } catch (e) { /* ignore */ }
+}
+
+const fetchSubordinates = async () => {
+  if (!isManager.value) return
+  try {
+    const res = await get('/customer/my-subordinates')
+    if (res.code === 200) subordinateUsers.value = res.data
   } catch (e) { /* ignore */ }
 }
 
@@ -958,6 +974,7 @@ const handleExport = async () => {
 onMounted(() => {
   fetchList()
   fetchSalesUsers()
+  fetchSubordinates()
   fetchOverdueDays()
   // 首页快捷按钮带 ?action=add 时自动打开新增弹窗
   if (route.query.action === 'add') handleAdd()

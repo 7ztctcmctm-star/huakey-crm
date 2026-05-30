@@ -147,6 +147,10 @@ apiRouter.use('/integration', integrationRoutes);
 apiRouter.use('/upload', uploadRoutes);
 apiRouter.use('/search', searchRoutes);
 
+// Vercel Cron Jobs 端点（也兼容本地 node-cron）
+const cronJobRoutes = require('./routes/cronJobs');
+apiRouter.use('/cron', cronJobRoutes);
+
 // 系统健康检查（管理员）
 const { authenticateToken } = require('./middleware/auth');
 apiRouter.get('/system/health', authenticateToken, async (req, res) => {
@@ -167,15 +171,16 @@ apiRouter.get('/system/health', authenticateToken, async (req, res) => {
       dbStatus = 'error';
     }
 
-    // 数据库表统计
-    const [tables] = await pool.query(`
-      SELECT TABLE_NAME as name, TABLE_ROWS as rows, ROUND(DATA_LENGTH/1024/1024, 2) as size_mb
-      FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'
-      ORDER BY DATA_LENGTH DESC LIMIT 10
+    // 数据库表统计（PG: pg_stat_user_tables 替代 information_schema.TABLES）
+    const { rows: tables } = await pool.query(`
+      SELECT tablename as name, n_live_tup as rows,
+        ROUND(pg_total_relation_size(schemaname || '.' || tablename) / 1024.0 / 1024.0, 2) as size_mb
+      FROM pg_stat_user_tables
+      ORDER BY pg_total_relation_size(schemaname || '.' || tablename) DESC LIMIT 10
     `);
 
-    // 在线用户（最近10分钟有请求）
-    const [onlineUsers] = await pool.query(
+    // 在线用户
+    const { rows: onlineUsers } = await pool.query(
       'SELECT COUNT(*) as count FROM sys_user WHERE status = 1'
     );
 
@@ -211,12 +216,11 @@ app.use('/api', apiRouter);
 const path = require('path');
 const fs = require('fs');
 
-// 静态文件服务：上传文件
+// 文件上传：生产环境由 Supabase Storage 提供，本地开发保留 /uploads 静态服务
 const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+if (fs.existsSync(uploadsDir)) {
+  app.use('/uploads', express.static(uploadsDir));
 }
-app.use('/uploads', express.static(uploadsDir));
 
 const distPath = path.join(__dirname, '..', 'frontend', 'dist');
 if (fs.existsSync(distPath)) {
@@ -264,6 +268,9 @@ app.use((err, req, res, next) => {
   }
 });
 
+// 数据库连接池
+const pool = require('./config/database');
+
 // 定时任务：供应商评分计算（每天凌晨2点执行）
 const cron = require('node-cron');
 const { checkAllSuppliersScores } = require('./utils/scoring');
@@ -282,14 +289,13 @@ cron.schedule('0 2 * * *', async () => {
 }, { timezone: 'Asia/Shanghai' });
 
 // 定时清理过期日志（每天凌晨3点，保留90天）
-const pool = require('./config/database');
 cron.schedule('0 3 * * *', async () => {
   try {
-    const [result] = await pool.query(
-      'DELETE FROM sys_log WHERE create_time < DATE_SUB(NOW(), INTERVAL 90 DAY)'
+    const result = await pool.query(
+      "DELETE FROM sys_log WHERE create_time < NOW() - INTERVAL '90 days'"
     );
-    if (result.affectedRows > 0) {
-      console.log(`[日志清理] 已清理 ${result.affectedRows} 条过期日志`);
+    if (result.rowCount > 0) {
+      console.log(`[日志清理] 已清理 ${result.rowCount} 条过期日志`);
     }
   } catch (error) {
     console.error('[日志清理] 清理失败:', error.message);
@@ -302,12 +308,12 @@ const AUTO_RELEASE_DAYS = parseInt(process.env.AUTO_RELEASE_DAYS) || 30;
 cron.schedule('0 1 * * *', async () => {
   console.log('[公海回收] 开始检查超期未跟进客户...');
   try {
-    const [customers] = await pool.query(
+    const { rows: customers } = await pool.query(
       `SELECT id, company_name, owner_id FROM crm_customer
        WHERE pool_status = 0 AND status != 0 AND owner_id IS NOT NULL
-         AND (last_follow_time IS NULL AND create_time < DATE_SUB(NOW(), INTERVAL ? DAY)
-           OR last_follow_time < DATE_SUB(NOW(), INTERVAL ? DAY))`,
-      [AUTO_RELEASE_DAYS, AUTO_RELEASE_DAYS]
+         AND (last_follow_time IS NULL AND create_time < NOW() - ($1 * INTERVAL '1 day')
+           OR last_follow_time < NOW() - ($1 * INTERVAL '1 day'))`,
+      [AUTO_RELEASE_DAYS]
     );
     if (customers.length === 0) {
       console.log('[公海回收] 无需要释放的客户');
@@ -316,12 +322,12 @@ cron.schedule('0 1 * * *', async () => {
     let released = 0;
     for (const c of customers) {
       await pool.query(
-        'UPDATE crm_customer SET pool_status = 1, owner_id = NULL, protect_until = NULL WHERE id = ?',
+        'UPDATE crm_customer SET pool_status = 1, owner_id = NULL, protect_until = NULL WHERE id = $1',
         [c.id]
       );
       await pool.query(
         `INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id)
-         VALUES (?, 'auto_release', ?, NULL)`,
+         VALUES ($1, 'auto_release', $2, NULL)`,
         [c.id, c.owner_id]
       );
       released++;

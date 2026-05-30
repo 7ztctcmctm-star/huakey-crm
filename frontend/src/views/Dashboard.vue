@@ -292,10 +292,7 @@
           <el-select
             v-model="quickFollowForm.customer_id"
             filterable
-            remote
-            reserve-keyword
-            placeholder="输入客户名称搜索"
-            :remote-method="searchFollowCustomer"
+            placeholder="选择我的客户（可输入筛选）"
             :loading="followCustomerLoading"
             style="width: 100%"
           >
@@ -452,6 +449,7 @@ const handleService = (item) => {
 const handleQuickAction = (action) => {
   if (action === 'add_follow') {
     quickFollowVisible.value = true
+    loadMyCustomers()
     return
   }
   if (action === 'batch_follow') {
@@ -488,6 +486,17 @@ const quickFollowRules = {
   content: [{ required: true, message: '请填写跟进内容', trigger: 'blur' }]
 }
 
+const loadMyCustomers = async () => {
+  followCustomerLoading.value = true
+  try {
+    const stored = localStorage.getItem('userInfo')
+    const userId = stored ? JSON.parse(stored).id : null
+    const res = await request.post('/customer/list', { page: 1, pageSize: 50, owner_id: userId || undefined })
+    if (res.code === 200) followCustomerOptions.value = res.data.list || []
+  } catch { /* ignore */ }
+  finally { followCustomerLoading.value = false }
+}
+
 const searchFollowCustomer = async (query) => {
   if (!query || query.length < 1) { followCustomerOptions.value = []; return }
   followCustomerLoading.value = true
@@ -500,7 +509,6 @@ const searchFollowCustomer = async (query) => {
 
 const resetQuickFollow = () => {
   quickFollowForm.value = { customer_id: null, follow_type: '电话', content: '', next_time: '' }
-  followCustomerOptions.value = []
   quickFollowFormRef.value?.resetFields()
 }
 

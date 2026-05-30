@@ -42,6 +42,20 @@ router.post('/quality-check', authenticateToken, checkPermission('data_quality:c
     );
     const duplicateCount = dupResult[0].dup_count;
 
+    // 获取重复记录明细（Top10）
+    const [dupList] = await pool.query(
+      `SELECT ${nameColumn} as name, COUNT(*) as cnt, GROUP_CONCAT(id) as ids
+       FROM ${table}
+       WHERE deleted_at IS NULL AND ${nameColumn} IS NOT NULL AND ${nameColumn} != ''
+       GROUP BY ${nameColumn} HAVING COUNT(*) > 1
+       ORDER BY cnt DESC LIMIT 10`
+    );
+    const duplicateDetails = dupList.map(d => ({
+      name: d.name,
+      count: d.cnt,
+      ids: d.ids ? d.ids.split(',').map(Number) : []
+    }));
+
     // 缺失关键字段
     const [missingResult] = await pool.query(
       `SELECT COUNT(*) as missing FROM ${table}
@@ -82,6 +96,7 @@ router.post('/quality-check', authenticateToken, checkPermission('data_quality:c
         table_name: table,
         total_count: totalCount,
         duplicate_count: duplicateCount,
+        duplicate_details: duplicateDetails,
         invalid_count: invalidCount,
         missing_count: missingCount,
         quality_score: qualityScore

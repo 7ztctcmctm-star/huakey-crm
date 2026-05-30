@@ -261,7 +261,7 @@ router.post('/receipt/add', authenticateToken, checkPermission('purchase:add'), 
     const [[item]] = await connection.query('SELECT received_qty, quantity FROM crm_purchase_item WHERE id = ?', [req.body.item_id]);
     if (item && item.received_qty >= item.quantity) {
       await connection.query(
-        `UPDATE crm_purchase_order SET actual_date = CURDATE(), status = CASE
+        `UPDATE crm_purchase_order SET actual_date = CURRENT_DATE, status = CASE
          WHEN (SELECT SUM(i.received_qty >= i.quantity) = COUNT(*)) FROM crm_purchase_item i WHERE i.order_id = ? THEN '已完成'
          ELSE '部分收货' END WHERE id = ?`,
         [req.body.order_id, req.body.order_id]
@@ -288,7 +288,7 @@ router.get('/statistics', authenticateToken, async (req, res) => {
     const [[totalOrders]] = await pool.query('SELECT COUNT(*) as cnt FROM crm_purchase_order WHERE status != "已取消"');
     const [[pendingApprove]] = await pool.query("SELECT COUNT(*) as cnt FROM crm_purchase_order WHERE status = '待审核'");
     const [[pendingReceive]] = await pool.query("SELECT COUNT(*) as cnt FROM crm_purchase_order WHERE status IN ('已确认', '部分收货')");
-    const [[completedThisMonth]] = await pool.query(`SELECT COUNT(*) as cnt FROM crm_purchase_order WHERE status = '已完成' AND MONTH(create_time) = MONTH(CURDATE())`);
+    const [[completedThisMonth]] = await pool.query(`SELECT COUNT(*) as cnt FROM crm_purchase_order WHERE status = '已完成' AND EXTRACT(MONTH FROM create_time) = EXTRACT(MONTH FROM CURRENT_DATE)`);
     const [[totalAmount]] = await pool.query('SELECT COALESCE(SUM(total_with_tax), 0) as sum FROM crm_purchase_order WHERE status != "已取消"');
 
     const [[topSuppliers]] = await pool.query(`

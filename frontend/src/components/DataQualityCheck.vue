@@ -42,6 +42,26 @@
           {{ report.check_time || '-' }}
         </el-descriptions-item>
       </el-descriptions>
+
+      <!-- 重复明细 -->
+      <div v-if="report.duplicate_details && report.duplicate_details.length > 0" style="margin-top: 16px;">
+        <el-alert type="warning" :closable="false" show-icon style="margin-bottom: 8px;">
+          以下客户名称存在重复记录，建议清理合并
+        </el-alert>
+        <el-table :data="report.duplicate_details" border size="small" max-height="250">
+          <el-table-column prop="name" label="重复名称" min-width="160" show-overflow-tooltip />
+          <el-table-column prop="count" label="数量" width="60" align="center">
+            <template #default="{ row }">
+              <el-tag type="warning" size="small">{{ row.count }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="ids" label="客户ID" width="200">
+            <template #default="{ row }">
+              {{ row.ids.join(', ') }}
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
     </template>
   </el-card>
 </template>

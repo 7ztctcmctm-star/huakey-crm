@@ -69,7 +69,7 @@
 
     <!-- 表格 -->
     <el-card class="table-card" shadow="never">
-      <!-- 老板工具栏 -->
+      <!-- 工具栏 -->
       <div class="toolbar" v-if="isBoss">
         <el-select v-model="batchNewOwnerId" placeholder="选择负责人" size="default" style="width: 160px" clearable>
           <el-option v-for="u in salesUsers" :key="u.id" :label="u.real_name + ' (' + u.dept_name + ')'" :value="u.id" />
@@ -77,8 +77,16 @@
         <el-button type="warning" :disabled="selectedRows.length === 0 || !batchNewOwnerId" @click="handleBatchAssign">
           批量分配 ({{ selectedRows.length }})
         </el-button>
+        <el-button type="success" :disabled="selectedRows.length === 0" @click="handleBatchClaim">
+          批量认领 ({{ selectedRows.length }})
+        </el-button>
         <el-button type="primary" @click="handleAutoAssign" style="margin-left: auto;">
           轮询自动分配
+        </el-button>
+      </div>
+      <div class="toolbar" v-else-if="canClaim">
+        <el-button type="success" :disabled="selectedRows.length === 0" @click="handleBatchClaim">
+          批量认领 ({{ selectedRows.length }})
         </el-button>
       </div>
 
@@ -91,7 +99,7 @@
             客户超过30天未跟进或手动释放后将掉入公海
           </el-empty>
         </template>
-        <el-table-column v-if="isBoss" type="selection" width="50" />
+        <el-table-column v-if="isBoss || canClaim" type="selection" width="50" />
         <el-table-column prop="company_name" label="公司名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="owner_name" label="原负责人" width="100">
           <template #default="{ row }">
@@ -257,6 +265,25 @@ const handleBatchAssign = async () => {
       fetchList()
     }
   } catch (e) { ElMessage.error('批量分配失败') }
+}
+
+const handleBatchClaim = async () => {
+  if (selectedRows.value.length === 0) return
+  try {
+    await ElMessageBox.confirm(
+      `确定认领选中的 ${selectedRows.value.length} 个客户？保护期内的客户将自动跳过。`,
+      '批量认领',
+      { confirmButtonText: '确定认领', cancelButtonText: '取消', type: 'success' }
+    )
+    const res = await post('/customer/batch-claim', {
+      customer_ids: selectedRows.value.map(r => r.id)
+    })
+    if (res.code === 200) {
+      ElMessage.success(res.message)
+      selectedRows.value = []
+      fetchList()
+    }
+  } catch (e) { /* cancel or error */ }
 }
 
 const handleAutoAssign = async () => {

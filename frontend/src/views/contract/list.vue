@@ -50,10 +50,11 @@
         <el-table-column prop="approval_status" label="审批状态" width="100" align="center">
           <template #default="{ row }"><el-tag :type="approvalTagType(row.approval_status)" size="small">{{ approvalMap[row.approval_status] || '未知' }}</el-tag></template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="320" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link :icon="View" @click="handleView(row)">查看</el-button>
             <el-button type="primary" link :icon="Edit" @click="handleEdit(row)" v-permission="'contract:edit'">编辑</el-button>
+            <el-button v-if="row.approval_status === 2" type="warning" link @click="openQuickPay(row)" v-permission="'contract:edit'">回款</el-button>
             <el-button type="danger" link :icon="Delete" @click="handleDelete(row)" v-permission="'contract:delete'">删除</el-button>
             <el-button v-if="row.approval_status === 1 && isAdmin" type="success" link @click="handleApprove(row)">通过</el-button>
             <el-button v-if="row.approval_status === 1 && isAdmin" type="danger" link @click="handleReject(row)">拒绝</el-button>
@@ -100,6 +101,33 @@
       <template #footer><el-button @click="formVisible=false">取消</el-button><el-button type="primary" :loading="saveLoading" @click="submitForm">保存</el-button></template>
     </el-dialog>
 
+    <!-- 快速登记回款弹窗 -->
+    <el-dialog v-model="quickPayVisible" :title="'登记回款 - ' + (quickPayContract?.customer_name || '')" width="480px" @closed="resetQuickPay">
+      <el-form ref="quickPayFormRef" :model="quickPayForm" :rules="quickPayRules" label-width="90px">
+        <el-form-item label="关联计划">
+          <el-select v-model="quickPayForm.plan_id" placeholder="选择回款计划(可选)" clearable style="width:100%" @change="onPlanChange">
+            <el-option v-for="p in quickPayPlans" :key="p.id" :label="`${p.plan_date} ¥${fmt(p.plan_amount - (p.paid_amount||0))} 待回 / 计划¥${fmt(p.plan_amount)}`" :value="p.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="回款日期" prop="pay_date">
+          <el-date-picker v-model="quickPayForm.pay_date" type="date" placeholder="选择日期" style="width:100%" value-format="YYYY-MM-DD" />
+        </el-form-item>
+        <el-form-item label="回款金额" prop="pay_amount">
+          <el-input-number v-model="quickPayForm.pay_amount" :min="0" :precision="2" style="width:100%" controls-position="right" />
+        </el-form-item>
+        <el-form-item label="付款方式">
+          <el-input v-model="quickPayForm.pay_method" placeholder="如：银行转账" />
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="quickPayForm.remark" placeholder="备注" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="quickPayVisible = false">取消</el-button>
+        <el-button type="primary" :loading="quickPayLoading" @click="submitQuickPay">保存</el-button>
+      </template>
+    </el-dialog>
+
   </div>
 </template>
 
@@ -107,7 +135,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Refresh, View, Edit, Delete, Download } from '@element-plus/icons-vue'
+import { Plus, Search, Refresh, View, Edit, Delete, Download, Coin } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 
 const router = useRouter()
@@ -119,6 +147,15 @@ const formVisible = ref(false), isEdit = ref(false), saveLoading = ref(false), f
 const customerOptions = ref([]), opportunityOptions = ref([])
 const form = reactive({ customer_id: null, opportunity_id: null, amount: 0, sign_date: '', delivery_date: '', payment_terms: '', status: 1, remark: '', plans: [] })
 const rules = { customer_id: [{ required: true, message: '请选择客户', trigger: 'change' }], amount: [{ required: true, message: '请输入合同金额', trigger: 'blur' }] }
+
+// 快速回款
+const quickPayVisible = ref(false), quickPayLoading = ref(false), quickPayFormRef = ref(null)
+const quickPayPlans = ref([]), quickPayContract = ref(null)
+const quickPayForm = reactive({ plan_id: null, pay_date: '', pay_amount: 0, pay_method: '', remark: '' })
+const quickPayRules = {
+  pay_date: [{ required: true, message: '请选择日期', trigger: 'change' }],
+  pay_amount: [{ required: true, message: '请输入金额', trigger: 'blur' }]
+}
 
 const fmt = (v) => { const n = Number(v); if (isNaN(n)) return '0.00'; return n.toLocaleString('zh-CN', { minimumFractionDigits: 2 }) }
 const statusType = (s) => ({ 1: 'info', 2: '', 3: 'success', 4: 'danger' }[s] || 'info')
@@ -196,6 +233,44 @@ const handleExport = async () => {
     URL.revokeObjectURL(url)
   } catch { ElMessage.error('导出失败') }
   finally { exportLoading.value = false }
+}
+
+// 快速回款
+const openQuickPay = async (row) => {
+  quickPayContract.value = row
+  const today = new Date().toISOString().slice(0, 10)
+  Object.assign(quickPayForm, { plan_id: null, pay_date: today, pay_amount: 0, pay_method: '', remark: '' })
+  quickPayPlans.value = []
+  try {
+    const r = await request.get(`/contract/detail/${row.id}`)
+    if (r.code === 200 && r.data.plans) {
+      quickPayPlans.value = r.data.plans.filter(p => p.status !== 'completed')
+    }
+  } catch { /* 加载计划失败不影响回款 */ }
+  quickPayVisible.value = true
+}
+const onPlanChange = (planId) => {
+  if (!planId) { quickPayForm.pay_amount = 0; return }
+  const plan = quickPayPlans.value.find(p => p.id === planId)
+  if (plan) { quickPayForm.pay_amount = Math.max(0, (plan.plan_amount || 0) - (plan.paid_amount || 0)) }
+}
+const submitQuickPay = async () => {
+  if (!quickPayFormRef.value) return
+  await quickPayFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    quickPayLoading.value = true
+    try {
+      const r = await request.post('/contract/payment/add', { contract_id: quickPayContract.value.id, ...quickPayForm })
+      if (r.code === 200) { ElMessage.success('回款登记成功'); quickPayVisible.value = false; fetchList() }
+      else { ElMessage.error(r.message || '登记失败') }
+    } catch { ElMessage.error('登记失败') }
+    finally { quickPayLoading.value = false }
+  })
+}
+const resetQuickPay = () => {
+  Object.assign(quickPayForm, { plan_id: null, pay_date: '', pay_amount: 0, pay_method: '', remark: '' })
+  quickPayPlans.value = []
+  quickPayContract.value = null
 }
 
 // 审批操作

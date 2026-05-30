@@ -79,30 +79,29 @@ AI不是"代码生成器"，必须同时扮演：
 - 过度抽象
 - 过度设计
 
-### 推荐架构原则
+### 当前架构
 
 采用前后端分离架构。
 
-推荐结构：
-
 **Frontend：**
-- Vue3 / React
-- TypeScript
-- Vite
-- Element Plus / Ant Design
+- Vue 3 + Vite
+- Element Plus
+- 部署：Vercel 静态托管（原 Docker Nginx）
 
 **Backend：**
-- Node.js / Java Spring Boot
+- Node.js + Express 5
 - RESTful API
+- 部署：Vercel Serverless Functions（原 Docker 容器）
 
 **Database：**
-- MySQL
+- PostgreSQL（Supabase 托管）
+- 原为 MySQL 8.0，已迁移（参见 MIGRATION_GUIDE.md）
 
 **Cache：**
-- Redis（后期按需增加）
+- Redis（后期按需增加，可选 Upstash Redis）
 
 **File Storage：**
-- 本地存储或OSS
+- Supabase Storage（原本地磁盘 + multer）
 
 ### 架构规则
 
@@ -121,6 +120,12 @@ AI不是"代码生成器"，必须同时扮演：
 - 模块化开发
 - 低耦合
 - 高可维护性
+
+### 部署环境
+
+- **生产环境：** Vercel + Supabase（PostgreSQL + Storage）
+- **本地开发：** Docker Compose（MySQL + Redis + Nginx）仍可用
+- 迁移对照：参见项目根目录 `MIGRATION_GUIDE.md`
 
 ### 模块划分原则
 

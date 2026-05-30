@@ -31,6 +31,15 @@
         <el-table-column prop="paid_amount" label="已回金额" width="130" align="right">
           <template #default="{ row }">¥{{ fmt(row.paid_amount) }}</template>
         </el-table-column>
+        <el-table-column label="回款进度" width="160">
+          <template #default="{ row }">
+            <el-progress
+              :percentage="row.plan_amount > 0 ? Math.round((row.paid_amount || 0) / row.plan_amount * 100) : 0"
+              :stroke-width="10"
+              :color="(row.paid_amount || 0) >= row.plan_amount ? '#67c23a' : (row.status === 'overdue' ? '#f56c6c' : '#409eff')"
+            />
+          </template>
+        </el-table-column>
         <el-table-column prop="status" label="状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="planStatusType(row.status)" size="small">{{ planStatusText(row.status) }}</el-tag>
@@ -49,7 +58,16 @@
         <span>总计划: ¥{{ fmt(planTotal) }}</span>
         <span>总已回: ¥{{ fmt(planPaid) }}</span>
         <span>剩余: ¥{{ fmt(planTotal - planPaid) }}</span>
-        <span>完成率: <el-tag :type="planRate >= 100 ? 'success' : planRate >= 60 ? 'warning' : 'danger'" size="small">{{ planRate }}%</el-tag></span>
+        <span class="plan-rate-bar">
+          完成率:
+          <el-progress
+            :percentage="planRate"
+            :stroke-width="12"
+            :color="planRate >= 100 ? '#67c23a' : planRate >= 60 ? '#e6a23c' : '#f56c6c'"
+            style="width: 120px; display: inline-flex; vertical-align: middle;"
+          />
+          <span style="margin-left: 4px; font-weight: 600;">{{ planRate }}%</span>
+        </span>
       </div>
     </el-card>
 
@@ -197,6 +215,7 @@ onMounted(() => { fetchDetail() })
 .page-title { font-size: 18px; font-weight: 500; color: var(--c-text); }
 .card-title { font-weight: 500; }
 .card-header { display: flex; justify-content: space-between; align-items: center; }
-.plan-summary { display: flex; gap: 24px; margin-top: 12px; padding: 12px; background: #fafafa; border-radius: 4px; font-size: 14px; color: var(--c-text-secondary); }
+.plan-summary { display: flex; gap: 24px; margin-top: 12px; padding: 12px; background: #fafafa; border-radius: 4px; font-size: 14px; color: var(--c-text-secondary); align-items: center; flex-wrap: wrap; }
 .plan-summary span { white-space: nowrap; }
+.plan-rate-bar { display: flex; align-items: center; gap: 4px; }
 </style>

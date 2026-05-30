@@ -62,11 +62,14 @@ backend/
 
 ## Database
 
-MySQL
+PostgreSQL（Supabase 托管），原 MySQL 8.0 已迁移。
 
-主要表（44张）：
+迁移对照：项目根目录 `MIGRATION_GUIDE.md`
+迁移文件：`supabase/migrations/000_baseline.sql` + `001-034`
 
-crm_业务表（30张）：
+主要表（48张）：
+
+crm_业务表（32张）：
 
 - crm_customer
 - crm_contact
@@ -98,12 +101,15 @@ crm_业务表（30张）：
 - crm_attachment
 - crm_ai_suggestion
 - crm_notification
+- crm_invoice
+- crm_sales_target
 
-sys_系统表（13张）：
+sys_系统表（15张）：
 
 - sys_user
 - sys_role
 - sys_dept
+- sys_log
 - sys_permission
 - sys_role_permission
 - sys_data_permission
@@ -138,24 +144,28 @@ sys_系统表（13张）：
 
 ---
 
-## Docker架构
+## 部署架构
 
-包含：
+### 生产环境（Vercel + Supabase）
+- Frontend：Vercel 静态托管（SPA）
+- Backend：Vercel Serverless Functions（@vercel/node）
+- Database：Supabase PostgreSQL
+- Storage：Supabase Storage
+- Cron：Vercel Cron Jobs
 
-- frontend（内置nginx，非独立服务）
+### 本地开发（Docker Compose）
+- frontend（内置 Nginx，非独立服务）
 - backend
 - mysql
-- redis（默认禁用，REDIS_ENABLED=false）
+- redis（默认禁用）
 
 ---
 
 ## 文件上传
 
-uploads/
-
-必须使用volume持久化。
-
-禁止删除volume映射。
+- **生产环境：** Supabase Storage（attachments bucket）
+- **本地开发：** `uploads/` 目录（multer + 本地磁盘），通过 `express.static` 提供
+- 原 volume 持久化方案仅供本地开发使用
 
 ---
 
@@ -197,17 +207,23 @@ config/
 
 根目录独立脚本：
 
-- analyze_query.js（SQL查询分析）
-- backup.js（数据库备份）
-- create_sys_log_table.js（日志表初始化）
-- optimize_indices.js（索引优化）
+- `analyze_query.js`（SQL查询分析）
+- `backup.js`（数据库备份，待适配 pg_dump）
+- `create_sys_log_table.js`（日志表初始化，待适配 PG）
+- `optimize_indices.js`（索引优化）
 
-scripts/目录：
+`backend/scripts/` 目录：
 
-- auto_release.js（公海自动回收）
-- backup.js（备份脚本）
-- generate_reminders.js（提醒生成）
-- overdue_reminder.js（逾期提醒）
+- `auto_release.js`（公海自动回收）
+- `backup.js`（备份脚本，待适配 pg_dump）
+- `generate_reminders.js`（提醒生成）
+- `overdue_reminder.js`（逾期提醒）
+
+`supabase/migrations/` 新增目录：
+
+- `000_baseline.sql`（基线建表，27张基础表）
+- `001-034`（34个增量迁移）
+- `run_migrations.js`（PG 迁移运行器）
 
 ---
 
@@ -273,11 +289,18 @@ scripts/目录：
 
 ## 定时任务
 
-内置3个定时任务（node-cron）：
+4 个定时任务：
 
-- 供应商评分计算（每天凌晨2点，0 2 * * *）
-- 过期日志清理（每天凌晨3点，保留90天，0 3 * * *）
-- 公海自动回收（每天凌晨1点，超期未跟进客户回收，0 1 * * *）
+| 调度 | 任务 | 环境 |
+|------|------|------|
+| 每天 01:00 | 公海自动回收 | node-cron（本地）/ Vercel Cron（生产） |
+| 每天 02:00 | 供应商评分 + 资质检查 | 同上 |
+| 每天 03:00 | 过期日志清理（保留90天） | 同上 |
+| 每天 08:30 | 跟进提醒生成 | 同上 |
+
+- 生产环境通过 Vercel Cron Jobs 触发 `/api/cron/*` 端点
+- 本地开发仍使用 node-cron 原方案
+- 参见 `backend/app.js`（本地）和 `backend/routes/cronJobs.js`（新增，Serverless）
 
 ---
 

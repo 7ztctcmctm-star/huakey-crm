@@ -40,12 +40,14 @@ Huakey CRM 企业管理系统。
 
 数据库：
 
-* MySQL 8.0 / MariaDB 10
+* PostgreSQL（Supabase 托管）
+* 原 MySQL 8.0，已迁移至 Supabase（PostgreSQL）
 
 部署：
 
-* Docker + Docker Compose
-* Nginx 反向代理
+* 生产：Vercel + Supabase（PostgreSQL + Storage）
+* 本地开发：Docker + Docker Compose（仍可用）
+* 原部署：Docker + Nginx 反向代理
 
 AI模块：
 

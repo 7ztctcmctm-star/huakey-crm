@@ -21,8 +21,8 @@ async function autoRelease() {
          AND owner_id IS NOT NULL
          AND (
            last_follow_time IS NULL
-           AND create_time < DATE_SUB(NOW(), INTERVAL ? DAY)
-           OR last_follow_time < DATE_SUB(NOW(), INTERVAL ? DAY)
+           AND create_time < NOW() - (? * INTERVAL '1 day')
+           OR last_follow_time < NOW() - (? * INTERVAL '1 day')
          )`,
       [AUTO_RELEASE_DAYS, AUTO_RELEASE_DAYS]
     );
