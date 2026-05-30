@@ -193,6 +193,7 @@ const fetchPayment = async () => {
     }
   } catch (error) {
     console.error('获取回款数据失败:', error)
+    ElMessage.error('加载回款数据失败')
   }
 }
 
@@ -204,6 +205,7 @@ const fetchCustomer = async () => {
     }
   } catch (error) {
     console.error('获取客户数据失败:', error)
+    ElMessage.error('加载客户数据失败')
   }
 }
 
@@ -216,6 +218,7 @@ const fetchPerformance = async () => {
     }
   } catch (error) {
     console.error('获取业绩数据失败:', error)
+    ElMessage.error('加载业绩数据失败')
   } finally {
     performanceLoading.value = false
   }
@@ -236,6 +239,7 @@ const fetchSalesFunnel = async () => {
     }
   } catch (error) {
     console.error('获取销售漏斗失败:', error)
+    ElMessage.error('加载销售漏斗失败')
   }
 }
 
@@ -307,6 +311,7 @@ const fetchSalesTrend = async () => {
     }
   } catch (error) {
     console.error('获取销售趋势失败:', error)
+    ElMessage.error('加载销售趋势失败')
   }
 }
 
@@ -378,6 +383,7 @@ const fetchPurchaseTrend = async () => {
     }
   } catch (error) {
     console.error('获取采购趋势失败:', error)
+    ElMessage.error('加载采购趋势失败')
   }
 }
 
@@ -421,6 +427,7 @@ const fetchPurchaseBySupplier = async () => {
     }
   } catch (error) {
     console.error('获取采购供应商分布失败:', error)
+    ElMessage.error('加载采购供应商分布失败')
   }
 }
 
