@@ -67,6 +67,9 @@ request.interceptors.response.use(
         default:
           ElMessage.error(data.message || '请求失败')
       }
+    } else if (error.code === 'ECONNABORTED') {
+      // 请求超时
+      ElMessage.error('请求超时，请稍后重试')
     } else if (error.request) {
       // 请求已发送但没有收到响应
       ElMessage.error('网络错误，请检查网络连接')

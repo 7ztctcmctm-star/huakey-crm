@@ -2,9 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const pool = require('../config/database');
-
-const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:3b';
+const { chatCompletion, getProviderStatus } = require('../utils/llmClient');
 
 // AI查询专用只读连接池（使用只读数据库账号）
 const mysql = require('mysql2/promise');
@@ -27,33 +25,21 @@ router.post('/chat', authenticateToken, async (req, res) => {
   try {
     const { messages, context } = req.body;
 
-    const payload = {
-      model: OLLAMA_MODEL,
-      messages: [
-        { role: 'system', content: '你是铧旗CRM的AI助手。当前页面: ' + (context || '未知') + '。用简洁中文回答，不超过200字。' },
-        ...(messages || [])
-      ],
-      stream: false,
-      options: { num_predict: 200, temperature: 0.7 }
-    };
+    const systemPrompt = '你是铧旗CRM的AI助手。当前页面: ' + (context || '未知') + '。用简洁中文回答，不超过200字。';
+    const safeMessages = (messages || [])
+      .filter(m => m.role === 'user' || m.role === 'assistant')
+      .map(m => ({ role: m.role, content: m.content }));
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 60000);
 
-    const response = await fetch(OLLAMA_URL + '/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: controller.signal
+    const reply = await chatCompletion(safeMessages, {
+      maxTokens: 200,
+      temperature: 0.7,
+      signal: controller.signal,
+      system: systemPrompt
     });
     clearTimeout(timeout);
-
-    if (!response.ok) {
-      return res.status(502).json({ code: 502, message: 'AI 服务返回错误', data: null });
-    }
-
-    const data = await response.json();
-    const reply = (data.message?.content || '').trim();
 
     res.json({
       code: 200,
@@ -63,20 +49,18 @@ router.post('/chat', authenticateToken, async (req, res) => {
   } catch (error) {
     const msg = error.name === 'AbortError'
       ? 'AI 响应超时，请重试'
-      : 'AI 调用失败，请稍后重试';
-    res.status(503).json({ code: 503, message: msg, data: null });
+      : (error.message || 'AI 调用失败，请稍后重试');
+    const code = 503;
+    res.status(code).json({ code, message: msg, data: null });
   }
 });
 
 router.get('/status', authenticateToken, async (req, res) => {
   try {
-    const ctrl = new AbortController();
-    setTimeout(() => ctrl.abort(), 3000);
-    const r = await fetch(OLLAMA_URL + '/api/tags', { signal: ctrl.signal });
-    const d = await r.json();
-    res.json({ code: 200, data: { online: true, models: (d.models || []).map(m => m.name) } });
+    const status = await getProviderStatus();
+    res.json({ code: 200, data: status });
   } catch {
-    res.json({ code: 200, data: { online: false, models: [] } });
+    res.json({ code: 200, data: { online: false, provider: 'unknown', model: '', models: [] } });
   }
 });
 
@@ -103,19 +87,18 @@ router.post('/query', authenticateToken, async (req, res) => {
     if (!question) return res.status(400).json({ code: 400, message: '请输入问题', data: null });
 
     // Step 1: AI 生成 SQL
+    const sqlSystemPrompt = `你是一个严格的SQL生成器。规则：1.只输出一条SQL 2.不要markdown/解释/换行 3.尽量简单，不要JOIN除非用户明确提到多张表 4.用COUNT(*)统计数量 5.表结构:\n${DB_SCHEMA}\n\n示例问"客户总数"→输出:SELECT COUNT(*) FROM crm_customer WHERE status != 0`;
     const sqlPrompt = [
-      { role: 'system', content: `你是一个严格的SQL生成器。规则：1.只输出一条SQL 2.不要markdown/解释/换行 3.尽量简单，不要JOIN除非用户明确提到多张表 4.用COUNT(*)统计数量 5.表结构:\n${DB_SCHEMA}\n\n示例问"客户总数"→输出:SELECT COUNT(*) FROM crm_customer WHERE status != 0` },
       { role: 'user', content: '写SQL查询: ' + question }
     ];
 
-    const sqlRes = await fetch(OLLAMA_URL + '/api/chat', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: OLLAMA_MODEL, messages: sqlPrompt, stream: false, options: { num_predict: 150, temperature: 0.1 } }),
-      signal: AbortSignal.timeout(30000)
+    let sql = await chatCompletion(sqlPrompt, {
+      maxTokens: 150,
+      temperature: 0.1,
+      signal: AbortSignal.timeout(30000),
+      system: sqlSystemPrompt
     });
-
-    const sqlData = await sqlRes.json();
-    let sql = (sqlData.message?.content || '').trim();
+    sql = sql.trim();
 
     // 清理SQL（去掉markdown代码块、换行，暂时保留分号用于多语句检测）
     sql = sql.replace(/```sql\n?/gi, '').replace(/```\n?/g, '').replace(/```/g, '')
@@ -159,18 +142,15 @@ router.post('/query', authenticateToken, async (req, res) => {
     // Step 3: AI 格式化结果
     const resultStr = JSON.stringify(rows.slice(0, 20));
     const fmtPrompt = [
-      { role: 'system', content: '将以下查询结果用简洁中文总结，不超过200字。' },
       { role: 'user', content: `问题: ${question}\nSQL: ${sql}\n结果(${rows.length}条): ${resultStr}` }
     ];
 
-    const fmtRes = await fetch(OLLAMA_URL + '/api/chat', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: OLLAMA_MODEL, messages: fmtPrompt, stream: false, options: { num_predict: 200, temperature: 0.7 } }),
-      signal: AbortSignal.timeout(30000)
-    });
-
-    const fmtData = await fmtRes.json();
-    const answer = (fmtData.message?.content || '查询完成').trim();
+    const answer = (await chatCompletion(fmtPrompt, {
+      maxTokens: 200,
+      temperature: 0.7,
+      signal: AbortSignal.timeout(30000),
+      system: '将以下查询结果用简洁中文总结，不超过200字。'
+    })) || '查询完成';
 
     res.json({ code: 200, data: { sql, answer, rows: rows.slice(0, 20), total: rows.length } });
   } catch (error) {

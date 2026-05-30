@@ -46,7 +46,7 @@ const input = ref('')
 const msgs = ref([])
 const loading = ref(false)
 const online = ref(false)
-const modelName = ref('qwen2.5')
+const modelName = ref('AI')
 const bodyRef = ref(null)
 
 const hints = ['最近7天新增了多少线索', '各等级的客户数量', '本月成交合同总额', '如何跟进逾期客户']
@@ -77,7 +77,7 @@ async function send() {
   try {
     let r
     if (isDataQuery(t)) {
-      r = await request.post('/ai/query', { question: t })
+      r = await request.post('/ai/query', { question: t }, { timeout: 60000 })
       if (r.code === 200) {
         const d = r.data
         msgs.value.push({ role: 'assistant', content: d.answer + '\n\n查询到 ' + d.total + ' 条记录' })
@@ -86,7 +86,7 @@ async function send() {
       r = await request.post('/ai/chat', {
         messages: msgs.value.map(m => ({ role: m.role, content: m.content })),
         context: getCtx()
-      })
+      }, { timeout: 60000 })
       if (r.code === 200) {
         msgs.value.push({ role: 'assistant', content: r.data.reply })
       }
@@ -106,7 +106,8 @@ onMounted(async () => {
     const r = await request.get('/ai/status')
     if (r.data) {
       online.value = r.data.online
-      if (r.data.models?.length) modelName.value = r.data.models[0]
+      const label = r.data.model || r.data.models?.[0] || 'AI'
+      modelName.value = r.data.provider ? `${r.data.provider}/${label}` : label
     }
   } catch { online.value = false }
 })
