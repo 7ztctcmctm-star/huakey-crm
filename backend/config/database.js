@@ -84,6 +84,10 @@ const testConnection = async () => {
   }
 };
 
-testConnection();
+// Vercel Serverless: 跳过启动时的同步连接测试（冷启动时连接池会自动初始化）
+// 本地开发仍执行
+if (!process.env.VERCEL) {
+  testConnection();
+}
 
 module.exports = pool;

@@ -4,20 +4,13 @@
  * 被app.js调用: require('./scripts/generate_reminders').generateReminders(pool)
  */
 require('dotenv').config();
-const mysql = require('mysql2/promise');
 
 async function generateReminders(existingPool) {
-  // 如果传入了连接池就用，否则自己创建
-  const pool = existingPool || mysql.createPool({
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT) || 3306,
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'huakey_crm',
-    waitForConnections: true,
-    connectionLimit: 2,
-    queueLimit: 0
-  });
+  // 如果传入了连接池就用，否则自己创建（PG 兼容）
+  const pool = existingPool || (() => {
+    const { Pool } = require('pg');
+    return new Pool({ connectionString: process.env.DATABASE_URL });
+  })();
 
   const shouldClose = !existingPool;
 

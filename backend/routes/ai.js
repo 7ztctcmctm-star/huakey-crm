@@ -4,18 +4,8 @@ const { authenticateToken } = require('../middleware/auth');
 const pool = require('../config/database');
 const { chatCompletion, getProviderStatus } = require('../utils/llmClient');
 
-// AI查询专用只读连接池（使用只读数据库账号）
-const mysql = require('mysql2/promise');
-const readOnlyPool = mysql.createPool({
-  host: process.env.DB_RO_HOST || process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_RO_PORT) || parseInt(process.env.DB_PORT) || 3306,
-  user: process.env.DB_RO_USER || process.env.DB_USER,
-  password: process.env.DB_RO_PASSWORD || process.env.DB_PASSWORD,
-  database: process.env.DB_RO_NAME || process.env.DB_NAME || 'huakey_crm',
-  waitForConnections: true,
-  connectionLimit: 5,
-  queueLimit: 0
-});
+// AI查询使用主数据库连接池（PG 已兼容）
+const readOnlyPool = pool;
 
 if (!process.env.DB_RO_USER) {
   console.warn('[AI] 未配置DB_RO_*环境变量，AI查询将使用主数据库账号。建议配置只读数据库账号以降低安全风险。');

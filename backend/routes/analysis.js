@@ -154,7 +154,7 @@ router.get('/customer-score/:id', authenticateToken, async (req, res) => {
 
     // 跟进频次（近90天）
     const [followResult] = await pool.query(
-      'SELECT COUNT(*) as cnt FROM crm_follow_up WHERE customer_id = ? AND create_time >= NOW() - INTERVAL '90 days'',
+      `SELECT COUNT(*) as cnt FROM crm_follow_up WHERE customer_id = ? AND create_time >= NOW() - INTERVAL '90 days'`,
       [id]
     );
 

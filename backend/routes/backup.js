@@ -16,9 +16,13 @@ const requireAdmin = (req, res, next) => {
 
 const backupDir = path.join(__dirname, '../backups');
 
-// 确保备份目录存在
-if (!fs.existsSync(backupDir)) {
-  fs.mkdirSync(backupDir, { recursive: true });
+// 确保备份目录存在（Vercel 只读文件系统上静默跳过）
+try {
+  if (!fs.existsSync(backupDir)) {
+    fs.mkdirSync(backupDir, { recursive: true });
+  }
+} catch(e) {
+  console.warn('无法创建备份目录 (可能是只读环境):', e.message);
 }
 
 // 创建备份
