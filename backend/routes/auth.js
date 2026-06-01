@@ -99,23 +99,25 @@ router.post('/login', validate(loginSchema), async (req, res) => {
     // 生成JWT token
     const token = generateToken(user);
 
-    // 获取用户权限
-    const permissions = await getUserPermissions(user.id, user.role_id);
-    const menus = await getMenuPermissions(user.role_id);
-    const dataPermissions = await getDataPermissions(user.role_id);
+    // 并行获取权限数据（减少等待时间）
+    const [permissions, menus, dataPermissions] = await Promise.all([
+      getUserPermissions(user.id, user.role_id),
+      getMenuPermissions(user.role_id),
+      getDataPermissions(user.role_id)
+    ]);
 
-    // 更新最后登录信息
-    await pool.query(
+    // 异步更新登录信息（不阻塞响应）
+    pool.query(
       'UPDATE sys_user SET last_login_time = NOW(), last_login_ip = ? WHERE id = ?',
       [ip, user.id]
-    );
+    ).catch(err => console.error('更新登录信息失败:', err.message));
 
-    // 记录登录成功日志
-    await logAction({
+    // 异步记录日志（不阻塞响应）
+    logAction({
       module: '系统管理', action: '登录', method: 'POST', url: '/api/auth/login',
       params: { username }, ipAddress: ip, userId: user.id, userName: user.real_name,
       description: `${user.real_name} 登录成功`, status: 1
-    });
+    }).catch(err => console.error('记录登录日志失败:', err.message));
 
     // 返回结果
     res.json({
