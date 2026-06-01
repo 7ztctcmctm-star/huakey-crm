@@ -7,6 +7,11 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const isProduction = process.env.NODE_ENV === 'production';
 
+// Vercel Serverless 环境需要 trust proxy
+if (isProduction || process.env.VERCEL) {
+  app.set('trust proxy', 1);
+}
+
 app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false

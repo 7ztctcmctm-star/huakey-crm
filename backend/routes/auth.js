@@ -58,8 +58,8 @@ router.post('/login', validate(loginSchema), async (req, res) => {
     const [users] = await pool.query(
       `SELECT u.id, u.username, u.password, u.real_name, u.phone, u.email,
               u.dept_id, u.role_id, u.status,
-              COALESCE(r.view_all, 0) as view_all,
-              COALESCE(r.manage_all, 0) as manage_all
+              COALESCE(r.view_all::int, 0) as view_all,
+              COALESCE(r.manage_all::int, 0) as manage_all
        FROM sys_user u
        LEFT JOIN sys_role r ON u.role_id = r.id
        WHERE u.username = ? AND u.status = 1`,
@@ -144,8 +144,11 @@ router.post('/login', validate(loginSchema), async (req, res) => {
     console.error('登录错误:', error);
     res.status(500).json({
       code: 500,
-      message: '登录失败，请稍后重试',
-      data: null
+      message: '登录失败：' + error.message,
+      data: {
+        error: error.message,
+        stack: process.env.NODE_ENV === 'production' ? undefined : error.stack
+      }
     });
   }
 });

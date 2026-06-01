@@ -13,6 +13,14 @@ const createRateLimiter = (options = {}) => {
     },
     standardHeaders: true,
     legacyHeaders: false,
+    // 修复 Vercel Serverless 环境中的 X-Forwarded-For 问题
+    validate: {
+      xForwardedForHeader: false,
+      forwardedHeader: false,
+    },
+    keyGenerator: (req) => {
+      return req.ip || req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || 'unknown';
+    },
     handler: (req, res) => {
       res.status(429).json({
         code: 429,

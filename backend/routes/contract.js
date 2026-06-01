@@ -296,7 +296,7 @@ router.post('/add', authenticateToken, checkPermission('contract:add'), validate
         `INSERT INTO crm_notification (type, title, content, business_type, business_id, from_user_id, to_role_id)
          SELECT 'contract_approval', ?, ?, 'contract', ?, ?, r.id
          FROM sys_role r
-         WHERE (r.manage_all = 1 OR r.id IN (1, 2))
+         WHERE (r.manage_all IS TRUE OR r.id IN (1, 2))
            AND NOT EXISTS (
              SELECT 1 FROM crm_notification n
              WHERE n.business_type = 'contract' AND n.business_id = ? AND n.to_role_id = r.id AND n.is_dismissed = 0
