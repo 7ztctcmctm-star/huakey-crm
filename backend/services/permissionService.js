@@ -74,7 +74,7 @@ async function getMenuPermissions(roleId) {
     `SELECT p.id, p.name, p.code, p.parent_id, p.path, p.icon, p.sort
      FROM sys_role_permission rp
      JOIN sys_permission p ON rp.permission_id = p.id
-     WHERE rp.role_id = ? AND p.type = 'menu' AND p.is_visible = 1
+     WHERE rp.role_id = ? AND p.type = 'menu' AND p.is_visible = true
      ORDER BY p.sort`,
     [roleId]
   );
