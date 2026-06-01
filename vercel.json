@@ -5,12 +5,12 @@
   "outputDirectory": "frontend/dist",
   "framework": "vite",
   "functions": {
-    "backend/api/**/*.js": {
+    "api/**/*.js": {
       "includeFiles": "backend/**"
     }
   },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/backend/api/index" },
+    { "source": "/api/(.*)", "destination": "/api/index" },
     { "source": "/((?!api).*)", "destination": "/index.html" }
   ],
   "crons": [
