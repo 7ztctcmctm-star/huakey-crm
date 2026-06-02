@@ -58,8 +58,8 @@ router.post('/login', validate(loginSchema), async (req, res) => {
     const [users] = await pool.query(
       `SELECT u.id, u.username, u.password, u.real_name, u.phone, u.email,
               u.dept_id, u.role_id, u.status,
-              COALESCE(r.view_all::int, 0) as view_all,
-              COALESCE(r.manage_all::int, 0) as manage_all
+              COALESCE(r.view_all, 0) as view_all,
+              COALESCE(r.manage_all, 0) as manage_all
        FROM sys_user u
        LEFT JOIN sys_role r ON u.role_id = r.id
        WHERE u.username = ? AND u.status = 1`,
@@ -99,25 +99,23 @@ router.post('/login', validate(loginSchema), async (req, res) => {
     // 生成JWT token
     const token = generateToken(user);
 
-    // 并行获取权限数据（减少等待时间）
-    const [permissions, menus, dataPermissions] = await Promise.all([
-      getUserPermissions(user.id, user.role_id),
-      getMenuPermissions(user.role_id),
-      getDataPermissions(user.role_id)
-    ]);
+    // 获取用户权限
+    const permissions = await getUserPermissions(user.id, user.role_id);
+    const menus = await getMenuPermissions(user.role_id);
+    const dataPermissions = await getDataPermissions(user.role_id);
 
-    // 异步更新登录信息（不阻塞响应）
-    pool.query(
+    // 更新最后登录信息
+    await pool.query(
       'UPDATE sys_user SET last_login_time = NOW(), last_login_ip = ? WHERE id = ?',
       [ip, user.id]
-    ).catch(err => console.error('更新登录信息失败:', err.message));
+    );
 
-    // 异步记录日志（不阻塞响应）
-    logAction({
+    // 记录登录成功日志
+    await logAction({
       module: '系统管理', action: '登录', method: 'POST', url: '/api/auth/login',
       params: { username }, ipAddress: ip, userId: user.id, userName: user.real_name,
       description: `${user.real_name} 登录成功`, status: 1
-    }).catch(err => console.error('记录登录日志失败:', err.message));
+    });
 
     // 返回结果
     res.json({
@@ -146,11 +144,8 @@ router.post('/login', validate(loginSchema), async (req, res) => {
     console.error('登录错误:', error);
     res.status(500).json({
       code: 500,
-      message: '登录失败：' + error.message,
-      data: {
-        error: error.message,
-        stack: process.env.NODE_ENV === 'production' ? undefined : error.stack
-      }
+      message: '登录失败，请稍后重试',
+      data: null
     });
   }
 });
