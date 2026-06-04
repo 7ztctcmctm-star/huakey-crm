@@ -87,9 +87,19 @@ router.post('/add', authenticateToken, checkPermission('customer:edit'), validat
       );
     }
 
-    // 更新客户的最后跟进时间
+    // 更新客户的最后跟进时间、跟进状态、生命周期状态
     await pool.query(
-      'UPDATE crm_customer SET last_follow_time = NOW() WHERE id = ?',
+      `UPDATE crm_customer
+       SET last_follow_time = NOW(),
+           follow_status = CASE
+             WHEN follow_status IS NULL OR follow_status = '初次联系' THEN '跟进中'
+             ELSE follow_status
+           END,
+           lifecycle_status = CASE
+             WHEN lifecycle_status = 'new' THEN 'nurturing'
+             ELSE lifecycle_status
+           END
+       WHERE id = ?`,
       [customer_id]
     );
 
@@ -245,7 +255,7 @@ router.get('/remind', authenticateToken, async (req, res) => {
       LEFT JOIN crm_contact co ON f.contact_id = co.id
       WHERE ${whereClause}
         AND f.next_time IS NOT NULL
-        AND f.next_time::date = CURRENT_DATE
+        AND DATE(f.next_time) = CURRENT_DATE
       ORDER BY f.next_time ASC`,
       params
     );
@@ -265,6 +275,138 @@ router.get('/remind', authenticateToken, async (req, res) => {
       message: '获取今日待跟进失败',
       data: null
     });
+  }
+});
+
+// 3.1 明日计划跟进列表
+router.get('/tomorrow', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const roleId = req.user.roleId;
+
+    let dataPermission = '';
+    const params = [];
+
+    if (roleId === 1 || roleId === 2) {
+      dataPermission = '1=1';
+    } else {
+      dataPermission = '(f.create_by = ? OR cu.owner_id = ?)';
+      params.push(userId, userId);
+    }
+
+    const [records] = await pool.query(
+      `SELECT f.id, f.customer_id, f.contact_id, f.follow_type, f.content,
+        f.next_time, f.next_content, f.create_time,
+        cu.company_name, cu.contact_name as customer_contact, cu.phone as customer_phone,
+        co.name as contact_name,
+        u.real_name as creator_name
+      FROM crm_follow_up f
+      LEFT JOIN crm_customer cu ON f.customer_id = cu.id AND cu.status != 0
+      LEFT JOIN crm_contact co ON f.contact_id = co.id AND co.deleted_at IS NULL
+      LEFT JOIN sys_user u ON f.create_by = u.id
+      WHERE f.deleted_at IS NULL
+        AND DATE(f.next_time) = DATE_ADD(CURRENT_DATE, INTERVAL 1 DAY)
+        AND ${dataPermission}
+      ORDER BY f.next_time ASC`,
+      params
+    );
+
+    res.json({
+      code: 200, message: '获取明日计划成功',
+      data: { list: records, total: records.length }
+    });
+  } catch (error) {
+    console.error('获取明日计划错误:', error);
+    res.status(500).json({ code: 500, message: '获取明日计划失败', data: null });
+  }
+});
+
+// 3.2 逾期未跟进列表
+router.get('/overdue', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const roleId = req.user.roleId;
+
+    let dataPermission = '';
+    const params = [];
+
+    if (roleId === 1 || roleId === 2) {
+      dataPermission = '1=1';
+    } else {
+      dataPermission = '(f.create_by = ? OR cu.owner_id = ?)';
+      params.push(userId, userId);
+    }
+
+    const [records] = await pool.query(
+      `SELECT f.id, f.customer_id, f.contact_id, f.follow_type, f.content,
+        f.next_time, f.next_content, f.create_time,
+        cu.company_name, cu.contact_name as customer_contact, cu.phone as customer_phone,
+        co.name as contact_name,
+        u.real_name as creator_name
+      FROM crm_follow_up f
+      LEFT JOIN crm_customer cu ON f.customer_id = cu.id AND cu.status != 0
+      LEFT JOIN crm_contact co ON f.contact_id = co.id AND co.deleted_at IS NULL
+      LEFT JOIN sys_user u ON f.create_by = u.id
+      WHERE f.deleted_at IS NULL
+        AND f.next_time IS NOT NULL
+        AND DATE(f.next_time) < CURRENT_DATE
+        AND ${dataPermission}
+      ORDER BY f.next_time ASC`,
+      params
+    );
+
+    res.json({
+      code: 200, message: '获取逾期跟进成功',
+      data: { list: records, total: records.length }
+    });
+  } catch (error) {
+    console.error('获取逾期跟进错误:', error);
+    res.status(500).json({ code: 500, message: '获取逾期跟进失败', data: null });
+  }
+});
+
+// 3.3 任务统计（今日/明日/逾期数量）
+router.get('/task-stats', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const roleId = req.user.roleId;
+
+    let dataPermission = '';
+    const params = [];
+
+    if (roleId === 1 || roleId === 2) {
+      dataPermission = '1=1';
+    } else {
+      dataPermission = '(create_by = ? OR customer_owner = ?)';
+      params.push(userId, userId);
+    }
+
+    const [stats] = await pool.query(
+      `SELECT
+        SUM(CASE WHEN DATE(next_time) = CURRENT_DATE THEN 1 ELSE 0 END) as today_count,
+        SUM(CASE WHEN DATE(next_time) = DATE_ADD(CURRENT_DATE, INTERVAL 1 DAY) THEN 1 ELSE 0 END) as tomorrow_count,
+        SUM(CASE WHEN DATE(next_time) < CURRENT_DATE THEN 1 ELSE 0 END) as overdue_count
+      FROM (
+        SELECT f.next_time, f.create_by, cu.owner_id as customer_owner
+        FROM crm_follow_up f
+        LEFT JOIN crm_customer cu ON f.customer_id = cu.id AND cu.status != 0
+        WHERE f.deleted_at IS NULL AND f.next_time IS NOT NULL
+      ) t
+      WHERE ${dataPermission}`,
+      params
+    );
+
+    res.json({
+      code: 200, message: '获取统计成功',
+      data: {
+        today_count: stats[0]?.today_count || 0,
+        tomorrow_count: stats[0]?.tomorrow_count || 0,
+        overdue_count: stats[0]?.overdue_count || 0
+      }
+    });
+  } catch (error) {
+    console.error('获取任务统计错误:', error);
+    res.status(500).json({ code: 500, message: '获取统计失败', data: null });
   }
 });
 

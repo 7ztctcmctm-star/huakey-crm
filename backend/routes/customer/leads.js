@@ -88,7 +88,13 @@ router.post('/convert', authenticateToken, checkPermission('leads'), async (req,
 
     const lead = rows[0];
     await connection.query(
-      'UPDATE crm_customer SET status = 2, converted_at = NOW(), lead_level = NULL WHERE id = ?',
+      `UPDATE crm_customer
+       SET status = 2,
+           customer_type = 'customer',
+           lifecycle_status = 'active',
+           converted_at = COALESCE(converted_at, NOW()),
+           lead_level = NULL
+       WHERE id = ?`,
       [id]
     );
 
@@ -153,8 +159,13 @@ router.post('/mark-lost', authenticateToken, checkPermission('leads'), async (re
     if (rows.length === 0) return res.status(404).json({ code: 404, message: '线索不存在或无权操作', data: null });
 
     await pool.query(
-      'UPDATE crm_customer SET follow_status = ? WHERE id = ?',
-      ['已流失', id]
+      `UPDATE crm_customer
+       SET status = 3,
+           customer_type = 'customer',
+           lifecycle_status = 'lost',
+           follow_status = '已流失'
+       WHERE id = ?`,
+      [id]
     );
 
     res.json({ code: 200, message: '已标记为流失', data: { id } });
@@ -171,11 +182,11 @@ router.get('/stats', authenticateToken, async (req, res) => {
 
     const [total] = await pool.query(`SELECT COUNT(*) as cnt FROM crm_customer WHERE ${permissionClause} AND status = 1`, permParams);
     const [month] = await pool.query(
-      `SELECT COUNT(*) as cnt FROM crm_customer WHERE ${permissionClause} AND status = 1 AND EXTRACT(YEAR FROM create_time) = EXTRACT(YEAR FROM NOW()) AND EXTRACT(WEEK FROM create_time) = EXTRACT(WEEK FROM NOW())`,
+      `SELECT COUNT(*) as cnt FROM crm_customer WHERE ${permissionClause} AND status = 1 AND YEAR(create_time) = YEAR(NOW()) AND WEEK(create_time, 1) = WEEK(NOW(), 1)`,
       permParams
     );
     const [converted] = await pool.query(
-      `SELECT COUNT(*) as cnt FROM crm_customer WHERE ${permissionClause} AND status = 2 AND converted_at >= NOW() - INTERVAL '30 days'`,
+      `SELECT COUNT(*) as cnt FROM crm_customer WHERE ${permissionClause} AND status = 2 AND converted_at >= NOW() - INTERVAL 30 DAY`,
       permParams
     );
 

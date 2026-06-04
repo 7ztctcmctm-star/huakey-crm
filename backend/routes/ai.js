@@ -237,13 +237,13 @@ router.post('/generate-suggestions', authenticateToken, async (req, res) => {
              EXTRACT(DAY FROM NOW() - COALESCE(c.last_follow_time, c.create_time)) as overdue_days
       FROM crm_customer c
       WHERE c.status != 0 AND c.owner_id IS NOT NULL
-        AND (c.last_follow_time IS NULL OR c.last_follow_time < NOW() - INTERVAL '30 days')
+        AND (c.last_follow_time IS NULL OR c.last_follow_time < NOW() - INTERVAL 30 DAY)
       LIMIT 20
     `);
 
     for (const c of overdueCustomers) {
       const [exists] = await pool.query(
-        "SELECT id FROM crm_ai_suggestion WHERE type = 'follow_up' AND ref_id = ? AND create_time >= NOW() - INTERVAL '24 hours'",
+        "SELECT id FROM crm_ai_suggestion WHERE type = 'follow_up' AND ref_id = ? AND create_time >= NOW() - INTERVAL 24 HOUR",
         [c.id]
       );
       if (exists.length === 0) {
@@ -262,13 +262,13 @@ router.post('/generate-suggestions', authenticateToken, async (req, res) => {
              EXTRACT(DAY FROM NOW() - o.update_time) as stale_days, c.company_name
       FROM crm_opportunity o
       LEFT JOIN crm_customer c ON o.customer_id = c.id
-      WHERE o.stage NOT IN (5, 6) AND o.update_time < NOW() - INTERVAL '14 days'
+      WHERE o.stage NOT IN (5, 6) AND o.update_time < NOW() - INTERVAL 14 DAY
       LIMIT 20
     `);
 
     for (const o of staleOpps) {
       const [exists] = await pool.query(
-        "SELECT id FROM crm_ai_suggestion WHERE type = 'opportunity' AND ref_id = ? AND create_time >= NOW() - INTERVAL '24 hours'",
+        "SELECT id FROM crm_ai_suggestion WHERE type = 'opportunity' AND ref_id = ? AND create_time >= NOW() - INTERVAL 24 HOUR",
         [o.id]
       );
       if (exists.length === 0) {
@@ -292,7 +292,7 @@ router.post('/generate-suggestions', authenticateToken, async (req, res) => {
 
     for (const o of lowWinOpps) {
       const [exists] = await pool.query(
-        "SELECT id FROM crm_ai_suggestion WHERE type = 'pricing' AND ref_id = ? AND create_time >= NOW() - INTERVAL '24 hours'",
+        "SELECT id FROM crm_ai_suggestion WHERE type = 'pricing' AND ref_id = ? AND create_time >= NOW() - INTERVAL 24 HOUR",
         [o.id]
       );
       if (exists.length === 0) {

@@ -107,7 +107,7 @@ const buildDataPermissionWhere = async (dataPermission, tableAlias = 't') => {
 
     case 'dept':
       return {
-        clause: `${column} IN (SELECT id FROM sys_user WHERE dept_id = (SELECT dept_id FROM sys_user WHERE id = ?))`,
+        clause: `(${column} IN (SELECT id FROM sys_user WHERE dept_id = (SELECT dept_id FROM sys_user WHERE id = ?)) OR ${column} IS NULL)`,
         params: [userId]
       };
 
@@ -135,12 +135,12 @@ const buildDataPermissionWhere = async (dataPermission, tableAlias = 't') => {
         if (deptIds.length > 0) {
           const placeholders = deptIds.map(() => '?').join(',');
           return {
-            clause: `${column} IN (SELECT id FROM sys_user WHERE dept_id IN (${placeholders}))`,
+            clause: `(${column} IN (SELECT id FROM sys_user WHERE dept_id IN (${placeholders})) OR ${column} IS NULL)`,
             params: deptIds
           };
         }
       }
-      return { clause: `${column} = ?`, params: [userId] };
+      return { clause: `(${column} = ? OR ${column} IS NULL)`, params: [userId] };
 
     default:
       return { clause: `${column} = ?`, params: [userId] };

@@ -14,7 +14,8 @@ const requireAdmin = (req, res, next) => {
 
 router.post('/list', authenticateToken, async (req, res) => {
   const { page = 1, pageSize = 20, module, action, status, startDate, endDate, actionType, userId } = req.body;
-  const offset = (page - 1) * pageSize;
+  const safePageSize = Math.min(Math.max(1, parseInt(pageSize) || 20), 200); // 上限200
+  const offset = (Math.max(1, parseInt(page) || 1) - 1) * safePageSize;
 
   let whereClause = '1=1';
   const params = [];
@@ -84,7 +85,7 @@ router.post('/list', authenticateToken, async (req, res) => {
       LIMIT ? OFFSET ?
     `;
 
-    const [rows] = await pool.query(sql, [...params, parseInt(pageSize), parseInt(offset)]);
+    const [rows] = await pool.query(sql, [...params, safePageSize, parseInt(offset)]);
 
     res.json({
       code: 200,
@@ -92,8 +93,8 @@ router.post('/list', authenticateToken, async (req, res) => {
       data: {
         list: rows,
         total,
-        page: parseInt(page),
-        pageSize: parseInt(pageSize)
+        page: parseInt(page) || 1,
+        pageSize: safePageSize
       }
     });
   } catch (error) {
@@ -157,7 +158,7 @@ router.post('/clear', authenticateToken, requireAdmin, async (req, res) => {
 
   try {
     const [result] = await pool.query(
-      "DELETE FROM sys_log WHERE create_time < NOW() - (? * INTERVAL '1 day')",
+      "DELETE FROM sys_log WHERE create_time < NOW() - INTERVAL ? DAY",
       [retentionDays]
     );
     res.json({ code: 200, message: `成功清理 ${result.affectedRows} 条过期日志`, data: null });

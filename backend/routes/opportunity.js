@@ -107,11 +107,12 @@ router.post('/list',
     const total = countResult[0].total;
 
     const [list] = await pool.query(
-      `SELECT 
+      `SELECT
         o.id, o.customer_id, o.name, o.expected_amount, o.expected_date,
         o.stage, o.win_rate, o.remark, o.owner_id, o.create_time, o.update_time,
         c.company_name as customer_name,
-        u.real_name as owner_name
+        u.real_name as owner_name,
+        DATEDIFF(NOW(), o.update_time) as stagnant_days
       FROM crm_opportunity o
       LEFT JOIN crm_customer c ON o.customer_id = c.id
       LEFT JOIN sys_user u ON o.owner_id = u.id
@@ -163,11 +164,15 @@ router.post('/add', authenticateToken, checkPermission('opportunity:add'), valid
     }
 
     const [customers] = await pool.query(
-      'SELECT id FROM crm_customer WHERE id = ? AND status != 0',
+      'SELECT id, customer_type FROM crm_customer WHERE id = ? AND status != 0',
       [customer_id]
     );
     if (customers.length === 0) {
       return res.status(404).json({ code: 404, message: '客户不存在', data: null });
+    }
+    // 校验客户必须是正式客户
+    if (customers[0].customer_type !== 'customer') {
+      return res.status(400).json({ code: 400, message: '只能为正式客户创建商机，请先将客户转化为正式客户', data: null });
     }
 
     const finalOwnerId = owner_id || req.user.userId;
@@ -357,6 +362,78 @@ router.post('/update-stage',
   } catch (error) {
     console.error('推进阶段错误:', error);
     res.status(500).json({ code: 500, message: '推进阶段失败', data: null });
+  }
+});
+
+// 4.1 获取商机阶段日志
+router.get('/stage-log/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [logs] = await pool.query(
+      `SELECT
+        l.id, l.from_stage, l.to_stage, l.change_reason, l.changed_at,
+        u.real_name as changed_by_name,
+        TIMESTAMPDIFF(HOUR, l.changed_at,
+          COALESCE(
+            (SELECT MIN(changed_at) FROM crm_opportunity_stage_log
+             WHERE opportunity_id = l.opportunity_id AND changed_at > l.changed_at),
+            NOW()
+          )
+        ) as hours_in_stage
+      FROM crm_opportunity_stage_log l
+      LEFT JOIN sys_user u ON l.changed_by = u.id
+      WHERE l.opportunity_id = ?
+      ORDER BY l.changed_at DESC`,
+      [id]
+    );
+
+    res.json({ code: 200, message: '查询成功', data: logs });
+  } catch (error) {
+    console.error('查询阶段日志错误:', error);
+    res.status(500).json({ code: 500, message: '查询失败', data: null });
+  }
+});
+
+// 4.2 商机阶段停留时间统计
+router.get('/stage-stats/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [stats] = await pool.query(
+      `SELECT
+        to_stage as stage,
+        SUM(
+          TIMESTAMPDIFF(HOUR, changed_at,
+            COALESCE(
+              (SELECT MIN(changed_at) FROM crm_opportunity_stage_log
+               WHERE opportunity_id = ? AND changed_at > l.changed_at),
+              NOW()
+            )
+          )
+        ) as hours
+      FROM crm_opportunity_stage_log l
+      WHERE opportunity_id = ?
+      GROUP BY to_stage
+      ORDER BY stage`,
+      [id, id]
+    );
+
+    const stages = stats.map(s => ({
+      stage: s.stage,
+      name: STAGE_MAP[s.stage] || '未知',
+      hours: s.hours || 0
+    }));
+
+    const totalHours = stages.reduce((sum, s) => sum + s.hours, 0);
+
+    res.json({
+      code: 200, message: '查询成功',
+      data: { stages, total_hours: totalHours }
+    });
+  } catch (error) {
+    console.error('阶段统计错误:', error);
+    res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
 

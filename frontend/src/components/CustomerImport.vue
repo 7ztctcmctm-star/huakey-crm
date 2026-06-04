@@ -7,6 +7,11 @@
     </el-steps>
 
     <div v-if="step === 0">
+      <div style="margin-bottom:12px">
+        <el-button type="primary" link @click="downloadTemplate">
+          <el-icon><Download /></el-icon> 下载导入模板
+        </el-button>
+      </div>
       <el-upload
         ref="uploadRef" :auto-upload="false" :limit="1"
         accept=".xlsx,.xls" :on-change="handleFileChange" :on-remove="handleFileRemove" drag
@@ -76,7 +81,7 @@
 <script setup>
 import { ref, reactive, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { UploadFilled } from '@element-plus/icons-vue'
+import { UploadFilled, Download } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 
 const emit = defineEmits(['imported'])
@@ -95,6 +100,17 @@ const invalidCount = computed(() => preview.value.filter(r => r.valid === false)
 
 const handleFileChange = (f) => { file.value = f.raw }
 const handleFileRemove = () => { file.value = null }
+
+const downloadTemplate = async () => {
+  try {
+    const res = await request.get('/customer/template', { responseType: 'blob' })
+    const url = URL.createObjectURL(res)
+    const a = document.createElement('a')
+    a.href = url; a.download = 'customer_import_template.xlsx'
+    document.body.appendChild(a); a.click(); a.remove()
+    URL.revokeObjectURL(url)
+  } catch { ElMessage.error('下载模板失败') }
+}
 
 const cancelUpload = () => { abortController.value?.abort(); loading.value = false }
 const previewImport = async () => {

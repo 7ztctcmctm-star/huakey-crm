@@ -56,6 +56,32 @@ const logAction = createRouteLogger(MODULE_NAME);
 
 const router = express.Router();
 
+// 下载导入模板
+router.get('/template', authenticateToken, (req, res) => {
+  try {
+    const headers = ['公司名称', '联系人', '电话', '邮箱', '地址', '行业', '来源', '等级', '备注'];
+    const example = ['华科科技有限公司', '张三', '13800138000', 'zhangsan@example.com', '北京市朝阳区', '科技', '展会', 'A', '示例客户'];
+    const ws = XLSX.utils.aoa_to_sheet([headers, example]);
+
+    // 设置列宽
+    ws['!cols'] = [
+      { wch: 20 }, { wch: 10 }, { wch: 15 }, { wch: 25 },
+      { wch: 20 }, { wch: 10 }, { wch: 15 }, { wch: 8 }, { wch: 20 }
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '客户导入模板');
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=customer_import_template.xlsx');
+    res.send(buf);
+  } catch (error) {
+    console.error('生成模板错误:', error);
+    res.status(500).json({ code: 500, message: '生成模板失败', data: null });
+  }
+});
+
 // Excel导入预览
 router.post('/import-preview', authenticateToken, checkPermission('customer:import'), upload.single('file'), async (req, res) => {
   try {

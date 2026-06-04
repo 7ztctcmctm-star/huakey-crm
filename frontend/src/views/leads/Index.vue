@@ -25,7 +25,7 @@
           <el-radio-button value="pool">线索池</el-radio-button>
           <el-radio-button value="mine">我的线索</el-radio-button>
         </el-radio-group>
-        <template v-if="isBoss && selectedRows.length > 0">
+        <template v-if="(isBoss || isManager) && selectedRows.length > 0">
           <el-divider direction="vertical" />
           <el-select v-model="batchOwnerId" placeholder="选择负责人" size="default" style="width:150px" clearable @change="handleBatchAssign">
             <el-option v-for="u in salesUsers" :key="u.id" :label="u.real_name" :value="u.id" />
@@ -35,7 +35,7 @@
       </div>
       <el-table v-loading="loading" :data="tableData" stripe border @selection-change="onSelectionChange" :header-cell-style="{ background: 'var(--c-bg)', color: 'var(--c-text-secondary)' }">
         <template #empty><el-empty><p>暂无线索</p><el-button type="primary" @click="handleAdd" v-permission="'leads'">新增第一条线索</el-button></el-empty></template>
-        <el-table-column v-if="isBoss" type="selection" width="50" />
+        <el-table-column v-if="isBoss || isManager" type="selection" width="50" />
         <el-table-column prop="company_name" label="公司名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="contact_name" label="联系人" width="100" />
         <el-table-column prop="phone" label="电话" width="130" />
@@ -44,7 +44,7 @@
         <el-table-column prop="follow_status" label="跟进状态" width="110" align="center"><template #default="{ row }"><el-tag :type="{初次联系:'info',需求确认:'warning',报价中:'',已流失:'danger'}[row.follow_status]||'info'" size="small">{{ row.follow_status||'-' }}</el-tag></template></el-table-column>
         <el-table-column prop="last_follow_time" label="下次跟进" width="150"><template #default="{ row }"><el-tooltip v-if="row.last_follow_time" :content="row.last_follow_time"><span>{{ relativeTime(row.last_follow_time) }}</span></el-tooltip><el-tag v-else type="danger" size="small">从未跟进</el-tag></template></el-table-column>
         <el-table-column prop="owner_name" label="负责人" width="100"><template #default="{ row }"><el-tag v-if="!row.owner_id||row.owner_id===1" type="info" size="small">待领取</el-tag><span v-else>{{ row.owner_name }}</span></template></el-table-column>
-        <el-table-column label="操作" :width="isBoss?260:240" fixed="right">
+        <el-table-column label="操作" :width="(isBoss||isManager)?260:240" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="openDetail(row)">详情</el-button>
             <el-button v-if="!row.owner_id||row.owner_id===1" type="success" size="small" @click="handleClaim(row)" v-permission="'leads'">领取</el-button>
@@ -111,6 +111,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, onActivated } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search } from '@element-plus/icons-vue'
 import { post, get } from '@/utils/request'
@@ -118,6 +119,7 @@ import { ALL_SOURCE_VALUES } from '@/constants/source'
 import { relativeTime } from '@/composables/useRelativeTime'
 
 defineOptions({ name: 'Leads' })
+const router = useRouter()
 
 const flatSourceOptions = ALL_SOURCE_VALUES.map(v => ({ label: v, value: v }))
 const viewMode = ref('pool')
@@ -125,7 +127,8 @@ const switchViewMode = () => { page.value = 1; fetchList() }
 
 let currentUserId = null
 let isBoss = ref(false)
-try { const u = JSON.parse(localStorage.getItem('userInfo')||'{}'); currentUserId = u.id; isBoss.value = u.manageAll || u.roleId === 1 } catch {}
+let isManager = ref(false)
+try { const u = JSON.parse(localStorage.getItem('userInfo')||'{}'); currentUserId = u.id; isBoss.value = u.manageAll || u.roleId === 1; isManager.value = u.roleId === 2 } catch {}
 
 const loading = ref(false), tableData = ref([]), total = ref(0), page = ref(1), pageSize = ref(20)
 const stats = reactive({ total: 0, week_new: 0, month_converted: 0 })
@@ -201,7 +204,32 @@ const handleSearch = () => { page.value = 1; fetchList() }
 const handleAdd = () => { isEdit.value = false; editId.value = null; Object.assign(form, { company_name:'',contact_name:'',phone:'',source:'',lead_level:'中',follow_status:'初次联系',remark:'' }); dialogVisible.value = true }
 const handleEdit = (row) => { isEdit.value = true; editId.value = row.id; Object.assign(form, { company_name:row.company_name||'',contact_name:row.contact_name||'',phone:row.phone||'',source:row.source||'',lead_level:row.lead_level||'中',follow_status:row.follow_status||'初次联系',remark:row.remark||'' }); dialogVisible.value = true }
 const handleClaim = async (row) => { const r = await post('/customer/leads/claim', { id: row.id }); if (r.code===200) { ElMessage.success('领取成功'); tableData.value = tableData.value.filter(t=>t.id!==row.id); fetchStats() } }
-const handleConvert = (row) => { ElMessageBox.confirm(`确定将「${row.company_name}」转化为正式客户吗？`, '转化确认', { type: 'warning' }).then(async () => { const r = await post('/customer/leads/convert', { id: row.id }); if (r.code===200) { ElMessage.success('已转化为正式客户'); tableData.value = tableData.value.filter(t=>t.id!==row.id); fetchStats() } }).catch(()=>{}) }
+const handleConvert = (row) => {
+  ElMessageBox.confirm(`确定将「${row.company_name}」转化为正式客户吗？`, '转化确认', { type: 'warning' })
+    .then(async () => {
+      const r = await post('/customer/leads/convert', { id: row.id })
+      if (r.code === 200) {
+        ElMessageBox.alert(
+          `客户「${row.company_name}」已成功转化为正式客户`,
+          '转化成功',
+          {
+            confirmButtonText: '查看详情',
+            cancelButtonText: '留在线索页',
+            showCancelButton: true,
+            type: 'success',
+            callback: (action) => {
+              if (action === 'confirm') {
+                router.push(`/customer/detail/${row.id}`)
+              }
+            }
+          }
+        )
+        tableData.value = tableData.value.filter(t => t.id !== row.id)
+        fetchStats()
+      }
+    })
+    .catch(() => {})
+}
 const handleMarkLost = (row) => { ElMessageBox.confirm(`确定标记为已流失吗？`, '确认', { type: 'warning' }).then(async () => { const r = await post('/customer/leads/mark-lost', { id: row.id }); if (r.code===200) { ElMessage.success('已标记'); fetchList(); fetchStats() } }).catch(()=>{}) }
 const handleSubmit = async () => { if (!formRef.value) return; await formRef.value.validate(async (valid) => { if (!valid) return; saveLoading.value = true; try { const data = { ...form, status: 1 }; if (isEdit.value) data.id = editId.value; const r = await post(isEdit.value?'/customer/update':'/customer/add', data); if (r.code===200) { ElMessage.success(isEdit.value?'修改成功':'新增成功'); dialogVisible.value = false; fetchList(); fetchStats() } } finally { saveLoading.value = false } }) }
 

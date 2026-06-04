@@ -32,7 +32,7 @@ async function generateReminders(existingPool) {
        WHERE c.status NOT IN (2, 3) AND c.status != 0
          AND c.owner_id IS NOT NULL
          AND (c.last_follow_time IS NULL
-           OR c.last_follow_time < NOW() - (? * INTERVAL '1 day'))`,
+           OR c.last_follow_time < NOW() - INTERVAL ? DAY)`,
       [OVERDUE_DAYS]
     );
 

@@ -70,7 +70,7 @@
     <!-- 表格 -->
     <el-card class="table-card" shadow="never">
       <!-- 工具栏 -->
-      <div class="toolbar" v-if="isBoss">
+      <div class="toolbar" v-if="isBoss || isManager">
         <el-select v-model="batchNewOwnerId" placeholder="选择负责人" size="default" style="width: 160px" clearable>
           <el-option v-for="u in salesUsers" :key="u.id" :label="u.real_name + ' (' + u.dept_name + ')'" :value="u.id" />
         </el-select>
@@ -99,7 +99,7 @@
             客户超过30天未跟进或手动释放后将掉入公海
           </el-empty>
         </template>
-        <el-table-column v-if="isBoss || canClaim" type="selection" width="50" />
+        <el-table-column v-if="isBoss || isManager || canClaim" type="selection" width="50" />
         <el-table-column prop="company_name" label="公司名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="owner_name" label="原负责人" width="100">
           <template #default="{ row }">
@@ -140,9 +140,9 @@
         <el-table-column label="在公海天数" width="100" align="center">
           <template #default="{ row }">{{ getPoolDays(row) }}天</template>
         </el-table-column>
-        <el-table-column label="操作" :width="isBoss ? 200 : 100" fixed="right" align="center">
+        <el-table-column label="操作" :width="(isBoss || isManager) ? 200 : 100" fixed="right" align="center">
           <template #default="{ row }">
-            <template v-if="isBoss">
+            <template v-if="isBoss || isManager">
               <el-button type="warning" size="small" @click="quickAssign(row)">分配</el-button>
               <el-button type="success" size="small" @click="handleClaim(row)">认领</el-button>
             </template>
@@ -213,6 +213,7 @@ const loading = ref(false)
 // 用户信息
 const userInfo = ref({})
 const isBoss = ref(false)
+const isManager = ref(false)
 const canClaim = computed(() => {
   const rid = userInfo.value.roleId
   return [1, 2, 3].includes(rid) // 老板、经理、销售可以认领
@@ -225,7 +226,9 @@ try {
   const stored = localStorage.getItem('userInfo')
   if (stored) {
     userInfo.value = JSON.parse(stored)
+    // roleId 1=老板 2=部门经理 3=普通销售
     isBoss.value = userInfo.value.manageAll === true || userInfo.value.roleId === 1
+    isManager.value = userInfo.value.roleId === 2
   }
 } catch (e) { /* ignore */ }
 
@@ -235,7 +238,7 @@ const salesUsers = ref([])
 const poolTableRef = ref(null)
 
 const fetchSalesUsers = async () => {
-  if (!isBoss.value) return
+  if (!isBoss.value && !isManager.value) return
   try { const res = await get('/customer/sales-users'); if (res.code === 200) salesUsers.value = res.data } catch (e) { /* */ }
 }
 

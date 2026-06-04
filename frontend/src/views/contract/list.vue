@@ -20,8 +20,10 @@
         </el-form-item>
         <el-form-item label="回款">
           <el-select v-model="searchForm.payment_status" placeholder="全部" clearable style="width:140px">
-            <el-option label="已逾期" value="overdue" /><el-option label="部分回款" value="partial" />
-            <el-option label="已回清" value="completed" /><el-option label="待回款" value="pending" />
+            <el-option label="已逾期" value="overdue">
+              <span style="color: #dc2626; font-weight: bold">已逾期</span>
+            </el-option>
+            <el-option label="部分回款" value="partial" /><el-option label="已回清" value="completed" /><el-option label="待回款" value="pending" />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -33,7 +35,9 @@
 
     <el-card shadow="never">
       <div class="toolbar"><el-button type="primary" :icon="Plus" @click="handleCreate" v-permission="'contract:add'">新增合同</el-button><el-button type="warning" :icon="Download" :loading="exportLoading" @click="handleExport" v-permission="'contract'">导出Excel</el-button></div>
-      <el-table v-loading="loading" :data="tableData" stripe border :header-cell-style="{ background: 'var(--c-bg)', color: 'var(--c-text-secondary)' }">
+      <el-table v-loading="loading" :data="tableData" stripe border
+        :row-class-name="tableRowClassName"
+        :header-cell-style="{ background: 'var(--c-bg)', color: 'var(--c-text-secondary)' }">
         <el-table-column prop="contract_no" label="合同编号" width="160" />
         <el-table-column prop="customer_name" label="客户名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="amount" label="合同金额" width="130" align="right">
@@ -69,6 +73,11 @@
     <!-- 新增/编辑 -->
     <el-dialog v-model="formVisible" :title="isEdit?'编辑合同':'新增合同'" width="650px" @closed="resetForm">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
+        <el-form-item v-if="!isEdit" label="使用模板">
+          <el-select v-model="selectedTemplate" placeholder="选择合同模板(可选)" clearable style="width:100%" @change="applyTemplate">
+            <el-option v-for="t in templateOptions" :key="t.id" :label="t.name" :value="t.id" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="客户" prop="customer_id">
           <el-select v-model="form.customer_id" placeholder="选择客户" filterable style="width:100%">
             <el-option v-for="c in customerOptions" :key="c.id" :label="c.company_name" :value="c.id" />
@@ -145,6 +154,7 @@ const loading = ref(false), tableData = ref([]), total = ref(0), page = ref(1), 
 const searchForm = reactive({ keyword: '', status: '', approval_status: '', payment_status: '' })
 const formVisible = ref(false), isEdit = ref(false), saveLoading = ref(false), formRef = ref(null), editId = ref(null)
 const customerOptions = ref([]), opportunityOptions = ref([])
+const templateOptions = ref([]), selectedTemplate = ref(null)
 const form = reactive({ customer_id: null, opportunity_id: null, amount: 0, sign_date: '', delivery_date: '', payment_terms: '', status: 1, remark: '', plans: [] })
 const rules = { customer_id: [{ required: true, message: '请选择客户', trigger: 'change' }], amount: [{ required: true, message: '请输入合同金额', trigger: 'blur' }] }
 
@@ -174,6 +184,14 @@ const fetchList = async () => {
 const fetchCustomers = async () => { try { const r = await request.post('/customer/list', { page: 1, pageSize: 200 }); if (r.code === 200) customerOptions.value = r.data.list } catch { /**/ } }
 const fetchOpportunities = async () => { try { const r = await request.get('/contract/opportunity-list'); if (r.code === 200) opportunityOptions.value = r.data } catch { /**/ } }
 
+// P0-3: 逾期回款行高亮
+const tableRowClassName = ({ row }) => {
+  if (row.payment_status === 'overdue' || (row.plan_total > 0 && row.paid_amount < row.plan_total && row.sign_date && new Date() - new Date(row.sign_date) > 30 * 86400000)) {
+    return 'overdue-payment-row'
+  }
+  return ''
+}
+
 const handleSearch = () => { page.value = 1; fetchList() }
 const handleReset = () => { searchForm.keyword = ''; searchForm.status = ''; searchForm.approval_status = ''; searchForm.payment_status = ''; handleSearch() }
 
@@ -181,7 +199,20 @@ const handleView = (row) => {
   router.push(`/contract/detail/${row.id}`)
 }
 
-const handleCreate = () => { isEdit.value = false; editId.value = null; resetForm(); formVisible.value = true }
+// P2-4: 合同模板
+const fetchTemplates = async () => {
+  try { const res = await request.get('/contract-template/list'); if (res.code === 200) templateOptions.value = res.data; } catch {}
+}
+const applyTemplate = (templateId) => {
+  if (!templateId) { resetForm(); return }
+  const t = templateOptions.value.find(item => item.id === templateId)
+  if (!t) return
+  form.amount = t.amount || 0
+  form.payment_terms = t.payment_terms || ''
+  form.delivery_date = t.delivery_days ? new Date(Date.now() + t.delivery_days * 86400000).toISOString().split('T')[0] : ''
+  form.remark = t.remark || ''
+}
+const handleCreate = () => { isEdit.value = false; editId.value = null; selectedTemplate.value = null; resetForm(); formVisible.value = true; fetchTemplates() }
 
 const handleEdit = async (row) => {
   isEdit.value = true; editId.value = row.id
@@ -330,4 +361,8 @@ onMounted(() => {
 .search-card .el-form-item { margin-bottom: 0; }
 .toolbar { margin-bottom: 16px; }
 .pagination { display: flex; justify-content: flex-end; margin-top: 16px; }
+/* P0-3: 逾期回款行高亮 */
+:deep(.overdue-payment-row) { background-color: #fef2f2 !important; }
+:deep(.overdue-payment-row):hover { background-color: #fee2e2 !important; }
+:deep(.overdue-payment-row) td { border-bottom-color: #fca5a5 !important; }
 </style>

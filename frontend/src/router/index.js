@@ -28,7 +28,7 @@ const router = createRouter({
           path: 'leads',
           name: 'Leads',
           component: () => import('../views/leads/Index.vue'),
-          meta: { title: '线索管理', permission: 'leads' }
+          meta: { title: '线索导入', permission: 'leads' }
         },
         {
           path: 'followup/calendar',
@@ -43,10 +43,28 @@ const router = createRouter({
           meta: { title: '跟进计划', permission: 'customer:list' }
         },
         {
+          path: 'follow-up/today',
+          name: 'TodayTasks',
+          component: () => import('../views/follow-up/TodayTasks.vue'),
+          meta: { title: '今日待跟进', permission: 'customer:list' }
+        },
+        {
+          path: 'follow-up/tomorrow',
+          name: 'TomorrowTasks',
+          component: () => import('../views/follow-up/TomorrowTasks.vue'),
+          meta: { title: '明日计划', permission: 'customer:list' }
+        },
+        {
+          path: 'customer/prospects',
+          name: 'ProspectPool',
+          component: () => import('../views/customer/List.vue'),
+          meta: { title: '潜客池', permission: 'customer:list' }
+        },
+        {
           path: 'customer/list',
           name: 'CustomerList',
           component: () => import('../views/customer/List.vue'),
-          meta: { title: '客户列表', permission: 'customer:list' }
+          meta: { title: '正式客户', permission: 'customer:list' }
         },
         {
           path: 'customer/detail/:id',
@@ -59,6 +77,12 @@ const router = createRouter({
           name: 'CustomerPool',
           component: () => import('../views/customer/pool.vue'),
           meta: { title: '客户池', permission: 'customer:pool' }
+        },
+        {
+          path: 'customer/assign-rules',
+          name: 'AssignRules',
+          component: () => import('../views/customer/AssignRules.vue'),
+          meta: { title: '分配规则', permission: 'customer:assign' }
         },
         {
           path: 'opportunity',

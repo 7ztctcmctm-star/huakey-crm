@@ -55,6 +55,70 @@
       </el-col>
     </el-row>
 
+    <!-- 今日待办区域 - 移到最显眼位置 -->
+    <el-row :gutter="24" style="margin-top: 16px">
+      <el-col :span="24">
+        <el-card shadow="never" class="todo-card" :class="{ 'has-overdue': overdueCount > 0 }">
+          <template #header>
+            <div class="section-header">
+              <span class="section-title">
+                <el-icon><Bell /></el-icon> 今日待办
+                <el-badge v-if="todayTasks.follow_count > 0" :value="todayTasks.follow_count" class="todo-badge" type="danger" />
+              </span>
+              <div class="todo-summary">
+                <el-tag v-if="todayTasks.follow_count > 0" type="warning" effect="dark">
+                  {{ todayTasks.follow_count }} 个待跟进
+                </el-tag>
+                <el-tag v-if="todayTasks.service_count > 0" type="danger" effect="dark" style="margin-left: 8px">
+                  {{ todayTasks.service_count }} 个待处理工单
+                </el-tag>
+                <el-tag v-if="overdueCount > 0" type="danger" effect="plain" style="margin-left: 8px">
+                  {{ overdueCount }} 个逾期跟进
+                </el-tag>
+              </div>
+            </div>
+          </template>
+          <el-tabs v-model="activeTab" class="todo-tabs">
+            <el-tab-pane label="待跟进" name="follow">
+              <div v-if="followLoading" v-loading="followLoading" style="min-height: 100px" />
+              <div v-else-if="todayTasks.follow_list && todayTasks.follow_list.length > 0" class="todo-list">
+                <div v-for="item in todayTasks.follow_list" :key="'f-' + item.id"
+                     class="todo-item" :class="{ 'overdue': isOverdue(item.next_time) }"
+                     @click="goCustomer(item.customer_id)">
+                  <div class="todo-item-left">
+                    <el-tag :type="followTypeTag(item.follow_type)" size="small">{{ item.follow_type }}</el-tag>
+                    <span class="todo-customer">{{ item.company_name || '未知客户' }}</span>
+                    <el-tag v-if="isOverdue(item.next_time)" type="danger" size="small" effect="dark">逾期</el-tag>
+                  </div>
+                  <div class="todo-item-right">
+                    <span class="todo-time">{{ formatTimeShort(item.next_time) }}</span>
+                    <el-button type="primary" link size="small" @click.stop="goFollow(item)">跟进</el-button>
+                  </div>
+                </div>
+              </div>
+              <el-empty v-else description="今日没有待跟进任务" :image-size="60" />
+            </el-tab-pane>
+            <el-tab-pane label="待处理工单" name="service">
+              <div v-if="serviceLoading" v-loading="serviceLoading" style="min-height: 100px" />
+              <div v-else-if="todayTasks.service_list && todayTasks.service_list.length > 0" class="todo-list">
+                <div v-for="item in todayTasks.service_list" :key="'s-' + item.id" class="todo-item" @click="goService(item.id)">
+                  <div class="todo-item-left">
+                    <el-tag :type="getPriorityTag(item.priority)" size="small">{{ getPriorityText(item.priority) }}</el-tag>
+                    <span class="todo-title">{{ item.title }}</span>
+                  </div>
+                  <div class="todo-item-right">
+                    <el-tag size="small">{{ getServiceStatus(item.status) }}</el-tag>
+                    <el-button type="primary" link size="small" @click.stop="handleService(item)">处理</el-button>
+                  </div>
+                </div>
+              </div>
+              <el-empty v-else description="没有待处理工单" :image-size="60" />
+            </el-tab-pane>
+          </el-tabs>
+        </el-card>
+      </el-col>
+    </el-row>
+
     <el-row :gutter="24" style="margin-top: 16px">
       <el-col :span="6">
         <el-card shadow="hover" class="stat-card mini">
@@ -110,56 +174,50 @@
       </el-col>
     </el-row>
 
-    <el-row :gutter="24" style="margin-top: 24px">
-      <el-col :span="12">
-        <el-card shadow="never">
-          <template #header>
-            <div class="section-header">
-              <span class="section-title">
-                <el-icon><Bell /></el-icon> 今日待办
-              </span>
-              <el-badge :value="todayTasks.follow_count + todayTasks.service_count" :hidden="todayTasks.follow_count + todayTasks.service_count === 0">
-                <el-tag type="warning">{{ todayTasks.follow_count }} 跟进 / {{ todayTasks.service_count }} 工单</el-tag>
-              </el-badge>
+    <!-- 跟进提醒统计 -->
+    <el-row :gutter="24" style="margin-top: 16px">
+      <el-col :span="8">
+        <el-card shadow="hover" class="stat-card mini" @click="goToTasks('today')">
+          <div class="stat-body">
+            <div class="stat-icon small" style="background: #fef3c7; color: #d97706">
+              <el-icon :size="20"><Bell /></el-icon>
             </div>
-          </template>
-          <el-tabs v-model="activeTab" class="todo-tabs">
-            <el-tab-pane label="待跟进" name="follow">
-              <div v-if="followLoading" v-loading="followLoading" style="min-height: 200px" />
-              <div v-else-if="todayTasks.follow_list && todayTasks.follow_list.length > 0">
-                <div v-for="item in todayTasks.follow_list" :key="'f-' + item.id" class="todo-item" @click="goCustomer(item.customer_id)">
-                  <div class="todo-item-left">
-                    <el-tag :type="followTypeTag(item.follow_type)" size="small">{{ item.follow_type }}</el-tag>
-                    <span class="todo-customer">{{ item.company_name || '未知客户' }}</span>
-                  </div>
-                  <div class="todo-item-right">
-                    <span class="todo-time">{{ formatTimeShort(item.next_time) }}</span>
-                    <el-button type="primary" link size="small" @click.stop="goFollow(item)">跟进</el-button>
-                  </div>
-                </div>
-              </div>
-              <el-empty v-else description="今日没有待跟进任务" :image-size="80" />
-            </el-tab-pane>
-            <el-tab-pane label="待处理工单" name="service">
-              <div v-if="serviceLoading" v-loading="serviceLoading" style="min-height: 200px" />
-              <div v-else-if="todayTasks.service_list && todayTasks.service_list.length > 0">
-                <div v-for="item in todayTasks.service_list" :key="'s-' + item.id" class="todo-item" @click="goService(item.id)">
-                  <div class="todo-item-left">
-                    <el-tag :type="getPriorityTag(item.priority)" size="small">{{ getPriorityText(item.priority) }}</el-tag>
-                    <span class="todo-title">{{ item.title }}</span>
-                  </div>
-                  <div class="todo-item-right">
-                    <el-tag size="small">{{ getServiceStatus(item.status) }}</el-tag>
-                    <el-button type="primary" link size="small" @click.stop="handleService(item)">处理</el-button>
-                  </div>
-                </div>
-              </div>
-              <el-empty v-else description="没有待处理工单" :image-size="80" />
-            </el-tab-pane>
-          </el-tabs>
+            <div class="stat-info">
+              <div class="stat-value small orange">{{ taskStats.today_count }}</div>
+              <div class="stat-label">今日待跟进</div>
+            </div>
+          </div>
         </el-card>
       </el-col>
+      <el-col :span="8">
+        <el-card shadow="hover" class="stat-card mini" @click="goToTasks('tomorrow')">
+          <div class="stat-body">
+            <div class="stat-icon small" style="background: #eff6ff; color: #1a56db">
+              <el-icon :size="20"><Calendar /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value small blue">{{ taskStats.tomorrow_count }}</div>
+              <div class="stat-label">明日计划</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="8">
+        <el-card shadow="hover" class="stat-card mini" @click="goToTasks('overdue')">
+          <div class="stat-body">
+            <div class="stat-icon small" style="background: #fef2f2; color: #dc2626">
+              <el-icon :size="20"><Warning /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value small danger">{{ taskStats.overdue_count }}</div>
+              <div class="stat-label">逾期未跟进</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
 
+    <el-row :gutter="24" style="margin-top: 24px">
       <el-col :span="12">
         <el-card shadow="never">
           <template #header>
@@ -213,6 +271,19 @@
               <span>批量跟进</span>
             </div>
           </div>
+        </el-card>
+      </el-col>
+
+      <el-col :span="12">
+        <el-card shadow="never">
+          <template #header>
+            <div class="section-header">
+              <span class="section-title">
+                <el-icon><TrendCharts /></el-icon> 销售趋势
+              </span>
+            </div>
+          </template>
+          <div ref="trendChartRef" class="chart-container"></div>
         </el-card>
       </el-col>
     </el-row>
@@ -365,7 +436,8 @@ import { ElMessage } from 'element-plus'
 import {
   TrendCharts, Plus, Document, ShoppingCart, DocumentChecked, Service, User,
   Bell, Setting, ArrowDown, Star, Histogram,
-  PieChart, Search, Trophy, Clock, List, Delete
+  PieChart, Search, Trophy, Clock, List, Delete,
+  Calendar, Warning
 } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { useChart } from '@/composables/useChart'
@@ -391,6 +463,11 @@ const todayTasks = reactive({
   follow_count: 0,
   service_list: [],
   service_count: 0
+})
+const taskStats = reactive({
+  today_count: 0,
+  tomorrow_count: 0,
+  overdue_count: 0
 })
 const performanceRank = ref([])
 
@@ -428,6 +505,12 @@ const formatTimeShort = (time) => {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+// P0-1: 判断跟进是否逾期
+const isOverdue = (nextTime) => {
+  if (!nextTime) return false
+  return new Date(nextTime) < new Date()
 }
 
 const goCustomer = (id) => {
@@ -769,16 +852,32 @@ const fetchOverdueStats = async () => {
   } catch (e) { ElMessage.error('加载数据失败') }
 }
 
+const fetchTaskStats = async () => {
+  try {
+    const res = await request.get('/follow-up/task-stats')
+    if (res.code === 200) {
+      taskStats.today_count = res.data.today_count || 0
+      taskStats.tomorrow_count = res.data.tomorrow_count || 0
+      taskStats.overdue_count = res.data.overdue_count || 0
+    }
+  } catch (e) { /* 静默失败 */ }
+}
+
+const goToTasks = (type) => {
+  const routes = { today: '/follow-up/today', tomorrow: '/follow-up/tomorrow', overdue: '/follow-up/today' }
+  router.push(routes[type] || '/follow-up/today')
+}
+
 onMounted(() => {
   initCharts()
   Promise.all([
     fetchOverview(), fetchQuickStats(), fetchTodayTasks(),
-    fetchPerformanceRank(), fetchOverdueStats()
+    fetchPerformanceRank(), fetchOverdueStats(), fetchTaskStats()
   ])
 })
 
 onActivated(() => {
-  Promise.all([fetchOverview(), fetchQuickStats(), fetchTodayTasks(), fetchPerformanceRank(), fetchOverdueStats()])
+  Promise.all([fetchOverview(), fetchQuickStats(), fetchTodayTasks(), fetchPerformanceRank(), fetchOverdueStats(), fetchTaskStats()])
 })
 </script>
 
@@ -806,6 +905,14 @@ onActivated(() => {
 .stat-card.mini:hover {
   transform: none;
 }
+
+.stat-card.mini[onclick] {
+  cursor: pointer;
+}
+
+.stat-value.orange { color: #d97706; }
+.stat-value.blue { color: #1a56db; }
+.stat-value.danger { color: #dc2626; }
 
 .stat-body {
   display: flex;
@@ -967,5 +1074,37 @@ onActivated(() => {
   gap: 8px;
   align-items: center;
   margin-bottom: 8px;
+}
+
+/* P0-1: 今日待办区域优化 */
+.todo-card {
+  border-left: 4px solid #1a56db;
+}
+
+.todo-card.has-overdue {
+  border-left: 4px solid #dc2626;
+}
+
+.todo-badge {
+  margin-left: 8px;
+}
+
+.todo-summary {
+  display: flex;
+  align-items: center;
+}
+
+.todo-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.todo-item.overdue {
+  background: #fef2f2;
+  border-left: 3px solid #dc2626;
+}
+
+.todo-item.overdue:hover {
+  background: #fee2e2;
 }
 </style>

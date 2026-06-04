@@ -149,8 +149,8 @@ router.get('/my-reminders', authenticateToken, async (req, res) => {
        LEFT JOIN crm_customer cu ON so.customer_id = cu.id
        WHERE ${overdueServiceFilter}
          AND (
-           (so.priority = 1 AND so.create_time < NOW() - INTERVAL '2 hours')
-           OR (so.priority = 2 AND so.create_time < NOW() - INTERVAL '4 hours')
+           (so.priority = 1 AND so.create_time < NOW() - INTERVAL 2 HOUR)
+           OR (so.priority = 2 AND so.create_time < NOW() - INTERVAL 4 HOUR)
          )
        ORDER BY so.priority ASC, so.create_time ASC
        LIMIT 20`,
@@ -206,7 +206,7 @@ router.post('/overdue-list', authenticateToken, async (req, res) => {
       `SELECT COUNT(*) as total FROM crm_customer c
        WHERE c.status NOT IN (2, 3) AND c.status != 0
          AND (c.last_follow_time IS NULL
-           OR c.last_follow_time < NOW() - (? * INTERVAL '1 day'))
+           OR c.last_follow_time < NOW() - INTERVAL ? DAY)
          ${userFilter}`,
       params
     );
@@ -220,7 +220,7 @@ router.post('/overdue-list', authenticateToken, async (req, res) => {
        LEFT JOIN sys_user u ON c.owner_id = u.id
        WHERE c.status NOT IN (2, 3) AND c.status != 0
          AND (c.last_follow_time IS NULL
-           OR c.last_follow_time < NOW() - (? * INTERVAL '1 day'))
+           OR c.last_follow_time < NOW() - INTERVAL ? DAY)
          ${userFilter}
        ORDER BY overdue_days DESC
        LIMIT ? OFFSET ?`,
@@ -333,7 +333,7 @@ router.get('/payment-overdue', authenticateToken, async (req, res) => {
        JOIN crm_customer cu ON ct.customer_id = cu.id
        LEFT JOIN crm_payment p ON pp.id = p.plan_id AND p.deleted_at IS NULL
        WHERE pp.plan_date >= CURRENT_DATE
-         AND pp.plan_date <= CURRENT_DATE + INTERVAL '3 days'
+         AND pp.plan_date <= CURRENT_DATE + INTERVAL 3 DAY
          ${ownerFilter}
        GROUP BY pp.id
        HAVING paid_amount < pp.plan_amount

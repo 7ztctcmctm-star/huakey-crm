@@ -3,6 +3,7 @@ const pool = require('../../config/database');
 const { authenticateToken } = require('../../middleware/auth');
 const { validate, Joi } = require('../../middleware/validate');
 const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../../middleware/permission');
+const { autoAssignOwner } = require('./assign');
 const { getOverdueDays } = require('../../utils/config');
 
 const MODULE_NAME = '客户管理';
@@ -30,10 +31,13 @@ const customerListSchema = Joi.object({
   source: Joi.string().valid(...VALID_SOURCES, ...Object.keys(SOURCE_PARENT_MAP)).allow('', null),
   level: Joi.string().valid('A', 'B', 'C').allow('', null),
   status: Joi.number().integer().valid(0, 1, 2, 3).allow('', null),
+  customer_type: Joi.string().valid('prospect', 'customer').allow('', null),
+  lifecycle_status: Joi.string().valid('new', 'nurturing', 'intent', 'active', 'lost', 'inactive').allow('', null),
   owner_id: Joi.number().integer().positive().allow(null),
   start_date: Joi.string().isoDate().allow('', null),
   end_date: Joi.string().isoDate().allow('', null),
   overdue: Joi.boolean().allow(null),
+  tag_id: Joi.number().integer().positive().allow('', null),
   sort: Joi.string().valid('create_time_desc', 'last_follow_time_asc', 'last_follow_time_desc').allow('', null)
 });
 
@@ -73,11 +77,24 @@ const logAction = createRouteLogger(MODULE_NAME);
 
 const { getDataPermission, buildPermissionClause } = require('../../utils/permission');
 
-// 检查用户是否有权限编辑指定客户
+// 检查用户是否有权限查看/编辑指定客户
 const canManageCustomer = async (user, customerOwnerId) => {
-  if (user.manageAll || user.roleId === 1 || user.roleId === 2) {
+  // 老板可以管理全部
+  if (user.manageAll || user.roleId === 1) {
     return true;
   }
+  // 部门经理(roleId=2)：按 custom 数据范围检查（dept_ids: 1,5,6,7）
+  if (user.roleId === 2) {
+    if (customerOwnerId === null || customerOwnerId === undefined) {
+      return true; // 无负责人客户，经理可以管理
+    }
+    const [rows] = await pool.query(
+      'SELECT dept_id FROM sys_user WHERE id = ? AND dept_id IN (1,5,6,7)',
+      [customerOwnerId]
+    );
+    return rows.length > 0;
+  }
+  // 普通用户：只能管理自己的客户
   return customerOwnerId === user.userId;
 };
 
@@ -99,10 +116,13 @@ router.post('/list',
       source,
       level,
       status,
+      customer_type,
+      lifecycle_status,
       owner_id,
       start_date,
       end_date,
       overdue,
+      tag_id,
       sort
     } = req.body;
 
@@ -152,6 +172,14 @@ router.post('/list',
       whereClause += ' AND c.level = ?';
       params.push(level);
     }
+    if (customer_type) {
+      whereClause += ' AND c.customer_type = ?';
+      params.push(customer_type);
+    }
+    if (lifecycle_status) {
+      whereClause += ' AND c.lifecycle_status = ?';
+      params.push(lifecycle_status);
+    }
     if (start_date) {
       whereClause += ' AND c.create_time >= ?';
       params.push(start_date);
@@ -166,25 +194,30 @@ router.post('/list',
       whereClause += ' AND EXTRACT(DAY FROM NOW() - COALESCE(c.last_follow_time, c.create_time)) >= ?';
       params.push(overdueDays);
     }
+    // 标签筛选
+    if (tag_id) {
+      whereClause += ' AND EXISTS (SELECT 1 FROM crm_customer_tag ct WHERE ct.customer_id = c.id AND ct.tag_id = ?)';
+      params.push(tag_id);
+    }
     const [countResult] = await pool.query(
       `SELECT COUNT(*) as total FROM crm_customer c ${whereClause}`,
       params
     );
     const total = countResult[0].total;
 
-    // 排序
+    // 排序（白名单校验，防止SQL注入）
     const SORT_MAP = {
       'create_time_desc': 'c.create_time DESC',
       'last_follow_time_asc': 'c.last_follow_time IS NULL ASC, c.last_follow_time ASC',
       'last_follow_time_desc': 'c.last_follow_time DESC'
     };
-    const orderBy = SORT_MAP[sort] || 'c.create_time DESC';
+    const orderBy = SORT_MAP[sort] || 'c.create_time DESC'; // 仅允许白名单值
 
     const [list] = await pool.query(
       `SELECT
         c.id, c.company_name, c.contact_name, c.phone, c.email,
         c.address, c.industry, c.source, c.level,
-        c.owner_id, c.status, c.remark, c.create_time, c.update_time,
+        c.owner_id, c.status, c.customer_type, c.lifecycle_status, c.remark, c.create_time, c.update_time,
         c.pool_status, c.protect_until, c.last_follow_time,
         c.lead_level, c.follow_status, c.converted_at,
         u.real_name as owner_name
@@ -195,6 +228,24 @@ router.post('/list',
       LIMIT ? OFFSET ?`,
       [...params, parseInt(pageSize), parseInt(offset)]
     );
+
+    // 批量获取标签
+    const customerIds = list.map(c => c.id);
+    let tagMap = {};
+    if (customerIds.length > 0) {
+      const [tags] = await pool.query(
+        `SELECT ct.customer_id, t.id, t.name, t.color
+         FROM crm_customer_tag ct
+         JOIN crm_tag t ON ct.tag_id = t.id
+         WHERE ct.customer_id IN (?)`,
+        [customerIds]
+      );
+      tags.forEach(t => {
+        if (!tagMap[t.customer_id]) tagMap[t.customer_id] = [];
+        tagMap[t.customer_id].push({ id: t.id, name: t.name, color: t.color });
+      });
+    }
+    list.forEach(c => { c.tags = tagMap[c.id] || []; });
 
     res.json({
       code: 200,
@@ -253,10 +304,14 @@ router.post('/add', authenticateToken, checkPermission('customer:add'), validate
       [company_name]
     );
 
+    // 自动分配负责人
+    const assignedOwner = await autoAssignOwner({ source, address });
+    const ownerId = assignedOwner || req.user.userId;
+
     const [result] = await pool.query(
       `INSERT INTO crm_customer
-        (company_name, contact_name, phone, email, address, industry, source, level, owner_id, status, remark)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+        (company_name, contact_name, phone, email, address, industry, source, level, owner_id, status, customer_type, lifecycle_status, remark)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'prospect', 'new', ?)
       RETURNING id`,
       [
         company_name,
@@ -267,12 +322,20 @@ router.post('/add', authenticateToken, checkPermission('customer:add'), validate
         industry || null,
         source || null,
         level || 'C',
-        req.user.userId,
+        ownerId,
         remark || null
       ]
     );
 
-    await logAction(req, 'add', `新增客户: ${company_name}`);
+    // 如果自动分配了负责人，记录分配日志
+    if (assignedOwner) {
+      await pool.query(
+        'INSERT INTO crm_assign_log (customer_id, from_user_id, to_user_id, operator_id, remark) VALUES (?, NULL, ?, ?, ?)',
+        [result.insertId, assignedOwner, req.user.userId, '新建客户自动分配']
+      );
+    }
+
+    await logAction(req, 'add', `新增客户: ${company_name}${assignedOwner ? '（已自动分配）' : ''}`);
 
     res.json({
       code: 200,
@@ -485,8 +548,8 @@ router.get('/detail/:id', authenticateToken, checkDataPermission('customer', 'ow
       `SELECT
         c.id, c.company_name, c.contact_name, c.phone, c.email,
         c.address, c.industry, c.source, c.level,
-        c.owner_id, c.status, c.remark, c.create_time, c.update_time,
-        c.pool_status, c.protect_until, c.last_follow_time,
+        c.owner_id, c.status, c.customer_type, c.lifecycle_status, c.remark, c.create_time, c.update_time,
+        c.pool_status, c.protect_until, c.last_follow_time, c.converted_at,
         u.real_name as owner_name
       FROM crm_customer c
       LEFT JOIN sys_user u ON c.owner_id = u.id
@@ -570,7 +633,7 @@ const XLSX = require('xlsx');
 // 6. 导出客户列表
 router.post('/export', authenticateToken, checkPermission('customer:list'), async (req, res) => {
   try {
-    const { company_name, contact_name, phone, source, level, status, owner_id, start_date, end_date } = req.body;
+    const { company_name, contact_name, phone, source, level, status, customer_type, lifecycle_status, owner_id, start_date, end_date } = req.body;
     const params = [];
 
     const permission = await getDataPermission(req.user);
@@ -600,13 +663,15 @@ router.post('/export', authenticateToken, checkPermission('customer:list'), asyn
       }
     }
     if (level) { whereClause += ' AND c.level = ?'; params.push(level); }
+    if (customer_type) { whereClause += ' AND c.customer_type = ?'; params.push(customer_type); }
+    if (lifecycle_status) { whereClause += ' AND c.lifecycle_status = ?'; params.push(lifecycle_status); }
     if (start_date) { whereClause += ' AND c.create_time >= ?'; params.push(start_date); }
     if (end_date) { whereClause += ' AND c.create_time < ?'; params.push(end_date + ' 23:59:59'); }
 
     const [list] = await pool.query(
       `SELECT c.company_name, c.contact_name, c.phone, c.email,
         c.address, c.industry, c.source, c.level,
-        c.status, c.remark, c.create_time, c.last_follow_time,
+        c.status, c.customer_type, c.lifecycle_status, c.remark, c.create_time, c.last_follow_time,
         u.real_name as owner_name
       FROM crm_customer c
       LEFT JOIN sys_user u ON c.owner_id = u.id
@@ -617,6 +682,7 @@ router.post('/export', authenticateToken, checkPermission('customer:list'), asyn
     );
 
     const statusMap = { 1: '潜在客户', 2: '成交客户', 3: '流失客户' };
+    const lifecycleStatusMap = { new: '新导入', nurturing: '培育中', intent: '意向合作', active: '正在合作', lost: '流失', inactive: '无效' };
     const exportData = list.map(row => ({
       '公司名称': row.company_name,
       '联系人': row.contact_name || '',
@@ -627,6 +693,8 @@ router.post('/export', authenticateToken, checkPermission('customer:list'), asyn
       '来源': row.source || '',
       '等级': row.level || '',
       '状态': statusMap[row.status] || '',
+      '客户类型': row.customer_type === 'customer' ? '正式客户' : '潜客',
+      '生命周期': lifecycleStatusMap[row.lifecycle_status] || row.lifecycle_status || '',
       '负责人': row.owner_name || '',
       '最后跟进': row.last_follow_time ? new Date(row.last_follow_time).toISOString().slice(0, 10) : '',
       '创建时间': row.create_time ? new Date(row.create_time).toISOString().slice(0, 10) : '',
@@ -648,6 +716,90 @@ router.post('/export', authenticateToken, checkPermission('customer:list'), asyn
     res.status(500).json({ code: 500, message: '导出客户失败', data: null });
   }
 });
+
+// 潜客池与客户列表互相转化（仅老板和管理者可用）
+router.post('/convert',
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { customer_id, action } = req.body; // action: 'to_customer' | 'to_prospect'
+      const userId = req.user.userId;
+      const roleId = req.user.roleId;
+
+      // 权限：仅老板(1)和管理者(2)
+      if (roleId !== 1 && roleId !== 2) {
+        return res.status(403).json({ code: 403, message: '仅管理者可执行转化操作', data: null });
+      }
+
+      if (!customer_id) {
+        return res.status(400).json({ code: 400, message: '请指定客户', data: null });
+      }
+
+      const [customers] = await pool.query('SELECT id, company_name, status FROM crm_customer WHERE id = ? AND status != 0', [customer_id]);
+      if (!customers.length) {
+        return res.status(404).json({ code: 404, message: '客户不存在', data: null });
+      }
+
+      const customer = customers[0];
+      let newStatus, actionName;
+
+      if (action === 'to_customer') {
+        if (customer.status !== 1) {
+          return res.status(400).json({ code: 400, message: '当前客户已为正式客户', data: null });
+        }
+        newStatus = 2; // 转为成交客户
+        actionName = `将 ${customer.company_name} 从潜客池转为正式客户`;
+        // 写入转化时间，同步更新 customer_type / lifecycle_status，保护首次转化时间
+        await pool.query(
+          `UPDATE crm_customer
+           SET status = ?,
+               customer_type = 'customer',
+               lifecycle_status = 'active',
+               converted_at = COALESCE(converted_at, NOW()),
+               update_time = NOW()
+           WHERE id = ?`,
+          [newStatus, customer_id]
+        );
+      } else if (action === 'to_prospect') {
+        if (customer.status === 1) {
+          return res.status(400).json({ code: 400, message: '当前客户已在潜客池中', data: null });
+        }
+        newStatus = 1; // 退回潜客池
+        actionName = `将 ${customer.company_name} 从客户列表退回潜客池`;
+        await pool.query(
+          `UPDATE crm_customer
+           SET status = ?,
+               customer_type = 'prospect',
+               lifecycle_status = 'nurturing',
+               update_time = NOW()
+           WHERE id = ?`,
+          [newStatus, customer_id]
+        );
+      } else {
+        return res.status(400).json({ code: 400, message: '无效的转化操作', data: null });
+      }
+
+      // 记录日志
+      const { logAction, getIpAddress } = require('../middleware/logger');
+      await logAction({
+        module: '客户管理', action: action === 'to_customer' ? '转为客户' : '退回潜客',
+        method: 'POST', url: '/api/customer/convert',
+        params: { customer_id, action },
+        ipAddress: getIpAddress(req), userId, userName: req.user.username,
+        description: actionName, status: 1
+      });
+
+      res.json({
+        code: 200,
+        message: action === 'to_customer' ? '已转为正式客户' : '已退回潜客池',
+        data: { status: newStatus }
+      });
+    } catch (error) {
+      console.error('客户转化错误:', error);
+      res.status(500).json({ code: 500, message: '转化失败', data: null });
+    }
+  }
+);
 
 module.exports = router;
 module.exports.VALID_SOURCES = VALID_SOURCES;

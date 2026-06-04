@@ -46,7 +46,7 @@ router.get('/daily-scoring', async (req, res) => {
 router.get('/clean-logs', async (req, res) => {
   try {
     const result = await pool.query(
-      "DELETE FROM sys_log WHERE create_time < NOW() - INTERVAL '90 days'"
+      "DELETE FROM sys_log WHERE create_time < NOW() - INTERVAL 90 DAY"
     );
     res.json({
       code: 200,
@@ -65,8 +65,8 @@ router.get('/auto-release', async (req, res) => {
     const { rows: customers } = await pool.query(
       `SELECT id, company_name, owner_id FROM crm_customer
        WHERE pool_status = 0 AND status != 0 AND owner_id IS NOT NULL
-         AND (last_follow_time IS NULL AND create_time < NOW() - ($1 * INTERVAL '1 day')
-           OR last_follow_time < NOW() - ($1 * INTERVAL '1 day'))`,
+         AND (last_follow_time IS NULL AND create_time < NOW() - INTERVAL $1 DAY
+           OR last_follow_time < NOW() - INTERVAL $1 DAY)`,
       [AUTO_RELEASE_DAYS]
     );
 
