@@ -60,6 +60,24 @@ function getProviderConfig() {
 }
 
 /**
+ * 检查并验证当前配置
+ */
+function validateConfig() {
+  const config = getProviderConfig();
+  
+  if (config.provider === 'mimo') {
+    if (!config.apiKey) {
+      console.warn('[LLM Client] MiMo 未配置 API Key，建议配置或切换到 Ollama');
+    }
+    if (config.model === 'mimo-v2.5-pro') {
+      console.warn('[LLM Client] mimo-v2.5-pro 模型可能不可用，建议使用 mimo-v2.5-flash');
+    }
+  }
+  
+  return config;
+}
+
+/**
  * @param {Array<{role: string, content: string}>} messages
  * @param {{ maxTokens?: number, temperature?: number, signal?: AbortSignal, system?: string }} options
  * @returns {Promise<string>}
@@ -68,12 +86,21 @@ async function chatCompletion(messages, options = {}) {
   const maxTokens = options.maxTokens ?? 200;
   const temperature = options.temperature ?? 0.7;
   const signal = options.signal;
-  const config = getProviderConfig();
+  const config = validateConfig();
 
   // 如传入system参数，拼入messages数组首位
   const finalMessages = options.system
     ? [{ role: 'system', content: options.system }, ...messages]
     : messages;
+
+  // 检查是否包含图片内容
+  const hasImageContent = finalMessages.some(msg => 
+    typeof msg.content === 'object' && msg.content.type === 'image_url'
+  );
+  
+  if (hasImageContent && config.provider === 'ollama') {
+    throw new Error('Ollama 不支持图片输入，请使用支持图片的模型（如 GPT-4 Vision）');
+  }
 
   // Ollama 使用不同的 API 格式
   if (config.provider === 'ollama') {
@@ -90,7 +117,8 @@ async function chatCompletion(messages, options = {}) {
     });
 
     if (!response.ok) {
-      throw new Error(`Ollama 返回错误 (${response.status})`);
+      const errorText = await response.text().catch(() => '');
+      throw new Error(`Ollama 返回错误 (${response.status}): ${errorText.slice(0, 200)}`);
     }
 
     const data = await response.json();
@@ -98,6 +126,10 @@ async function chatCompletion(messages, options = {}) {
   }
 
   // OpenAI / MiMo 使用 OpenAI 兼容格式
+  if (!config.apiKey) {
+    throw new Error(`${config.provider} API Key 未配置`);
+  }
+
   const response = await fetch(`${config.baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
@@ -124,7 +156,7 @@ async function chatCompletion(messages, options = {}) {
 }
 
 /**
- * @returns {Promise<{ online: boolean, provider: string, model: string, models: string[] }>}
+ * @returns {Promise<{ online: boolean, provider: string, model: string, models: string[], supportsImage: boolean }>}
  */
 async function getProviderStatus() {
   const config = getProviderConfig();
@@ -148,7 +180,8 @@ async function getProviderStatus() {
         online: true,
         provider: config.provider,
         model: config.model,
-        models: models.length ? models : [config.model]
+        models: models.length ? models : [config.model],
+        supportsImage: false
       };
     } else {
       r = await fetch(`${config.baseUrl}/models`, {
@@ -167,15 +200,24 @@ async function getProviderStatus() {
         online: true,
         provider: config.provider,
         model: config.model,
-        models: models.length ? models : [config.model]
+        models: models.length ? models : [config.model],
+        supportsImage: config.provider === 'openai' && config.model.startsWith('gpt-4')
       };
     }
-  } catch {
-    return { online: false, provider: config.provider, model: config.model, models: [config.model] };
+  } catch (err) {
+    console.error('[LLM Client] 状态检查失败:', err.message);
+    return { 
+      online: false, 
+      provider: config.provider, 
+      model: config.model, 
+      models: [config.model],
+      supportsImage: config.provider === 'openai' && config.model.startsWith('gpt-4')
+    };
   }
 }
 
 module.exports = {
   chatCompletion,
-  getProviderStatus
+  getProviderStatus,
+  getProviderConfig
 };

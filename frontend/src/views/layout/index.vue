@@ -29,9 +29,12 @@
             <el-icon><UserFilled /></el-icon>
             <span>客户管理</span>
           </template>
-          <el-menu-item index="/leads" v-if="hasMenuPermission('leads')">线索管理</el-menu-item>
-          <el-menu-item index="/customer/list" v-if="hasMenuPermission('customer:list')">客户列表</el-menu-item>
-          <el-menu-item index="/customer/pool" v-if="hasMenuPermission('customer:pool')">客户池</el-menu-item>
+          <el-menu-item index="/leads" v-if="hasMenuPermission('leads')">线索导入</el-menu-item>
+          <el-menu-item index="/customer/prospects" v-if="hasMenuPermission('customer:list')">
+            <template #title>潜客池</template>
+          </el-menu-item>
+          <el-menu-item index="/customer/list" v-if="hasMenuPermission('customer:list')">正式客户</el-menu-item>
+          <el-menu-item index="/customer/pool" v-if="hasMenuPermission('customer:pool')">公海池</el-menu-item>
           <el-menu-item index="/followup/calendar" v-if="hasMenuPermission('followup:calendar')">跟进日历</el-menu-item>
           <el-menu-item index="/followup/plan" v-if="hasMenuPermission('customer:list')">跟进计划</el-menu-item>
         </el-sub-menu>
@@ -76,19 +79,19 @@
           <template #title>售后服务</template>
         </el-menu-item>
 
+        <el-menu-item index="/report" v-if="isAdmin && hasMenuPermission('report')">
+          <el-icon><TrendCharts /></el-icon>
+          <template #title>数据报表</template>
+        </el-menu-item>
+
         <el-menu-item index="/analysis">
           <el-icon><DataAnalysis /></el-icon>
-          <template #title>数据分析</template>
+          <template #title>分析工具</template>
         </el-menu-item>
 
         <el-menu-item index="/ai-suggestions">
           <el-icon><ChatDotRound /></el-icon>
-          <template #title>AI建议</template>
-        </el-menu-item>
-
-        <el-menu-item index="/report" v-if="isAdmin && hasMenuPermission('report')">
-          <el-icon><TrendCharts /></el-icon>
-          <template #title>数据报表</template>
+          <template #title>AI助手</template>
         </el-menu-item>
 
         <el-menu-item index="/target" v-if="isAdmin && hasMenuPermission('target')">

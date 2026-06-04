@@ -10,14 +10,15 @@ const logAction = createRouteLogger(MODULE_NAME);
 
 const router = express.Router();
 
-// 分配客户负责人（单个）
+// 分配/回收客户负责人（支持设为"无负责人"）
+// to_user_id 可以为 null，表示回收为无负责人状态
 router.post('/assign', authenticateToken, checkPermission('customer:assign'), async (req, res) => {
   try {
     const { customer_id, to_user_id, remark } = req.body;
     const userId = req.user.userId;
 
-    if (!customer_id || !to_user_id) {
-      return res.status(400).json({ code: 400, message: '客户ID和新负责人ID不能为空', data: null });
+    if (!customer_id) {
+      return res.status(400).json({ code: 400, message: '客户ID不能为空', data: null });
     }
 
     // 权限检查：只有 manageAll 或管理员可分配
@@ -37,25 +38,25 @@ router.post('/assign', authenticateToken, checkPermission('customer:assign'), as
     const customer = customers[0];
     const fromUserId = customer.owner_id;
 
-    // 更新负责人
+    // 更新负责人（to_user_id 为 null 表示回收为无负责人）
     await pool.query(
       'UPDATE crm_customer SET owner_id = ?, pool_status = 0, protect_until = NULL WHERE id = ?',
-      [to_user_id, customer_id]
+      [to_user_id || null, customer_id]
     );
 
     // 记录分配日志
     await pool.query(
-      `INSERT INTO crm_assign_log (customer_id, from_user_id, to_user_id, operator_id, remark)
-       VALUES (?, ?, ?, ?, ?)`,
-      [customer_id, fromUserId, to_user_id, userId, remark || null]
+      'INSERT INTO crm_assign_log (customer_id, from_user_id, to_user_id, operator_id, remark) VALUES (?, ?, ?, ?, ?)',
+      [customer_id, fromUserId, to_user_id || null, userId, remark || null]
     );
 
-    await logAction(req, 'assign', `分配客户: ${customer.company_name} → 用户ID ${to_user_id}`);
+    const actionDesc = to_user_id ? `分配给用户ID ${to_user_id}` : '回收为待分配';
+    await logAction(req, 'assign', `${actionDesc}: ${customer.company_name}`);
 
-    res.json({ code: 200, message: '分配成功', data: null });
+    res.json({ code: 200, message: to_user_id ? '分配成功' : '已回收为待分配', data: null });
   } catch (error) {
     console.error('分配客户错误:', error);
-    res.status(500).json({ code: 500, message: '分配失败', data: null });
+    res.status(500).json({ code: 500, message: '操作失败', data: null });
   }
 });
 
@@ -70,9 +71,8 @@ router.post('/batch-assign', authenticateToken, checkPermission('customer:assign
     if (!customer_ids || !Array.isArray(customer_ids) || customer_ids.length === 0) {
       return res.status(400).json({ code: 400, message: '请选择要分配的客户', data: null });
     }
-    if (!to_user_id) {
-      return res.status(400).json({ code: 400, message: '请选择新负责人', data: null });
-    }
+    // to_user_id 可以为 null（回收为待分配）
+    // 不再强制要求 to_user_id
 
     // 数量上限防止恶意提交
     if (customer_ids.length > 100) {
@@ -206,8 +206,151 @@ router.get('/my-subordinates', authenticateToken, async (req, res) => {
   }
 });
 
-// 获取行业列表
-router.get('/industries/list', authenticateToken, async (req, res) => {
+// ========== 分配规则管理 ==========
+
+// 获取分配规则列表
+router.get('/assign-rules', authenticateToken, async (req, res) => {
+  if (!(req.user.manageAll || req.user.roleId === 1 || req.user.roleId === 2)) {
+    return res.status(403).json({ code: 403, message: '无权查看分配规则', data: null });
+  }
+  try {
+    const [list] = await pool.query(
+      'SELECT * FROM crm_assign_rule ORDER BY priority DESC, id ASC'
+    );
+    res.json({ code: 200, message: '查询成功', data: list });
+  } catch (error) {
+    console.error('查询分配规则错误:', error);
+    res.status(500).json({ code: 500, message: '查询失败', data: null });
+  }
+});
+
+// 添加分配规则
+router.post('/assign-rules/add', authenticateToken, async (req, res) => {
+  if (!(req.user.manageAll || req.user.roleId === 1 || req.user.roleId === 2)) {
+    return res.status(403).json({ code: 403, message: '无权管理分配规则', data: null });
+  }
+  try {
+    const { rule_name, assign_type, source_value, region_value, user_ids, priority } = req.body;
+    if (!rule_name || !assign_type || !user_ids || !Array.isArray(user_ids) || user_ids.length === 0) {
+      return res.status(400).json({ code: 400, message: '规则名称、分配方式、用户列表为必填', data: null });
+    }
+    if (!['round_robin', 'by_source', 'by_region'].includes(assign_type)) {
+      return res.status(400).json({ code: 400, message: '无效的分配方式', data: null });
+    }
+    if (assign_type === 'by_source' && !source_value) {
+      return res.status(400).json({ code: 400, message: '按来源分配时必须指定来源值', data: null });
+    }
+    if (assign_type === 'by_region' && !region_value) {
+      return res.status(400).json({ code: 400, message: '按区域分配时必须指定区域值', data: null });
+    }
+
+    const [result] = await pool.query(
+      `INSERT INTO crm_assign_rule (rule_name, assign_type, source_value, region_value, user_ids, priority)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [rule_name, assign_type, source_value || null, region_value || null, JSON.stringify(user_ids), priority || 0]
+    );
+    await logAction(req, 'add-assign-rule', `添加分配规则: ${rule_name}`);
+    res.json({ code: 200, message: '添加成功', data: { id: result.insertId } });
+  } catch (error) {
+    console.error('添加分配规则错误:', error);
+    res.status(500).json({ code: 500, message: '添加失败', data: null });
+  }
+});
+
+// 更新分配规则
+router.post('/assign-rules/update', authenticateToken, async (req, res) => {
+  if (!(req.user.manageAll || req.user.roleId === 1 || req.user.roleId === 2)) {
+    return res.status(403).json({ code: 403, message: '无权管理分配规则', data: null });
+  }
+  try {
+    const { id, rule_name, assign_type, source_value, region_value, user_ids, priority, is_active } = req.body;
+    if (!id) return res.status(400).json({ code: 400, message: '规则ID不能为空', data: null });
+
+    const updates = [];
+    const params = [];
+    if (rule_name !== undefined) { updates.push('rule_name = ?'); params.push(rule_name); }
+    if (assign_type !== undefined) { updates.push('assign_type = ?'); params.push(assign_type); }
+    if (source_value !== undefined) { updates.push('source_value = ?'); params.push(source_value); }
+    if (region_value !== undefined) { updates.push('region_value = ?'); params.push(region_value); }
+    if (user_ids !== undefined) { updates.push('user_ids = ?'); params.push(JSON.stringify(user_ids)); }
+    if (priority !== undefined) { updates.push('priority = ?'); params.push(priority); }
+    if (is_active !== undefined) { updates.push('is_active = ?'); params.push(is_active); }
+
+    if (updates.length === 0) return res.status(400).json({ code: 400, message: '无更新内容', data: null });
+
+    params.push(id);
+    await pool.query(`UPDATE crm_assign_rule SET ${updates.join(', ')} WHERE id = ?`, params);
+    await logAction(req, 'update-assign-rule', `更新分配规则ID: ${id}`);
+    res.json({ code: 200, message: '更新成功', data: null });
+  } catch (error) {
+    console.error('更新分配规则错误:', error);
+    res.status(500).json({ code: 500, message: '更新失败', data: null });
+  }
+});
+
+// 删除分配规则
+router.post('/assign-rules/delete', authenticateToken, async (req, res) => {
+  if (!(req.user.manageAll || req.user.roleId === 1 || req.user.roleId === 2)) {
+    return res.status(403).json({ code: 403, message: '无权管理分配规则', data: null });
+  }
+  try {
+    const { id } = req.body;
+    if (!id) return res.status(400).json({ code: 400, message: '规则ID不能为空', data: null });
+    await pool.query('DELETE FROM crm_assign_rule WHERE id = ?', [id]);
+    await logAction(req, 'delete-assign-rule', `删除分配规则ID: ${id}`);
+    res.json({ code: 200, message: '删除成功', data: null });
+  } catch (error) {
+    console.error('删除分配规则错误:', error);
+    res.status(500).json({ code: 500, message: '删除失败', data: null });
+  }
+});
+
+// 自动分配逻辑（供 detail.js 新增客户时调用）
+async function autoAssignOwner(customer) {
+  try {
+    const [rules] = await pool.query(
+      'SELECT * FROM crm_assign_rule WHERE is_active = 1 ORDER BY priority DESC'
+    );
+    if (rules.length === 0) return null;
+
+    for (const rule of rules) {
+      let matched = false;
+
+      if (rule.assign_type === 'round_robin') {
+        matched = true;
+      } else if (rule.assign_type === 'by_source' && customer.source === rule.source_value) {
+        matched = true;
+      } else if (rule.assign_type === 'by_region' && customer.address && customer.address.includes(rule.region_value)) {
+        matched = true;
+      }
+
+      if (matched) {
+        let userIds;
+        try {
+          userIds = typeof rule.user_ids === 'string' ? JSON.parse(rule.user_ids) : rule.user_ids;
+        } catch { continue; }
+        if (!Array.isArray(userIds) || userIds.length === 0) continue;
+
+        const lastIndex = rule.last_assigned_index || 0;
+        const nextIndex = (lastIndex + 1) % userIds.length;
+
+        await pool.query(
+          'UPDATE crm_assign_rule SET last_assigned_index = ? WHERE id = ?',
+          [nextIndex, rule.id]
+        );
+
+        return userIds[nextIndex];
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('自动分配规则执行错误:', error);
+    return null;
+  }
+}
+
+module.exports = router;
+module.exports.autoAssignOwner = autoAssignOwner;
   try {
     const [rows] = await pool.query(
       'SELECT DISTINCT industry FROM crm_customer WHERE industry IS NOT NULL AND industry != "" AND status != 0 ORDER BY industry'
@@ -292,5 +435,3 @@ router.post('/auto-assign', authenticateToken, checkPermission('customer:assign'
     connection.release();
   }
 });
-
-module.exports = router;

@@ -134,7 +134,7 @@ const updateQualificationStatus = async () => {
       `UPDATE crm_supplier_qualification
        SET status = CASE
          WHEN expire_date < CURRENT_DATE THEN 3
-         WHEN expire_date <= CURRENT_DATE + INTERVAL '30 days' THEN 2
+         WHEN expire_date <= CURRENT_DATE + INTERVAL 30 DAY THEN 2
          ELSE 1
        END
        WHERE status != 3`

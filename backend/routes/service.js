@@ -51,7 +51,8 @@ const canManageService = async (user, serviceOrder) => {
 // 获取工单列表
 router.post('/list', authenticateToken, async (req, res) => {
   const { page = 1, pageSize = 10, status, type, priority, keyword, assignee_id, created_today, is_timeout } = req.body;
-  const offset = (page - 1) * pageSize;
+  const safePageSize = Math.min(Math.max(1, parseInt(pageSize) || 10), 200);
+  const offset = (Math.max(1, parseInt(page) || 1) - 1) * safePageSize;
 
   const permission = await getDataPermission(req.user);
   const permissionClause = buildServicePermissionClause(permission);
@@ -59,7 +60,10 @@ router.post('/list', authenticateToken, async (req, res) => {
   let sql = `
     SELECT so.*, cu.company_name as customer_name, cu.contact_name as customer_contact,
            cu.phone as customer_phone, c.contract_no,
-           u1.real_name as assignee_name, u2.real_name as create_by_name
+           u1.real_name as assignee_name, u2.real_name as create_by_name,
+           CASE WHEN so.status IN (1, 2) AND so.priority = 1 AND NOW() - INTERVAL 2 HOUR > so.create_time THEN 1
+                WHEN so.status IN (1, 2) AND so.priority = 2 AND NOW() - INTERVAL 4 HOUR > so.create_time THEN 1
+                ELSE 0 END as is_timeout
     FROM crm_service_order so
     LEFT JOIN crm_customer cu ON so.customer_id = cu.id
     LEFT JOIN crm_contract c ON so.contract_id = c.id
@@ -98,19 +102,19 @@ router.post('/list', authenticateToken, async (req, res) => {
 
   // 今日工单筛选
   if (created_today) {
-    sql += ' AND so.create_time::date = CURRENT_DATE';
+    sql += ' AND DATE(so.create_time) = CURRENT_DATE';
   }
 
   // 超时工单筛选：紧急超2小时、高优超4小时，状态为待分配或已分配
   if (is_timeout) {
     sql += ` AND so.status IN (1, 2) AND (
-      (so.priority = 1 AND so.create_time < NOW() - INTERVAL '2 hours')
-      OR (so.priority = 2 AND so.create_time < NOW() - INTERVAL '4 hours')
+      (so.priority = 1 AND so.create_time < NOW() - INTERVAL 2 HOUR)
+      OR (so.priority = 2 AND so.create_time < NOW() - INTERVAL 4 HOUR)
     )`;
   }
 
   sql += ' ORDER BY so.create_time DESC LIMIT ?, ?';
-  params.push(offset, pageSize);
+  params.push(offset, safePageSize);
   
   try {
     const [rows] = await pool.query(sql, params);
@@ -172,6 +176,20 @@ router.post('/add', authenticateToken, checkPermission('service:add'), async (re
 
   try {
     await connection.beginTransaction();
+
+    // 校验客户必须是正式客户
+    const [customerCheck] = await connection.query(
+      'SELECT id, customer_type FROM crm_customer WHERE id = ? AND status != 0',
+      [customer_id]
+    );
+    if (customerCheck.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ code: 404, message: '客户不存在', data: null });
+    }
+    if (customerCheck[0].customer_type !== 'customer') {
+      await connection.rollback();
+      return res.status(400).json({ code: 400, message: '只能为正式客户创建售后工单', data: null });
+    }
 
     const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
     const [count] = await connection.query('SELECT COUNT(*) as cnt FROM crm_service_order WHERE order_no LIKE ? FOR UPDATE', [`SRV-${dateStr}-%`]);

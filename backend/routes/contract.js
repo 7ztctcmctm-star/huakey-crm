@@ -264,7 +264,21 @@ router.post('/add', authenticateToken, checkPermission('contract:add'), validate
   
   try {
     await connection.beginTransaction();
-    
+
+    // 校验客户必须是正式客户
+    const [customerCheck] = await connection.query(
+      'SELECT id, customer_type, company_name FROM crm_customer WHERE id = ? AND status != 0',
+      [customer_id]
+    );
+    if (customerCheck.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ code: 404, message: '客户不存在', data: null });
+    }
+    if (customerCheck[0].customer_type !== 'customer') {
+      await connection.rollback();
+      return res.status(400).json({ code: 400, message: '只能为正式客户创建合同，请先将客户转化为正式客户', data: null });
+    }
+
     const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
     const [count] = await connection.query('SELECT COUNT(*) as cnt FROM crm_contract WHERE contract_no LIKE ? FOR UPDATE', [`CON-${dateStr}-%`]);
     const seq = String(count[0].cnt + 1).padStart(3, '0');

@@ -6,7 +6,7 @@
       <span class="page-title">客户详情 — {{ customer.company_name }}</span>
       <div class="header-actions">
         <!-- 老板分配负责人 -->
-        <template v-if="isBoss && customer.owner_id">
+        <template v-if="(isBoss || isManager) && customer.owner_id">
           <span class="assign-label">负责人：</span>
           <el-select
             :model-value="customer.owner_id"
@@ -52,6 +52,12 @@
             </el-tag>
             <el-tag :type="statusTagType(customer.status)" size="large">
               {{ statusMap[customer.status] }}
+            </el-tag>
+            <el-tag v-if="customer.customer_type" :type="customer.customer_type === 'customer' ? 'success' : 'warning'" size="large">
+              {{ customer.customer_type === 'customer' ? '正式客户' : '潜客' }}
+            </el-tag>
+            <el-tag v-if="customer.lifecycle_status" :type="lifecycleStatusType(customer.lifecycle_status)" size="large">
+              {{ lifecycleStatusMap[customer.lifecycle_status] || customer.lifecycle_status }}
             </el-tag>
           </div>
         </div>
@@ -465,9 +471,10 @@ const router = useRouter()
 
 const loading = ref(false)
 
-// 老板权限判断
+// 权限判断：roleId 1=老板 2=管理者 3=销售
 const userInfo = ref({})
 const isBoss = ref(false)
+const isManager = ref(false)
 const salesUsers = ref([])
 
 try {
@@ -475,11 +482,12 @@ try {
   if (stored) {
     userInfo.value = JSON.parse(stored)
     isBoss.value = userInfo.value.manageAll === true || userInfo.value.roleId === 1
+    isManager.value = userInfo.value.roleId === 2
   }
 } catch (e) { /* ignore */ }
 
 const fetchSalesUsers = async () => {
-  if (!isBoss.value) return
+  if (!isBoss.value && !isManager.value) return
   try {
     const res = await getRequest('/customer/sales-users')
     if (res.code === 200) salesUsers.value = res.data
@@ -501,6 +509,20 @@ const statusMap = {
   1: '潜在客户',
   2: '成交客户',
   3: '流失客户'
+}
+
+const lifecycleStatusMap = {
+  new: '新导入',
+  nurturing: '培育中',
+  intent: '意向合作',
+  active: '正在合作',
+  lost: '流失',
+  inactive: '无效'
+}
+
+const lifecycleStatusType = (status) => {
+  const map = { new: 'info', nurturing: 'warning', intent: '', active: 'success', lost: 'danger', inactive: 'info' }
+  return map[status] || 'info'
 }
 
 const levelTagType = (level) => {
@@ -525,6 +547,8 @@ const customer = reactive({
   source: '',
   level: '',
   status: 0,
+  customer_type: '',
+  lifecycle_status: '',
   remark: '',
   owner_name: '',
   create_time: '',

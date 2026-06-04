@@ -56,7 +56,9 @@
           批量分配 ({{ selectedServiceRows.length }})
         </el-button>
       </div>
-      <el-table v-loading="loading" :data="tableData" stripe border style="width: 100%" :header-cell-style="{ background: 'var(--c-bg)', color: 'var(--c-text)' }"
+      <el-table v-loading="loading" :data="tableData" stripe border style="width: 100%"
+        :row-class-name="tableRowClass"
+        :header-cell-style="{ background: 'var(--c-bg)', color: 'var(--c-text)' }"
         @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="50" :selectable="(row) => row.status === 1" />
         <el-table-column prop="order_no" label="工单编号" min-width="140" show-overflow-tooltip />
@@ -80,6 +82,12 @@
         <el-table-column prop="status" label="状态" width="90">
           <template #default="{ row }">
             <el-tag :type="getStatusTag(row.status)">{{ getStatusText(row.status) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="is_timeout" label="超时" width="70" align="center">
+          <template #default="{ row }">
+            <el-tag v-if="row.is_timeout == 1" type="danger" effect="dark" size="small">超时</el-tag>
+            <span v-else style="color: #999">-</span>
           </template>
         </el-table-column>
         <el-table-column prop="assignee_name" label="处理人" width="100" />
@@ -684,6 +692,11 @@ function getTypeTag(type) {
   return map[type] || 'info'
 }
 
+// P0-4: 超时工单行高亮
+function tableRowClass({ row }) {
+  return row.is_timeout == 1 ? 'timeout-service-row' : ''
+}
+
 function handleUploadSuccess(res, file) {
   if (res.code === 200 && res.data) {
     res.data.forEach(item => {
@@ -807,4 +820,7 @@ const imagePaths = () => {
 .attachment-item {
   display: inline-block;
 }
+/* P0-4: 超时工单行高亮 */
+:deep(.timeout-service-row) { background-color: #fef2f2 !important; }
+:deep(.timeout-service-row):hover { background-color: #fee2e2 !important; }
 </style>

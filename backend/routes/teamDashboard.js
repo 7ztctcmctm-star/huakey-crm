@@ -32,7 +32,7 @@ router.get('/overview', authenticateToken, async (req, res) => {
     // 本周新增客户
     const [weekNew] = await pool.query(
       `SELECT COUNT(*) as count FROM crm_customer c
-       WHERE c.status != 0 AND EXTRACT(YEAR FROM c.create_time) = EXTRACT(YEAR FROM NOW()) AND EXTRACT(WEEK FROM c.create_time) = EXTRACT(WEEK FROM NOW()) ${userFilter}`,
+       WHERE c.status != 0 AND YEAR(c.create_time) = YEAR(NOW()) AND WEEK(c.create_time, 1) = WEEK(NOW(), 1) ${userFilter}`,
       params
     );
 
@@ -50,7 +50,7 @@ router.get('/overview', authenticateToken, async (req, res) => {
       `SELECT COUNT(*) as count FROM crm_customer c
        WHERE c.status NOT IN (2, 3) AND c.status != 0
          AND (c.last_follow_time IS NULL
-           OR c.last_follow_time < NOW() - (? * INTERVAL '1 day'))
+           OR c.last_follow_time < NOW() - INTERVAL ? DAY)
          ${userFilter}`,
       [...params, overdueDays]
     );
@@ -185,8 +185,8 @@ router.get('/sales-breakdown', authenticateToken, async (req, res) => {
         FROM crm_contract ct
         LEFT JOIN crm_opportunity o ON ct.opportunity_id = o.id
         WHERE ct.deleted_at IS NULL AND o.owner_id IN (${placeholders})
-          AND ct.create_time >= DATE_TRUNC('month', NOW())::date
-          AND ct.create_time < DATE_TRUNC('month', NOW())::date + INTERVAL '1 month'
+          AND ct.create_time >= DATE_FORMAT(NOW(), '%Y-%m-01')
+          AND ct.create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH
         GROUP BY o.owner_id
       ) ca ON ca.owner_id = u.id
       LEFT JOIN (
@@ -195,14 +195,14 @@ router.get('/sales-breakdown', authenticateToken, async (req, res) => {
         LEFT JOIN crm_contract ct ON p.contract_id = ct.id
         LEFT JOIN crm_opportunity o ON ct.opportunity_id = o.id
         WHERE p.deleted_at IS NULL AND o.owner_id IN (${placeholders})
-          AND p.pay_date >= DATE_TRUNC('month', NOW())::date
-          AND p.pay_date < DATE_TRUNC('month', NOW())::date + INTERVAL '1 month'
+          AND p.pay_date >= DATE_FORMAT(NOW(), '%Y-%m-01')
+          AND p.pay_date < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH
         GROUP BY o.owner_id
       ) pa ON pa.owner_id = u.id
       LEFT JOIN (
         SELECT owner_id, COUNT(*) as cnt FROM crm_customer
         WHERE owner_id IN (${placeholders}) AND status NOT IN (2, 3) AND status != 0
-          AND (last_follow_time IS NULL OR last_follow_time < NOW() - (? * INTERVAL '1 day'))
+          AND (last_follow_time IS NULL OR last_follow_time < NOW() - INTERVAL ? DAY)
         GROUP BY owner_id
       ) nf ON nf.owner_id = u.id
       WHERE u.id IN (${placeholders})`,
@@ -213,7 +213,7 @@ router.get('/sales-breakdown', authenticateToken, async (req, res) => {
     const [taskStats] = await pool.query(`
       SELECT user_id, SUM(cnt) as task_count FROM (
         SELECT create_by as user_id, COUNT(*) as cnt FROM crm_follow_up
-        WHERE create_by IN (${placeholders}) AND next_time IS NOT NULL AND next_time::date = CURRENT_DATE
+        WHERE create_by IN (${placeholders}) AND next_time IS NOT NULL AND DATE(next_time) = CURRENT_DATE
         GROUP BY create_by
         UNION ALL
         SELECT assignee_id as user_id, COUNT(*) as cnt FROM crm_service_order
@@ -282,7 +282,7 @@ router.post('/sales-overdue-customers', authenticateToken, async (req, res) => {
       `SELECT COUNT(*) as total FROM crm_customer
        WHERE owner_id = ? AND status NOT IN (2, 3) AND status != 0
          AND (last_follow_time IS NULL
-           OR last_follow_time < NOW() - (? * INTERVAL '1 day'))`,
+           OR last_follow_time < NOW() - INTERVAL ? DAY)`,
       [user_id, overdueDays]
     );
 
@@ -293,7 +293,7 @@ router.post('/sales-overdue-customers', authenticateToken, async (req, res) => {
        FROM crm_customer
        WHERE owner_id = ? AND status NOT IN (2, 3) AND status != 0
          AND (last_follow_time IS NULL
-           OR last_follow_time < NOW() - (? * INTERVAL '1 day'))
+           OR last_follow_time < NOW() - INTERVAL ? DAY)
        ORDER BY overdue_days DESC
        LIMIT ? OFFSET ?`,
       [user_id, overdueDays, parseInt(pageSize), parseInt(offset)]
@@ -371,7 +371,7 @@ router.post('/urge-followup', authenticateToken, async (req, res) => {
       `SELECT id FROM crm_notification
        WHERE type = 'urge_followup' AND business_type = 'customer' AND business_id = ?
          AND to_user_id = ? AND is_dismissed = 0
-         AND create_time::date = CURRENT_DATE`,
+         AND DATE(create_time) = CURRENT_DATE`,
       [customer_id, user_id]
     );
     if (existing.length > 0) {

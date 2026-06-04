@@ -60,7 +60,7 @@ router.get('/performance', authenticateToken, async (req, res) => {
     params.push(startDate, endDate);
   } else {
     // [性能修复] 使用范围比较替代DATE_FORMAT，使索引生效
-    dateFilter = `AND c.sign_date >= DATE_TRUNC('month', NOW())::date AND c.sign_date < DATE_TRUNC('month', NOW())::date + INTERVAL '1 month'`;
+    dateFilter = `AND c.sign_date >= DATE_FORMAT(NOW(), '%Y-%m-01') AND c.sign_date < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH`;
   }
 
   try {
@@ -100,7 +100,7 @@ router.get('/customer', authenticateToken, async (req, res) => {
     // 本期新增客户数
     const [monthCount] = await pool.query(`
       SELECT COUNT(*) as count FROM crm_customer c
-      WHERE 1=1 ${dateFilter || `AND create_time >= DATE_TRUNC('month', NOW())::date AND create_time < DATE_TRUNC('month', NOW())::date + INTERVAL '1 month'`}
+      WHERE 1=1 ${dateFilter || `AND create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH`}
     `, params);
 
     // 客户来源分布
@@ -169,8 +169,8 @@ router.get('/payment', authenticateToken, async (req, res) => {
       payParams.push(startDate, endDate);
     } else {
       // [性能修复] 范围比较替代DATE_FORMAT
-      planDateFilter = `pp.plan_date >= DATE_TRUNC('month', NOW())::date AND pp.plan_date < DATE_TRUNC('month', NOW())::date + INTERVAL '1 month'`;
-      payDateFilter = `p.pay_date >= DATE_TRUNC('month', NOW())::date AND p.pay_date < DATE_TRUNC('month', NOW())::date + INTERVAL '1 month'`;
+      planDateFilter = `pp.plan_date >= DATE_FORMAT(NOW(), '%Y-%m-01') AND pp.plan_date < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH`;
+      payDateFilter = `p.pay_date >= DATE_FORMAT(NOW(), '%Y-%m-01') AND p.pay_date < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH`;
     }
 
     // 计划回款
@@ -229,17 +229,17 @@ router.get('/sales-trend', authenticateToken, async (req, res) => {
       dateFilter = 'c.sign_date BETWEEN ? AND ?';
       params.push(startDate, endDate);
     } else {
-      dateFilter = `c.sign_date >= NOW() - INTERVAL '12 months'`;
+      dateFilter = `c.sign_date >= NOW() - INTERVAL 12 MONTH`;
     }
 
     const [rows] = await pool.query(`
       SELECT
-        TO_CHAR(c.sign_date, 'YYYY-MM') as month,
+        DATE_FORMAT(c.sign_date, '%Y-%m') as month,
         COUNT(c.id) as contract_count,
         COALESCE(SUM(c.amount), 0) as amount
       FROM crm_contract c
       WHERE ${dateFilter}
-      GROUP BY TO_CHAR(c.sign_date, 'YYYY-MM')
+      GROUP BY DATE_FORMAT(c.sign_date, '%Y-%m')
       ORDER BY month
     `, params);
 
@@ -274,26 +274,26 @@ router.get('/overview', authenticateToken, async (req, res) => {
     const [monthSales] = await pool.query(`
       SELECT COALESCE(SUM(amount), 0) as amount
       FROM crm_contract
-      WHERE sign_date >= DATE_TRUNC(\"month\", NOW())::date AND sign_date < DATE_TRUNC(\"month\", NOW())::date + INTERVAL '1 month' ${contractFilter}
+      WHERE sign_date >= DATE_FORMAT(NOW(), '%Y-%m-01') AND sign_date < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH ${contractFilter}
     `, params);
 
     const [monthCustomers] = await pool.query(`
       SELECT COUNT(*) as count
       FROM crm_customer
-      WHERE create_time >= DATE_TRUNC(\"month\", NOW())::date AND create_time < DATE_TRUNC(\"month\", NOW())::date + INTERVAL '1 month' ${customerFilter}
+      WHERE create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH ${customerFilter}
     `, params);
 
     const [monthContracts] = await pool.query(`
       SELECT COUNT(*) as count
       FROM crm_contract
-      WHERE create_time >= DATE_TRUNC(\"month\", NOW())::date AND create_time < DATE_TRUNC(\"month\", NOW())::date + INTERVAL '1 month' ${contractFilter}
+      WHERE create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH ${contractFilter}
     `, params);
 
     const [monthPayments] = await pool.query(`
       SELECT COALESCE(SUM(p.pay_amount), 0) as amount
       FROM crm_payment p
       LEFT JOIN crm_contract c ON p.contract_id = c.id
-      WHERE p.pay_date >= DATE_TRUNC(\"month\", NOW())::date AND p.pay_date < DATE_TRUNC(\"month\", NOW())::date + INTERVAL '1 month' ${isAdmin ? '' : ' AND c.create_by = ?'}
+      WHERE p.pay_date >= DATE_FORMAT(NOW(), '%Y-%m-01') AND p.pay_date < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH ${isAdmin ? '' : ' AND c.create_by = ?'}
     `, isAdmin ? [] : [userId]);
 
     const [opportunityAmount] = await pool.query(`
@@ -304,11 +304,11 @@ router.get('/overview', authenticateToken, async (req, res) => {
 
     // 线索统计
     const [monthLeads] = await pool.query(
-      `SELECT COUNT(*) as count FROM crm_customer WHERE create_time >= DATE_TRUNC(\"month\", NOW())::date AND create_time < DATE_TRUNC(\"month\", NOW())::date + INTERVAL '1 month' AND status = 1 ${customerFilter}`,
+      `SELECT COUNT(*) as count FROM crm_customer WHERE create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH AND status = 1 ${customerFilter}`,
       params
     );
     const [monthConverted] = await pool.query(
-      `SELECT COUNT(*) as count FROM crm_customer WHERE converted_at >= NOW() - INTERVAL '30 days' ${customerFilter.replace('owner_id', 'owner_id')}`,
+      `SELECT COUNT(*) as count FROM crm_customer WHERE converted_at >= NOW() - INTERVAL 30 DAY ${customerFilter.replace('owner_id', 'owner_id')}`,
       isAdmin ? [] : [userId]
     );
 
@@ -351,7 +351,7 @@ router.get('/today-tasks', authenticateToken, async (req, res) => {
       LEFT JOIN crm_customer cu ON f.customer_id = cu.id AND cu.status != 0
       WHERE ${followFilter}
         AND f.next_time IS NOT NULL
-        AND f.next_time::date = CURRENT_DATE
+        AND DATE(f.next_time) = CURRENT_DATE
       ORDER BY f.next_time ASC
       LIMIT 50
     `, followParams);
@@ -361,7 +361,7 @@ router.get('/today-tasks', authenticateToken, async (req, res) => {
       FROM crm_follow_up f
       WHERE ${followFilter}
         AND f.next_time IS NOT NULL
-        AND f.next_time::date = CURRENT_DATE
+        AND DATE(f.next_time) = CURRENT_DATE
     `, followParams);
 
     const [serviceList] = await pool.query(`
@@ -449,17 +449,18 @@ router.post('/overdue', authenticateToken, checkPermission('report'), async (req
     const userId = req.user.userId;
     const roleId = req.user.roleId;
     const isAdmin = roleId === 1 || roleId === 2;
-    const isManager = roleId === 3;
+    const isDeptManager = roleId === 2; // roleId 2=部门经理
     const { page = 1, pageSize = 20 } = req.body;
-    const offset = (page - 1) * pageSize;
+    const safePageSize = Math.min(Math.max(1, parseInt(pageSize) || 20), 200);
+    const offset = (Math.max(1, parseInt(page) || 1) - 1) * safePageSize;
     const overdueDays = await getOverdueDays();
 
     let whereClause = `WHERE c.pool_status = 0 AND c.status != 0 AND c.owner_id IS NOT NULL
-      AND ((c.last_follow_time IS NULL AND c.create_time < NOW() - (${overdueDays} * INTERVAL '1 day'))
-        OR c.last_follow_time < NOW() - (${overdueDays} * INTERVAL '1 day'))`;
+      AND ((c.last_follow_time IS NULL AND c.create_time < NOW() - INTERVAL ${overdueDays} DAY)
+        OR c.last_follow_time < NOW() - INTERVAL ${overdueDays} DAY)`;
 
     if (!isAdmin) {
-      if (isManager) {
+      if (isDeptManager) {
         // 部门经理看部门
         whereClause += ' AND c.owner_id IN (SELECT id FROM sys_user WHERE dept_id = (SELECT dept_id FROM sys_user WHERE id = ?))';
       } else {
@@ -485,12 +486,12 @@ router.post('/overdue', authenticateToken, checkPermission('report'), async (req
       ${whereClause}
       ORDER BY overdue_days DESC
       LIMIT ? OFFSET ?`,
-      [...params, parseInt(pageSize), parseInt(offset)]
+      [...params, safePageSize, parseInt(offset)]
     );
 
     res.json({
       code: 200, message: '查询成功',
-      data: { list, total, page: parseInt(page), pageSize: parseInt(pageSize) }
+      data: { list, total, page: parseInt(page), pageSize: safePageSize }
     });
   } catch (error) {
     console.error(error);
@@ -507,12 +508,14 @@ router.get('/overdue-stats', authenticateToken, async (req, res) => {
     const overdueDays = await getOverdueDays();
 
     let whereClause = `c.pool_status = 0 AND c.status != 0 AND c.owner_id IS NOT NULL
-      AND ((c.last_follow_time IS NULL AND c.create_time < NOW() - (${overdueDays} * INTERVAL '1 day'))
-        OR c.last_follow_time < NOW() - (${overdueDays} * INTERVAL '1 day'))`;
+      AND ((c.last_follow_time IS NULL AND c.create_time < NOW() - INTERVAL ${overdueDays} DAY)
+        OR c.last_follow_time < NOW() - INTERVAL ${overdueDays} DAY)`;
 
-    if (roleId === 3) {
+    if (roleId === 2) {
+      // 部门经理看本部门数据
       whereClause += ' AND c.owner_id IN (SELECT id FROM sys_user WHERE dept_id = (SELECT dept_id FROM sys_user WHERE id = ?))';
-    } else if (roleId >= 4) {
+    } else if (roleId >= 3) {
+      // 销售及其他角色只能看自己的
       whereClause += ' AND c.owner_id = ?';
     }
 
@@ -543,17 +546,17 @@ router.get('/purchase-trend', authenticateToken, async (req, res) => {
       dateFilter = 'po.create_time BETWEEN ? AND ?';
       params.push(startDate, endDate + ' 23:59:59');
     } else {
-      dateFilter = `po.create_time >= NOW() - INTERVAL '12 months'`;
+      dateFilter = `po.create_time >= NOW() - INTERVAL 12 MONTH`;
     }
 
     const [rows] = await pool.query(`
       SELECT
-        TO_CHAR(po.create_time, 'YYYY-MM') as month,
+        DATE_FORMAT(po.create_time, '%Y-%m') as month,
         COUNT(po.id) as order_count,
         COALESCE(SUM(po.total_with_tax), 0) as amount
       FROM crm_purchase_order po
       WHERE po.status != '已取消' AND po.deleted_at IS NULL AND ${dateFilter}
-      GROUP BY TO_CHAR(po.create_time, 'YYYY-MM')
+      GROUP BY DATE_FORMAT(po.create_time, '%Y-%m')
       ORDER BY month
     `, params);
 
@@ -610,7 +613,7 @@ router.post('/export', authenticateToken, checkPermission('report'), async (req,
       perfDateFilter = 'AND c.sign_date BETWEEN ? AND ?';
       perfParams.push(startDate, endDate);
     } else {
-      perfDateFilter = `AND c.sign_date >= DATE_TRUNC('month', NOW())::date AND c.sign_date < DATE_TRUNC('month', NOW())::date + INTERVAL '1 month'`;
+      perfDateFilter = `AND c.sign_date >= DATE_FORMAT(NOW(), '%Y-%m-01') AND c.sign_date < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH`;
     }
     const [perfRows] = await pool.query(`
       SELECT u.real_name as '销售姓名',

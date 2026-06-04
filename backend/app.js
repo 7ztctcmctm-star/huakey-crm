@@ -87,6 +87,8 @@ const analysisRoutes = require('./routes/analysis');
 const integrationRoutes = require('./routes/integration');
 const uploadRoutes = require('./routes/upload');
 const searchRoutes = require('./routes/search');
+const tagRoutes = require('./routes/tag');
+const contractTemplateRoutes = require('./routes/contractTemplate');
 
 // API 路由前缀 /api
 const apiRouter = express.Router();
@@ -151,6 +153,8 @@ apiRouter.use('/analysis', analysisRoutes);
 apiRouter.use('/integration', integrationRoutes);
 apiRouter.use('/upload', uploadRoutes);
 apiRouter.use('/search', searchRoutes);
+apiRouter.use('/tag', tagRoutes);
+apiRouter.use('/contract-template', contractTemplateRoutes);
 
 // Vercel Cron Jobs 端点（也兼容本地 node-cron）
 const cronJobRoutes = require('./routes/cronJobs');
@@ -298,7 +302,7 @@ if (!process.env.VERCEL) {
   cron.schedule('0 3 * * *', async () => {
     try {
       const result = await pool.query(
-        "DELETE FROM sys_log WHERE create_time < NOW() - INTERVAL '90 days'"
+        "DELETE FROM sys_log WHERE create_time < NOW() - INTERVAL 90 DAY"
       );
       if (result.rowCount > 0) {
         console.log(`[日志清理] 已清理 ${result.rowCount} 条过期日志`);
@@ -316,8 +320,8 @@ if (!process.env.VERCEL) {
       const { rows: customers } = await pool.query(
         `SELECT id, company_name, owner_id FROM crm_customer
          WHERE pool_status = 0 AND status != 0 AND owner_id IS NOT NULL
-           AND (last_follow_time IS NULL AND create_time < NOW() - ($1 * INTERVAL '1 day')
-             OR last_follow_time < NOW() - ($1 * INTERVAL '1 day'))`,
+           AND (last_follow_time IS NULL AND create_time < NOW() - INTERVAL $1 DAY
+             OR last_follow_time < NOW() - INTERVAL $1 DAY)`,
         [AUTO_RELEASE_DAYS]
       );
       if (customers.length === 0) {

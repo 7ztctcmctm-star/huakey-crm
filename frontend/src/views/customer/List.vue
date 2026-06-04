@@ -32,6 +32,27 @@
             <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
+        <el-form-item label="客户类型">
+          <el-select v-model="searchForm.customer_type" placeholder="全部类型" clearable>
+            <el-option label="潜客" value="prospect" />
+            <el-option label="正式客户" value="customer" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="生命周期">
+          <el-select v-model="searchForm.lifecycle_status" placeholder="全部阶段" clearable>
+            <el-option label="新导入" value="new" />
+            <el-option label="培育中" value="nurturing" />
+            <el-option label="意向合作" value="intent" />
+            <el-option label="正在合作" value="active" />
+            <el-option label="流失" value="lost" />
+            <el-option label="无效" value="inactive" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="标签">
+          <el-select v-model="searchForm.tag_id" placeholder="全部标签" clearable style="width:140px" @change="handleSearch">
+            <el-option v-for="t in tagOptions" :key="t.id" :label="t.name" :value="t.id" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="创建时间">
           <el-date-picker v-model="searchForm.dateRange" type="daterange" start-placeholder="开始日期" end-placeholder="结束日期" value-format="YYYY-MM-DD" style="width: 240px" />
         </el-form-item>
@@ -97,20 +118,13 @@
             <el-option v-for="u in staffOptions" :key="u.id" :label="u.real_name" :value="u.id" />
           </el-select>
         </template>
-        <template v-if="isBoss">
+        <template v-if="isBoss || isManager">
           <el-divider direction="vertical" />
-          <el-select
-            v-model="batchNewOwnerId"
-            placeholder="批量更换负责人"
-            size="default"
-            style="width: 160px"
-            clearable
-          >
+          <el-select v-model="batchNewOwnerId" placeholder="批量更换负责人" size="default" style="width: 160px" clearable>
+            <el-option :value="null" label="回收为待分配" />
             <el-option v-for="u in salesUsers" :key="u.id" :label="u.real_name" :value="u.id" />
           </el-select>
-          <el-button
-            type="warning"
-            :disabled="selectedRows.length === 0 || !batchNewOwnerId"
+          <el-button type="warning" :disabled="selectedRows.length === 0"
             @click="handleBatchAssign"
             v-permission="'customer:assign'"
           >
@@ -148,7 +162,7 @@
         <el-table-column prop="owner_name" label="负责人" width="110">
           <template #default="{ row }">
             <el-tag v-if="row.owner_name" type="success" size="small">{{ row.owner_name }}</el-tag>
-            <el-tag v-else type="info" size="small">未分配</el-tag>
+            <el-tag v-else type="danger" size="small" effect="plain">待分配</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="contact_name" label="联系人" width="100" class-name="hide-mobile" />
@@ -183,6 +197,14 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="标签" width="160">
+          <template #default="{ row }">
+            <template v-if="row.tags && row.tags.length">
+              <el-tag v-for="t in row.tags" :key="t.id" :color="t.color" size="small" effect="dark" style="margin: 1px 2px">{{ t.name }}</el-tag>
+            </template>
+            <span v-else style="color:#999;font-size:12px">-</span>
+          </template>
+        </el-table-column>
         <el-table-column label="最后跟进" width="150">
           <template #default="{ row }">
             <el-tooltip v-if="row.last_follow_time" :content="fullTime(row.last_follow_time)" placement="top">
@@ -200,15 +222,36 @@
             </el-tooltip>
           </template>
         </el-table-column>
-        <el-table-column label="操作" :width="isBoss ? 360 : 260" fixed="right">
+        <el-table-column label="操作" :width="isProspectView && (isBoss || isManager) ? 350 : 260" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link :icon="View" @click="handleView(row)">查看</el-button>
-            <el-button type="primary" link :icon="Edit" @click="handleEdit(row)" v-permission="'customer:edit'">编辑</el-button>
-            <el-button type="success" link :icon="ChatLineRound" @click="openQuickFollow(row)" v-permission="'customer:edit'">跟进</el-button>
-            <el-button v-if="isBoss" type="warning" size="small" @click="openAssignDialog(row)" v-permission="'customer:assign'">分配</el-button>
-            <el-button type="danger" link :icon="Delete" @click="handleDelete(row)" v-permission="'customer:delete'">删除</el-button>
+            <el-button type="success" size="small" :icon="ChatLineRound" @click="openQuickFollow(row)" v-permission="'customer:edit'">跟进</el-button>
+            <el-button v-if="isBoss || isManager" type="warning" size="small" @click="openAssignDialog(row)" v-permission="'customer:assign'">分配</el-button>
+            <!-- 潜客池：转为正式客户 -->
+            <el-button v-if="isProspectView && (isBoss || isManager)" type="primary" size="small" @click="handleConvert(row, 'to_customer')">转为正式客户</el-button>
+            <el-dropdown trigger="click" @command="(cmd) => handleMoreAction(cmd, row)">
+              <el-button size="small">更多</el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="view">查看</el-dropdown-item>
+                  <el-dropdown-item command="edit" v-permission="'customer:edit'">编辑</el-dropdown-item>
+                  <!-- 客户列表：退回潜客池（仅boss/manager） -->
+                  <el-dropdown-item v-if="!isProspectView && (isBoss || isManager)" command="to_prospect" divided :style="{ color: '#f97316' }">退回潜客池</el-dropdown-item>
+                  <el-dropdown-item command="delete" divided :style="{ color: 'var(--c-accent)' }" v-permission="'customer:delete'">删除</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </template>
         </el-table-column>
+
+    <!-- 转化确认弹窗 -->
+    <el-dialog v-model="convertDialogVisible" :title="convertAction === 'to_customer' ? '转为正式客户' : '退回潜客池'" width="440px">
+      <el-alert :title="convertAction === 'to_customer' ? '确认将以下潜客转为正式客户？' : '确认将以下客户退回潜客池？'" :type="convertAction === 'to_customer' ? 'success' : 'warning'" :description="convertAction === 'to_customer' ? '转化后该客户将出现在正式客户列表中，可联动后续业务流程（商机、合同、回款、售后）。' : '退回后该客户将回到潜客池，不再享有正式客户状态。'" show-icon :closable="false" style="margin-bottom:16px" />
+      <p style="font-size:15px;font-weight:bold;text-align:center;padding:8px">{{ convertTarget?.company_name }}</p>
+      <template #footer>
+        <el-button @click="convertDialogVisible = false">取消</el-button>
+        <el-button :type="convertAction === 'to_customer' ? 'primary' : 'warning'" @click="confirmConvert" :loading="convertLoading">确认{{ convertAction === 'to_customer' ? '转化' : '退回' }}</el-button>
+      </template>
+    </el-dialog>
       </el-table>
 
       <!-- 分页 -->
@@ -317,21 +360,24 @@
     </el-dialog>
 
     <!-- 分配客户弹窗 -->
-    <el-dialog v-model="assignDialogVisible" title="分配客户负责人" width="420px">
+    <el-dialog v-model="assignDialogVisible" :title="assignUserId === null ? '回收客户到待分配池' : '分配客户负责人'" width="420px">
       <div v-if="assignCustomer" style="margin-bottom:16px">
         <p><strong>客户：</strong>{{ assignCustomer.company_name }}</p>
-        <p><strong>当前负责人：</strong>{{ assignCustomer.owner_name || '无' }}</p>
+        <p><strong>当前负责人：</strong>{{ assignCustomer.owner_name || '待分配（无负责人）' }}</p>
       </div>
       <el-form label-width="80px">
         <el-form-item label="新负责人">
-          <el-select v-model="assignUserId" placeholder="请选择销售" style="width:100%">
+          <el-select v-model="assignUserId" placeholder="请选择" clearable style="width:100%">
+            <el-option :value="null" label="无负责人（回收待分配）" />
             <el-option v-for="u in salesUsers" :key="u.id" :label="u.real_name + ' (' + u.username + ')'" :value="u.id" />
           </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="assignDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="assignLoading" @click="confirmAssign">确认分配</el-button>
+        <el-button :type="assignUserId === null ? 'warning' : 'primary'" :loading="assignLoading" @click="confirmAssign">
+          {{ assignUserId === null ? '确认回收' : '确认分配' }}
+        </el-button>
       </template>
     </el-dialog>
 
@@ -434,18 +480,19 @@ try {
   const stored = localStorage.getItem('userInfo')
   if (stored) {
     const u = JSON.parse(stored)
+    // 角色判断：roleId 1=老板 2=部门经理 3=普通销售
     isBoss.value = u.manageAll === true || u.roleId === 1
-    isManager.value = !isBoss.value && u.roleId === 3
+    isManager.value = u.roleId === 2
   }
 } catch (e) { /* ignore */ }
 
-// 职员选项：老板=全部销售，经理=直属下属
+// 职员选项：老板看全部销售，经理看全量下属
 const staffOptions = computed(() => {
-  return isBoss.value ? salesUsers.value : subordinateUsers.value
+  return (isBoss.value || isManager.value) ? salesUsers.value : subordinateUsers.value
 })
 
 const fetchSalesUsers = async () => {
-  if (!isBoss.value) return
+  if (!isBoss.value && !isManager.value) return
   try {
     const res = await get('/customer/sales-users')
     if (res.code === 200) salesUsers.value = res.data
@@ -465,11 +512,14 @@ const handleSelectionChange = (rows) => {
 }
 
 const handleBatchAssign = async () => {
-  if (selectedRows.value.length === 0 || !batchNewOwnerId.value) return
+  if (selectedRows.value.length === 0) return
+  const isBatchRecycle = batchNewOwnerId.value === null
   try {
     await ElMessageBox.confirm(
-      `确定将选中的 ${selectedRows.value.length} 个客户批量分配给新负责人？`,
-      '批量分配确认',
+      isBatchRecycle
+        ? `确定将选中的 ${selectedRows.value.length} 个客户回收为待分配？`
+        : `确定将选中的 ${selectedRows.value.length} 个客户批量分配给新负责人？`,
+      isBatchRecycle ? '批量回收确认' : '批量分配确认',
       { confirmButtonText: '确定分配', cancelButtonText: '取消', type: 'warning' }
     )
   } catch { return }
@@ -504,38 +554,43 @@ const openAssignDialog = (row) => {
 }
 
 const confirmAssign = async () => {
-  if (!assignUserId.value) return ElMessage.warning('请选择新负责人')
+  const isRecycle = assignUserId.value === null
   assignLoading.value = true
   try {
     const res = await post('/customer/assign', {
       customer_id: assignCustomer.value.id,
       to_user_id: assignUserId.value,
-      remark: '手动分配'
+      remark: isRecycle ? '回收为待分配' : '手动分配'
     })
     if (res.code === 200) {
-      ElMessage.success(`已将"${assignCustomer.value.company_name}"分配给新负责人`)
+      ElMessage.success(res.message)
       assignDialogVisible.value = false
       fetchList()
     }
   } catch (e) {
-    ElMessage.error('分配失败')
+    ElMessage.error(isRecycle ? '回收失败' : '分配失败')
   } finally {
     assignLoading.value = false
   }
 }
 
 // 搜索表单
+// 视图模式：潜客池 vs 客户列表
+const isProspectView = computed(() => route.path.includes('prospects'))
+
 const searchForm = reactive({
   company_name: '',
   contact_name: '',
   phone: '',
   source: '',
   level: '',
-  status: '',
+  status: isProspectView.value ? 1 : '',  // 潜客池默认只显示潜在客户
+  customer_type: isProspectView.value ? 'prospect' : '',  // 潜客池默认筛选潜客
+  lifecycle_status: '',  // 生命周期筛选
   dateRange: [],
   sort: '',
   page: 1,
-  pageSize: 10
+  pageSize: 20
 })
 
 // 选项数据
@@ -566,6 +621,12 @@ const statusMap = {
   1: '潜在客户',
   2: '成交客户',
   3: '流失客户'
+}
+
+// 标签
+const tagOptions = ref([])
+const fetchTags = async () => {
+  try { const res = await request.get('/tag/list'); if (res.code === 200) tagOptions.value = res.data; } catch {}
 }
 
 // 表格数据
@@ -649,6 +710,8 @@ const fetchList = async () => {
     if (searchForm.source) params.source = searchForm.source
     if (searchForm.level) params.level = searchForm.level
     if (searchForm.status !== '' && searchForm.status !== null) params.status = searchForm.status
+    if (searchForm.customer_type) params.customer_type = searchForm.customer_type
+    if (searchForm.lifecycle_status) params.lifecycle_status = searchForm.lifecycle_status
     if (searchForm.dateRange && searchForm.dateRange.length === 2) {
       params.start_date = searchForm.dateRange[0]
       params.end_date = searchForm.dateRange[1]
@@ -702,7 +765,9 @@ const handleReset = () => {
   searchForm.phone = ''
   searchForm.source = ''
   searchForm.level = ''
-  searchForm.status = ''
+  searchForm.status = isProspectView.value ? 1 : ''  // 潜客池默认显示潜在客户
+  searchForm.customer_type = isProspectView.value ? 'prospect' : ''
+  searchForm.lifecycle_status = ''
   searchForm.dateRange = []
   searchForm.sort = ''
   searchForm.page = 1
@@ -746,6 +811,47 @@ const handleEdit = (row) => {
 // 查看
 const handleView = (row) => {
   router.push(`/customer/detail/${row.id}`)
+}
+
+// P1-1: 更多操作下拉
+const handleMoreAction = (command, row) => {
+  if (command === 'view') handleView(row)
+  else if (command === 'edit') handleEdit(row)
+  else if (command === 'delete') handleDelete(row)
+  else if (command === 'to_prospect') handleConvert(row, 'to_prospect')
+}
+
+// 潜客池⇄客户列表转化
+const convertDialogVisible = ref(false)
+const convertAction = ref('')
+const convertTarget = ref(null)
+const convertLoading = ref(false)
+
+const handleConvert = (row, action) => {
+  convertTarget.value = row
+  convertAction.value = action
+  convertDialogVisible.value = true
+}
+
+const confirmConvert = async () => {
+  convertLoading.value = true
+  try {
+    const res = await request.post('/customer/convert', {
+      customer_id: convertTarget.value.id,
+      action: convertAction.value
+    })
+    if (res.code === 200) {
+      ElMessage.success(res.message)
+      convertDialogVisible.value = false
+      fetchList()
+    } else {
+      ElMessage.error(res.message || '操作失败')
+    }
+  } catch (error) {
+    ElMessage.error('转化失败：' + (error.response?.data?.message || error.message))
+  } finally {
+    convertLoading.value = false
+  }
 }
 
 // 提交表单
@@ -953,6 +1059,8 @@ const handleExport = async () => {
     if (searchForm.source) params.source = searchForm.source
     if (searchForm.level) params.level = searchForm.level
     if (searchForm.status !== '' && searchForm.status !== null) params.status = searchForm.status
+    if (searchForm.customer_type) params.customer_type = searchForm.customer_type
+    if (searchForm.lifecycle_status) params.lifecycle_status = searchForm.lifecycle_status
     if (viewMode.value === 'mine') {
       const stored = localStorage.getItem('userInfo')
       if (stored) params.owner_id = JSON.parse(stored).id
@@ -975,6 +1083,7 @@ onMounted(() => {
   fetchList()
   fetchSalesUsers()
   fetchSubordinates()
+  fetchTags()
   fetchOverdueDays()
   // 首页快捷按钮带 ?action=add 时自动打开新增弹窗
   if (route.query.action === 'add') handleAdd()

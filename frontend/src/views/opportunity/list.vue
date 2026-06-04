@@ -94,6 +94,19 @@
           </template>
         </el-table-column>
         <el-table-column prop="owner_name" label="负责人" width="100" />
+        <el-table-column prop="stagnant_days" label="停留天数" width="100" align="center" sortable>
+          <template #default="{ row }">
+            <el-tag
+              v-if="row.stage < 5"
+              :type="stagnantTagType(row.stagnant_days)"
+              effect="dark"
+              size="default"
+            >
+              {{ row.stagnant_days }}天
+            </el-tag>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="update_time" label="更新时间" width="170">
           <template #default="{ row }">
             {{ formatTime(row.update_time) }}
@@ -275,13 +288,19 @@
           <el-timeline-item
             v-for="log in stageLogs"
             :key="log.id"
-            :timestamp="formatTime(log.create_time)"
+            :timestamp="formatTime(log.changed_at)"
             placement="top"
           >
-            <el-tag size="small" :type="stageTagType(log.from_stage)">{{ log.from_stage_name }}</el-tag>
+            <el-tag size="small" :type="stageTagType(log.from_stage)">{{ stageMap[log.from_stage] || '初始' }}</el-tag>
             <span style="margin: 0 8px; color: var(--c-text-tertiary)">→</span>
-            <el-tag size="small" :type="stageTagType(log.to_stage)">{{ log.to_stage_name }}</el-tag>
-            <span style="margin-left: 12px; color: var(--c-text-tertiary); font-size: 12px">{{ log.changed_by_name }}</span>
+            <el-tag size="small" :type="stageTagType(log.to_stage)">{{ stageMap[log.to_stage] }}</el-tag>
+            <div style="margin-top: 4px; color: var(--c-text-tertiary); font-size: 12px">
+              <span>{{ log.changed_by_name }}</span>
+              <span v-if="log.hours_in_stage"> · 停留 {{ formatHours(log.hours_in_stage) }}</span>
+            </div>
+            <div v-if="log.change_reason" style="margin-top: 2px; color: #666; font-size: 13px">
+              原因：{{ log.change_reason }}
+            </div>
           </el-timeline-item>
         </el-timeline>
         <el-empty v-else description="暂无阶段变更记录" />
@@ -332,11 +351,27 @@ const winRateColor = (rate) => {
   return 'var(--c-accent)'
 }
 
+// P0-2: 商机停滞天数颜色预警
+const stagnantTagType = (days) => {
+  if (days === null || days === undefined) return 'info'
+  if (days > 15) return 'danger'     // 红色：超过15天
+  if (days > 7) return 'warning'     // 黄色：超过7天
+  if (days > 3) return ''            // 蓝色：超过3天
+  return 'success'                    // 绿色：3天内
+}
 
 const formatDate = (date) => {
   if (!date) return '-'
   const d = new Date(date)
   return d.toLocaleDateString('zh-CN')
+}
+
+const formatHours = (hours) => {
+  if (!hours && hours !== 0) return '-'
+  if (hours < 24) return `${hours}小时`
+  const days = Math.floor(hours / 24)
+  const remainHours = hours % 24
+  return remainHours > 0 ? `${days}天${remainHours}小时` : `${days}天`
 }
 
 // 搜索表单
