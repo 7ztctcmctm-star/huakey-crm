@@ -472,20 +472,22 @@ onMounted(() => {
 
 <style scoped>
 .supplier-detail {
-  padding: 24px;
+  padding: 0;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: var(--space-5);
 }
 
 .page-header h2 {
   margin: 0;
-  font-size: 22px;
-  color: var(--c-text);
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--color-text);
+  letter-spacing: -0.02em;
 }
 
 .info-card {
@@ -493,7 +495,7 @@ onMounted(() => {
 }
 
 .mt-20 {
-  margin-top: 24px;
+  margin-top: var(--space-5);
 }
 
 .card-header {
@@ -505,38 +507,38 @@ onMounted(() => {
 .cert-list, .rating-list, .customer-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .cert-item, .rating-item, .customer-item {
-  padding: 8px;
-  border-radius: 4px;
-  background: #f8f9fa;
-  border-left: 3px solid var(--c-primary);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+  border-left: 3px solid var(--color-accent);
 }
 
 .cert-name {
   font-weight: 500;
-  color: var(--c-text);
+  color: var(--color-text);
   font-size: 14px;
 }
 
 .cert-meta {
   font-size: 12px;
-  color: var(--c-text-tertiary);
-  margin-top: 4px;
+  color: var(--color-text-tertiary);
+  margin-top: var(--space-1);
 }
 
 .rating-period {
   font-weight: 500;
-  color: var(--c-text);
-  margin-bottom: 6px;
+  color: var(--color-text);
+  margin-bottom: var(--space-1);
 }
 
 .rating-scores {
   font-size: 12px;
-  color: var(--c-text-tertiary);
-  margin-top: 6px;
+  color: var(--color-text-tertiary);
+  margin-top: var(--space-1);
 }
 
 .customer-item {
@@ -548,33 +550,33 @@ onMounted(() => {
 .cert-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 6px;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
 }
 
 .rating-trend {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #ebeef5;
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
 }
 
 .rating-trend-title {
   font-size: 13px;
   font-weight: 500;
-  color: var(--c-text-secondary);
-  margin-bottom: 8px;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-2);
 }
 
 .rating-trend-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
 }
 
 .rating-trend-period {
   font-size: 12px;
-  color: var(--c-text-tertiary);
+  color: var(--color-text-tertiary);
   min-width: 60px;
 }
 </style>

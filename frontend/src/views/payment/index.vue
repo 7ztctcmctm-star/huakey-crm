@@ -400,10 +400,10 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-container { padding: 24px; }
-.page-header { margin-bottom: 24px; }
-.page-header h2 { margin: 0; font-size: 18px; color: var(--c-text); }
+.page-container { padding: 0; }
+.page-header { margin-bottom: var(--space-5); }
+.page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); letter-spacing: -0.02em; }
 .stat-card { text-align: center; }
-.stat-value { font-size: 28px; font-weight: 700; color: #dc2626; }
-.stat-label { color: var(--c-text-secondary); margin-top: 4px; }
+.stat-value { font-size: 28px; font-weight: 700; color: var(--color-danger); }
+.stat-label { color: var(--color-text-secondary); margin-top: var(--space-1); }
 </style>

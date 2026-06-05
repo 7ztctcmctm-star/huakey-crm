@@ -160,10 +160,10 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.integration-page { padding: 24px; }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-.page-header h2 { margin: 0; font-size: 22px; color: var(--c-text); }
-.section-title { font-size: 16px; font-weight: bold; color: var(--c-text); }
+.integration-page { padding: 0; }
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-5); }
+.page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); letter-spacing: -0.02em; }
+.section-title { font-size: 15px; font-weight: 600; color: var(--color-text); }
 .card-header-row { display: flex; justify-content: space-between; align-items: center; }
-.table-pagination { margin-top: 16px; display: flex; justify-content: flex-end; }
+.table-pagination { margin-top: var(--space-4); display: flex; justify-content: flex-end; }
 </style>

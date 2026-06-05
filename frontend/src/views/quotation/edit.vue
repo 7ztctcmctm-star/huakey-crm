@@ -129,7 +129,7 @@
             :data="formData.items"
             border
             style="width: 100%"
-            :header-cell-style="{ background: 'var(--c-bg)' }"
+            :header-cell-style="{ background: 'var(--color-bg)' }"
           >
             <el-table-column label="产品信息" min-width="250">
               <template #default="{ row }">
@@ -236,7 +236,7 @@
           :data="productList"
           border
           style="width: 100%"
-          :header-cell-style="{ background: 'var(--c-bg)' }"
+          :header-cell-style="{ background: 'var(--color-bg)' }"
           @row-click="selectProduct"
         >
           <el-table-column type="selection" width="55" />
@@ -583,57 +583,60 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #eee;
+  margin-bottom: var(--space-5);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .page-header h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--color-text);
+  letter-spacing: -0.02em;
 }
 
 .header-actions {
   display: flex;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .form-section {
-  margin-bottom: 24px;
+  margin-bottom: var(--space-5);
 }
 
 .section-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
-  color: var(--c-text);
-  margin: 0 0 16px 0;
-  padding-left: 8px;
-  border-left: 4px solid var(--c-primary);
+  color: var(--color-text);
+  margin: 0 0 var(--space-4) 0;
+  padding-left: var(--space-2);
+  border-left: 4px solid var(--color-accent);
 }
 
 .discount-input {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .discount-label {
-  color: var(--c-text-secondary);
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
 .info-item {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .info-label {
-  color: var(--c-text-secondary);
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
 .info-value {
-  color: var(--c-text);
+  color: var(--color-text);
   font-weight: 500;
 }
 
@@ -644,40 +647,40 @@ onMounted(() => {
 
 .product-name {
   font-weight: 500;
-  color: var(--c-text);
+  color: var(--color-text);
 }
 
 .product-code {
   font-size: 12px;
-  color: var(--c-text-tertiary);
+  color: var(--color-text-tertiary);
 }
 
 .item-total {
   font-weight: 600;
-  color: var(--c-primary);
+  color: var(--color-accent);
 }
 
 .empty-state {
   text-align: center;
-  padding: 32px;
-  color: #999;
+  padding: var(--space-6);
+  color: var(--color-text-tertiary);
 }
 
 .empty-state p {
-  margin-top: 8px;
+  margin-top: var(--space-2);
 }
 
 .total-section {
-  background: #fafafa;
-  padding: 16px;
-  border-radius: 4px;
+  background: var(--color-bg-secondary);
+  padding: var(--space-4);
+  border-radius: var(--radius-sm);
 }
 
 .total-row {
   display: flex;
   justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px dashed #e4e7ed;
+  padding: var(--space-2) 0;
+  border-bottom: 1px dashed var(--color-border-strong);
 }
 
 .total-row:last-child {
@@ -685,24 +688,24 @@ onMounted(() => {
 }
 
 .total-row.final {
-  margin-top: 8px;
-  padding: 16px;
-  background: #fff;
-  border-radius: 4px;
+  margin-top: var(--space-2);
+  padding: var(--space-4);
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
 }
 
 .total-row.final .total-value {
   font-size: 20px;
   font-weight: 700;
-  color: var(--c-primary);
+  color: var(--color-accent);
 }
 
 .total-label {
-  color: var(--c-text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .total-value {
-  color: var(--c-text);
+  color: var(--color-text);
   font-weight: 600;
 }
 
@@ -712,7 +715,7 @@ onMounted(() => {
 }
 
 .modal-footer {
-  margin-top: 16px;
+  margin-top: var(--space-4);
   display: flex;
   justify-content: flex-end;
 }

@@ -127,7 +127,7 @@
       <template #header>
         <span class="card-title">销售实况</span>
       </template>
-      <el-table :data="salesList" stripe border :header-cell-style="{ background: 'var(--c-bg)' }">
+      <el-table :data="salesList" stripe border :header-cell-style="{ background: 'var(--color-bg)' }">
         <el-table-column prop="real_name" label="销售人员" width="100" />
         <el-table-column prop="dept_name" label="部门" width="100" />
         <el-table-column label="负责客户数" width="120" align="center">
@@ -156,7 +156,7 @@
               @click="showOverdueCustomers(row)"
             >
               <strong>{{ row.no_follow_count }}个</strong>
-              <span v-if="row.no_follow_count > 0" style="color:var(--c-accent)"> ⚠</span>
+              <span v-if="row.no_follow_count > 0" style="color:var(--color-accent)"> ⚠</span>
             </el-button>
           </template>
         </el-table-column>
@@ -505,29 +505,29 @@ onActivated(() => {
 
 <style scoped>
 .team-dashboard { padding: 0; }
-.page-header { margin-bottom: 16px; }
+.page-header { margin-bottom: var(--space-4); }
 .page-header-top { display: flex; justify-content: space-between; align-items: flex-start; }
-.page-header h2 { margin: 0 0 4px; font-size: 18px; color: var(--c-text); }
-.page-desc { margin: 0; font-size: 13px; color: var(--c-text-tertiary); }
+.page-header h2 { margin: 0 0 var(--space-1); font-size: 28px; font-weight: 600; color: var(--color-text); letter-spacing: -0.02em; }
+.page-desc { margin: 0; font-size: 13px; color: var(--color-text-tertiary); }
 
-.overview-row { margin-bottom: 16px; }
+.overview-row { margin-bottom: var(--space-4); }
 .stat-card { text-align: center; cursor: default; }
-.stat-num { font-size: 28px; font-weight: bold; color: var(--c-text); }
-.stat-num.green { color: var(--c-primary); }
-.stat-num.blue { color: var(--c-primary); }
-.stat-num.red { color: var(--c-accent); }
-.stat-label { font-size: 13px; color: var(--c-text-tertiary); margin-top: 4px; }
-.stat-sub { font-size: 12px; color: var(--c-text-tertiary); margin-top: 2px; }
+.stat-num { font-size: 28px; font-weight: 700; color: var(--color-text); }
+.stat-num.green { color: var(--color-success); }
+.stat-num.blue { color: var(--color-accent); }
+.stat-num.red { color: var(--color-danger); }
+.stat-label { font-size: 13px; color: var(--color-text-tertiary); margin-top: var(--space-1); }
+.stat-sub { font-size: 12px; color: var(--color-text-tertiary); margin-top: 2px; }
 
 .table-card { min-height: 300px; }
-.pending-card { margin-bottom: 16px; }
-.stuck-card { margin-bottom: 16px; }
-.card-title { font-size: 16px; font-weight: bold; }
-.stuck-title { color: var(--c-accent); }
-.stuck-danger { color: var(--c-accent); font-weight: bold; }
-.stuck-warning { color: #e6a23c; font-weight: bold; }
+.pending-card { margin-bottom: var(--space-4); }
+.stuck-card { margin-bottom: var(--space-4); }
+.card-title { font-size: 15px; font-weight: 600; }
+.stuck-title { color: var(--color-accent); }
+.stuck-danger { color: var(--color-danger); font-weight: 600; }
+.stuck-warning { color: var(--color-warning); font-weight: 600; }
 
-.dialog-pagination { margin-top: 16px; display: flex; justify-content: flex-end; }
-:deep(.overdue-danger) { background-color: var(--c-accent-bg); }
+.dialog-pagination { margin-top: var(--space-4); display: flex; justify-content: flex-end; }
+:deep(.overdue-danger) { background-color: var(--color-danger-bg); }
 .chart-container { height: 300px; }
 </style>

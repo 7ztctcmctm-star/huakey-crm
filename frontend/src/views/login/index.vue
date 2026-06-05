@@ -213,56 +213,60 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  background: #1a56db;
+  background: var(--color-bg-secondary);
 }
 
 .login-box {
   width: 420px;
-  padding: 32px;
-  background: #fff;
-  border-radius: 4px;
+  padding: var(--space-7);
+  background: var(--color-bg);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: var(--space-6);
 }
 
 .title {
   font-size: 28px;
-  font-weight: bold;
-  color: var(--c-text);
-  margin: 0 0 10px 0;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0 0 var(--space-2) 0;
+  letter-spacing: -0.02em;
 }
 
 .subtitle {
   font-size: 14px;
-  color: var(--c-text-secondary);
+  color: var(--color-text-secondary);
   margin: 0;
 }
 
 .login-form {
-  margin-top: 24px;
+  margin-top: var(--space-6);
 }
 
 .login-button {
   width: 100%;
   font-size: 16px;
+  height: 44px;
+  border-radius: var(--radius-sm) !important;
 }
 
 .login-footer {
   text-align: center;
-  margin-top: 24px;
-  color: var(--c-text-secondary);
-  font-size: 14px;
+  margin-top: var(--space-6);
+  color: var(--color-text-tertiary);
+  font-size: 13px;
 }
 
-:deep(.el-input__inner) {
-  border-radius: 4px;
+:deep(.el-input__wrapper) {
+  border-radius: var(--radius-sm) !important;
 }
 
 :deep(.el-button) {
-  border-radius: 4px;
+  border-radius: var(--radius-sm) !important;
 }
 
 .captcha-row {
@@ -273,7 +277,7 @@ onMounted(() => {
 
 .captcha-canvas {
   cursor: pointer;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
 }
 </style>

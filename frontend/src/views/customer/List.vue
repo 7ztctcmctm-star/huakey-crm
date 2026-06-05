@@ -148,7 +148,7 @@
         stripe border
         style="width: 100%"
         :row-class-name="rowClassName"
-        :header-cell-style="{ background: 'var(--c-bg)', color: 'var(--c-text-secondary)' }"
+        :header-cell-style="{ background: 'var(--color-bg)', color: 'var(--color-text-secondary)' }"
       >
         <template #empty>
           <el-empty description="">
@@ -236,7 +236,7 @@
                   <el-dropdown-item command="edit" v-permission="'customer:edit'">编辑</el-dropdown-item>
                   <!-- 客户列表：退回潜客池（仅boss/manager） -->
                   <el-dropdown-item v-if="!isProspectView && (isBoss || isManager)" command="to_prospect" divided :style="{ color: '#f97316' }">退回潜客池</el-dropdown-item>
-                  <el-dropdown-item command="delete" divided :style="{ color: 'var(--c-accent)' }" v-permission="'customer:delete'">删除</el-dropdown-item>
+                  <el-dropdown-item command="delete" divided :style="{ color: 'var(--color-accent)' }" v-permission="'customer:delete'">删除</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
@@ -416,8 +416,8 @@
 
     <!-- 批量跟进弹窗 -->
     <el-dialog v-model="batchFollowVisible" title="批量跟进" width="480px" @closed="resetBatchFollow">
-      <div style="margin-bottom: 16px; color: var(--c-text-secondary); font-size: 13px">
-        将对选中的 <strong style="color: var(--c-primary)">{{ selectedRows.length }}</strong> 个客户记录相同的跟进内容
+      <div style="margin-bottom: 16px; color: var(--color-text-secondary); font-size: 13px">
+        将对选中的 <strong style="color: var(--color-accent)">{{ selectedRows.length }}</strong> 个客户记录相同的跟进内容
       </div>
       <el-form ref="batchFollowFormRef" :model="batchFollowForm" :rules="batchFollowRules" label-width="90px">
         <el-form-item label="跟进方式">
@@ -674,7 +674,7 @@ const levelLabel = (level) => {
 }
 
 const levelColor = (level) => {
-  const map = { A: 'var(--c-accent)', B: 'var(--c-primary)', C: 'var(--c-primary)', D: 'var(--c-text-tertiary)' }
+  const map = { A: 'var(--color-accent)', B: 'var(--color-accent)', C: 'var(--color-accent)', D: 'var(--color-text-tertiary)' }
   return map[level]
 }
 
@@ -1103,11 +1103,11 @@ const fetchOverdueDays = async () => {
 }
 
 .search-card {
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 
 .search-card .el-form-item {
-  margin-bottom: 0;
+  margin-bottom: var(--space-2);
 }
 
 .table-card {
@@ -1115,16 +1115,51 @@ const fetchOverdueDays = async () => {
 }
 
 .toolbar {
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
 }
 
 .pagination {
-  margin-top: 16px;
+  margin-top: var(--space-5);
   display: flex;
   justify-content: flex-end;
+  padding: var(--space-4) 0;
 }
 
 :deep(.el-card__body) {
-  padding: 24px;
+  padding: var(--space-5) var(--space-6);
+}
+
+:deep(.el-table) {
+  border: none;
+  border-radius: var(--radius-lg);
+}
+
+:deep(.el-table__header-wrapper th.el-table__cell) {
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  border-bottom: 1px solid var(--color-border-strong);
+}
+
+:deep(.el-table__body-wrapper td.el-table__cell) {
+  height: 56px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+:deep(.el-table__body tr:hover > td) {
+  background: var(--color-bg-secondary);
+}
+
+:deep(.el-button--primary) {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
 }
 </style>

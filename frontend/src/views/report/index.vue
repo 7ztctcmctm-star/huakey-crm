@@ -483,20 +483,22 @@ onMounted(() => {
 
 <style scoped>
 .page-container {
-  padding: 24px;
+  padding: 0;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: var(--space-5);
 }
 
 .page-header h2 {
   margin: 0;
-  font-size: 18px;
-  color: var(--c-text);
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--color-text);
+  letter-spacing: -0.02em;
 }
 
 .header-actions {
@@ -509,29 +511,29 @@ onMounted(() => {
 }
 
 .stat-card.warning .stat-value {
-  color: var(--c-accent);
+  color: var(--color-warning);
 }
 
 .stat-content {
-  padding: 8px;
+  padding: var(--space-2);
 }
 
 .stat-value {
   font-size: 28px;
-  font-weight: bold;
-  color: #2563eb;
-  margin-bottom: 8px;
+  font-weight: 700;
+  color: var(--color-accent);
+  margin-bottom: var(--space-2);
 }
 
 .stat-label {
   font-size: 14px;
-  color: #94a3b8;
+  color: var(--color-text-secondary);
 }
 
 .section-title {
   font-size: 16px;
-  font-weight: bold;
-  color: var(--c-text);
+  font-weight: 600;
+  color: var(--color-text);
 }
 
 .chart-container {

@@ -35,7 +35,7 @@
 
     <!-- 表格 -->
     <el-card class="table-card" shadow="never" v-loading="loading">
-      <el-table :data="tableData" stripe border :header-cell-style="{ background: 'var(--c-bg)', color: 'var(--c-text-secondary)' }">
+      <el-table :data="tableData" stripe border :header-cell-style="{ background: 'var(--color-bg)', color: 'var(--color-text-secondary)' }">
         <template #empty>
           <el-empty description="暂无跟进计划" />
         </template>
@@ -212,11 +212,11 @@ onMounted(() => fetchList())
 
 <style scoped>
 .plan-page { padding: 0; }
-.page-header { margin-bottom: 16px; }
-.page-header h2 { margin: 0 0 4px; font-size: 18px; color: var(--c-text); }
-.page-desc { margin: 0; font-size: 13px; color: var(--c-text-tertiary); }
-.search-card { margin-bottom: 16px; }
+.page-header { margin-bottom: var(--space-4); }
+.page-header h2 { margin: 0 0 var(--space-1); font-size: 28px; font-weight: 600; color: var(--color-text); letter-spacing: -0.02em; }
+.page-desc { margin: 0; font-size: 13px; color: var(--color-text-tertiary); }
+.search-card { margin-bottom: var(--space-4); }
 .search-card .el-form-item { margin-bottom: 0; }
 .table-card { min-height: 300px; }
-.pagination { display: flex; justify-content: flex-end; margin-top: 16px; }
+.pagination { display: flex; justify-content: flex-end; margin-top: var(--space-5); }
 </style>

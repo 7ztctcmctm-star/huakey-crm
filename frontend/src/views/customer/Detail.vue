@@ -870,8 +870,8 @@ const followTypeTag = (type) => {
 }
 
 const followTypeColor = (type) => {
-  const map = { '电话': 'var(--c-primary)', '拜访': 'var(--c-primary)', '微信': 'var(--c-primary)', '邮件': 'var(--c-text-tertiary)', '其他': '#B3B3B3' }
-  return map[type] || 'var(--c-primary)'
+  const map = { '电话': 'var(--color-accent)', '拜访': 'var(--color-accent)', '微信': 'var(--color-accent)', '邮件': 'var(--color-text-tertiary)', '其他': '#B3B3B3' }
+  return map[type] || 'var(--color-accent)'
 }
 
 const handleFollowAdd = () => {
@@ -1021,7 +1021,7 @@ onMounted(() => {
 .detail-header {
   display: flex;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: var(--space-5);
 }
 
 .header-actions {
@@ -1029,14 +1029,15 @@ onMounted(() => {
 }
 
 .page-title {
-  margin-left: 16px;
-  font-size: 18px;
-  font-weight: bold;
-  color: var(--c-text);
+  margin-left: var(--space-4);
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--color-text);
+  letter-spacing: -0.02em;
 }
 
 .info-card {
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 
 .card-header {
@@ -1046,13 +1047,15 @@ onMounted(() => {
 }
 
 .card-title {
-  font-size: 18px;
-  font-weight: bold;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--color-text);
+  letter-spacing: -0.02em;
 }
 
 .card-tags {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .tab-card {
@@ -1060,18 +1063,26 @@ onMounted(() => {
 }
 
 .tab-toolbar {
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 
 :deep(.el-descriptions__label) {
   width: 100px;
+  color: var(--color-text-secondary) !important;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+:deep(.el-descriptions__content) {
+  color: var(--color-text) !important;
+  font-size: 14px;
 }
 
 .follow-header {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
 }
 
 .follow-actions {
@@ -1079,7 +1090,7 @@ onMounted(() => {
 }
 
 .follow-contact {
-  color: var(--c-text-tertiary);
+  color: var(--color-text-tertiary);
   font-size: 13px;
   display: flex;
   align-items: center;
@@ -1088,27 +1099,28 @@ onMounted(() => {
 
 .follow-creator {
   margin-left: auto;
-  color: #c0c4cc;
+  color: var(--color-text-tertiary);
   font-size: 12px;
 }
 
 .follow-content {
-  color: var(--c-text);
+  color: var(--color-text);
   line-height: 1.6;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
 }
 
 .follow-next {
-  color: var(--c-primary);
+  color: var(--color-accent);
   font-size: 13px;
   display: flex;
   align-items: center;
   gap: 4px;
-  padding-top: 8px;
-  border-top: 1px dashed var(--c-border);
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--color-border);
 }
+
 .follow-attachments {
-  margin-top: 8px;
+  margin-top: var(--space-2);
   display: flex;
   flex-wrap: wrap;
   align-items: center;

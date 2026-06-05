@@ -218,11 +218,11 @@ onMounted(() => { fetchAll() })
 </script>
 
 <style scoped>
-.analysis-page { padding: 24px; }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-.page-header h2 { margin: 0; font-size: 22px; color: var(--c-text); }
-.section-title { font-size: 16px; font-weight: bold; color: var(--c-text); }
+.analysis-page { padding: 0; }
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-5); }
+.page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); letter-spacing: -0.02em; }
+.section-title { font-size: 16px; font-weight: 600; color: var(--color-text); }
 .chart-container { height: 300px; }
 .card-header-row { display: flex; justify-content: space-between; align-items: center; }
-.table-footer { text-align: center; padding-top: 8px; }
+.table-footer { text-align: center; padding-top: var(--space-2); }
 </style>

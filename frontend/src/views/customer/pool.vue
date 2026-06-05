@@ -93,7 +93,7 @@
       <el-table
         v-loading="loading" :data="tableData" ref="poolTableRef" stripe border
         @selection-change="handlePoolSelectionChange"
-        :header-cell-style="{ background: 'var(--c-bg)', color: 'var(--c-text-secondary)' }">
+        :header-cell-style="{ background: 'var(--color-bg)', color: 'var(--color-text-secondary)' }">
         <template #empty>
           <el-empty description="公海暂无客户">
             客户超过30天未跟进或手动释放后将掉入公海
@@ -338,7 +338,7 @@ const levelOptions = [
 
 const levelTagType = (l) => ({ A: 'danger', B: 'warning', C: 'info', D: '' }[l] || 'info')
 const levelLabel = (l) => ({ A: 'A级-重点', B: 'B级-意向', C: 'C级-潜在', D: 'D级-冷淡' }[l] || l || '-')
-const levelColor = (l) => ({ A: 'var(--c-accent)', B: 'var(--c-primary)', C: 'var(--c-primary)', D: 'var(--c-text-tertiary)' }[l])
+const levelColor = (l) => ({ A: 'var(--color-accent)', B: 'var(--color-accent)', C: 'var(--color-accent)', D: 'var(--color-text-tertiary)' }[l])
 
 const formatDate = (t) => {
   if (!t) return '-'
@@ -399,22 +399,22 @@ onMounted(() => { fetchList(); fetchSalesUsers() })
 
 <style scoped>
 .pool-page { padding: 0; }
-.page-header { margin-bottom: 16px; }
-.page-header h2 { margin: 0 0 4px; font-size: 18px; color: var(--c-text); }
-.page-desc { margin: 0; font-size: 13px; color: var(--c-text-tertiary); }
+.page-header { margin-bottom: var(--space-4); }
+.page-header h2 { margin: 0 0 var(--space-1); font-size: 28px; font-weight: 600; color: var(--color-text); letter-spacing: -0.02em; }
+.page-desc { margin: 0; font-size: 13px; color: var(--color-text-tertiary); }
 
-.stats-row { margin-bottom: 16px; }
+.stats-row { margin-bottom: var(--space-4); }
 .stat-card { text-align: center; cursor: default; }
-.stat-num { font-size: 28px; font-weight: bold; color: var(--c-text); }
-.stat-num.green { color: var(--c-primary); }
-.stat-num.orange { color: var(--c-primary); }
-.stat-num.blue { color: var(--c-primary); }
-.stat-label { font-size: 13px; color: var(--c-text-tertiary); margin-top: 4px; }
+.stat-num { font-size: 28px; font-weight: 700; color: var(--color-text); }
+.stat-num.green { color: var(--color-success); }
+.stat-num.orange { color: var(--color-warning); }
+.stat-num.blue { color: var(--color-accent); }
+.stat-label { font-size: 13px; color: var(--color-text-tertiary); margin-top: var(--space-1); }
 
-.search-card { margin-bottom: 16px; }
+.search-card { margin-bottom: var(--space-4); }
 .search-card .el-form-item { margin-bottom: 0; }
-.toolbar { margin-bottom: 16px; display: flex; gap: 8px; align-items: center; }
+.toolbar { margin-bottom: var(--space-4); display: flex; gap: var(--space-2); align-items: center; }
 .table-card { min-height: 300px; }
-.pagination { display: flex; justify-content: flex-end; margin-top: 16px; }
-.claim-info p { margin: 8px 0; }
+.pagination { display: flex; justify-content: flex-end; margin-top: var(--space-5); }
+.claim-info p { margin: var(--space-2) 0; }
 </style>

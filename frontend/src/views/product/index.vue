@@ -32,7 +32,7 @@
       </div>
 
       <el-table v-loading="loading" :data="tableData" stripe border
-        :header-cell-style="{ background: 'var(--c-bg)' }">
+        :header-cell-style="{ background: 'var(--color-bg)' }">
         <el-table-column prop="code" label="产品编码" width="140" show-overflow-tooltip />
         <el-table-column prop="name" label="产品名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="category" label="分类" width="100" />
@@ -268,11 +268,11 @@ onMounted(() => { fetchList(); fetchCategories() })
 </script>
 
 <style scoped>
-.page-container { padding: 24px; }
-.page-header { margin-bottom: 24px; }
-.page-header h2 { margin: 0; font-size: 18px; color: var(--c-text); }
-.search-card { margin-bottom: 16px; }
+.page-container { padding: 0; }
+.page-header { margin-bottom: var(--space-5); }
+.page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); letter-spacing: -0.02em; }
+.search-card { margin-bottom: var(--space-4); }
 .search-card .el-form-item { margin-bottom: 0; }
-.toolbar { margin-bottom: 16px; }
-.pagination { display: flex; justify-content: flex-end; margin-top: 16px; }
+.toolbar { margin-bottom: var(--space-4); }
+.pagination { display: flex; justify-content: flex-end; margin-top: var(--space-5); }
 </style>

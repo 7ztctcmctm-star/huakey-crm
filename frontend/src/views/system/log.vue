@@ -327,28 +327,30 @@ onMounted(() => {
 
 <style scoped>
 .page-container {
-  padding: 24px;
+  padding: 0;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: var(--space-5);
 }
 
 .page-header h2 {
   margin: 0;
-  font-size: 18px;
-  color: var(--c-text);
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--color-text);
+  letter-spacing: -0.02em;
 }
 
 .filter-card {
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 
 .table-card {
-  margin-bottom: 24px;
+  margin-bottom: var(--space-5);
 }
 
 .table-header {
@@ -359,20 +361,20 @@ onMounted(() => {
 
 .table-actions {
   display: flex;
-  gap: 10px;
+  gap: var(--space-2);
 }
 
 .pagination-container {
   display: flex;
   justify-content: flex-end;
-  margin-top: 16px;
+  margin-top: var(--space-5);
 }
 
 .params-pre {
   margin: 0;
-  padding: 8px;
-  background: var(--c-bg);
-  border-radius: 4px;
+  padding: var(--space-2);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-sm);
   font-size: 12px;
   max-height: 200px;
   overflow: auto;
@@ -381,16 +383,16 @@ onMounted(() => {
 }
 
 .error-text {
-  color: var(--c-accent);
+  color: var(--color-accent);
 }
 
 .old-value {
-  color: #f56c6c;
+  color: var(--color-danger);
   text-decoration: line-through;
 }
 
 .new-value {
-  color: #67c23a;
+  color: var(--color-success);
   font-weight: 600;
 }
 </style>

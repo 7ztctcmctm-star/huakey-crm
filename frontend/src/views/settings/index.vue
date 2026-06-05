@@ -194,12 +194,12 @@ onMounted(() => {
 
 <style scoped>
 .settings-page { padding: 0; }
-.page-header { margin-bottom: 16px; }
-.page-header h2 { margin: 0 0 4px; font-size: 18px; color: var(--c-text); }
-.page-desc { margin: 0; font-size: 13px; color: var(--c-text-tertiary); }
-.card-title { font-size: 16px; font-weight: bold; }
+.page-header { margin-bottom: var(--space-5); }
+.page-header h2 { margin: 0 0 var(--space-1); font-size: 28px; font-weight: 600; color: var(--color-text); letter-spacing: -0.02em; }
+.page-desc { margin: 0; font-size: 13px; color: var(--color-text-tertiary); }
+.card-title { font-size: 15px; font-weight: 600; }
 .card-header-row { display: flex; justify-content: space-between; align-items: center; }
-.form-tip { font-size: 12px; color: var(--c-text-tertiary); margin-top: 4px; }
-.about-section p { margin: 8px 0; line-height: 1.8; color: var(--c-text-secondary); }
-.module-tag { margin: 0 6px 6px 0; }
+.form-tip { font-size: 12px; color: var(--color-text-tertiary); margin-top: var(--space-1); }
+.about-section p { margin: var(--space-2) 0; line-height: 1.8; color: var(--color-text-secondary); }
+.module-tag { margin: 0 var(--space-1) var(--space-1) 0; }
 </style>

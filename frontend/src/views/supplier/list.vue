@@ -356,31 +356,35 @@ onMounted(() => {
 
 <style scoped>
 .supplier-list {
-  padding: 24px;
+  padding: 0;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: var(--space-5);
 }
 
 .page-header h2 {
   margin: 0;
-  font-size: 22px;
-  color: var(--c-text);
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--color-text);
+  letter-spacing: -0.02em;
 }
 
 .search-bar {
-  background: #fff;
-  padding: 18px 20px;
-  border-radius: 4px;
-  margin-bottom: 16px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-4);
 }
 
 .pagination-wrapper {
-  margin-top: 16px;
+  margin-top: var(--space-5);
   display: flex;
   justify-content: flex-end;
 }

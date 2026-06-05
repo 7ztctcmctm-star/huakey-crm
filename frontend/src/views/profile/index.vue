@@ -201,8 +201,8 @@ onMounted(() => { fetchProfile() })
 
 <style scoped>
 .profile-page { padding: 0; }
-.page-header { margin-bottom: 16px; }
-.page-header h2 { margin: 0; font-size: 18px; color: var(--c-text); }
+.page-header { margin-bottom: var(--space-5); }
+.page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); letter-spacing: -0.02em; }
 .card-header { display: flex; justify-content: space-between; align-items: center; }
-.card-title { font-size: 16px; font-weight: bold; }
+.card-title { font-size: 15px; font-weight: 600; }
 </style>

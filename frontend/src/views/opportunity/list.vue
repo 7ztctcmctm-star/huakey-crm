@@ -61,7 +61,7 @@
         stripe
         border
         style="width: 100%"
-        :header-cell-style="{ background: 'var(--c-bg)', color: 'var(--c-text)' }"
+        :header-cell-style="{ background: 'var(--color-bg)', color: 'var(--color-text)' }"
       >
         <el-table-column prop="name" label="商机名称" min-width="180" show-overflow-tooltip />
         <el-table-column prop="customer_name" label="客户名称" min-width="160" show-overflow-tooltip />
@@ -292,9 +292,9 @@
             placement="top"
           >
             <el-tag size="small" :type="stageTagType(log.from_stage)">{{ stageMap[log.from_stage] || '初始' }}</el-tag>
-            <span style="margin: 0 8px; color: var(--c-text-tertiary)">→</span>
+            <span style="margin: 0 8px; color: var(--color-text-tertiary)">→</span>
             <el-tag size="small" :type="stageTagType(log.to_stage)">{{ stageMap[log.to_stage] }}</el-tag>
-            <div style="margin-top: 4px; color: var(--c-text-tertiary); font-size: 12px">
+            <div style="margin-top: 4px; color: var(--color-text-tertiary); font-size: 12px">
               <span>{{ log.changed_by_name }}</span>
               <span v-if="log.hours_in_stage"> · 停留 {{ formatHours(log.hours_in_stage) }}</span>
             </div>
@@ -346,9 +346,9 @@ const stageTagType = (stage) => {
 }
 
 const winRateColor = (rate) => {
-  if (rate >= 70) return 'var(--c-primary)'
-  if (rate >= 40) return 'var(--c-primary)'
-  return 'var(--c-accent)'
+  if (rate >= 70) return 'var(--color-accent)'
+  if (rate >= 40) return 'var(--color-accent)'
+  return 'var(--color-accent)'
 }
 
 // P0-2: 商机停滞天数颜色预警
@@ -733,61 +733,64 @@ onMounted(() => {
 }
 
 .funnel-section {
-  background: #fff;
-  border-radius: 8px;
-  padding: 24px;
-  margin-bottom: 16px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-5);
+  margin-bottom: var(--space-4);
 }
 
 .section-title {
-  margin: 0 0 16px 0;
+  margin: 0 0 var(--space-4) 0;
   font-size: 16px;
-  color: var(--c-text);
+  font-weight: 600;
+  color: var(--color-text);
 }
 
 .funnel-cards {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   align-items: stretch;
 }
 
 .funnel-card {
-  background: var(--c-bg);
-  border-radius: 8px;
-  padding: 16px 12px;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-3);
   text-align: center;
   position: relative;
   min-width: 100px;
 }
 
-.funnel-card.funnel-stage-1 { border-top: 3px solid var(--c-text-tertiary); }
-.funnel-card.funnel-stage-2 { border-top: 3px solid var(--c-primary); }
-.funnel-card.funnel-stage-3 { border-top: 3px solid var(--c-primary); }
-.funnel-card.funnel-stage-4 { border-top: 3px solid var(--c-accent); }
-.funnel-card.funnel-stage-5 { border-top: 3px solid var(--c-primary); }
+.funnel-card.funnel-stage-1 { border-top: 3px solid var(--color-text-tertiary); }
+.funnel-card.funnel-stage-2 { border-top: 3px solid var(--color-accent); }
+.funnel-card.funnel-stage-3 { border-top: 3px solid var(--color-accent); }
+.funnel-card.funnel-stage-4 { border-top: 3px solid var(--color-warning); }
+.funnel-card.funnel-stage-5 { border-top: 3px solid var(--color-success); }
 
 .funnel-tag {
   font-size: 12px;
-  color: var(--c-text-tertiary);
-  margin-bottom: 8px;
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--space-2);
 }
 
 .funnel-count {
   font-size: 28px;
   font-weight: 700;
-  color: var(--c-text);
+  color: var(--color-text);
   line-height: 1.2;
 }
 
 .funnel-label {
   font-size: 12px;
-  color: var(--c-text-tertiary);
-  margin-bottom: 8px;
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--space-2);
 }
 
 .funnel-amount {
   font-size: 13px;
-  color: var(--c-text-secondary);
+  color: var(--color-text-secondary);
   font-weight: 500;
 }
 
@@ -803,49 +806,49 @@ onMounted(() => {
 
 .arrow-icon {
   font-size: 12px;
-  color: #c0c4cc;
+  color: var(--color-text-tertiary);
 }
 
 .arrow-text {
   font-size: 10px;
-  color: var(--c-text-tertiary);
+  color: var(--color-text-tertiary);
 }
 
 .funnel-summary {
-  margin-top: 16px;
+  margin-top: var(--space-4);
   display: flex;
-  gap: 24px;
+  gap: var(--space-5);
   font-size: 14px;
-  color: var(--c-text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .funnel-summary b {
-  color: var(--c-text);
+  color: var(--color-text);
 }
 
 .failed-info {
-  color: var(--c-accent);
+  color: var(--color-accent);
 }
 
 .search-card {
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 
 .table-card {
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 
 .toolbar {
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 
 .amount {
   font-weight: 600;
-  color: var(--c-text);
+  color: var(--color-text);
 }
 
 .pagination {
-  margin-top: 16px;
+  margin-top: var(--space-5);
   display: flex;
   justify-content: flex-end;
 }

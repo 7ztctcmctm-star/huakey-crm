@@ -26,7 +26,7 @@
           <el-descriptions-item label="税率">{{ order.tax_rate }}%</el-descriptions-item>
           <el-descriptions-item label="税额">{{ formatMoney(order.tax_amount) }} 元</el-descriptions-item>
           <el-descriptions-item label="含税总价" :span="1">
-            <span style="font-weight: bold; color: var(--c-accent);">{{ formatMoney(order.total_with_tax) }} 元</span>
+            <span style="font-weight: bold; color: var(--color-accent);">{{ formatMoney(order.total_with_tax) }} 元</span>
           </el-descriptions-item>
           <el-descriptions-item label="付款条件">{{ order.payment_terms || '-' }}</el-descriptions-item>
           <el-descriptions-item label="收货地址">{{ order.delivery_address || '-' }}</el-descriptions-item>
@@ -300,11 +300,11 @@ onMounted(() => { fetchDetail(); });
 </script>
 
 <style scoped>
-.purchase-detail { padding: 24px; }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-.page-header h2 { margin: 0; font-size: 22px; color: var(--c-text); }
+.purchase-detail { padding: 0; }
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-5); }
+.page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); letter-spacing: -0.02em; }
 .info-card { margin-bottom: 0; }
-.mt-20 { margin-top: 24px; }
+.mt-20 { margin-top: var(--space-5); }
 .card-header { display: flex; justify-content: space-between; align-items: center; }
-.action-bar { display: flex; gap: 10px; padding: 16px; background: #f8f9fa; border-radius: 4px; }
+.action-bar { display: flex; gap: var(--space-2); padding: var(--space-4); background: var(--color-bg-secondary); border-radius: var(--radius-sm); }
 </style>

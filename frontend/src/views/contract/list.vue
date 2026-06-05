@@ -37,7 +37,7 @@
       <div class="toolbar"><el-button type="primary" :icon="Plus" @click="handleCreate" v-permission="'contract:add'">新增合同</el-button><el-button type="warning" :icon="Download" :loading="exportLoading" @click="handleExport" v-permission="'contract'">导出Excel</el-button></div>
       <el-table v-loading="loading" :data="tableData" stripe border
         :row-class-name="tableRowClassName"
-        :header-cell-style="{ background: 'var(--c-bg)', color: 'var(--c-text-secondary)' }">
+        :header-cell-style="{ background: 'var(--color-bg)', color: 'var(--color-text-secondary)' }">
         <el-table-column prop="contract_no" label="合同编号" width="160" />
         <el-table-column prop="customer_name" label="客户名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="amount" label="合同金额" width="130" align="right">
@@ -354,15 +354,15 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-container { padding: 24px; }
-.page-header { margin-bottom: 24px; }
-.page-header h2 { margin: 0; font-size: 18px; color: var(--c-text); }
-.search-card { margin-bottom: 16px; }
+.page-container { padding: 0; }
+.page-header { margin-bottom: var(--space-5); }
+.page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); letter-spacing: -0.02em; }
+.search-card { margin-bottom: var(--space-4); }
 .search-card .el-form-item { margin-bottom: 0; }
-.toolbar { margin-bottom: 16px; }
-.pagination { display: flex; justify-content: flex-end; margin-top: 16px; }
+.toolbar { margin-bottom: var(--space-4); }
+.pagination { display: flex; justify-content: flex-end; margin-top: var(--space-5); }
 /* P0-3: 逾期回款行高亮 */
-:deep(.overdue-payment-row) { background-color: #fef2f2 !important; }
-:deep(.overdue-payment-row):hover { background-color: #fee2e2 !important; }
-:deep(.overdue-payment-row) td { border-bottom-color: #fca5a5 !important; }
+:deep(.overdue-payment-row) { background-color: var(--color-danger-bg) !important; }
+:deep(.overdue-payment-row):hover { background-color: rgba(255, 69, 58, 0.12) !important; }
+:deep(.overdue-payment-row) td { border-bottom-color: rgba(255, 69, 58, 0.2) !important; }
 </style>

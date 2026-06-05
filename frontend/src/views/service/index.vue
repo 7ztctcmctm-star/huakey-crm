@@ -58,7 +58,7 @@
       </div>
       <el-table v-loading="loading" :data="tableData" stripe border style="width: 100%"
         :row-class-name="tableRowClass"
-        :header-cell-style="{ background: 'var(--c-bg)', color: 'var(--c-text)' }"
+        :header-cell-style="{ background: 'var(--color-bg)', color: 'var(--color-text)' }"
         @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="50" :selectable="(row) => row.status === 1" />
         <el-table-column prop="order_no" label="工单编号" min-width="140" show-overflow-tooltip />
@@ -737,90 +737,92 @@ const imagePaths = () => {
 
 <style scoped>
 .page-container {
-  padding: 24px;
+  padding: 0;
 }
 
 .page-header {
-  margin-bottom: 24px;
+  margin-bottom: var(--space-5);
 }
 
 .page-header h2 {
   margin: 0;
-  font-size: 18px;
-  color: var(--c-text);
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--color-text);
+  letter-spacing: -0.02em;
 }
 
 .search-card {
-  margin-bottom: 24px;
+  margin-bottom: var(--space-5);
   display: flex;
   align-items: center;
 }
 
 .toolbar {
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   align-items: center;
 }
 
 .detail-header {
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 
 .order-no {
   font-size: 16px;
-  font-weight: bold;
-  color: var(--c-primary);
+  font-weight: 600;
+  color: var(--color-accent);
 }
 
 .detail-title h3 {
-  margin: 8px 0 0 0;
+  margin: var(--space-2) 0 0 0;
   font-size: 16px;
 }
 
 .info-item {
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
 }
 
 .info-item .label {
-  color: var(--c-text-tertiary);
-  margin-right: 8px;
+  color: var(--color-text-tertiary);
+  margin-right: var(--space-2);
 }
 
 .desc-text {
-  padding: 8px;
-  background: var(--c-bg);
-  border-radius: 4px;
+  padding: var(--space-2);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-sm);
   margin: 0;
   line-height: 1.6;
 }
 
 .confirm-content {
   text-align: center;
-  padding: 24px;
+  padding: var(--space-5);
 }
 
 .star-rating {
-  margin: 20px 0;
+  margin: var(--space-5) 0;
   font-size: 32px;
 }
 
 .rating-desc {
-  color: var(--c-text-tertiary);
+  color: var(--color-text-tertiary);
   font-size: 12px;
 }
 
 .attachment-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 
 .attachment-item {
   display: inline-block;
 }
 /* P0-4: 超时工单行高亮 */
-:deep(.timeout-service-row) { background-color: #fef2f2 !important; }
-:deep(.timeout-service-row):hover { background-color: #fee2e2 !important; }
+:deep(.timeout-service-row) { background-color: var(--color-danger-bg) !important; }
+:deep(.timeout-service-row):hover { background-color: rgba(255, 69, 58, 0.12) !important; }
 </style>

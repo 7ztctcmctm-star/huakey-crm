@@ -41,7 +41,7 @@
         stripe
         border
         style="width: 100%"
-        :header-cell-style="{ background: 'var(--c-bg)', color: 'var(--c-text)' }"
+        :header-cell-style="{ background: 'var(--color-bg)', color: 'var(--color-text)' }"
       >
         <el-table-column prop="quote_no" label="报价单号" min-width="140" show-overflow-tooltip />
         <el-table-column prop="customer_name" label="客户名称" min-width="160" show-overflow-tooltip />
@@ -144,7 +144,7 @@
             :data="detailData.items || []"
             border
             style="width: 100%"
-            :header-cell-style="{ background: 'var(--c-bg)' }"
+            :header-cell-style="{ background: 'var(--color-bg)' }"
           >
             <el-table-column prop="product_code" label="产品编码" width="120" />
             <el-table-column prop="product_name" label="产品名称" min-width="200" />
@@ -421,74 +421,74 @@ const handleReject = (row) => {
 }
 
 .search-card {
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 
 .table-card {
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 
 .toolbar {
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 
 .amount {
   font-weight: 600;
-  color: var(--c-text);
+  color: var(--color-text);
 }
 
 .amount.final {
-  color: var(--c-primary);
+  color: var(--color-accent);
   font-size: 14px;
 }
 
 .pagination {
-  margin-top: 16px;
+  margin-top: var(--space-5);
   display: flex;
   justify-content: flex-end;
 }
 
 .quote-detail {
-  padding: 8px;
+  padding: var(--space-2);
 }
 
 .detail-header {
-  margin-bottom: 24px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #eee;
+  margin-bottom: var(--space-5);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .info-row {
   display: flex;
-  gap: 16px;
-  margin-bottom: 8px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-2);
 }
 
 .info-row .label {
-  color: var(--c-text-secondary);
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
 .info-row .value {
-  color: var(--c-text);
+  color: var(--color-text);
   font-weight: 500;
 }
 
 .detail-body {
-  margin-bottom: 24px;
+  margin-bottom: var(--space-5);
 }
 
 .detail-footer {
-  background: #fafafa;
-  padding: 16px;
-  border-radius: 4px;
+  background: var(--color-bg-secondary);
+  padding: var(--space-4);
+  border-radius: var(--radius-sm);
 }
 
 .summary-row {
   display: flex;
   justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px dashed #e4e7ed;
+  padding: var(--space-2) 0;
+  border-bottom: 1px dashed var(--color-border-strong);
 }
 
 .summary-row:last-child {
@@ -496,24 +496,24 @@ const handleReject = (row) => {
 }
 
 .summary-row.total {
-  background: #fff;
-  padding: 16px;
-  margin: 8px -15px -15px;
-  border-radius: 0 0 4px 4px;
+  background: var(--color-bg);
+  padding: var(--space-4);
+  margin: var(--space-2) -15px -15px;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }
 
 .summary-row.total .summary-value {
   font-size: 18px;
   font-weight: 700;
-  color: var(--c-primary);
+  color: var(--color-accent);
 }
 
 .summary-label {
-  color: var(--c-text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .summary-value {
-  color: var(--c-text);
+  color: var(--color-text);
   font-weight: 600;
 }
 
@@ -522,7 +522,7 @@ const handleReject = (row) => {
 }
 
 .remark-value {
-  color: var(--c-text-secondary);
-  margin-left: 8px;
+  color: var(--color-text-secondary);
+  margin-left: var(--space-2);
 }
 </style>

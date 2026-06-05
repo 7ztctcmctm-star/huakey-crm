@@ -168,8 +168,8 @@ onMounted(() => { fetchList() })
 </script>
 
 <style scoped>
-.page-container { padding: 24px; }
-.page-header { margin-bottom: 24px; }
-.page-header h2 { margin: 0; font-size: 18px; color: var(--c-text); }
-.toolbar { margin-bottom: 16px; }
+.page-container { padding: 0; }
+.page-header { margin-bottom: var(--space-5); }
+.page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); letter-spacing: -0.02em; }
+.toolbar { margin-bottom: var(--space-4); }
 </style>

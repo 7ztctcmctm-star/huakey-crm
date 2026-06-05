@@ -1,4 +1,4 @@
-const rateLimit = require('express-rate-limit');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -18,8 +18,8 @@ const createRateLimiter = (options = {}) => {
       xForwardedForHeader: false,
       forwardedHeader: false,
     },
-    keyGenerator: (req) => {
-      return req.ip || req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || 'unknown';
+    keyGenerator: (req, res) => {
+      return ipKeyGenerator(req);
     },
     handler: (req, res) => {
       res.status(429).json({

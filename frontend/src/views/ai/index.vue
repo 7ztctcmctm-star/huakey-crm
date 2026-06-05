@@ -104,36 +104,36 @@ onMounted(() => { fetchSuggestions() })
 </script>
 
 <style scoped>
-.ai-page { padding: 24px; }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-.page-header h2 { margin: 0; font-size: 22px; color: var(--c-text); }
+.ai-page { padding: 0; }
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-5); }
+.page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); letter-spacing: -0.02em; }
 .header-actions { display: flex; align-items: center; }
-.empty-state { padding: 40px 0; }
+.empty-state { padding: var(--space-7) 0; }
 
-.suggestion-list { display: flex; flex-direction: column; gap: 12px; }
+.suggestion-list { display: flex; flex-direction: column; gap: var(--space-3); }
 .suggestion-card {
-  padding: 16px;
-  border-radius: 8px;
-  background: #fff;
-  border: 1px solid var(--c-border-light, #e5e7eb);
-  transition: box-shadow 0.2s;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  transition: box-shadow 0.2s var(--ease-out);
 }
-.suggestion-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-.suggestion-card.accepted { border-left: 3px solid #67c23a; background: #f0fdf4; }
+.suggestion-card:hover { box-shadow: var(--shadow-md); }
+.suggestion-card.accepted { border-left: 3px solid var(--color-success); background: var(--color-success-bg); }
 .suggestion-card.ignored { opacity: 0.6; }
 
-.suggestion-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.suggestion-header { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); }
 .suggestion-ref {
   font-weight: 500;
-  color: var(--c-primary, #2563eb);
+  color: var(--color-accent);
   cursor: pointer;
   flex: 1;
 }
 .suggestion-ref:hover { text-decoration: underline; }
 
-.suggestion-body { font-size: 14px; color: var(--c-text, #1f2937); line-height: 1.6; margin-bottom: 8px; }
+.suggestion-body { font-size: 14px; color: var(--color-text); line-height: 1.6; margin-bottom: var(--space-2); }
 
 .suggestion-footer { display: flex; justify-content: space-between; align-items: center; }
-.suggestion-time { font-size: 12px; color: var(--c-text-tertiary, #9ca3af); }
-.suggestion-actions { display: flex; gap: 8px; }
+.suggestion-time { font-size: 12px; color: var(--color-text-tertiary); }
+.suggestion-actions { display: flex; gap: var(--space-2); }
 </style>

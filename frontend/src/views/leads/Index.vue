@@ -33,7 +33,7 @@
           <el-tag type="warning" size="default">已选 {{ selectedRows.length }} 项</el-tag>
         </template>
       </div>
-      <el-table v-loading="loading" :data="tableData" stripe border @selection-change="onSelectionChange" :header-cell-style="{ background: 'var(--c-bg)', color: 'var(--c-text-secondary)' }">
+      <el-table v-loading="loading" :data="tableData" stripe border @selection-change="onSelectionChange" :header-cell-style="{ background: 'var(--color-bg)', color: 'var(--color-text-secondary)' }">
         <template #empty><el-empty><p>暂无线索</p><el-button type="primary" @click="handleAdd" v-permission="'leads'">新增第一条线索</el-button></el-empty></template>
         <el-table-column v-if="isBoss || isManager" type="selection" width="50" />
         <el-table-column prop="company_name" label="公司名称" min-width="160" show-overflow-tooltip />
@@ -238,25 +238,25 @@ onActivated(() => { fetchList(); fetchStats() })
 </script>
 
 <style scoped>
-.page-container { padding: 24px; }
-.page-header { margin-bottom: 18px; }
-.page-header h2 { margin: 0; font-size: 18px; color: var(--c-text); }
-.page-desc { margin: 4px 0 0; font-size: 13px; color: var(--c-text-tertiary); }
-.stats-row { margin-bottom: 16px; }
+.page-container { padding: 0; }
+.page-header { margin-bottom: var(--space-4); }
+.page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); letter-spacing: -0.02em; }
+.page-desc { margin: var(--space-1) 0 0; font-size: 13px; color: var(--color-text-tertiary); }
+.stats-row { margin-bottom: var(--space-4); }
 .stat-card { text-align: center; }
-.stat-num { font-size: 26px; font-weight: bold; color: var(--c-text); }
-.stat-num.green { color: #3ba272; }
-.stat-num.blue { color: var(--c-primary); }
-.stat-label { font-size: 13px; color: var(--c-text-tertiary); margin-top: 2px; }
-.search-card { margin-bottom: 16px; }
+.stat-num { font-size: 26px; font-weight: 700; color: var(--color-text); }
+.stat-num.green { color: var(--color-success); }
+.stat-num.blue { color: var(--color-accent); }
+.stat-label { font-size: 13px; color: var(--color-text-tertiary); margin-top: 2px; }
+.search-card { margin-bottom: var(--space-4); }
 .search-card .el-form-item { margin-bottom: 0; }
 .table-card { min-height: 200px; }
-.toolbar { margin-bottom: 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.pagination { display: flex; justify-content: flex-end; margin-top: 16px; }
-.follow-item { padding: 8px 0; border-bottom: 1px solid #f3f4f6; }
+.toolbar { margin-bottom: var(--space-4); display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.pagination { display: flex; justify-content: flex-end; margin-top: var(--space-5); }
+.follow-item { padding: var(--space-2) 0; border-bottom: 1px solid var(--color-border); }
 .follow-item:last-child { border-bottom: none; }
-.follow-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-.follow-time { font-size: 12px; color: #9ca3af; }
-.follow-content { font-size: 14px; color: #374151; line-height: 1.5; }
-.follow-next { font-size: 12px; color: #6b7280; margin-top: 2px; }
+.follow-meta { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-1); }
+.follow-time { font-size: 12px; color: var(--color-text-tertiary); }
+.follow-content { font-size: 14px; color: var(--color-text); line-height: 1.5; }
+.follow-next { font-size: 12px; color: var(--color-text-secondary); margin-top: 2px; }
 </style>

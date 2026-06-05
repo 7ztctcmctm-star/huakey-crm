@@ -153,9 +153,9 @@ onMounted(() => { fetchCalendar() })
 
 <style scoped>
 .followup-calendar { padding: 0; }
-.page-header { margin-bottom: 16px; }
-.page-header h2 { margin: 0; font-size: 18px; color: var(--c-text); }
-.page-desc { margin: 4px 0 0; font-size: 13px; color: var(--c-text-tertiary); }
+.page-header { margin-bottom: var(--space-4); }
+.page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); letter-spacing: -0.02em; }
+.page-desc { margin: var(--space-1) 0 0; font-size: 13px; color: var(--color-text-tertiary); }
 
 .calendar-cell {
   height: 100%;
@@ -167,7 +167,7 @@ onMounted(() => { fetchCalendar() })
 
 .cell-day {
   font-size: 14px;
-  margin-bottom: 4px;
+  margin-bottom: var(--space-1);
 }
 
 .cell-tags {
@@ -182,19 +182,19 @@ onMounted(() => { fetchCalendar() })
 }
 
 .timeline-content {
-  padding: 4px 0;
+  padding: var(--space-1) 0;
 }
 
 .timeline-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 4px;
+  gap: var(--space-1);
+  margin-bottom: var(--space-1);
 }
 
 .timeline-company {
   font-weight: 600;
-  color: var(--c-primary);
+  color: var(--color-accent);
   cursor: pointer;
   font-size: 13px;
 }
@@ -205,12 +205,12 @@ onMounted(() => { fetchCalendar() })
 
 .timeline-contact {
   font-size: 12px;
-  color: var(--c-text-tertiary);
+  color: var(--color-text-tertiary);
 }
 
 .timeline-body {
   font-size: 13px;
-  color: var(--c-text-secondary);
+  color: var(--color-text-secondary);
   line-height: 1.5;
 }
 </style>

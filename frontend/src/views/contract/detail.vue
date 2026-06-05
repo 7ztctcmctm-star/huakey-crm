@@ -210,12 +210,12 @@ onMounted(() => { fetchDetail() })
 </script>
 
 <style scoped>
-.contract-detail { padding: 24px; }
-.detail-header { display: flex; align-items: center; margin-bottom: 24px; gap: 16px; }
-.page-title { font-size: 18px; font-weight: 500; color: var(--c-text); }
-.card-title { font-weight: 500; }
+.contract-detail { padding: 0; }
+.detail-header { display: flex; align-items: center; margin-bottom: var(--space-5); gap: var(--space-4); }
+.page-title { font-size: 28px; font-weight: 600; color: var(--color-text); letter-spacing: -0.02em; }
+.card-title { font-weight: 600; }
 .card-header { display: flex; justify-content: space-between; align-items: center; }
-.plan-summary { display: flex; gap: 24px; margin-top: 12px; padding: 12px; background: #fafafa; border-radius: 4px; font-size: 14px; color: var(--c-text-secondary); align-items: center; flex-wrap: wrap; }
+.plan-summary { display: flex; gap: var(--space-5); margin-top: var(--space-3); padding: var(--space-3); background: var(--color-bg-secondary); border-radius: var(--radius-sm); font-size: 14px; color: var(--color-text-secondary); align-items: center; flex-wrap: wrap; }
 .plan-summary span { white-space: nowrap; }
-.plan-rate-bar { display: flex; align-items: center; gap: 4px; }
+.plan-rate-bar { display: flex; align-items: center; gap: var(--space-1); }
 </style>

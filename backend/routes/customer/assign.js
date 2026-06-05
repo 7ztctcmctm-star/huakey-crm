@@ -351,16 +351,6 @@ async function autoAssignOwner(customer) {
 
 module.exports = router;
 module.exports.autoAssignOwner = autoAssignOwner;
-  try {
-    const [rows] = await pool.query(
-      'SELECT DISTINCT industry FROM crm_customer WHERE industry IS NOT NULL AND industry != "" AND status != 0 ORDER BY industry'
-    );
-    res.json({ code: 200, message: '查询成功', data: rows.map(r => r.industry) });
-  } catch (error) {
-    console.error('获取行业列表错误:', error);
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
-  }
-});
 
 // 轮询自动分配：将公海客户均匀分配给销售团队
 router.post('/auto-assign', authenticateToken, checkPermission('customer:assign'), async (req, res) => {

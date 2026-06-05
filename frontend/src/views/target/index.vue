@@ -95,9 +95,9 @@ onMounted(() => { fetchData() })
 </script>
 
 <style scoped>
-.page-container { padding: 24px; }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-.page-header h2 { margin: 0; font-size: 18px; color: var(--c-text); }
+.page-container { padding: 0; }
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-5); }
+.page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); letter-spacing: -0.02em; }
 .header-actions { display: flex; align-items: center; }
-.text-muted { color: #94a3b8; font-size: 12px; }
+.text-muted { color: var(--color-text-tertiary); font-size: 12px; }
 </style>

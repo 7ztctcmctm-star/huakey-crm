@@ -834,7 +834,8 @@ const handleLogout = () => {
 }
 
 .sidebar {
-  background: #1f2937;
+  background: var(--color-bg);
+  border-right: 1px solid var(--color-border);
 }
 
 .logo {
@@ -843,8 +844,8 @@ const handleLogout = () => {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 8px 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .logo-img {
@@ -854,23 +855,25 @@ const handleLogout = () => {
 }
 
 .logo-title {
-  color: #fff;
-  font-size: 14px;
+  color: var(--color-text);
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.02em;
   white-space: nowrap;
 }
 
 .logo-icon {
-  color: #fff;
+  color: var(--color-text);
   font-size: 18px;
   font-weight: 700;
 }
 
 .header {
-  background: #fff;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid var(--color-border);
   box-shadow: none;
-  border-bottom: 1px solid rgba(60,60,67,0.08);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -889,35 +892,41 @@ const handleLogout = () => {
 
 .global-search-input :deep(.el-input__wrapper) {
   border-radius: 20px;
-  background: var(--c-bg);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
 }
 
 .recent-visit-btn {
   margin-left: 8px;
-  color: var(--c-text-secondary);
+  color: var(--color-text-secondary);
 }
+
 .recent-visit-btn:hover {
-  color: var(--c-primary);
+  color: var(--color-accent);
 }
+
 .recent-visit-item {
   display: flex;
   align-items: center;
   padding: 6px 4px;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 13px;
 }
+
 .recent-visit-item:hover {
-  background: var(--c-bg);
+  background: var(--color-bg-secondary);
 }
+
 .recent-visit-name {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .recent-visit-time {
-  color: var(--c-text-tertiary);
+  color: var(--color-text-tertiary);
   font-size: 12px;
   margin-left: 8px;
   flex-shrink: 0;
@@ -931,7 +940,7 @@ const handleLogout = () => {
 .search-hint {
   text-align: center;
   padding: 20px;
-  color: #909399;
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
@@ -940,54 +949,65 @@ const handleLogout = () => {
 }
 
 .search-group-title {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  color: #909399;
+  color: var(--color-text-secondary);
   padding: 4px 8px;
-  background: #f5f7fa;
-  border-radius: 4px;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-sm);
   margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .search-item {
   padding: 8px 12px;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  transition: background 0.2s var(--ease-out);
 }
 
 .search-item:hover {
-  background: #f5f7fa;
+  background: var(--color-bg-secondary);
 }
 
 .search-item-name {
   font-size: 14px;
-  color: #303133;
+  color: var(--color-text);
 }
 
 .search-item-sub {
   font-size: 12px;
-  color: #909399;
+  color: var(--color-text-tertiary);
 }
 
 .collapse-btn {
   margin-right: 16px;
-  color: var(--c-text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .header-right {
   display: flex;
   align-items: center;
+  gap: 4px;
 }
 
 .user-info {
   cursor: pointer;
   display: flex;
   align-items: center;
-  color: var(--c-text-secondary);
+  color: var(--color-text-secondary);
   font-size: 14px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  transition: background 0.2s var(--ease-out);
+}
+
+.user-info:hover {
+  background: var(--color-bg-secondary);
 }
 
 .user-info .el-icon {
@@ -995,19 +1015,21 @@ const handleLogout = () => {
 }
 
 .reminder-bell {
-  margin-right: 16px;
+  margin-right: 12px;
   cursor: pointer;
 }
+
 .boss-dashboard-btn {
-  margin-right: 16px;
+  margin-right: 12px;
   display: flex;
   align-items: center;
   gap: 4px;
   font-size: 14px;
-  color: #1a56db;
+  color: var(--color-accent);
 }
+
 .main-content {
-  background: #f8f9fb;
+  background: var(--color-bg-secondary);
   padding: 24px;
   overflow-y: auto;
 }
@@ -1018,17 +1040,18 @@ const handleLogout = () => {
 
 :deep(.el-menu-item),
 :deep(.el-sub-menu__title) {
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   margin: 2px 8px;
 }
 
 :deep(.el-menu-item:hover),
 :deep(.el-sub-menu__title:hover) {
-  background: rgba(255,255,255,0.08) !important;
+  background: var(--color-bg-secondary) !important;
 }
 
 :deep(.el-menu-item.is-active) {
-  background: rgba(255,255,255,0.14) !important;
+  background: var(--color-bg-secondary) !important;
   font-weight: 600;
+  color: var(--color-text) !important;
 }
 </style>

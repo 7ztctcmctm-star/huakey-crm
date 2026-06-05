@@ -149,7 +149,7 @@
       <el-col :span="6">
         <el-card shadow="hover" class="stat-card mini" @click="$router.push({ path: '/customer/list', query: { overdue: 'true' } })">
           <div class="stat-body">
-            <div class="stat-icon small" :style="{ background: overdueCount > 0 ? 'var(--c-accent-bg)' : '#f0f9eb', color: overdueCount > 0 ? 'var(--c-accent)' : 'var(--c-primary)' }">
+            <div class="stat-icon small" :style="{ background: overdueCount > 0 ? 'var(--color-accent-bg)' : '#f0f9eb', color: overdueCount > 0 ? 'var(--color-accent)' : 'var(--color-accent)' }">
               <el-icon :size="20"><Clock /></el-icon>
             </div>
             <div class="stat-info">
@@ -790,7 +790,7 @@ const renderSourceChart = (data) => {
       data: data.map((item) => ({
         value: item.count,
         name: item.source || '未知',
-        itemStyle: { color: PARENT_SOURCE_COLORS[item.source] || 'var(--c-text-tertiary)' }
+        itemStyle: { color: PARENT_SOURCE_COLORS[item.source] || 'var(--color-text-tertiary)' }
       }))
     }]
   })
@@ -888,14 +888,17 @@ onActivated(() => {
 
 .stat-card {
   cursor: pointer;
-  border-radius: 8px;
-  border: none;
-  background: rgba(255,255,255,0.88);
-}
-.stat-card:hover {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.3s var(--ease-out);
+  padding: var(--space-5);
 }
 
 .stat-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
 }
 
 .stat-card.mini {
@@ -910,30 +913,14 @@ onActivated(() => {
   cursor: pointer;
 }
 
-.stat-value.orange { color: #d97706; }
-.stat-value.blue { color: #1a56db; }
-.stat-value.danger { color: #dc2626; }
-
 .stat-body {
   display: flex;
-  align-items: center;
-  gap: 16px;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .stat-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.stat-icon.small {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
+  display: none !important;
 }
 
 .stat-info {
@@ -941,24 +928,27 @@ onActivated(() => {
 }
 
 .stat-value {
-  font-size: 28px;
-  font-weight: bold;
-  color: var(--c-text);
-  line-height: 1.2;
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
 }
 
 .stat-value.small {
-  font-size: 22px;
+  font-size: 28px;
 }
 
-.stat-value.small.danger {
-  color: #dc2626;
-}
+.stat-value.orange { color: var(--color-text); }
+.stat-value.blue { color: var(--color-text); }
+.stat-value.danger { color: var(--color-danger); }
+.stat-value.small.danger { color: var(--color-danger); }
 
 .stat-label {
-  font-size: 14px;
-  color: #1a56db;
-  margin-top: 4px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-top: var(--space-1);
+  font-weight: 500;
 }
 
 .section-header {
@@ -970,10 +960,11 @@ onActivated(() => {
 .section-title {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 16px;
-  font-weight: bold;
-  color: var(--c-text);
+  gap: var(--space-2);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--color-text);
+  letter-spacing: -0.02em;
 }
 
 .chart-container {
@@ -988,14 +979,15 @@ onActivated(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 8px;
-  border-bottom: 1px solid var(--c-border-light);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.2s var(--ease-out);
+  border-radius: var(--radius-sm);
 }
 
 .todo-item:hover {
-  background: var(--c-bg);
+  background: var(--color-bg-secondary);
 }
 
 .todo-item:last-child {
@@ -1012,7 +1004,7 @@ onActivated(() => {
 
 .todo-customer, .todo-title {
   font-size: 14px;
-  color: var(--c-text);
+  color: var(--color-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1027,46 +1019,50 @@ onActivated(() => {
 
 .todo-time {
   font-size: 12px;
-  color: #1a56db;
+  color: var(--color-text-secondary);
 }
 
 .quick-actions {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .action-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 24px 10px;
-  border-radius: 8px;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-3);
+  border-radius: var(--radius-lg);
   cursor: pointer;
+  transition: background 0.2s var(--ease-out);
 }
 
 .action-item:hover {
-  background: var(--c-bg);
+  background: var(--color-bg-secondary);
 }
 
 .action-icon {
   width: 48px;
   height: 48px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
 }
 
 .action-item span {
   font-size: 13px;
-  color: var(--c-text-secondary);
+  color: var(--color-text-secondary);
+  font-weight: 500;
 }
 
 .amount-text {
   font-size: 13px;
-  color: var(--c-text);
+  color: var(--color-text);
 }
 
 .batch-row {
@@ -1076,13 +1072,13 @@ onActivated(() => {
   margin-bottom: 8px;
 }
 
-/* P0-1: 今日待办区域优化 */
 .todo-card {
-  border-left: 4px solid #1a56db;
+  border-left: 4px solid var(--color-accent);
+  border-radius: var(--radius-lg);
 }
 
 .todo-card.has-overdue {
-  border-left: 4px solid #dc2626;
+  border-left: 4px solid var(--color-danger);
 }
 
 .todo-badge {
@@ -1092,6 +1088,7 @@ onActivated(() => {
 .todo-summary {
   display: flex;
   align-items: center;
+  gap: var(--space-2);
 }
 
 .todo-list {
@@ -1100,11 +1097,11 @@ onActivated(() => {
 }
 
 .todo-item.overdue {
-  background: #fef2f2;
-  border-left: 3px solid #dc2626;
+  background: var(--color-danger-bg);
+  border-left: 3px solid var(--color-danger);
 }
 
 .todo-item.overdue:hover {
-  background: #fee2e2;
+  background: rgba(255, 69, 58, 0.12);
 }
 </style>
