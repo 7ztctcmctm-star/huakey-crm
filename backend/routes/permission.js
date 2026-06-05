@@ -35,7 +35,7 @@ router.get('/my-permissions', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Get permissions error:', error);
+    console.error('[权限] 获取权限错误:', error);
     res.status(500).json({
       code: 500,
       message: '查询失败',
@@ -60,7 +60,7 @@ router.get('/list', authenticateToken, async (req, res) => {
       data: tree
     });
   } catch (error) {
-    console.error('Get permission list error:', error);
+    console.error('[权限] 获取权限列表错误:', error);
     res.status(500).json({
       code: 500,
       message: '查询失败',
@@ -89,7 +89,7 @@ router.get('/role/:roleId', authenticateToken, async (req, res) => {
       data: permissionIds
     });
   } catch (error) {
-    console.error('Get role permissions error:', error);
+    console.error('[权限] 获取角色权限错误:', error);
     res.status(500).json({
       code: 500,
       message: '查询失败',
@@ -139,7 +139,7 @@ router.post('/role/update', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     await connection.rollback();
-    console.error('Update role permissions error:', error);
+    console.error('[权限] 更新角色权限错误:', error);
     res.status(500).json({
       code: 500,
       message: '更新失败',
@@ -168,7 +168,7 @@ router.get('/data-scope/:roleId', authenticateToken, async (req, res) => {
       data: configs
     });
   } catch (error) {
-    console.error('Get data scope error:', error);
+    console.error('[权限] 获取数据权限错误:', error);
     res.status(500).json({
       code: 500,
       message: '查询失败',
@@ -220,7 +220,7 @@ router.post('/data-scope/update', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     await connection.rollback();
-    console.error('Update data scope error:', error);
+    console.error('[权限] 更新数据权限错误:', error);
     res.status(500).json({
       code: 500,
       message: '更新失败',
@@ -258,7 +258,7 @@ router.post('/add', authenticateToken, async (req, res) => {
     clearAllPermissionCache();
     res.json({ code: 200, message: '新增成功', data: null });
   } catch (error) {
-    console.error('Add permission error:', error);
+    console.error('[权限] 添加权限错误:', error);
     res.status(500).json({ code: 500, message: '新增失败', data: null });
   }
 });
@@ -277,7 +277,7 @@ router.post('/update-node', authenticateToken, async (req, res) => {
     clearAllPermissionCache();
     res.json({ code: 200, message: '修改成功', data: null });
   } catch (error) {
-    console.error('Update permission error:', error);
+    console.error('[权限] 更新权限错误:', error);
     res.status(500).json({ code: 500, message: '修改失败', data: null });
   }
 });
@@ -303,7 +303,7 @@ router.post('/delete-node', authenticateToken, async (req, res) => {
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     await connection.rollback();
-    console.error('Delete permission error:', error);
+    console.error('[权限] 删除权限错误:', error);
     res.status(500).json({ code: 500, message: '删除失败', data: null });
   } finally {
     connection.release();

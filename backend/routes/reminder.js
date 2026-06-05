@@ -17,7 +17,7 @@ router.get('/my-reminders', authenticateToken, async (req, res) => {
     const [list] = await pool.query(
       `SELECT r.id, r.customer_id, r.reminder_type, r.reminder_date, r.is_read,
               c.company_name, c.contact_name, c.phone, c.last_follow_time,
-              EXTRACT(DAY FROM NOW() - COALESCE(c.last_follow_time, c.create_time)) as overdue_days
+              DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days
        FROM crm_follow_up_reminder r
        JOIN crm_customer c ON r.customer_id = c.id AND c.status != 0
        WHERE r.owner_id = ? AND r.reminder_type = 'overdue' AND r.is_dismissed = 0
@@ -63,11 +63,11 @@ router.get('/my-reminders', authenticateToken, async (req, res) => {
     // 接近逾期预警：最后跟进天数在 [preWarningDays, overdueDays) 之间
     const [preWarningList] = await pool.query(
       `SELECT c.id as customer_id, c.company_name, c.contact_name, c.phone, c.last_follow_time,
-              EXTRACT(DAY FROM NOW() - COALESCE(c.last_follow_time, c.create_time)) as overdue_days
+              DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days
        FROM crm_customer c
        WHERE c.owner_id = ? AND c.status NOT IN (0, 2, 3)
-         AND EXTRACT(DAY FROM NOW() - COALESCE(c.last_follow_time, c.create_time)) >= ?
-         AND EXTRACT(DAY FROM NOW() - COALESCE(c.last_follow_time, c.create_time)) < ?
+         AND DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) >= ?
+         AND DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) < ?
          AND c.id NOT IN (
            SELECT customer_id FROM crm_follow_up_reminder WHERE owner_id = ? AND is_dismissed = 0
          )
@@ -214,7 +214,7 @@ router.post('/overdue-list', authenticateToken, async (req, res) => {
     const [list] = await pool.query(
       `SELECT c.id, c.company_name, c.contact_name, c.phone, c.level, c.status,
               c.last_follow_time, c.create_time,
-              EXTRACT(DAY FROM NOW() - COALESCE(c.last_follow_time, c.create_time)) as overdue_days,
+              DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days,
               u.real_name as owner_name
        FROM crm_customer c
        LEFT JOIN sys_user u ON c.owner_id = u.id
@@ -362,6 +362,7 @@ router.post('/notification-read', authenticateToken, async (req, res) => {
     );
     res.json({ code: 200, message: '已标记为已读', data: null });
   } catch (error) {
+    console.error('[提醒] 标记已读失败:', error);
     res.status(500).json({ code: 500, message: '操作失败', data: null });
   }
 });
@@ -376,6 +377,7 @@ router.post('/notification-dismiss', authenticateToken, async (req, res) => {
     );
     res.json({ code: 200, message: '已处理', data: null });
   } catch (error) {
+    console.error('[提醒] 处理通知失败:', error);
     res.status(500).json({ code: 500, message: '操作失败', data: null });
   }
 });
@@ -390,6 +392,7 @@ router.post('/notification-dismiss-by-business', authenticateToken, async (req, 
     );
     res.json({ code: 200, message: '通知已解除', data: null });
   } catch (error) {
+    console.error('[提醒] 批量解除通知失败:', error);
     res.status(500).json({ code: 500, message: '操作失败', data: null });
   }
 });

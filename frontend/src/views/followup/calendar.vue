@@ -5,7 +5,16 @@
       <p class="page-desc">按日历查看跟进记录和待跟进计划</p>
     </div>
 
-    <el-card shadow="never">
+    <!-- 视图切换 Tabs -->
+    <el-card shadow="never" style="margin-bottom: 12px;">
+      <el-tabs v-model="viewMode">
+        <el-tab-pane label="日历视图" name="calendar" />
+        <el-tab-pane label="计划列表" name="plan" />
+      </el-tabs>
+    </el-card>
+
+    <!-- 日历视图 -->
+    <el-card v-if="viewMode === 'calendar'" shadow="never">
       <el-calendar v-model="currentDate">
         <template #dateCell="{ data }">
           <div class="calendar-cell" @click="handleClick(data)">
@@ -29,6 +38,35 @@
           </div>
         </template>
       </el-calendar>
+    </el-card>
+
+    <!-- 计划列表视图 -->
+    <el-card v-else shadow="never">
+      <el-table :data="planList" stripe border v-loading="planLoading">
+        <el-table-column prop="company_name" label="客户名称" min-width="150" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span class="link-text" @click="goToCustomer(row.customer_id)">{{ row.company_name }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="contact_name" label="联系人" width="100" />
+        <el-table-column prop="plan_content" label="计划内容" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="plan_time" label="计划时间" width="160">
+          <template #default="{ row }">
+            {{ row.plan_time ? formatTime(row.plan_time) : '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="getPlanStatusType(row)" size="small">{{ getPlanStatusText(row) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="120">
+          <template #default="{ row }">
+            <el-button type="primary" link @click="goToCustomer(row.customer_id)">去跟进</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div v-if="planList.length === 0" style="text-align:center;padding:40px;color:#909399">暂无跟进计划</div>
     </el-card>
 
     <!-- 当日详情弹窗 -->
@@ -65,15 +103,21 @@
 import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { post } from '@/utils/request'
+import { post, get } from '@/utils/request'
+import { formatTime } from '@/composables/useFormat'
 
 const router = useRouter()
+const viewMode = ref('calendar')
 const currentDate = ref(new Date())
 const records = ref([])
 const loading = ref(false)
 const dayDialogVisible = ref(false)
 const selectedDate = ref('')
 const dayRecords = ref([])
+
+// 计划列表相关
+const planList = ref([])
+const planLoading = ref(false)
 
 // 按日期分组的跟进记录
 const followByDate = ref({})   // { '2025-01-15': { follows: [...], plans: [...] } }
@@ -139,10 +183,50 @@ const goToCustomer = (id) => {
   }
 }
 
+// 获取计划列表
+const fetchPlanList = async () => {
+  planLoading.value = true
+  try {
+    const res = await get('/follow-up/plans')
+    if (res.code === 200) {
+      planList.value = res.data.list || []
+    }
+  } catch { ElMessage.error('加载计划列表失败') }
+  finally { planLoading.value = false }
+}
+
+// 计划状态判断
+const getPlanStatusType = (row) => {
+  if (!row.plan_time) return 'info'
+  const now = new Date()
+  const planTime = new Date(row.plan_time)
+  if (planTime < now) return 'danger'
+  const diff = planTime - now
+  if (diff < 24 * 60 * 60 * 1000) return 'warning'
+  return 'success'
+}
+
+const getPlanStatusText = (row) => {
+  if (!row.plan_time) return '待定'
+  const now = new Date()
+  const planTime = new Date(row.plan_time)
+  if (planTime < now) return '已逾期'
+  const diff = planTime - now
+  if (diff < 24 * 60 * 60 * 1000) return '今日'
+  return '待跟进'
+}
+
 // 监听日历月份切换
 watch(currentDate, (newVal, oldVal) => {
   if (newVal.getMonth() !== oldVal?.getMonth() || newVal.getFullYear() !== oldVal?.getFullYear()) {
     fetchCalendar()
+  }
+})
+
+// 监听视图切换
+watch(viewMode, (newVal) => {
+  if (newVal === 'plan' && planList.value.length === 0) {
+    fetchPlanList()
   }
 })
 
@@ -212,5 +296,14 @@ onMounted(() => { fetchCalendar() })
   font-size: 13px;
   color: var(--color-text-secondary);
   line-height: 1.5;
+}
+
+.link-text {
+  color: var(--color-accent);
+  cursor: pointer;
+}
+
+.link-text:hover {
+  text-decoration: underline;
 }
 </style>

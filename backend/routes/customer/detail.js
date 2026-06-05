@@ -5,6 +5,7 @@ const { validate, Joi } = require('../../middleware/validate');
 const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../../middleware/permission');
 const { autoAssignOwner } = require('./assign');
 const { getOverdueDays } = require('../../utils/config');
+const { CUSTOMER_STATUS } = require('../../constants/customer');
 
 const MODULE_NAME = '客户管理';
 
@@ -30,7 +31,7 @@ const customerListSchema = Joi.object({
   phone: Joi.string().max(20).allow('', null),
   source: Joi.string().valid(...VALID_SOURCES, ...Object.keys(SOURCE_PARENT_MAP)).allow('', null),
   level: Joi.string().valid('A', 'B', 'C').allow('', null),
-  status: Joi.number().integer().valid(0, 1, 2, 3).allow('', null),
+  status: Joi.number().integer().valid(0, 1, 2, 3, 5).allow('', null),
   customer_type: Joi.string().valid('prospect', 'customer').allow('', null),
   lifecycle_status: Joi.string().valid('new', 'nurturing', 'intent', 'active', 'lost', 'inactive').allow('', null),
   owner_id: Joi.number().integer().positive().allow(null),
@@ -63,7 +64,7 @@ const updateCustomerSchema = Joi.object({
   industry: Joi.string().max(200).allow('', null),
   source: Joi.string().valid(...VALID_SOURCES).allow('', null),
   level: Joi.string().valid('A', 'B', 'C'),
-  status: Joi.number().integer().valid(1, 2, 3),
+  status: Joi.number().integer().valid(1, 2, 3, 5),
   remark: Joi.string().max(2000).allow('', null)
 });
 
@@ -133,7 +134,7 @@ router.post('/list',
     const { clause: permissionWhere, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'c');
     params.push(...permParams);
 
-    // 客户列表仅显示正式客户（成交=2、流失=3），线索(1)在独立模块
+    // 客户列表支持按状态筛选：线索(5)、潜客(1)、正式客户(2)、流失(3)
     let whereClause;
     if (status !== undefined && status !== null && status !== '') {
       whereClause = `WHERE ${permissionWhere} AND c.status = ?`;
@@ -191,7 +192,7 @@ router.post('/list',
     // 逾期跟进筛选：最后跟进时间超过配置天数的客户
     if (overdue === true || overdue === 'true' || overdue === 1) {
       const overdueDays = await getOverdueDays();
-      whereClause += ' AND EXTRACT(DAY FROM NOW() - COALESCE(c.last_follow_time, c.create_time)) >= ?';
+      whereClause += ' AND DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) >= ?';
       params.push(overdueDays);
     }
     // 标签筛选
@@ -717,12 +718,12 @@ router.post('/export', authenticateToken, checkPermission('customer:list'), asyn
   }
 });
 
-// 潜客池与客户列表互相转化（仅老板和管理者可用）
+// 客户状态转化（支持线索→潜客→正式客户→流失）
 router.post('/convert',
   authenticateToken,
   async (req, res) => {
     try {
-      const { customer_id, action } = req.body; // action: 'to_customer' | 'to_prospect'
+      const { customer_id, action } = req.body;
       const userId = req.user.userId;
       const roleId = req.user.roleId;
 
@@ -741,48 +742,56 @@ router.post('/convert',
       }
 
       const customer = customers[0];
-      let newStatus, actionName;
+      let newStatus, actionName, newCustomerType, newLifecycleStatus;
 
-      if (action === 'to_customer') {
-        if (customer.status !== 1) {
-          return res.status(400).json({ code: 400, message: '当前客户已为正式客户', data: null });
-        }
-        newStatus = 2; // 转为成交客户
-        actionName = `将 ${customer.company_name} 从潜客池转为正式客户`;
-        // 写入转化时间，同步更新 customer_type / lifecycle_status，保护首次转化时间
-        await pool.query(
-          `UPDATE crm_customer
-           SET status = ?,
-               customer_type = 'customer',
-               lifecycle_status = 'active',
-               converted_at = COALESCE(converted_at, NOW()),
-               update_time = NOW()
-           WHERE id = ?`,
-          [newStatus, customer_id]
-        );
-      } else if (action === 'to_prospect') {
-        if (customer.status === 1) {
-          return res.status(400).json({ code: 400, message: '当前客户已在潜客池中', data: null });
-        }
-        newStatus = 1; // 退回潜客池
-        actionName = `将 ${customer.company_name} 从客户列表退回潜客池`;
-        await pool.query(
-          `UPDATE crm_customer
-           SET status = ?,
-               customer_type = 'prospect',
-               lifecycle_status = 'nurturing',
-               update_time = NOW()
-           WHERE id = ?`,
-          [newStatus, customer_id]
-        );
+      // 验证转化路径
+      const validPaths = {
+        [CUSTOMER_STATUS.LEAD]: ['to_prospect'],           // 线索(5)→潜客(1)
+        [CUSTOMER_STATUS.PROSPECT]: ['to_customer'],        // 潜客(1)→正式客户(2)
+        [CUSTOMER_STATUS.CUSTOMER]: ['to_lost'],            // 正式客户(2)→流失(3)
+        [CUSTOMER_STATUS.LOST]: ['to_prospect']             // 流失(3)→潜客(1) 重新激活
+      };
+
+      const allowedActions = validPaths[customer.status] || [];
+      if (!allowedActions.includes(action)) {
+        return res.status(400).json({ code: 400, message: '当前状态不允许执行此操作', data: null });
+      }
+
+      if (action === 'to_prospect') {
+        newStatus = CUSTOMER_STATUS.PROSPECT;
+        newCustomerType = 'prospect';
+        newLifecycleStatus = 'nurturing';
+        actionName = `将 ${customer.company_name} 转为潜客`;
+      } else if (action === 'to_customer') {
+        newStatus = CUSTOMER_STATUS.CUSTOMER;
+        newCustomerType = 'customer';
+        newLifecycleStatus = 'active';
+        actionName = `将 ${customer.company_name} 转为正式客户`;
+      } else if (action === 'to_lost') {
+        newStatus = CUSTOMER_STATUS.LOST;
+        newCustomerType = 'customer';
+        newLifecycleStatus = 'lost';
+        actionName = `将 ${customer.company_name} 标记为流失`;
       } else {
         return res.status(400).json({ code: 400, message: '无效的转化操作', data: null });
       }
 
+      // 执行转化
+      await pool.query(
+        `UPDATE crm_customer
+         SET status = ?,
+             customer_type = ?,
+             lifecycle_status = ?,
+             converted_at = COALESCE(converted_at, NOW()),
+             update_time = NOW()
+         WHERE id = ?`,
+        [newStatus, newCustomerType, newLifecycleStatus, customer_id]
+      );
+
       // 记录日志
       const { logAction, getIpAddress } = require('../middleware/logger');
       await logAction({
-        module: '客户管理', action: action === 'to_customer' ? '转为客户' : '退回潜客',
+        module: '客户管理', action: action,
         method: 'POST', url: '/api/customer/convert',
         params: { customer_id, action },
         ipAddress: getIpAddress(req), userId, userName: req.user.username,
@@ -791,7 +800,7 @@ router.post('/convert',
 
       res.json({
         code: 200,
-        message: action === 'to_customer' ? '已转为正式客户' : '已退回潜客池',
+        message: '转化成功',
         data: { status: newStatus }
       });
     } catch (error) {

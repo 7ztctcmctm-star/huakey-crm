@@ -232,8 +232,8 @@ router.post('/import-confirm', authenticateToken, checkPermission('customer:impo
            record.remark ? record.remark.substring(0, 2000) : null, req.user.userId]
         );
         success++;
-      } catch (e) {
-        insertErrors.push(`第${record._row}行: ${e.message}`);
+      } catch (error) {
+        insertErrors.push(`第${record._row}行: ${error.message}`);
       }
     }
 

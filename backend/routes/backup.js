@@ -59,8 +59,8 @@ router.post('/create', authenticateToken, checkPermission('backup:create'), requ
         'UPDATE sys_backup_record SET status = ?, file_size = ? WHERE id = ?',
         ['success', fileSize, backupId]
       );
-    } catch (e) {
-      console.error('更新备份记录失败:', e);
+    } catch (error) {
+      console.error('[备份] 更新备份记录失败:', error);
     }
   });
 
@@ -96,7 +96,7 @@ router.post('/list', authenticateToken, checkPermission('backup:create'), async 
       data: { list: rows, total }
     });
   } catch (error) {
-    console.error('查询备份列表失败:', error);
+    console.error('[备份] 查询备份列表失败:', error);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -124,13 +124,13 @@ router.post('/restore', authenticateToken, checkPermission('backup:restore'), re
 
     exec(command, (error) => {
       if (error) {
-        console.error('恢复备份失败:', error);
+        console.error('[备份] 恢复备份失败:', error);
       }
     });
 
     res.json({ code: 200, message: '恢复任务已执行', data: null });
   } catch (error) {
-    console.error('恢复备份失败:', error);
+    console.error('[备份] 恢复备份失败:', error);
     res.status(500).json({ code: 500, message: '恢复失败', data: null });
   }
 });
@@ -153,7 +153,7 @@ router.post('/delete', authenticateToken, checkPermission('backup:create'), requ
     await pool.query('DELETE FROM sys_backup_record WHERE id = ?', [id]);
     res.json({ code: 200, message: '备份已删除', data: null });
   } catch (error) {
-    console.error('删除备份失败:', error);
+    console.error('[备份] 删除备份失败:', error);
     res.status(500).json({ code: 500, message: '删除失败', data: null });
   }
 });

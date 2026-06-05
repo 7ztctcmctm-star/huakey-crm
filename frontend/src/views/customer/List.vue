@@ -85,6 +85,17 @@
       </template>
     </el-alert>
 
+    <!-- 状态筛选 Tabs -->
+    <el-card class="tab-card" shadow="never" style="margin-bottom: 12px;">
+      <el-tabs v-model="activeTab" @tab-change="handleTabChange">
+        <el-tab-pane label="全部" name="all" />
+        <el-tab-pane label="线索" name="lead" />
+        <el-tab-pane label="潜客" name="prospect" />
+        <el-tab-pane label="正式客户" name="customer" />
+        <el-tab-pane label="流失客户" name="lost" />
+      </el-tabs>
+    </el-card>
+
     <!-- 操作按钮区域 -->
     <el-card class="table-card" shadow="never">
       <div class="toolbar">
@@ -121,7 +132,7 @@
         <template v-if="isBoss || isManager">
           <el-divider direction="vertical" />
           <el-select v-model="batchNewOwnerId" placeholder="批量更换负责人" size="default" style="width: 160px" clearable>
-            <el-option :value="null" label="回收为待分配" />
+            <el-option value="" label="回收为待分配" />
             <el-option v-for="u in salesUsers" :key="u.id" :label="u.real_name" :value="u.id" />
           </el-select>
           <el-button type="warning" :disabled="selectedRows.length === 0"
@@ -233,10 +244,10 @@
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item command="view">查看</el-dropdown-item>
-                  <el-dropdown-item command="edit" v-permission="'customer:edit'">编辑</el-dropdown-item>
+                  <el-dropdown-item v-if="hasPermissionFromStorage('customer:edit')" command="edit">编辑</el-dropdown-item>
                   <!-- 客户列表：退回潜客池（仅boss/manager） -->
                   <el-dropdown-item v-if="!isProspectView && (isBoss || isManager)" command="to_prospect" divided :style="{ color: '#f97316' }">退回潜客池</el-dropdown-item>
-                  <el-dropdown-item command="delete" divided :style="{ color: 'var(--color-accent)' }" v-permission="'customer:delete'">删除</el-dropdown-item>
+                  <el-dropdown-item v-if="hasPermissionFromStorage('customer:delete')" command="delete" divided :style="{ color: 'var(--color-accent)' }">删除</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
@@ -360,7 +371,7 @@
     </el-dialog>
 
     <!-- 分配客户弹窗 -->
-    <el-dialog v-model="assignDialogVisible" :title="assignUserId === null ? '回收客户到待分配池' : '分配客户负责人'" width="420px">
+    <el-dialog v-model="assignDialogVisible" :title="assignUserId === '' ? '回收客户到待分配池' : '分配客户负责人'" width="420px">
       <div v-if="assignCustomer" style="margin-bottom:16px">
         <p><strong>客户：</strong>{{ assignCustomer.company_name }}</p>
         <p><strong>当前负责人：</strong>{{ assignCustomer.owner_name || '待分配（无负责人）' }}</p>
@@ -368,15 +379,15 @@
       <el-form label-width="80px">
         <el-form-item label="新负责人">
           <el-select v-model="assignUserId" placeholder="请选择" clearable style="width:100%">
-            <el-option :value="null" label="无负责人（回收待分配）" />
+            <el-option value="" label="无负责人（回收待分配）" />
             <el-option v-for="u in salesUsers" :key="u.id" :label="u.real_name + ' (' + u.username + ')'" :value="u.id" />
           </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="assignDialogVisible = false">取消</el-button>
-        <el-button :type="assignUserId === null ? 'warning' : 'primary'" :loading="assignLoading" @click="confirmAssign">
-          {{ assignUserId === null ? '确认回收' : '确认分配' }}
+        <el-button :type="assignUserId === '' ? 'warning' : 'primary'" :loading="assignLoading" @click="confirmAssign">
+          {{ assignUserId === '' ? '确认回收' : '确认分配' }}
         </el-button>
       </template>
     </el-dialog>
@@ -454,10 +465,19 @@ import DataQualityCheck from '@/components/DataQualityCheck.vue'
 import request, { post, get } from '@/utils/request'
 import { SOURCE_SEARCH_OPTIONS, SOURCE_FORM_OPTIONS, ALL_SOURCE_VALUES } from '@/constants/source'
 import { relativeTime, fullTime } from '@/composables/useRelativeTime'
+import { hasPermissionFromStorage } from '@/utils/permission'
 
 const router = useRouter()
 const route = useRoute()
 const overdueMode = ref(route.query.overdue === 'true')
+
+// 状态 Tab 筛选
+const activeTab = ref(route.query.tab || 'all')
+const handleTabChange = (tab) => {
+  activeTab.value = tab
+  searchForm.page = 1
+  fetchList()
+}
 
 // 我的客户 / 全部客户 / 职员客户 切换
 const viewMode = ref('all')
@@ -471,7 +491,7 @@ const switchViewMode = () => {
 const isBoss = ref(false)
 const isManager = ref(false)
 const selectedRows = ref([])
-const batchNewOwnerId = ref(null)
+const batchNewOwnerId = ref('')
 const salesUsers = ref([])
 const subordinateUsers = ref([])
 const tableRef = ref(null)
@@ -513,7 +533,7 @@ const handleSelectionChange = (rows) => {
 
 const handleBatchAssign = async () => {
   if (selectedRows.value.length === 0) return
-  const isBatchRecycle = batchNewOwnerId.value === null
+  const isBatchRecycle = batchNewOwnerId.value === ''
   try {
     await ElMessageBox.confirm(
       isBatchRecycle
@@ -527,12 +547,12 @@ const handleBatchAssign = async () => {
   try {
     const res = await post('/customer/batch-assign', {
       customer_ids: selectedRows.value.map(r => r.id),
-      to_user_id: batchNewOwnerId.value,
+      to_user_id: batchNewOwnerId.value || null,
       remark: '批量重新分配'
     })
     if (res.code === 200) {
       ElMessage.success(res.message)
-      batchNewOwnerId.value = null
+      batchNewOwnerId.value = ''
       selectedRows.value = []
       fetchList()
     }
@@ -544,22 +564,22 @@ const handleBatchAssign = async () => {
 // 快速分配弹窗
 const assignDialogVisible = ref(false)
 const assignCustomer = ref(null)
-const assignUserId = ref(null)
+const assignUserId = ref('')
 const assignLoading = ref(false)
 
 const openAssignDialog = (row) => {
   assignCustomer.value = row
-  assignUserId.value = row.owner_id || null
+  assignUserId.value = row.owner_id || ''
   assignDialogVisible.value = true
 }
 
 const confirmAssign = async () => {
-  const isRecycle = assignUserId.value === null
+  const isRecycle = assignUserId.value === ''
   assignLoading.value = true
   try {
     const res = await post('/customer/assign', {
       customer_id: assignCustomer.value.id,
-      to_user_id: assignUserId.value,
+      to_user_id: assignUserId.value || null,
       remark: isRecycle ? '回收为待分配' : '手动分配'
     })
     if (res.code === 200) {
@@ -606,21 +626,25 @@ const levelOptions = [
 ]
 
 const statusOptions = [
-  { label: '潜在客户', value: 1 },
-  { label: '成交客户', value: 2 },
-  { label: '流失客户', value: 3 }
+  { label: '线索', value: 5 },
+  { label: '潜客', value: 1 },
+  { label: '正式客户', value: 2 },
+  { label: '流失', value: 3 }
 ]
 
 const editStatusOptions = [
-  { label: '潜在客户', value: 1 },
-  { label: '成交客户', value: 2 },
-  { label: '流失客户', value: 3 }
+  { label: '线索', value: 5 },
+  { label: '潜客', value: 1 },
+  { label: '正式客户', value: 2 },
+  { label: '流失', value: 3 }
 ]
 
 const statusMap = {
-  1: '潜在客户',
-  2: '成交客户',
-  3: '流失客户'
+  0: '已删除',
+  1: '潜客',
+  2: '正式客户',
+  3: '已流失',
+  5: '线索'
 }
 
 // 标签
@@ -680,7 +704,7 @@ const levelColor = (level) => {
 
 // 状态标签类型
 const statusTagType = (status) => {
-  const map = { 1: 'warning', 2: 'success', 3: 'info' }
+  const map = { 0: 'info', 1: 'warning', 2: 'success', 3: 'danger', 5: '' }
   return map[status] || 'info'
 }
 
@@ -729,6 +753,17 @@ const fetchList = async () => {
     // 职员客户模式：管理员查看指定职员的客户
     if (viewMode.value === 'staff' && staffFilterId.value) {
       params.owner_id = staffFilterId.value
+    }
+
+    // 状态 Tab 筛选
+    if (activeTab.value === 'lead') {
+      params.status = 5
+    } else if (activeTab.value === 'prospect') {
+      params.status = 1
+    } else if (activeTab.value === 'customer') {
+      params.status = 2
+    } else if (activeTab.value === 'lost') {
+      params.status = 3
     }
 
     const res = await post('/customer/list', params)

@@ -328,7 +328,10 @@ async function autoAssignOwner(customer) {
         let userIds;
         try {
           userIds = typeof rule.user_ids === 'string' ? JSON.parse(rule.user_ids) : rule.user_ids;
-        } catch { continue; }
+        } catch (error) {
+          console.error('[客户分配] 解析用户ID失败:', error);
+          continue;
+        }
         if (!Array.isArray(userIds) || userIds.length === 0) continue;
 
         const lastIndex = rule.last_assigned_index || 0;

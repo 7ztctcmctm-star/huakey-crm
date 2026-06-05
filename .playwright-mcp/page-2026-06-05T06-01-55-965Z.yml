@@ -1,0 +1,194 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - img "Huakey" [ref=e6]
+      - generic [ref=e7]: 铧旗CRM系统
+    - menubar [ref=e8]:
+      - menuitem "首页" [ref=e9] [cursor=pointer]:
+        - img [ref=e11]
+        - text: 首页
+      - menuitem "客户管理" [ref=e13]:
+        - generic [ref=e14] [cursor=pointer]:
+          - img [ref=e16]
+          - generic [ref=e18]: 客户管理
+          - img [ref=e20]
+      - menuitem "商机管理" [ref=e22] [cursor=pointer]:
+        - img [ref=e24]
+        - text: 商机管理
+      - menuitem "产品管理" [ref=e26] [cursor=pointer]:
+        - img [ref=e28]
+        - text: 产品管理
+      - menuitem "报价管理" [ref=e31] [cursor=pointer]:
+        - img [ref=e33]
+        - text: 报价管理
+      - menuitem "合同管理" [ref=e35] [cursor=pointer]:
+        - img [ref=e37]
+        - text: 合同管理
+      - menuitem "回款管理" [ref=e39] [cursor=pointer]:
+        - img [ref=e41]
+        - text: 回款管理
+      - menuitem "供应商管理" [ref=e45] [cursor=pointer]:
+        - img [ref=e47]
+        - text: 供应商管理
+      - menuitem "采购管理" [ref=e51] [cursor=pointer]:
+        - img [ref=e53]
+        - text: 采购管理
+      - menuitem "售后服务" [ref=e55] [cursor=pointer]:
+        - img [ref=e57]
+        - text: 售后服务
+      - menuitem "数据报表" [ref=e59] [cursor=pointer]:
+        - img [ref=e61]
+        - text: 数据报表
+      - menuitem "分析工具" [ref=e63] [cursor=pointer]:
+        - img [ref=e65]
+        - text: 分析工具
+      - menuitem "AI助手" [ref=e67] [cursor=pointer]:
+        - img [ref=e69]
+        - text: AI助手
+      - menuitem "销售目标" [ref=e72] [cursor=pointer]:
+        - img [ref=e74]
+        - text: 销售目标
+      - menuitem "系统管理" [ref=e78]:
+        - generic [ref=e79] [cursor=pointer]:
+          - img [ref=e81]
+          - generic [ref=e83]: 系统管理
+          - img [ref=e85]
+  - generic [ref=e87]:
+    - generic [ref=e88]:
+      - generic [ref=e89]:
+        - button [ref=e90] [cursor=pointer]:
+          - img [ref=e93]
+        - navigation "Breadcrumb" [ref=e95]:
+          - link "首页" [ref=e97]
+        - generic [ref=e99]:
+          - img [ref=e102]
+          - textbox "搜索客户、合同、商机..." [ref=e104]
+          - generic [ref=e105]:
+            - generic: Ctrl+K
+        - button "最近访问" [ref=e106] [cursor=pointer]:
+          - img [ref=e109]
+      - generic [ref=e113]:
+        - button "快速创建 (Ctrl+N)" [ref=e114] [cursor=pointer]:
+          - img [ref=e117]
+        - button [ref=e120] [cursor=pointer]:
+          - img [ref=e123]
+        - button [ref=e127] [cursor=pointer]:
+          - img [ref=e130]
+        - button "团队看板" [ref=e132] [cursor=pointer]:
+          - generic [ref=e133]:
+            - img [ref=e135]
+            - generic [ref=e139]: 团队看板
+        - button "系统管理员" [ref=e141] [cursor=pointer]:
+          - img [ref=e143]
+          - text: 系统管理员
+          - img [ref=e146]
+    - main [ref=e148]:
+      - generic [ref=e149]:
+        - generic [ref=e150]:
+          - generic [ref=e155] [cursor=pointer]:
+            - generic [ref=e156]: ¥0.00
+            - generic [ref=e157]: 本月销售额
+          - generic [ref=e162] [cursor=pointer]:
+            - generic [ref=e163]: "0"
+            - generic [ref=e164]: 本月新增客户
+          - generic [ref=e169] [cursor=pointer]:
+            - generic [ref=e170]: "0"
+            - generic [ref=e171]: 本月合同数
+          - generic [ref=e176] [cursor=pointer]:
+            - generic [ref=e177]: ¥0.00
+            - generic [ref=e178]: 本月回款
+        - generic [ref=e181]:
+          - generic [ref=e184]:
+            - img [ref=e186]
+            - text: 今日待办
+          - generic [ref=e191]:
+            - tablist [ref=e195]:
+              - tab "待跟进" [selected] [ref=e197]
+              - tab "待处理工单" [ref=e198]
+            - tabpanel "待跟进" [ref=e200]:
+              - img [ref=e204]
+        - generic [ref=e206]:
+          - generic [ref=e211]:
+            - generic [ref=e212]: ¥0.00
+            - generic [ref=e213]: 进行中商机
+          - generic [ref=e218]:
+            - generic [ref=e219]: "0"
+            - generic [ref=e220]: 待回款计划
+          - generic [ref=e225]:
+            - generic [ref=e226]: "0"
+            - generic [ref=e227]: 逾期跟进 (>15天)
+          - generic [ref=e232]:
+            - generic [ref=e233]: "0"
+            - generic [ref=e234]: 待执行合同
+        - generic [ref=e235]:
+          - generic [ref=e240]:
+            - generic [ref=e241]: "0"
+            - generic [ref=e242]: 今日待跟进
+          - generic [ref=e247]:
+            - generic [ref=e248]: "0"
+            - generic [ref=e249]: 明日计划
+          - generic [ref=e254]:
+            - generic [ref=e255]: "0"
+            - generic [ref=e256]: 逾期未跟进
+        - generic [ref=e257]:
+          - generic [ref=e259]:
+            - generic [ref=e262]:
+              - img [ref=e264]
+              - text: 快捷操作
+            - generic [ref=e267]:
+              - generic [ref=e268] [cursor=pointer]:
+                - img [ref=e271]
+                - generic [ref=e273]: 新建客户
+              - generic [ref=e274] [cursor=pointer]:
+                - img [ref=e277]
+                - generic [ref=e279]: 添加跟进
+              - generic [ref=e280] [cursor=pointer]:
+                - img [ref=e283]
+                - generic [ref=e285]: 新建商机
+              - generic [ref=e286] [cursor=pointer]:
+                - img [ref=e289]
+                - generic [ref=e291]: 新建合同
+              - generic [ref=e292] [cursor=pointer]:
+                - img [ref=e295]
+                - generic [ref=e297]: 创建工单
+              - generic [ref=e298] [cursor=pointer]:
+                - img [ref=e301]
+                - generic [ref=e303]: 数据报表
+              - generic [ref=e304] [cursor=pointer]:
+                - img [ref=e307]
+                - generic [ref=e309]: 批量跟进
+          - generic [ref=e314]:
+            - img [ref=e316]
+            - text: 销售趋势
+        - generic [ref=e320]:
+          - generic [ref=e325]:
+            - img [ref=e327]
+            - text: 销售趋势
+          - generic [ref=e337]:
+            - img [ref=e339]
+            - text: 客户来源分布
+        - generic [ref=e346]:
+          - generic [ref=e351]:
+            - img [ref=e353]
+            - text: 销售漏斗
+          - generic [ref=e360]:
+            - generic [ref=e363]:
+              - img [ref=e365]
+              - text: 销售业绩排行
+            - generic [ref=e369]:
+              - table [ref=e371]:
+                - rowgroup [ref=e377]:
+                  - row "排名 销售 成交金额 回款金额" [ref=e378]:
+                    - columnheader "排名" [ref=e379]:
+                      - generic [ref=e380]: 排名
+                    - columnheader "销售" [ref=e381]:
+                      - generic [ref=e382]: 销售
+                    - columnheader "成交金额" [ref=e383]:
+                      - generic [ref=e384]: 成交金额
+                    - columnheader "回款金额" [ref=e385]:
+                      - generic [ref=e386]: 回款金额
+              - generic [ref=e390]:
+                - table:
+                  - rowgroup
+                - generic [ref=e392]: No Data
+  - img [ref=e395] [cursor=pointer]

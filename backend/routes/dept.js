@@ -34,6 +34,7 @@ router.post('/list', authenticateToken, async (req, res) => {
     const [rows] = await pool.query('SELECT id, name, parent_id, sort, create_time, update_time FROM sys_dept ORDER BY sort, id');
     res.json({ code: 200, message: '查询成功', data: { list: rows, total: rows.length } });
   } catch (error) {
+    console.error('[部门管理] 查询失败:', error);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -47,6 +48,7 @@ router.post('/add', authenticateToken, requireAdmin, validate(deptAddSchema), as
     );
     res.json({ code: 200, message: '新增部门成功', data: { id: result.insertId } });
   } catch (error) {
+    console.error('[部门管理] 新增部门失败:', error);
     res.status(500).json({ code: 500, message: '新增部门失败', data: null });
   }
 });
@@ -60,6 +62,7 @@ router.post('/update', authenticateToken, requireAdmin, validate(deptUpdateSchem
     );
     res.json({ code: 200, message: '修改部门成功', data: null });
   } catch (error) {
+    console.error('[部门管理] 修改部门失败:', error);
     res.status(500).json({ code: 500, message: '修改部门失败', data: null });
   }
 });
@@ -70,6 +73,7 @@ router.post('/delete', authenticateToken, requireAdmin, validate(deptDeleteSchem
     await pool.query('DELETE FROM sys_dept WHERE id=?', [id]);
     res.json({ code: 200, message: '删除部门成功', data: null });
   } catch (error) {
+    console.error('[部门管理] 删除部门失败:', error);
     res.status(500).json({ code: 500, message: '删除部门失败', data: null });
   }
 });

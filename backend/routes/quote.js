@@ -124,8 +124,8 @@ router.post('/add', authenticateToken, checkPermission('quotation:add'), async (
           quoteId
         ]
       );
-    } catch (e) {
-      console.error('创建报价通知失败（不影响主流程）:', e);
+    } catch (error) {
+      console.error('[报价] 创建报价通知失败（不影响主流程）:', error);
     }
 
     res.json({
@@ -135,7 +135,7 @@ router.post('/add', authenticateToken, checkPermission('quotation:add'), async (
     });
   } catch (error) {
     await connection.rollback();
-    console.error('创建报价单错误:', error);
+    console.error('[报价] 创建报价单错误:', error);
     res.status(500).json({ code: 500, message: '创建报价单失败', data: null });
   } finally {
     connection.release();

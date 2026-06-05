@@ -49,7 +49,8 @@ router.get('/status', authenticateToken, async (req, res) => {
   try {
     const status = await getProviderStatus();
     res.json({ code: 200, data: status });
-  } catch {
+  } catch (error) {
+    console.error('[AI助手] 获取状态失败:', error.message);
     res.json({ code: 200, data: { online: false, provider: 'unknown', model: '', models: [] } });
   }
 });
@@ -199,7 +200,7 @@ router.get('/suggestions', authenticateToken, async (req, res) => {
       data: { list, total: countResult[0].total }
     });
   } catch (error) {
-    console.error('AI建议查询错误:', error);
+    console.error('[AI助手] AI建议查询错误:', error);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -220,7 +221,7 @@ router.post('/suggestion/feedback', authenticateToken, async (req, res) => {
     await pool.query(`UPDATE crm_ai_suggestion SET ${fields.join(', ')} WHERE id = ?`, params);
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
-    console.error('AI建议反馈错误:', error);
+    console.error('[AI助手] AI建议反馈错误:', error);
     res.status(500).json({ code: 500, message: '更新失败', data: null });
   }
 });
@@ -234,7 +235,7 @@ router.post('/generate-suggestions', authenticateToken, async (req, res) => {
     // 1. 客户跟进超期建议
     const [overdueCustomers] = await pool.query(`
       SELECT c.id, c.company_name, c.last_follow_time,
-             EXTRACT(DAY FROM NOW() - COALESCE(c.last_follow_time, c.create_time)) as overdue_days
+             DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days
       FROM crm_customer c
       WHERE c.status != 0 AND c.owner_id IS NOT NULL
         AND (c.last_follow_time IS NULL OR c.last_follow_time < NOW() - INTERVAL 30 DAY)
@@ -259,7 +260,7 @@ router.post('/generate-suggestions', authenticateToken, async (req, res) => {
     // 2. 商机停滞建议
     const [staleOpps] = await pool.query(`
       SELECT o.id, o.name, o.expected_amount, o.stage, o.update_time,
-             EXTRACT(DAY FROM NOW() - o.update_time) as stale_days, c.company_name
+             DATEDIFF(NOW(), o.update_time) as stale_days, c.company_name
       FROM crm_opportunity o
       LEFT JOIN crm_customer c ON o.customer_id = c.id
       WHERE o.stage NOT IN (5, 6) AND o.update_time < NOW() - INTERVAL 14 DAY

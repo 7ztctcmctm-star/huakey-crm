@@ -1,91 +1,109 @@
 # CLAUDE.md
 
-Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
+## 铧旗 CRM 项目
 
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+**技术栈**
+- 后端: Node.js + Express + mysql2
+- 前端: Vue 3 + Element Plus + ECharts
+- 数据库: MySQL 8.0.46（群晖 Docker 部署）
+- 端口: 后端 5000, 前端 5173
 
-## 1. Think Before Coding
+**数据库连接**
+- host: localhost, port: 3306
+- user: root, password: huakey123
+- database: huakey_crm
 
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
+**关键规则**
+- SQL 必须用 MySQL 8.0 语法，禁止 PostgreSQL 语法（如 `EXTRACT(DAY FROM ...)`、`$1` 参数占位符）
+- 参数占位符用 `?` 不用 `$1`
+- `pool.query()` 而非 `pool.execute()`（execute 在 LIMIT/OFFSET 时报错）
+- 日期函数用 `DATE_FORMAT` / `DATEDIFF` / `NOW() - INTERVAL`
+- 前端遵循苹果风格：黑白灰为主，蓝色仅用于交互元素(#0071e3)，大留白，圆角卡片
 
-Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
+**常用命令**
+- 启动后端: `cd backend && npm start`
+- 启动前端: `cd frontend && npm run dev`
+- 安装依赖: `npm install`
 
-## 2. Simplicity First
-
-**Minimum code that solves the problem. Nothing speculative.**
-
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
-
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
-
-## 3. Surgical Changes
-
-**Touch only what you must. Clean up only your own mess.**
-
-When editing existing code:
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
-
-When your changes create orphans:
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
-
-The test: Every changed line should trace directly to the user's request.
-
-## 4. Goal-Driven Execution
-
-**Define success criteria. Loop until verified.**
-
-Transform tasks into verifiable goals:
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
-
-For multi-step tasks, state a brief plan:
-```
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
-```
-
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+**目录结构**
+- `backend/routes/` — API 路由
+- `backend/config/` — 数据库配置
+- `frontend/src/views/` — 页面组件
+- `frontend/src/styles/apple.css` — 苹果风格样式
 
 ---
 
-## 5. 修复验证规则（强制执行）
+## 开发行为准则
+
+### 1. 先思考再编码
+
+**不要假设。不要隐藏困惑。暴露权衡。**
+
+- 明确说明你的假设。不确定就问。
+- 如果有多种解释，都列出来 — 不要默默选择一个。
+- 如果有更简单的方案，说出来。
+- 如果不清楚，停下来，说明困惑点，提问。
+
+### 2. 简洁优先
+
+**最小代码解决问题。不做投机性设计。**
+
+- 不做超出需求的功能
+- 不为单次使用代码做抽象
+- 不加未要求的"灵活性"或"可配置性"
+- 不为不可能场景写错误处理
+- 200 行能 50 行解决的，重写
+
+问自己："高级工程师会说这过度复杂吗？" 如果是，简化。
+
+### 3. 精准修改
+
+**只动必须动的。只清理自己制造的垃圾。**
+
+- 不"顺手改进"相邻代码、注释、格式
+- 不重构没坏的东西
+- 匹配现有风格，即使你会写得不同
+- 发现无关死代码，提一下 — 别删
+
+你的改动产生的孤立代码：
+- 删除你改动导致的未使用 import/变量/函数
+- 不删除已存在的死代码（除非被要求）
+
+**检验标准：每一行改动都能追溯到用户需求。**
+
+### 4. 目标驱动执行
+
+**定义成功标准。循环直到验证通过。**
+
+把任务转化为可验证目标：
+- "加校验" → "为无效输入写测试，然后让它通过"
+- "修 bug" → "写一个复现测试，然后让它通过"
+- "重构 X" → "确保重构前后测试都通过"
+
+多步任务，列出简要计划：
+```
+1. [步骤] → 验证: [检查项]
+2. [步骤] → 验证: [检查项]
+3. [步骤] → 验证: [检查项]
+```
+
+### 5. 修复验证规则（强制执行）
 
 **每次代码修改后，必须执行验证闭环，否则不得标记为"已修复"。**
 
-### 验证步骤
-
-每次修改代码后，必须依次完成：
-
-1. **回读文件** — 用 Read 工具重新打开你修改过的文件
-2. **确认改动** — 报告具体改了哪些行、改了什么内容（不能只说"已修复"）
+验证步骤：
+1. **回读文件** — 用 Read 工具重新打开修改过的文件
+2. **确认改动** — 报告具体改了哪些行、改了什么内容
 3. **列出清单** — 列出本次修改的所有文件路径
 4. **标记完成** — 只有验证通过后才能说"已修复"
 
-### 禁止行为
-
+禁止行为：
 - 未回读文件就声称"已修复"
 - 批量标记多个"已修复"而不逐项验证
-- 只描述"我打算怎么改"而不确认"改完了、这是证据"
-- 改了A文件但忘记改联动的B文件（如改了前端但没改后端接口）
+- 只描述"打算怎么改"而不确认"改完了、这是证据"
+- 改了 A 文件但忘记改联动的 B 文件
 
-### 输出格式
-
-每次修复完成后，必须输出：
-
+输出格式：
 ```
 ## 修复验证报告
 
@@ -101,6 +119,54 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - [如何撤销本次修改]
 ```
 
----
+### 6. SQL 规范（CRM 专用）
 
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+**必须遵守：**
+- 使用 MySQL 8.0 语法，禁止 PostgreSQL 语法
+- 参数占位符：`?` 而非 `$1`
+- 查询方法：`pool.query()` 而非 `pool.execute()`
+- 日期间隔：`NOW() - INTERVAL 30 DAY` 而非 `NOW() - INTERVAL '30 days'`
+- 日期差：`DATEDIFF(a, b)` 而非 `EXTRACT(DAY FROM a - b)`
+- 日期格式：`DATE_FORMAT(col, '%Y-%m')` 而非 `TO_CHAR(col, 'YYYY-MM')`
+- 字符串拼接：`CONCAT(a, b)` 或 MySQL 的 `||`（需启用 PIPES_AS_CONCAT）
+- 返回格式统一：`{ code: 200, message: '...', data: ... }`
+
+### 7. 前端样式规范（苹果风格）
+
+**设计系统：**
+- 主色：`#1d1d1f`（文字），`#86868b`（次要文字），`#d2d2d7`（边框）
+- 交互色：`#0071e3`（仅按钮/链接/聚焦态）
+- 背景：`#ffffff`（卡片），`#f5f5f7`（页面背景）
+- 圆角：卡片 16px，按钮 8px，输入框 8px
+- 阴影：`0 2px 12px rgba(0,0,0,0.08)`
+- 字体：`-apple-system, BlinkMacSystemFont, 'SF Pro Display'`
+- 过渡：`all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1)`
+
+**禁止：**
+- 彩色渐变背景
+- 过度使用彩色标签（用小圆点+文字代替）
+- 表格边框（用行分隔线）
+- 蓝色大面积使用（仅交互元素）
+
+### 8. 回退意图检测与自动提交（强制执行）
+
+**当检测到用户有回退意图时，必须先执行 git commit 保存当前状态。**
+
+回退意图关键词：
+- "回退"、"回滚"、"撤销"、"还原"、"恢复"
+- "undo"、"revert"、"rollback"
+- "改回去"、"退回上一步"、"回到之前"
+
+执行流程：
+1. **二次确认** — 询问用户："检测到回退意图，是否先 commit 当前修改？"
+2. **自动提交** — 如果用户确认，执行：
+   ```bash
+   git add -A
+   git commit -m "chore: 自动提交 - [简要描述当前修改]"
+   ```
+3. **执行回退** — commit 完成后再执行用户的回退操作
+
+禁止行为：
+- 未 commit 就执行回退操作
+- 跳过二次确认直接回退
+- 丢失未提交的修改

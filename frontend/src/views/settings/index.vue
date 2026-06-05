@@ -105,6 +105,26 @@
         </el-card>
       </el-col>
     </el-row>
+
+    <!-- 消息通知 -->
+    <el-row :gutter="24" style="margin-top: 24px;">
+      <el-col :span="24">
+        <el-card shadow="never">
+          <template #header><span class="card-title">消息通知</span></template>
+          <el-descriptions :column="2" border size="small">
+            <el-descriptions-item label="企业微信通知">
+              <el-tag type="success" size="small">已配置</el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="通知类型">
+              <span style="color: var(--color-text-secondary); font-size: 13px;">跟进提醒、回款逾期、商机提醒</span>
+            </el-descriptions-item>
+          </el-descriptions>
+          <el-button type="primary" :loading="testLoading" style="margin-top: 16px" @click="testNotification">
+            发送测试消息
+          </el-button>
+        </el-card>
+      </el-col>
+    </el-row>
   </div>
 </template>
 
@@ -190,6 +210,24 @@ onMounted(() => {
   fetchStats()
   fetchConfig()
 })
+
+// 企业微信通知测试
+const testLoading = ref(false)
+const testNotification = async () => {
+  testLoading.value = true
+  try {
+    const res = await request.post('/config/test-notification')
+    if (res.code === 200) {
+      ElMessage.success('测试消息已发送，请查看企业微信群')
+    } else {
+      ElMessage.error(res.message || '发送失败')
+    }
+  } catch (e) {
+    ElMessage.error('发送失败')
+  } finally {
+    testLoading.value = false
+  }
+}
 </script>
 
 <style scoped>

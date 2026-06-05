@@ -213,7 +213,7 @@ apiRouter.get('/system/health', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('健康检查错误:', error);
+    console.error('[服务器] 健康检查错误:', error);
     res.status(500).json({ code: 500, message: '健康检查失败', data: null });
   }
 });
@@ -253,7 +253,7 @@ app.use((err, req, res, next) => {
   const isProduction = process.env.NODE_ENV === 'production';
   
   if (isProduction) {
-    console.error('服务器错误:', err.message);
+    console.error('[服务器] 服务器错误:', err.message);
     
     const statusCode = err.statusCode || err.status || 500;
     res.status(statusCode).json({
@@ -262,7 +262,7 @@ app.use((err, req, res, next) => {
       data: null
     });
   } else {
-    console.error('错误详情:', err);
+    console.error('[服务器] 错误详情:', err);
     
     const statusCode = err.statusCode || err.status || 500;
     const message = err.message || '服务器内部错误';
@@ -287,14 +287,14 @@ if (!process.env.VERCEL) {
   const { checkQualificationExpiry, updateQualificationStatus } = require('./utils/qualification-reminder');
 
   cron.schedule('0 2 * * *', async () => {
-    console.log('=== 开始定时任务: 供应商评分 ===');
+    console.log('[定时任务] 开始执行供应商评分');
     try {
       await checkAllSuppliersScores();
       await updateQualificationStatus();
       await checkQualificationExpiry();
-      console.log('=== 定时任务完成 ===');
+      console.log('[定时任务] 供应商评分完成');
     } catch (error) {
-      console.error('定时任务执行失败:', error.message);
+      console.error('[定时任务] 供应商评分失败:', error.message);
     }
   }, { timezone: 'Asia/Shanghai' });
 
@@ -317,12 +317,12 @@ if (!process.env.VERCEL) {
   cron.schedule('0 1 * * *', async () => {
     console.log('[公海回收] 开始检查超期未跟进客户...');
     try {
-      const { rows: customers } = await pool.query(
+      const [customers] = await pool.query(
         `SELECT id, company_name, owner_id FROM crm_customer
          WHERE pool_status = 0 AND status != 0 AND owner_id IS NOT NULL
-           AND (last_follow_time IS NULL AND create_time < NOW() - INTERVAL $1 DAY
-             OR last_follow_time < NOW() - INTERVAL $1 DAY)`,
-        [AUTO_RELEASE_DAYS]
+           AND (last_follow_time IS NULL AND create_time < NOW() - INTERVAL ? DAY
+             OR last_follow_time < NOW() - INTERVAL ? DAY)`,
+        [AUTO_RELEASE_DAYS, AUTO_RELEASE_DAYS]
       );
       if (customers.length === 0) {
         console.log('[公海回收] 无需要释放的客户');
@@ -331,12 +331,12 @@ if (!process.env.VERCEL) {
       let released = 0;
       for (const c of customers) {
         await pool.query(
-          'UPDATE crm_customer SET pool_status = 1, owner_id = NULL, protect_until = NULL WHERE id = $1',
+          'UPDATE crm_customer SET pool_status = 1, owner_id = NULL, protect_until = NULL WHERE id = ?',
           [c.id]
         );
         await pool.query(
           `INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id)
-           VALUES ($1, 'auto_release', $2, NULL)`,
+           VALUES (?, 'auto_release', ?, NULL)`,
           [c.id, c.owner_id]
         );
         released++;
@@ -361,8 +361,8 @@ if (!process.env.VERCEL) {
 
   // 启动服务器
   app.listen(PORT, () => {
-    console.log('Server running on port ' + PORT);
-    console.log('API地址: http://localhost:' + PORT + '/api');
+    console.log('[服务器] 启动成功，端口: ' + PORT);
+    console.log('[服务器] API地址: http://localhost:' + PORT + '/api');
   });
 }
 

@@ -141,7 +141,7 @@ router.post('/login', validate(loginSchema), async (req, res) => {
     });
 
   } catch (error) {
-    console.error('登录错误:', error);
+    console.error('[认证] 登录错误:', error);
     res.status(500).json({
       code: 500,
       message: '登录失败，请稍后重试',
@@ -166,8 +166,8 @@ router.post('/logout', (req, res) => {
         params: null, ipAddress: ip, userId: decoded.userId, userName: decoded.username,
         description: `${decoded.username} 登出成功`, status: 1
       });
-    } catch (e) {
-      // token无效也正常返回
+    } catch (error) {
+      // token无效也正常返回，无需记录
     }
   }
 
@@ -261,7 +261,7 @@ router.post('/register', authenticateToken, validate(registerSchema), async (req
     });
 
   } catch (error) {
-    console.error('注册错误:', error);
+    console.error('[认证] 注册错误:', error);
     res.status(500).json({
       code: 500,
       message: '注册失败，请稍后重试',
@@ -303,7 +303,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('获取用户信息错误:', error);
+    console.error('[认证] 获取用户信息错误:', error);
     res.status(500).json({
       code: 500,
       message: '获取用户信息失败',
@@ -332,7 +332,7 @@ router.post('/update-profile', authenticateToken, validate(updateProfileSchema),
 
     res.json({ code: 200, message: '个人信息更新成功', data: null });
   } catch (error) {
-    console.error('更新个人信息错误:', error);
+    console.error('[认证] 更新个人信息错误:', error);
     res.status(500).json({ code: 500, message: '更新失败', data: null });
   }
 });
@@ -363,7 +363,7 @@ router.post('/change-password', authenticateToken, validate(changePasswordSchema
 
     res.json({ code: 200, message: '密码修改成功，请重新登录', data: null });
   } catch (error) {
-    console.error('修改密码错误:', error);
+    console.error('[认证] 修改密码错误:', error);
     res.status(500).json({ code: 500, message: '修改密码失败', data: null });
   }
 });

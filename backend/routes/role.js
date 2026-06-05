@@ -28,6 +28,7 @@ router.post('/list', authenticateToken, async (req, res) => {
     const [rows] = await pool.query('SELECT id, name, code, description, status, create_time, update_time FROM sys_role ORDER BY id');
     res.json({ code: 200, message: '查询成功', data: { list: rows, total: rows.length } });
   } catch (error) {
+    console.error('[角色管理] 查询失败:', error);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -48,6 +49,7 @@ router.post('/add', authenticateToken, requireAdmin, validate(roleAddSchema), as
     );
     res.json({ code: 200, message: '新增角色成功', data: { id: result.insertId } });
   } catch (error) {
+    console.error('[角色管理] 新增角色失败:', error);
     res.status(500).json({ code: 500, message: '新增角色失败', data: null });
   }
 });
@@ -61,6 +63,7 @@ router.post('/update', authenticateToken, requireAdmin, validate(roleUpdateSchem
     );
     res.json({ code: 200, message: '修改角色成功', data: null });
   } catch (error) {
+    console.error('[角色管理] 修改角色失败:', error);
     res.status(500).json({ code: 500, message: '修改角色失败', data: null });
   }
 });
@@ -71,6 +74,7 @@ router.post('/delete', authenticateToken, requireAdmin, validate(roleDeleteSchem
     await pool.query('DELETE FROM sys_role WHERE id=?', [id]);
     res.json({ code: 200, message: '删除角色成功', data: null });
   } catch (error) {
+    console.error('[角色管理] 删除角色失败:', error);
     res.status(500).json({ code: 500, message: '删除角色失败', data: null });
   }
 });

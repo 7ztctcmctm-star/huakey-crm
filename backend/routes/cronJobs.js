@@ -62,22 +62,22 @@ router.get('/clean-logs', async (req, res) => {
 router.get('/auto-release', async (req, res) => {
   const AUTO_RELEASE_DAYS = parseInt(process.env.AUTO_RELEASE_DAYS) || 30;
   try {
-    const { rows: customers } = await pool.query(
+    const [customers] = await pool.query(
       `SELECT id, company_name, owner_id FROM crm_customer
        WHERE pool_status = 0 AND status != 0 AND owner_id IS NOT NULL
-         AND (last_follow_time IS NULL AND create_time < NOW() - INTERVAL $1 DAY
-           OR last_follow_time < NOW() - INTERVAL $1 DAY)`,
-      [AUTO_RELEASE_DAYS]
+         AND (last_follow_time IS NULL AND create_time < NOW() - INTERVAL ? DAY
+           OR last_follow_time < NOW() - INTERVAL ? DAY)`,
+      [AUTO_RELEASE_DAYS, AUTO_RELEASE_DAYS]
     );
 
     let released = 0;
     for (const c of customers) {
       await pool.query(
-        'UPDATE crm_customer SET pool_status = 1, owner_id = NULL, protect_until = NULL WHERE id = $1',
+        'UPDATE crm_customer SET pool_status = 1, owner_id = NULL, protect_until = NULL WHERE id = ?',
         [c.id]
       );
       await pool.query(
-        "INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id) VALUES ($1, 'auto_release', $2, NULL)",
+        "INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id) VALUES (?, 'auto_release', ?, NULL)",
         [c.id, c.owner_id]
       );
       released++;

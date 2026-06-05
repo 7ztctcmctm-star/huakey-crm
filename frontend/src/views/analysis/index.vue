@@ -59,6 +59,59 @@
         </el-card>
       </el-col>
     </el-row>
+
+    <!-- 销售漏斗 + RFM分类汇总 -->
+    <el-row :gutter="24" style="margin-top: 24px">
+      <el-col :span="12">
+        <el-card shadow="never">
+          <template #header><span class="section-title">销售漏斗</span></template>
+          <div ref="funnelChartRef" class="chart-container"></div>
+        </el-card>
+      </el-col>
+      <el-col :span="12">
+        <el-card shadow="never">
+          <template #header><span class="section-title">RFM 客户价值分类</span></template>
+          <div ref="rfmChartRef" class="chart-container"></div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <!-- RFM 客户明细 -->
+    <el-row :gutter="24" style="margin-top: 24px">
+      <el-col :span="24">
+        <el-card shadow="never">
+          <template #header><span class="section-title">RFM 客户价值明细（Top 20）</span></template>
+          <el-table :data="rfmData.list.slice(0, 20)" stripe border size="small" max-height="400" v-loading="rfmLoading" empty-text="暂无数据">
+            <el-table-column type="index" label="#" width="50" />
+            <el-table-column prop="company_name" label="客户名称" min-width="160" show-overflow-tooltip />
+            <el-table-column prop="recency" label="最近跟进(天)" width="110" align="center" />
+            <el-table-column prop="frequency" label="跟进次数" width="90" align="center" />
+            <el-table-column label="合同金额" width="120" align="right">
+              <template #default="{ row }">¥{{ row.monetary.toLocaleString() }}</template>
+            </el-table-column>
+            <el-table-column prop="r_score" label="R" width="50" align="center" />
+            <el-table-column prop="f_score" label="F" width="50" align="center" />
+            <el-table-column prop="m_score" label="M" width="50" align="center" />
+            <el-table-column prop="total_score" label="总分" width="60" align="center" />
+            <el-table-column label="等级" width="70" align="center">
+              <template #default="{ row }">
+                <el-tag :type="row.level === 'A' ? 'success' : row.level === 'B' ? 'primary' : row.level === 'C' ? 'warning' : 'info'" size="small">{{ row.level }}</el-tag>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <!-- 销售排行榜 -->
+    <el-row :gutter="24" style="margin-top: 24px">
+      <el-col :span="24">
+        <el-card shadow="never">
+          <template #header><span class="section-title">销售排行榜（赢单金额 Top 10）</span></template>
+          <div ref="rankingChartRef" class="chart-container"></div>
+        </el-card>
+      </el-col>
+    </el-row>
   </div>
 </template>
 
@@ -72,8 +125,10 @@ const loading = ref(false)
 const churnLoading = ref(false)
 const churnData = ref({ list: [], total: 0 })
 const churnPage = ref(1)
+const rfmData = ref({ list: [], summary: { A: 0, B: 0, C: 0, D: 0 } })
+const rfmLoading = ref(false)
 
-const { refs: { predictionChartRef, winRateChartRef, anomalyChartRef }, echarts, initChart } = useChart('predictionChartRef', 'winRateChartRef', 'anomalyChartRef')
+const { refs: { predictionChartRef, winRateChartRef, anomalyChartRef, funnelChartRef, rfmChartRef, rankingChartRef }, echarts, initChart } = useChart('predictionChartRef', 'winRateChartRef', 'anomalyChartRef', 'funnelChartRef', 'rfmChartRef', 'rankingChartRef')
 
 const fetchAll = () => {
   loading.value = true
@@ -81,7 +136,10 @@ const fetchAll = () => {
     fetchPrediction(),
     fetchWinRate(),
     fetchAnomaly(),
-    fetchChurnAlert()
+    fetchChurnAlert(),
+    fetchFunnel(),
+    fetchRfm(),
+    fetchRanking()
   ]).finally(() => { loading.value = false })
 }
 
@@ -212,6 +270,97 @@ const fetchChurnAlert = async () => {
 const loadMoreChurn = () => {
   churnPage.value++
   fetchChurnAlert()
+}
+
+// 销售漏斗
+const fetchFunnel = async () => {
+  try {
+    const res = await request.get('/analysis/funnel')
+    if (res.code === 200) renderFunnelChart(res.data)
+  } catch (e) { console.error('获取漏斗数据失败:', e) }
+}
+
+const renderFunnelChart = (data) => {
+  const colors = ['#0071e3', '#34aadc', '#5ac8fa', '#ff9f0a', '#30d158', '#ff453a']
+  initChart('funnelChartRef', {
+    tooltip: { trigger: 'item', formatter: '{b}: {c}个' },
+    series: [{
+      type: 'funnel',
+      left: '10%',
+      top: 20,
+      bottom: 20,
+      width: '80%',
+      min: 0,
+      max: Math.max(...data.map(d => d.count), 1),
+      minSize: '0%',
+      maxSize: '100%',
+      sort: 'descending',
+      gap: 2,
+      label: { show: true, position: 'inside', formatter: '{b}\n{c}个' },
+      data: data.map((d, i) => ({ value: d.count, name: d.name, itemStyle: { color: colors[i] } }))
+    }]
+  })
+}
+
+// RFM 客户价值评分
+const fetchRfm = async () => {
+  rfmLoading.value = true
+  try {
+    const res = await request.get('/analysis/rfm')
+    if (res.code === 200) {
+      rfmData.value = res.data
+      renderRfmChart(res.data.summary)
+    }
+  } catch (e) { console.error('获取RFM数据失败:', e) }
+  finally { rfmLoading.value = false }
+}
+
+const renderRfmChart = (summary) => {
+  const levelColors = { A: '#30d158', B: '#0071e3', C: '#ff9f0a', D: '#86868b' }
+  initChart('rfmChartRef', {
+    tooltip: { trigger: 'item', formatter: '{b}: {c}个 ({d}%)' },
+    legend: { bottom: 10, data: ['A (优质)', 'B (良好)', 'C (一般)', 'D (流失)'] },
+    series: [{
+      type: 'pie',
+      radius: ['40%', '70%'],
+      center: ['50%', '45%'],
+      avoidLabelOverlap: true,
+      label: { show: true, formatter: '{b}\n{c}个' },
+      data: [
+        { value: summary.A, name: 'A (优质)', itemStyle: { color: levelColors.A } },
+        { value: summary.B, name: 'B (良好)', itemStyle: { color: levelColors.B } },
+        { value: summary.C, name: 'C (一般)', itemStyle: { color: levelColors.C } },
+        { value: summary.D, name: 'D (流失)', itemStyle: { color: levelColors.D } }
+      ]
+    }]
+  })
+}
+
+// 销售排行榜
+const fetchRanking = async () => {
+  try {
+    const res = await request.get('/analysis/ranking')
+    if (res.code === 200) renderRankingChart(res.data)
+  } catch (e) { console.error('获取排行榜数据失败:', e) }
+}
+
+const renderRankingChart = (data) => {
+  const top10 = data.slice(0, 10)
+  initChart('rankingChartRef', {
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: p => `${p[0].name}<br/>赢单金额: ¥${p[0].value.toLocaleString()}<br/>赢单数: ${top10[p[0].dataIndex].win_count}单` },
+    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+    xAxis: { type: 'category', data: top10.map(d => d.real_name), axisLabel: { rotate: 0 } },
+    yAxis: { type: 'value', name: '赢单金额', axisLabel: { formatter: v => v >= 10000 ? (v / 10000).toFixed(0) + '万' : v } },
+    series: [{
+      type: 'bar',
+      data: top10.map((d, i) => ({
+        value: d.win_amount,
+        itemStyle: { color: i === 0 ? '#0071e3' : i < 3 ? '#34aadc' : '#86868b', borderRadius: [4, 4, 0, 0] }
+      })),
+      barWidth: '50%',
+      label: { show: true, position: 'top', formatter: p => p.value > 0 ? '¥' + (p.value / 10000).toFixed(1) + '万' : '' }
+    }]
+  })
 }
 
 onMounted(() => { fetchAll() })

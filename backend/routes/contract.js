@@ -201,7 +201,7 @@ router.post('/list', authenticateToken, validate(listSchema), async (req, res) =
     
     res.json({ code: 200, message: '查询成功', data: { list: rows, total: countResult[0].total } });
   } catch (error) {
-    console.error('Contract list error:', error.message);
+    console.error('[合同] 合同列表错误:', error.message);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -254,6 +254,7 @@ router.get('/detail/:id', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('[合同] 查询合同详情失败:', error);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -265,16 +266,16 @@ router.post('/add', authenticateToken, checkPermission('contract:add'), validate
   try {
     await connection.beginTransaction();
 
-    // 校验客户必须是正式客户
+    // 校验客户必须是正式客户（status=2）
     const [customerCheck] = await connection.query(
-      'SELECT id, customer_type, company_name FROM crm_customer WHERE id = ? AND status != 0',
+      'SELECT id, status, company_name FROM crm_customer WHERE id = ? AND status != 0',
       [customer_id]
     );
     if (customerCheck.length === 0) {
       await connection.rollback();
       return res.status(404).json({ code: 404, message: '客户不存在', data: null });
     }
-    if (customerCheck[0].customer_type !== 'customer') {
+    if (customerCheck[0].status !== 2) {
       await connection.rollback();
       return res.status(400).json({ code: 400, message: '只能为正式客户创建合同，请先将客户转化为正式客户', data: null });
     }
@@ -323,13 +324,14 @@ router.post('/add', authenticateToken, checkPermission('contract:add'), validate
           contractId
         ]
       );
-    } catch (e) {
-      console.error('创建合同通知失败（不影响主流程）:', e);
+    } catch (error) {
+      console.error('[合同] 创建合同通知失败（不影响主流程）:', error);
     }
 
     res.json({ code: 200, message: '创建合同成功', data: { id: contractId, contract_no: contractNo } });
   } catch (error) {
     await connection.rollback();
+    console.error('[合同] 创建合同失败:', error);
     res.status(500).json({ code: 500, message: '创建合同失败', data: null });
   } finally {
     connection.release();
@@ -395,6 +397,7 @@ router.post('/update', authenticateToken, checkPermission('contract:edit'), vali
     res.json({ code: 200, message: '修改合同成功', data: null });
   } catch (error) {
     await connection.rollback();
+    console.error('[合同] 修改合同失败:', error);
     res.status(500).json({ code: 500, message: '修改合同失败', data: null });
   } finally {
     connection.release();
@@ -424,6 +427,7 @@ router.post('/delete', authenticateToken, checkPermission('contract:delete'), va
     await logAction(req, 'delete', `删除合同: ID=${id}`);
     res.json({ code: 200, message: '删除合同成功', data: null });
   } catch (error) {
+    console.error('[合同] 删除合同失败:', error);
     res.status(500).json({ code: 500, message: '删除合同失败', data: null });
   }
 });
@@ -459,8 +463,8 @@ router.post('/payment/add', authenticateToken, checkPermission('contract'), vali
     await logAction(req, 'add', `登记回款: 合同ID=${contract_id}, 金额=${pay_amount}`);
     res.json({ code: 200, message: '登记回款成功', data: null });
   } catch (error) {
-    console.error('登记回款失败:', error.message);
-    console.error('错误详情:', error);
+    console.error('[合同] 登记回款失败:', error.message);
+    console.error('[合同] 错误详情:', error);
     console.error('请求体:', req.body);
     res.status(500).json({ code: 500, message: '登记回款失败', data: null });
   }
@@ -497,6 +501,7 @@ router.post('/payment/update', authenticateToken, checkPermission('contract'), v
     await logAction(req, 'update', `修改回款记录: ID=${id}`);
     res.json({ code: 200, message: '修改回款记录成功', data: null });
   } catch (error) {
+    console.error('[合同] 修改回款记录失败:', error);
     res.status(500).json({ code: 500, message: '修改回款记录失败', data: null });
   }
 });
@@ -531,6 +536,7 @@ router.post('/payment/delete', authenticateToken, checkPermission('contract'), v
     await logAction(req, 'delete', `删除回款记录: ID=${id}`);
     res.json({ code: 200, message: '删除回款记录成功', data: null });
   } catch (error) {
+    console.error('[合同] 删除回款记录失败:', error);
     res.status(500).json({ code: 500, message: '删除回款记录失败', data: null });
   }
 });
@@ -547,7 +553,7 @@ router.get('/opportunity-list', authenticateToken, async (req, res) => {
     );
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
-    console.error('Opportunity list error:', error.message);
+    console.error('[合同] 商机列表错误:', error.message);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -612,7 +618,7 @@ router.post('/export', authenticateToken, checkPermission('contract'), async (re
 
     await logAction(req, 'export', `导出合同 ${rows.length} 条`);
   } catch (error) {
-    console.error('导出合同错误:', error);
+    console.error('[合同] 导出合同错误:', error);
     res.status(500).json({ code: 500, message: '导出合同失败', data: null });
   }
 });
@@ -704,7 +710,7 @@ router.post('/payment/list', authenticateToken, async (req, res) => {
       res.json({ code: 200, message: '查询成功', data: { list, total: countResult[0].total, page: parseInt(page), pageSize: parseInt(pageSize) } });
     }
   } catch (error) {
-    console.error('查询回款列表错误:', error);
+    console.error('[合同] 查询回款列表错误:', error);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -759,7 +765,7 @@ router.post('/payment/export', authenticateToken, async (req, res) => {
 
     await logAction(req, 'export', `导出回款 ${rows.length} 条`);
   } catch (error) {
-    console.error('导出回款错误:', error);
+    console.error('[合同] 导出回款错误:', error);
     res.status(500).json({ code: 500, message: '导出失败', data: null });
   }
 });
@@ -782,7 +788,7 @@ router.get('/search', authenticateToken, async (req, res) => {
     );
     res.json({ code: 200, data: rows });
   } catch (error) {
-    console.error('合同搜索错误:', error);
+    console.error('[合同] 合同搜索错误:', error);
     res.status(500).json({ code: 500, message: '搜索失败', data: null });
   }
 });
@@ -834,7 +840,7 @@ router.post('/payment/summary', authenticateToken, async (req, res) => {
       data: { list, total: countResult[0].total, page: parseInt(page), pageSize: parseInt(pageSize) }
     });
   } catch (error) {
-    console.error('对账汇总错误:', error);
+    console.error('[合同] 对账汇总错误:', error);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -940,7 +946,7 @@ router.post('/payment/statement-export', authenticateToken, async (req, res) => 
 
     await logAction(req, 'export', `导出对账单 ${summaryRows.length}个客户 ${detailRows.length}条回款`);
   } catch (error) {
-    console.error('对账单导出错误:', error);
+    console.error('[合同] 对账单导出错误:', error);
     res.status(500).json({ code: 500, message: '导出对账单失败', data: null });
   }
 });
@@ -975,7 +981,7 @@ router.post('/approve', authenticateToken, async (req, res) => {
 
     res.json({ code: 200, message: approval_status === 2 ? '审批通过' : '已拒绝', data: null });
   } catch (error) {
-    console.error('审批合同错误:', error);
+    console.error('[合同] 审批合同错误:', error);
     res.status(500).json({ code: 500, message: '审批失败', data: null });
   }
 });
@@ -1056,7 +1062,7 @@ router.post('/payment/import', authenticateToken, checkPermission('contract'), i
     });
   } catch (error) {
     await connection.rollback();
-    console.error('回款导入错误:', error);
+    console.error('[合同] 回款导入错误:', error);
     res.status(500).json({ code: 500, message: '导入失败', data: null });
   } finally {
     connection.release();

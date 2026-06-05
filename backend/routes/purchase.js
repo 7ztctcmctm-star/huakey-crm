@@ -95,7 +95,7 @@ router.post('/list', authenticateToken, validate(listSchema), async (req, res) =
 
     res.json({ code: 200, message: '查询成功', data: { list: rows, total: countResult[0].total } });
   } catch (error) {
-    console.error('Purchase list error:', error.message);
+    console.error('[采购] 采购列表错误:', error.message);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -141,7 +141,7 @@ router.get('/detail/:id', authenticateToken, async (req, res) => {
 
     res.json({ code: 200, message: '查询成功', data: { ...orders[0], items, receipts, payments } });
   } catch (error) {
-    console.error('Purchase detail error:', error.message);
+    console.error('[采购] 采购详情错误:', error.message);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -207,7 +207,7 @@ router.post('/add', authenticateToken, checkPermission('purchase:add'), validate
     res.json({ code: 200, message: '创建采购单成功', data: { id: orderId, order_no: orderNo, total_amount: totalAmount } });
   } catch (error) {
     await connection.rollback();
-    console.error('Add purchase order error:', error.message);
+    console.error('[采购] 添加采购单错误:', error.message);
     res.status(500).json({ code: 500, message: '创建采购单失败', data: null });
   } finally {
     connection.release();
@@ -228,7 +228,7 @@ router.post('/update-status', authenticateToken, checkPermission('purchase:add')
     await logAction(req, 'update-status', `更新采购单状态: ID=${id} → ${status}`);
     res.json({ code: 200, message: '状态更新成功', data: null });
   } catch (error) {
-    console.error('Update status error:', error.message);
+    console.error('[采购] 更新状态错误:', error.message);
     res.status(500).json({ code: 500, message: '更新失败', data: null });
   }
 });
@@ -276,7 +276,7 @@ router.post('/receipt/add', authenticateToken, checkPermission('purchase:add'), 
     res.json({ code: 200, message: '入库记录成功', data: { id: result.insertId, receipt_no: receiptNo } });
   } catch (error) {
     await connection.rollback();
-    console.error('Add receipt error:', error.message);
+    console.error('[采购] 添加收货错误:', error.message);
     res.status(500).json({ code: 500, message: '入库记录失败', data: null });
   } finally {
     connection.release();
@@ -288,7 +288,7 @@ router.get('/statistics', authenticateToken, async (req, res) => {
     const [[totalOrders]] = await pool.query('SELECT COUNT(*) as cnt FROM crm_purchase_order WHERE status != "已取消"');
     const [[pendingApprove]] = await pool.query("SELECT COUNT(*) as cnt FROM crm_purchase_order WHERE status = '待审核'");
     const [[pendingReceive]] = await pool.query("SELECT COUNT(*) as cnt FROM crm_purchase_order WHERE status IN ('已确认', '部分收货')");
-    const [[completedThisMonth]] = await pool.query(`SELECT COUNT(*) as cnt FROM crm_purchase_order WHERE status = '已完成' AND EXTRACT(MONTH FROM create_time) = EXTRACT(MONTH FROM CURRENT_DATE)`);
+    const [[completedThisMonth]] = await pool.query(`SELECT COUNT(*) as cnt FROM crm_purchase_order WHERE status = '已完成' AND MONTH(create_time) = MONTH(NOW())`);
     const [[totalAmount]] = await pool.query('SELECT COALESCE(SUM(total_with_tax), 0) as sum FROM crm_purchase_order WHERE status != "已取消"');
 
     const [[topSuppliers]] = await pool.query(`
@@ -316,7 +316,7 @@ router.get('/statistics', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Statistics error:', error.message);
+    console.error('[采购] 统计错误:', error.message);
     res.status(500).json({ code: 500, message: '获取统计失败', data: null });
   }
 });
@@ -343,7 +343,7 @@ router.post('/payment/add', authenticateToken, checkPermission('purchase:add'), 
 
     res.json({ code: 200, message: '付款登记成功', data: { id: result.insertId } });
   } catch (error) {
-    console.error('Add payment error:', error.message);
+    console.error('[采购] 添加付款错误:', error.message);
     res.status(500).json({ code: 500, message: '付款登记失败', data: null });
   }
 });

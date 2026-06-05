@@ -164,14 +164,14 @@ router.post('/add', authenticateToken, checkPermission('opportunity:add'), valid
     }
 
     const [customers] = await pool.query(
-      'SELECT id, customer_type FROM crm_customer WHERE id = ? AND status != 0',
+      'SELECT id, status FROM crm_customer WHERE id = ? AND status != 0',
       [customer_id]
     );
     if (customers.length === 0) {
       return res.status(404).json({ code: 404, message: '客户不存在', data: null });
     }
-    // 校验客户必须是正式客户
-    if (customers[0].customer_type !== 'customer') {
+    // 校验客户必须是正式客户（status=2）
+    if (customers[0].status !== 2) {
       return res.status(400).json({ code: 400, message: '只能为正式客户创建商机，请先将客户转化为正式客户', data: null });
     }
 

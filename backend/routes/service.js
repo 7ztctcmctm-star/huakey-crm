@@ -177,16 +177,16 @@ router.post('/add', authenticateToken, checkPermission('service:add'), async (re
   try {
     await connection.beginTransaction();
 
-    // 校验客户必须是正式客户
+    // 校验客户必须是正式客户（status=2）
     const [customerCheck] = await connection.query(
-      'SELECT id, customer_type FROM crm_customer WHERE id = ? AND status != 0',
+      'SELECT id, status FROM crm_customer WHERE id = ? AND status != 0',
       [customer_id]
     );
     if (customerCheck.length === 0) {
       await connection.rollback();
       return res.status(404).json({ code: 404, message: '客户不存在', data: null });
     }
-    if (customerCheck[0].customer_type !== 'customer') {
+    if (customerCheck[0].status !== 2) {
       await connection.rollback();
       return res.status(400).json({ code: 400, message: '只能为正式客户创建售后工单', data: null });
     }

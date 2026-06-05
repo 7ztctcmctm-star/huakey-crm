@@ -4,6 +4,7 @@
  * 被app.js调用: require('./scripts/generate_reminders').generateReminders(pool)
  */
 require('dotenv').config();
+const notification = require('../utils/notification');
 
 async function generateReminders(existingPool) {
   // 如果传入了连接池就用，否则自己创建（PG 兼容）
@@ -27,7 +28,7 @@ async function generateReminders(existingPool) {
     // ====== 1. 逾期提醒 ======
     const [overdueCustomers] = await pool.query(
       `SELECT c.id as customer_id, c.owner_id, c.company_name,
-              EXTRACT(DAY FROM NOW() - COALESCE(c.last_follow_time, c.create_time)) as overdue_days
+              DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days
        FROM crm_customer c
        WHERE c.status NOT IN (2, 3) AND c.status != 0
          AND c.owner_id IS NOT NULL
@@ -39,10 +40,11 @@ async function generateReminders(existingPool) {
     let inserted = 0;
     for (const customer of overdueCustomers) {
       const [managers] = await pool.query(
-        `SELECT u.id, u.manager_id FROM sys_user u WHERE u.id = ? AND u.status = 1`,
+        `SELECT u.id, u.manager_id, u.real_name FROM sys_user u WHERE u.id = ? AND u.status = 1`,
         [customer.owner_id]
       );
       const managerId = managers.length > 0 ? managers[0].manager_id : null;
+      const ownerName = managers.length > 0 ? managers[0].real_name : '';
 
       try {
         await pool.query(
@@ -51,6 +53,18 @@ async function generateReminders(existingPool) {
           [customer.customer_id, customer.owner_id, managerId, today]
         );
         inserted++;
+
+        // 发送企业微信通知
+        try {
+          await notification.sendFollowupReminder({
+            customerName: customer.company_name,
+            ownerName,
+            type: 'overdue',
+            overdueDays: customer.overdue_days
+          });
+        } catch (e) {
+          console.error('发送逾期通知失败:', e.message);
+        }
       } catch (e) {
         if (!e.message.includes('Duplicate')) console.error('插入overdue提醒失败:', e.message);
       }
@@ -59,9 +73,10 @@ async function generateReminders(existingPool) {
 
     // ====== 2. 今日待跟进提醒 ======
     const [todayPlans] = await pool.query(
-      `SELECT fp.id, fp.customer_id, c.owner_id
+      `SELECT fp.id, fp.customer_id, c.owner_id, c.company_name, u.real_name as owner_name
        FROM crm_follow_plan fp
        JOIN crm_customer c ON fp.customer_id = c.id AND c.status != 0 AND c.owner_id IS NOT NULL
+       LEFT JOIN sys_user u ON c.owner_id = u.id
        WHERE fp.status = 'pending' AND fp.deleted_at IS NULL
          AND DATE(fp.plan_time) = ?`,
       [today]
@@ -76,6 +91,17 @@ async function generateReminders(existingPool) {
           [plan.customer_id, plan.owner_id, today, plan.id]
         );
         todayInserted++;
+
+        // 发送企业微信通知
+        try {
+          await notification.sendFollowupReminder({
+            customerName: plan.company_name,
+            ownerName: plan.owner_name || '',
+            type: 'today'
+          });
+        } catch (e) {
+          console.error('发送今日跟进通知失败:', e.message);
+        }
       } catch (e) {
         if (!e.message.includes('Duplicate')) console.error('插入today提醒失败:', e.message);
       }
@@ -88,9 +114,10 @@ async function generateReminders(existingPool) {
     const tomorrowStr = tomorrow.toISOString().slice(0, 10);
 
     const [tomorrowPlans] = await pool.query(
-      `SELECT fp.id, fp.customer_id, c.owner_id
+      `SELECT fp.id, fp.customer_id, c.owner_id, c.company_name, fp.plan_time, u.real_name as owner_name
        FROM crm_follow_plan fp
        JOIN crm_customer c ON fp.customer_id = c.id AND c.status != 0 AND c.owner_id IS NOT NULL
+       LEFT JOIN sys_user u ON c.owner_id = u.id
        WHERE fp.status = 'pending' AND fp.deleted_at IS NULL
          AND DATE(fp.plan_time) = ?`,
       [tomorrowStr]
@@ -105,6 +132,18 @@ async function generateReminders(existingPool) {
           [plan.customer_id, plan.owner_id, today, plan.id]
         );
         upcomingInserted++;
+
+        // 发送企业微信通知
+        try {
+          await notification.sendFollowupReminder({
+            customerName: plan.company_name,
+            ownerName: plan.owner_name || '',
+            type: 'upcoming',
+            nextTime: plan.plan_time
+          });
+        } catch (e) {
+          console.error('发送明日跟进通知失败:', e.message);
+        }
       } catch (e) {
         if (!e.message.includes('Duplicate')) console.error('插入upcoming提醒失败:', e.message);
       }

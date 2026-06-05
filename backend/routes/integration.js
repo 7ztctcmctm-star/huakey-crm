@@ -15,7 +15,9 @@ router.get('/list', authenticateToken, checkPermission('system'), async (req, re
           const cfg = typeof row.config === 'string' ? JSON.parse(row.config) : row.config;
           if (cfg.pass) cfg.pass = '***';
           row.config = cfg;
-        } catch (e) { /* keep original */ }
+        } catch (error) {
+          // 解析失败保持原值
+        }
       }
     });
     res.json({ code: 200, message: '查询成功', data: rows });

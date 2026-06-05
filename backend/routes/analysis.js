@@ -52,7 +52,7 @@ router.get('/prediction', authenticateToken, async (req, res) => {
 
     res.json({ code: 200, message: '查询成功', data: { history, prediction } });
   } catch (error) {
-    console.error('销售预测错误:', error);
+    console.error('[数据分析] 销售预测错误:', error);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -74,7 +74,7 @@ router.get('/churn-alert', authenticateToken, async (req, res) => {
     const [list] = await pool.query(`
       SELECT c.id, c.company_name, c.contact_name, c.phone, c.level,
              c.last_follow_time, c.create_time, u.real_name as owner_name,
-             EXTRACT(DAY FROM NOW() - COALESCE(c.last_follow_time, c.create_time)) as overdue_days
+             DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days
       FROM crm_customer c
       LEFT JOIN sys_user u ON c.owner_id = u.id
       WHERE c.status != 0 AND c.owner_id IS NOT NULL
@@ -89,7 +89,7 @@ router.get('/churn-alert', authenticateToken, async (req, res) => {
       data: { list, total: countResult[0].total, overdueDays }
     });
   } catch (error) {
-    console.error('流失预警错误:', error);
+    console.error('[数据分析] 流失预警错误:', error);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -142,7 +142,7 @@ router.get('/anomaly', authenticateToken, async (req, res) => {
       data: { daily, stats: { mean: Math.round(mean), std: Math.round(std) } }
     });
   } catch (error) {
-    console.error('异常检测错误:', error);
+    console.error('[数据分析] 异常检测错误:', error);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -198,7 +198,7 @@ router.get('/customer-score/:id', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('客户评分错误:', error);
+    console.error('[数据分析] 客户评分错误:', error);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -237,7 +237,106 @@ router.get('/win-rate', authenticateToken, async (req, res) => {
 
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('赢单率分析错误:', error);
+    console.error('[数据分析] 赢单率分析错误:', error);
+    res.status(500).json({ code: 500, message: '查询失败', data: null });
+  }
+});
+
+// 6. 销售漏斗
+router.get('/funnel', authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT stage, COUNT(*) as count, COALESCE(SUM(expected_amount), 0) as amount
+      FROM crm_opportunity
+      GROUP BY stage ORDER BY stage
+    `);
+
+    const stageNames = { 1: '询盘', 2: '需求确认', 3: '方案报价', 4: '谈判', 5: '成交', 6: '失败' };
+    const stageMap = {};
+    rows.forEach(r => { stageMap[r.stage] = { count: r.count, amount: parseFloat(r.amount) }; });
+
+    const result = [];
+    for (let i = 1; i <= 6; i++) {
+      const d = stageMap[i] || { count: 0, amount: 0 };
+      result.push({ stage: i, name: stageNames[i], count: d.count, amount: d.amount });
+    }
+
+    res.json({ code: 200, message: '查询成功', data: result });
+  } catch (error) {
+    console.error('[数据分析] 销售漏斗错误:', error);
+    res.status(500).json({ code: 500, message: '查询失败', data: null });
+  }
+});
+
+// 7. 客户价值评分 RFM
+router.get('/rfm', authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT c.id, c.company_name,
+        DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as recency,
+        (SELECT COUNT(*) FROM crm_follow_up f WHERE f.customer_id = c.id AND f.create_time >= NOW() - INTERVAL 90 DAY) as frequency,
+        COALESCE((SELECT SUM(amount) FROM crm_contract ct WHERE ct.customer_id = c.id AND ct.deleted_at IS NULL AND ct.status = 2), 0) as monetary
+      FROM crm_customer c
+      WHERE c.status != 0
+      ORDER BY monetary DESC
+      LIMIT 200
+    `);
+
+    const scoreR = (v) => v <= 7 ? 5 : v <= 14 ? 4 : v <= 30 ? 3 : v <= 60 ? 2 : 1;
+    const scoreF = (v) => v >= 10 ? 5 : v >= 5 ? 4 : v >= 3 ? 3 : v >= 1 ? 2 : 1;
+    const scoreM = (v) => v >= 500000 ? 5 : v >= 200000 ? 4 : v >= 100000 ? 3 : v >= 10000 ? 2 : 1;
+
+    const summary = { A: 0, B: 0, C: 0, D: 0 };
+    const list = rows.map(r => {
+      const recency = parseInt(r.recency) || 0;
+      const frequency = parseInt(r.frequency) || 0;
+      const monetary = parseFloat(r.monetary) || 0;
+      const r_score = scoreR(recency);
+      const f_score = scoreF(frequency);
+      const m_score = scoreM(monetary);
+      const total_score = r_score + f_score + m_score;
+      const level = total_score >= 12 ? 'A' : total_score >= 9 ? 'B' : total_score >= 6 ? 'C' : 'D';
+      summary[level]++;
+      return { id: r.id, company_name: r.company_name, recency, frequency, monetary, r_score, f_score, m_score, total_score, level };
+    });
+
+    res.json({ code: 200, message: '查询成功', data: { list, summary } });
+  } catch (error) {
+    console.error('[数据分析] RFM评分错误:', error);
+    res.status(500).json({ code: 500, message: '查询失败', data: null });
+  }
+});
+
+// 8. 销售排行榜
+router.get('/ranking', authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT u.id, u.real_name,
+        COUNT(DISTINCT c.id) as customer_count,
+        COUNT(DISTINCT o.id) as opp_count,
+        COALESCE(SUM(CASE WHEN o.stage = 5 THEN o.expected_amount ELSE 0 END), 0) as win_amount,
+        COUNT(DISTINCT CASE WHEN o.stage = 5 THEN o.id END) as win_count
+      FROM sys_user u
+      LEFT JOIN crm_customer c ON c.owner_id = u.id AND c.status != 0
+      LEFT JOIN crm_opportunity o ON o.owner_id = u.id
+      WHERE u.status = 1
+      GROUP BY u.id, u.real_name
+      ORDER BY win_amount DESC
+      LIMIT 20
+    `);
+
+    const result = rows.map(r => ({
+      id: r.id,
+      real_name: r.real_name,
+      customer_count: parseInt(r.customer_count),
+      opp_count: parseInt(r.opp_count),
+      win_amount: parseFloat(r.win_amount),
+      win_count: parseInt(r.win_count)
+    }));
+
+    res.json({ code: 200, message: '查询成功', data: result });
+  } catch (error) {
+    console.error('[数据分析] 销售排行榜错误:', error);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });

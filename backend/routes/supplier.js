@@ -134,7 +134,7 @@ router.post('/list', authenticateToken, validate(listSchema), async (req, res) =
 
     res.json({ code: 200, message: '查询成功', data: { list: rows, total: countResult[0].total } });
   } catch (error) {
-    console.error('Supplier list error:', error.message);
+    console.error('[供应商] 供应商列表错误:', error.message);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -201,7 +201,7 @@ router.get('/detail/:id', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Supplier detail error:', error.message);
+    console.error('[供应商] 供应商详情错误:', error.message);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -259,7 +259,7 @@ router.post('/add', authenticateToken, checkPermission('supplier:add'), validate
     res.json({ code: 200, message: '创建供应商成功', data: { id: supplierId, supplier_no: supplierNo } });
   } catch (error) {
     await connection.rollback();
-    console.error('Add supplier error:', error.message);
+    console.error('[供应商] 添加供应商错误:', error.message);
     res.status(500).json({ code: 500, message: '创建供应商失败', data: null });
   } finally {
     connection.release();
@@ -292,7 +292,7 @@ router.post('/update', authenticateToken, checkPermission('supplier:edit'), vali
 
     res.json({ code: 200, message: '修改供应商成功', data: null });
   } catch (error) {
-    console.error('Update supplier error:', error.message);
+    console.error('[供应商] 更新供应商错误:', error.message);
     res.status(500).json({ code: 500, message: '修改供应商失败', data: null });
   }
 });
@@ -317,7 +317,7 @@ router.post('/delete', authenticateToken, checkPermission('supplier:delete'), va
 
     res.json({ code: 200, message: '删除供应商成功', data: null });
   } catch (error) {
-    console.error('Delete supplier error:', error.message);
+    console.error('[供应商] 删除供应商错误:', error.message);
     res.status(500).json({ code: 500, message: '删除供应商失败', data: null });
   }
 });
@@ -344,7 +344,7 @@ router.post('/contact/add', authenticateToken, checkPermission('supplier:edit'),
 
     res.json({ code: 200, message: '添加联系人成功', data: { id: result.insertId } });
   } catch (error) {
-    console.error('Add contact error:', error.message);
+    console.error('[供应商] 添加联系人错误:', error.message);
     res.status(500).json({ code: 500, message: '添加联系人失败', data: null });
   }
 });
@@ -356,6 +356,7 @@ router.get('/options', authenticateToken, async (req, res) => {
     );
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
+    console.error('[供应商] 查询评分列表失败:', error);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -395,7 +396,7 @@ router.post('/rating/add', authenticateToken, checkPermission('supplier:edit'), 
     res.json({ code: 200, message: '评分成功', data: { id: result.insertId, total_score } });
   } catch (error) {
     await connection.rollback();
-    console.error('Add rating error:', error.message);
+    console.error('[供应商] 添加评分错误:', error.message);
     res.status(500).json({ code: 500, message: '评分失败', data: null });
   } finally {
     connection.release();
@@ -431,7 +432,7 @@ router.post('/contact/update', authenticateToken, checkPermission('supplier:edit
     await pool.query(`UPDATE crm_supplier_contact SET ${setClauses.join(', ')} WHERE id = ?`, params);
     res.json({ code: 200, message: '修改联系人成功', data: null });
   } catch (error) {
-    console.error('Update contact error:', error.message);
+    console.error('[供应商] 更新联系人错误:', error.message);
     res.status(500).json({ code: 500, message: '修改联系人失败', data: null });
   }
 });
@@ -443,7 +444,7 @@ router.post('/contact/delete', authenticateToken, checkPermission('supplier:edit
     await pool.query('DELETE FROM crm_supplier_contact WHERE id = ?', [id]);
     res.json({ code: 200, message: '删除联系人成功', data: null });
   } catch (error) {
-    console.error('Delete contact error:', error.message);
+    console.error('[供应商] 删除联系人错误:', error.message);
     res.status(500).json({ code: 500, message: '删除联系人失败', data: null });
   }
 });
@@ -473,7 +474,7 @@ router.post('/qualification/add', authenticateToken, checkPermission('supplier:e
     );
     res.json({ code: 200, message: '添加资质成功', data: { id: result.insertId } });
   } catch (error) {
-    console.error('Add qualification error:', error.message);
+    console.error('[供应商] 添加资质错误:', error.message);
     res.status(500).json({ code: 500, message: '添加资质失败', data: null });
   }
 });
@@ -510,7 +511,7 @@ router.post('/qualification/update', authenticateToken, checkPermission('supplie
     await pool.query(`UPDATE crm_supplier_qualification SET ${setClauses.join(', ')} WHERE id = ?`, params);
     res.json({ code: 200, message: '修改资质成功', data: null });
   } catch (error) {
-    console.error('Update qualification error:', error.message);
+    console.error('[供应商] 更新资质错误:', error.message);
     res.status(500).json({ code: 500, message: '修改资质失败', data: null });
   }
 });
@@ -522,7 +523,7 @@ router.post('/qualification/delete', authenticateToken, checkPermission('supplie
     await pool.query('DELETE FROM crm_supplier_qualification WHERE id = ?', [id]);
     res.json({ code: 200, message: '删除资质成功', data: null });
   } catch (error) {
-    console.error('Delete qualification error:', error.message);
+    console.error('[供应商] 删除资质错误:', error.message);
     res.status(500).json({ code: 500, message: '删除资质失败', data: null });
   }
 });
@@ -581,7 +582,7 @@ router.get('/performance/:id', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Performance error:', error.message);
+    console.error('[供应商] 绩效统计错误:', error.message);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });

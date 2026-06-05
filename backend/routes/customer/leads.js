@@ -3,6 +3,7 @@ const pool = require('../../config/database');
 const { authenticateToken } = require('../../middleware/auth');
 const { checkPermission } = require('../../middleware/permission');
 const { SOURCE_PARENT_MAP } = require('./detail');
+const { CUSTOMER_STATUS } = require('../../constants/customer');
 
 const MODULE_NAME = '客户管理';
 
@@ -24,14 +25,14 @@ router.post('/list', authenticateToken, async (req, res) => {
     const { clause: permissionClause, params: permParams } = buildPermissionClause(permission, 'c');
     params.push(...permParams);
 
-    // 线索池准入：status=1 且 负责人为空或为管理员
+    // 线索池准入：status=5（线索状态）且 负责人为空或为管理员
     // 支持"我的线索"模式
     let whereClause;
     if (req.body.owner_id) {
-      whereClause = `WHERE ${permissionClause} AND c.status = 1 AND c.owner_id = ?`;
+      whereClause = `WHERE ${permissionClause} AND c.status = ${CUSTOMER_STATUS.LEAD} AND c.owner_id = ?`;
       params.push(req.body.owner_id);
     } else {
-      whereClause = `WHERE ${permissionClause} AND c.status = 1 AND (c.owner_id IS NULL OR c.owner_id = 1)`;
+      whereClause = `WHERE ${permissionClause} AND c.status = ${CUSTOMER_STATUS.LEAD} AND (c.owner_id IS NULL OR c.owner_id = 1)`;
     }
 
     if (company_name) { whereClause += ' AND c.company_name LIKE ?'; params.push(`%${company_name}%`); }
@@ -74,7 +75,7 @@ router.post('/list', authenticateToken, async (req, res) => {
   }
 });
 
-// 线索转化：将线索转为正式客户，自动创建商机
+// 线索转化：将线索转为潜客（status 5→1）
 router.post('/convert', authenticateToken, checkPermission('leads'), async (req, res) => {
   const connection = await pool.getConnection();
   try {
@@ -83,34 +84,30 @@ router.post('/convert', authenticateToken, checkPermission('leads'), async (req,
     const { id } = req.body;
     if (!id) return res.status(400).json({ code: 400, message: '线索ID不能为空', data: null });
 
-    const [rows] = await connection.query('SELECT id, company_name, owner_id FROM crm_customer WHERE id = ? AND status = 1', [id]);
+    const [rows] = await connection.query(
+      `SELECT id, company_name, owner_id FROM crm_customer WHERE id = ? AND status = ${CUSTOMER_STATUS.LEAD}`,
+      [id]
+    );
     if (rows.length === 0) return res.status(404).json({ code: 404, message: '线索不存在或已转化', data: null });
 
     const lead = rows[0];
+    // 线索→潜客（status 5→1）
     await connection.query(
       `UPDATE crm_customer
-       SET status = 2,
-           customer_type = 'customer',
-           lifecycle_status = 'active',
+       SET status = ${CUSTOMER_STATUS.PROSPECT},
+           customer_type = 'prospect',
+           lifecycle_status = 'nurturing',
            converted_at = COALESCE(converted_at, NOW()),
            lead_level = NULL
        WHERE id = ?`,
       [id]
     );
 
-    // 自动创建商机
-    const ownerId = lead.owner_id || req.user.userId;
-    await connection.query(
-      `INSERT INTO crm_opportunity (customer_id, name, expected_amount, expected_date, stage, win_rate, owner_id)
-       VALUES (?, ?, 0, NULL, 1, 10, ?)`,
-      [id, `${lead.company_name} 商机`, ownerId]
-    );
-
     await connection.commit();
 
-    await logAction(req, 'convert', `线索转化: ${lead.company_name} → 正式客户（已自动创建商机）`);
+    await logAction(req, 'convert', `线索转化: ${lead.company_name} → 潜客`);
 
-    res.json({ code: 200, message: '转化成功，已自动创建商机', data: { id, company_name: lead.company_name } });
+    res.json({ code: 200, message: '转化成功，已转为潜客', data: { id, company_name: lead.company_name } });
   } catch (error) {
     await connection.rollback();
     console.error('线索转化错误:', error);
@@ -127,7 +124,7 @@ router.post('/claim', authenticateToken, checkPermission('leads'), async (req, r
     if (!id) return res.status(400).json({ code: 400, message: '线索ID不能为空', data: null });
 
     const [rows] = await pool.query(
-      'SELECT id, company_name FROM crm_customer WHERE id = ? AND status = 1 AND (owner_id IS NULL OR owner_id = 1)',
+      `SELECT id, company_name FROM crm_customer WHERE id = ? AND status = ${CUSTOMER_STATUS.LEAD} AND (owner_id IS NULL OR owner_id = 1)`,
       [id]
     );
     if (rows.length === 0) return res.status(404).json({ code: 404, message: '线索不存在或已被领取', data: null });
@@ -153,14 +150,14 @@ router.post('/mark-lost', authenticateToken, checkPermission('leads'), async (re
     if (!id) return res.status(400).json({ code: 400, message: '线索ID不能为空', data: null });
 
     const [rows] = await pool.query(
-      'SELECT id FROM crm_customer WHERE id = ? AND status = 1 AND owner_id = ?',
+      `SELECT id FROM crm_customer WHERE id = ? AND status = ${CUSTOMER_STATUS.LEAD} AND owner_id = ?`,
       [id, req.user.userId]
     );
     if (rows.length === 0) return res.status(404).json({ code: 404, message: '线索不存在或无权操作', data: null });
 
     await pool.query(
       `UPDATE crm_customer
-       SET status = 3,
+       SET status = ${CUSTOMER_STATUS.LOST},
            customer_type = 'customer',
            lifecycle_status = 'lost',
            follow_status = '已流失'
@@ -180,13 +177,16 @@ router.get('/stats', authenticateToken, async (req, res) => {
     const permission = await getDataPermission(req.user);
     const { clause: permissionClause, params: permParams } = buildPermissionClause(permission, 'c');
 
-    const [total] = await pool.query(`SELECT COUNT(*) as cnt FROM crm_customer WHERE ${permissionClause} AND status = 1`, permParams);
+    const [total] = await pool.query(
+      `SELECT COUNT(*) as cnt FROM crm_customer WHERE ${permissionClause} AND status = ${CUSTOMER_STATUS.LEAD}`,
+      permParams
+    );
     const [month] = await pool.query(
-      `SELECT COUNT(*) as cnt FROM crm_customer WHERE ${permissionClause} AND status = 1 AND YEAR(create_time) = YEAR(NOW()) AND WEEK(create_time, 1) = WEEK(NOW(), 1)`,
+      `SELECT COUNT(*) as cnt FROM crm_customer WHERE ${permissionClause} AND status = ${CUSTOMER_STATUS.LEAD} AND YEAR(create_time) = YEAR(NOW()) AND WEEK(create_time, 1) = WEEK(NOW(), 1)`,
       permParams
     );
     const [converted] = await pool.query(
-      `SELECT COUNT(*) as cnt FROM crm_customer WHERE ${permissionClause} AND status = 2 AND converted_at >= NOW() - INTERVAL 30 DAY`,
+      `SELECT COUNT(*) as cnt FROM crm_customer WHERE ${permissionClause} AND status = ${CUSTOMER_STATUS.PROSPECT} AND converted_at >= NOW() - INTERVAL 30 DAY`,
       permParams
     );
 

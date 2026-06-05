@@ -106,7 +106,7 @@ router.post('/list', authenticateToken, validate(productListSchema), async (req,
       data: { list, total, page: parseInt(page), pageSize: parseInt(pageSize) }
     });
   } catch (error) {
-    console.error(error);
+    console.error('[产品] 获取产品列表失败:', error);
     res.status(500).json({ code: 500, message: '获取产品列表失败', data: null });
   }
 });
@@ -124,7 +124,7 @@ router.post('/add', authenticateToken, checkPermission('product:add'), requireAd
 
     res.json({ code: 200, message: '新增产品成功', data: { id: result.insertId } });
   } catch (error) {
-    console.error(error);
+    console.error('[产品] 操作失败:', error);
     res.status(500).json({ code: 500, message: '新增产品失败', data: null });
   }
 });
@@ -160,7 +160,7 @@ router.post('/update', authenticateToken, checkPermission('product:edit'), requi
 
     res.json({ code: 200, message: '修改产品成功', data: null });
   } catch (error) {
-    console.error(error);
+    console.error('[产品] 操作失败:', error);
     res.status(500).json({ code: 500, message: '修改产品失败', data: null });
   }
 });
@@ -172,7 +172,7 @@ router.post('/delete', authenticateToken, checkPermission('product:delete'), req
     await pool.query('UPDATE crm_product SET status = 0 WHERE id = ?', [id]);
     res.json({ code: 200, message: '删除产品成功', data: null });
   } catch (error) {
-    console.error(error);
+    console.error('[产品] 操作失败:', error);
     res.status(500).json({ code: 500, message: '删除产品失败', data: null });
   }
 });
@@ -188,7 +188,7 @@ router.get('/detail/:id', authenticateToken, async (req, res) => {
     }
     res.json({ code: 200, message: '查询成功', data: rows[0] });
   } catch (error) {
-    console.error(error);
+    console.error('[产品] 操作失败:', error);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -201,7 +201,7 @@ router.get('/categories', authenticateToken, async (req, res) => {
     );
     res.json({ code: 200, message: '查询成功', data: rows.map(r => r.category) });
   } catch (error) {
-    console.error(error);
+    console.error('[产品] 操作失败:', error);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });

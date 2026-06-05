@@ -29,14 +29,11 @@
             <el-icon><UserFilled /></el-icon>
             <span>客户管理</span>
           </template>
-          <el-menu-item index="/leads" v-if="hasMenuPermission('leads')">线索导入</el-menu-item>
-          <el-menu-item index="/customer/prospects" v-if="hasMenuPermission('customer:list')">
-            <template #title>潜客池</template>
-          </el-menu-item>
-          <el-menu-item index="/customer/list" v-if="hasMenuPermission('customer:list')">正式客户</el-menu-item>
+          <el-menu-item index="/leads" v-if="hasMenuPermission('leads')">线索管理</el-menu-item>
+          <el-menu-item index="/customer/list?tab=prospect" v-if="hasMenuPermission('customer:list')">潜客池</el-menu-item>
+          <el-menu-item index="/customer/list?tab=customer" v-if="hasMenuPermission('customer:list')">正式客户</el-menu-item>
           <el-menu-item index="/customer/pool" v-if="hasMenuPermission('customer:pool')">公海池</el-menu-item>
           <el-menu-item index="/followup/calendar" v-if="hasMenuPermission('followup:calendar')">跟进日历</el-menu-item>
-          <el-menu-item index="/followup/plan" v-if="hasMenuPermission('customer:list')">跟进计划</el-menu-item>
         </el-sub-menu>
 
         <el-menu-item index="/opportunity" v-if="hasMenuPermission('opportunity')">
@@ -152,8 +149,12 @@
                 @input="onSearchInput"
                 @focus="onSearchFocus"
                 @keydown.enter="doSearch"
-              @blur="onSearchBlur"
-              />
+                @blur="onSearchBlur"
+              >
+                <template #suffix>
+                  <span class="search-shortcut-hint">Ctrl+K</span>
+                </template>
+              </el-input>
             </template>
             <div v-loading="searchLoading" class="search-results">
               <div v-if="searchKeyword.length < 2" class="search-hint">请输入至少2个字符</div>
@@ -232,6 +233,9 @@
         </div>
         
         <div class="header-right">
+          <!-- 快捷创建 -->
+          <QuickActions />
+
           <!-- 逾期提醒铃铛 -->
           <el-badge :value="totalUnreadCount" :hidden="totalUnreadCount === 0" :max="99" class="reminder-bell">
             <el-button link @click="showReminderDialog = true; fetchPaymentOverdue()">
@@ -513,6 +517,7 @@ import request from '@/utils/request'
 import { useUser } from '@/composables/useUser'
 import AiChat from '@/components/AiChat.vue'
 import RecycleBin from '@/components/RecycleBin.vue'
+import QuickActions from '@/components/QuickActions.vue'
 import { formatTime } from '@/composables/useFormat'
 import { getVisits, getVisitPath, getVisitTypeLabel } from '@/composables/useRecentVisit'
 import { relativeTime } from '@/composables/useRelativeTime'
@@ -894,6 +899,17 @@ const handleLogout = () => {
   border-radius: 20px;
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
+}
+
+.search-shortcut-hint {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-secondary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  font-family: monospace;
+  pointer-events: none;
 }
 
 .recent-visit-btn {

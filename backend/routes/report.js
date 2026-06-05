@@ -480,7 +480,7 @@ router.post('/overdue', authenticateToken, checkPermission('report'), async (req
       `SELECT c.id, c.company_name, c.contact_name, c.phone, c.industry,
         c.owner_id, c.last_follow_time, c.create_time,
         u.real_name as owner_name,
-        EXTRACT(DAY FROM NOW() - COALESCE(c.last_follow_time, c.create_time)) as overdue_days
+        DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days
       FROM crm_customer c
       LEFT JOIN sys_user u ON c.owner_id = u.id
       ${whereClause}
