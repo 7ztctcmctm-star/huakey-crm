@@ -276,7 +276,7 @@ import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Plus, Delete, ShoppingCart } from '@element-plus/icons-vue'
-import { post, get } from '@/utils/request'
+import request from '@/utils/request'
 import { formatAmount } from '@/composables/useFormat'
 
 const router = useRouter()
@@ -354,7 +354,7 @@ const searchCustomers = async (query) => {
   }
   customerLoading.value = true
   try {
-    const res = await post('/customer/list', { company_name: query, pageSize: 20 })
+    const res = await request.post('/customer/list', { company_name: query, pageSize: 20 })
     if (res.code === 200) {
       customerOptions.value = res.data.list
     }
@@ -372,7 +372,7 @@ const handleCustomerChange = async () => {
     return
   }
   try {
-    const res = await get(`/customer/detail/${formData.customer_id}`)
+    const res = await request.get(`/customer/detail/${formData.customer_id}`)
     if (res.code === 200) {
       customerInfo.value = res.data.customer
     }
@@ -392,7 +392,7 @@ const fetchProducts = async () => {
     if (productSearch.name) params.name = productSearch.name
     if (productSearch.category) params.category = productSearch.category
 
-    const res = await post('/product/list', params)
+    const res = await request.post('/product/list', params)
     if (res.code === 200) {
       productList.value = res.data.list
       productTotal.value = res.data.total
@@ -407,7 +407,7 @@ const fetchProducts = async () => {
 // 获取产品分类
 const fetchCategories = async () => {
   try {
-    const res = await get('/product/categories')
+    const res = await request.get('/product/categories')
     if (res.code === 200) {
       categories.value = res.data
     }
@@ -474,7 +474,7 @@ const removeItem = (row) => {
 // 获取报价单详情
 const fetchQuoteDetail = async () => {
   try {
-    const res = await get(`/quote/detail/${route.params.id}`)
+    const res = await request.get(`/quote/detail/${route.params.id}`)
     if (res.code === 200) {
       const data = res.data
       formData.customer_id = data.customer_id
@@ -533,9 +533,9 @@ const handleSubmit = async () => {
     if (isEdit.value) {
       data.id = route.params.id
       data.status = formData.status
-      res = await post('/quote/update', data)
+      res = await request.post('/quote/update', data)
     } else {
-      res = await post('/quote/add', data)
+      res = await request.post('/quote/add', data)
     }
 
     if (res.code === 200) {

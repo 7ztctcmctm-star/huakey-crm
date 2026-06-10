@@ -149,7 +149,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, Search, Refresh } from '@element-plus/icons-vue'
-import { post, get } from '@/utils/request'
+import request from '@/utils/request'
 import { formatAmount } from '@/composables/useFormat'
 
 const loading = ref(false)
@@ -190,7 +190,7 @@ const fetchList = async () => {
     if (searchForm.keyword) params.keyword = searchForm.keyword
     if (searchForm.category) params.category = searchForm.category
     if (searchForm.status !== '' && searchForm.status !== null) params.status = searchForm.status
-    const res = await post('/product/list', params)
+    const res = await request.post('/product/list', params)
     if (res.code === 200) {
       tableData.value = res.data.list
       total.value = res.data.total
@@ -201,7 +201,7 @@ const fetchList = async () => {
 
 const fetchCategories = async () => {
   try {
-    const res = await get('/product/categories')
+    const res = await request.get('/product/categories')
     if (res.code === 200) categories.value = res.data
   } catch (e) { /* ignore */ }
 }
@@ -228,14 +228,14 @@ const toggleStatus = async (row) => {
   const newStatus = row.status === 1 ? 0 : 1
   const action = newStatus === 1 ? '上架' : '下架'
   try {
-    const res = await post('/product/update', { id: row.id, status: newStatus })
+    const res = await request.post('/product/update', { id: row.id, status: newStatus })
     if (res.code === 200) { ElMessage.success(`已${action}`); fetchList() }
   } catch (e) { ElMessage.error(`${action}失败`) }
 }
 
 const handleDelete = (row) => {
   ElMessageBox.confirm(`确定删除 "${row.name}" 吗？`, '提示', { type: 'warning' }).then(async () => {
-    const res = await post('/product/delete', { id: row.id })
+    const res = await request.post('/product/delete', { id: row.id })
     if (res.code === 200) { ElMessage.success('已删除'); fetchList() }
   }).catch(() => {})
 }
@@ -248,7 +248,7 @@ const handleSubmit = async () => {
     try {
       const data = { ...form }
       if (isEdit.value) data.id = editId.value
-      const res = await post(isEdit.value ? '/product/update' : '/product/add', data)
+      const res = await request.post(isEdit.value ? '/product/update' : '/product/add', data)
       if (res.code === 200) {
         ElMessage.success(isEdit.value ? '修改成功' : '新增成功')
         dialogVisible.value = false

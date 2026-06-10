@@ -114,7 +114,7 @@ import { ref, reactive, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search } from '@element-plus/icons-vue'
-import { post, get } from '@/utils/request'
+import request from '@/utils/request'
 import { ALL_SOURCE_VALUES } from '@/constants/source'
 import { relativeTime } from '@/composables/useRelativeTime'
 
@@ -142,12 +142,12 @@ const selectedRows = ref([])
 const batchOwnerId = ref(null)
 const salesUsers = ref([])
 const onSelectionChange = (rows) => { selectedRows.value = rows }
-const fetchSalesUsers = async () => { if (!isBoss.value) return; try { const r = await get('/customer/sales-users'); if (r.code===200) salesUsers.value = r.data } catch{} }
+const fetchSalesUsers = async () => { if (!isBoss.value) return; try { const r = await request.get('/customer/sales-users'); if (r.code===200) salesUsers.value = r.data } catch{} }
 
 const handleBatchAssign = async (ownerId) => {
   if (!ownerId || selectedRows.value.length===0) return
   try {
-    const r = await post('/customer/batch-assign', { customer_ids: selectedRows.value.map(r=>r.id), to_user_id: ownerId, remark: '线索批量分配' })
+    const r = await request.post('/customer/batch-assign', { customer_ids: selectedRows.value.map(r=>r.id), to_user_id: ownerId, remark: '线索批量分配' })
     if (r.code===200) { ElMessage.success(`已分配 ${selectedRows.value.length} 条线索`); batchOwnerId.value = null; selectedRows.value = []; fetchList(); fetchStats() }
   } catch { ElMessage.error('批量分配失败') }
 }
@@ -162,25 +162,25 @@ const followForm = reactive({ follow_type: '电话', content: '', next_time: '' 
 
 const openDetail = async (row) => {
   drawerVisible.value = true
-  try { const r = await get(`/customer/detail/${row.id}`); if (r.code===200) { detailLead.value = r.data.customer || r.data; followList.value = r.data.followRecords || [] } } catch { ElMessage.error('加载详情失败') }
+  try { const r = await request.get(`/customer/detail/${row.id}`); if (r.code===200) { detailLead.value = r.data.customer || r.data; followList.value = r.data.followRecords || [] } } catch { ElMessage.error('加载详情失败') }
 }
 
 const closeDetail = () => { detailLead.value = null; followList.value = [] }
 
 const updateFollowStatus = async (val) => {
-  try { const r = await post('/customer/update', { id: detailLead.value.id, follow_status: val }); if (r.code===200) { ElMessage.success('状态已更新'); fetchList(); fetchStats() } } catch { ElMessage.error('更新失败') }
+  try { const r = await request.post('/customer/update', { id: detailLead.value.id, follow_status: val }); if (r.code===200) { ElMessage.success('状态已更新'); fetchList(); fetchStats() } } catch { ElMessage.error('更新失败') }
 }
 
 const addFollow = async () => {
   if (!followForm.content) return ElMessage.warning('请填写跟进内容')
   followSaving.value = true
   try {
-    const r = await post('/follow-up/add', { customer_id: detailLead.value.id, follow_type: followForm.follow_type, content: followForm.content, next_time: followForm.next_time || null })
+    const r = await request.post('/follow-up/add', { customer_id: detailLead.value.id, follow_type: followForm.follow_type, content: followForm.content, next_time: followForm.next_time || null })
     if (r.code===200) {
       ElMessage.success('跟进记录已保存')
       followForm.content = ''; followForm.next_time = ''
       // 刷新详情和列表
-      const r2 = await get(`/customer/detail/${detailLead.value.id}`)
+      const r2 = await request.get(`/customer/detail/${detailLead.value.id}`)
       if (r2.code===200) { detailLead.value = r2.data.customer || r2.data; followList.value = r2.data.followRecords || [] }
       fetchList(); fetchStats()
     }
@@ -188,14 +188,14 @@ const addFollow = async () => {
   finally { followSaving.value = false }
 }
 
-const fetchStats = async () => { try { const r = await get('/customer/leads/stats'); if (r.code===200) Object.assign(stats, r.data) } catch{} }
+const fetchStats = async () => { try { const r = await request.get('/customer/leads/stats'); if (r.code===200) Object.assign(stats, r.data) } catch{} }
 
 const fetchList = async () => {
   loading.value = true
   try {
     const params = { page: page.value, pageSize: pageSize.value, ...searchForm }
     if (viewMode.value==='mine' && currentUserId) params.owner_id = currentUserId
-    const r = await post('/customer/leads/list', params)
+    const r = await request.post('/customer/leads/list', params)
     if (r.code===200) { tableData.value = r.data.list; total.value = r.data.total }
   } finally { loading.value = false }
 }
@@ -203,11 +203,11 @@ const fetchList = async () => {
 const handleSearch = () => { page.value = 1; fetchList() }
 const handleAdd = () => { isEdit.value = false; editId.value = null; Object.assign(form, { company_name:'',contact_name:'',phone:'',source:'',lead_level:'中',follow_status:'初次联系',remark:'' }); dialogVisible.value = true }
 const handleEdit = (row) => { isEdit.value = true; editId.value = row.id; Object.assign(form, { company_name:row.company_name||'',contact_name:row.contact_name||'',phone:row.phone||'',source:row.source||'',lead_level:row.lead_level||'中',follow_status:row.follow_status||'初次联系',remark:row.remark||'' }); dialogVisible.value = true }
-const handleClaim = async (row) => { const r = await post('/customer/leads/claim', { id: row.id }); if (r.code===200) { ElMessage.success('领取成功'); tableData.value = tableData.value.filter(t=>t.id!==row.id); fetchStats() } }
+const handleClaim = async (row) => { const r = await request.post('/customer/leads/claim', { id: row.id }); if (r.code===200) { ElMessage.success('领取成功'); tableData.value = tableData.value.filter(t=>t.id!==row.id); fetchStats() } }
 const handleConvert = (row) => {
   ElMessageBox.confirm(`确定将「${row.company_name}」转化为正式客户吗？`, '转化确认', { type: 'warning' })
     .then(async () => {
-      const r = await post('/customer/leads/convert', { id: row.id })
+      const r = await request.post('/customer/leads/convert', { id: row.id })
       if (r.code === 200) {
         ElMessageBox.alert(
           `客户「${row.company_name}」已成功转化为正式客户`,
@@ -230,8 +230,8 @@ const handleConvert = (row) => {
     })
     .catch(() => {})
 }
-const handleMarkLost = (row) => { ElMessageBox.confirm(`确定标记为已流失吗？`, '确认', { type: 'warning' }).then(async () => { const r = await post('/customer/leads/mark-lost', { id: row.id }); if (r.code===200) { ElMessage.success('已标记'); fetchList(); fetchStats() } }).catch(()=>{}) }
-const handleSubmit = async () => { if (!formRef.value) return; await formRef.value.validate(async (valid) => { if (!valid) return; saveLoading.value = true; try { const data = { ...form, status: 1 }; if (isEdit.value) data.id = editId.value; const r = await post(isEdit.value?'/customer/update':'/customer/add', data); if (r.code===200) { ElMessage.success(isEdit.value?'修改成功':'新增成功'); dialogVisible.value = false; fetchList(); fetchStats() } } finally { saveLoading.value = false } }) }
+const handleMarkLost = (row) => { ElMessageBox.confirm(`确定标记为已流失吗？`, '确认', { type: 'warning' }).then(async () => { const r = await request.post('/customer/leads/mark-lost', { id: row.id }); if (r.code===200) { ElMessage.success('已标记'); fetchList(); fetchStats() } }).catch(()=>{}) }
+const handleSubmit = async () => { if (!formRef.value) return; await formRef.value.validate(async (valid) => { if (!valid) return; saveLoading.value = true; try { const data = { ...form, status: 1 }; if (isEdit.value) data.id = editId.value; const r = await request.post(isEdit.value?'/customer/update':'/customer/add', data); if (r.code===200) { ElMessage.success(isEdit.value?'修改成功':'新增成功'); dialogVisible.value = false; fetchList(); fetchStats() } } finally { saveLoading.value = false } }) }
 
 onMounted(() => { fetchList(); fetchStats(); fetchSalesUsers() })
 onActivated(() => { fetchList(); fetchStats() })

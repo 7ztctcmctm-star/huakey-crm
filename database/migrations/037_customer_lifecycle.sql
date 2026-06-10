@@ -6,20 +6,31 @@
 USE huakey_crm;
 
 -- 1. 新增 customer_type 字段
-ALTER TABLE crm_customer
-  ADD COLUMN IF NOT EXISTS customer_type VARCHAR(20) DEFAULT 'prospect'
-    COMMENT '对象类型: prospect=潜客 customer=正式客户'
-    AFTER status;
+SET @col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA='huakey_crm' AND TABLE_NAME='crm_customer' AND COLUMN_NAME='customer_type');
+SET @sql = IF(@col_exists=0,
+  'ALTER TABLE crm_customer ADD COLUMN customer_type VARCHAR(20) DEFAULT ''prospect'' COMMENT ''对象类型: prospect=潜客 customer=正式客户'' AFTER status',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- 2. 新增 lifecycle_status 字段
-ALTER TABLE crm_customer
-  ADD COLUMN IF NOT EXISTS lifecycle_status VARCHAR(20) DEFAULT 'new'
-    COMMENT '生命周期: new/nurturing/intent/active/lost/inactive'
-    AFTER customer_type;
+SET @col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA='huakey_crm' AND TABLE_NAME='crm_customer' AND COLUMN_NAME='lifecycle_status');
+SET @sql = IF(@col_exists=0,
+  'ALTER TABLE crm_customer ADD COLUMN lifecycle_status VARCHAR(20) DEFAULT ''new'' COMMENT ''生命周期: new/nurturing/intent/active/lost/inactive'' AFTER customer_type',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- 3. 新增索引
-CREATE INDEX IF NOT EXISTS idx_customer_type ON crm_customer(customer_type);
-CREATE INDEX IF NOT EXISTS idx_lifecycle_status ON crm_customer(lifecycle_status);
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA='huakey_crm' AND TABLE_NAME='crm_customer' AND INDEX_NAME='idx_customer_type');
+SET @sql = IF(@idx_exists=0, 'CREATE INDEX idx_customer_type ON crm_customer(customer_type)', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA='huakey_crm' AND TABLE_NAME='crm_customer' AND INDEX_NAME='idx_lifecycle_status');
+SET @sql = IF(@idx_exists=0, 'CREATE INDEX idx_lifecycle_status ON crm_customer(lifecycle_status)', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- 4. 回填历史数据
 -- status=1 → prospect, new（从未跟进过的潜客）

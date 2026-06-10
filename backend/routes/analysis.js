@@ -274,9 +274,21 @@ router.get('/rfm', authenticateToken, async (req, res) => {
     const [rows] = await pool.query(`
       SELECT c.id, c.company_name,
         DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as recency,
-        (SELECT COUNT(*) FROM crm_follow_up f WHERE f.customer_id = c.id AND f.create_time >= NOW() - INTERVAL 90 DAY) as frequency,
-        COALESCE((SELECT SUM(amount) FROM crm_contract ct WHERE ct.customer_id = c.id AND ct.deleted_at IS NULL AND ct.status = 2), 0) as monetary
+        COALESCE(f.frequency, 0) as frequency,
+        COALESCE(ct.monetary, 0) as monetary
       FROM crm_customer c
+      LEFT JOIN (
+        SELECT customer_id, COUNT(*) as frequency
+        FROM crm_follow_up
+        WHERE create_time >= NOW() - INTERVAL 90 DAY
+        GROUP BY customer_id
+      ) f ON f.customer_id = c.id
+      LEFT JOIN (
+        SELECT customer_id, SUM(amount) as monetary
+        FROM crm_contract
+        WHERE deleted_at IS NULL AND status = 2
+        GROUP BY customer_id
+      ) ct ON ct.customer_id = c.id
       WHERE c.status != 0
       ORDER BY monetary DESC
       LIMIT 200

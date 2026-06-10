@@ -44,7 +44,7 @@
 <script setup>
 import { ref, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
-import { get } from '@/utils/request'
+import request from '@/utils/request'
 
 defineOptions({ name: 'TodayTasks' })
 
@@ -74,7 +74,7 @@ const goCustomer = (id) => {
 const fetchList = async () => {
   loading.value = true
   try {
-    const r = await get('/follow-up/remind')
+    const r = await request.get('/follow-up/remind')
     if (r.code === 200) taskList.value = r.data.list || []
   } finally { loading.value = false }
 }

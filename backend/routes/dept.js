@@ -70,6 +70,16 @@ router.post('/update', authenticateToken, requireAdmin, validate(deptUpdateSchem
 router.post('/delete', authenticateToken, requireAdmin, validate(deptDeleteSchema), async (req, res) => {
   try {
     const { id } = req.body;
+    // 检查是否有子部门
+    const [children] = await pool.query('SELECT COUNT(*) as cnt FROM sys_dept WHERE parent_id = ?', [id]);
+    if (children[0].cnt > 0) {
+      return res.status(400).json({ code: 400, message: `该部门下有 ${children[0].cnt} 个子部门，无法删除`, data: null });
+    }
+    // 检查是否有用户属于该部门
+    const [users] = await pool.query('SELECT COUNT(*) as cnt FROM sys_user WHERE dept_id = ?', [id]);
+    if (users[0].cnt > 0) {
+      return res.status(400).json({ code: 400, message: `该部门下有 ${users[0].cnt} 个用户，无法删除`, data: null });
+    }
     await pool.query('DELETE FROM sys_dept WHERE id=?', [id]);
     res.json({ code: 200, message: '删除部门成功', data: null });
   } catch (error) {

@@ -43,6 +43,12 @@ const router = createRouter({
           meta: { title: '跟进计划', permission: 'customer:list' }
         },
         {
+          path: 'followup/template',
+          name: 'FollowupTemplate',
+          component: () => import('../views/followup/template.vue'),
+          meta: { title: '跟进模板', permission: 'customer:list' }
+        },
+        {
           path: 'follow-up/today',
           name: 'TodayTasks',
           component: () => import('../views/follow-up/TodayTasks.vue'),
@@ -181,6 +187,18 @@ const router = createRouter({
           meta: { title: '数据分析' }
         },
         {
+          path: 'scoring/rules',
+          name: 'ScoringRules',
+          component: () => import('../views/scoring/rules.vue'),
+          meta: { title: '评分规则', permission: 'customer:list' }
+        },
+        {
+          path: 'scoring/ranking',
+          name: 'ScoringRanking',
+          component: () => import('../views/scoring/ranking.vue'),
+          meta: { title: '评分排行', permission: 'customer:list' }
+        },
+        {
           path: 'ai-suggestions',
           name: 'AiSuggestions',
           component: () => import('../views/ai/index.vue'),
@@ -211,6 +229,24 @@ const router = createRouter({
           meta: { title: '角色管理', permission: 'system:role', admin: true }
         },
         {
+          path: 'approval/workflow',
+          name: 'ApprovalWorkflow',
+          component: () => import('../views/approval/workflow.vue'),
+          meta: { title: '审批流程', permission: 'customer:list', admin: true }
+        },
+        {
+          path: 'approval/pending',
+          name: 'ApprovalPending',
+          component: () => import('../views/approval/pending.vue'),
+          meta: { title: '我的待审批', permission: 'customer:list' }
+        },
+        {
+          path: 'approval/submitted',
+          name: 'ApprovalSubmitted',
+          component: () => import('../views/approval/submitted.vue'),
+          meta: { title: '我的审批', permission: 'customer:list' }
+        },
+        {
           path: 'system/dept',
           name: 'DeptManage',
           component: () => import('../views/system/dept.vue'),
@@ -233,6 +269,12 @@ const router = createRouter({
           name: 'SystemPermission',
           component: () => import('../views/system/permission.vue'),
           meta: { title: '权限管理', permission: 'permission:view', admin: true }
+        },
+        {
+          path: 'system/tags',
+          name: 'SystemTags',
+          component: () => import('../views/system/tags.vue'),
+          meta: { title: '标签管理', permission: 'system:tag', admin: true }
         },
         {
           path: 'system/integration',

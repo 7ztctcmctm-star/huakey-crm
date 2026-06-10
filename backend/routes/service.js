@@ -54,69 +54,68 @@ router.post('/list', authenticateToken, async (req, res) => {
   const safePageSize = Math.min(Math.max(1, parseInt(pageSize) || 10), 200);
   const offset = (Math.max(1, parseInt(page) || 1) - 1) * safePageSize;
 
-  const permission = await getDataPermission(req.user);
-  const permissionClause = buildServicePermissionClause(permission);
-
-  let sql = `
-    SELECT so.*, cu.company_name as customer_name, cu.contact_name as customer_contact,
-           cu.phone as customer_phone, c.contract_no,
-           u1.real_name as assignee_name, u2.real_name as create_by_name,
-           CASE WHEN so.status IN (1, 2) AND so.priority = 1 AND NOW() - INTERVAL 2 HOUR > so.create_time THEN 1
-                WHEN so.status IN (1, 2) AND so.priority = 2 AND NOW() - INTERVAL 4 HOUR > so.create_time THEN 1
-                ELSE 0 END as is_timeout
-    FROM crm_service_order so
-    LEFT JOIN crm_customer cu ON so.customer_id = cu.id
-    LEFT JOIN crm_contract c ON so.contract_id = c.id
-    LEFT JOIN sys_user u1 ON so.assignee_id = u1.id
-    LEFT JOIN sys_user u2 ON so.create_by = u2.id
-    WHERE ${permissionClause} AND so.deleted_at IS NULL
-  `;
-  
-  const params = [];
-  
-  if (status !== undefined && status !== '') {
-    sql += ' AND so.status = ?';
-    params.push(status);
-  }
-  
-  if (type !== undefined && type !== '') {
-    sql += ' AND so.type = ?';
-    params.push(type);
-  }
-  
-  if (priority !== undefined && priority !== '') {
-    sql += ' AND so.priority = ?';
-    params.push(priority);
-  }
-  
-  if (keyword) {
-    sql += ' AND (so.title LIKE ? OR so.order_no LIKE ? OR cu.company_name LIKE ?)';
-    params.push(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`);
-  }
-
-  // 按处理人筛选（"我的工单"视图）
-  if (assignee_id) {
-    sql += ' AND so.assignee_id = ?';
-    params.push(assignee_id);
-  }
-
-  // 今日工单筛选
-  if (created_today) {
-    sql += ' AND DATE(so.create_time) = CURRENT_DATE';
-  }
-
-  // 超时工单筛选：紧急超2小时、高优超4小时，状态为待分配或已分配
-  if (is_timeout) {
-    sql += ` AND so.status IN (1, 2) AND (
-      (so.priority = 1 AND so.create_time < NOW() - INTERVAL 2 HOUR)
-      OR (so.priority = 2 AND so.create_time < NOW() - INTERVAL 4 HOUR)
-    )`;
-  }
-
-  sql += ' ORDER BY so.create_time DESC LIMIT ?, ?';
-  params.push(offset, safePageSize);
-  
   try {
+    const permission = await getDataPermission(req.user);
+    const permissionClause = buildServicePermissionClause(permission);
+
+    let sql = `
+      SELECT so.*, cu.company_name as customer_name, cu.contact_name as customer_contact,
+             cu.phone as customer_phone, c.contract_no,
+             u1.real_name as assignee_name, u2.real_name as create_by_name,
+             CASE WHEN so.status IN (1, 2) AND so.priority = 1 AND NOW() - INTERVAL 2 HOUR > so.create_time THEN 1
+                  WHEN so.status IN (1, 2) AND so.priority = 2 AND NOW() - INTERVAL 4 HOUR > so.create_time THEN 1
+                  ELSE 0 END as is_timeout
+      FROM crm_service_order so
+      LEFT JOIN crm_customer cu ON so.customer_id = cu.id
+      LEFT JOIN crm_contract c ON so.contract_id = c.id
+      LEFT JOIN sys_user u1 ON so.assignee_id = u1.id
+      LEFT JOIN sys_user u2 ON so.create_by = u2.id
+      WHERE ${permissionClause} AND so.deleted_at IS NULL
+    `;
+
+    const params = [];
+
+    if (status !== undefined && status !== '') {
+      sql += ' AND so.status = ?';
+      params.push(status);
+    }
+
+    if (type !== undefined && type !== '') {
+      sql += ' AND so.type = ?';
+      params.push(type);
+    }
+
+    if (priority !== undefined && priority !== '') {
+      sql += ' AND so.priority = ?';
+      params.push(priority);
+    }
+
+    if (keyword) {
+      sql += ' AND (so.title LIKE ? OR so.order_no LIKE ? OR cu.company_name LIKE ?)';
+      params.push(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`);
+    }
+
+    // 按处理人筛选（"我的工单"视图）
+    if (assignee_id) {
+      sql += ' AND so.assignee_id = ?';
+      params.push(assignee_id);
+    }
+
+    // 今日工单筛选
+    if (created_today) {
+      sql += ' AND DATE(so.create_time) = CURRENT_DATE';
+    }
+
+    // 超时工单筛选：紧急超2小时、高优超4小时，状态为待分配或已分配
+    if (is_timeout) {
+      sql += ` AND so.status IN (1, 2) AND (
+        (so.priority = 1 AND so.create_time < NOW() - INTERVAL 2 HOUR)
+        OR (so.priority = 2 AND so.create_time < NOW() - INTERVAL 4 HOUR)
+      )`;
+    }
+
+    sql += ' ORDER BY so.create_time DESC LIMIT ?, ?';
+    params.push(offset, safePageSize);
     const [rows] = await pool.query(sql, params);
     
     const countSql = sql.replace(/SELECT[\s\S]*FROM/, 'SELECT COUNT(*) as total FROM').replace(/ORDER BY[\s\S]*/, '');

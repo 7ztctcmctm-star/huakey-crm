@@ -89,6 +89,9 @@ const uploadRoutes = require('./routes/upload');
 const searchRoutes = require('./routes/search');
 const tagRoutes = require('./routes/tag');
 const contractTemplateRoutes = require('./routes/contractTemplate');
+const followupTemplateRoutes = require('./routes/followupTemplate');
+const scoringRoutes = require('./routes/scoring');
+const approvalRoutes = require('./routes/approval');
 
 // API 路由前缀 /api
 const apiRouter = express.Router();
@@ -155,6 +158,9 @@ apiRouter.use('/upload', uploadRoutes);
 apiRouter.use('/search', searchRoutes);
 apiRouter.use('/tag', tagRoutes);
 apiRouter.use('/contract-template', contractTemplateRoutes);
+apiRouter.use('/followup-templates', followupTemplateRoutes);
+apiRouter.use('/scoring', scoringRoutes);
+apiRouter.use('/approval', approvalRoutes);
 
 // Vercel Cron Jobs 端点（也兼容本地 node-cron）
 const cronJobRoutes = require('./routes/cronJobs');
@@ -231,7 +237,9 @@ if (fs.existsSync(uploadsDir)) {
   app.use('/uploads', express.static(uploadsDir));
 }
 
-const distPath = path.join(__dirname, '..', 'frontend', 'dist');
+const distPath = fs.existsSync(path.join(__dirname, 'frontend', 'dist'))
+  ? path.join(__dirname, 'frontend', 'dist')
+  : path.join(__dirname, '..', 'frontend', 'dist');
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));
   app.get(/^\/(?!api\/).*/, (req, res) => {

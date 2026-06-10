@@ -110,7 +110,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh } from '@element-plus/icons-vue'
-import { post } from '@/utils/request'
+import request from '@/utils/request'
 import { formatTime } from '@/composables/useFormat'
 
 const loading = ref(false)
@@ -139,7 +139,7 @@ const fetchList = async () => {
       start_date: dateRange.value?.[0] || undefined,
       end_date: dateRange.value?.[1] || undefined
     }
-    const res = await post('/follow-plan/list', params)
+    const res = await request.post('/follow-plan/list', params)
     if (res.code === 200) {
       tableData.value = res.data.list
       total.value = res.data.total
@@ -178,7 +178,7 @@ const handleComplete = async () => {
   }
   completeLoading.value = true
   try {
-    const res = await post('/follow-plan/complete', {
+    const res = await request.post('/follow-plan/complete', {
       id: selectedPlan.value.id,
       content: completeForm.content,
       follow_type: completeForm.follow_type
@@ -199,7 +199,7 @@ const handleComplete = async () => {
 const handleCancel = async (row) => {
   try {
     await ElMessageBox.confirm('确定取消该跟进计划？', '提示', { type: 'warning' })
-    const res = await post('/follow-plan/cancel', { id: row.id })
+    const res = await request.post('/follow-plan/cancel', { id: row.id })
     if (res.code === 200) {
       ElMessage.success('已取消')
       fetchList()

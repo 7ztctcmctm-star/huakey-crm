@@ -314,7 +314,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus, Edit, Delete, ArrowUp, View } from '@element-plus/icons-vue'
-import { post, get } from '@/utils/request'
+import request from '@/utils/request'
 import { formatTime, formatAmount } from '@/composables/useFormat'
 
 const route = useRoute()
@@ -440,8 +440,8 @@ const handleViewDetail = async (row) => {
   stageLogs.value = []
   try {
     const [detailRes, logRes] = await Promise.all([
-      get(`/opportunity/detail/${row.id}`),
-      get(`/opportunity/stage-log/${row.id}`)
+      request.get(`/opportunity/detail/${row.id}`),
+      request.get(`/opportunity/stage-log/${row.id}`)
     ])
     if (detailRes.code === 200) drawerData.value = detailRes.data
     if (logRes.code === 200) stageLogs.value = logRes.data
@@ -458,7 +458,7 @@ const pushStageOptions = computed(() => {
 // 获取销售漏斗
 const fetchFunnel = async () => {
   try {
-    const res = await get('/opportunity/funnel')
+    const res = await request.get('/opportunity/funnel')
     if (res.code === 200) {
       funnelData.value = res.data.funnel
       funnelTotal.value = { count: res.data.total_count, amount: res.data.total_amount }
@@ -481,7 +481,7 @@ const fetchList = async () => {
     if (searchForm.customer_name) params.customer_name = searchForm.customer_name
     if (searchForm.stage !== '' && searchForm.stage !== null) params.stage = searchForm.stage
 
-    const res = await post('/opportunity/list', params)
+    const res = await request.post('/opportunity/list', params)
     if (res.code === 200) {
       tableData.value = res.data.list
       total.value = res.data.total
@@ -513,7 +513,7 @@ const searchCustomers = async (query) => {
   }
   customerLoading.value = true
   try {
-    const res = await post('/customer/list', { company_name: query, pageSize: 20 })
+    const res = await request.post('/customer/list', { company_name: query, pageSize: 20 })
     if (res.code === 200) {
       customerOptions.value = res.data.list
     }
@@ -526,7 +526,7 @@ const searchCustomers = async (query) => {
 
 const fetchUsers = async () => {
   try {
-    const res = await post('/user/list', { pageSize: 100 })
+    const res = await request.post('/user/list', { pageSize: 100 })
     if (res.code === 200) {
       userOptions.value = res.data.list
     }
@@ -613,9 +613,9 @@ const handleSubmit = async () => {
       if (isEdit.value) {
         data.id = currentId.value
         if (formData.owner_id) data.owner_id = formData.owner_id
-        res = await post('/opportunity/update', data)
+        res = await request.post('/opportunity/update', data)
       } else {
-        res = await post('/opportunity/add', data)
+        res = await request.post('/opportunity/add', data)
       }
 
       if (res.code === 200) {
@@ -659,7 +659,7 @@ const handlePushConfirm = async () => {
 
   pushLoading.value = true
   try {
-    const res = await post('/opportunity/update-stage', {
+    const res = await request.post('/opportunity/update-stage', {
       id: pushRow.value.id,
       stage: pushTargetStage.value
     })
@@ -687,7 +687,7 @@ const handleDelete = (row) => {
     }
   ).then(async () => {
     try {
-      const res = await post('/opportunity/delete', { id: row.id })
+      const res = await request.post('/opportunity/delete', { id: row.id })
       if (res.code === 200) {
         ElMessage.success('删除成功')
         fetchList()

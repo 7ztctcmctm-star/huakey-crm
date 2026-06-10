@@ -60,8 +60,10 @@
             <el-button type="primary" link :icon="Edit" @click="handleEdit(row)" v-permission="'contract:edit'">编辑</el-button>
             <el-button v-if="row.approval_status === 2" type="warning" link @click="openQuickPay(row)" v-permission="'contract:edit'">回款</el-button>
             <el-button type="danger" link :icon="Delete" @click="handleDelete(row)" v-permission="'contract:delete'">删除</el-button>
+            <el-button v-if="row.approval_status === 0" type="warning" link @click="handleSubmitApproval(row)">提交审批</el-button>
             <el-button v-if="row.approval_status === 1 && isAdmin" type="success" link @click="handleApprove(row)">通过</el-button>
             <el-button v-if="row.approval_status === 1 && isAdmin" type="danger" link @click="handleReject(row)">拒绝</el-button>
+            <el-button v-if="row.approval_status === 1" type="info" link @click="handleWithdrawApproval(row)">撤回</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -329,6 +331,34 @@ const handleReject = (row) => {
       const r = await request.post('/contract/approve', { id: row.id, approval_status: 3, approval_remark: value.trim() })
       if (r.code === 200) { ElMessage.success('已拒绝'); fetchList() }
     } catch { ElMessage.error('操作失败') }
+  }).catch(() => {})
+}
+
+// 提交审批
+const handleSubmitApproval = (row) => {
+  ElMessageBox.confirm(`确定提交合同"${row.contract_no}"进行审批？`, '提交审批', {
+    confirmButtonText: '确定提交',
+    cancelButtonText: '取消',
+    type: 'info'
+  }).then(async () => {
+    try {
+      const res = await request.post('/approval/submit', { business_type: 'contract', business_id: row.id })
+      if (res.code === 200) { ElMessage.success('已提交审批'); fetchList() }
+    } catch (error) { console.error('提交审批失败:', error) }
+  }).catch(() => {})
+}
+
+// 撤回审批
+const handleWithdrawApproval = (row) => {
+  ElMessageBox.confirm(`确定撤回合同"${row.contract_no}"的审批？`, '撤回审批', {
+    confirmButtonText: '确定撤回',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(async () => {
+    try {
+      const res = await request.delete(`/approval/withdraw/contract/${row.id}`)
+      if (res.code === 200) { ElMessage.success('审批已撤回'); fetchList() }
+    } catch (error) { console.error('撤回审批失败:', error) }
   }).catch(() => {})
 }
 

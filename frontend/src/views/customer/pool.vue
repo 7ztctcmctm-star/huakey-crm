@@ -203,7 +203,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Aim } from '@element-plus/icons-vue'
-import { post, get } from '@/utils/request'
+import request from '@/utils/request'
 import { formatTime } from '@/composables/useFormat'
 import { SOURCE_SEARCH_OPTIONS } from '@/constants/source'
 
@@ -239,12 +239,12 @@ const poolTableRef = ref(null)
 
 const fetchSalesUsers = async () => {
   if (!isBoss.value && !isManager.value) return
-  try { const res = await get('/customer/sales-users'); if (res.code === 200) salesUsers.value = res.data } catch (e) { /* */ }
+  try { const res = await request.get('/customer/sales-users'); if (res.code === 200) salesUsers.value = res.data } catch (e) { /* */ }
 }
 
 const fetchStats = async () => {
   try {
-    const res = await post('/customer/pool', { page: 1, pageSize: 1 })
+    const res = await request.post('/customer/pool', { page: 1, pageSize: 1 })
     if (res.code === 200) {
       stats.total = res.data.total
       stats.claimable = res.data.total
@@ -257,7 +257,7 @@ const handlePoolSelectionChange = (rows) => { selectedRows.value = rows }
 const handleBatchAssign = async () => {
   if (selectedRows.value.length === 0 || !batchNewOwnerId.value) return
   try {
-    const res = await post('/customer/batch-assign', {
+    const res = await request.post('/customer/batch-assign', {
       customer_ids: selectedRows.value.map(r => r.id),
       to_user_id: batchNewOwnerId.value,
       remark: '公海批量分配'
@@ -278,7 +278,7 @@ const handleBatchClaim = async () => {
       '批量认领',
       { confirmButtonText: '确定认领', cancelButtonText: '取消', type: 'success' }
     )
-    const res = await post('/customer/batch-claim', {
+    const res = await request.post('/customer/batch-claim', {
       customer_ids: selectedRows.value.map(r => r.id)
     })
     if (res.code === 200) {
@@ -296,7 +296,7 @@ const handleAutoAssign = async () => {
       '轮询自动分配',
       { confirmButtonText: '确定分配', cancelButtonText: '取消', type: 'warning' }
     )
-    const res = await post('/customer/auto-assign')
+    const res = await request.post('/customer/auto-assign')
     if (res.code === 200) {
       ElMessage.success(res.message)
       fetchList()
@@ -317,7 +317,7 @@ const confirmAssign = async () => {
   if (!assignUserId.value) return ElMessage.warning('请选择负责人')
   assignLoading.value = true
   try {
-    const res = await post('/customer/assign', {
+    const res = await request.post('/customer/assign', {
       customer_id: assignCustomer.value.id, to_user_id: assignUserId.value, remark: '公海分配'
     })
     if (res.code === 200) { ElMessage.success('分配成功'); assignDialogVisible.value = false; fetchList() }
@@ -353,7 +353,7 @@ const getPoolDays = (row) => {
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await post('/customer/pool', {
+    const res = await request.post('/customer/pool', {
       page: searchForm.page, pageSize: searchForm.pageSize,
       company_name: searchForm.company_name || undefined,
       source: searchForm.source || undefined,
@@ -382,7 +382,7 @@ const confirmClaim = async () => {
   claimLoading.value = true
   try {
     const customerId = claimCustomer.value.id
-    const res = await post('/customer/claim', { customer_id: customerId })
+    const res = await request.post('/customer/claim', { customer_id: customerId })
     if (res.code === 200) {
       ElMessage.success('认领成功！该客户已归您负责，保护期7天')
       tableData.value = tableData.value.filter(r => r.id !== customerId)

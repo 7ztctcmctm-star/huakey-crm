@@ -11,7 +11,7 @@ const MODULE_NAME = '发票管理';
 const { createRouteLogger } = require('../middleware/logger');
 const logAction = createRouteLogger(MODULE_NAME);
 
-// Joi schemas
+// Joi 数据校验规则
 const listSchema = Joi.object({
   page: Joi.number().integer().min(1).optional(),
   pageSize: Joi.number().integer().min(1).max(200).optional(),
@@ -88,7 +88,7 @@ router.post('/list', authenticateToken, validate(listSchema), async (req, res) =
       params.push(end_date);
     }
 
-    // Count query
+    // 总数查询
     const countSql = sql.replace(/SELECT[\s\S]*FROM/, 'SELECT COUNT(*) as total FROM').replace(/ORDER BY[\s\S]*/, '');
     const [countResult] = await pool.query(countSql, params);
 

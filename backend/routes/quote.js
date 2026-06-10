@@ -14,14 +14,16 @@ const STATUS_MAP = {
 
 const { getDataPermission, buildPermissionClause } = require('../utils/permission');
 
-// 生成报价单号
-const generateQuoteNo = () => {
+// 生成报价单号（需在事务内调用，传入connection）
+const generateQuoteNo = async (connection) => {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const random = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
-  return `QUO-${year}${month}${day}-${random}`;
+  const dateStr = now.getFullYear().toString().slice(2) + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
+  const [count] = await connection.query(
+    "SELECT COUNT(*) as cnt FROM crm_quote WHERE quote_no LIKE ? FOR UPDATE",
+    [`QUO-${dateStr}-%`]
+  );
+  const seq = String(count[0].cnt + 1).padStart(3, '0');
+  return `QUO-${dateStr}-${seq}`;
 };
 
 // 1. 创建报价单
@@ -78,7 +80,7 @@ router.post('/add', authenticateToken, checkPermission('quotation:add'), async (
 
     const disc = discount || 0;
     const finalAmount = totalAmount * (1 - disc);
-    const quoteNo = generateQuoteNo();
+    const quoteNo = await generateQuoteNo(connection);
 
     // [业务修复] 支持关联商机ID
     const [quoteResult] = await connection.query(

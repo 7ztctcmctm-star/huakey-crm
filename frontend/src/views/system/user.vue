@@ -74,7 +74,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete } from '@element-plus/icons-vue'
-import { post } from '@/utils/request'
+import request from '@/utils/request'
 
 const loading = ref(false)
 const tableData = ref([])
@@ -87,16 +87,24 @@ const depts = ref([])
 const roles = ref([])
 
 const form = reactive({ username: '', password: '', real_name: '', phone: '', email: '', dept_id: null, role_id: null })
-const rules = { username: [{ required: true, message: '请输入用户名', trigger: 'blur' }], password: [{ required: true, message: '请输入密码', trigger: 'blur' }] }
+const passwordValidator = (rule, value, callback) => {
+  if (!value) return callback(new Error('请输入密码'))
+  if (value.length < 8) return callback(new Error('密码至少8位'))
+  if (!/[a-z]/.test(value)) return callback(new Error('需包含小写字母'))
+  if (!/[A-Z]/.test(value)) return callback(new Error('需包含大写字母'))
+  if (!/\d/.test(value)) return callback(new Error('需包含数字'))
+  callback()
+}
+const rules = { username: [{ required: true, message: '请输入用户名', trigger: 'blur' }], password: [{ required: true, validator: passwordValidator, trigger: 'blur' }] }
 
 const fetchList = async () => {
   loading.value = true
-  try { const res = await post('/user/list', { page: 1, pageSize: 100 }); if (res.code === 200) tableData.value = res.data.list } catch (e) { /* */ }
+  try { const res = await request.post('/user/list', { page: 1, pageSize: 100 }); if (res.code === 200) tableData.value = res.data.list } catch (e) { /* */ }
   finally { loading.value = false }
 }
 
-const fetchDepts = async () => { try { const res = await post('/dept/list', {}); if (res.code === 200) depts.value = res.data.list } catch (e) { /* */ } }
-const fetchRoles = async () => { try { const res = await post('/role/list', {}); if (res.code === 200) roles.value = res.data.list } catch (e) { /* */ } }
+const fetchDepts = async () => { try { const res = await request.post('/dept/list', {}); if (res.code === 200) depts.value = res.data.list } catch (e) { /* */ } }
+const fetchRoles = async () => { try { const res = await request.post('/role/list', {}); if (res.code === 200) roles.value = res.data.list } catch (e) { /* */ } }
 
 const handleAdd = () => { isEdit.value = false; editId.value = null; Object.assign(form, { username: '', password: '', real_name: '', phone: '', email: '', dept_id: null, role_id: null }); dialogVisible.value = true }
 
@@ -108,7 +116,7 @@ const handleEdit = (row) => {
 
 const handleDelete = (row) => {
   ElMessageBox.confirm(`确定删除用户 "${row.username}" 吗？`, '提示', { type: 'warning' }).then(async () => {
-    const res = await post('/user/delete', { id: row.id })
+    const res = await request.post('/user/delete', { id: row.id })
     if (res.code === 200) { ElMessage.success('已删除'); fetchList() }
   }).catch(() => {})
 }
@@ -121,7 +129,7 @@ const handleSubmit = async () => {
     try {
       const data = isEdit.value ? { id: editId.value, real_name: form.real_name, phone: form.phone, email: form.email, dept_id: form.dept_id, role_id: form.role_id } : { ...form }
       const url = isEdit.value ? '/user/update' : '/user/add'
-      const res = await post(url, data)
+      const res = await request.post(url, data)
       if (res.code === 200) { ElMessage.success(isEdit.value ? '修改成功' : '新增成功'); dialogVisible.value = false; fetchList() }
     } finally { submitLoading.value = false }
   })

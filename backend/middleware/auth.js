@@ -1,12 +1,13 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || 'huakey-crm-dev-secret-change-in-production';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
-if (!JWT_SECRET) {
-  console.error('错误: JWT_SECRET 环境变量未设置');
-  console.error('请在 .env 文件中配置: JWT_SECRET=your_strong_secret_key_here');
+if (!process.env.JWT_SECRET) {
+  console.warn('警告: JWT_SECRET 环境变量未设置，使用默认密钥（仅限开发环境）');
+  console.warn('请在 .env 文件中配置: JWT_SECRET=your_strong_secret_key_here');
   if (process.env.NODE_ENV === 'production') {
+    console.error('生产环境必须设置 JWT_SECRET');
     process.exit(1);
   }
 }

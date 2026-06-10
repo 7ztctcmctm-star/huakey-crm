@@ -94,6 +94,11 @@
           <el-tag :type="getStatusType(row.status)" size="small">{{ row.status }}</el-tag>
         </template>
       </el-table-column>
+      <el-table-column prop="approval_status" label="审批状态" width="100" align="center">
+        <template #default="{ row }">
+          <el-tag :type="approvalTagType(row.approval_status)" size="small">{{ approvalMap[row.approval_status] || '草稿' }}</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column prop="expected_date" label="期望交期" width="110" align="center" />
       <el-table-column prop="owner_name" label="负责人" width="90" align="center" />
       <el-table-column prop="create_time" label="创建时间" width="160" align="center" />
@@ -110,6 +115,8 @@
               </el-dropdown-menu>
             </template>
           </el-dropdown>
+          <el-button v-if="row.approval_status === 0 || !row.approval_status" link type="warning" size="small" @click="handleSubmitApproval(row)">提交审批</el-button>
+          <el-button v-if="row.approval_status === 1" link type="info" size="small" @click="handleWithdrawApproval(row)">撤回</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -275,6 +282,8 @@ const formatMoney = (val) => val ? Number(val).toLocaleString('zh-CN', { minimum
 
 const getTypeTagType = (type) => ({ '常规': '', '紧急': 'danger', '样品': 'warning', '返修': 'info' }[type] || '');
 const getStatusType = (status) => ({ '草稿': 'info', '待审核': 'warning', '已确认': '', '部分收货': 'warning', '已完成': 'success', '已取消': 'danger' }[status] || '');
+const approvalMap = { 0: '草稿', 1: '待审批', 2: '已通过', 3: '已拒绝' };
+const approvalTagType = (s) => ({ 0: 'info', 1: 'warning', 2: 'success', 3: 'danger' }[s] || 'info');
 
 const calcItemAmount = (item) => {
   const amount = (item.quantity || 0) * (item.unit_price || 0);
@@ -341,6 +350,30 @@ const handleStatusChange = async (command, row) => {
 const handleView = (id) => { router.push(`/purchase/detail/${id}`); };
 const handleSearch = () => { page.value = 1; fetchList(); };
 const resetSearch = () => { Object.assign(searchForm, { keyword: '', status: '', type: '' }); handleSearch(); };
+
+// 提交审批
+const handleSubmitApproval = (row) => {
+  ElMessageBox.confirm(`确定提交采购单"${row.order_no}"进行审批？`, '提交审批', {
+    confirmButtonText: '确定提交', cancelButtonText: '取消', type: 'info'
+  }).then(async () => {
+    try {
+      const res = await request.post('/approval/submit', { business_type: 'purchase', business_id: row.id })
+      if (res.code === 200) { ElMessage.success('已提交审批'); fetchList() }
+    } catch (error) { console.error('提交审批失败:', error) }
+  }).catch(() => {})
+}
+
+// 撤回审批
+const handleWithdrawApproval = (row) => {
+  ElMessageBox.confirm(`确定撤回采购单"${row.order_no}"的审批？`, '撤回审批', {
+    confirmButtonText: '确定撤回', cancelButtonText: '取消', type: 'warning'
+  }).then(async () => {
+    try {
+      const res = await request.delete(`/approval/withdraw/purchase/${row.id}`)
+      if (res.code === 200) { ElMessage.success('审批已撤回'); fetchList() }
+    } catch (error) { console.error('撤回审批失败:', error) }
+  }).catch(() => {})
+}
 
 onMounted(() => { fetchList(); fetchStats(); fetchSupplierOptions(); });
 </script>

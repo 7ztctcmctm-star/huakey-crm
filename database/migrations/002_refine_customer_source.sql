@@ -10,8 +10,19 @@
 USE huakey_crm;
 
 -- Step 1: 删除旧约束
-ALTER TABLE crm_customer
-  DROP CONSTRAINT IF EXISTS chk_customer_source;
+SET @constraint_exists = (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE CONSTRAINT_SCHEMA = 'huakey_crm'
+    AND TABLE_NAME = 'crm_customer'
+    AND CONSTRAINT_NAME = 'chk_customer_source'
+    AND CONSTRAINT_TYPE = 'CHECK'
+);
+SET @sql = IF(@constraint_exists > 0,
+  'ALTER TABLE crm_customer DROP CHECK CONSTRAINT chk_customer_source',
+  'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- Step 2: 迁移历史数据
 -- "网络" → "其他网络渠道"（无法确定具体渠道的归入此项）

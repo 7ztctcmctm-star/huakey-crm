@@ -629,6 +629,148 @@ router.get('/detail/:id', authenticateToken, checkDataPermission('customer', 'ow
   }
 });
 
+// 5.5 客户360度视图
+router.get('/:id/360', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 客户基本信息
+    const [[customer]] = await pool.query(`
+      SELECT c.*, u.real_name as owner_name
+      FROM crm_customer c
+      LEFT JOIN sys_user u ON c.owner_id = u.id
+      WHERE c.id = ? AND c.deleted_at IS NULL
+    `, [id]);
+
+    if (!customer) {
+      return res.status(404).json({ code: 404, message: '客户不存在', data: null });
+    }
+
+    // 并行查询所有关联数据
+    const [
+      [contacts],
+      [tags],
+      [followRecords],
+      [opportunities],
+      [quotes],
+      [contracts],
+      [payments],
+      [serviceOrders],
+      [scoreLogs]
+    ] = await Promise.all([
+      // 联系人
+      pool.query(
+        'SELECT id, name, position, phone, email, wechat, is_decision FROM crm_contact WHERE customer_id = ? AND deleted_at IS NULL ORDER BY is_decision DESC, id',
+        [id]
+      ),
+      // 标签
+      pool.query(`
+        SELECT t.id, t.name, t.color FROM crm_tag t
+        JOIN crm_customer_tag ct ON t.id = ct.tag_id
+        WHERE ct.customer_id = ? ORDER BY t.sort
+      `, [id]),
+      // 跟进记录
+      pool.query(`
+        SELECT f.id, f.follow_type, f.content, f.next_time, f.next_content, f.create_time,
+               u.real_name as creator_name, c.name as contact_name
+        FROM crm_follow_up f
+        LEFT JOIN sys_user u ON f.create_by = u.id
+        LEFT JOIN crm_contact c ON f.contact_id = c.id
+        WHERE f.customer_id = ? AND f.deleted_at IS NULL
+        ORDER BY f.create_time DESC LIMIT 100
+      `, [id]),
+      // 商机
+      pool.query(`
+        SELECT o.id, o.name, o.expected_amount, o.expected_date, o.stage, o.win_rate, o.create_time,
+               u.real_name as owner_name
+        FROM crm_opportunity o
+        LEFT JOIN sys_user u ON o.owner_id = u.id
+        WHERE o.customer_id = ? AND o.deleted_at IS NULL
+        ORDER BY o.create_time DESC
+      `, [id]),
+      // 报价
+      pool.query(`
+        SELECT q.id, q.quote_no, q.amount, q.final_amount, q.status, q.create_time,
+               u.real_name as create_by_name
+        FROM crm_quote q
+        LEFT JOIN sys_user u ON q.create_by = u.id
+        WHERE q.customer_id = ? AND q.deleted_at IS NULL
+        ORDER BY q.create_time DESC
+      `, [id]),
+      // 合同
+      pool.query(`
+        SELECT ct.id, ct.contract_no, ct.amount, ct.sign_date, ct.status, ct.create_time,
+               u.real_name as create_by_name,
+               (SELECT COALESCE(SUM(p.pay_amount), 0) FROM crm_payment p WHERE p.contract_id = ct.id AND p.deleted_at IS NULL) as paid_amount
+        FROM crm_contract ct
+        LEFT JOIN sys_user u ON ct.create_by = u.id
+        WHERE ct.customer_id = ? AND ct.deleted_at IS NULL
+        ORDER BY ct.create_time DESC
+      `, [id]),
+      // 回款
+      pool.query(`
+        SELECT p.id, p.pay_date, p.pay_amount, p.pay_method, p.remark, p.create_time,
+               ct.contract_no
+        FROM crm_payment p
+        JOIN crm_contract ct ON p.contract_id = ct.id
+        WHERE ct.customer_id = ? AND p.deleted_at IS NULL
+        ORDER BY p.pay_date DESC
+      `, [id]),
+      // 服务工单
+      pool.query(`
+        SELECT s.id, s.order_no, s.title, s.type, s.priority, s.status, s.create_time,
+               u.real_name as assignee_name
+        FROM crm_service_order s
+        LEFT JOIN sys_user u ON s.assignee_id = u.id
+        WHERE s.customer_id = ? AND s.deleted_at IS NULL
+        ORDER BY s.create_time DESC
+      `, [id]),
+      // 评分记录
+      pool.query(`
+        SELECT l.score, l.total_score, l.remark, l.create_time, r.name as rule_name
+        FROM crm_customer_score_log l
+        LEFT JOIN crm_score_rule r ON l.rule_id = r.id
+        WHERE l.customer_id = ?
+        ORDER BY l.create_time DESC LIMIT 20
+      `, [id])
+    ]);
+
+    // 计算统计
+    const stats = {
+      follow_count: followRecords.length,
+      opportunity_count: opportunities.length,
+      opportunity_amount: opportunities.reduce((sum, o) => sum + parseFloat(o.expected_amount || 0), 0),
+      quote_count: quotes.length,
+      quote_amount: quotes.reduce((sum, q) => sum + parseFloat(q.final_amount || q.amount || 0), 0),
+      contract_count: contracts.length,
+      contract_amount: contracts.reduce((sum, c) => sum + parseFloat(c.amount || 0), 0),
+      paid_amount: payments.reduce((sum, p) => sum + parseFloat(p.pay_amount || 0), 0),
+      service_count: serviceOrders.length
+    };
+
+    res.json({
+      code: 200,
+      message: '查询成功',
+      data: {
+        customer,
+        contacts,
+        tags,
+        scoreLogs,
+        stats,
+        followRecords,
+        opportunities,
+        quotes,
+        contracts,
+        payments,
+        serviceOrders
+      }
+    });
+  } catch (error) {
+    console.error('获取客户360视图错误:', error);
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+  }
+});
+
 const XLSX = require('xlsx');
 
 // 6. 导出客户列表

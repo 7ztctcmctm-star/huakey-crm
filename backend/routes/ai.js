@@ -77,7 +77,7 @@ router.post('/query', authenticateToken, async (req, res) => {
     const { question } = req.body;
     if (!question) return res.status(400).json({ code: 400, message: '请输入问题', data: null });
 
-    // Step 1: AI 生成 SQL
+    // 第一步：AI 生成 SQL
     const sqlSystemPrompt = `你是一个严格的SQL生成器。规则：1.只输出一条SQL 2.不要markdown/解释/换行 3.尽量简单，不要JOIN除非用户明确提到多张表 4.用COUNT(*)统计数量 5.表结构:\n${DB_SCHEMA}\n\n示例问"客户总数"→输出:SELECT COUNT(*) FROM crm_customer WHERE status != 0`;
     const sqlPrompt = [
       { role: 'user', content: '写SQL查询: ' + question }
@@ -112,12 +112,18 @@ router.post('/query', authenticateToken, async (req, res) => {
     }
 
     // 禁止危险操作和信息泄露
-    const blocked = /\b(UNION|INTO\s+(OUTFILE|DUMPFILE)|LOAD\s+DATA|INFORMATION_SCHEMA|SLEEP|BENCHMARK|WAITFOR\s+DELAY)\b/i;
+    const blocked = /\b(UNION|INTO\s+(OUTFILE|DUMPFILE)|LOAD\s+DATA|INFORMATION_SCHEMA|SLEEP|BENCHMARK|WAITFOR\s+DELAY|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE)\b/i;
     if (blocked.test(sql)) {
       return res.json({ code: 200, data: { sql: '', answer: '此操作不被允许（仅支持查询）。', rows: [] } });
     }
 
-    // Step 2: 执行 SQL（使用只读连接池）
+    // 禁止查询系统敏感表
+    const sensitiveTables = /\b(sys_user|sys_role|sys_permission|sys_config|sys_backup_record)\b/i;
+    if (sensitiveTables.test(sql)) {
+      return res.json({ code: 200, data: { sql: '', answer: '不允许查询系统表。', rows: [] } });
+    }
+
+    // 第二步：执行 SQL（使用只读连接池）
     let rows;
     try {
       [rows] = await readOnlyPool.query(sql + ' LIMIT 50');
@@ -130,7 +136,7 @@ router.post('/query', authenticateToken, async (req, res) => {
       return res.json({ code: 200, data: { sql, answer: '查询结果为空。', rows: [] } });
     }
 
-    // Step 3: AI 格式化结果
+    // 第三步：AI 格式化结果
     const resultStr = JSON.stringify(rows.slice(0, 20));
     const fmtPrompt = [
       { role: 'user', content: `问题: ${question}\nSQL: ${sql}\n结果(${rows.length}条): ${resultStr}` }

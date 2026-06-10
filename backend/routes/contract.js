@@ -125,57 +125,56 @@ router.post('/list', authenticateToken, validate(listSchema), async (req, res) =
   const { page = 1, pageSize = 10, keyword = '', status = '', customer_id = '', approval_status = '', payment_status = '' } = req.body;
   const offset = (page - 1) * pageSize;
 
-  const permission = await getDataPermission(req.user);
-  const { clause: permissionClause, params: permParams } = buildPermissionClause(permission, 'c', 'create_by');
-
-  // 回款状态子查询条件
-  const PAYMENT_STATUS_CLAUSE = {
-    overdue: `EXISTS (SELECT 1 FROM crm_payment_plan pp WHERE pp.contract_id = c.id AND pp.status = 'overdue')`,
-    partial: `EXISTS (SELECT 1 FROM crm_payment p WHERE p.contract_id = c.id AND p.deleted_at IS NULL) AND EXISTS (SELECT 1 FROM crm_payment_plan pp WHERE pp.contract_id = c.id AND pp.status != 'completed')`,
-    completed: `EXISTS (SELECT 1 FROM crm_payment_plan pp WHERE pp.contract_id = c.id) AND NOT EXISTS (SELECT 1 FROM crm_payment_plan pp WHERE pp.contract_id = c.id AND pp.status != 'completed')`,
-    pending: `NOT EXISTS (SELECT 1 FROM crm_payment p WHERE p.contract_id = c.id AND p.deleted_at IS NULL)`
-  };
-
-  let sql = `SELECT c.*, cu.company_name as customer_name, u.real_name as create_by_name,
-    (SELECT COALESCE(SUM(p.pay_amount), 0) FROM crm_payment p WHERE p.contract_id = c.id AND p.deleted_at IS NULL) as paid_amount,
-    (SELECT COALESCE(SUM(pp.plan_amount), 0) FROM crm_payment_plan pp WHERE pp.contract_id = c.id) as plan_total
-    FROM crm_contract c
-    LEFT JOIN crm_customer cu ON c.customer_id = cu.id
-    LEFT JOIN sys_user u ON c.create_by = u.id
-    WHERE c.deleted_at IS NULL AND ${permissionClause}`;
-
-  const params = [...permParams];
-  
-  if (keyword) {
-    sql += ' AND (c.contract_no LIKE ? OR cu.company_name LIKE ?)';
-    params.push(`%${keyword}%`, `%${keyword}%`);
-  }
-  if (status) {
-    sql += ' AND c.status = ?';
-    params.push(status);
-  }
-  if (customer_id) {
-    sql += ' AND c.customer_id = ?';
-    params.push(customer_id);
-  }
-  if (approval_status) {
-    sql += ' AND c.approval_status = ?';
-    params.push(approval_status);
-  }
-  if (payment_status && PAYMENT_STATUS_CLAUSE[payment_status]) {
-    sql += ` AND ${PAYMENT_STATUS_CLAUSE[payment_status]}`;
-  }
-
-  sql += ' ORDER BY c.create_time DESC LIMIT ?, ?';
-  params.push(offset, pageSize);
-  
   try {
+    const permission = await getDataPermission(req.user);
+    const { clause: permissionClause, params: permParams } = buildPermissionClause(permission, 'c', 'create_by');
+
+    // 回款状态子查询条件
+    const PAYMENT_STATUS_CLAUSE = {
+      overdue: `EXISTS (SELECT 1 FROM crm_payment_plan pp WHERE pp.contract_id = c.id AND pp.status = 'overdue')`,
+      partial: `EXISTS (SELECT 1 FROM crm_payment p WHERE p.contract_id = c.id AND p.deleted_at IS NULL) AND EXISTS (SELECT 1 FROM crm_payment_plan pp WHERE pp.contract_id = c.id AND pp.status != 'completed')`,
+      completed: `EXISTS (SELECT 1 FROM crm_payment_plan pp WHERE pp.contract_id = c.id) AND NOT EXISTS (SELECT 1 FROM crm_payment_plan pp WHERE pp.contract_id = c.id AND pp.status != 'completed')`,
+      pending: `NOT EXISTS (SELECT 1 FROM crm_payment p WHERE p.contract_id = c.id AND p.deleted_at IS NULL)`
+    };
+
+    let sql = `SELECT c.*, cu.company_name as customer_name, u.real_name as create_by_name,
+      (SELECT COALESCE(SUM(p.pay_amount), 0) FROM crm_payment p WHERE p.contract_id = c.id AND p.deleted_at IS NULL) as paid_amount,
+      (SELECT COALESCE(SUM(pp.plan_amount), 0) FROM crm_payment_plan pp WHERE pp.contract_id = c.id) as plan_total
+      FROM crm_contract c
+      LEFT JOIN crm_customer cu ON c.customer_id = cu.id
+      LEFT JOIN sys_user u ON c.create_by = u.id
+      WHERE c.deleted_at IS NULL AND ${permissionClause}`;
+
+    const params = [...permParams];
+
+    if (keyword) {
+      sql += ' AND (c.contract_no LIKE ? OR cu.company_name LIKE ?)';
+      params.push(`%${keyword}%`, `%${keyword}%`);
+    }
+    if (status) {
+      sql += ' AND c.status = ?';
+      params.push(status);
+    }
+    if (customer_id) {
+      sql += ' AND c.customer_id = ?';
+      params.push(customer_id);
+    }
+    if (approval_status) {
+      sql += ' AND c.approval_status = ?';
+      params.push(approval_status);
+    }
+    if (payment_status && PAYMENT_STATUS_CLAUSE[payment_status]) {
+      sql += ` AND ${PAYMENT_STATUS_CLAUSE[payment_status]}`;
+    }
+
+    sql += ' ORDER BY c.create_time DESC LIMIT ?, ?';
+    params.push(offset, pageSize);
     const [rows] = await pool.query(sql, params);
     
     let countSql = `SELECT COUNT(*) as total FROM crm_contract c
       LEFT JOIN crm_customer cu ON c.customer_id = cu.id
       WHERE c.deleted_at IS NULL AND ${permissionClause}`;
-    const countParams = [];
+    const countParams = [...permParams];
     
     if (keyword) {
       countSql += ' AND (c.contract_no LIKE ? OR cu.company_name LIKE ?)';
@@ -293,7 +292,7 @@ router.post('/add', authenticateToken, checkPermission('contract:add'), validate
     const contractId = result.insertId;
     
     if (plans && plans.length > 0) {
-      const placeholders = plans.map((_, i) => `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`).join(', ');
+      const placeholders = plans.map(() => '(?, ?, ?, ?)').join(', ');
       const flatValues = plans.flatMap(p => [contractId, p.plan_date, p.plan_amount, p.remark || null]);
       await connection.query(`INSERT INTO crm_payment_plan (contract_id, plan_date, plan_amount, remark) VALUES ${placeholders}`, flatValues);
     }
@@ -358,7 +357,7 @@ router.post('/update', authenticateToken, checkPermission('contract:edit'), vali
     );
 
     if (delete_plan_ids && delete_plan_ids.length > 0) {
-      const phs = delete_plan_ids.map((_, i) => '$' + (i + 1)).join(', ');
+      const phs = delete_plan_ids.map(() => '?').join(', ');
       await connection.query(`DELETE FROM crm_payment_plan WHERE id IN (${phs})`, delete_plan_ids);
     }
 
@@ -424,6 +423,7 @@ router.post('/delete', authenticateToken, checkPermission('contract:delete'), va
 
     await pool.query('UPDATE crm_contract SET deleted_at = NOW() WHERE id=?', [id]);
     await pool.query('UPDATE crm_payment SET deleted_at = NOW() WHERE contract_id=? AND deleted_at IS NULL', [id]);
+    await pool.query('UPDATE crm_payment_plan SET deleted_at = NOW() WHERE contract_id=? AND deleted_at IS NULL', [id]);
     await logAction(req, 'delete', `删除合同: ID=${id}`);
     res.json({ code: 200, message: '删除合同成功', data: null });
   } catch (error) {
@@ -1071,17 +1071,22 @@ router.post('/payment/import', authenticateToken, checkPermission('contract'), i
 
 // 回款导入模板下载
 router.get('/payment/import-template', authenticateToken, async (req, res) => {
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet([
-    ['合同编号', '回款日期', '回款金额', '回款方式', '备注'],
-    ['CON-260101-001', '2026-01-15', 50000, '银行转账', '第一期回款']
-  ]);
-  ws['!cols'] = [{ wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 20 }];
-  XLSX.utils.book_append_sheet(wb, ws, '回款导入模板');
-  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', 'attachment; filename=payment_import_template.xlsx');
-  res.send(buf);
+  try {
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['合同编号', '回款日期', '回款金额', '回款方式', '备注'],
+      ['CON-260101-001', '2026-01-15', 50000, '银行转账', '第一期回款']
+    ]);
+    ws['!cols'] = [{ wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 20 }];
+    XLSX.utils.book_append_sheet(wb, ws, '回款导入模板');
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=payment_import_template.xlsx');
+    res.send(buf);
+  } catch (error) {
+    console.error('[合同] 导出模板失败:', error);
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+  }
 });
 
 module.exports = router;

@@ -92,8 +92,10 @@
             <el-button v-if="row.status === 1 || row.status === 2" type="success" link :icon="Promotion" @click="handleSend(row)" v-permission="'quotation:edit'">发送</el-button>
             <el-button v-if="row.status === 1 || row.status === 2" type="danger" link :icon="Delete" @click="handleDelete(row)" v-permission="'quotation:delete'">删除</el-button>
             <el-button v-if="row.status === 3" type="warning" link @click="handleConvertToContract(row)" v-permission="'contract:add'">转合同</el-button>
+            <el-button v-if="row.approval_status === 0 && row.status === 1" type="warning" link @click="handleSubmitApproval(row)">提交审批</el-button>
             <el-button v-if="row.approval_status === 1 && isAdmin" type="success" link @click="handleApprove(row)">通过</el-button>
             <el-button v-if="row.approval_status === 1 && isAdmin" type="danger" link @click="handleReject(row)">拒绝</el-button>
+            <el-button v-if="row.approval_status === 1" type="info" link @click="handleWithdrawApproval(row)">撤回</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -194,7 +196,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus, View, Edit, Promotion, Delete } from '@element-plus/icons-vue'
-import { post, get } from '@/utils/request'
+import request from '@/utils/request'
 import { formatTime, formatAmount } from '@/composables/useFormat'
 
 const router = useRouter()
@@ -261,7 +263,7 @@ const fetchList = async () => {
     if (searchForm.status !== '' && searchForm.status !== null) params.status = searchForm.status
     if (searchForm.approval_status !== '' && searchForm.approval_status !== null) params.approval_status = searchForm.approval_status
 
-    const res = await post('/quote/list', params)
+    const res = await request.post('/quote/list', params)
     if (res.code === 200) {
       tableData.value = res.data.list
       total.value = res.data.total
@@ -297,7 +299,7 @@ const handleEdit = (row) => {
 
 const handleView = async (row) => {
   try {
-    const res = await get(`/quote/detail/${row.id}`)
+    const res = await request.get(`/quote/detail/${row.id}`)
     if (res.code === 200) {
       detailData.value = res.data
       detailVisible.value = true
@@ -314,7 +316,7 @@ const handleSend = (row) => {
     { confirmButtonText: '确定发送', cancelButtonText: '取消', type: 'warning' }
   ).then(async () => {
     try {
-      const res = await post('/quote/update', { id: row.id, status: 2 })
+      const res = await request.post('/quote/update', { id: row.id, status: 2 })
       if (res.code === 200) {
         ElMessage.success('已发送')
         fetchList()
@@ -336,7 +338,7 @@ const handleDelete = (row) => {
     }
   ).then(async () => {
     try {
-      const res = await post('/quote/delete', { id: row.id })
+      const res = await request.post('/quote/delete', { id: row.id })
       if (res.code === 200) {
         ElMessage.success('删除成功')
         fetchList()
@@ -358,7 +360,7 @@ const handleConvertToContract = (row) => {
     }
   ).then(async () => {
     try {
-      const res = await post('/quote/to-contract', { id: row.id })
+      const res = await request.post('/quote/to-contract', { id: row.id })
       if (res.code === 200) {
         ElMessage.success(res.message)
         // [修复] 路由中无 /contract/edit/:id，改为已存在的合同详情页
@@ -383,7 +385,7 @@ const handleApprove = (row) => {
     type: 'success'
   }).then(async () => {
     try {
-      const res = await post('/quote/approve', { id: row.id, approval_status: 2 })
+      const res = await request.post('/quote/approve', { id: row.id, approval_status: 2 })
       if (res.code === 200) {
         ElMessage.success('审批通过')
         fetchList()
@@ -403,13 +405,51 @@ const handleReject = (row) => {
     inputValidator: (v) => { if (!v || !v.trim()) return '拒绝原因不能为空'; return true }
   }).then(async ({ value }) => {
     try {
-      const res = await post('/quote/approve', { id: row.id, approval_status: 3, approval_remark: value.trim() })
+      const res = await request.post('/quote/approve', { id: row.id, approval_status: 3, approval_remark: value.trim() })
       if (res.code === 200) {
         ElMessage.success('已拒绝')
         fetchList()
       }
     } catch (error) {
       console.error('拒绝失败:', error)
+    }
+  }).catch(() => {})
+}
+
+// 提交审批
+const handleSubmitApproval = (row) => {
+  ElMessageBox.confirm(`确定提交报价单"${row.quote_no}"进行审批？`, '提交审批', {
+    confirmButtonText: '确定提交',
+    cancelButtonText: '取消',
+    type: 'info'
+  }).then(async () => {
+    try {
+      const res = await request.post('/approval/submit', { business_type: 'quote', business_id: row.id })
+      if (res.code === 200) {
+        ElMessage.success('已提交审批')
+        fetchList()
+      }
+    } catch (error) {
+      console.error('提交审批失败:', error)
+    }
+  }).catch(() => {})
+}
+
+// 撤回审批
+const handleWithdrawApproval = (row) => {
+  ElMessageBox.confirm(`确定撤回报价单"${row.quote_no}"的审批？`, '撤回审批', {
+    confirmButtonText: '确定撤回',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(async () => {
+    try {
+      const res = await request.delete(`/approval/withdraw/quote/${row.id}`)
+      if (res.code === 200) {
+        ElMessage.success('审批已撤回')
+        fetchList()
+      }
+    } catch (error) {
+      console.error('撤回审批失败:', error)
     }
   }).catch(() => {})
 }

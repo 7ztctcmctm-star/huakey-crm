@@ -60,28 +60,27 @@ router.post('/list', authenticateToken, validate(listSchema), async (req, res) =
   const { page = 1, pageSize = 10, keyword = '', status = '', type = '', supplier_id } = req.body;
   const offset = (page - 1) * pageSize;
 
-  const permission = await getDataPermission(req.user);
-  const { clause: permissionClause, params: permParams } = buildPermissionClause(permission, 'po', 'owner_id');
-
-  let sql = `SELECT po.*, s.name as supplier_name, u.real_name as owner_name
-    FROM crm_purchase_order po
-    LEFT JOIN crm_supplier s ON po.supplier_id = s.id
-    LEFT JOIN sys_user u ON po.owner_id = u.id
-    WHERE ${permissionClause}`;
-  const params = [...permParams];
-
-  if (keyword) {
-    sql += ' AND (po.order_no LIKE ? OR po.title LIKE ? OR s.name LIKE ?)';
-    params.push(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`);
-  }
-  if (status) { sql += ' AND po.status = ?'; params.push(status); }
-  if (type) { sql += ' AND po.type = ?'; params.push(type); }
-  if (supplier_id) { sql += ' AND po.supplier_id = ?'; params.push(supplier_id); }
-
-  sql += ' ORDER BY po.create_time DESC LIMIT ?, ?';
-  params.push(offset, pageSize);
-
   try {
+    const permission = await getDataPermission(req.user);
+    const { clause: permissionClause, params: permParams } = buildPermissionClause(permission, 'po', 'owner_id');
+
+    let sql = `SELECT po.*, s.name as supplier_name, u.real_name as owner_name
+      FROM crm_purchase_order po
+      LEFT JOIN crm_supplier s ON po.supplier_id = s.id
+      LEFT JOIN sys_user u ON po.owner_id = u.id
+      WHERE ${permissionClause}`;
+    const params = [...permParams];
+
+    if (keyword) {
+      sql += ' AND (po.order_no LIKE ? OR po.title LIKE ? OR s.name LIKE ?)';
+      params.push(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`);
+    }
+    if (status) { sql += ' AND po.status = ?'; params.push(status); }
+    if (type) { sql += ' AND po.type = ?'; params.push(type); }
+    if (supplier_id) { sql += ' AND po.supplier_id = ?'; params.push(supplier_id); }
+
+    sql += ' ORDER BY po.create_time DESC LIMIT ?, ?';
+    params.push(offset, pageSize);
     const [rows] = await pool.query(sql, params);
 
     let countSql = `SELECT COUNT(*) as total FROM crm_purchase_order po LEFT JOIN crm_supplier s ON po.supplier_id = s.id WHERE ${permissionClause}`;
@@ -260,11 +259,15 @@ router.post('/receipt/add', authenticateToken, checkPermission('purchase:add'), 
 
     const [[item]] = await connection.query('SELECT received_qty, quantity FROM crm_purchase_item WHERE id = ?', [req.body.item_id]);
     if (item && item.received_qty >= item.quantity) {
+      // 检查该采购单下所有项是否都已收货完成
+      const [[orderCheck]] = await connection.query(
+        'SELECT SUM(received_qty >= quantity) as done_count, COUNT(*) as total_count FROM crm_purchase_item WHERE order_id = ?',
+        [req.body.order_id]
+      );
+      const newStatus = (orderCheck.done_count >= orderCheck.total_count) ? '已完成' : '部分收货';
       await connection.query(
-        `UPDATE crm_purchase_order SET actual_date = CURRENT_DATE, status = CASE
-         WHEN (SELECT SUM(i.received_qty >= i.quantity) = COUNT(*)) FROM crm_purchase_item i WHERE i.order_id = ? THEN '已完成'
-         ELSE '部分收货' END WHERE id = ?`,
-        [req.body.order_id, req.body.order_id]
+        'UPDATE crm_purchase_order SET actual_date = CURRENT_DATE, status = ? WHERE id = ?',
+        [newStatus, req.body.order_id]
       );
     } else {
       await connection.query("UPDATE crm_purchase_order SET status = '部分收货' WHERE id = ?", [req.body.order_id]);

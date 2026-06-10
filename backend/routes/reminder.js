@@ -13,54 +13,27 @@ router.get('/my-reminders', authenticateToken, async (req, res) => {
     const overdueDays = await getOverdueDays();
     const preWarningDays = Math.max(overdueDays - 3, 3);
 
-    // 逾期提醒
-    const [list] = await pool.query(
+    // 查询1：合并逾期+今日+明日提醒
+    const [allReminders] = await pool.query(
       `SELECT r.id, r.customer_id, r.reminder_type, r.reminder_date, r.is_read,
-              c.company_name, c.contact_name, c.phone, c.last_follow_time,
-              DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days
-       FROM crm_follow_up_reminder r
-       JOIN crm_customer c ON r.customer_id = c.id AND c.status != 0
-       WHERE r.owner_id = ? AND r.reminder_type = 'overdue' AND r.is_dismissed = 0
-       ORDER BY r.create_time DESC
-       LIMIT 20`,
-      [userId]
-    );
-
-    // 今日待跟进提醒
-    const [todayList] = await pool.query(
-      `SELECT r.id, r.customer_id, r.reminder_type, r.reminder_date, r.is_read,
-              r.follow_plan_id, c.company_name, c.contact_name, c.phone,
+              r.follow_plan_id, c.company_name, c.contact_name, c.phone, c.last_follow_time,
+              DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days,
               fp.plan_content, fp.plan_time
        FROM crm_follow_up_reminder r
        JOIN crm_customer c ON r.customer_id = c.id AND c.status != 0
        LEFT JOIN crm_follow_plan fp ON r.follow_plan_id = fp.id
-       WHERE r.owner_id = ? AND r.reminder_type = 'today' AND r.is_dismissed = 0
-       ORDER BY fp.plan_time ASC
-       LIMIT 20`,
+       WHERE r.owner_id = ? AND r.is_dismissed = 0
+         AND r.reminder_type IN ('overdue', 'today', 'upcoming')
+       ORDER BY r.reminder_type, r.create_time DESC`,
       [userId]
     );
 
-    // 明日待跟进提醒
-    const [upcomingList] = await pool.query(
-      `SELECT r.id, r.customer_id, r.reminder_type, r.reminder_date, r.is_read,
-              r.follow_plan_id, c.company_name, c.contact_name, c.phone,
-              fp.plan_content, fp.plan_time
-       FROM crm_follow_up_reminder r
-       JOIN crm_customer c ON r.customer_id = c.id AND c.status != 0
-       LEFT JOIN crm_follow_plan fp ON r.follow_plan_id = fp.id
-       WHERE r.owner_id = ? AND r.reminder_type = 'upcoming' AND r.is_dismissed = 0
-       ORDER BY fp.plan_time ASC
-       LIMIT 20`,
-      [userId]
-    );
+    const list = allReminders.filter(r => r.reminder_type === 'overdue').slice(0, 20);
+    const todayList = allReminders.filter(r => r.reminder_type === 'today').slice(0, 20);
+    const upcomingList = allReminders.filter(r => r.reminder_type === 'upcoming').slice(0, 20);
+    const unread_count = allReminders.filter(r => r.is_read === 0).length;
 
-    const [unreadCount] = await pool.query(
-      `SELECT COUNT(*) as count FROM crm_follow_up_reminder
-       WHERE owner_id = ? AND is_read = 0 AND is_dismissed = 0`,
-      [userId]
-    );
-
-    // 接近逾期预警：最后跟进天数在 [preWarningDays, overdueDays) 之间
+    // 接近逾期预警
     const [preWarningList] = await pool.query(
       `SELECT c.id as customer_id, c.company_name, c.contact_name, c.phone, c.last_follow_time,
               DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days
@@ -76,61 +49,29 @@ router.get('/my-reminders', authenticateToken, async (req, res) => {
       [userId, preWarningDays, overdueDays, userId]
     );
 
-    // 待审批通知（按角色匹配）
-    const [pendingApprovals] = await pool.query(
+    // 查询2：合并所有通知 + 未读数（按角色 + 按用户）
+    const [allNotifications] = await pool.query(
       `SELECT n.id, n.type, n.title, n.content, n.business_type, n.business_id,
-              n.from_user_id, n.is_read, n.create_time,
-              u.real_name as from_user_name
+              n.from_user_id, n.to_role_id, n.to_user_id, n.is_read, n.create_time,
+              u.real_name as from_user_name,
+              SUM(CASE WHEN n.is_read = 0 AND n.to_role_id = ? THEN 1 ELSE 0 END) OVER () as approval_unread,
+              SUM(CASE WHEN n.is_read = 0 AND n.to_user_id = ? AND n.type != 'service_assigned' THEN 1 ELSE 0 END) OVER () as urge_unread,
+              SUM(CASE WHEN n.is_read = 0 AND n.to_user_id = ? AND n.type = 'service_assigned' THEN 1 ELSE 0 END) OVER () as service_unread
        FROM crm_notification n
        LEFT JOIN sys_user u ON n.from_user_id = u.id
-       WHERE n.to_role_id = ? AND n.is_dismissed = 0
+       WHERE n.is_dismissed = 0
+         AND (n.to_role_id = ? OR n.to_user_id = ?)
        ORDER BY n.create_time DESC
-       LIMIT 20`,
-      [req.user.roleId]
+       LIMIT 60`,
+      [req.user.roleId, userId, userId, req.user.roleId, userId]
     );
 
-    const [approvalUnread] = await pool.query(
-      `SELECT COUNT(*) as count FROM crm_notification
-       WHERE to_role_id = ? AND is_read = 0 AND is_dismissed = 0`,
-      [req.user.roleId]
-    );
-
-    // 催办通知（按用户ID匹配，主管发给个人的催办）
-    const [urgeNotifications] = await pool.query(
-      `SELECT n.id, n.type, n.title, n.content, n.business_type, n.business_id,
-              n.from_user_id, n.is_read, n.create_time,
-              u.real_name as from_user_name
-       FROM crm_notification n
-       LEFT JOIN sys_user u ON n.from_user_id = u.id
-       WHERE n.to_user_id = ? AND n.is_dismissed = 0
-       ORDER BY n.create_time DESC
-       LIMIT 20`,
-      [userId]
-    );
-
-    const [urgeUnread] = await pool.query(
-      `SELECT COUNT(*) as count FROM crm_notification
-       WHERE to_user_id = ? AND is_read = 0 AND is_dismissed = 0`,
-      [userId]
-    );
-
-    // 新工单通知（分配给当前用户的工单）
-    const [newServiceNotifications] = await pool.query(
-      `SELECT n.id, n.content, n.business_id, n.from_user_id, n.is_read, n.create_time,
-              u.real_name as from_user_name
-       FROM crm_notification n
-       LEFT JOIN sys_user u ON n.from_user_id = u.id
-       WHERE n.type = 'service_assigned' AND n.to_user_id = ? AND n.is_dismissed = 0
-       ORDER BY n.create_time DESC
-       LIMIT 20`,
-      [userId]
-    );
-
-    const [newServiceUnread] = await pool.query(
-      `SELECT COUNT(*) as count FROM crm_notification
-       WHERE type = 'service_assigned' AND to_user_id = ? AND is_read = 0 AND is_dismissed = 0`,
-      [userId]
-    );
+    const pendingApprovals = allNotifications.filter(n => n.to_role_id === req.user.roleId).slice(0, 20);
+    const urgeNotifications = allNotifications.filter(n => n.to_user_id === userId && n.type !== 'service_assigned').slice(0, 20);
+    const newServiceNotifications = allNotifications.filter(n => n.type === 'service_assigned' && n.to_user_id === userId).slice(0, 20);
+    const approval_unread_count = allNotifications.length > 0 ? parseInt(allNotifications[0].approval_unread || 0) : 0;
+    const urge_unread_count = allNotifications.length > 0 ? parseInt(allNotifications[0].urge_unread || 0) : 0;
+    const service_unread_count = allNotifications.length > 0 ? parseInt(allNotifications[0].service_unread || 0) : 0;
 
     // 超时工单：紧急(priority=1)创建超2小时未处理，高(priority=2)超4小时未处理
     const isBoss = req.user.viewAll || req.user.roleId === 1 || req.user.roleId === 2;
@@ -165,16 +106,16 @@ router.get('/my-reminders', authenticateToken, async (req, res) => {
         today_count: todayList.length,
         upcoming_list: upcomingList,
         upcoming_count: upcomingList.length,
-        unread_count: unreadCount[0].count,
+        unread_count,
         pre_warning_list: preWarningList,
         pre_warning_count: preWarningList.length,
         overdue_days: overdueDays,
         pending_approvals: pendingApprovals,
-        approval_unread_count: approvalUnread[0].count,
+        approval_unread_count: approval_unread_count,
         urge_notifications: urgeNotifications,
-        urge_unread_count: urgeUnread[0].count,
+        urge_unread_count: urge_unread_count,
         new_services: newServiceNotifications,
-        new_service_count: newServiceUnread[0].count,
+        new_service_count: service_unread_count,
         overdue_services: overdueServices,
         overdue_service_count: overdueServices.length
       }

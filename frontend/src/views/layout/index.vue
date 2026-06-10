@@ -34,6 +34,7 @@
           <el-menu-item index="/customer/list?tab=customer" v-if="hasMenuPermission('customer:list')">正式客户</el-menu-item>
           <el-menu-item index="/customer/pool" v-if="hasMenuPermission('customer:pool')">公海池</el-menu-item>
           <el-menu-item index="/followup/calendar" v-if="hasMenuPermission('followup:calendar')">跟进日历</el-menu-item>
+          <el-menu-item index="/followup/template" v-if="hasMenuPermission('customer:list')">跟进模板</el-menu-item>
         </el-sub-menu>
 
         <el-menu-item index="/opportunity" v-if="hasMenuPermission('opportunity')">
@@ -86,9 +87,29 @@
           <template #title>分析工具</template>
         </el-menu-item>
 
+        <el-menu-item index="/scoring/rules" v-if="hasMenuPermission('customer:list')">
+          <el-icon><Trophy /></el-icon>
+          <template #title>评分规则</template>
+        </el-menu-item>
+
+        <el-menu-item index="/scoring/ranking" v-if="hasMenuPermission('customer:list')">
+          <el-icon><Histogram /></el-icon>
+          <template #title>评分排行</template>
+        </el-menu-item>
+
         <el-menu-item index="/ai-suggestions">
           <el-icon><ChatDotRound /></el-icon>
           <template #title>AI助手</template>
+        </el-menu-item>
+
+        <el-menu-item index="/approval/pending">
+          <el-icon><Stamp /></el-icon>
+          <template #title>待审批</template>
+        </el-menu-item>
+
+        <el-menu-item index="/approval/submitted">
+          <el-icon><Document /></el-icon>
+          <template #title>我的审批</template>
         </el-menu-item>
 
         <el-menu-item index="/target" v-if="isAdmin && hasMenuPermission('target')">
@@ -105,6 +126,8 @@
           <el-menu-item index="/system/role" v-if="hasMenuPermission('system:role')">角色管理</el-menu-item>
           <el-menu-item index="/system/dept" v-if="hasMenuPermission('system:dept')">部门管理</el-menu-item>
           <el-menu-item index="/system/log" v-if="hasMenuPermission('system:log')">操作日志</el-menu-item>
+          <el-menu-item index="/system/tags">标签管理</el-menu-item>
+          <el-menu-item index="/approval/workflow">审批流程</el-menu-item>
           <el-menu-item index="/system/integration">集成管理</el-menu-item>
         </el-sub-menu>
       </el-menu>
@@ -543,7 +566,10 @@ import {
   DataAnalysis,
   ChatDotRound,
   Search,
-  Clock
+  Clock,
+  Trophy,
+  Histogram,
+  Stamp
 } from '@element-plus/icons-vue'
 
 const { clearUser } = useUser()

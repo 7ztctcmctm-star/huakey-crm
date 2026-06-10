@@ -75,43 +75,42 @@ router.post('/list', authenticateToken, validate(listSchema), async (req, res) =
   const { page = 1, pageSize = 10, keyword = '', type = '', level = '', status = '' } = req.body;
   const offset = (page - 1) * pageSize;
 
-  const permission = await getDataPermission(req.user);
-  const { clause: permissionClause, params: permParams } = buildPermissionClause(permission, 's');
-
-  let sql = `SELECT s.*, u.real_name as owner_name,
-    (SELECT COUNT(*) FROM crm_supplier_contact c WHERE c.supplier_id = s.id) as contact_count,
-    (SELECT COUNT(*) FROM crm_supplier_qualification q WHERE q.supplier_id = s.id AND q.status = 1) as valid_cert_count
-    FROM crm_supplier s
-    LEFT JOIN sys_user u ON s.owner_id = u.id
-    WHERE s.deleted_at IS NULL AND ${permissionClause}`;
-
-  const params = [...permParams];
-
-  if (keyword) {
-    sql += ' AND (s.name LIKE ? OR s.supplier_no LIKE ? OR s.contact_person LIKE ?)';
-    params.push(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`);
-  }
-  if (type) {
-    sql += ' AND s.type = ?';
-    params.push(type);
-  }
-  if (level) {
-    sql += ' AND s.level = ?';
-    params.push(level);
-  }
-  if (status) {
-    sql += ' AND s.status = ?';
-    params.push(status);
-  }
-
-  sql += ' ORDER BY s.create_time DESC LIMIT ?, ?';
-  params.push(offset, pageSize);
-
   try {
+    const permission = await getDataPermission(req.user);
+    const { clause: permissionClause, params: permParams } = buildPermissionClause(permission, 's');
+
+    let sql = `SELECT s.*, u.real_name as owner_name,
+      (SELECT COUNT(*) FROM crm_supplier_contact c WHERE c.supplier_id = s.id) as contact_count,
+      (SELECT COUNT(*) FROM crm_supplier_qualification q WHERE q.supplier_id = s.id AND q.status = 1) as valid_cert_count
+      FROM crm_supplier s
+      LEFT JOIN sys_user u ON s.owner_id = u.id
+      WHERE s.deleted_at IS NULL AND ${permissionClause}`;
+
+    const params = [...permParams];
+
+    if (keyword) {
+      sql += ' AND (s.name LIKE ? OR s.supplier_no LIKE ? OR s.contact_person LIKE ?)';
+      params.push(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`);
+    }
+    if (type) {
+      sql += ' AND s.type = ?';
+      params.push(type);
+    }
+    if (level) {
+      sql += ' AND s.level = ?';
+      params.push(level);
+    }
+    if (status) {
+      sql += ' AND s.status = ?';
+      params.push(status);
+    }
+
+    sql += ' ORDER BY s.create_time DESC LIMIT ?, ?';
+    params.push(offset, pageSize);
     const [rows] = await pool.query(sql, params);
 
     let countSql = `SELECT COUNT(*) as total FROM crm_supplier s WHERE s.deleted_at IS NULL AND ${permissionClause}`;
-    const countParams = [];
+    const countParams = [...permParams];
 
     if (keyword) {
       countSql += ' AND (s.name LIKE ? OR s.supplier_no LIKE ? OR s.contact_person LIKE ?)';
@@ -270,6 +269,16 @@ router.post('/update', authenticateToken, checkPermission('supplier:edit'), vali
   const { id, ...updateFields } = req.body;
 
   try {
+    // 权限校验：非管理员只能修改自己负责/创建的供应商
+    const [supplier] = await pool.query('SELECT owner_id, create_by FROM crm_supplier WHERE id=? AND deleted_at IS NULL', [id]);
+    if (!supplier.length) {
+      return res.status(404).json({ code: 404, message: '供应商不存在', data: null });
+    }
+    const { manageAll, roleId, userId } = req.user;
+    if (!manageAll && roleId !== 1 && roleId !== 2 && supplier[0].owner_id !== userId && supplier[0].create_by !== userId) {
+      return res.status(403).json({ code: 403, message: '无权限修改该供应商', data: null });
+    }
+
     const allowedFields = ['name', 'short_name', 'type', 'industry', 'level', 'status', 'contact_person', 'contact_phone', 'contact_email', 'address', 'payment_terms', 'delivery_days', 'remark'];
     const setClauses = [];
     const params = [];
@@ -441,7 +450,11 @@ router.post('/contact/delete', authenticateToken, checkPermission('supplier:edit
   try {
     const { id } = req.body;
     if (!id) return res.status(400).json({ code: 400, message: '联系人ID不能为空', data: null });
-    await pool.query('DELETE FROM crm_supplier_contact WHERE id = ?', [id]);
+    const [contacts] = await pool.query('SELECT id FROM crm_supplier_contact WHERE id = ?', [id]);
+    if (contacts.length === 0) {
+      return res.status(404).json({ code: 404, message: '联系人不存在', data: null });
+    }
+    await pool.query('UPDATE crm_supplier_contact SET deleted_at = NOW() WHERE id = ?', [id]);
     res.json({ code: 200, message: '删除联系人成功', data: null });
   } catch (error) {
     console.error('[供应商] 删除联系人错误:', error.message);
@@ -520,7 +533,7 @@ router.post('/qualification/delete', authenticateToken, checkPermission('supplie
   try {
     const { id } = req.body;
     if (!id) return res.status(400).json({ code: 400, message: '资质ID不能为空', data: null });
-    await pool.query('DELETE FROM crm_supplier_qualification WHERE id = ?', [id]);
+    await pool.query('UPDATE crm_supplier_qualification SET deleted_at = NOW() WHERE id = ?', [id]);
     res.json({ code: 200, message: '删除资质成功', data: null });
   } catch (error) {
     console.error('[供应商] 删除资质错误:', error.message);

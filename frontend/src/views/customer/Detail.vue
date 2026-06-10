@@ -1,137 +1,113 @@
 <template>
-  <div class="customer-detail">
+  <div class="customer-360">
     <!-- 顶部操作栏 -->
     <div class="detail-header">
-      <el-button :icon="ArrowLeft" @click="goBack">返回列表</el-button>
-      <span class="page-title">客户详情 — {{ customer.company_name }}</span>
+      <el-button :icon="ArrowLeft" @click="goBack" text>返回列表</el-button>
       <div class="header-actions">
-        <!-- 老板分配负责人 -->
         <template v-if="(isBoss || isManager) && customer.owner_id">
-          <span class="assign-label">负责人：</span>
           <el-select
             :model-value="customer.owner_id"
             placeholder="选择负责人"
             size="default"
-            style="width: 150px"
+            style="width: 150px; margin-right: 12px"
             @change="handleAssignOwner"
           >
-            <el-option
-              v-for="u in salesUsers"
-              :key="u.id"
-              :label="u.real_name"
-              :value="u.id"
-            />
+            <el-option v-for="u in salesUsers" :key="u.id" :label="u.real_name" :value="u.id" />
           </el-select>
         </template>
-        <el-button
-          type="primary"
-          :icon="EditPen"
-          @click="handleEdit"
-        >编辑客户</el-button>
-        <el-button
-          v-if="customer.owner_id && customer.pool_status === 0"
-          type="warning"
-          :icon="Share"
-          @click="handleRelease"
-        >释放到公海</el-button>
+        <el-button type="primary" :icon="EditPen" @click="handleEdit">编辑</el-button>
+        <el-button v-if="customer.owner_id && customer.pool_status === 0" :icon="Share" @click="handleRelease">释放公海</el-button>
       </div>
     </div>
 
-    <!-- 客户信息卡片 -->
-    <el-card class="info-card" shadow="never" v-loading="loading">
-      <template #header>
-        <div class="card-header">
-          <span class="card-title">{{ customer.company_name }}</span>
-          <div class="card-tags">
-            <el-tag v-if="customer.pool_status === 1" type="warning" effect="dark" size="large">公海客户</el-tag>
-            <el-tag v-else-if="isProtected()" type="success" size="large">
-              保护期至 {{ formatTime(customer.protect_until) }}
-            </el-tag>
-            <el-tag :type="levelTagType(customer.level)" effect="dark" size="large">
-              {{ customer.level }}级客户
-            </el-tag>
-            <el-tag :type="statusTagType(customer.status)" size="large">
-              {{ statusMap[customer.status] }}
-            </el-tag>
-            <el-tag v-if="customer.customer_type" :type="customer.customer_type === 'customer' ? 'success' : 'warning'" size="large">
+    <!-- 顶部客户信息 -->
+    <el-card class="hero-card" shadow="never" v-loading="loading">
+      <div class="hero-content">
+        <div class="hero-left">
+          <div class="hero-name">{{ customer.company_name }}</div>
+          <div class="hero-contact">
+            <span v-if="customer.contact_name"><el-icon><User /></el-icon> {{ customer.contact_name }}</span>
+            <span v-if="customer.phone"><el-icon><Phone /></el-icon> <a :href="'tel:' + customer.phone">{{ customer.phone }}</a></span>
+            <span v-if="customer.email"><el-icon><Message /></el-icon> {{ customer.email }}</span>
+          </div>
+          <div class="hero-address" v-if="customer.address">
+            <el-icon><Location /></el-icon> {{ customer.address }}
+          </div>
+          <div class="hero-tags">
+            <el-tag v-if="customer.pool_status === 1" type="warning" effect="dark">公海客户</el-tag>
+            <el-tag v-else-if="isProtected()" type="success">保护期至 {{ formatTime(customer.protect_until) }}</el-tag>
+            <el-tag :type="levelTagType(customer.level)" effect="dark">{{ customer.level }}级客户</el-tag>
+            <el-tag :type="statusTagType(customer.status)">{{ statusMap[customer.status] }}</el-tag>
+            <el-tag v-if="customer.customer_type" :type="customer.customer_type === 'customer' ? 'success' : 'warning'">
               {{ customer.customer_type === 'customer' ? '正式客户' : '潜客' }}
             </el-tag>
-            <el-tag v-if="customer.lifecycle_status" :type="lifecycleStatusType(customer.lifecycle_status)" size="large">
+            <el-tag v-if="customer.lifecycle_status" :type="lifecycleStatusType(customer.lifecycle_status)">
               {{ lifecycleStatusMap[customer.lifecycle_status] || customer.lifecycle_status }}
             </el-tag>
+            <el-tag v-if="customer.score > 0" type="warning" effect="dark">评分 {{ customer.score }}</el-tag>
           </div>
         </div>
-        <el-alert
-          v-if="customer.pool_status === 1"
-          type="warning"
-          :closable="false"
-          show-icon
-          style="margin-bottom: 16px"
-        >
-          该客户目前在公海中，无人负责。可前往
-          <router-link to="/customer/pool" style="font-weight: bold;">客户公海</router-link>
-          认领该客户。
-        </el-alert>
-      </template>
-      <el-descriptions :column="4" border>
-        <el-descriptions-item label="联系人">{{ customer.contact_name || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="电话"><a v-if="customer.phone" :href="'tel:' + customer.phone" style="color: var(--el-color-primary); text-decoration: none;">{{ customer.phone }}</a><span v-else>-</span></el-descriptions-item>
-        <el-descriptions-item label="邮箱">{{ customer.email || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="所属行业">{{ customer.industry || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="客户来源">{{ customer.source || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="负责销售">{{ customer.owner_name || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="创建时间">{{ formatTime(customer.create_time) }}</el-descriptions-item>
-        <el-descriptions-item label="更新时间">{{ formatTime(customer.update_time) }}</el-descriptions-item>
-        <el-descriptions-item label="地址" :span="2">{{ customer.address || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="备注" :span="2">{{ customer.remark || '-' }}</el-descriptions-item>
-      </el-descriptions>
+        <div class="hero-right">
+          <div class="hero-meta">
+            <div class="meta-item"><span class="meta-label">来源</span><span class="meta-value">{{ customer.source || '-' }}</span></div>
+            <div class="meta-item"><span class="meta-label">行业</span><span class="meta-value">{{ customer.industry || '-' }}</span></div>
+            <div class="meta-item"><span class="meta-label">负责人</span><span class="meta-value">{{ customer.owner_name || '-' }}</span></div>
+            <div class="meta-item"><span class="meta-label">创建时间</span><span class="meta-value">{{ formatTime(customer.create_time) }}</span></div>
+          </div>
+        </div>
+      </div>
     </el-card>
 
-    <!-- 标签页切换 -->
+    <!-- 统计卡片 -->
+    <div class="stats-row">
+      <div class="stat-card" v-for="s in statCards" :key="s.key">
+        <div class="stat-value">{{ s.value }}</div>
+        <div class="stat-label">{{ s.label }}</div>
+      </div>
+    </div>
+
+    <!-- 主内容区：标签页 -->
     <el-card class="tab-card" shadow="never">
-      <el-tabs v-model="activeTab" type="card">
-        <!-- 基本信息 -->
-        <el-tab-pane label="基本信息" name="basic">
-          <el-empty v-if="!customer.id" description="暂无数据" />
-          <el-form v-else label-width="100px" :model="customer">
-            <el-row :gutter="24">
-              <el-col :span="12">
-                <el-form-item label="公司名称">{{ customer.company_name }}</el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item label="联系人">{{ customer.contact_name || '-' }}</el-form-item>
-              </el-col>
-            </el-row>
-            <el-row :gutter="24">
-              <el-col :span="12">
-                <el-form-item label="电话"><a v-if="customer.phone" :href="'tel:' + customer.phone" style="color: var(--el-color-primary); text-decoration: none;">{{ customer.phone }}</a><span v-else>-</span></el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item label="邮箱">{{ customer.email || '-' }}</el-form-item>
-              </el-col>
-            </el-row>
-            <el-row :gutter="24">
-              <el-col :span="12">
-                <el-form-item label="所属行业">{{ customer.industry || '-' }}</el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item label="客户来源">{{ customer.source || '-' }}</el-form-item>
-              </el-col>
-            </el-row>
-            <el-row :gutter="24">
-              <el-col :span="12">
-                <el-form-item label="客户等级">{{ customer.level || '-' }}</el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item label="负责销售">{{ customer.owner_name || '-' }}</el-form-item>
-              </el-col>
-            </el-row>
-            <el-form-item label="地址">{{ customer.address || '-' }}</el-form-item>
-            <el-form-item label="备注">{{ customer.remark || '-' }}</el-form-item>
-          </el-form>
+      <el-tabs v-model="activeTab">
+        <el-tab-pane label="跟进记录" name="follow">
+          <div class="tab-toolbar">
+            <el-button type="primary" :icon="Plus" @click="handleFollowAdd">新增跟进</el-button>
+          </div>
+          <el-timeline v-if="followRecords.length > 0">
+            <el-timeline-item
+              v-for="item in followRecords"
+              :key="item.id"
+              :timestamp="formatTime(item.create_time)"
+              placement="top"
+              :color="followTypeColor(item.follow_type)"
+            >
+              <el-card shadow="hover" class="follow-card">
+                <div class="follow-header">
+                  <el-tag :type="followTypeTag(item.follow_type)" size="small">{{ item.follow_type || '电话' }}</el-tag>
+                  <span v-if="item.contact_name" class="follow-contact"><el-icon><User /></el-icon> {{ item.contact_name }}</span>
+                  <span class="follow-creator">{{ item.creator_name }}</span>
+                  <span class="follow-actions">
+                    <el-button type="primary" link size="small" :icon="Edit" @click="handleFollowEdit(item)">编辑</el-button>
+                    <el-button type="danger" link size="small" :icon="Delete" @click="handleFollowDelete(item)">删除</el-button>
+                  </span>
+                </div>
+                <div class="follow-content">{{ item.content }}</div>
+                <div v-if="item.next_time" class="follow-next">
+                  <el-icon><Clock /></el-icon> 下次跟进: {{ formatTime(item.next_time) }}
+                  <span v-if="item.next_content"> — {{ item.next_content }}</span>
+                </div>
+                <div v-if="item.attachments && item.attachments.length > 0" class="follow-attachments">
+                  <template v-for="att in item.attachments" :key="att.id">
+                    <el-image v-if="isImage(att.file_type)" :src="att.file_path" :preview-src-list="getImageList(item)" fit="cover" style="width:80px;height:80px;margin:4px;border-radius:8px" />
+                    <el-link v-else :href="att.file_path" target="_blank" type="primary" style="margin:4px">{{ att.file_name }}</el-link>
+                  </template>
+                </div>
+              </el-card>
+            </el-timeline-item>
+          </el-timeline>
+          <el-empty v-else description="暂无跟进记录" />
         </el-tab-pane>
 
-        <!-- 联系人 -->
         <el-tab-pane label="联系人" name="contact">
           <div class="tab-toolbar">
             <el-button type="primary" :icon="Plus" @click="handleContactAdd">新增联系人</el-button>
@@ -149,9 +125,7 @@
             <el-table-column prop="wechat" label="微信" width="120" />
             <el-table-column prop="is_decision" label="决策人" width="80" align="center">
               <template #default="{ row }">
-                <el-tag :type="row.is_decision ? 'danger' : 'info'" size="small">
-                  {{ row.is_decision ? '是' : '否' }}
-                </el-tag>
+                <el-tag :type="row.is_decision ? 'danger' : 'info'" size="small">{{ row.is_decision ? '是' : '否' }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column label="操作" width="150" fixed="right">
@@ -163,52 +137,61 @@
           </el-table>
         </el-tab-pane>
 
-        <!-- 跟进记录 -->
-        <el-tab-pane label="跟进记录" name="follow">
-          <div class="tab-toolbar">
-            <el-button type="primary" :icon="Plus" @click="handleFollowAdd">新增跟进</el-button>
-          </div>
-          <el-timeline v-if="followRecords.length > 0">
-            <el-timeline-item
-              v-for="item in followRecords"
-              :key="item.id"
-              :timestamp="formatTime(item.create_time)"
-              placement="top"
-              :color="followTypeColor(item.follow_type)"
-            >
-              <el-card shadow="hover">
-                <div class="follow-header">
-                  <el-tag :type="followTypeTag(item.follow_type)" size="small">
-                    {{ item.follow_type || '电话' }}
-                  </el-tag>
-                  <span v-if="item.contact_name" class="follow-contact">
-                    <el-icon><User /></el-icon> {{ item.contact_name }}
-                  </span>
-                  <span class="follow-creator">{{ item.creator_name }}</span>
-                  <span class="follow-actions">
-                    <el-button type="primary" link size="small" :icon="Edit" @click="handleFollowEdit(item)">编辑</el-button>
-                    <el-button type="danger" link size="small" :icon="Delete" @click="handleFollowDelete(item)">删除</el-button>
-                  </span>
-                </div>
-                <div class="follow-content">{{ item.content }}</div>
-                <div v-if="item.next_time" class="follow-next">
-                  <el-icon><Clock /></el-icon>
-                  下次跟进: {{ formatTime(item.next_time) }}
-                  <span v-if="item.next_content"> — {{ item.next_content }}</span>
-                </div>
-                <div v-if="item.attachments && item.attachments.length > 0" class="follow-attachments">
-                  <template v-for="att in item.attachments" :key="att.id">
-                    <el-image v-if="isImage(att.file_type)" :src="att.file_path" :preview-src-list="getImageList(item)" fit="cover" style="width:80px;height:80px;margin:4px;border-radius:4px" />
-                    <el-link v-else :href="att.file_path" target="_blank" type="primary" style="margin:4px">{{ att.file_name }}</el-link>
-                  </template>
-                </div>
-              </el-card>
-            </el-timeline-item>
-          </el-timeline>
-          <el-empty v-else description="暂无跟进记录" />
+        <el-tab-pane label="报价记录" name="quote">
+          <el-table :data="quoteList" stripe border v-loading="quoteLoading">
+            <el-table-column prop="quote_no" label="报价单号" width="160" />
+            <el-table-column prop="amount" label="报价金额" width="130" align="right">
+              <template #default="{ row }">¥{{ fmtMoney(row.amount) }}</template>
+            </el-table-column>
+            <el-table-column prop="final_amount" label="成交金额" width="130" align="right">
+              <template #default="{ row }">¥{{ fmtMoney(row.final_amount) }}</template>
+            </el-table-column>
+            <el-table-column prop="status" label="状态" width="90" align="center">
+              <template #default="{ row }">
+                <el-tag :type="quoteStatusType(row.status)" size="small">{{ quoteStatusMap[row.status] }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="create_by_name" label="创建人" width="100" />
+            <el-table-column prop="create_time" label="创建时间" width="160">
+              <template #default="{ row }">{{ formatTime(row.create_time) }}</template>
+            </el-table-column>
+          </el-table>
+          <el-empty v-if="!quoteLoading && quoteList.length === 0" description="暂无报价记录" />
         </el-tab-pane>
 
-        <!-- 商机记录 -->
+        <el-tab-pane label="合同记录" name="contract">
+          <el-table :data="contractList" stripe border v-loading="contractLoading">
+            <el-table-column prop="contract_no" label="合同编号" width="160" />
+            <el-table-column prop="amount" label="合同金额" width="130" align="right">
+              <template #default="{ row }">¥{{ fmtMoney(row.amount) }}</template>
+            </el-table-column>
+            <el-table-column prop="paid_amount" label="已回款" width="130" align="right">
+              <template #default="{ row }">¥{{ fmtMoney(row.paid_amount) }}</template>
+            </el-table-column>
+            <el-table-column prop="sign_date" label="签订日期" width="110" />
+            <el-table-column prop="status" label="状态" width="90" align="center">
+              <template #default="{ row }">
+                <el-tag :type="contractStatusType(row.status)" size="small">{{ contractStatusMap[row.status] }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="create_by_name" label="创建人" width="100" />
+          </el-table>
+          <el-empty v-if="!contractLoading && contractList.length === 0" description="暂无合同记录" />
+        </el-tab-pane>
+
+        <el-tab-pane label="回款记录" name="payment">
+          <el-table :data="paymentList" stripe border v-loading="paymentLoading">
+            <el-table-column prop="contract_no" label="关联合同" width="160" />
+            <el-table-column prop="pay_amount" label="回款金额" width="130" align="right">
+              <template #default="{ row }">¥{{ fmtMoney(row.pay_amount) }}</template>
+            </el-table-column>
+            <el-table-column prop="pay_method" label="回款方式" width="120" />
+            <el-table-column prop="pay_date" label="回款日期" width="120" />
+            <el-table-column prop="remark" label="备注" min-width="160" show-overflow-tooltip />
+          </el-table>
+          <el-empty v-if="!paymentLoading && paymentList.length === 0" description="暂无回款记录" />
+        </el-tab-pane>
+
         <el-tab-pane label="商机记录" name="opportunity">
           <div class="tab-toolbar">
             <el-button type="primary" :icon="Plus" @click="goCreateOpportunity">新增商机</el-button>
@@ -234,36 +217,57 @@
           <el-empty v-if="!opportunityLoading && opportunityList.length === 0" description="暂无商机记录" />
         </el-tab-pane>
 
-        <!-- 合同记录 -->
-        <el-tab-pane label="合同记录" name="contract">
-          <el-table :data="contractList" stripe border v-loading="contractLoading">
-            <el-table-column prop="contract_no" label="合同编号" width="160" />
-            <el-table-column prop="amount" label="合同金额" width="130" align="right">
-              <template #default="{ row }">¥{{ fmtMoney(row.amount) }}</template>
-            </el-table-column>
-            <el-table-column prop="paid_amount" label="已回款" width="130" align="right">
-              <template #default="{ row }">¥{{ fmtMoney(row.paid_amount) }}</template>
-            </el-table-column>
-            <el-table-column prop="sign_date" label="签订日期" width="110" />
-            <el-table-column prop="status" label="状态" width="90" align="center">
+        <el-tab-pane label="服务工单" name="service">
+          <el-table :data="serviceList" stripe border v-loading="serviceLoading">
+            <el-table-column prop="order_no" label="工单号" width="160" />
+            <el-table-column prop="title" label="标题" min-width="160" show-overflow-tooltip />
+            <el-table-column prop="type" label="类型" width="100" />
+            <el-table-column prop="priority" label="优先级" width="90" align="center">
               <template #default="{ row }">
-                <el-tag :type="contractStatusType(row.status)" size="small">{{ contractStatusMap[row.status] }}</el-tag>
+                <el-tag :type="priorityType(row.priority)" size="small">{{ priorityMap[row.priority] }}</el-tag>
               </template>
             </el-table-column>
+            <el-table-column prop="status" label="状态" width="90" align="center">
+              <template #default="{ row }">
+                <el-tag :type="serviceStatusType(row.status)" size="small">{{ serviceStatusMap[row.status] }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="assignee_name" label="处理人" width="100" />
+            <el-table-column prop="create_time" label="创建时间" width="160">
+              <template #default="{ row }">{{ formatTime(row.create_time) }}</template>
+            </el-table-column>
           </el-table>
-          <el-empty v-if="!contractLoading && contractList.length === 0" description="暂无合同记录" />
+          <el-empty v-if="!serviceLoading && serviceList.length === 0" description="暂无服务工单" />
+        </el-tab-pane>
+
+        <el-tab-pane label="评分记录" name="score">
+          <div class="tab-toolbar">
+            <el-button :icon="Refresh" :loading="scoreCalculating" @click="handleCalculateScore">重新计算评分</el-button>
+          </div>
+          <div v-if="customer.score > 0" class="score-summary">
+            <span class="score-big">{{ customer.score }}</span>
+            <span class="score-unit">分</span>
+          </div>
+          <el-table :data="scoreLogs" stripe border>
+            <el-table-column prop="rule_name" label="评分规则" min-width="160" />
+            <el-table-column prop="score" label="得分" width="80" align="center">
+              <template #default="{ row }">
+                <span :style="{ color: row.score > 0 ? '#67C23A' : '#F56C6C' }">{{ row.score > 0 ? '+' : '' }}{{ row.score }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="total_score" label="总分" width="80" align="center" />
+            <el-table-column prop="remark" label="备注" min-width="160" />
+            <el-table-column prop="create_time" label="时间" width="160">
+              <template #default="{ row }">{{ formatTime(row.create_time) }}</template>
+            </el-table-column>
+          </el-table>
+          <el-empty v-if="scoreLogs.length === 0" description="暂无评分记录" />
         </el-tab-pane>
       </el-tabs>
     </el-card>
 
-    <!-- 联系人新增/编辑弹窗 -->
-    <el-dialog
-      v-model="contactDialogVisible"
-      :title="contactDialogTitle"
-      width="500px"
-      :close-on-click-modal="false"
-      @closed="handleContactDialogClosed"
-    >
+    <!-- 联系人弹窗 -->
+    <el-dialog v-model="contactDialogVisible" :title="contactDialogTitle" width="500px" :close-on-click-modal="false" @closed="handleContactDialogClosed">
       <el-form ref="contactFormRef" :model="contactForm" :rules="contactRules" label-width="100px">
         <el-form-item label="姓名" prop="name">
           <el-input v-model="contactForm.name" placeholder="请输入姓名" />
@@ -299,23 +303,12 @@
       </template>
     </el-dialog>
 
-    <!-- 新增跟进弹窗 -->
-    <el-dialog
-      v-model="followDialogVisible"
-      :title="isFollowEdit ? '编辑跟进' : '新增跟进'"
-      width="550px"
-      :close-on-click-modal="false"
-      @closed="handleFollowDialogClosed"
-    >
+    <!-- 跟进弹窗 -->
+    <el-dialog v-model="followDialogVisible" :title="isFollowEdit ? '编辑跟进' : '新增跟进'" width="550px" :close-on-click-modal="false" @closed="handleFollowDialogClosed">
       <el-form ref="followFormRef" :model="followForm" :rules="followRules" label-width="100px">
         <el-form-item label="联系人">
           <el-select v-model="followForm.contact_id" placeholder="请选择联系人（可选）" clearable style="width: 100%">
-            <el-option
-              v-for="c in contacts"
-              :key="c.id"
-              :label="`${c.name}${c.is_decision ? ' (决策人)' : ''}`"
-              :value="c.id"
-            />
+            <el-option v-for="c in contacts" :key="c.id" :label="`${c.name}${c.is_decision ? ' (决策人)' : ''}`" :value="c.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="跟进方式" prop="follow_type">
@@ -323,17 +316,19 @@
             <el-radio-button v-for="t in followTypes" :key="t" :value="t">{{ t }}</el-radio-button>
           </el-radio-group>
         </el-form-item>
+        <el-form-item label="使用模板">
+          <el-select v-model="selectedTemplateId" placeholder="选择模板自动填充内容" clearable style="width:100%" @change="handleTemplateChange">
+            <el-option v-for="tpl in followTemplates" :key="tpl.id" :label="tpl.name" :value="tpl.id">
+              <span>{{ tpl.name }}</span>
+              <el-tag :type="typeTagMap[tpl.type]" size="small" style="margin-left:8px;">{{ typeNameMap[tpl.type] }}</el-tag>
+            </el-option>
+          </el-select>
+        </el-form-item>
         <el-form-item label="跟进内容" prop="content">
           <el-input v-model="followForm.content" type="textarea" :rows="4" placeholder="请输入跟进内容" />
         </el-form-item>
         <el-form-item label="下次跟进时间">
-          <el-date-picker
-            v-model="followForm.next_time"
-            type="datetime"
-            placeholder="选择下次跟进时间（可选）"
-            value-format="YYYY-MM-DD HH:mm:ss"
-            style="width: 100%"
-          />
+          <el-date-picker v-model="followForm.next_time" type="datetime" placeholder="选择下次跟进时间（可选）" value-format="YYYY-MM-DD HH:mm:ss" style="width: 100%" />
         </el-form-item>
         <el-form-item label="下次计划">
           <el-input v-model="followForm.next_content" type="textarea" :rows="2" placeholder="下次跟进计划（可选）" />
@@ -364,21 +359,11 @@
     </el-dialog>
 
     <!-- 编辑客户弹窗 -->
-    <el-dialog
-      v-model="editDialogVisible"
-      title="编辑客户"
-      width="600px"
-      :close-on-click-modal="false"
-      @closed="handleEditDialogClosed"
-    >
+    <el-dialog v-model="editDialogVisible" title="编辑客户" width="600px" :close-on-click-modal="false" @closed="handleEditDialogClosed">
       <el-form ref="editFormRef" :model="editForm" :rules="editRules" label-width="100px">
-        <el-row :gutter="24">
-          <el-col :span="24">
-            <el-form-item label="公司名称" prop="company_name">
-              <el-input v-model="editForm.company_name" placeholder="请输入公司名称" />
-            </el-form-item>
-          </el-col>
-        </el-row>
+        <el-form-item label="公司名称" prop="company_name">
+          <el-input v-model="editForm.company_name" placeholder="请输入公司名称" />
+        </el-form-item>
         <el-row :gutter="24">
           <el-col :span="12">
             <el-form-item label="联系人">
@@ -433,20 +418,12 @@
             </el-form-item>
           </el-col>
         </el-row>
-        <el-row :gutter="24">
-          <el-col :span="24">
-            <el-form-item label="地址">
-              <el-input v-model="editForm.address" placeholder="请输入地址" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row :gutter="24">
-          <el-col :span="24">
-            <el-form-item label="备注">
-              <el-input v-model="editForm.remark" type="textarea" :rows="3" placeholder="请输入备注" />
-            </el-form-item>
-          </el-col>
-        </el-row>
+        <el-form-item label="地址">
+          <el-input v-model="editForm.address" placeholder="请输入地址" />
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="editForm.remark" type="textarea" :rows="3" placeholder="请输入备注" />
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="editDialogVisible = false">取消</el-button>
@@ -457,26 +434,24 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, Plus, Edit, EditPen, Delete, User, Clock, Share } from '@element-plus/icons-vue'
-import { post, get as getRequest } from '@/utils/request'
+import { ArrowLeft, Plus, Edit, EditPen, Delete, User, Clock, Share, Refresh, Phone, Message, Location } from '@element-plus/icons-vue'
+import request from '@/utils/request'
 import { formatTime } from '@/composables/useFormat'
 import { recordVisit } from '@/composables/useRecentVisit'
 import { ALL_SOURCE_VALUES } from '@/constants/source'
 
 const route = useRoute()
 const router = useRouter()
-
 const loading = ref(false)
 
-// 权限判断：roleId 1=老板 2=管理者 3=销售
+// 权限
 const userInfo = ref({})
 const isBoss = ref(false)
 const isManager = ref(false)
 const salesUsers = ref([])
-
 try {
   const stored = localStorage.getItem('userInfo')
   if (stored) {
@@ -484,195 +459,159 @@ try {
     isBoss.value = userInfo.value.manageAll === true || userInfo.value.roleId === 1
     isManager.value = userInfo.value.roleId === 2
   }
-} catch (e) { /* ignore */ }
+} catch (e) { /* */ }
 
 const fetchSalesUsers = async () => {
   if (!isBoss.value && !isManager.value) return
   try {
-    const res = await getRequest('/customer/sales-users')
+    const res = await request.get('/customer/sales-users')
     if (res.code === 200) salesUsers.value = res.data
-  } catch (e) { /* ignore */ }
+  } catch (e) { /* */ }
 }
 
 const handleAssignOwner = (newOwnerId) => {
   const target = salesUsers.value.find(u => u.id === newOwnerId)
   ElMessageBox.confirm(`确认将客户分配给「${target?.real_name || newOwnerId}」吗？`, '变更负责人', { type: 'warning' }).then(async () => {
     try {
-      const res = await post('/customer/assign', { customer_id: customer.id, to_user_id: newOwnerId, remark: '手动重新分配' })
+      const res = await request.post('/customer/assign', { customer_id: customer.id, to_user_id: newOwnerId, remark: '手动重新分配' })
       if (res.code === 200) { ElMessage.success('负责人已更新'); fetchDetail() }
     } catch { ElMessage.error('分配失败') }
   }).catch(() => {})
 }
-const activeTab = ref('basic')
 
-const statusMap = {
-  1: '潜在客户',
-  2: '成交客户',
-  3: '流失客户'
-}
+const activeTab = ref('follow')
 
-const lifecycleStatusMap = {
-  new: '新导入',
-  nurturing: '培育中',
-  intent: '意向合作',
-  active: '正在合作',
-  lost: '流失',
-  inactive: '无效'
-}
+// 状态映射
+const statusMap = { 1: '潜在客户', 2: '成交客户', 3: '流失客户' }
+const lifecycleStatusMap = { new: '新导入', nurturing: '培育中', intent: '意向合作', active: '正在合作', lost: '流失', inactive: '无效' }
+const lifecycleStatusType = (s) => ({ new: 'info', nurturing: 'warning', intent: '', active: 'success', lost: 'danger', inactive: 'info' }[s] || 'info')
+const levelTagType = (l) => ({ A: 'danger', B: 'warning', C: 'info', D: '' }[l] || 'info')
+const statusTagType = (s) => ({ 1: 'warning', 2: 'success', 3: 'info' }[s] || 'info')
 
-const lifecycleStatusType = (status) => {
-  const map = { new: 'info', nurturing: 'warning', intent: '', active: 'success', lost: 'danger', inactive: 'info' }
-  return map[status] || 'info'
-}
-
-const levelTagType = (level) => {
-  const map = { A: 'danger', B: 'warning', C: 'info', D: '' }
-  return map[level] || 'info'
-}
-
-const statusTagType = (status) => {
-  const map = { 1: 'warning', 2: 'success', 3: 'info' }
-  return map[status] || 'info'
-}
-
-// 客户基本信息
+// 客户数据
 const customer = reactive({
-  id: null,
-  company_name: '',
-  contact_name: '',
-  phone: '',
-  email: '',
-  address: '',
-  industry: '',
-  source: '',
-  level: '',
-  status: 0,
-  customer_type: '',
-  lifecycle_status: '',
-  remark: '',
-  owner_name: '',
-  create_time: '',
-  update_time: ''
+  id: null, company_name: '', contact_name: '', phone: '', email: '', address: '',
+  industry: '', source: '', level: '', status: 0, customer_type: '', lifecycle_status: '',
+  remark: '', owner_name: '', owner_id: null, create_time: '', update_time: '',
+  pool_status: 0, protect_until: null, score: 0
 })
 
-// 联系人数据
+// 各模块数据
 const contacts = ref([])
-
-// 跟进记录数据
 const followRecords = ref([])
-
-// 商机数据
-const opportunityList = ref([])
-const opportunityLoading = ref(false)
-
-// 合同数据
+const quoteList = ref([])
+const quoteLoading = ref(false)
 const contractList = ref([])
 const contractLoading = ref(false)
+const paymentList = ref([])
+const paymentLoading = ref(false)
+const opportunityList = ref([])
+const opportunityLoading = ref(false)
+const serviceList = ref([])
+const serviceLoading = ref(false)
+const scoreLogs = ref([])
+const scoreCalculating = ref(false)
 
+// 统计卡片
+const stats = reactive({
+  follow_count: 0, quote_amount: 0, contract_amount: 0,
+  paid_amount: 0, opportunity_amount: 0, service_count: 0
+})
+
+const statCards = computed(() => [
+  { key: 'follow', label: '跟进次数', value: stats.follow_count },
+  { key: 'quote', label: '报价金额', value: '¥' + fmtMoney(stats.quote_amount) },
+  { key: 'contract', label: '合同金额', value: '¥' + fmtMoney(stats.contract_amount) },
+  { key: 'paid', label: '回款金额', value: '¥' + fmtMoney(stats.paid_amount) },
+  { key: 'opportunity', label: '商机金额', value: '¥' + fmtMoney(stats.opportunity_amount) },
+  { key: 'service', label: '工单数量', value: stats.service_count }
+])
+
+// 映射
 const stageMap = { 1: '询盘', 2: '需求确认', 3: '方案报价', 4: '谈判', 5: '成交', 6: '失败' }
 const stageTagType = (s) => ({ 1: 'info', 2: '', 3: 'warning', 4: '', 5: 'success', 6: 'danger' }[s] || 'info')
 const contractStatusMap = { 1: '待执行', 2: '执行中', 3: '已完成', 4: '已取消' }
 const contractStatusType = (s) => ({ 1: 'info', 2: '', 3: 'success', 4: 'danger' }[s] || 'info')
+const quoteStatusMap = { 1: '草稿', 2: '已发送', 3: '已确认', 4: '已过期' }
+const quoteStatusType = (s) => ({ 1: 'info', 2: '', 3: 'success', 4: 'danger' }[s] || 'info')
+const priorityMap = { 1: '紧急', 2: '高', 3: '中', 4: '低' }
+const priorityType = (p) => ({ 1: 'danger', 2: 'warning', 3: '', 4: 'info' }[p] || 'info')
+const serviceStatusMap = { 1: '待分配', 2: '处理中', 3: '已完成', 4: '已关闭', 5: '已评价' }
+const serviceStatusType = (s) => ({ 1: 'warning', 2: '', 3: 'success', 4: 'info', 5: 'success' }[s] || 'info')
 const fmtMoney = (v) => { if (!v && v !== 0) return '0.00'; return parseFloat(v).toLocaleString('zh-CN', { minimumFractionDigits: 2 }) }
 
-// 获取详情
+// 获取360度数据
 const fetchDetail = async () => {
   const id = route.params.id
-  if (!id) {
-    ElMessage.error('缺少客户ID')
-    goBack()
-    return
-  }
+  if (!id) { ElMessage.error('缺少客户ID'); goBack(); return }
 
   loading.value = true
   try {
-    const res = await getRequest(`/customer/detail/${id}`)
+    const res = await request.get(`/customer/${id}/360`)
     if (res.code === 200) {
-      Object.assign(customer, res.data.customer)
-      contacts.value = res.data.contacts || []
-      followRecords.value = res.data.followRecords || []
-      fetchOpportunities()
-      fetchContracts()
-      // 记录最近访问
-      recordVisit('customer', parseInt(route.params.id), customer.company_name)
+      const d = res.data
+      Object.assign(customer, d.customer)
+      contacts.value = d.contacts || []
+      followRecords.value = d.followRecords || []
+      quoteList.value = d.quotes || []
+      contractList.value = d.contracts || []
+      paymentList.value = d.payments || []
+      opportunityList.value = d.opportunities || []
+      serviceList.value = d.serviceOrders || []
+      scoreLogs.value = d.scoreLogs || []
+      if (d.stats) Object.assign(stats, d.stats)
+      recordVisit('customer', parseInt(id), customer.company_name)
     }
   } catch (error) {
-    console.error('获取客户详情失败:', error)
+    console.error('获取客户360视图失败:', error)
   } finally {
     loading.value = false
   }
 }
 
-// 获取关联商机
-const fetchOpportunities = async () => {
-  const id = customer.id || route.params.id
-  if (!id) return
-  opportunityLoading.value = true
-  try {
-    const res = await post('/opportunity/list', { page: 1, pageSize: 100, customer_id: id })
-    if (res.code === 200) opportunityList.value = res.data.list || []
-  } catch { /* ignore */ }
-  finally { opportunityLoading.value = false }
-}
-
-// 获取关联合同
-const fetchContracts = async () => {
-  const id = customer.id || route.params.id
-  if (!id) return
-  contractLoading.value = true
-  try {
-    const res = await post('/contract/list', { page: 1, pageSize: 100, customer_id: id })
-    if (res.code === 200) contractList.value = res.data.list || []
-  } catch { /* ignore */ }
-  finally { contractLoading.value = false }
-}
-
-// 返回列表
-const goBack = () => {
-  router.push('/customer/list')
-}
-
+const goBack = () => router.push('/customer/list')
 const goCreateOpportunity = () => {
-  // [修复] customer 是 reactive 对象，不应使用 .value
   router.push({ path: '/opportunity', query: { customer_id: customer.id, customer_name: customer.company_name } })
 }
 
-// ============ 编辑客户 ============
+const isProtected = () => customer.protect_until && new Date(customer.protect_until) > new Date()
 
+const handleRelease = () => {
+  ElMessageBox.confirm(`确定要将"${customer.company_name}"释放到公海吗？`, '释放确认', { type: 'warning' }).then(async () => {
+    try {
+      const res = await request.post('/customer/release', { customer_id: customer.id })
+      if (res.code === 200) { ElMessage.success('已释放到公海'); fetchDetail() }
+    } catch (e) { console.error('释放失败:', e) }
+  }).catch(() => {})
+}
+
+// 评分计算
+const handleCalculateScore = async () => {
+  scoreCalculating.value = true
+  try {
+    const res = await request.post(`/scoring/calculate/${customer.id}`)
+    if (res.code === 200) {
+      ElMessage.success(`评分计算完成：${res.data.score} 分`)
+      fetchDetail()
+    }
+  } catch { ElMessage.error('评分计算失败') }
+  finally { scoreCalculating.value = false }
+}
+
+// ============ 编辑客户 ============
 const sourceOptions = ALL_SOURCE_VALUES
 const editDialogVisible = ref(false)
 const editSubmitLoading = ref(false)
 const editFormRef = ref(null)
-
-const editForm = reactive({
-  company_name: '',
-  contact_name: '',
-  phone: '',
-  email: '',
-  industry: '',
-  source: '',
-  level: '',
-  status: 1,
-  address: '',
-  remark: ''
-})
-
-const editRules = {
-  company_name: [{ required: true, message: '请输入公司名称', trigger: 'blur' }]
-}
+const editForm = reactive({ company_name: '', contact_name: '', phone: '', email: '', industry: '', source: '', level: '', status: 1, address: '', remark: '' })
+const editRules = { company_name: [{ required: true, message: '请输入公司名称', trigger: 'blur' }] }
 
 const handleEdit = () => {
   Object.assign(editForm, {
-    company_name: customer.company_name || '',
-    contact_name: customer.contact_name || '',
-    phone: customer.phone || '',
-    email: customer.email || '',
-    industry: customer.industry || '',
-    source: customer.source || '',
-    level: customer.level || 'C',
-    status: customer.status || 1,
-    address: customer.address || '',
-    remark: customer.remark || ''
+    company_name: customer.company_name || '', contact_name: customer.contact_name || '',
+    phone: customer.phone || '', email: customer.email || '', industry: customer.industry || '',
+    source: customer.source || '', level: customer.level || 'C', status: customer.status || 1,
+    address: customer.address || '', remark: customer.remark || ''
   })
   editDialogVisible.value = true
 }
@@ -683,446 +622,225 @@ const handleEditSubmit = async () => {
     if (!valid) return
     editSubmitLoading.value = true
     try {
-      const res = await post('/customer/update', {
-        id: customer.id,
-        ...editForm
-      })
-      if (res.code === 200) {
-        ElMessage.success('修改成功')
-        editDialogVisible.value = false
-        fetchDetail()
-      }
+      const res = await request.post('/customer/update', { id: customer.id, ...editForm })
+      if (res.code === 200) { ElMessage.success('修改成功'); editDialogVisible.value = false; fetchDetail() }
     } catch { ElMessage.error('修改失败') }
     finally { editSubmitLoading.value = false }
   })
 }
 
-const handleEditDialogClosed = () => {
-  editFormRef.value?.resetFields()
-}
-
-// 判断是否在保护期内
-const isProtected = () => {
-  return customer.protect_until && new Date(customer.protect_until) > new Date()
-}
-
-// 释放到公海
-const handleRelease = () => {
-  ElMessageBox.confirm(
-    `确定要将"${customer.company_name}"释放到公海吗？释放后其他销售可以认领该客户。`,
-    '释放确认',
-    { confirmButtonText: '确定释放', cancelButtonText: '取消', type: 'warning' }
-  ).then(async () => {
-    try {
-      const res = await post('/customer/release', { customer_id: customer.id })
-      if (res.code === 200) {
-        ElMessage.success('已释放到公海')
-        fetchDetail()
-      }
-    } catch (e) {
-      console.error('释放失败:', e)
-    }
-  }).catch(() => {})
-}
+const handleEditDialogClosed = () => { editFormRef.value?.resetFields() }
 
 // ============ 联系人管理 ============
-
 const contactDialogVisible = ref(false)
 const contactDialogTitle = ref('新增联系人')
 const isContactEdit = ref(false)
 const contactSubmitLoading = ref(false)
 const contactFormRef = ref(null)
 const contactEditId = ref(null)
+const contactForm = reactive({ name: '', position: '', phone: '', email: '', wechat: '', is_decision: 0, remark: '' })
+const contactRules = { name: [{ required: true, message: '请输入姓名', trigger: 'blur' }] }
 
-const contactForm = reactive({
-  name: '',
-  position: '',
-  phone: '',
-  email: '',
-  wechat: '',
-  is_decision: 0,
-  remark: ''
-})
-
-const contactRules = {
-  name: [{ required: true, message: '请输入姓名', trigger: 'blur' }]
-}
-
-const handleContactAdd = () => {
-  isContactEdit.value = false
-  contactDialogTitle.value = '新增联系人'
-  contactEditId.value = null
-  contactDialogVisible.value = true
-}
-
+const handleContactAdd = () => { isContactEdit.value = false; contactDialogTitle.value = '新增联系人'; contactEditId.value = null; contactDialogVisible.value = true }
 const handleContactEdit = (row) => {
-  isContactEdit.value = true
-  contactDialogTitle.value = '编辑联系人'
-  contactEditId.value = row.id
-  Object.assign(contactForm, {
-    name: row.name || '',
-    position: row.position || '',
-    phone: row.phone || '',
-    email: row.email || '',
-    wechat: row.wechat || '',
-    is_decision: row.is_decision || 0,
-    remark: row.remark || ''
-  })
+  isContactEdit.value = true; contactDialogTitle.value = '编辑联系人'; contactEditId.value = row.id
+  Object.assign(contactForm, { name: row.name || '', position: row.position || '', phone: row.phone || '', email: row.email || '', wechat: row.wechat || '', is_decision: row.is_decision || 0, remark: row.remark || '' })
   contactDialogVisible.value = true
 }
 
 const handleContactSubmit = async () => {
   if (!contactFormRef.value) return
-
   await contactFormRef.value.validate(async (valid) => {
     if (!valid) return
-
     contactSubmitLoading.value = true
     try {
-      const data = {
-        name: contactForm.name,
-        position: contactForm.position,
-        phone: contactForm.phone,
-        email: contactForm.email,
-        wechat: contactForm.wechat,
-        is_decision: contactForm.is_decision,
-        remark: contactForm.remark
-      }
-
+      const data = { ...contactForm }
       let res
-      if (isContactEdit.value) {
-        data.id = contactEditId.value
-        res = await post('/customer/contact/update', data)
-      } else {
-        data.customer_id = customer.id
-        res = await post('/customer/contact/add', data)
-      }
-
-      if (res.code === 200) {
-        ElMessage.success(isContactEdit.value ? '修改成功' : '新增成功')
-        contactDialogVisible.value = false
-        fetchDetail()
-      }
-    } catch (error) {
-      console.error('提交联系人失败:', error)
-    } finally {
-      contactSubmitLoading.value = false
-    }
+      if (isContactEdit.value) { data.id = contactEditId.value; res = await request.post('/customer/contact/update', data) }
+      else { data.customer_id = customer.id; res = await request.post('/customer/contact/add', data) }
+      if (res.code === 200) { ElMessage.success(isContactEdit.value ? '修改成功' : '新增成功'); contactDialogVisible.value = false; fetchDetail() }
+    } catch (error) { console.error('提交联系人失败:', error) }
+    finally { contactSubmitLoading.value = false }
   })
 }
 
 const handleContactDelete = (row) => {
-  ElMessageBox.confirm(
-    `确定要删除联系人"${row.name}"吗？`,
-    '删除确认',
-    { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
-  ).then(async () => {
+  ElMessageBox.confirm(`确定要删除联系人"${row.name}"吗？`, '删除确认', { type: 'warning' }).then(async () => {
     try {
-      const res = await post('/customer/contact/delete', { id: row.id })
-      if (res.code === 200) {
-        ElMessage.success('删除成功')
-        fetchDetail()
-      }
-    } catch (error) {
-      console.error('删除联系人失败:', error)
-    }
+      const res = await request.post('/customer/contact/delete', { id: row.id })
+      if (res.code === 200) { ElMessage.success('删除成功'); fetchDetail() }
+    } catch (error) { console.error('删除联系人失败:', error) }
   }).catch(() => {})
 }
 
 const handleContactDialogClosed = () => {
   contactFormRef.value?.resetFields()
-  Object.assign(contactForm, {
-    name: '',
-    position: '',
-    phone: '',
-    email: '',
-    wechat: '',
-    is_decision: 0,
-    remark: ''
-  })
+  Object.assign(contactForm, { name: '', position: '', phone: '', email: '', wechat: '', is_decision: 0, remark: '' })
 }
 
 // ============ 跟进管理 ============
-
 const followTypes = ['电话', '拜访', '微信', '邮件', '其他']
+const typeNameMap = { general: '通用', first: '首次跟进', quote: '报价跟进', deal: '成交跟进' }
+const typeTagMap = { general: 'info', first: '', quote: 'warning', deal: 'success' }
+const followTemplates = ref([])
+const selectedTemplateId = ref(null)
+
+const fetchTemplates = async () => {
+  try { const res = await request.get('/followup-templates'); if (res.code === 200) followTemplates.value = res.data } catch (e) { /* */ }
+}
+const handleTemplateChange = (templateId) => {
+  if (!templateId) return
+  const tpl = followTemplates.value.find(t => t.id === templateId)
+  if (tpl) followForm.content = tpl.content
+}
+
 const followDialogVisible = ref(false)
 const followSubmitLoading = ref(false)
 const followFormRef = ref(null)
 const isFollowEdit = ref(false)
 const followEditId = ref(null)
-
-const followForm = reactive({
-  contact_id: null,
-  follow_type: '电话',
-  content: '',
-  next_time: '',
-  next_content: ''
-})
-
+const followForm = reactive({ contact_id: null, follow_type: '电话', content: '', next_time: '', next_content: '' })
 const followRules = {
   follow_type: [{ required: true, message: '请选择跟进方式', trigger: 'change' }],
   content: [{ required: true, message: '请输入跟进内容', trigger: 'blur' }]
 }
-
-const followTypeTag = (type) => {
-  const map = { '电话': 'warning', '拜访': '', '微信': 'success', '邮件': 'info', '其他': '' }
-  return map[type] || ''
-}
-
-const followTypeColor = (type) => {
-  const map = { '电话': 'var(--color-accent)', '拜访': 'var(--color-accent)', '微信': 'var(--color-accent)', '邮件': 'var(--color-text-tertiary)', '其他': '#B3B3B3' }
-  return map[type] || 'var(--color-accent)'
-}
+const followTypeTag = (type) => ({ '电话': 'warning', '拜访': '', '微信': 'success', '邮件': 'info', '其他': '' }[type] || '')
+const followTypeColor = (type) => ({ '电话': 'var(--color-accent)', '拜访': 'var(--color-accent)', '微信': 'var(--color-accent)', '邮件': 'var(--color-text-tertiary)', '其他': '#B3B3B3' }[type] || 'var(--color-accent)')
 
 const handleFollowAdd = () => {
-  isFollowEdit.value = false
-  followEditId.value = null
-  followForm.contact_id = null
-  followForm.follow_type = '电话'
-  followForm.content = ''
-  followForm.next_time = ''
-  followForm.next_content = ''
-  followUploadList.value = []
-  followAttachmentIds.value = []
-  followDialogVisible.value = true
+  isFollowEdit.value = false; followEditId.value = null
+  Object.assign(followForm, { contact_id: null, follow_type: '电话', content: '', next_time: '', next_content: '' })
+  followUploadList.value = []; followAttachmentIds.value = []; selectedTemplateId.value = null
+  fetchTemplates(); followDialogVisible.value = true
 }
 
-// 跟进附件上传
 const uploadUrl = '/api/upload/file'
 const uploadHeaders = { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
 const followUploadRef = ref(null)
 const followUploadList = ref([])
 const followAttachmentIds = ref([])
-
-const handleFollowUploadSuccess = (res) => {
-  if (res.code === 200 && res.data) {
-    res.data.forEach(item => {
-      if (!followAttachmentIds.value.includes(item.id)) {
-        followAttachmentIds.value.push(item.id)
-      }
-    })
-  } else {
-    ElMessage.error(res.message || '上传失败')
-  }
-}
-
-const handleFollowUploadRemove = (file) => {
-  const res = file.response
-  if (res && res.data) {
-    res.data.forEach(item => {
-      const idx = followAttachmentIds.value.indexOf(item.id)
-      if (idx > -1) followAttachmentIds.value.splice(idx, 1)
-    })
-  }
-}
-
-const handleFollowUploadError = () => {
-  ElMessage.error('文件上传失败')
-}
-
+const handleFollowUploadSuccess = (res) => { if (res.code === 200 && res.data) { res.data.forEach(item => { if (!followAttachmentIds.value.includes(item.id)) followAttachmentIds.value.push(item.id) }) } else { ElMessage.error(res.message || '上传失败') } }
+const handleFollowUploadRemove = (file) => { const res = file.response; if (res && res.data) { res.data.forEach(item => { const idx = followAttachmentIds.value.indexOf(item.id); if (idx > -1) followAttachmentIds.value.splice(idx, 1) }) } }
+const handleFollowUploadError = () => { ElMessage.error('文件上传失败') }
 const isImage = (fileType) => fileType && fileType.startsWith('image/')
-
-const getImageList = (item) => {
-  return (item.attachments || []).filter(a => isImage(a.file_type)).map(a => a.file_path)
-}
+const getImageList = (item) => (item.attachments || []).filter(a => isImage(a.file_type)).map(a => a.file_path)
 
 const handleFollowEdit = (item) => {
-  isFollowEdit.value = true
-  followEditId.value = item.id
-  followForm.contact_id = item.contact_id || null
-  followForm.follow_type = item.follow_type || '电话'
-  followForm.content = item.content || ''
-  followForm.next_time = item.next_time ? formatTime(item.next_time) : ''
-  followForm.next_content = item.next_content || ''
-  followDialogVisible.value = true
+  isFollowEdit.value = true; followEditId.value = item.id
+  Object.assign(followForm, { contact_id: item.contact_id || null, follow_type: item.follow_type || '电话', content: item.content || '', next_time: item.next_time ? formatTime(item.next_time) : '', next_content: item.next_content || '' })
+  selectedTemplateId.value = null; fetchTemplates(); followDialogVisible.value = true
 }
 
 const handleFollowSubmit = async () => {
   if (!followFormRef.value) return
-
   await followFormRef.value.validate(async (valid) => {
     if (!valid) return
-
     followSubmitLoading.value = true
     try {
       let res
       if (isFollowEdit.value) {
-        res = await post('/follow-up/update', {
-          id: followEditId.value,
-          contact_id: followForm.contact_id || null,
-          follow_type: followForm.follow_type,
-          content: followForm.content,
-          next_time: followForm.next_time || null,
-          next_content: followForm.next_content || null
-        })
+        res = await request.post('/follow-up/update', { id: followEditId.value, ...followForm, next_time: followForm.next_time || null, next_content: followForm.next_content || null })
       } else {
-        res = await post('/follow-up/add', {
-          customer_id: customer.id,
-          contact_id: followForm.contact_id || null,
-          follow_type: followForm.follow_type,
-          content: followForm.content,
-          next_time: followForm.next_time || null,
-          next_content: followForm.next_content || null,
-          attachment_ids: [...followAttachmentIds.value]
-        })
+        res = await request.post('/follow-up/add', { customer_id: customer.id, ...followForm, next_time: followForm.next_time || null, next_content: followForm.next_content || null, attachment_ids: [...followAttachmentIds.value] })
       }
-
-      if (res.code === 200) {
-        ElMessage.success(isFollowEdit.value ? '修改成功' : '跟进记录添加成功')
-        followDialogVisible.value = false
-        fetchDetail()
-      }
-    } catch (error) {
-      console.error('提交跟进记录失败:', error)
-    } finally {
-      followSubmitLoading.value = false
-    }
+      if (res.code === 200) { ElMessage.success(isFollowEdit.value ? '修改成功' : '跟进记录添加成功'); followDialogVisible.value = false; fetchDetail() }
+    } catch (error) { console.error('提交跟进记录失败:', error) }
+    finally { followSubmitLoading.value = false }
   })
 }
 
 const handleFollowDelete = (item) => {
   ElMessageBox.confirm('确定要删除该跟进记录吗？', '删除确认', { type: 'warning' }).then(async () => {
-    try {
-      const res = await post('/follow-up/delete', { id: item.id })
-      if (res.code === 200) {
-        ElMessage.success('删除成功')
-        fetchDetail()
-      }
-    } catch (error) {
-      console.error('删除跟进记录失败:', error)
-    }
+    try { const res = await request.post('/follow-up/delete', { id: item.id }); if (res.code === 200) { ElMessage.success('删除成功'); fetchDetail() } }
+    catch (error) { console.error('删除跟进记录失败:', error) }
   }).catch(() => {})
 }
 
 const handleFollowDialogClosed = () => {
-  followFormRef.value?.resetFields()
-  isFollowEdit.value = false
-  followEditId.value = null
-  followForm.contact_id = null
-  followForm.follow_type = '电话'
-  followForm.content = ''
-  followForm.next_time = ''
-  followForm.next_content = ''
-  followUploadList.value = []
-  followAttachmentIds.value = []
+  followFormRef.value?.resetFields(); isFollowEdit.value = false; followEditId.value = null
+  Object.assign(followForm, { contact_id: null, follow_type: '电话', content: '', next_time: '', next_content: '' })
+  followUploadList.value = []; followAttachmentIds.value = []
 }
 
-onMounted(() => {
-  fetchDetail()
-  fetchSalesUsers()
-})
+onMounted(() => { fetchDetail(); fetchSalesUsers() })
 </script>
 
 <style scoped>
-.customer-detail {
-  padding: 0;
-}
+.customer-360 { padding: 0; }
 
 .detail-header {
-  display: flex;
-  align-items: center;
-  margin-bottom: var(--space-5);
-}
-
-.header-actions {
-  margin-left: auto;
-}
-
-.page-title {
-  margin-left: var(--space-4);
-  font-size: 32px;
-  font-weight: 600;
-  color: var(--color-text);
-  letter-spacing: -0.02em;
-}
-
-.info-card {
+  display: flex; align-items: center; justify-content: space-between;
   margin-bottom: var(--space-4);
 }
+.header-actions { display: flex; align-items: center; }
 
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+/* Hero 卡片 */
+.hero-card { margin-bottom: var(--space-4); }
+.hero-content { display: flex; gap: var(--space-6); }
+.hero-left { flex: 1; }
+.hero-right { flex-shrink: 0; }
+.hero-name {
+  font-size: 28px; font-weight: 700; color: var(--color-text);
+  letter-spacing: -0.02em; margin-bottom: var(--space-2);
 }
-
-.card-title {
-  font-size: 17px;
-  font-weight: 600;
-  color: var(--color-text);
-  letter-spacing: -0.02em;
+.hero-contact {
+  display: flex; gap: var(--space-4); color: var(--color-text-secondary); font-size: 14px;
+  margin-bottom: var(--space-1);
 }
-
-.card-tags {
-  display: flex;
-  gap: var(--space-2);
+.hero-contact a { color: var(--color-accent); text-decoration: none; }
+.hero-contact a:hover { text-decoration: underline; }
+.hero-contact .el-icon { margin-right: 4px; vertical-align: middle; }
+.hero-address {
+  color: var(--color-text-tertiary); font-size: 13px; margin-bottom: var(--space-3);
 }
+.hero-address .el-icon { margin-right: 4px; }
+.hero-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.hero-meta { display: flex; flex-direction: column; gap: var(--space-2); min-width: 180px; }
+.meta-item { display: flex; justify-content: space-between; font-size: 13px; }
+.meta-label { color: var(--color-text-tertiary); }
+.meta-value { color: var(--color-text); font-weight: 500; }
 
-.tab-card {
-  min-height: 400px;
-}
-
-.tab-toolbar {
+/* 统计卡片 */
+.stats-row {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--space-3);
   margin-bottom: var(--space-4);
 }
-
-:deep(.el-descriptions__label) {
-  width: 100px;
-  color: var(--color-text-secondary) !important;
-  font-weight: 500;
-  font-size: 13px;
+.stat-card {
+  background: var(--color-bg-secondary); border-radius: 12px; padding: var(--space-4);
+  text-align: center; transition: transform 0.2s;
 }
+.stat-card:hover { transform: translateY(-2px); }
+.stat-value { font-size: 24px; font-weight: 700; color: var(--color-text); letter-spacing: -0.02em; }
+.stat-label { font-size: 12px; color: var(--color-text-tertiary); margin-top: var(--space-1); }
 
-:deep(.el-descriptions__content) {
-  color: var(--color-text) !important;
-  font-size: 14px;
-}
+/* Tab 区域 */
+.tab-card { min-height: 400px; }
+.tab-toolbar { margin-bottom: var(--space-4); }
 
-.follow-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: var(--space-2);
-}
-
-.follow-actions {
-  margin-left: auto;
-}
-
-.follow-contact {
-  color: var(--color-text-tertiary);
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.follow-creator {
-  margin-left: auto;
-  color: var(--color-text-tertiary);
-  font-size: 12px;
-}
-
-.follow-content {
-  color: var(--color-text);
-  line-height: 1.6;
-  margin-bottom: var(--space-2);
-}
-
+/* 跟进卡片 */
+.follow-card { margin-bottom: 0; }
+.follow-header { display: flex; align-items: center; gap: 10px; margin-bottom: var(--space-2); }
+.follow-actions { margin-left: auto; }
+.follow-contact { color: var(--color-text-tertiary); font-size: 13px; display: flex; align-items: center; gap: 4px; }
+.follow-creator { margin-left: auto; color: var(--color-text-tertiary); font-size: 12px; }
+.follow-content { color: var(--color-text); line-height: 1.6; margin-bottom: var(--space-2); }
 .follow-next {
-  color: var(--color-accent);
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding-top: var(--space-2);
-  border-top: 1px dashed var(--color-border);
+  color: var(--color-accent); font-size: 13px; display: flex; align-items: center; gap: 4px;
+  padding-top: var(--space-2); border-top: 1px dashed var(--color-border);
 }
+.follow-attachments { margin-top: var(--space-2); display: flex; flex-wrap: wrap; align-items: center; }
 
-.follow-attachments {
-  margin-top: var(--space-2);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+/* 评分 */
+.score-summary { text-align: center; margin-bottom: var(--space-4); }
+.score-big { font-size: 48px; font-weight: 800; color: var(--color-accent); }
+.score-unit { font-size: 16px; color: var(--color-text-tertiary); margin-left: 4px; }
+
+/* 响应式 */
+@media (max-width: 1200px) {
+  .stats-row { grid-template-columns: repeat(3, 1fr); }
+  .hero-content { flex-direction: column; }
+}
+@media (max-width: 768px) {
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
 }
 </style>

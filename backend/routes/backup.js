@@ -3,7 +3,7 @@ const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
@@ -27,49 +27,64 @@ try {
 
 // 创建备份
 router.post('/create', authenticateToken, checkPermission('backup:create'), requireAdmin, async (req, res) => {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const fileName = `huakey_crm_full_${timestamp}.sql`;
-  const filePath = path.join(backupDir, fileName);
+  try {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const fileName = `huakey_crm_full_${timestamp}.sql`;
+    const filePath = path.join(backupDir, fileName);
 
-  // 记录备份开始
-  const [insertResult] = await pool.query(
-    'INSERT INTO sys_backup_record (backup_type, file_name, file_path, status, create_by) VALUES (?, ?, ?, ?, ?)',
-    ['full', fileName, filePath, 'running', req.user.userId]
-  );
-  const backupId = insertResult.insertId;
+    // 记录备份开始
+    const [insertResult] = await pool.query(
+      'INSERT INTO sys_backup_record (backup_type, file_name, file_path, status, create_by) VALUES (?, ?, ?, ?, ?)',
+      ['full', fileName, filePath, 'running', req.user.userId]
+    );
+    const backupId = insertResult.insertId;
 
-  const dbUser = process.env.DB_USER || 'crm_user';
-  const dbPass = process.env.DB_PASSWORD || 'Huakey@2024';
-  const dbName = process.env.DB_NAME || 'huakey_crm';
+    const dbUser = process.env.DB_USER || 'crm_user';
+    const dbPass = process.env.DB_PASSWORD || 'Huakey@2024';
+    const dbName = process.env.DB_NAME || 'huakey_crm';
+    const dbHost = process.env.DB_HOST || 'localhost';
+    const dbPort = process.env.DB_PORT || '3306';
 
-  const command = `mysqldump -u ${dbUser} -p${dbPass} ${dbName} --single-transaction --routines --triggers > "${filePath}"`;
+    // 使用 execFile 避免shell注入，参数以数组传递
+    const writeStream = fs.createWriteStream(filePath);
+    const mysqldump = execFile(
+      'mysqldump',
+      ['-u', dbUser, `-p${dbPass}`, '-h', dbHost, '-P', dbPort, '--single-transaction', '--routines', '--triggers', dbName],
+      { maxBuffer: 100 * 1024 * 1024 },
+      async (error, stdout, stderr) => {
+        try {
+          if (error) {
+            await pool.query(
+              'UPDATE sys_backup_record SET status = ?, error_msg = ? WHERE id = ?',
+              ['failed', error.message, backupId]
+            );
+            return;
+          }
+          // 写入文件
+          writeStream.write(stdout);
+          writeStream.end();
 
-  exec(command, async (error) => {
-    try {
-      if (error) {
-        await pool.query(
-          'UPDATE sys_backup_record SET status = ?, error_msg = ? WHERE id = ?',
-          ['failed', error.message, backupId]
-        );
-        return;
+          const fileSize = fs.statSync(filePath).size;
+          await pool.query(
+            'UPDATE sys_backup_record SET status = ?, file_size = ? WHERE id = ?',
+            ['success', fileSize, backupId]
+          );
+        } catch (error) {
+          console.error('[备份] 更新备份记录失败:', error);
+        }
       }
+    );
 
-      const fileSize = fs.statSync(filePath).size;
-      await pool.query(
-        'UPDATE sys_backup_record SET status = ?, file_size = ? WHERE id = ?',
-        ['success', fileSize, backupId]
-      );
-    } catch (error) {
-      console.error('[备份] 更新备份记录失败:', error);
-    }
-  });
-
-  // 立即返回，备份在后台执行
-  res.json({
-    code: 200,
-    message: '备份任务已创建，正在后台执行',
-    data: { id: backupId, file_name: fileName }
-  });
+    // 立即返回，备份在后台执行
+    res.json({
+      code: 200,
+      message: '备份任务已创建，正在后台执行',
+      data: { id: backupId, file_name: fileName }
+    });
+  } catch (error) {
+    console.error('[备份] 创建备份失败:', error);
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+  }
 });
 
 // 获取备份列表
@@ -101,9 +116,13 @@ router.post('/list', authenticateToken, checkPermission('backup:create'), async 
   }
 });
 
-// 恢复备份
+// 恢复备份（需确认码）
 router.post('/restore', authenticateToken, checkPermission('backup:restore'), requireAdmin, async (req, res) => {
-  const { id } = req.body;
+  const { id, confirm_code } = req.body;
+
+  if (!confirm_code || confirm_code !== `RESTORE-${id}`) {
+    return res.status(400).json({ code: 400, message: '确认码不正确，恢复操作已拒绝。确认码格式: RESTORE-{备份ID}', data: null });
+  }
 
   try {
     const [records] = await pool.query('SELECT * FROM sys_backup_record WHERE id = ? AND status = ?', [id, 'success']);
@@ -119,14 +138,35 @@ router.post('/restore', authenticateToken, checkPermission('backup:restore'), re
     const dbUser = process.env.DB_USER || 'crm_user';
     const dbPass = process.env.DB_PASSWORD || 'Huakey@2024';
     const dbName = process.env.DB_NAME || 'huakey_crm';
+    const dbHost = process.env.DB_HOST || 'localhost';
+    const dbPort = process.env.DB_PORT || '3306';
 
-    const command = `mysql -u ${dbUser} -p${dbPass} ${dbName} < "${backup.file_path}"`;
+    const sqlContent = fs.readFileSync(backup.file_path, 'utf8');
 
-    exec(command, (error) => {
-      if (error) {
-        console.error('[备份] 恢复备份失败:', error);
+    // 使用 execFile 避免shell注入
+    execFile(
+      'mysql',
+      ['-u', dbUser, `-p${dbPass}`, '-h', dbHost, '-P', dbPort, dbName],
+      { maxBuffer: 100 * 1024 * 1024 },
+      async (error, stdout, stderr) => {
+        try {
+          if (error) {
+            await pool.query(
+              'UPDATE sys_backup_record SET restore_status = ?, restore_error = ? WHERE id = ?',
+              ['failed', error.message, id]
+            );
+            console.error('[备份] 恢复备份失败:', error.message);
+          } else {
+            await pool.query(
+              'UPDATE sys_backup_record SET restore_status = ? WHERE id = ?',
+              ['success', id]
+            );
+          }
+        } catch (err) {
+          console.error('[备份] 更新恢复记录失败:', err);
+        }
       }
-    });
+    ).stdin.end(sqlContent);
 
     res.json({ code: 200, message: '恢复任务已执行', data: null });
   } catch (error) {

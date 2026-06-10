@@ -10,10 +10,16 @@ router.get('/list', authenticateToken, checkPermission('system'), async (req, re
     const [rows] = await pool.query('SELECT * FROM sys_integration ORDER BY id ASC');
     // 脱敏处理
     rows.forEach(row => {
-      if (row.type === 'email' && row.config) {
+      if (row.config) {
         try {
           const cfg = typeof row.config === 'string' ? JSON.parse(row.config) : row.config;
-          if (cfg.pass) cfg.pass = '***';
+          // 通用脱敏：对所有敏感字段遮盖
+          const sensitiveKeys = ['pass', 'password', 'secret', 'key', 'token', 'apikey', 'api_key', 'apiSecret', 'api_secret'];
+          for (const k of Object.keys(cfg)) {
+            if (sensitiveKeys.some(sk => k.toLowerCase().includes(sk.toLowerCase()))) {
+              cfg[k] = '***';
+            }
+          }
           row.config = cfg;
         } catch (error) {
           // 解析失败保持原值
@@ -125,11 +131,15 @@ router.post('/send-email', authenticateToken, async (req, res) => {
     });
 
     try {
+      // 对邮件内容做HTML转义，防止XSS
+      const escapeHtml = (str) => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      const safeBody = `<pre style="font-family:inherit;white-space:pre-wrap;">${escapeHtml(body)}</pre>`;
+
       await transporter.sendMail({
         from: cfg.from || cfg.user,
         to,
         subject,
-        html: body
+        html: safeBody
       });
       await transporter.close();
 

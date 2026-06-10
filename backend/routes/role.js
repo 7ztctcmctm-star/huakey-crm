@@ -71,6 +71,11 @@ router.post('/update', authenticateToken, requireAdmin, validate(roleUpdateSchem
 router.post('/delete', authenticateToken, requireAdmin, validate(roleDeleteSchema), async (req, res) => {
   try {
     const { id } = req.body;
+    // 检查是否有用户关联该角色
+    const [users] = await pool.query('SELECT COUNT(*) as cnt FROM sys_user WHERE role_id = ?', [id]);
+    if (users[0].cnt > 0) {
+      return res.status(400).json({ code: 400, message: `该角色下有 ${users[0].cnt} 个用户，无法删除`, data: null });
+    }
     await pool.query('DELETE FROM sys_role WHERE id=?', [id]);
     res.json({ code: 200, message: '删除角色成功', data: null });
   } catch (error) {

@@ -2,6 +2,14 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+
+// 管理员权限校验中间件
+const requireAdmin = (req, res, next) => {
+  if (!req.user.manageAll && req.user.roleId !== 1) {
+    return res.status(403).json({ code: 403, message: '仅管理员可操作', data: null });
+  }
+  next();
+};
 const {
   getUserPermissions,
   clearPermissionCache,
@@ -99,7 +107,7 @@ router.get('/role/:roleId', authenticateToken, async (req, res) => {
 });
 
 // 更新角色权限
-router.post('/role/update', authenticateToken, async (req, res) => {
+router.post('/role/update', authenticateToken, requireAdmin, async (req, res) => {
   const connection = await pool.getConnection();
 
   try {
@@ -178,7 +186,7 @@ router.get('/data-scope/:roleId', authenticateToken, async (req, res) => {
 });
 
 // 更新数据权限配置
-router.post('/data-scope/update', authenticateToken, async (req, res) => {
+router.post('/data-scope/update', authenticateToken, requireAdmin, async (req, res) => {
   const connection = await pool.getConnection();
 
   try {
@@ -241,7 +249,7 @@ function buildPermissionTree(permissions, parentId = 0) {
 }
 
 // 新增权限节点
-router.post('/add', authenticateToken, async (req, res) => {
+router.post('/add', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { name, code, type, parent_id, path, icon, sort } = req.body;
     if (!name || !code || !type) {
@@ -264,7 +272,7 @@ router.post('/add', authenticateToken, async (req, res) => {
 });
 
 // 编辑权限节点
-router.post('/update-node', authenticateToken, async (req, res) => {
+router.post('/update-node', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id, name, code, type, parent_id, path, icon, sort } = req.body;
     if (!id) {
@@ -283,7 +291,7 @@ router.post('/update-node', authenticateToken, async (req, res) => {
 });
 
 // 删除权限节点
-router.post('/delete-node', authenticateToken, async (req, res) => {
+router.post('/delete-node', authenticateToken, requireAdmin, async (req, res) => {
   const connection = await pool.getConnection();
   try {
     const { id } = req.body;

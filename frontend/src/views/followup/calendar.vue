@@ -103,7 +103,7 @@
 import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { post, get } from '@/utils/request'
+import request from '@/utils/request'
 import { formatTime } from '@/composables/useFormat'
 
 const router = useRouter()
@@ -129,7 +129,7 @@ const fetchCalendar = async () => {
 
   loading.value = true
   try {
-    const res = await post('/follow-up/calendar', { year, month })
+    const res = await request.post('/follow-up/calendar', { year, month })
     if (res.code === 200) {
       records.value = res.data.list || []
       buildDateMap()
@@ -187,7 +187,7 @@ const goToCustomer = (id) => {
 const fetchPlanList = async () => {
   planLoading.value = true
   try {
-    const res = await get('/follow-up/plans')
+    const res = await request.get('/follow-up/plans')
     if (res.code === 200) {
       planList.value = res.data.list || []
     }
