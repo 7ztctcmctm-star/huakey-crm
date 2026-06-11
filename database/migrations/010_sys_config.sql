@@ -8,5 +8,5 @@ CREATE TABLE IF NOT EXISTS sys_config (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统配置';
 
 -- 初始配置：逾期天数
-INSERT INTO sys_config (config_key, config_value, description) VALUES
+INSERT IGNORE INTO sys_config (config_key, config_value, description) VALUES
 ('overdue_days', '15', '客户逾期跟进天数阈值');

@@ -84,10 +84,19 @@
             <el-tag :type="getStatusTag(row.status)">{{ getStatusText(row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="is_timeout" label="超时" width="70" align="center">
+        <el-table-column label="SLA状态" width="120" align="center">
           <template #default="{ row }">
-            <el-tag v-if="row.is_timeout == 1" type="danger" effect="dark" size="small">超时</el-tag>
-            <span v-else style="color: #999">-</span>
+            <template v-if="row.status >= 5"><span style="color:#999">-</span></template>
+            <template v-else-if="getSlaHours(row) === null"><span style="color:#999">-</span></template>
+            <template v-else-if="getSlaHours(row).overdue">
+              <el-tag type="danger" effect="dark" size="small">超时{{ getSlaHours(row).hours }}h</el-tag>
+            </template>
+            <template v-else-if="getSlaHours(row).urgent">
+              <el-tag type="warning" size="small">剩余{{ getSlaHours(row).hours }}h</el-tag>
+            </template>
+            <template v-else>
+              <el-tag type="success" size="small">剩余{{ getSlaHours(row).hours }}h</el-tag>
+            </template>
           </template>
         </el-table-column>
         <el-table-column prop="assignee_name" label="处理人" width="100" />
@@ -118,6 +127,11 @@
     <!-- 新建工单弹窗 -->
     <el-dialog :title="isEdit ? '编辑工单' : '新建工单'" v-model="addVisible" width="600px">
       <el-form :model="formData" label-width="100px">
+        <el-form-item label="选择模板" v-if="!isEdit">
+          <el-select v-model="selectedTemplate" placeholder="选择常用模板（可选）" clearable @change="applyTemplate">
+            <el-option v-for="t in ticketTemplates" :key="t.id" :label="t.name" :value="t.id" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="客户" required>
           <el-select v-model="formData.customer_id" placeholder="请选择客户">
             <el-option v-for="c in customers" :key="c.id" :label="c.company_name" :value="c.id" />
@@ -254,7 +268,10 @@
         <el-divider />
 
         <div>
-          <h4>问题描述</h4>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <h4>问题描述</h4>
+            <el-button type="primary" link @click="openFaqDialog">📚 查FAQ</el-button>
+          </div>
           <p class="desc-text">{{ detailData.description }}</p>
         </div>
 
@@ -284,10 +301,44 @@
             </div>
           </div>
         </div>
+
+        <!-- 社媒沟通记录 -->
+        <div v-if="detailData.social_records && detailData.social_records.length > 0">
+          <el-divider />
+          <h4>沟通记录</h4>
+          <el-table :data="detailData.social_records" stripe border size="small" max-height="250">
+            <el-table-column prop="platform" label="平台" width="80">
+              <template #default="{ row }">
+                <el-tag size="small" :type="row.platform === 'wechat' ? 'success' : row.platform === 'email' ? 'info' : 'warning'">{{ row.platform }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="direction" label="方向" width="60" align="center">
+              <template #default="{ row }">
+                <el-tag :type="row.direction === 'in' ? 'info' : 'primary'" size="small">{{ row.direction === 'in' ? '收' : '发' }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="content" label="内容" min-width="200" show-overflow-tooltip />
+            <el-table-column prop="contact_name" label="联系人" width="100" />
+            <el-table-column prop="message_time" label="时间" width="150" />
+          </el-table>
+        </div>
       </div>
       <template #footer>
         <el-button @click="detailVisible = false">关闭</el-button>
       </template>
+    </el-dialog>
+
+    <!-- FAQ查询弹窗 -->
+    <el-dialog v-model="faqVisible" title="查询知识库FAQ" width="500px">
+      <el-input v-model="faqKeyword" placeholder="搜索FAQ" clearable style="margin-bottom: 12px;" @input="fetchFaqs" />
+      <div v-loading="faqLoading" style="max-height: 350px; overflow-y: auto;">
+        <div v-for="item in faqList" :key="item.id" class="faq-item" @click="item._expanded = !item._expanded">
+          <div class="faq-question">{{ item.question }}</div>
+          <div v-if="item._expanded" class="faq-answer">{{ item.answer }}</div>
+          <div v-else class="faq-preview">{{ (item.answer || '').slice(0, 60) }}{{ (item.answer || '').length > 60 ? '...' : '' }}</div>
+        </div>
+        <el-empty v-if="!faqLoading && faqList.length === 0" description="暂无相关FAQ" :image-size="48" />
+      </div>
     </el-dialog>
   </div>
 </template>
@@ -326,6 +377,29 @@ const customers = ref([])
 const contracts = ref([])
 const engineers = ref([])
 
+// FAQ查询
+const faqVisible = ref(false)
+const faqKeyword = ref('')
+const faqLoading = ref(false)
+const faqList = ref([])
+
+const openFaqDialog = () => {
+  faqKeyword.value = (detailData.value.description || '').slice(0, 20)
+  faqVisible.value = true
+  fetchFaqs()
+}
+
+const fetchFaqs = async () => {
+  faqLoading.value = true
+  try {
+    const params = {}
+    if (faqKeyword.value) params.keyword = faqKeyword.value
+    const res = await request.get('/knowledge/faqs', { params })
+    if (res.code === 200) faqList.value = (res.data || []).map(f => ({ ...f, _expanded: false }))
+  } catch { /* */ }
+  finally { faqLoading.value = false }
+}
+
 const pagination = reactive({
   page: 1,
   pageSize: 10,
@@ -351,6 +425,25 @@ const formData = reactive({
   description: '',
   priority: 3
 })
+
+// 工单模板
+const selectedTemplate = ref(null)
+const ticketTemplates = [
+  { id: 1, name: '产品质量投诉', type: '投诉', priority: 2, description: '客户反馈产品质量问题：\n- 产品名称：\n- 问题描述：\n- 影响程度：' },
+  { id: 2, name: '物流延迟', type: '投诉', priority: 3, description: '客户反馈物流延迟：\n- 订单号：\n- 预计到达：\n- 实际状态：' },
+  { id: 3, name: '技术支持请求', type: '技术支持', priority: 2, description: '客户需要技术支持：\n- 设备型号：\n- 故障现象：\n- 已尝试方案：' },
+  { id: 4, name: '退换货申请', type: '退换货', priority: 2, description: '客户申请退换货：\n- 产品名称：\n- 退换原因：\n- 购买日期：' },
+  { id: 5, name: '售后保养咨询', type: '咨询', priority: 4, description: '客户咨询保养事宜：\n- 设备型号：\n- 使用时长：\n- 具体问题：' }
+]
+const applyTemplate = (id) => {
+  const tpl = ticketTemplates.find(t => t.id === id)
+  if (tpl) {
+    formData.type = tpl.type
+    formData.priority = tpl.priority
+    formData.description = tpl.description
+    formData.title = tpl.name
+  }
+}
 
 const assignVisible = ref(false)
 const assignData = reactive({
@@ -692,9 +785,23 @@ function getTypeTag(type) {
   return map[type] || 'info'
 }
 
-// P0-4: 超时工单行高亮
+// SLA计算
+const SLA_HOURS = { 1: 4, 2: 8, 3: 24, 4: 48 }
+function getSlaHours(row) {
+  if (!row.create_time || row.status >= 5) return null
+  const elapsed = (Date.now() - new Date(row.create_time).getTime()) / 3600000
+  const limit = SLA_HOURS[row.priority] || 24
+  const remaining = Math.round(limit - elapsed)
+  if (remaining <= 0) return { overdue: true, hours: Math.abs(remaining), urgent: false }
+  if (remaining <= limit * 0.25) return { overdue: false, hours: remaining, urgent: true }
+  return { overdue: false, hours: remaining, urgent: false }
+}
+
+// 超时工单行高亮
 function tableRowClass({ row }) {
-  return row.is_timeout == 1 ? 'timeout-service-row' : ''
+  const sla = getSlaHours(row)
+  if (sla?.overdue) return 'timeout-service-row'
+  return ''
 }
 
 function handleUploadSuccess(res, file) {
@@ -825,4 +932,9 @@ const imagePaths = () => {
 /* P0-4: 超时工单行高亮 */
 :deep(.timeout-service-row) { background-color: var(--color-danger-bg) !important; }
 :deep(.timeout-service-row):hover { background-color: rgba(255, 69, 58, 0.12) !important; }
+.faq-item { padding: 12px; border: 1px solid #f0f0f0; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
+.faq-item:hover { border-color: #0071e3; background: #f5f7fa; }
+.faq-question { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+.faq-answer { font-size: 13px; color: #1d1d1f; line-height: 1.6; padding: 8px 0; border-top: 1px solid #f0f0f0; margin-top: 4px; }
+.faq-preview { font-size: 12px; color: #86868b; }
 </style>

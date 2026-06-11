@@ -73,7 +73,7 @@ import { Plus, Edit, Delete, View } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 
 const typeNameMap = { general: '通用', first: '首次跟进', quote: '报价跟进', deal: '成交跟进' }
-const typeTagMap = { general: 'info', first: '', quote: 'warning', deal: 'success' }
+const typeTagMap = { general: 'info', first: 'primary', quote: 'warning', deal: 'success' }
 
 const loading = ref(false)
 const tableData = ref([])

@@ -338,4 +338,149 @@ router.post('/notification-dismiss-by-business', authenticateToken, async (req, 
   }
 });
 
+// 通知列表（分页）
+router.get('/notification-list', authenticateToken, async (req, res) => {
+  try {
+    const { page = 1, pageSize = 20 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(pageSize);
+
+    const [countResult] = await pool.query(
+      'SELECT COUNT(*) as total FROM crm_notification WHERE (to_user_id = ? OR to_role_id = ?) AND is_dismissed = 0',
+      [req.user.userId, req.user.roleId]
+    );
+
+    const [rows] = await pool.query(
+      `SELECT * FROM crm_notification
+       WHERE (to_user_id = ? OR to_role_id = ?) AND is_dismissed = 0
+       ORDER BY is_read ASC, create_time DESC
+       LIMIT ? OFFSET ?`,
+      [req.user.userId, req.user.roleId, parseInt(pageSize), offset]
+    );
+
+    res.json({ code: 200, message: '查询成功', data: { list: rows, total: countResult[0].total } });
+  } catch (error) {
+    console.error('[提醒] 通知列表查询失败:', error);
+    res.status(500).json({ code: 500, message: '查询失败', data: null });
+  }
+});
+
+// ============ 通知中心下拉面板 ============
+
+router.get('/center', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    // 审批待处理（从通知表获取）
+    const [approvals] = await pool.query(
+      `SELECT n.id, n.title, n.create_time, '/approval/pending' as link
+       FROM crm_notification n
+       WHERE n.to_role_id = ? AND n.is_dismissed = 0 AND n.type LIKE '%approval%'
+       ORDER BY n.create_time DESC LIMIT 5`, [req.user.roleId]
+    );
+
+    // 今日待跟进
+    const [followups] = await pool.query(
+      `SELECT fp.id, CONCAT('跟进-', c.company_name) as title, fp.plan_time as create_time,
+              CONCAT('/customer/detail/', c.id) as link
+       FROM crm_follow_plan fp
+       JOIN crm_customer c ON fp.customer_id = c.id
+       WHERE fp.create_by = ? AND fp.status = 'pending'
+         AND DATE(fp.plan_time) = CURDATE()
+       ORDER BY fp.plan_time LIMIT 5`, [userId]
+    );
+
+    // 库存预警
+    const [stockAlerts] = await pool.query(
+      `SELECT sa.id, CONCAT(p.name, '库存偏低(', p.stock, p.unit, ')') as title,
+              sa.create_time, '/inventory' as link
+       FROM crm_stock_alert sa
+       JOIN crm_product p ON sa.product_id = p.id
+       WHERE sa.alert_enabled = 1 AND p.stock <= sa.min_qty AND p.deleted_at IS NULL
+       ORDER BY sa.create_time DESC LIMIT 5`
+    );
+
+    // 回款逾期
+    const [paymentOverdue] = await pool.query(
+      `SELECT pp.id, CONCAT(c.contract_no, '回款逾期', DATEDIFF(NOW(), pp.plan_date), '天') as title,
+              pp.plan_date as create_time, '/payment' as link
+       FROM crm_payment_plan pp
+       JOIN crm_contract c ON pp.contract_id = c.id
+       WHERE pp.plan_date < CURDATE() AND pp.status != 'completed' AND c.deleted_at IS NULL
+       ORDER BY pp.plan_date LIMIT 5`
+    );
+
+    // 系统通知
+    const [systemNotifications] = await pool.query(
+      `SELECT id, title, content, type, is_read, create_time,
+              CASE
+                WHEN business_type = 'quote' THEN '/quote'
+                WHEN business_type = 'contract' THEN '/contract'
+                WHEN business_type = 'customer' THEN CONCAT('/customer/detail/', business_id)
+                ELSE NULL
+              END as link
+       FROM crm_notification
+       WHERE (to_user_id = ? OR to_role_id = ?) AND is_dismissed = 0
+       ORDER BY is_read ASC, create_time DESC LIMIT 20`, [userId, req.user.roleId]
+    );
+
+    // 未读数
+    const [[{ unread }]] = await pool.query(
+      `SELECT COUNT(*) as unread FROM crm_notification
+       WHERE (to_user_id = ? OR to_role_id = ?) AND is_read = 0 AND is_dismissed = 0`, [userId, req.user.roleId]
+    );
+
+    // 相对时间辅助
+    const relativeTime = (dt) => {
+      if (!dt) return '';
+      const diff = Date.now() - new Date(dt).getTime();
+      const mins = Math.floor(diff / 60000);
+      if (mins < 1) return '刚刚';
+      if (mins < 60) return `${mins}分钟前`;
+      const hours = Math.floor(mins / 60);
+      if (hours < 24) return `${hours}小时前`;
+      const days = Math.floor(hours / 24);
+      if (days < 7) return `${days}天前`;
+      return new Date(dt).toLocaleDateString('zh-CN');
+    };
+
+    const formatItems = (items) => items.map(i => ({
+      id: i.id, title: i.title, time: relativeTime(i.create_time), link: i.link
+    }));
+
+    res.json({
+      code: 200, message: '查询成功',
+      data: {
+        todo: {
+          approvals: formatItems(approvals),
+          followups: formatItems(followups),
+          stock_alerts: formatItems(stockAlerts),
+          payment_overdue: formatItems(paymentOverdue)
+        },
+        system: systemNotifications.map(n => ({
+          id: n.id, title: n.title, content: n.content, type: n.type,
+          time: relativeTime(n.create_time), is_read: n.is_read, link: n.link
+        })),
+        unread_count: unread + approvals.length + followups.length + stockAlerts.length + paymentOverdue.length
+      }
+    });
+  } catch (error) {
+    console.error('[提醒] 通知中心查询失败:', error);
+    res.status(500).json({ code: 500, message: '查询失败', data: null });
+  }
+});
+
+// 标记所有系统通知已读
+router.post('/center/mark-all-read', authenticateToken, async (req, res) => {
+  try {
+    await pool.query(
+      'UPDATE crm_notification SET is_read = 1 WHERE to_user_id = ? AND is_read = 0',
+      [req.user.userId]
+    );
+    res.json({ code: 200, message: '已全部标记为已读', data: null });
+  } catch (error) {
+    console.error('[提醒] 标记已读失败:', error);
+    res.status(500).json({ code: 500, message: '操作失败', data: null });
+  }
+});
+
 module.exports = router;

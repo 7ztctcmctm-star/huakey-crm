@@ -353,4 +353,192 @@ router.get('/ranking', authenticateToken, async (req, res) => {
   }
 });
 
+// ============ 增强版销售预测 ============
+
+router.get('/prediction/enhanced', authenticateToken, async (req, res) => {
+  try {
+    const monthsAhead = parseInt(req.query.months_ahead) || 3;
+
+    // 获取最近24个月数据
+    const [history] = await pool.query(`
+      SELECT DATE_FORMAT(sign_date, '%Y-%m') as month, COUNT(*) as count,
+             COALESCE(SUM(amount), 0) as amount
+      FROM crm_contract WHERE deleted_at IS NULL AND sign_date >= DATE_SUB(NOW(), INTERVAL 24 MONTH)
+      GROUP BY month ORDER BY month
+    `);
+
+    if (history.length < 3) {
+      return res.json({ code: 200, message: '数据不足', data: { history, predictions: [] } });
+    }
+
+    const amounts = history.map(h => parseFloat(h.amount));
+    const n = amounts.length;
+
+    // 方法1：移动平均
+    const windowSize = Math.min(3, n);
+    const movingAvg = amounts.slice(-windowSize).reduce((a, b) => a + b, 0) / windowSize;
+
+    // 方法2：线性回归（最小二乘法）
+    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+    for (let i = 0; i < n; i++) {
+      sumX += i; sumY += amounts[i]; sumXY += i * amounts[i]; sumX2 += i * i;
+    }
+    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+
+    // 方法3：季节性（如果数据>=12个月）
+    let seasonalFactors = [];
+    if (n >= 12) {
+      const overallAvg = sumY / n;
+      for (let m = 0; m < 12; m++) {
+        const monthValues = [];
+        for (let i = m; i < n; i += 12) monthValues.push(amounts[i]);
+        const monthAvg = monthValues.reduce((a, b) => a + b, 0) / monthValues.length;
+        seasonalFactors.push(overallAvg > 0 ? monthAvg / overallAvg : 1);
+      }
+    }
+
+    // 生成预测
+    const predictions = [];
+    const lastMonth = history[history.length - 1].month;
+    const [year, month] = lastMonth.split('-').map(Number);
+
+    for (let i = 1; i <= monthsAhead; i++) {
+      const predMonth = new Date(year, month - 1 + i, 1);
+      const monthStr = `${predMonth.getFullYear()}-${String(predMonth.getMonth() + 1).padStart(2, '0')}`;
+      const idx = n + i - 1;
+
+      const maPrediction = Math.round(movingAvg);
+      const lrPrediction = Math.round(Math.max(0, intercept + slope * idx));
+
+      let seasonalPrediction = maPrediction;
+      if (seasonalFactors.length === 12) {
+        const targetMonth = predMonth.getMonth();
+        seasonalPrediction = Math.round(Math.max(0, (intercept + slope * idx) * seasonalFactors[targetMonth]));
+      }
+
+      // 置信区间（基于历史标准差）
+      const mean = sumY / n;
+      const variance = amounts.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / n;
+      const std = Math.sqrt(variance);
+      const margin = Math.round(1.96 * std / Math.sqrt(n));
+
+      predictions.push({
+        month: monthStr,
+        moving_avg: maPrediction,
+        linear_regression: lrPrediction,
+        seasonal: seasonalPrediction,
+        confidence_low: Math.max(0, Math.round((maPrediction + lrPrediction + seasonalPrediction) / 3 - margin)),
+        confidence_high: Math.round((maPrediction + lrPrediction + seasonalPrediction) / 3 + margin)
+      });
+    }
+
+    res.json({
+      code: 200, message: '查询成功',
+      data: {
+        history,
+        predictions,
+        models: {
+          moving_avg: { window: windowSize, last_value: Math.round(movingAvg) },
+          linear_regression: { slope: slope.toFixed(2), intercept: intercept.toFixed(2) },
+          seasonal: { has_seasonal: seasonalFactors.length === 12, factors: seasonalFactors.map(f => f.toFixed(2)) }
+        }
+      }
+    });
+  } catch (error) {
+    console.error('[分析] 增强预测失败:', error);
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+  }
+});
+
+// ============ 增强版智能建议 ============
+
+router.get('/suggestions/enhanced', authenticateToken, async (req, res) => {
+  try {
+    const suggestions = [];
+
+    // 商机跟进建议：停滞商机
+    const [staleOpps] = await pool.query(`
+      SELECT o.id, o.name, o.stage, o.expected_amount, o.update_time, c.company_name,
+             DATEDIFF(NOW(), o.update_time) as stale_days
+      FROM crm_opportunity o
+      JOIN crm_customer c ON o.customer_id = c.id
+      WHERE o.deleted_at IS NULL AND o.stage NOT IN (5, 6)
+        AND DATEDIFF(NOW(), o.update_time) > 14
+      ORDER BY o.expected_amount DESC LIMIT 5
+    `);
+    staleOpps.forEach(o => {
+      suggestions.push({
+        type: 'opportunity', priority: o.stale_days > 30 ? 'high' : 'medium',
+        title: `商机"${o.name}"已停滞${o.stale_days}天`,
+        content: `客户${o.company_name}的商机（${o.expected_amount}元）在阶段${o.stage}停滞${o.stale_days}天，建议安排跟进。`,
+        action: '跟进商机', ref_id: o.id
+      });
+    });
+
+    // 客户挽回建议：流失预警客户
+    const [churnCustomers] = await pool.query(`
+      SELECT id, company_name, last_follow_time, level,
+             DATEDIFF(NOW(), COALESCE(last_follow_time, create_time)) as idle_days
+      FROM crm_customer WHERE deleted_at IS NULL AND status = 1
+        AND (last_follow_time IS NULL OR last_follow_time < NOW() - INTERVAL 30 DAY)
+      ORDER BY level, idle_days DESC LIMIT 5
+    `);
+    churnCustomers.forEach(c => {
+      suggestions.push({
+        type: 'customer', priority: c.level === 'A' ? 'high' : 'medium',
+        title: `${c.level}级客户"${c.company_name}"${c.idle_days}天未跟进`,
+        content: `建议安排回访或发送关怀邮件，防止客户流失。`,
+        action: '安排回访', ref_id: c.id
+      });
+    });
+
+    // 业绩冲刺建议
+    const now = new Date();
+    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const [[{ monthAmount }]] = await pool.query(
+      "SELECT COALESCE(SUM(amount), 0) as monthAmount FROM crm_contract WHERE deleted_at IS NULL AND sign_date >= ?", [monthStart]
+    );
+    const [[{ targetAmount }]] = await pool.query(
+      "SELECT COALESCE(SUM(target_amount), 0) as targetAmount FROM crm_sales_target WHERE year = ? AND month = ? AND deleted_at IS NULL",
+      [now.getFullYear(), now.getMonth() + 1]
+    );
+    if (targetAmount > 0 && monthAmount < targetAmount) {
+      const gap = targetAmount - monthAmount;
+      const daysLeft = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate();
+      suggestions.push({
+        type: 'performance', priority: daysLeft <= 7 ? 'high' : 'medium',
+        title: `本月业绩差距 ¥${Math.round(gap).toLocaleString()}`,
+        content: `当前完成 ¥${Math.round(monthAmount).toLocaleString()}，目标 ¥${Math.round(targetAmount).toLocaleString()}，剩余${daysLeft}天，日均需 ¥${Math.round(gap / Math.max(1, daysLeft)).toLocaleString()}。`,
+        action: '查看商机', ref_id: null
+      });
+    }
+
+    // 交叉销售建议：有合同但无近期商机的客户
+    const [crossSell] = await pool.query(`
+      SELECT c.id, c.company_name, GROUP_CONCAT(DISTINCT p.name) as products
+      FROM crm_customer c
+      JOIN crm_contract ct ON c.id = ct.customer_id AND ct.deleted_at IS NULL
+      LEFT JOIN crm_quote_item qi ON ct.id = qi.quote_id
+      LEFT JOIN crm_product p ON qi.product_id = p.id
+      WHERE c.deleted_at IS NULL AND c.status = 2
+        AND NOT EXISTS (SELECT 1 FROM crm_opportunity o WHERE o.customer_id = c.id AND o.stage NOT IN (5, 6) AND o.deleted_at IS NULL)
+      GROUP BY c.id LIMIT 5
+    `);
+    crossSell.forEach(c => {
+      suggestions.push({
+        type: 'cross_sell', priority: 'low',
+        title: `交叉销售机会：${c.company_name}`,
+        content: `该客户曾采购${c.products || '产品'}，目前无活跃商机，可推荐相关产品。`,
+        action: '创建商机', ref_id: c.id
+      });
+    });
+
+    res.json({ code: 200, message: '查询成功', data: suggestions });
+  } catch (error) {
+    console.error('[分析] 增强建议失败:', error);
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+  }
+});
+
 module.exports = router;

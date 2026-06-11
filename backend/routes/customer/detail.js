@@ -38,6 +38,8 @@ const customerListSchema = Joi.object({
   start_date: Joi.string().isoDate().allow('', null),
   end_date: Joi.string().isoDate().allow('', null),
   overdue: Joi.boolean().allow(null),
+  unassigned: Joi.boolean().allow(null),
+  overdue_follow: Joi.boolean().allow(null),
   tag_id: Joi.number().integer().positive().allow('', null),
   sort: Joi.string().valid('create_time_desc', 'last_follow_time_asc', 'last_follow_time_desc').allow('', null)
 });
@@ -123,6 +125,8 @@ router.post('/list',
       start_date,
       end_date,
       overdue,
+      unassigned,
+      overdue_follow,
       tag_id,
       sort
     } = req.body;
@@ -194,6 +198,14 @@ router.post('/list',
       const overdueDays = await getOverdueDays();
       whereClause += ' AND DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) >= ?';
       params.push(overdueDays);
+    }
+    // 待分配筛选
+    if (unassigned === true || unassigned === 'true') {
+      whereClause += ' AND (c.owner_id IS NULL OR c.owner_id = 0)';
+    }
+    // 久未跟进筛选（超过7天）
+    if (overdue_follow === true || overdue_follow === 'true') {
+      whereClause += ' AND c.last_follow_time IS NOT NULL AND DATEDIFF(NOW(), c.last_follow_time) > 7';
     }
     // 标签筛选
     if (tag_id) {

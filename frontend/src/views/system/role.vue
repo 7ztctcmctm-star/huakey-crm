@@ -43,6 +43,16 @@
     </el-dialog>
 
     <el-dialog v-model="permDialogVisible" :title="`权限配置 — ${permRoleName}`" width="500px">
+      <div style="margin-bottom: 12px;">
+        <div style="font-size: 12px; color: #86868b; margin-bottom: 6px;">快速设置：</div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <el-button size="small" @click="applyPreset('sales')">销售默认</el-button>
+          <el-button size="small" @click="applyPreset('finance')">财务默认</el-button>
+          <el-button size="small" @click="applyPreset('purchase')">采购默认</el-button>
+          <el-button size="small" @click="applyPreset('service')">售后默认</el-button>
+          <el-button size="small" @click="applyPreset('readonly')">只读权限</el-button>
+        </div>
+      </div>
       <el-tree
         ref="permTreeRef"
         :data="permTree"
@@ -139,6 +149,33 @@ const handleSavePermission = async () => {
   } catch {
     ElMessage.error('保存失败')
   } finally { permLoading.value = false }
+}
+
+// 权限预设包
+const permissionPresets = {
+  sales: ['dashboard', 'customer', 'customer:list', 'customer:pool', 'leads', 'followup:calendar', 'opportunity', 'quotation', 'knowledge', 'scoring'],
+  finance: ['dashboard', 'contract', 'payment', 'invoice', 'report'],
+  purchase: ['dashboard', 'supplier', 'purchase', 'inventory', 'product'],
+  service: ['dashboard', 'service', 'customer:list', 'knowledge'],
+  readonly: ['dashboard']
+}
+
+const applyPreset = (presetKey) => {
+  if (!permTreeRef.value) return
+  const presetCodes = permissionPresets[presetKey] || []
+  // 遍历权限树，找到匹配的节点
+  const matchIds = []
+  const walkTree = (nodes) => {
+    for (const node of nodes) {
+      if (presetCodes.some(code => node.code === code || node.name?.includes(code))) {
+        matchIds.push(node.id)
+      }
+      if (node.children?.length) walkTree(node.children)
+    }
+  }
+  walkTree(permTree.value)
+  // 取消所有，勾选匹配的
+  permTreeRef.value.setCheckedKeys(matchIds)
 }
 
 onMounted(() => { fetchList() })

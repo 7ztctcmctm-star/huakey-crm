@@ -7,9 +7,13 @@
 USE huakey_crm;
 
 -- 为用户表添加权限相关字段
-ALTER TABLE sys_user
-ADD COLUMN last_login_time DATETIME COMMENT '最后登录时间' AFTER update_time,
-ADD COLUMN last_login_ip VARCHAR(50) COMMENT '最后登录IP' AFTER last_login_time;
+SET @col_exists = (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='huakey_crm' AND table_name='sys_user' AND column_name='last_login_time');
+SET @sql = IF(@col_exists = 0, 'ALTER TABLE sys_user ADD COLUMN last_login_time DATETIME COMMENT ''最后登录时间'' AFTER update_time', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @col_exists = (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='huakey_crm' AND table_name='sys_user' AND column_name='last_login_ip');
+SET @sql = IF(@col_exists = 0, 'ALTER TABLE sys_user ADD COLUMN last_login_ip VARCHAR(50) COMMENT ''最后登录IP'' AFTER last_login_time', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- 创建用户权限视图（方便查询）
 CREATE OR REPLACE VIEW v_user_permissions AS

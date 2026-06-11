@@ -57,35 +57,102 @@
           <template #title>合同管理</template>
         </el-menu-item>
 
-        <el-menu-item index="/payment" v-if="hasMenuPermission('contract')">
-          <el-icon><Money /></el-icon>
-          <template #title>回款管理</template>
+        <el-menu-item index="/calendar">
+          <el-icon><Calendar /></el-icon>
+          <template #title>日程管理</template>
         </el-menu-item>
 
-        <el-menu-item index="/supplier/list" v-if="hasMenuPermission('supplier')">
-          <el-icon><OfficeBuilding /></el-icon>
-          <template #title>供应商管理</template>
+        <el-menu-item index="/social" v-if="hasMenuPermission('customer:list')">
+          <el-icon><ChatDotRound /></el-icon>
+          <template #title>社媒沟通</template>
         </el-menu-item>
 
-        <el-menu-item index="/purchase/list" v-if="hasMenuPermission('purchase')">
-          <el-icon><ShoppingCart /></el-icon>
-          <template #title>采购管理</template>
-        </el-menu-item>
+        <el-sub-menu index="/payment" v-if="hasMenuPermission('contract')">
+          <template #title>
+            <el-icon><Money /></el-icon>
+            <span>回款管理</span>
+          </template>
+          <el-menu-item index="/payment">回款列表</el-menu-item>
+          <el-menu-item index="/payment/reminders">回款提醒</el-menu-item>
+          <el-menu-item index="/payment/reconciliation">对账管理</el-menu-item>
+          <el-menu-item index="/payment/analysis">财务分析</el-menu-item>
+        </el-sub-menu>
+
+        <el-sub-menu index="/supplier" v-if="hasMenuPermission('supplier')">
+          <template #title>
+            <el-icon><OfficeBuilding /></el-icon>
+            <span>供应商管理</span>
+          </template>
+          <el-menu-item index="/supplier/list">供应商列表</el-menu-item>
+          <el-menu-item index="/supplier/ranking">评估排行</el-menu-item>
+        </el-sub-menu>
+
+        <el-sub-menu index="/purchase" v-if="hasMenuPermission('purchase')">
+          <template #title>
+            <el-icon><ShoppingCart /></el-icon>
+            <span>采购管理</span>
+          </template>
+          <el-menu-item index="/purchase/list">采购单</el-menu-item>
+          <el-menu-item index="/procurement/plan">采购计划</el-menu-item>
+          <el-menu-item index="/inventory">库存管理</el-menu-item>
+          <el-menu-item index="/inventory/movements">库存变动</el-menu-item>
+        </el-sub-menu>
 
         <el-menu-item index="/service" v-if="hasMenuPermission('service')">
           <el-icon><Service /></el-icon>
           <template #title>售后服务</template>
         </el-menu-item>
 
-        <el-menu-item index="/report" v-if="isAdmin && hasMenuPermission('report')">
-          <el-icon><TrendCharts /></el-icon>
-          <template #title>数据报表</template>
-        </el-menu-item>
+        <el-sub-menu index="/survey">
+          <template #title>
+            <el-icon><Opportunity /></el-icon>
+            <span>客户满意度</span>
+          </template>
+          <el-menu-item index="/survey">调查管理</el-menu-item>
+          <el-menu-item index="/survey/templates">调查模板</el-menu-item>
+          <el-menu-item index="/survey/overview">满意度总览</el-menu-item>
+        </el-sub-menu>
 
-        <el-menu-item index="/analysis">
-          <el-icon><DataAnalysis /></el-icon>
-          <template #title>分析工具</template>
-        </el-menu-item>
+        <el-sub-menu index="/hr" v-if="isAdmin">
+          <template #title>
+            <el-icon><User /></el-icon>
+            <span>人力资源</span>
+          </template>
+          <el-menu-item index="/hr/employees">员工档案</el-menu-item>
+          <el-menu-item index="/hr/commission">佣金管理</el-menu-item>
+          <el-menu-item index="/hr/org-chart">组织架构</el-menu-item>
+        </el-sub-menu>
+
+        <el-sub-menu index="/automation" v-if="isAdmin">
+          <template #title>
+            <el-icon><Setting /></el-icon>
+            <span>自动化</span>
+          </template>
+          <el-menu-item index="/automation/workflows">工作流管理</el-menu-item>
+          <el-menu-item index="/automation/assign-rules">自动分配</el-menu-item>
+          <el-menu-item index="/automation/smart-reminders">智能提醒</el-menu-item>
+        </el-sub-menu>
+
+        <el-sub-menu index="/report" v-if="isAdmin && hasMenuPermission('report')">
+          <template #title>
+            <el-icon><TrendCharts /></el-icon>
+            <span>数据报表</span>
+          </template>
+          <el-menu-item index="/report">报表首页</el-menu-item>
+          <el-menu-item index="/report/finance">财务报表</el-menu-item>
+          <el-menu-item index="/report/business">经营分析</el-menu-item>
+          <el-menu-item index="/report/custom">自定义报表</el-menu-item>
+        </el-sub-menu>
+
+        <el-sub-menu index="/analysis">
+          <template #title>
+            <el-icon><DataAnalysis /></el-icon>
+            <span>分析工具</span>
+          </template>
+          <el-menu-item index="/analysis">分析首页</el-menu-item>
+          <el-menu-item index="/analysis/prediction">增强预测</el-menu-item>
+          <el-menu-item index="/competitor">竞品分析</el-menu-item>
+        </el-sub-menu>
 
         <el-menu-item index="/scoring/rules" v-if="hasMenuPermission('customer:list')">
           <el-icon><Trophy /></el-icon>
@@ -112,6 +179,18 @@
           <template #title>我的审批</template>
         </el-menu-item>
 
+        <el-sub-menu index="/knowledge">
+          <template #title>
+            <el-icon><Notebook /></el-icon>
+            <span>知识库</span>
+          </template>
+          <el-menu-item index="/knowledge">知识库首页</el-menu-item>
+          <el-menu-item index="/knowledge/products">产品知识</el-menu-item>
+          <el-menu-item index="/knowledge/scripts">销售话术</el-menu-item>
+          <el-menu-item index="/knowledge/faqs">常见问题</el-menu-item>
+          <el-menu-item index="/knowledge/documents">文档模板</el-menu-item>
+        </el-sub-menu>
+
         <el-menu-item index="/target" v-if="isAdmin && hasMenuPermission('target')">
           <el-icon><DataBoard /></el-icon>
           <template #title>销售目标</template>
@@ -129,6 +208,7 @@
           <el-menu-item index="/system/tags">标签管理</el-menu-item>
           <el-menu-item index="/approval/workflow">审批流程</el-menu-item>
           <el-menu-item index="/system/integration">集成管理</el-menu-item>
+          <el-menu-item index="/settings/api-platform">API开放平台</el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>
@@ -248,7 +328,7 @@
             <div style="font-size:14px;font-weight:600;margin-bottom:8px">最近访问</div>
             <div v-if="recentVisits.length === 0" style="text-align:center;padding:20px;color:#909399;font-size:13px">暂无访问记录</div>
             <div v-for="item in recentVisits" :key="item.type + item.id" class="recent-visit-item" @click="goToVisit(item)">
-              <el-tag size="small" :type="item.type === 'customer' ? '' : 'success'" style="margin-right:8px">{{ getVisitTypeLabel(item.type) }}</el-tag>
+              <el-tag size="small" :type="item.type === 'customer' ? 'primary' : 'success'" style="margin-right:8px">{{ getVisitTypeLabel(item.type) }}</el-tag>
               <span class="recent-visit-name">{{ item.name }}</span>
               <span class="recent-visit-time">{{ relativeTime(item.time) }}</span>
             </div>
@@ -259,12 +339,84 @@
           <!-- 快捷创建 -->
           <QuickActions />
 
-          <!-- 逾期提醒铃铛 -->
-          <el-badge :value="totalUnreadCount" :hidden="totalUnreadCount === 0" :max="99" class="reminder-bell">
-            <el-button link @click="showReminderDialog = true; fetchPaymentOverdue()">
-              <el-icon :size="20"><Bell /></el-icon>
-            </el-button>
-          </el-badge>
+          <!-- 通知中心 -->
+          <el-popover trigger="click" width="380" :show-after="0" @show="fetchNotificationCenter" placement="bottom-end">
+            <template #reference>
+              <el-badge :value="centerUnreadCount" :hidden="centerUnreadCount === 0" :max="99" class="reminder-bell">
+                <el-button link>
+                  <el-icon :size="20"><Bell /></el-icon>
+                </el-button>
+              </el-badge>
+            </template>
+            <div class="notify-panel">
+              <div class="notify-tabs">
+                <span :class="['notify-tab', { active: notifyTab === 'todo' }]" @click="notifyTab = 'todo'">待办</span>
+                <span :class="['notify-tab', { active: notifyTab === 'system' }]" @click="notifyTab = 'system'">系统</span>
+              </div>
+              <div class="notify-body" v-loading="notifyLoading">
+                <!-- 待办Tab -->
+                <div v-if="notifyTab === 'todo'">
+                  <div v-if="centerData.todo?.approvals?.length" class="notify-group">
+                    <div class="notify-group-title">审批待处理</div>
+                    <div v-for="item in centerData.todo.approvals" :key="'a'+item.id" class="notify-item" @click="$router.push(item.link)">
+                      <div class="notify-dot" />
+                      <div class="notify-content">
+                        <div class="notify-title">{{ item.title }}</div>
+                        <div class="notify-time">{{ item.time }}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-if="centerData.todo?.followups?.length" class="notify-group">
+                    <div class="notify-group-title">今日待跟进</div>
+                    <div v-for="item in centerData.todo.followups" :key="'f'+item.id" class="notify-item" @click="$router.push(item.link)">
+                      <div class="notify-dot" />
+                      <div class="notify-content">
+                        <div class="notify-title">{{ item.title }}</div>
+                        <div class="notify-time">{{ item.time }}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-if="centerData.todo?.stock_alerts?.length" class="notify-group">
+                    <div class="notify-group-title">库存预警</div>
+                    <div v-for="item in centerData.todo.stock_alerts" :key="'s'+item.id" class="notify-item" @click="$router.push(item.link)">
+                      <div class="notify-dot" />
+                      <div class="notify-content">
+                        <div class="notify-title">{{ item.title }}</div>
+                        <div class="notify-time">{{ item.time }}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-if="centerData.todo?.payment_overdue?.length" class="notify-group">
+                    <div class="notify-group-title">回款逾期</div>
+                    <div v-for="item in centerData.todo.payment_overdue" :key="'p'+item.id" class="notify-item" @click="$router.push(item.link)">
+                      <div class="notify-dot warn" />
+                      <div class="notify-content">
+                        <div class="notify-title">{{ item.title }}</div>
+                        <div class="notify-time">{{ item.time }}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <el-empty v-if="!notifyLoading && !hasTodoItems" description="暂无待办" :image-size="48" />
+                </div>
+                <!-- 系统Tab -->
+                <div v-if="notifyTab === 'system'">
+                  <div v-for="item in centerData.system" :key="'n'+item.id" class="notify-item" :class="{ read: item.is_read }" @click="handleNotifyClick(item)">
+                    <div :class="['notify-dot', { hide: item.is_read }]" />
+                    <div class="notify-content">
+                      <div class="notify-title">{{ item.title }}</div>
+                      <div class="notify-desc">{{ item.content }}</div>
+                      <div class="notify-time">{{ item.time }}</div>
+                    </div>
+                  </div>
+                  <el-empty v-if="!notifyLoading && centerData.system?.length === 0" description="暂无通知" :image-size="48" />
+                </div>
+              </div>
+              <div class="notify-footer">
+                <el-button link size="small" @click="markCenterAllRead">全部已读</el-button>
+                <el-button link size="small" type="primary" @click="$router.push('/notification')">查看全部</el-button>
+              </div>
+            </div>
+          </el-popover>
 
           <!-- 回收站 -->
           <el-button v-if="isAdmin" link class="recycle-btn" @click="showRecycleBin = true" v-permission="'recycle_bin:view'">
@@ -525,6 +677,7 @@
         </el-tab-pane>
       </el-tabs>
       <template #footer>
+        <el-button @click="$router.push('/notification')">查看全部</el-button>
         <el-button @click="showReminderDialog = false">关闭</el-button>
         <el-button type="primary" @click="markAllRemindersRead">全部已读</el-button>
       </template>
@@ -533,7 +686,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
@@ -569,7 +722,10 @@ import {
   Clock,
   Trophy,
   Histogram,
-  Stamp
+  Stamp,
+  Notebook,
+  Opportunity,
+  Calendar
 } from '@element-plus/icons-vue'
 
 const { clearUser } = useUser()
@@ -669,6 +825,38 @@ const goTo = (path) => {
 const showReminderDialog = ref(false)
 const showRecycleBin = ref(false)
 const reminderTab = ref('follow')
+
+// 通知中心下拉面板
+const notifyTab = ref('todo')
+const notifyLoading = ref(false)
+const centerData = ref({ todo: { approvals: [], followups: [], stock_alerts: [], payment_overdue: [] }, system: [], unread_count: 0 })
+const centerUnreadCount = computed(() => centerData.value.unread_count || 0)
+const hasTodoItems = computed(() => {
+  const t = centerData.value.todo
+  return t && (t.approvals?.length || t.followups?.length || t.stock_alerts?.length || t.payment_overdue?.length)
+})
+
+const fetchNotificationCenter = async () => {
+  notifyLoading.value = true
+  try {
+    const res = await request.get('/reminder/center')
+    if (res.code === 200) centerData.value = res.data
+  } catch { /* */ }
+  finally { notifyLoading.value = false }
+}
+
+const markCenterAllRead = async () => {
+  try {
+    await request.post('/reminder/center/mark-all-read')
+    centerData.value.unread_count = 0
+    centerData.value.system?.forEach(n => n.is_read = 1)
+  } catch { /* */ }
+}
+
+const handleNotifyClick = (item) => {
+  if (!item.is_read) item.is_read = 1
+  if (item.link) router.push(item.link)
+}
 const reminderList = ref([])
 const todayList = ref([])
 const upcomingList = ref([])
@@ -817,7 +1005,25 @@ getUserInfo()
 fetchReminders()
 // 每5分钟刷新一次提醒
 const reminderTimer = setInterval(fetchReminders, 2 * 60 * 1000)
-onUnmounted(() => clearInterval(reminderTimer))
+
+// Ctrl+K 全局快捷键聚焦搜索框
+const handleGlobalKeydown = (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault()
+    const input = document.querySelector('.global-search-input input')
+    if (input) input.focus()
+  }
+  if (e.key === 'Escape') {
+    searchKeyword.value = ''
+    const input = document.querySelector('.global-search-input input')
+    if (input) input.blur()
+  }
+}
+onMounted(() => document.addEventListener('keydown', handleGlobalKeydown))
+onUnmounted(() => {
+  clearInterval(reminderTimer)
+  document.removeEventListener('keydown', handleGlobalKeydown)
+})
 
 // 切换菜单折叠
 const toggleCollapse = () => {
@@ -1096,4 +1302,22 @@ const handleLogout = () => {
   font-weight: 600;
   color: var(--color-text) !important;
 }
+
+.notify-panel { margin: -12px; }
+.notify-tabs { display: flex; border-bottom: 1px solid #f0f0f0; padding: 0 12px; }
+.notify-tab { padding: 10px 16px; cursor: pointer; font-size: 14px; color: #86868b; border-bottom: 2px solid transparent; transition: all 0.2s; }
+.notify-tab.active { color: #1d1d1f; border-bottom-color: #0071e3; font-weight: 600; }
+.notify-body { max-height: 400px; overflow-y: auto; padding: 8px 0; }
+.notify-group-title { padding: 6px 16px; font-size: 12px; color: #86868b; font-weight: 600; }
+.notify-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 16px; cursor: pointer; transition: background 0.15s; }
+.notify-item:hover { background: #f5f5f7; }
+.notify-item.read { opacity: 0.5; }
+.notify-dot { width: 8px; height: 8px; border-radius: 50%; background: #0071e3; margin-top: 6px; flex-shrink: 0; }
+.notify-dot.warn { background: #ff9500; }
+.notify-dot.hide { background: transparent; }
+.notify-content { flex: 1; min-width: 0; }
+.notify-title { font-size: 13px; color: #1d1d1f; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.notify-desc { font-size: 12px; color: #86868b; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.notify-time { font-size: 11px; color: #aeaeb2; margin-top: 2px; }
+.notify-footer { display: flex; justify-content: space-between; padding: 8px 16px; border-top: 1px solid #f0f0f0; }
 </style>

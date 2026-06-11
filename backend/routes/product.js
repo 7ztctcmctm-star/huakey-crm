@@ -206,4 +206,116 @@ router.get('/categories', authenticateToken, async (req, res) => {
   }
 });
 
+// ============ 产品价格表 ============
+
+// 7. 获取产品价格表
+router.get('/:id/prices', authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT * FROM crm_product_price WHERE product_id = ? AND status = 1 ORDER BY price_type, customer_level',
+      [req.params.id]
+    );
+    res.json({ code: 200, message: '查询成功', data: rows });
+  } catch (error) {
+    console.error('[产品] 价格表查询失败:', error);
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+  }
+});
+
+// 8. 添加产品价格
+router.post('/:id/prices', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const productId = req.params.id;
+    const { price_type, customer_level, unit_price, min_quantity, currency, valid_from, valid_to } = req.body;
+
+    if (!price_type || unit_price === undefined) {
+      return res.status(400).json({ code: 400, message: '价格类型和单价不能为空', data: null });
+    }
+
+    const [product] = await pool.query('SELECT id FROM crm_product WHERE id = ?', [productId]);
+    if (product.length === 0) return res.status(404).json({ code: 404, message: '产品不存在', data: null });
+
+    const [result] = await pool.query(
+      `INSERT INTO crm_product_price (product_id, price_type, customer_level, unit_price, min_quantity, currency, valid_from, valid_to)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [productId, price_type, customer_level || null, parseFloat(unit_price), min_quantity || 1, currency || 'CNY', valid_from || null, valid_to || null]
+    );
+    res.json({ code: 200, message: '添加成功', data: { id: result.insertId } });
+  } catch (error) {
+    console.error('[产品] 添加价格失败:', error);
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+  }
+});
+
+// 9. 更新产品价格
+router.put('/price/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { price_type, customer_level, unit_price, min_quantity, currency, valid_from, valid_to, status } = req.body;
+    const fields = [];
+    const values = [];
+
+    if (price_type !== undefined) { fields.push('price_type = ?'); values.push(price_type); }
+    if (customer_level !== undefined) { fields.push('customer_level = ?'); values.push(customer_level); }
+    if (unit_price !== undefined) { fields.push('unit_price = ?'); values.push(parseFloat(unit_price)); }
+    if (min_quantity !== undefined) { fields.push('min_quantity = ?'); values.push(parseInt(min_quantity)); }
+    if (currency !== undefined) { fields.push('currency = ?'); values.push(currency); }
+    if (valid_from !== undefined) { fields.push('valid_from = ?'); values.push(valid_from); }
+    if (valid_to !== undefined) { fields.push('valid_to = ?'); values.push(valid_to); }
+    if (status !== undefined) { fields.push('status = ?'); values.push(parseInt(status)); }
+
+    if (fields.length === 0) return res.status(400).json({ code: 400, message: '没有要更新的字段', data: null });
+
+    values.push(id);
+    await pool.query(`UPDATE crm_product_price SET ${fields.join(', ')} WHERE id = ?`, values);
+    res.json({ code: 200, message: '更新成功', data: null });
+  } catch (error) {
+    console.error('[产品] 更新价格失败:', error);
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+  }
+});
+
+// 10. 删除产品价格
+router.delete('/price/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM crm_product_price WHERE id = ?', [req.params.id]);
+    res.json({ code: 200, message: '删除成功', data: null });
+  } catch (error) {
+    console.error('[产品] 删除价格失败:', error);
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+  }
+});
+
+// 11. 获取客户对应价格（报价时调用）
+router.get('/:id/price', authenticateToken, async (req, res) => {
+  try {
+    const productId = req.params.id;
+    const { customer_level } = req.query;
+
+    let price = null;
+
+    // 优先匹配客户等级对应的价格
+    if (customer_level) {
+      const [levelPrices] = await pool.query(
+        `SELECT * FROM crm_product_price WHERE product_id = ? AND customer_level = ? AND status = 1
+         AND (valid_from IS NULL OR valid_from <= CURDATE()) AND (valid_to IS NULL OR valid_to >= CURDATE())
+         ORDER BY unit_price ASC LIMIT 1`,
+        [productId, customer_level]
+      );
+      if (levelPrices.length > 0) price = levelPrices[0];
+    }
+
+    // 没有匹配则用默认价格（产品表的price字段）
+    if (!price) {
+      const [[product]] = await pool.query('SELECT price FROM crm_product WHERE id = ?', [productId]);
+      price = { unit_price: product?.price || 0, currency: 'CNY', price_type: 'default' };
+    }
+
+    res.json({ code: 200, message: '查询成功', data: price });
+  } catch (error) {
+    console.error('[产品] 获取客户价格失败:', error);
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+  }
+});
+
 module.exports = router;

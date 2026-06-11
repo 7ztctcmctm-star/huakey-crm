@@ -48,6 +48,7 @@
           </div>
         </div>
         <div class="hero-right">
+          <el-button type="primary" :icon="ChatLineRound" @click="openQuickFollow" style="margin-bottom: 12px;">录入跟进</el-button>
           <div class="hero-meta">
             <div class="meta-item"><span class="meta-label">来源</span><span class="meta-value">{{ customer.source || '-' }}</span></div>
             <div class="meta-item"><span class="meta-label">行业</span><span class="meta-value">{{ customer.industry || '-' }}</span></div>
@@ -325,6 +326,9 @@
           </el-select>
         </el-form-item>
         <el-form-item label="跟进内容" prop="content">
+          <div style="margin-bottom: 8px;">
+            <el-button type="primary" link @click="scriptDialogVisible = true">📋 插入话术</el-button>
+          </div>
           <el-input v-model="followForm.content" type="textarea" :rows="4" placeholder="请输入跟进内容" />
         </el-form-item>
         <el-form-item label="下次跟进时间">
@@ -356,6 +360,22 @@
         <el-button @click="followDialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="followSubmitLoading" @click="handleFollowSubmit">确定</el-button>
       </template>
+    </el-dialog>
+
+    <!-- 话术选择弹窗 -->
+    <el-dialog v-model="scriptDialogVisible" title="选择话术" width="500px">
+      <el-input v-model="scriptKeyword" placeholder="搜索话术标题/内容" clearable style="margin-bottom: 12px;" @input="fetchScripts" />
+      <div style="margin-bottom: 12px; display: flex; gap: 6px; flex-wrap: wrap;">
+        <el-tag v-for="s in scriptScenes" :key="s" :type="scriptScene === s ? '' : 'info'" style="cursor:pointer" @click="scriptScene = scriptScene === s ? '' : s; fetchScripts()">{{ s }}</el-tag>
+      </div>
+      <div v-loading="scriptLoading" style="max-height: 350px; overflow-y: auto;">
+        <div v-for="item in scriptList" :key="item.id" class="script-card" @click="insertScript(item)">
+          <div class="script-title">{{ item.title }}</div>
+          <div class="script-preview">{{ (item.content || '').slice(0, 80) }}{{ (item.content || '').length > 80 ? '...' : '' }}</div>
+          <div class="script-meta">使用 {{ item.usage_count || 0 }} 次 · {{ item.scene || '通用' }}</div>
+        </div>
+        <el-empty v-if="!scriptLoading && scriptList.length === 0" description="暂无话术" :image-size="48" />
+      </div>
     </el-dialog>
 
     <!-- 编辑客户弹窗 -->
@@ -437,7 +457,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, Plus, Edit, EditPen, Delete, User, Clock, Share, Refresh, Phone, Message, Location } from '@element-plus/icons-vue'
+import { ArrowLeft, Plus, Edit, EditPen, Delete, User, Clock, Share, Refresh, Phone, Message, Location, ChatLineRound } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { formatTime } from '@/composables/useFormat'
 import { recordVisit } from '@/composables/useRecentVisit'
@@ -714,6 +734,37 @@ const handleFollowAdd = () => {
   fetchTemplates(); followDialogVisible.value = true
 }
 
+const openQuickFollow = () => { handleFollowAdd() }
+
+// 话术选择
+const scriptDialogVisible = ref(false)
+const scriptKeyword = ref('')
+const scriptScene = ref('')
+const scriptLoading = ref(false)
+const scriptList = ref([])
+const scriptScenes = ['首次接触', '报价跟进', '异议处理', '成交促成', '售后维护']
+
+const fetchScripts = async () => {
+  scriptLoading.value = true
+  try {
+    const params = {}
+    if (scriptKeyword.value) params.keyword = scriptKeyword.value
+    if (scriptScene.value) params.scene = scriptScene.value
+    const res = await request.get('/knowledge/scripts', { params })
+    if (res.code === 200) scriptList.value = res.data || []
+  } catch { /* */ }
+  finally { scriptLoading.value = false }
+}
+
+const insertScript = (item) => {
+  followForm.content = followForm.content ? followForm.content + '\n' + item.content : item.content
+  scriptDialogVisible.value = false
+  scriptKeyword.value = ''
+  scriptScene.value = ''
+}
+
+watch(scriptDialogVisible, (v) => { if (v) fetchScripts() })
+
 const uploadUrl = '/api/upload/file'
 const uploadHeaders = { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
 const followUploadRef = ref(null)
@@ -743,7 +794,27 @@ const handleFollowSubmit = async () => {
       } else {
         res = await request.post('/follow-up/add', { customer_id: customer.id, ...followForm, next_time: followForm.next_time || null, next_content: followForm.next_content || null, attachment_ids: [...followAttachmentIds.value] })
       }
-      if (res.code === 200) { ElMessage.success(isFollowEdit.value ? '修改成功' : '跟进记录添加成功'); followDialogVisible.value = false; fetchDetail() }
+      if (res.code === 200) {
+        ElMessage.success(isFollowEdit.value ? '修改成功' : '跟进记录添加成功')
+        followDialogVisible.value = false
+        fetchDetail()
+        // 新增跟进且未设定下次跟进时间时，提醒设定
+        if (!isFollowEdit.value && !followForm.next_time) {
+          ElMessageBox.confirm('是否设定下次跟进时间？', '跟进提醒', {
+            confirmButtonText: '设定', cancelButtonText: '跳过', type: 'info'
+          }).then(() => {
+            ElMessageBox.prompt('选择下次跟进时间', '设定跟进时间', {
+              confirmButtonText: '确定', cancelButtonText: '取消', inputType: 'date', inputPlaceholder: '选择日期'
+            }).then(async ({ value }) => {
+              if (value) {
+                await request.post('/follow-up/update', { id: res.data?.id, next_time: value + ' 09:00:00' })
+                ElMessage.success('已设定下次跟进时间')
+                fetchDetail()
+              }
+            }).catch(() => {})
+          }).catch(() => {})
+        }
+      }
     } catch (error) { console.error('提交跟进记录失败:', error) }
     finally { followSubmitLoading.value = false }
   })
@@ -843,4 +914,9 @@ onMounted(() => { fetchDetail(); fetchSalesUsers() })
 @media (max-width: 768px) {
   .stats-row { grid-template-columns: repeat(2, 1fr); }
 }
+.script-card { padding: 12px; border: 1px solid #f0f0f0; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
+.script-card:hover { border-color: #0071e3; background: #f5f7fa; }
+.script-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+.script-preview { font-size: 12px; color: #86868b; line-height: 1.5; }
+.script-meta { font-size: 11px; color: #aeaeb2; margin-top: 4px; }
 </style>

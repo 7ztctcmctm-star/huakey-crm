@@ -1,5 +1,15 @@
 <template>
   <div class="customer-list">
+    <!-- 快捷Tab -->
+    <el-card shadow="never" style="margin-bottom: 12px;">
+      <el-radio-group v-model="activeQuickTab" @change="handleQuickTabChange">
+        <el-radio-button value="mine">我的客户</el-radio-button>
+        <el-radio-button value="all">全部客户</el-radio-button>
+        <el-radio-button value="unassigned">待分配</el-radio-button>
+        <el-radio-button value="overdue_follow">久未跟进</el-radio-button>
+      </el-radio-group>
+    </el-card>
+
     <!-- 搜索区域 -->
     <el-card class="search-card" shadow="never">
       <el-form :model="searchForm" inline @keyup.enter="handleSearch">
@@ -482,6 +492,7 @@ const handleTabChange = (tab) => {
 // 我的客户 / 全部客户 / 职员客户 切换
 const viewMode = ref('all')
 const staffFilterId = ref(null)
+const activeQuickTab = ref('mine')
 const switchViewMode = () => {
   searchForm.page = 1
   fetchList()
@@ -741,6 +752,9 @@ const fetchList = async () => {
       params.end_date = searchForm.dateRange[1]
     }
     if (searchForm.sort) params.sort = searchForm.sort
+    // 快捷Tab筛选
+    if (searchForm._unassigned) params.unassigned = true
+    if (searchForm._overdue_follow) params.overdue_follow = true
     // 我的客户模式：只显示当前用户负责的客户
     if (viewMode.value === 'mine') {
       const stored = localStorage.getItem('userInfo')
@@ -806,6 +820,31 @@ const handleReset = () => {
   searchForm.dateRange = []
   searchForm.sort = ''
   searchForm.page = 1
+  fetchList()
+}
+
+// 快捷Tab切换
+const handleQuickTabChange = (val) => {
+  // 重置相关筛选条件
+  searchForm.status = ''
+  searchForm.customer_type = ''
+  searchForm.lifecycle_status = ''
+  searchForm.page = 1
+  viewMode.value = 'all'
+  staffFilterId.value = null
+  overdueMode.value = false
+
+  if (val === 'mine') {
+    viewMode.value = 'mine'
+  } else if (val === 'unassigned') {
+    // 通过特殊参数传递给后端
+    searchForm._unassigned = true
+  } else if (val === 'overdue_follow') {
+    searchForm._overdue_follow = true
+  } else {
+    searchForm._unassigned = false
+    searchForm._overdue_follow = false
+  }
   fetchList()
 }
 

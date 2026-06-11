@@ -64,6 +64,8 @@ SET @sql = IF(@fk_exists = 0,
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- ========== crm_assign_log.operator_id → sys_user.id ==========
+-- 先将 operator_id 改为可空（ON DELETE SET NULL 要求列可为 NULL）
+ALTER TABLE crm_assign_log MODIFY COLUMN operator_id INT NULL;
 SET @fk_exists = (SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
   WHERE TABLE_SCHEMA = @db_name AND TABLE_NAME = 'crm_assign_log'
   AND CONSTRAINT_NAME = 'fk_assign_log_operator' AND CONSTRAINT_TYPE = 'FOREIGN KEY');

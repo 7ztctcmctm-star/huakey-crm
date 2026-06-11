@@ -5,8 +5,12 @@
       <p class="page-desc">处理需要我审批的业务单据</p>
     </div>
     <el-card>
-      <el-table v-loading="loading" :data="tableData" stripe border>
-        <el-table-column prop="workflow_name" label="流程" min-width="140" />
+      <div style="margin-bottom: 12px; display: flex; gap: 8px;">
+        <el-button type="success" :disabled="selectedRows.length === 0" @click="handleBatchApprove">批量通过 ({{ selectedRows.length }})</el-button>
+        <el-button type="danger" :disabled="selectedRows.length === 0" @click="handleBatchReject">批量驳回 ({{ selectedRows.length }})</el-button>
+      </div>
+      <el-table v-loading="loading" :data="tableData" stripe border @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="50" />
         <el-table-column prop="business_type_name" label="类型" width="80" align="center">
           <template #default="{ row }">
             <el-tag :type="typeTagMap[row.business_type]" size="small">{{ typeNameMap[row.business_type] }}</el-tag>
@@ -28,12 +32,31 @@
     </el-card>
 
     <!-- 审批弹窗 -->
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="450px">
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="600px">
       <el-form label-width="80px">
         <el-form-item label="审批意见">
           <el-input v-model="remark" type="textarea" :rows="3" placeholder="输入审批意见（可选）" />
         </el-form-item>
       </el-form>
+      <!-- 客户历史 -->
+      <div v-if="customerHistory" style="margin-top: 12px; border-top: 1px solid #f0f0f0; padding-top: 12px;">
+        <div style="font-weight: 600; margin-bottom: 8px; font-size: 14px;">客户历史</div>
+        <el-descriptions :column="2" size="small" border>
+          <el-descriptions-item label="客户名称">{{ customerHistory.customer?.company_name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="等级">{{ customerHistory.customer?.level || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="来源">{{ customerHistory.customer?.source || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="联系人">{{ customerHistory.customer?.contact_name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="历史合同">{{ customerHistory.stats?.contract_count || 0 }} 笔</el-descriptions-item>
+          <el-descriptions-item label="合同总额">¥{{ Number(customerHistory.stats?.total_amount || 0).toLocaleString() }}</el-descriptions-item>
+          <el-descriptions-item label="回款总额">¥{{ Number(customerHistory.stats?.total_paid || 0).toLocaleString() }}</el-descriptions-item>
+        </el-descriptions>
+        <div v-if="customerHistory.follows?.length" style="margin-top: 8px;">
+          <div style="font-size: 12px; color: #86868b; margin-bottom: 4px;">最近跟进</div>
+          <div v-for="f in customerHistory.follows" :key="f.create_time" style="font-size: 12px; color: #1d1d1f; padding: 2px 0;">
+            <el-tag size="small" style="margin-right: 4px;">{{ f.follow_type }}</el-tag>{{ f.content }}
+          </div>
+        </div>
+      </div>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button :type="dialogType" :loading="submitLoading" @click="handleSubmit">{{ dialogType === 'success' ? '确认通过' : '确认驳回' }}</el-button>
@@ -59,6 +82,17 @@ const dialogType = ref('success')
 const submitLoading = ref(false)
 const remark = ref('')
 const currentRecord = ref(null)
+const selectedRows = ref([])
+const customerHistory = ref(null)
+
+const fetchCustomerHistory = async (row) => {
+  try {
+    const res = await request.get(`/approval/detail-with-history/${row.business_type}/${row.business_id}`)
+    if (res.code === 200) customerHistory.value = res.data
+  } catch { customerHistory.value = null }
+}
+
+const handleSelectionChange = (rows) => { selectedRows.value = rows }
 
 const fetchList = async () => {
   loading.value = true
@@ -74,7 +108,9 @@ const handleApprove = (row) => {
   dialogTitle.value = '审批通过'
   dialogType.value = 'success'
   remark.value = ''
+  customerHistory.value = null
   dialogVisible.value = true
+  if (row.business_type === 'quote' || row.business_type === 'contract') fetchCustomerHistory(row)
 }
 
 const handleReject = (row) => {
@@ -82,7 +118,9 @@ const handleReject = (row) => {
   dialogTitle.value = '审批驳回'
   dialogType.value = 'danger'
   remark.value = ''
+  customerHistory.value = null
   dialogVisible.value = true
+  if (row.business_type === 'quote' || row.business_type === 'contract') fetchCustomerHistory(row)
 }
 
 const handleSubmit = async () => {
@@ -99,6 +137,22 @@ const handleSubmit = async () => {
       fetchList()
     }
   } finally { submitLoading.value = false }
+}
+
+const handleBatchApprove = () => {
+  ElMessageBox.confirm(`确定批量通过选中的 ${selectedRows.value.length} 条审批？`, '批量通过', { type: 'success' }).then(async () => {
+    const ids = selectedRows.value.map(r => r.id)
+    const res = await request.post('/approval/batch-approve', { ids, remark: '批量通过' })
+    if (res.code === 200) { ElMessage.success(res.message); fetchList() }
+  }).catch(() => {})
+}
+
+const handleBatchReject = () => {
+  ElMessageBox.prompt('请输入驳回理由', '批量驳回', { type: 'warning', inputType: 'textarea', inputPlaceholder: '输入驳回理由（可选）' }).then(async ({ value }) => {
+    const ids = selectedRows.value.map(r => r.id)
+    const res = await request.post('/approval/batch-reject', { ids, remark: value || '批量驳回' })
+    if (res.code === 200) { ElMessage.success(res.message); fetchList() }
+  }).catch(() => {})
 }
 
 onMounted(() => { fetchList() })

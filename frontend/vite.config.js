@@ -28,5 +28,19 @@ export default defineConfig({
         changeOrigin: true,
       }
     }
+  },
+  build: {
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'echarts-core': ['echarts/core', 'echarts/renderers', 'echarts/charts', 'echarts/components'],
+          'echarts-charts': ['echarts/lib/chart/line', 'echarts/lib/chart/bar', 'echarts/lib/chart/pie', 'echarts/lib/chart/scatter', 'echarts/lib/chart/radar'],
+          'echarts-components': ['echarts/lib/component/tooltip', 'echarts/lib/component/legend', 'echarts/lib/component/grid', 'echarts/lib/component/title', 'echarts/lib/component/dataZoom', 'echarts/lib/component/markLine', 'echarts/lib/component/markPoint'],
+          'element-plus': ['element-plus', '@element-plus/icons-vue'],
+          'vendor': ['vue', 'vue-router', 'pinia', 'axios']
+        }
+      }
+    }
   }
 })

@@ -28,6 +28,8 @@
       </el-form>
     </el-card>
 
+    <el-alert v-if="expiringCount > 0" type="warning" :title="`有 ${expiringCount} 条报价将在7天内过期`" show-icon :closable="false" style="margin-bottom: 16px" />
+
     <!-- 操作按钮区域 -->
     <el-card class="table-card" shadow="never">
       <div class="toolbar">
@@ -85,13 +87,14 @@
             {{ formatTime(row.create_time) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="250" fixed="right">
+        <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
+            <el-tag v-if="isExpiringSoon(row)" type="warning" size="small" style="margin-right:4px">即将过期</el-tag>
             <el-button type="primary" link :icon="View" @click="handleView(row)">查看</el-button>
             <el-button v-if="row.status === 1" type="primary" link :icon="Edit" @click="handleEdit(row)" v-permission="'quotation:edit'">编辑</el-button>
             <el-button v-if="row.status === 1 || row.status === 2" type="success" link :icon="Promotion" @click="handleSend(row)" v-permission="'quotation:edit'">发送</el-button>
             <el-button v-if="row.status === 1 || row.status === 2" type="danger" link :icon="Delete" @click="handleDelete(row)" v-permission="'quotation:delete'">删除</el-button>
-            <el-button v-if="row.status === 3" type="warning" link @click="handleConvertToContract(row)" v-permission="'contract:add'">转合同</el-button>
+            <el-button v-if="row.status === 3 || row.approval_status === 2" type="warning" link @click="handleConvertToContract(row)" v-permission="'contract:add'">转合同</el-button>
             <el-button v-if="row.approval_status === 0 && row.status === 1" type="warning" link @click="handleSubmitApproval(row)">提交审批</el-button>
             <el-button v-if="row.approval_status === 1 && isAdmin" type="success" link @click="handleApprove(row)">通过</el-button>
             <el-button v-if="row.approval_status === 1 && isAdmin" type="danger" link @click="handleReject(row)">拒绝</el-button>
@@ -245,6 +248,17 @@ const searchForm = reactive({
 const tableData = ref([])
 const total = ref(0)
 const loading = ref(false)
+const expiringCount = ref(0)
+
+// 判断报价是否即将过期（7天内）
+const isExpiringSoon = (row) => {
+  if (!row.create_time || !row.valid_days) return false
+  const expireDate = new Date(row.create_time)
+  expireDate.setDate(expireDate.getDate() + row.valid_days)
+  const now = new Date()
+  const diff = expireDate.getTime() - now.getTime()
+  return diff > 0 && diff <= 7 * 24 * 60 * 60 * 1000
+}
 
 // 详情弹窗
 const detailVisible = ref(false)
@@ -267,6 +281,7 @@ const fetchList = async () => {
     if (res.code === 200) {
       tableData.value = res.data.list
       total.value = res.data.total
+      expiringCount.value = res.data.expiring_count || 0
     }
   } catch (error) {
     console.error('获取报价单列表失败:', error)

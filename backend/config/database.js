@@ -7,10 +7,12 @@ const pool = mysql.createPool({
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'huakey_crm',
   waitForConnections: true,
-  connectionLimit: 25,
+  connectionLimit: 20,
   queueLimit: 0,
   enableKeepAlive: true,
-  keepAliveInitialDelay: 0
+  keepAliveInitialDelay: 10000,
+  multipleStatements: false,
+  charset: 'utf8mb4'
 });
 
 pool.on('error', (err) => {

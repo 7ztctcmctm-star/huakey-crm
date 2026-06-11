@@ -671,6 +671,25 @@ router.post('/payment/list', authenticateToken, async (req, res) => {
       );
 
       res.json({ code: 200, message: '查询成功', data: { list, total: countResult[0].total, page: parseInt(page), pageSize: parseInt(pageSize) } });
+    } else if (tab === 'summary') {
+      // 本月回款汇总
+      const now = new Date();
+      const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+      const monthEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-31`;
+
+      const [[planTotal]] = await pool.query(
+        "SELECT COALESCE(SUM(plan_amount), 0) as total FROM crm_payment_plan WHERE plan_date BETWEEN ? AND ? AND deleted_at IS NULL",
+        [monthStart, monthEnd]
+      );
+      const [[paidTotal]] = await pool.query(
+        "SELECT COALESCE(SUM(pay_amount), 0) as total FROM crm_payment WHERE pay_date BETWEEN ? AND ? AND deleted_at IS NULL",
+        [monthStart, monthEnd]
+      );
+      const planVal = parseFloat(planTotal.total) || 0;
+      const paidVal = parseFloat(paidTotal.total) || 0;
+      const rate = planVal > 0 ? Math.round(paidVal / planVal * 100) : 0;
+
+      res.json({ code: 200, message: '查询成功', data: { list: [], total: 0, page: 1, pageSize: 1, summary: { month_plan_total: planVal, month_paid_total: paidVal, month_rate: rate } } });
     } else {
       // 全部回款
       let where = 'WHERE p.deleted_at IS NULL';
@@ -711,6 +730,55 @@ router.post('/payment/list', authenticateToken, async (req, res) => {
     }
   } catch (error) {
     console.error('[合同] 查询回款列表错误:', error);
+    res.status(500).json({ code: 500, message: '查询失败', data: null });
+  }
+});
+
+// 回款合并视图（计划+记录）
+router.post('/payment/merged', authenticateToken, async (req, res) => {
+  try {
+    const { page = 1, pageSize = 20, keyword, start_date, end_date } = req.body;
+    const offset = (page - 1) * pageSize;
+    const params = [];
+    let where = 'WHERE pp.deleted_at IS NULL';
+    if (keyword) {
+      where += ' AND (c.contract_no LIKE ? OR cu.company_name LIKE ?)';
+      params.push(`%${keyword}%`, `%${keyword}%`);
+    }
+    if (start_date) { where += ' AND pp.plan_date >= ?'; params.push(start_date); }
+    if (end_date) { where += ' AND pp.plan_date <= ?'; params.push(end_date); }
+
+    const [[{ total }]] = await pool.query(
+      `SELECT COUNT(DISTINCT pp.id) as total
+       FROM crm_payment_plan pp
+       JOIN crm_contract c ON pp.contract_id = c.id
+       JOIN crm_customer cu ON c.customer_id = cu.id
+       ${where}`, params
+    );
+
+    const [rows] = await pool.query(`
+      SELECT pp.id as plan_id, pp.contract_id, c.contract_no, cu.company_name,
+             pp.plan_amount, pp.plan_date,
+             COALESCE(SUM(p.pay_amount), 0) as paid_amount,
+             (pp.plan_amount - COALESCE(SUM(p.pay_amount), 0)) as unpaid_amount,
+             CASE
+               WHEN COALESCE(SUM(p.pay_amount), 0) >= pp.plan_amount THEN 'completed'
+               WHEN pp.plan_date < CURDATE() THEN 'overdue'
+               ELSE 'pending'
+             END as plan_status
+      FROM crm_payment_plan pp
+      JOIN crm_contract c ON pp.contract_id = c.id
+      JOIN crm_customer cu ON c.customer_id = cu.id
+      LEFT JOIN crm_payment p ON p.contract_id = pp.contract_id AND p.plan_id = pp.id AND p.deleted_at IS NULL
+      ${where}
+      GROUP BY pp.id
+      ORDER BY pp.plan_date DESC
+      LIMIT ? OFFSET ?
+    `, [...params, parseInt(pageSize), offset]);
+
+    res.json({ code: 200, message: '查询成功', data: { list: rows, total } });
+  } catch (error) {
+    console.error('[合同] 合并回款视图查询失败:', error);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });

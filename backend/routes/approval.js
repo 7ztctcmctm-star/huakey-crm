@@ -426,6 +426,43 @@ router.get('/detail/:business_type/:business_id', authenticateToken, async (req,
   }
 });
 
+// 审批详情+客户历史
+router.get('/detail-with-history/:business_type/:business_id', authenticateToken, async (req, res) => {
+  try {
+    const { business_type, business_id } = req.params;
+    let customerId = null;
+
+    // 根据业务类型获取客户ID
+    if (business_type === 'quote') {
+      const [[biz]] = await pool.query('SELECT customer_id FROM crm_quote WHERE id = ?', [business_id]);
+      customerId = biz?.customer_id;
+    } else if (business_type === 'contract') {
+      const [[biz]] = await pool.query('SELECT customer_id FROM crm_contract WHERE id = ?', [business_id]);
+      customerId = biz?.customer_id;
+    }
+
+    let customer = null, stats = null, follows = [];
+    if (customerId) {
+      [[customer]] = await pool.query('SELECT company_name, level, source, contact_name, phone FROM crm_customer WHERE id = ?', [customerId]);
+      [[stats]] = await pool.query(
+        'SELECT COUNT(*) as contract_count, COALESCE(SUM(amount),0) as total_amount FROM crm_contract WHERE customer_id = ? AND deleted_at IS NULL', [customerId]
+      );
+      const [[payment]] = await pool.query(
+        'SELECT COALESCE(SUM(pay_amount),0) as total_paid FROM crm_payment WHERE contract_id IN (SELECT id FROM crm_contract WHERE customer_id = ? AND deleted_at IS NULL) AND deleted_at IS NULL', [customerId]
+      );
+      stats = { ...stats, total_paid: payment?.total_paid || 0 };
+      [follows] = await pool.query(
+        'SELECT content, follow_type, create_time FROM crm_follow_up WHERE customer_id = ? AND deleted_at IS NULL ORDER BY create_time DESC LIMIT 3', [customerId]
+      );
+    }
+
+    res.json({ code: 200, message: '查询成功', data: { customer, stats, follows } });
+  } catch (error) {
+    console.error('[审批] 获取客户历史失败:', error);
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+  }
+});
+
 // 我的待审批
 router.get('/my-pending', authenticateToken, async (req, res) => {
   try {
@@ -440,19 +477,30 @@ router.get('/my-pending', authenticateToken, async (req, res) => {
       ORDER BY r.create_time DESC
     `, [req.user.userId]);
 
-    // 获取业务记录的标题
-    for (const row of rows) {
-      const tableName = BUSINESS_TABLE_MAP[row.business_type];
-      if (tableName) {
-        let titleField = 'id';
-        if (row.business_type === 'quote') titleField = 'quote_no';
-        else if (row.business_type === 'contract') titleField = 'contract_no';
-        else if (row.business_type === 'purchase') titleField = 'order_no';
+    // [性能修复] 批量获取业务记录标题，避免 N+1 查询
+    const bizIds = { quote: [], contract: [], purchase: [] };
+    rows.forEach(row => {
+      if (bizIds[row.business_type] !== undefined) {
+        bizIds[row.business_type].push(row.business_id);
+      }
+    });
 
-        const [biz] = await pool.query(`SELECT ${titleField} as title FROM ${tableName} WHERE id = ?`, [row.business_id]);
-        row.business_title = biz.length > 0 ? biz[0].title : `ID:${row.business_id}`;
+    const bizTitleMap = {};
+    const titleFields = { quote: 'quote_no', contract: 'contract_no', purchase: 'order_no' };
+    const batchQueries = [];
+    for (const [type, ids] of Object.entries(bizIds)) {
+      if (ids.length > 0) {
+        batchQueries.push(
+          pool.query(`SELECT id, ${titleFields[type]} as title FROM ${BUSINESS_TABLE_MAP[type]} WHERE id IN (?)`, [ids])
+            .then(([r]) => r.forEach(b => { bizTitleMap[`${type}:${b.id}`] = b.title; }))
+        );
       }
     }
+    await Promise.all(batchQueries);
+
+    rows.forEach(row => {
+      row.business_title = bizTitleMap[`${row.business_type}:${row.business_id}`] || `ID:${row.business_id}`;
+    });
 
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
@@ -519,6 +567,84 @@ router.get('/my-submitted', authenticateToken, async (req, res) => {
     console.error('[审批] 获取已提交审批失败:', error);
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
+});
+
+// 批量通过
+router.post('/batch-approve', authenticateToken, async (req, res) => {
+  const { ids, remark } = req.body;
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ code: 400, message: '请选择要审批的记录', data: null });
+  }
+
+  let success = 0, failed = 0;
+  for (const id of ids) {
+    const conn = await pool.getConnection();
+    try {
+      const [records] = await pool.query('SELECT * FROM crm_approval_record WHERE id = ? AND status = "pending"', [id]);
+      if (records.length === 0) { failed++; continue; }
+      const record = records[0];
+      if (record.approver_id !== req.user.userId && !req.user.manageAll) { failed++; continue; }
+
+      await conn.beginTransaction();
+      await conn.query('UPDATE crm_approval_record SET status = "approved", remark = ? WHERE id = ?', [remark || null, id]);
+
+      const [nextSteps] = await pool.query('SELECT * FROM crm_approval_step WHERE workflow_id = ? AND step_order > ? ORDER BY step_order LIMIT 1', [record.workflow_id, record.step_order]);
+      const tableName = BUSINESS_TABLE_MAP[record.business_type];
+
+      if (nextSteps.length > 0) {
+        const nextStep = nextSteps[0];
+        let nextApproverId = nextStep.approver_id;
+        if (nextStep.approver_type === 'manager') {
+          const [user] = await pool.query('SELECT manager_id FROM sys_user WHERE id = ?', [record.approver_id]);
+          if (user.length > 0 && user[0].manager_id) nextApproverId = user[0].manager_id;
+        }
+        await conn.query('INSERT INTO crm_approval_record (workflow_id, business_type, business_id, step_id, step_order, approver_id) VALUES (?, ?, ?, ?, ?, ?)', [record.workflow_id, record.business_type, record.business_id, nextStep.id, nextStep.step_order, nextApproverId]);
+      } else {
+        await conn.query(`UPDATE ${tableName} SET approval_status = 2 WHERE id = ?`, [record.business_id]);
+      }
+
+      await conn.commit();
+      success++;
+    } catch (e) {
+      await conn.rollback();
+      failed++;
+    } finally {
+      conn.release();
+    }
+  }
+  res.json({ code: 200, message: `批量审批完成：成功${success}条，失败${failed}条`, data: { success, failed } });
+});
+
+// 批量驳回
+router.post('/batch-reject', authenticateToken, async (req, res) => {
+  const { ids, remark } = req.body;
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ code: 400, message: '请选择要驳回的记录', data: null });
+  }
+
+  let success = 0, failed = 0;
+  for (const id of ids) {
+    const conn = await pool.getConnection();
+    try {
+      const [records] = await pool.query('SELECT * FROM crm_approval_record WHERE id = ? AND status = "pending"', [id]);
+      if (records.length === 0) { failed++; continue; }
+      const record = records[0];
+      if (record.approver_id !== req.user.userId && !req.user.manageAll) { failed++; continue; }
+
+      await conn.beginTransaction();
+      await conn.query('UPDATE crm_approval_record SET status = "rejected", remark = ? WHERE id = ?', [remark || null, id]);
+      const tableName = BUSINESS_TABLE_MAP[record.business_type];
+      await conn.query(`UPDATE ${tableName} SET approval_status = 3 WHERE id = ?`, [record.business_id]);
+      await conn.commit();
+      success++;
+    } catch (e) {
+      await conn.rollback();
+      failed++;
+    } finally {
+      conn.release();
+    }
+  }
+  res.json({ code: 200, message: `批量驳回完成：成功${success}条，失败${failed}条`, data: { success, failed } });
 });
 
 module.exports = router;

@@ -1,6 +1,7 @@
 <template>
   <div class="dashboard">
-    <el-row :gutter="24">
+    <!-- 管理员/销售：经营概览 -->
+    <el-row :gutter="24" v-if="isAdmin || isSales">
       <el-col :span="6">
         <el-card shadow="hover" class="stat-card" @click="handleQuickAction('sales')">
           <div class="stat-body">
@@ -55,7 +56,162 @@
       </el-col>
     </el-row>
 
-    <!-- 今日待办区域 - 移到最显眼位置 -->
+    <!-- 财务：回款概览 -->
+    <el-row :gutter="24" v-else-if="isFinance">
+      <el-col :span="6">
+        <el-card shadow="hover" class="stat-card">
+          <div class="stat-body">
+            <div class="stat-icon" style="background: #eff6ff; color: #0071e3">
+              <el-icon :size="28"><Money /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">¥{{ formatAmount(financeData.month_plan) }}</div>
+              <div class="stat-label">本月应回款</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover" class="stat-card">
+          <div class="stat-body">
+            <div class="stat-icon" style="background: #f0fdf4; color: #16a34a">
+              <el-icon :size="28"><Money /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">¥{{ formatAmount(financeData.month_paid) }}</div>
+              <div class="stat-label">本月已回款</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover" class="stat-card">
+          <div class="stat-body">
+            <div class="stat-icon" style="background: #fef3c7; color: #d97706">
+              <el-icon :size="28"><TrendCharts /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ financeData.month_rate }}%</div>
+              <div class="stat-label">回款率</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover" class="stat-card">
+          <div class="stat-body">
+            <div class="stat-icon" style="background: #fef2f2; color: #dc2626">
+              <el-icon :size="28"><Warning /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ financeData.overdue_amount }}笔</div>
+              <div class="stat-label">逾期回款</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <!-- 采购：采购概览 -->
+    <el-row :gutter="24" v-else-if="isPurchase">
+      <el-col :span="8">
+        <el-card shadow="hover" class="stat-card">
+          <div class="stat-body">
+            <div class="stat-icon" style="background: #eff6ff; color: #0071e3">
+              <el-icon :size="28"><Goods /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">¥{{ formatAmount(purchaseData.month_amount) }}</div>
+              <div class="stat-label">本月采购额</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="8">
+        <el-card shadow="hover" class="stat-card">
+          <div class="stat-body">
+            <div class="stat-icon" style="background: #fef3c7; color: #d97706">
+              <el-icon :size="28"><Document /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ purchaseData.pending_approval }}</div>
+              <div class="stat-label">待审批计划</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="8">
+        <el-card shadow="hover" class="stat-card" @click="$router.push('/inventory')">
+          <div class="stat-body">
+            <div class="stat-icon" style="background: #fef2f2; color: #dc2626">
+              <el-icon :size="28"><Warning /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ purchaseData.stock_alerts }}</div>
+              <div class="stat-label">库存预警</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <!-- 售后：工单概览 -->
+    <el-row :gutter="24" v-else-if="isService">
+      <el-col :span="6">
+        <el-card shadow="hover" class="stat-card">
+          <div class="stat-body">
+            <div class="stat-icon" style="background: #eff6ff; color: #0071e3">
+              <el-icon :size="28"><Ticket /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ serviceData.pending }}</div>
+              <div class="stat-label">待处理工单</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover" class="stat-card">
+          <div class="stat-body">
+            <div class="stat-icon" style="background: #fef2f2; color: #dc2626">
+              <el-icon :size="28"><Clock /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ serviceData.overtime }}</div>
+              <div class="stat-label">超时工单</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover" class="stat-card">
+          <div class="stat-body">
+            <div class="stat-icon" style="background: #f0fdf4; color: #16a34a">
+              <el-icon :size="28"><Plus /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ serviceData.today_new }}</div>
+              <div class="stat-label">今日新增</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover" class="stat-card">
+          <div class="stat-body">
+            <div class="stat-icon" style="background: #fef3c7; color: #d97706">
+              <el-icon :size="28"><Trophy /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ serviceData.satisfaction }}%</div>
+              <div class="stat-label">本月满意度</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <!-- 今日待办区域 - 所有角色可见 -->
     <el-row :gutter="24" style="margin-top: 16px">
       <el-col :span="24">
         <el-card shadow="never" class="todo-card" :class="{ 'has-overdue': overdueCount > 0 }">
@@ -119,7 +275,8 @@
       </el-col>
     </el-row>
 
-    <el-row :gutter="24" style="margin-top: 16px">
+    <!-- 管理员/销售：商机/回款/逾期/合同 -->
+    <el-row :gutter="24" style="margin-top: 16px" v-if="isAdmin || isSales">
       <el-col :span="6">
         <el-card shadow="hover" class="stat-card mini">
           <div class="stat-body">
@@ -174,8 +331,8 @@
       </el-col>
     </el-row>
 
-    <!-- 跟进提醒统计 -->
-    <el-row :gutter="24" style="margin-top: 16px">
+    <!-- 跟进提醒统计（管理员/销售） -->
+    <el-row :gutter="24" style="margin-top: 16px" v-if="isAdmin || isSales">
       <el-col :span="8">
         <el-card shadow="hover" class="stat-card mini" @click="goToTasks('today')">
           <div class="stat-body">
@@ -217,7 +374,7 @@
       </el-col>
     </el-row>
 
-    <el-row :gutter="24" style="margin-top: 24px">
+    <el-row :gutter="24" style="margin-top: 24px" v-if="isAdmin || isSales">
       <el-col :span="12">
         <el-card shadow="never">
           <template #header>
@@ -288,7 +445,7 @@
       </el-col>
     </el-row>
 
-    <el-row :gutter="24" style="margin-top: 24px">
+    <el-row :gutter="24" style="margin-top: 24px" v-if="isAdmin || isSales">
       <el-col :span="14">
         <el-card shadow="never">
           <template #header>
@@ -315,7 +472,7 @@
       </el-col>
     </el-row>
 
-    <el-row :gutter="24" style="margin-top: 24px">
+    <el-row :gutter="24" style="margin-top: 24px" v-if="isAdmin">
       <el-col :span="14">
         <el-card shadow="never">
           <template #header>
@@ -430,14 +587,14 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onActivated } from 'vue'
+import { ref, reactive, computed, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
   TrendCharts, Plus, Document, ShoppingCart, DocumentChecked, Service, User,
   Bell, Setting, ArrowDown, Star, Histogram,
   PieChart, Search, Trophy, Clock, List, Delete,
-  Calendar, Warning
+  Calendar, Warning, Money, Goods, Ticket
 } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { useChart } from '@/composables/useChart'
@@ -445,6 +602,23 @@ import { formatAmount } from '@/composables/useFormat'
 import { PARENT_SOURCE_COLORS } from '@/constants/source'
 
 const router = useRouter()
+
+// 角色检测
+const userInfo = computed(() => {
+  try { return JSON.parse(localStorage.getItem('userInfo') || '{}') } catch { return {} }
+})
+const roleId = computed(() => userInfo.value.roleId || 0)
+const isAdmin = computed(() => roleId.value === 1 || roleId.value === 2)
+const isSales = computed(() => roleId.value === 3)
+const isFinance = computed(() => roleId.value === 4)
+const isPurchase = computed(() => roleId.value === 5)
+const isService = computed(() => roleId.value === 6)
+
+// 角色化首页数据
+const financeData = reactive({ month_plan: 0, month_paid: 0, month_rate: 0, overdue_amount: 0 })
+const purchaseData = reactive({ month_amount: 0, pending_approval: 0, stock_alerts: 0 })
+const serviceData = reactive({ pending: 0, overtime: 0, today_new: 0, satisfaction: 0 })
+
 const activeTab = ref('follow')
 const overview = reactive({
   month_sales: '0',
@@ -868,17 +1042,67 @@ const goToTasks = (type) => {
   router.push(routes[type] || '/follow-up/today')
 }
 
-onMounted(() => {
-  initCharts()
-  Promise.all([
-    fetchOverview(), fetchQuickStats(), fetchTodayTasks(),
-    fetchPerformanceRank(), fetchOverdueStats(), fetchTaskStats()
-  ])
-})
+// 角色化首页数据获取
+const fetchFinanceDashboard = async () => {
+  try {
+    const now = new Date()
+    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+    const monthEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-31`
+    // 回款汇总
+    const res = await request.post('/contract/payment/list', { page: 1, pageSize: 1, tab: 'summary' })
+    if (res.code === 200 && res.data.summary) {
+      financeData.month_plan = res.data.summary.month_plan_total || 0
+      financeData.month_paid = res.data.summary.month_paid_total || 0
+      financeData.month_rate = res.data.summary.month_rate || 0
+    }
+    // 逾期金额
+    const overdueRes = await request.post('/contract/payment/list', { page: 1, pageSize: 1, tab: 'overdue' })
+    if (overdueRes.code === 200) financeData.overdue_amount = overdueRes.data.total || 0
+  } catch { /* */ }
+}
 
-onActivated(() => {
-  Promise.all([fetchOverview(), fetchQuickStats(), fetchTodayTasks(), fetchPerformanceRank(), fetchOverdueStats(), fetchTaskStats()])
-})
+const fetchPurchaseDashboard = async () => {
+  try {
+    const statsRes = await request.get('/procurement-plan/stats')
+    if (statsRes.code === 200) {
+      purchaseData.pending_approval = statsRes.data.submitted || 0
+    }
+    // 库存预警
+    const alertRes = await request.get('/inventory/alerts')
+    if (alertRes.code === 200) purchaseData.stock_alerts = alertRes.data?.length || 0
+  } catch { /* */ }
+}
+
+const fetchServiceDashboard = async () => {
+  try {
+    const res = await request.get('/report/today-tasks')
+    if (res.code === 200) {
+      serviceData.pending = res.data.service_count || 0
+    }
+  } catch { /* */ }
+}
+
+const loadDashboardData = () => {
+  fetchTodayTasks()
+  fetchOverdueStats()
+  fetchTaskStats()
+  if (isAdmin.value) {
+    initCharts()
+    Promise.all([fetchOverview(), fetchQuickStats(), fetchPerformanceRank()])
+  } else if (isSales.value) {
+    initCharts()
+    Promise.all([fetchOverview(), fetchQuickStats(), fetchPerformanceRank()])
+  } else if (isFinance.value) {
+    fetchFinanceDashboard()
+  } else if (isPurchase.value) {
+    fetchPurchaseDashboard()
+  } else if (isService.value) {
+    fetchServiceDashboard()
+  }
+}
+
+onMounted(() => { loadDashboardData() })
+onActivated(() => { loadDashboardData() })
 </script>
 
 <style scoped>

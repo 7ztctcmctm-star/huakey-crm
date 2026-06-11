@@ -133,6 +133,48 @@ const router = createRouter({
           meta: { title: '回款管理', permission: 'contract' }
         },
         {
+          path: 'payment/reminders',
+          name: 'PaymentReminders',
+          component: () => import('../views/payment/reminders.vue'),
+          meta: { title: '回款提醒', permission: 'contract' }
+        },
+        {
+          path: 'payment/reconciliation',
+          name: 'PaymentReconciliation',
+          component: () => import('../views/payment/reconciliation.vue'),
+          meta: { title: '对账管理', permission: 'contract' }
+        },
+        {
+          path: 'payment/analysis',
+          name: 'PaymentAnalysis',
+          component: () => import('../views/payment/analysis.vue'),
+          meta: { title: '财务分析', permission: 'contract', admin: true }
+        },
+        {
+          path: 'notification',
+          name: 'Notification',
+          component: () => import('../views/notification/index.vue'),
+          meta: { title: '通知中心' }
+        },
+        {
+          path: 'email/inbox',
+          name: 'EmailInbox',
+          component: () => import('../views/email/inbox.vue'),
+          meta: { title: '邮件收发' }
+        },
+        {
+          path: 'email/compose',
+          name: 'EmailCompose',
+          component: () => import('../views/email/compose.vue'),
+          meta: { title: '写邮件' }
+        },
+        {
+          path: 'email/settings',
+          name: 'EmailSettings',
+          component: () => import('../views/email/settings.vue'),
+          meta: { title: '邮箱设置' }
+        },
+        {
           path: 'supplier/list',
           name: 'SupplierList',
           component: () => import('../views/supplier/list.vue'),
@@ -157,16 +199,166 @@ const router = createRouter({
           meta: { title: '采购详情' }
         },
         {
+          path: 'procurement/plan',
+          name: 'ProcurementPlan',
+          component: () => import('../views/procurement/plan.vue'),
+          meta: { title: '采购计划', permission: 'purchase' }
+        },
+        {
+          path: 'procurement/plan/:id',
+          name: 'ProcurementPlanDetail',
+          component: () => import('../views/procurement/planDetail.vue'),
+          meta: { title: '计划详情', permission: 'purchase' }
+        },
+        {
+          path: 'inventory',
+          name: 'Inventory',
+          component: () => import('../views/inventory/index.vue'),
+          meta: { title: '库存管理', permission: 'product' }
+        },
+        {
+          path: 'inventory/movements',
+          name: 'InventoryMovements',
+          component: () => import('../views/inventory/movements.vue'),
+          meta: { title: '库存变动', permission: 'product' }
+        },
+        {
+          path: 'supplier/ranking',
+          name: 'SupplierRanking',
+          component: () => import('../views/supplier/ranking.vue'),
+          meta: { title: '供应商排行', permission: 'supplier' }
+        },
+        {
           path: 'service',
           name: 'Service',
           component: () => import('../views/service/index.vue'),
           meta: { title: '售后服务', permission: 'service' }
         },
         {
+          path: 'survey',
+          name: 'SurveyIndex',
+          component: () => import('../views/survey/index.vue'),
+          meta: { title: '调查管理', permission: 'customer:list' }
+        },
+        {
+          path: 'survey/templates',
+          name: 'SurveyTemplates',
+          component: () => import('../views/survey/templates.vue'),
+          meta: { title: '调查模板', permission: 'customer:list' }
+        },
+        {
+          path: 'survey/detail/:id',
+          name: 'SurveyDetail',
+          component: () => import('../views/survey/detail.vue'),
+          meta: { title: '调查详情', permission: 'customer:list' }
+        },
+        {
+          path: 'survey/analytics/:id',
+          name: 'SurveyAnalytics',
+          component: () => import('../views/survey/analytics.vue'),
+          meta: { title: '调查分析', permission: 'customer:list' }
+        },
+        {
+          path: 'survey/overview',
+          name: 'SurveyOverview',
+          component: () => import('../views/survey/overview.vue'),
+          meta: { title: '满意度总览', permission: 'customer:list' }
+        },
+        {
+          path: 'hr/employees',
+          name: 'HrEmployees',
+          component: () => import('../views/hr/employees.vue'),
+          meta: { title: '员工档案', permission: 'system:user', admin: true }
+        },
+        {
+          path: 'hr/commission',
+          name: 'HrCommission',
+          component: () => import('../views/hr/commission.vue'),
+          meta: { title: '佣金管理', permission: 'system:user', admin: true }
+        },
+        {
+          path: 'hr/org-chart',
+          name: 'HrOrgChart',
+          component: () => import('../views/hr/org-chart.vue'),
+          meta: { title: '组织架构', permission: 'system:user', admin: true }
+        },
+        {
+          path: 'automation/workflows',
+          name: 'AutomationWorkflows',
+          component: () => import('../views/automation/workflows.vue'),
+          meta: { title: '工作流管理', permission: 'system:user', admin: true }
+        },
+        {
+          path: 'automation/assign-rules',
+          name: 'AutomationAssignRules',
+          component: () => import('../views/automation/assign-rules.vue'),
+          meta: { title: '自动分配', permission: 'system:user', admin: true }
+        },
+        {
+          path: 'automation/smart-reminders',
+          name: 'AutomationSmartReminders',
+          component: () => import('../views/automation/smart-reminders.vue'),
+          meta: { title: '智能提醒', permission: 'system:user', admin: true }
+        },
+        {
+          path: 'calendar',
+          name: 'Calendar',
+          component: () => import('../views/calendar/index.vue'),
+          meta: { title: '日程管理', permission: 'customer:list' }
+        },
+        {
+          path: 'social',
+          name: 'Social',
+          component: () => import('../views/social/index.vue'),
+          meta: { title: '社媒沟通', permission: 'customer:list' }
+        },
+        {
+          path: 'settings/api-platform',
+          name: 'ApiPlatform',
+          component: () => import('../views/settings/api-platform.vue'),
+          meta: { title: 'API开放平台', permission: 'system:user', admin: true }
+        },
+        {
+          path: 'competitor',
+          name: 'Competitor',
+          component: () => import('../views/competitor/index.vue'),
+          meta: { title: '竞品分析', permission: 'customer:list' }
+        },
+        {
+          path: 'competitor/:id',
+          name: 'CompetitorDetail',
+          component: () => import('../views/competitor/detail.vue'),
+          meta: { title: '竞争对手详情', permission: 'customer:list' }
+        },
+        {
+          path: 'analysis/prediction',
+          name: 'AnalysisPrediction',
+          component: () => import('../views/analysis/prediction.vue'),
+          meta: { title: '增强预测', permission: 'customer:list' }
+        },
+        {
           path: 'report',
           name: 'Report',
           component: () => import('../views/report/index.vue'),
           meta: { title: '数据报表', permission: 'report', admin: true }
+        },
+        {
+          path: 'report/finance',
+          name: 'ReportFinance',
+          component: () => import('../views/report/finance.vue'),
+          meta: { title: '财务报表', permission: 'report', admin: true }
+        },
+        {
+          path: 'report/business',
+          name: 'ReportBusiness',
+          component: () => import('../views/report/business.vue'),
+          meta: { title: '经营分析', permission: 'report', admin: true }
+        },
+        {
+          path: 'report/custom',
+          name: 'ReportCustom',
+          component: () => import('../views/report/custom.vue'),
+          meta: { title: '自定义报表', permission: 'report', admin: true }
         },
         {
           path: 'target',
@@ -203,6 +395,36 @@ const router = createRouter({
           name: 'AiSuggestions',
           component: () => import('../views/ai/index.vue'),
           meta: { title: 'AI建议' }
+        },
+        {
+          path: 'knowledge',
+          name: 'Knowledge',
+          component: () => import('../views/knowledge/index.vue'),
+          meta: { title: '知识库' }
+        },
+        {
+          path: 'knowledge/products',
+          name: 'KnowledgeProducts',
+          component: () => import('../views/knowledge/products.vue'),
+          meta: { title: '产品知识库' }
+        },
+        {
+          path: 'knowledge/scripts',
+          name: 'KnowledgeScripts',
+          component: () => import('../views/knowledge/scripts.vue'),
+          meta: { title: '销售话术' }
+        },
+        {
+          path: 'knowledge/faqs',
+          name: 'KnowledgeFaqs',
+          component: () => import('../views/knowledge/faqs.vue'),
+          meta: { title: '常见问题' }
+        },
+        {
+          path: 'knowledge/documents',
+          name: 'KnowledgeDocuments',
+          component: () => import('../views/knowledge/documents.vue'),
+          meta: { title: '文档模板' }
         },
         {
           path: 'profile',
@@ -281,8 +503,20 @@ const router = createRouter({
           name: 'SystemIntegration',
           component: () => import('../views/settings/integration.vue'),
           meta: { title: '集成管理', admin: true }
+        },
+        {
+          path: 'system/currency',
+          name: 'SystemCurrency',
+          component: () => import('../views/system/currency.vue'),
+          meta: { title: '货币管理', admin: true }
         }
       ]
+    },
+    {
+      path: '/survey/fill/:campaign_id',
+      name: 'SurveyFill',
+      component: () => import('../views/survey/fill.vue'),
+      meta: { title: '满意度调查', public: true }
     },
     {
       path: '/:pathMatch(.*)*',

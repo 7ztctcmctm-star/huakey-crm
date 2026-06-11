@@ -271,46 +271,51 @@ router.get('/overview', authenticateToken, async (req, res) => {
 
     const params = isAdmin ? [] : [userId];
 
-    const [monthSales] = await pool.query(`
-      SELECT COALESCE(SUM(amount), 0) as amount
-      FROM crm_contract
-      WHERE sign_date >= DATE_FORMAT(NOW(), '%Y-%m-01') AND sign_date < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH ${contractFilter}
-    `, params);
-
-    const [monthCustomers] = await pool.query(`
-      SELECT COUNT(*) as count
-      FROM crm_customer
-      WHERE create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH ${customerFilter}
-    `, params);
-
-    const [monthContracts] = await pool.query(`
-      SELECT COUNT(*) as count
-      FROM crm_contract
-      WHERE create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH ${contractFilter}
-    `, params);
-
-    const [monthPayments] = await pool.query(`
-      SELECT COALESCE(SUM(p.pay_amount), 0) as amount
-      FROM crm_payment p
-      LEFT JOIN crm_contract c ON p.contract_id = c.id
-      WHERE p.pay_date >= DATE_FORMAT(NOW(), '%Y-%m-01') AND p.pay_date < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH ${isAdmin ? '' : ' AND c.create_by = ?'}
-    `, isAdmin ? [] : [userId]);
-
-    const [opportunityAmount] = await pool.query(`
-      SELECT COALESCE(SUM(expected_amount), 0) as amount 
-      FROM crm_opportunity 
-      WHERE stage NOT IN (5, 6) ${isAdmin ? '' : ' AND owner_id = ?'}
-    `, isAdmin ? [] : [userId]);
-
-    // 线索统计
-    const [monthLeads] = await pool.query(
-      `SELECT COUNT(*) as count FROM crm_customer WHERE create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH AND status = 1 ${customerFilter}`,
-      params
-    );
-    const [monthConverted] = await pool.query(
-      `SELECT COUNT(*) as count FROM crm_customer WHERE converted_at >= NOW() - INTERVAL 30 DAY ${customerFilter.replace('owner_id', 'owner_id')}`,
-      isAdmin ? [] : [userId]
-    );
+    // [性能优化] 并行执行所有独立查询
+    const [
+      [monthSales],
+      [monthCustomers],
+      [monthContracts],
+      [monthPayments],
+      [opportunityAmount],
+      [monthLeads],
+      [monthConverted]
+    ] = await Promise.all([
+      pool.query(`
+        SELECT COALESCE(SUM(amount), 0) as amount
+        FROM crm_contract
+        WHERE sign_date >= DATE_FORMAT(NOW(), '%Y-%m-01') AND sign_date < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH ${contractFilter}
+      `, params),
+      pool.query(`
+        SELECT COUNT(*) as count
+        FROM crm_customer
+        WHERE create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH ${customerFilter}
+      `, params),
+      pool.query(`
+        SELECT COUNT(*) as count
+        FROM crm_contract
+        WHERE create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH ${contractFilter}
+      `, params),
+      pool.query(`
+        SELECT COALESCE(SUM(p.pay_amount), 0) as amount
+        FROM crm_payment p
+        LEFT JOIN crm_contract c ON p.contract_id = c.id
+        WHERE p.pay_date >= DATE_FORMAT(NOW(), '%Y-%m-01') AND p.pay_date < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH ${isAdmin ? '' : ' AND c.create_by = ?'}
+      `, isAdmin ? [] : [userId]),
+      pool.query(`
+        SELECT COALESCE(SUM(expected_amount), 0) as amount
+        FROM crm_opportunity
+        WHERE stage NOT IN (5, 6) ${isAdmin ? '' : ' AND owner_id = ?'}
+      `, isAdmin ? [] : [userId]),
+      pool.query(
+        `SELECT COUNT(*) as count FROM crm_customer WHERE create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH AND status = 1 ${customerFilter}`,
+        params
+      ),
+      pool.query(
+        `SELECT COUNT(*) as count FROM crm_customer WHERE converted_at >= NOW() - INTERVAL 30 DAY ${customerFilter.replace('owner_id', 'owner_id')}`,
+        isAdmin ? [] : [userId]
+      )
+    ]);
 
     res.json({
       code: 200,
@@ -687,6 +692,498 @@ router.post('/export', authenticateToken, checkPermission('report'), async (req,
   } catch (error) {
     console.error('导出报表错误:', error);
     res.status(500).json({ code: 500, message: '导出失败', data: null });
+  }
+});
+
+// ============ 财务报表 ============
+
+router.get('/finance', authenticateToken, async (req, res) => {
+  try {
+    const { start_date, end_date } = req.query;
+    const now = new Date();
+    const monthStart = start_date || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const monthEnd = end_date || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-31`;
+
+    // 本月/本季/本年时间范围
+    const year = now.getFullYear();
+    const quarter = Math.ceil((now.getMonth() + 1) / 3);
+    const quarterStart = `${year}-${String((quarter - 1) * 3 + 1).padStart(2, '0')}-01`;
+    const yearStart = `${year}-01-01`;
+
+    // 收入概览
+    const [[monthContract]] = await pool.query(
+      "SELECT COALESCE(SUM(amount), 0) as total FROM crm_contract WHERE deleted_at IS NULL AND sign_date BETWEEN ? AND ?",
+      [monthStart, monthEnd]
+    );
+    const [[quarterContract]] = await pool.query(
+      "SELECT COALESCE(SUM(amount), 0) as total FROM crm_contract WHERE deleted_at IS NULL AND sign_date BETWEEN ? AND ?",
+      [quarterStart, monthEnd]
+    );
+    const [[yearContract]] = await pool.query(
+      "SELECT COALESCE(SUM(amount), 0) as total FROM crm_contract WHERE deleted_at IS NULL AND sign_date BETWEEN ? AND ?",
+      [yearStart, monthEnd]
+    );
+
+    // 回款金额
+    const [[monthPayment]] = await pool.query(
+      "SELECT COALESCE(SUM(pay_amount), 0) as total FROM crm_payment WHERE deleted_at IS NULL AND pay_date BETWEEN ? AND ?",
+      [monthStart, monthEnd]
+    );
+    const [[quarterPayment]] = await pool.query(
+      "SELECT COALESCE(SUM(pay_amount), 0) as total FROM crm_payment WHERE deleted_at IS NULL AND pay_date BETWEEN ? AND ?",
+      [quarterStart, monthEnd]
+    );
+    const [[yearPayment]] = await pool.query(
+      "SELECT COALESCE(SUM(pay_amount), 0) as total FROM crm_payment WHERE deleted_at IS NULL AND pay_date BETWEEN ? AND ?",
+      [yearStart, monthEnd]
+    );
+
+    // 采购成本
+    const [[monthPurchase]] = await pool.query(
+      "SELECT COALESCE(SUM(total_amount), 0) as total FROM crm_purchase_order WHERE deleted_at IS NULL AND create_time BETWEEN ? AND ?",
+      [monthStart, monthEnd + ' 23:59:59']
+    );
+    const [[quarterPurchase]] = await pool.query(
+      "SELECT COALESCE(SUM(total_amount), 0) as total FROM crm_purchase_order WHERE deleted_at IS NULL AND create_time BETWEEN ? AND ?",
+      [quarterStart, monthEnd + ' 23:59:59']
+    );
+    const [[yearPurchase]] = await pool.query(
+      "SELECT COALESCE(SUM(total_amount), 0) as total FROM crm_purchase_order WHERE deleted_at IS NULL AND create_time BETWEEN ? AND ?",
+      [yearStart, monthEnd + ' 23:59:59']
+    );
+
+    // 应收账款
+    const [receivables] = await pool.query(`
+      SELECT c.id, c.contract_no, cu.company_name as customer_name, c.amount as total_amount,
+             COALESCE(SUM(p.pay_amount), 0) as paid_amount,
+             (c.amount - COALESCE(SUM(p.pay_amount), 0)) as unpaid_amount,
+             DATEDIFF(NOW(), COALESCE(c.delivery_date, c.sign_date)) as overdue_days
+      FROM crm_contract c
+      LEFT JOIN crm_customer cu ON c.customer_id = cu.id
+      LEFT JOIN crm_payment p ON c.id = p.contract_id AND p.deleted_at IS NULL
+      WHERE c.deleted_at IS NULL AND c.status IN (1, 2)
+      GROUP BY c.id
+      HAVING unpaid_amount > 0
+      ORDER BY overdue_days DESC
+      LIMIT 50
+    `);
+
+    // 收入趋势（最近12个月）
+    const [trend] = await pool.query(`
+      SELECT DATE_FORMAT(sign_date, '%Y-%m') as month,
+             COALESCE(SUM(amount), 0) as contract_amount
+      FROM crm_contract
+      WHERE deleted_at IS NULL AND sign_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+      GROUP BY month ORDER BY month
+    `);
+
+    const [paymentTrend] = await pool.query(`
+      SELECT DATE_FORMAT(pay_date, '%Y-%m') as month,
+             COALESCE(SUM(pay_amount), 0) as payment_amount
+      FROM crm_payment
+      WHERE deleted_at IS NULL AND pay_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+      GROUP BY month ORDER BY month
+    `);
+
+    // 合并趋势数据
+    const trendMap = {};
+    trend.forEach(t => { trendMap[t.month] = { month: t.month, contract_amount: parseFloat(t.contract_amount), payment_amount: 0 }; });
+    paymentTrend.forEach(t => {
+      if (trendMap[t.month]) trendMap[t.month].payment_amount = parseFloat(t.payment_amount);
+      else trendMap[t.month] = { month: t.month, contract_amount: 0, payment_amount: parseFloat(t.payment_amount) };
+    });
+    const trendData = Object.values(trendMap).sort((a, b) => a.month.localeCompare(b.month));
+
+    res.json({
+      code: 200, message: '查询成功',
+      data: {
+        overview: {
+          month: { contract: parseFloat(monthContract.total), payment: parseFloat(monthPayment.total), purchase: parseFloat(monthPurchase.total), profit: parseFloat(monthContract.total) - parseFloat(monthPurchase.total) },
+          quarter: { contract: parseFloat(quarterContract.total), payment: parseFloat(quarterPayment.total), purchase: parseFloat(quarterPurchase.total), profit: parseFloat(quarterContract.total) - parseFloat(quarterPurchase.total) },
+          year: { contract: parseFloat(yearContract.total), payment: parseFloat(yearPayment.total), purchase: parseFloat(yearPurchase.total), profit: parseFloat(yearContract.total) - parseFloat(yearPurchase.total) },
+          payment_rate: yearContract.total > 0 ? Math.round(yearPayment.total / yearContract.total * 100) : 0
+        },
+        receivables,
+        trend: trendData
+      }
+    });
+  } catch (error) {
+    console.error('[报表] 财务报表查询失败:', error);
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+  }
+});
+
+// 财务报表导出CSV
+router.get('/finance/export', authenticateToken, async (req, res) => {
+  try {
+    const { type = 'receivable', start_date, end_date } = req.query;
+    const now = new Date();
+    const monthStart = start_date || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const monthEnd = end_date || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-31`;
+
+    let rows, headers, filename;
+
+    if (type === 'receivable') {
+      [rows] = await pool.query(`
+        SELECT c.contract_no as '合同编号', cu.company_name as '客户名称', c.amount as '合同金额',
+               COALESCE(SUM(p.pay_amount), 0) as '已回款', (c.amount - COALESCE(SUM(p.pay_amount), 0)) as '未回款',
+               DATEDIFF(NOW(), COALESCE(c.delivery_date, c.sign_date)) as '逾期天数'
+        FROM crm_contract c
+        LEFT JOIN crm_customer cu ON c.customer_id = cu.id
+        LEFT JOIN crm_payment p ON c.id = p.contract_id AND p.deleted_at IS NULL
+        WHERE c.deleted_at IS NULL AND c.status IN (1, 2)
+        GROUP BY c.id HAVING ` + '`未回款`' + ` > 0 ORDER BY ` + '`逾期天数`' + ` DESC
+      `);
+      filename = '应收账款.csv';
+    } else if (type === 'income') {
+      [rows] = await pool.query(`
+        SELECT c.contract_no as '合同编号', cu.company_name as '客户名称', c.amount as '合同金额',
+               c.sign_date as '签订日期', c.status as '状态'
+        FROM crm_contract c LEFT JOIN crm_customer cu ON c.customer_id = cu.id
+        WHERE c.deleted_at IS NULL AND c.sign_date BETWEEN ? AND ?
+        ORDER BY c.sign_date DESC
+      `, [monthStart, monthEnd]);
+      filename = '收入报表.csv';
+    } else {
+      [rows] = await pool.query(`
+        SELECT p.order_no as '采购单号', s.name as '供应商', p.total_amount as '采购金额',
+               p.create_time as '采购日期', p.status as '状态'
+        FROM crm_purchase_order p LEFT JOIN crm_supplier s ON p.supplier_id = s.id
+        WHERE p.deleted_at IS NULL AND p.create_time BETWEEN ? AND ?
+        ORDER BY p.create_time DESC
+      `, [monthStart, monthEnd + ' 23:59:59']);
+      filename = '成本报表.csv';
+    }
+
+    // 生成CSV
+    if (rows.length === 0) {
+      return res.status(404).json({ code: 404, message: '无数据可导出', data: null });
+    }
+    headers = Object.keys(rows[0]);
+    const csv = [headers.join(',')].concat(rows.map(r => headers.map(h => `"${(r[h] ?? '').toString().replace(/"/g, '""')}"`).join(','))).join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename=${encodeURIComponent(filename)}`);
+    res.send('﻿' + csv);
+  } catch (error) {
+    console.error('[报表] 财务导出失败:', error);
+    res.status(500).json({ code: 500, message: '导出失败', data: null });
+  }
+});
+
+// ============ 经营分析看板 ============
+
+router.get('/business', authenticateToken, async (req, res) => {
+  try {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const thisMonthStart = `${year}-${String(month).padStart(2, '0')}-01`;
+    const lastMonthEnd = new Date(year, month - 1, 0);
+    const lastMonthStart = `${lastMonthEnd.getFullYear()}-${String(lastMonthEnd.getMonth() + 1).padStart(2, '0')}-01`;
+    const lastMonthEndStr = `${lastMonthEnd.getFullYear()}-${String(lastMonthEnd.getMonth() + 1).padStart(2, '0')}-31`;
+    const lastYearStart = `${year - 1}-${String(month).padStart(2, '0')}-01`;
+    const lastYearEnd = `${year - 1}-${String(month).padStart(2, '0')}-31`;
+
+    // [性能优化] 核心KPI + 上月数据 并行查询
+    const [
+      [[customerTotal]],
+      [[customerNew]],
+      [[contractTotal]],
+      [[paymentTotal]],
+      [[contractCount]],
+      [[oppTotal]],
+      [[oppWon]],
+      [[lastCustomerNew]],
+      [[lastContractTotal]],
+      [[lastPaymentTotal]]
+    ] = await Promise.all([
+      pool.query("SELECT COUNT(*) as cnt FROM crm_customer WHERE deleted_at IS NULL"),
+      pool.query("SELECT COUNT(*) as cnt FROM crm_customer WHERE deleted_at IS NULL AND create_time >= ?", [thisMonthStart]),
+      pool.query("SELECT COALESCE(SUM(amount), 0) as total FROM crm_contract WHERE deleted_at IS NULL AND sign_date >= ?", [thisMonthStart]),
+      pool.query("SELECT COALESCE(SUM(pay_amount), 0) as total FROM crm_payment WHERE deleted_at IS NULL AND pay_date >= ?", [thisMonthStart]),
+      pool.query("SELECT COUNT(*) as cnt FROM crm_contract WHERE deleted_at IS NULL AND sign_date >= ?", [thisMonthStart]),
+      pool.query("SELECT COUNT(*) as cnt FROM crm_opportunity WHERE deleted_at IS NULL"),
+      pool.query("SELECT COUNT(*) as cnt FROM crm_opportunity WHERE deleted_at IS NULL AND stage = 5"),
+      pool.query("SELECT COUNT(*) as cnt FROM crm_customer WHERE deleted_at IS NULL AND create_time BETWEEN ? AND ?", [lastMonthStart, lastMonthEndStr]),
+      pool.query("SELECT COALESCE(SUM(amount), 0) as total FROM crm_contract WHERE deleted_at IS NULL AND sign_date BETWEEN ? AND ?", [lastMonthStart, lastMonthEndStr]),
+      pool.query("SELECT COALESCE(SUM(pay_amount), 0) as total FROM crm_payment WHERE deleted_at IS NULL AND pay_date BETWEEN ? AND ?", [lastMonthStart, lastMonthEndStr])
+    ]);
+
+    const calcChange = (curr, prev) => prev > 0 ? Math.round((curr - prev) / prev * 100) : (curr > 0 ? 100 : 0);
+    const avgUnitPrice = contractCount.cnt > 0 ? Math.round(contractTotal.total / contractCount.cnt) : 0;
+    const conversionRate = oppTotal.cnt > 0 ? Math.round(oppWon.cnt / oppTotal.cnt * 100) : 0;
+
+    // [性能优化] 团队排名、分布、趋势、预警 并行查询
+    const overdueDays = await getOverdueDays();
+    const [
+      [teamRanking],
+      [sellerDetails],
+      [levelDist],
+      [industryDist],
+      [customerTrend],
+      [contractTrend],
+      [paymentTrend],
+      [overduePayments],
+      [overdueCustomers]
+    ] = await Promise.all([
+      pool.query(`
+        SELECT u.id, u.real_name,
+               COUNT(DISTINCT c.id) as contract_count,
+               COALESCE(SUM(c.amount), 0) as contract_amount,
+               (SELECT COALESCE(SUM(p.pay_amount), 0) FROM crm_payment p
+                JOIN crm_contract c2 ON p.contract_id = c2.id
+                WHERE c2.create_by = u.id AND p.deleted_at IS NULL AND p.pay_date >= ?) as payment_amount,
+               (SELECT COUNT(*) FROM crm_customer cu WHERE cu.owner_id = u.id AND cu.deleted_at IS NULL AND cu.create_time >= ?) as new_customers
+        FROM sys_user u
+        LEFT JOIN crm_contract c ON c.create_by = u.id AND c.deleted_at IS NULL AND c.sign_date >= ?
+        WHERE u.status = 1 AND u.role_id IN (1, 2, 3)
+        GROUP BY u.id ORDER BY contract_amount DESC LIMIT 10
+      `, [thisMonthStart, thisMonthStart, thisMonthStart]),
+      pool.query(`
+        SELECT u.id, u.real_name,
+          COALESCE(SUM(c.amount), 0) as contract_amount,
+          (SELECT COALESCE(SUM(p.pay_amount),0) FROM crm_payment p
+           JOIN crm_contract c2 ON p.contract_id = c2.id
+           WHERE c2.create_by = u.id AND p.pay_date >= ? AND p.deleted_at IS NULL) as payment_amount,
+          (SELECT COUNT(DISTINCT cu.id) FROM crm_customer cu WHERE cu.owner_id = u.id AND cu.deleted_at IS NULL) as customer_count,
+          (SELECT COUNT(*) FROM crm_opportunity o WHERE o.owner_id = u.id AND o.deleted_at IS NULL) as opp_count,
+          COALESCE((SELECT target_amount FROM crm_sales_target st WHERE st.user_id = u.id AND st.year = YEAR(CURDATE()) AND st.month = MONTH(CURDATE())), 0) as target_amount
+        FROM sys_user u
+        LEFT JOIN crm_contract c ON c.create_by = u.id AND c.sign_date >= ? AND c.deleted_at IS NULL
+        WHERE u.status = 1 AND u.role_id IN (1, 2, 3)
+        GROUP BY u.id ORDER BY contract_amount DESC LIMIT 20
+      `, [thisMonthStart, thisMonthStart]),
+      pool.query(`SELECT level as name, COUNT(*) as value FROM crm_customer WHERE deleted_at IS NULL GROUP BY level`),
+      pool.query(`SELECT COALESCE(industry, '未填写') as name, COUNT(*) as value FROM crm_customer WHERE deleted_at IS NULL GROUP BY industry ORDER BY value DESC LIMIT 10`),
+      pool.query(`
+        SELECT DATE_FORMAT(create_time, '%Y-%m') as month, COUNT(*) as count
+        FROM crm_customer WHERE deleted_at IS NULL AND create_time >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+        GROUP BY month ORDER BY month
+      `),
+      pool.query(`
+        SELECT DATE_FORMAT(sign_date, '%Y-%m') as month, COUNT(*) as count, COALESCE(SUM(amount), 0) as amount
+        FROM crm_contract WHERE deleted_at IS NULL AND sign_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+        GROUP BY month ORDER BY month
+      `),
+      pool.query(`
+        SELECT DATE_FORMAT(pay_date, '%Y-%m') as month, COALESCE(SUM(pay_amount), 0) as amount
+        FROM crm_payment WHERE deleted_at IS NULL AND pay_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+        GROUP BY month ORDER BY month
+      `),
+      pool.query(`
+        SELECT c.contract_no, cu.company_name, c.amount,
+               COALESCE(SUM(p.pay_amount), 0) as paid,
+               (c.amount - COALESCE(SUM(p.pay_amount), 0)) as unpaid,
+               DATEDIFF(NOW(), c.sign_date) as days
+        FROM crm_contract c
+        LEFT JOIN crm_customer cu ON c.customer_id = cu.id
+        LEFT JOIN crm_payment p ON c.id = p.contract_id AND p.deleted_at IS NULL
+        WHERE c.deleted_at IS NULL AND c.status IN (1, 2)
+        GROUP BY c.id HAVING unpaid > 0 AND days > 30
+        ORDER BY days DESC LIMIT 10
+      `),
+      pool.query(`
+        SELECT id, company_name, last_follow_time, DATEDIFF(NOW(), last_follow_time) as days
+        FROM crm_customer WHERE deleted_at IS NULL AND status = 1
+        AND (last_follow_time IS NULL OR last_follow_time < NOW() - INTERVAL 30 DAY)
+        ORDER BY days DESC LIMIT 10
+      `)
+    ]);
+
+    res.json({
+      code: 200, message: '查询成功',
+      data: {
+        kpi: {
+          customer_total: customerTotal.cnt,
+          customer_new: customerNew.cnt, customer_new_change: calcChange(customerNew.cnt, lastCustomerNew.cnt),
+          contract_amount: parseFloat(contractTotal.total), contract_amount_change: calcChange(parseFloat(contractTotal.total), parseFloat(lastContractTotal.total)),
+          payment_rate: contractTotal.total > 0 ? Math.round(paymentTotal.total / contractTotal.total * 100) : 0,
+          avg_unit_price: avgUnitPrice,
+          conversion_rate: conversionRate
+        },
+        teamRanking,
+        sellerDetails,
+        distribution: { level: levelDist, industry: industryDist },
+        trends: { customer: customerTrend, contract: contractTrend, payment: paymentTrend },
+        warnings: { overdue_payments: overduePayments, overdue_customers: overdueCustomers }
+      }
+    });
+  } catch (error) {
+    console.error('[报表] 经营分析查询失败:', error);
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+  }
+});
+
+// ============ 自定义报表 ============
+
+// 数据源字段映射
+const SOURCE_FIELDS = {
+  customer: { table: 'crm_customer', alias: 't', fields: { id: 'ID', company_name: '客户名称', contact_name: '联系人', phone: '电话', source: '来源', level: '等级', status: '状态', industry: '行业', owner_id: '负责人', create_time: '创建时间' } },
+  contract: { table: 'crm_contract', alias: 't', join: 'LEFT JOIN crm_customer cu ON t.customer_id = cu.id', fields: { id: 'ID', contract_no: '合同编号', 'cu.company_name': '客户名称', amount: '合同金额', sign_date: '签订日期', status: '状态', create_time: '创建时间' } },
+  payment: { table: 'crm_payment', alias: 't', join: 'LEFT JOIN crm_contract ct ON t.contract_id = ct.id', fields: { id: 'ID', 'ct.contract_no': '合同编号', pay_amount: '回款金额', pay_date: '回款日期', pay_method: '回款方式', create_time: '创建时间' } },
+  purchase: { table: 'crm_purchase_order', alias: 't', join: 'LEFT JOIN crm_supplier s ON t.supplier_id = s.id', fields: { id: 'ID', order_no: '采购单号', 's.name': '供应商', total_amount: '采购金额', create_time: '采购日期', status: '状态' } },
+  opportunity: { table: 'crm_opportunity', alias: 't', join: 'LEFT JOIN crm_customer cu ON t.customer_id = cu.id', fields: { id: 'ID', name: '商机名称', 'cu.company_name': '客户名称', expected_amount: '预期金额', stage: '阶段', win_rate: '赢率', create_time: '创建时间' } }
+};
+
+// 获取自定义报表列表
+router.get('/custom', authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      "SELECT * FROM crm_report_config WHERE (create_by = ? OR is_public = 1) AND deleted_at IS NULL ORDER BY create_time DESC",
+      [req.user.userId]
+    );
+    res.json({ code: 200, message: '查询成功', data: rows });
+  } catch (error) {
+    console.error('[报表] 自定义报表列表查询失败:', error);
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+  }
+});
+
+// 创建自定义报表
+router.post('/custom', authenticateToken, async (req, res) => {
+  try {
+    const { name, description, report_type, data_source, columns_config, filter_config, chart_config, is_public } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ code: 400, message: '报表名称不能为空', data: null });
+    if (!report_type) return res.status(400).json({ code: 400, message: '报表类型不能为空', data: null });
+    if (!data_source) return res.status(400).json({ code: 400, message: '数据来源不能为空', data: null });
+    if (!SOURCE_FIELDS[data_source]) return res.status(400).json({ code: 400, message: '无效的数据来源', data: null });
+
+    const [result] = await pool.query(
+      'INSERT INTO crm_report_config (name, description, report_type, data_source, columns_config, filter_config, chart_config, is_public, create_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [name.trim(), description || null, report_type, data_source, columns_config || null, filter_config || null, chart_config || null, is_public || 0, req.user.userId]
+    );
+    res.json({ code: 200, message: '创建成功', data: { id: result.insertId } });
+  } catch (error) {
+    console.error('[报表] 创建自定义报表失败:', error);
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+  }
+});
+
+// 更新自定义报表
+router.put('/custom/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [existing] = await pool.query('SELECT create_by FROM crm_report_config WHERE id = ? AND deleted_at IS NULL', [id]);
+    if (existing.length === 0) return res.status(404).json({ code: 404, message: '报表不存在', data: null });
+    if (existing[0].create_by !== req.user.userId && !req.user.manageAll) {
+      return res.status(403).json({ code: 403, message: '无权修改此报表', data: null });
+    }
+
+    const { name, description, report_type, data_source, columns_config, filter_config, chart_config, is_public } = req.body;
+    const fields = [];
+    const values = [];
+    if (name !== undefined) { fields.push('name = ?'); values.push(name.trim()); }
+    if (description !== undefined) { fields.push('description = ?'); values.push(description); }
+    if (report_type !== undefined) { fields.push('report_type = ?'); values.push(report_type); }
+    if (data_source !== undefined) { fields.push('data_source = ?'); values.push(data_source); }
+    if (columns_config !== undefined) { fields.push('columns_config = ?'); values.push(columns_config); }
+    if (filter_config !== undefined) { fields.push('filter_config = ?'); values.push(filter_config); }
+    if (chart_config !== undefined) { fields.push('chart_config = ?'); values.push(chart_config); }
+    if (is_public !== undefined) { fields.push('is_public = ?'); values.push(parseInt(is_public)); }
+    if (fields.length === 0) return res.status(400).json({ code: 400, message: '没有要更新的字段', data: null });
+    values.push(id);
+    await pool.query(`UPDATE crm_report_config SET ${fields.join(', ')} WHERE id = ?`, values);
+    res.json({ code: 200, message: '更新成功', data: null });
+  } catch (error) {
+    console.error('[报表] 更新自定义报表失败:', error);
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+  }
+});
+
+// 删除自定义报表
+router.delete('/custom/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [existing] = await pool.query('SELECT create_by FROM crm_report_config WHERE id = ? AND deleted_at IS NULL', [id]);
+    if (existing.length === 0) return res.status(404).json({ code: 404, message: '报表不存在', data: null });
+    if (existing[0].create_by !== req.user.userId && !req.user.manageAll) {
+      return res.status(403).json({ code: 403, message: '无权删除此报表', data: null });
+    }
+    await pool.query('UPDATE crm_report_config SET deleted_at = NOW() WHERE id = ?', [id]);
+    res.json({ code: 200, message: '删除成功', data: null });
+  } catch (error) {
+    console.error('[报表] 删除自定义报表失败:', error);
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+  }
+});
+
+// 获取可用字段列表
+router.get('/custom/fields/:source', authenticateToken, async (req, res) => {
+  const src = SOURCE_FIELDS[req.params.source];
+  if (!src) return res.status(400).json({ code: 400, message: '无效的数据来源', data: null });
+  const fields = Object.entries(src.fields).map(([key, label]) => ({ key, label }));
+  res.json({ code: 200, message: '查询成功', data: fields });
+});
+
+// 执行自定义报表
+router.post('/custom/:id/run', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { page = 1, page_size = 20, filters = {} } = req.body;
+
+    const [configs] = await pool.query('SELECT * FROM crm_report_config WHERE id = ? AND deleted_at IS NULL', [id]);
+    if (configs.length === 0) return res.status(404).json({ code: 404, message: '报表不存在', data: null });
+    const config = configs[0];
+
+    const src = SOURCE_FIELDS[config.data_source];
+    if (!src) return res.status(400).json({ code: 400, message: '无效的数据来源', data: null });
+
+    // 解析列配置
+    let columns = [];
+    try { columns = JSON.parse(config.columns_config || '[]'); } catch { columns = []; }
+    if (columns.length === 0) {
+      columns = Object.entries(src.fields).slice(0, 6).map(([key, label]) => ({ field: key, label, agg: null }));
+    }
+
+    // 构建SELECT
+    const selectParts = columns.map(c => {
+      if (c.agg === 'count') return `COUNT(${src.alias}.${c.field}) as \`${c.label}\``;
+      if (c.agg === 'sum') return `COALESCE(SUM(${src.alias}.${c.field}), 0) as \`${c.label}\``;
+      if (c.agg === 'avg') return `COALESCE(AVG(${src.alias}.${c.field}), 0) as \`${c.label}\``;
+      return `${src.alias}.${c.field} as \`${c.label}\``;
+    });
+
+    let where = `${src.alias}.deleted_at IS NULL`;
+    const params = [];
+
+    // 应用筛选条件
+    try {
+      const filterConfig = JSON.parse(config.filter_config || '[]');
+      for (const f of filterConfig) {
+        const val = filters[f.field];
+        if (val !== undefined && val !== '') {
+          if (f.type === 'select') { where += ` AND ${src.alias}.${f.field} = ?`; params.push(val); }
+          else if (f.type === 'date_range' && Array.isArray(val) && val.length === 2) { where += ` AND ${src.alias}.${f.field} BETWEEN ? AND ?`; params.push(val[0], val[1]); }
+          else { where += ` AND ${src.alias}.${f.field} LIKE ?`; params.push(`%${val}%`); }
+        }
+      }
+    } catch { /* */ }
+
+    // 用户传入的额外筛选
+    for (const [key, val] of Object.entries(filters)) {
+      if (val !== undefined && val !== '' && !where.includes(key)) {
+        where += ` AND ${src.alias}.${key} LIKE ?`;
+        params.push(`%${val}%`);
+      }
+    }
+
+    const hasGroupBy = columns.some(c => c.agg);
+    const groupBy = hasGroupBy ? `GROUP BY ${columns.filter(c => !c.agg).map(c => `${src.alias}.${c.field}`).join(', ')}` : '';
+    const join = src.join || '';
+
+    // 计数
+    const countSql = `SELECT COUNT(*) as total FROM ${src.table} ${src.alias} ${join} WHERE ${where}`;
+    const [[{ total }]] = await pool.query(countSql, params);
+
+    // 数据
+    const offset = (parseInt(page) - 1) * parseInt(page_size);
+    const dataSql = `SELECT ${selectParts.join(', ')} FROM ${src.table} ${src.alias} ${join} WHERE ${where} ${groupBy} LIMIT ? OFFSET ?`;
+    const [rows] = await pool.query(dataSql, [...params, parseInt(page_size), offset]);
+
+    res.json({ code: 200, message: '查询成功', data: { list: rows, total, page: parseInt(page), page_size: parseInt(page_size) } });
+  } catch (error) {
+    console.error('[报表] 执行自定义报表失败:', error);
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
 

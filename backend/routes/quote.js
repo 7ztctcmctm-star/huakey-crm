@@ -195,10 +195,17 @@ router.post('/list', authenticateToken, async (req, res) => {
       [...params, parseInt(pageSize), parseInt(offset)]
     );
 
+    // 即将过期的报价数量（7天内到期）
+    const [[expiring]] = await pool.query(
+      `SELECT COUNT(*) as cnt FROM crm_quote
+       WHERE deleted_at IS NULL AND approval_status = 1
+         AND DATE_ADD(create_time, INTERVAL valid_days DAY) BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)`
+    );
+
     res.json({
       code: 200,
       message: '获取报价单列表成功',
-      data: { list, total, page: parseInt(page), pageSize: parseInt(pageSize) }
+      data: { list, total, page: parseInt(page), pageSize: parseInt(pageSize), expiring_count: expiring.cnt }
     });
   } catch (error) {
     console.error('获取报价单列表错误:', error);
@@ -476,6 +483,43 @@ router.post('/approve', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('审批报价单错误:', error);
     res.status(500).json({ code: 500, message: '审批失败', data: null });
+  }
+});
+
+// 报价转合同
+router.post('/to-contract', authenticateToken, async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const { id } = req.body;
+    const [[quote]] = await conn.query('SELECT * FROM crm_quote WHERE id = ? AND deleted_at IS NULL', [id]);
+    if (!quote) return res.status(404).json({ code: 404, message: '报价单不存在', data: null });
+
+    await conn.beginTransaction();
+
+    // 生成合同编号
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const [[{ cnt }]] = await conn.query("SELECT COUNT(*) as cnt FROM crm_contract WHERE contract_no LIKE ?", [`HT-${dateStr}-%`]);
+    const contractNo = `HT-${dateStr}-${String(cnt + 1).padStart(3, '0')}`;
+
+    // 创建合同
+    const [result] = await conn.query(
+      `INSERT INTO crm_contract (contract_no, customer_id, amount, status, remark, create_by, create_time)
+       VALUES (?, ?, ?, 1, ?, ?, NOW())`,
+      [contractNo, quote.customer_id, quote.final_amount || quote.amount, `从报价单${quote.quote_no}转入`, req.user.userId]
+    );
+    const contractId = result.insertId;
+
+    // 更新报价状态为已成交
+    await conn.query("UPDATE crm_quote SET status = 3 WHERE id = ?", [id]);
+
+    await conn.commit();
+    res.json({ code: 200, message: '转合同成功', data: { contract_id: contractId } });
+  } catch (error) {
+    await conn.rollback();
+    console.error('报价转合同失败:', error);
+    res.status(500).json({ code: 500, message: '转合同失败', data: null });
+  } finally {
+    conn.release();
   }
 });
 

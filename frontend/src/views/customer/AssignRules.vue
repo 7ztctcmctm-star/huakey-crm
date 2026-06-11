@@ -16,7 +16,7 @@
         <el-table-column prop="rule_name" label="规则名称" min-width="150" />
         <el-table-column prop="assign_type" label="分配方式" width="120" align="center">
           <template #default="{ row }">
-            <el-tag :type="{ round_robin: '', by_source: 'success', by_region: 'warning' }[row.assign_type]">
+            <el-tag :type="{ round_robin: 'primary', by_source: 'success', by_region: 'warning' }[row.assign_type]">
               {{ { round_robin: '轮询', by_source: '按来源', by_region: '按区域' }[row.assign_type] }}
             </el-tag>
           </template>

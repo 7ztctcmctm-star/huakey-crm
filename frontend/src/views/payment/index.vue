@@ -6,9 +6,27 @@
 
     <!-- 统计卡片 -->
     <el-row :gutter="16" style="margin-bottom: 16px;">
-      <el-col :span="8">
+      <el-col :span="6">
         <el-card shadow="never" class="stat-card">
-          <div class="stat-value">{{ overdueCount }}笔</div>
+          <div class="stat-value" style="color: #0071e3;">¥{{ fmt(monthPlanTotal) }}</div>
+          <div class="stat-label">本月应回款</div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="never" class="stat-card">
+          <div class="stat-value" style="color: #34c759;">¥{{ fmt(monthPaidTotal) }}</div>
+          <div class="stat-label">本月已回款</div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="never" class="stat-card">
+          <div class="stat-value" style="color: #ff9500;">{{ monthRate }}%</div>
+          <div class="stat-label">回款率</div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="never" class="stat-card">
+          <div class="stat-value" style="color: #dc2626;">{{ overdueCount }}笔</div>
           <div class="stat-label">逾期未回款</div>
         </el-card>
       </el-col>
@@ -17,6 +35,31 @@
     <!-- Tab切换 -->
     <el-card shadow="never">
       <el-tabs v-model="activeTab" @tab-change="handleTabChange">
+        <el-tab-pane label="回款总览" name="merged">
+          <el-table v-loading="loading" :data="mergedData" stripe border style="width: 100%">
+            <el-table-column prop="contract_no" label="合同编号" width="140" />
+            <el-table-column prop="company_name" label="客户名称" min-width="140" show-overflow-tooltip />
+            <el-table-column prop="plan_amount" label="计划金额" width="120" align="right">
+              <template #default="{ row }">¥{{ fmt(row.plan_amount) }}</template>
+            </el-table-column>
+            <el-table-column prop="plan_date" label="计划日期" width="110" />
+            <el-table-column prop="paid_amount" label="已回款" width="120" align="right">
+              <template #default="{ row }">¥{{ fmt(row.paid_amount) }}</template>
+            </el-table-column>
+            <el-table-column prop="unpaid_amount" label="未回款" width="120" align="right">
+              <template #default="{ row }">
+                <span :style="{ color: row.unpaid_amount > 0 ? '#dc2626' : '#34c759', fontWeight: 600 }">¥{{ fmt(row.unpaid_amount) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="plan_status" label="状态" width="90" align="center">
+              <template #default="{ row }">
+                <el-tag :type="row.plan_status === 'completed' ? 'success' : row.plan_status === 'overdue' ? 'danger' : 'warning'" size="small">
+                  {{ { completed: '已回款', overdue: '逾期', pending: '待回款' }[row.plan_status] }}
+                </el-tag>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
         <el-tab-pane label="全部回款" name="all">
           <el-table v-loading="loading" :data="tableData" stripe border style="width: 100%">
             <el-table-column prop="contract_no" label="合同编号" width="160" />
@@ -176,15 +219,19 @@ import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
 
 const router = useRouter()
-const activeTab = ref('all')
+const activeTab = ref('merged')
 const loading = ref(false)
 const tableData = ref([])
+const mergedData = ref([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
 const keyword = ref('')
 const dateRange = ref([])
 const overdueCount = ref(0)
+const monthPlanTotal = ref(0)
+const monthPaidTotal = ref(0)
+const monthRate = ref(0)
 const exportLoading = ref(false)
 
 // 导入相关
@@ -251,15 +298,43 @@ const fetchOverdueCount = async () => {
   } catch { /* ignore */ }
 }
 
+// 获取本月回款汇总
+const fetchMonthSummary = async () => {
+  try {
+    const res = await request.post('/contract/payment/list', { page: 1, pageSize: 1, tab: 'summary' })
+    if (res.code === 200 && res.data.summary) {
+      monthPlanTotal.value = res.data.summary.month_plan_total || 0
+      monthPaidTotal.value = res.data.summary.month_paid_total || 0
+      monthRate.value = res.data.summary.month_rate || 0
+    }
+  } catch { /* ignore */ }
+}
+
 const handleTabChange = () => {
   page.value = 1
   keyword.value = ''
-  if (activeTab.value === 'summary') {
+  if (activeTab.value === 'merged') {
+    fetchMerged()
+  } else if (activeTab.value === 'summary') {
     fetchSummary()
   } else {
     tableData.value = []
     fetchList()
   }
+}
+
+const fetchMerged = async () => {
+  loading.value = true
+  try {
+    const res = await request.post('/contract/payment/merged', {
+      page: page.value, pageSize: pageSize.value,
+      keyword: keyword.value || undefined,
+      start_date: dateRange.value?.[0] || undefined,
+      end_date: dateRange.value?.[1] || undefined
+    })
+    if (res.code === 200) { mergedData.value = res.data.list; total.value = res.data.total }
+  } catch { /* */ }
+  finally { loading.value = false }
 }
 
 const fetchSummary = async () => {
@@ -394,8 +469,10 @@ const handleStatementExport = async () => {
 }
 
 onMounted(() => {
+  fetchMerged()
   fetchList()
   fetchOverdueCount()
+  fetchMonthSummary()
 })
 </script>
 

@@ -1,9 +1,16 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const compression = require('compression');
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 
 const app = express();
+
+// [性能优化] 响应压缩（放在最前面）
+app.use(compression({
+  threshold: 1024,
+  level: 6
+}));
 const PORT = process.env.PORT || 5000;
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -92,6 +99,19 @@ const contractTemplateRoutes = require('./routes/contractTemplate');
 const followupTemplateRoutes = require('./routes/followupTemplate');
 const scoringRoutes = require('./routes/scoring');
 const approvalRoutes = require('./routes/approval');
+const knowledgeRoutes = require('./routes/knowledge');
+const surveyRoutes = require('./routes/survey');
+const inventoryRoutes = require('./routes/inventory');
+const procurementPlanRoutes = require('./routes/procurement-plan');
+const financeEnhancedRoutes = require('./routes/finance-enhanced');
+const hrRoutes = require('./routes/hr');
+const automationRoutes = require('./routes/automation');
+const calendarRoutes = require('./routes/calendar');
+const socialRoutes = require('./routes/social');
+const apiPlatformRoutes = require('./routes/api-platform');
+const competitorRoutes = require('./routes/competitor');
+const currencyRoutes = require('./routes/currency');
+const emailRoutes = require('./routes/email');
 
 // API 路由前缀 /api
 const apiRouter = express.Router();
@@ -161,6 +181,18 @@ apiRouter.use('/contract-template', contractTemplateRoutes);
 apiRouter.use('/followup-templates', followupTemplateRoutes);
 apiRouter.use('/scoring', scoringRoutes);
 apiRouter.use('/approval', approvalRoutes);
+apiRouter.use('/knowledge', knowledgeRoutes);
+apiRouter.use('/inventory', inventoryRoutes);
+apiRouter.use('/procurement-plan', procurementPlanRoutes);
+apiRouter.use('/finance', financeEnhancedRoutes);
+apiRouter.use('/hr', hrRoutes);
+apiRouter.use('/automation', automationRoutes);
+apiRouter.use('/calendar', calendarRoutes);
+apiRouter.use('/social', socialRoutes);
+apiRouter.use('/platform', apiPlatformRoutes);
+apiRouter.use('/competitor', competitorRoutes);
+apiRouter.use('/currency', currencyRoutes);
+apiRouter.use('/email', emailRoutes);
 
 // Vercel Cron Jobs 端点（也兼容本地 node-cron）
 const cronJobRoutes = require('./routes/cronJobs');
@@ -226,6 +258,9 @@ apiRouter.get('/system/health', authenticateToken, async (req, res) => {
 
 // 使用 /api 前缀
 app.use('/api', apiRouter);
+
+// 调查模块单独注册（公开回复接口不需要token）
+app.use('/api/survey', surveyRoutes);
 
 // 生产环境：直接托管前端静态文件
 const path = require('path');

@@ -141,6 +141,19 @@
         </el-card>
       </el-col>
     </el-row>
+
+    <!-- 更多报表入口 -->
+    <el-card shadow="never" style="margin-top:20px">
+      <template #header><span style="font-weight:600;font-size:15px">更多报表</span></template>
+      <el-row :gutter="20">
+        <el-col :span="8" v-for="entry in moreEntries" :key="entry.path">
+          <div class="entry-card" @click="$router.push(entry.path)">
+            <div class="entry-title">{{ entry.title }}</div>
+            <div class="entry-desc">{{ entry.desc }}</div>
+          </div>
+        </el-col>
+      </el-row>
+    </el-card>
   </div>
 </template>
 
@@ -152,6 +165,12 @@ import request from '@/utils/request'
 import { formatAmount } from '@/composables/useFormat'
 import { useChart } from '@/composables/useChart'
 import { PARENT_SOURCE_COLORS } from '@/constants/source'
+
+const moreEntries = [
+  { title: '财务报表', desc: '收入/支出/利润/应收账款分析', path: '/report/finance' },
+  { title: '经营分析看板', desc: 'KPI/趋势/排名/预警全景视图', path: '/report/business' },
+  { title: '自定义报表', desc: '自由配置数据源/字段/图表', path: '/report/custom' }
+]
 
 const dateRange = ref([])
 const paymentData = reactive({
@@ -539,4 +558,12 @@ onMounted(() => {
 .chart-container {
   height: 300px;
 }
+
+.entry-card {
+  padding: 24px; background: var(--color-bg-secondary); border-radius: 12px;
+  cursor: pointer; transition: all 0.2s;
+}
+.entry-card:hover { background: #f0f7ff; transform: translateY(-2px); }
+.entry-title { font-size: 16px; font-weight: 600; color: var(--color-text); margin-bottom: 6px; }
+.entry-desc { font-size: 13px; color: var(--color-text-tertiary); }
 </style>

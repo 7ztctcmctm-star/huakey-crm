@@ -39,7 +39,7 @@ router.get('/global', authenticateToken, async (req, res) => {
     const contractPerm = await getDataPermission(user);
     const contractClause = buildPermissionClause(contractPerm, 'ct', 'create_by');
     const [contracts] = await pool.query(
-      `SELECT ct.id, ct.contract_no, ct.contract_amount,
+      `SELECT ct.id, ct.contract_no, ct.amount as contract_amount,
               cu.company_name as customer_name
        FROM crm_contract ct
        LEFT JOIN crm_customer cu ON ct.customer_id = cu.id
@@ -74,7 +74,7 @@ router.get('/global', authenticateToken, async (req, res) => {
     const quotePerm = await getDataPermission(user);
     const quoteClause = buildPermissionClause(quotePerm, 'q', 'create_by');
     const [quotes] = await pool.query(
-      `SELECT q.id, q.quote_no, q.total_amount,
+      `SELECT q.id, q.quote_no, q.amount as total_amount,
               cu.company_name as customer_name
        FROM crm_quote q
        LEFT JOIN crm_customer cu ON q.customer_id = cu.id

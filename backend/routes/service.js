@@ -161,7 +161,16 @@ router.get('/detail/:id', authenticateToken, async (req, res) => {
       ['service_order', id]
     );
 
-    res.json({ code: 200, message: '查询成功', data: { ...rows[0], attachments } });
+    // 查询社媒沟通记录
+    const [socialRecords] = await pool.query(
+      `SELECT sc.*, ct.name as contact_name
+       FROM crm_social_contact sc
+       LEFT JOIN crm_contact ct ON sc.contact_id = ct.id
+       WHERE sc.customer_id = ?
+       ORDER BY sc.message_time DESC LIMIT 20`, [rows[0].customer_id]
+    );
+
+    res.json({ code: 200, message: '查询成功', data: { ...rows[0], attachments, social_records: socialRecords || [] } });
   } catch (error) {
     console.error(error);
     res.status(500).json({ code: 500, message: '查询失败', data: null });

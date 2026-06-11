@@ -71,8 +71,14 @@ const addContactSchema = Joi.object({
   remark: Joi.string().max(500).allow('', null)
 });
 
-router.post('/list', authenticateToken, validate(listSchema), async (req, res) => {
-  const { page = 1, pageSize = 10, keyword = '', type = '', level = '', status = '' } = req.body;
+const supplierListHandler = async (req, res) => {
+  const source = req.method === 'GET' ? req.query : req.body;
+  const page = parseInt(source.page) || 1;
+  const pageSize = parseInt(source.pageSize) || 10;
+  const keyword = source.keyword || '';
+  const type = source.type || '';
+  const level = source.level || '';
+  const status = source.status || '';
   const offset = (page - 1) * pageSize;
 
   try {
@@ -136,7 +142,10 @@ router.post('/list', authenticateToken, validate(listSchema), async (req, res) =
     console.error('[供应商] 供应商列表错误:', error.message);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
-});
+};
+
+router.get('/list', authenticateToken, supplierListHandler);
+router.post('/list', authenticateToken, validate(listSchema), supplierListHandler);
 
 router.get('/detail/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
@@ -597,6 +606,56 @@ router.get('/performance/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('[供应商] 绩效统计错误:', error.message);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
+  }
+});
+
+// ============ 供应商评估排行 ============
+
+// 供应商评估排行
+router.get('/ranking', authenticateToken, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 20;
+    const [rows] = await pool.query(`
+      SELECT s.id, s.name, s.contact_person as contact, s.contact_phone as phone, s.type, s.rating,
+             r.quality_score, r.delivery_score, r.service_score, r.rating_period, r.total_score
+      FROM crm_supplier s
+      LEFT JOIN crm_supplier_rating r ON s.id = r.supplier_id
+        AND r.id = (SELECT id FROM crm_supplier_rating WHERE supplier_id = s.id ORDER BY create_time DESC LIMIT 1)
+      WHERE s.deleted_at IS NULL
+      ORDER BY COALESCE(r.total_score, 0) DESC, s.rating DESC
+      LIMIT ?
+    `, [limit]);
+    res.json({ code: 200, message: '查询成功', data: rows });
+  } catch (error) {
+    console.error('[供应商] 排行查询失败:', error);
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+  }
+});
+
+// 供应商对比（雷达图数据）
+router.get('/compare', authenticateToken, async (req, res) => {
+  try {
+    const ids = (req.query.ids || '').split(',').map(Number).filter(Boolean);
+    if (ids.length === 0) return res.status(400).json({ code: 400, message: '请选择供应商', data: null });
+
+    const placeholders = ids.map(() => '?').join(',');
+    const [suppliers] = await pool.query(
+      `SELECT id, name FROM crm_supplier WHERE id IN (${placeholders}) AND deleted_at IS NULL`, ids
+    );
+
+    const result = [];
+    for (const s of suppliers) {
+      const [ratings] = await pool.query(
+        'SELECT quality_score, delivery_score, service_score, total_score, rating_period FROM crm_supplier_rating WHERE supplier_id = ? ORDER BY create_time DESC LIMIT 6',
+        [s.id]
+      );
+      result.push({ id: s.id, name: s.name, ratings: ratings.reverse() });
+    }
+
+    res.json({ code: 200, message: '查询成功', data: result });
+  } catch (error) {
+    console.error('[供应商] 对比查询失败:', error);
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
 
