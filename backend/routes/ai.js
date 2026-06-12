@@ -39,7 +39,7 @@ router.post('/chat', authenticateToken, async (req, res) => {
   } catch (error) {
     const msg = error.name === 'AbortError'
       ? 'AI 响应超时，请重试'
-      : (error.message || 'AI 调用失败，请稍后重试');
+      : 'AI 调用失败，请稍后重试';
     const code = 503;
     res.status(code).json({ code, message: msg, data: null });
   }

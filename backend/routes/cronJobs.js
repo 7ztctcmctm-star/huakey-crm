@@ -18,10 +18,14 @@ const { checkAllSuppliersScores } = require('../utils/scoring');
 const { checkQualificationExpiry, updateQualificationStatus } = require('../utils/qualification-reminder');
 const { generateReminders } = require('../scripts/generate_reminders');
 
-// Vercel Cron 请求验证（生产环境必须设置 CRON_SECRET 环境变量）
+// Vercel Cron 请求验证（必须设置 CRON_SECRET 环境变量）
 const verifyCron = (req, res, next) => {
   const secret = process.env.CRON_SECRET;
-  if (secret && req.headers.authorization !== `Bearer ${secret}`) {
+  if (!secret) {
+    console.error('[Cron] CRON_SECRET 未配置，拒绝所有请求');
+    return res.status(500).json({ code: 500, message: '服务未配置', data: null });
+  }
+  if (req.headers.authorization !== `Bearer ${secret}`) {
     return res.status(401).json({ code: 401, message: '未授权的 Cron 请求', data: null });
   }
   next();
@@ -38,7 +42,7 @@ router.get('/daily-scoring', async (req, res) => {
     res.json({ code: 200, message: '每日评分任务完成' });
   } catch (error) {
     console.error('[Cron] 每日评分任务失败:', error.message);
-    res.status(500).json({ code: 500, message: error.message });
+    res.status(500).json({ code: 500, message: '评分任务执行失败' });
   }
 });
 
@@ -54,7 +58,7 @@ router.get('/clean-logs', async (req, res) => {
     });
   } catch (error) {
     console.error('[Cron] 日志清理失败:', error.message);
-    res.status(500).json({ code: 500, message: error.message });
+    res.status(500).json({ code: 500, message: '日志清理失败' });
   }
 });
 
@@ -89,7 +93,7 @@ router.get('/auto-release', async (req, res) => {
     });
   } catch (error) {
     console.error('[Cron] 公海回收失败:', error.message);
-    res.status(500).json({ code: 500, message: error.message });
+    res.status(500).json({ code: 500, message: '公海回收执行失败' });
   }
 });
 
@@ -100,7 +104,7 @@ router.get('/generate-reminders', async (req, res) => {
     res.json({ code: 200, message: '跟进提醒生成完成' });
   } catch (error) {
     console.error('[Cron] 提醒生成失败:', error.message);
-    res.status(500).json({ code: 500, message: error.message });
+    res.status(500).json({ code: 500, message: '提醒生成失败' });
   }
 });
 

@@ -11,7 +11,8 @@ const fs = require('fs');
 const DB_HOST = process.env.DB_HOST || 'localhost';
 const DB_PORT = process.env.DB_PORT || '3306';
 const DB_USER = process.env.DB_USER || 'crm_user';
-const DB_PASS = process.env.DB_PASSWORD || 'Huakey@2024';
+const DB_PASS = process.env.DB_PASSWORD;
+if (!DB_PASS) { console.error('错误: DB_PASSWORD 环境变量未设置'); process.exit(1); }
 const DB_NAME = process.env.DB_NAME || 'huakey_crm';
 
 // 备份目录

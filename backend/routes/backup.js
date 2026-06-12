@@ -40,7 +40,8 @@ router.post('/create', authenticateToken, checkPermission('backup:create'), requ
     const backupId = insertResult.insertId;
 
     const dbUser = process.env.DB_USER || 'crm_user';
-    const dbPass = process.env.DB_PASSWORD || 'Huakey@2024';
+    const dbPass = process.env.DB_PASSWORD;
+    if (!dbPass) return res.status(500).json({ code: 500, message: '数据库密码未配置', data: null });
     const dbName = process.env.DB_NAME || 'huakey_crm';
     const dbHost = process.env.DB_HOST || 'localhost';
     const dbPort = process.env.DB_PORT || '3306';
@@ -136,7 +137,8 @@ router.post('/restore', authenticateToken, checkPermission('backup:restore'), re
     }
 
     const dbUser = process.env.DB_USER || 'crm_user';
-    const dbPass = process.env.DB_PASSWORD || 'Huakey@2024';
+    const dbPass = process.env.DB_PASSWORD;
+    if (!dbPass) return res.status(500).json({ code: 500, message: '数据库密码未配置', data: null });
     const dbName = process.env.DB_NAME || 'huakey_crm';
     const dbHost = process.env.DB_HOST || 'localhost';
     const dbPort = process.env.DB_PORT || '3306';

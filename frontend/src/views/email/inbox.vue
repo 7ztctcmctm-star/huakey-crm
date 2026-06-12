@@ -71,7 +71,7 @@
           <el-tag type="info" size="small">关联客户：{{ selectedEmail.customer_name }}</el-tag>
         </div>
       </div>
-      <div class="detail-body" v-html="selectedEmail.body_html || selectedEmail.body_text || '(无内容)'"></div>
+      <div class="detail-body" v-html="sanitize(selectedEmail.body_html || selectedEmail.body_text || '(无内容)')"></div>
       <div v-if="selectedEmail.attachments?.length" class="detail-attachments">
         <div class="attachment-title">附件 ({{ selectedEmail.attachments.length }})</div>
         <div v-for="att in selectedEmail.attachments" :key="att.id" class="attachment-item">
@@ -104,6 +104,9 @@ import { useRouter } from 'vue-router'
 import { Edit, Setting, Search, Star, Paperclip, RefreshRight, Connection, Document } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
+import DOMPurify from 'dompurify'
+
+const sanitize = (html) => DOMPurify.sanitize(html, { ADD_ATTR: ['target'] })
 
 const router = useRouter()
 const loading = ref(false)

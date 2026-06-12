@@ -239,7 +239,8 @@ router.post('/send', authenticateToken, async (req, res) => {
     res.json({ code: 200, message: '发送成功', data: { message_id: info.messageId } });
   } catch (error) {
     console.error('[邮件] 发送失败:', error);
-    res.status(500).json({ code: 500, message: '发送失败: ' + error.message, data: null });
+    console.error('[邮件] 发送失败:', error.message);
+    res.status(500).json({ code: 500, message: '发送失败，请检查邮箱配置', data: null });
   }
 });
 

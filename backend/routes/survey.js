@@ -16,7 +16,7 @@ const optionalAuth = (req, res, next) => {
     try {
       const token = authHeader.replace('Bearer ', '');
       const jwt = require('jsonwebtoken');
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'huakey_crm_secret');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
       req.user = decoded;
     } catch { /* */ }
   }

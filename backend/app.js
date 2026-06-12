@@ -20,7 +20,18 @@ if (isProduction || process.env.VERCEL) {
 }
 
 app.use(helmet({
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"]
+    }
+  },
   crossOriginEmbedderPolicy: false
 }));
 
@@ -293,31 +304,14 @@ app.use((req, res) => {
 
 // 全局错误处理中间件
 app.use((err, req, res, next) => {
-  const isProduction = process.env.NODE_ENV === 'production';
-  
-  if (isProduction) {
-    console.error('[服务器] 服务器错误:', err.message);
-    
-    const statusCode = err.statusCode || err.status || 500;
-    res.status(statusCode).json({
-      code: statusCode,
-      message: statusCode === 500 ? '服务器内部错误，请稍后重试' : (err.message || '操作失败'),
-      data: null
-    });
-  } else {
-    console.error('[服务器] 错误详情:', err);
-    
-    const statusCode = err.statusCode || err.status || 500;
-    const message = err.message || '服务器内部错误';
-    
-    res.status(statusCode).json({
-      code: statusCode,
-      message,
-      data: isProduction ? null : {
-        stack: err.stack
-      }
-    });
-  }
+  const statusCode = err.statusCode || err.status || 500;
+  console.error('[服务器] 错误:', err);
+
+  res.status(statusCode).json({
+    code: statusCode,
+    message: statusCode === 500 ? '服务器内部错误，请稍后重试' : (err.message || '操作失败'),
+    data: null
+  });
 });
 
 // 数据库连接池

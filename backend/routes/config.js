@@ -68,7 +68,7 @@ router.post('/test-notification', authenticateToken, async (req, res) => {
     res.json({ code: 200, message: '测试消息已发送', data: null });
   } catch (error) {
     console.error('[配置] 测试通知失败:', error);
-    res.status(500).json({ code: 500, message: '发送失败: ' + error.message, data: null });
+    res.status(500).json({ code: 500, message: '发送失败，请检查配置', data: null });
   }
 });
 

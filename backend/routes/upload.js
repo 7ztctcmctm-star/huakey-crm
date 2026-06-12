@@ -16,16 +16,33 @@ const getStorage = async () => {
 // 使用内存存储（兼容 Vercel Serverless，无本地磁盘）
 const storage = multer.memoryStorage();
 
+// 允许的 MIME 类型映射
+const ALLOWED_MIME_TYPES = {
+  '.jpg': ['image/jpeg'], '.jpeg': ['image/jpeg'], '.png': ['image/png'],
+  '.gif': ['image/gif'], '.webp': ['image/webp'], '.pdf': ['application/pdf'],
+  '.doc': ['application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  '.docx': ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  '.xls': ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+  '.xlsx': ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+  '.zip': ['application/zip', 'application/x-zip-compressed'],
+  '.rar': ['application/vnd.rar', 'application/x-rar-compressed']
+};
+
 const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = /\.(jpg|jpeg|png|gif|webp|pdf|doc|docx|xls|xlsx|zip|rar)$/i;
-    if (allowed.test(path.extname(file.originalname))) {
-      cb(null, true);
-    } else {
-      cb(new Error('不支持的文件格式'));
+    const ext = path.extname(file.originalname).toLowerCase();
+    const allowedExts = /\.(jpg|jpeg|png|gif|webp|pdf|doc|docx|xls|xlsx|zip|rar)$/i;
+    if (!allowedExts.test(ext)) {
+      return cb(new Error('不支持的文件格式'));
     }
+    // 校验 MIME 类型
+    const allowedMimes = ALLOWED_MIME_TYPES[ext];
+    if (allowedMimes && !allowedMimes.includes(file.mimetype)) {
+      return cb(new Error('文件类型与扩展名不匹配'));
+    }
+    cb(null, true);
   }
 });
 
@@ -75,7 +92,7 @@ router.post('/file', authenticateToken, upload.single('file'), async (req, res) 
     });
   } catch (error) {
     console.error('文件上传错误:', error);
-    res.status(500).json({ code: 500, message: error.message || '上传失败', data: null });
+    res.status(500).json({ code: 500, message: '文件上传失败', data: null });
   }
 });
 
