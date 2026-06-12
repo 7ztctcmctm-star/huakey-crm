@@ -30,8 +30,9 @@ RUN mkdir -p /app/uploads
 
 # 复制数据库迁移文件
 COPY database/migrations /app/database/migrations
+COPY database/migrate.js /app/database/migrate.js
 
 EXPOSE 5000
 
 # 先运行数据库迁移，再启动应用
-CMD ["sh", "-c", "node database/migrations/run_migrations.js && node app.js"]
+CMD ["sh", "-c", "node database/migrate.js && node app.js"]
