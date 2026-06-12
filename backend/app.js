@@ -19,23 +19,25 @@ if (isProduction || process.env.VERCEL) {
   app.set('trust proxy', 1);
 }
 
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "blob:"],
-      connectSrc: ["'self'"],
-      fontSrc: ["'self'"],
-      objectSrc: ["'none'"],
-      frameAncestors: ["'none'"]
-    }
-  },
-  crossOriginEmbedderPolicy: false,
-  strictTransportSecurity: false,
-  crossOriginOpenerPolicy: false
-}));
+// helmet 暂时完全禁用，排查 HTTPS 强制升级问题
+// app.use(helmet({
+//   contentSecurityPolicy: {
+//     directives: {
+//       defaultSrc: ["'self'"],
+//       scriptSrc: ["'self'", "'unsafe-inline'"],
+//       styleSrc: ["'self'", "'unsafe-inline'"],
+//       imgSrc: ["'self'", "data:", "blob:"],
+//       connectSrc: ["'self'", "http:", "https:"],
+//       fontSrc: ["'self'"],
+//       objectSrc: ["'none'"],
+//       frameAncestors: ["'none'"]
+//     }
+//   },
+//   crossOriginEmbedderPolicy: false,
+//   strictTransportSecurity: false,
+//   crossOriginOpenerPolicy: false,
+//   originAgentCluster: false
+// }));
 
 // CORS 配置：开发环境允许所有来源，生产环境按需配置
 const corsOrigin = isProduction
