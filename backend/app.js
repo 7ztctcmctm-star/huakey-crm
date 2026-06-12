@@ -32,7 +32,9 @@ app.use(helmet({
       frameAncestors: ["'none'"]
     }
   },
-  crossOriginEmbedderPolicy: false
+  crossOriginEmbedderPolicy: false,
+  strictTransportSecurity: false,
+  crossOriginOpenerPolicy: false
 }));
 
 // CORS 配置：开发环境允许所有来源，生产环境按需配置
