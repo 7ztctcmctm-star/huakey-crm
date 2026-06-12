@@ -1,8 +1,6 @@
 -- 发票管理表
 -- 日期: 2026-05-28
 
-USE huakey_crm;
-
 CREATE TABLE IF NOT EXISTS crm_invoice (
     id INT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
     invoice_no VARCHAR(50) NOT NULL COMMENT '发票编号',
@@ -25,17 +23,15 @@ CREATE TABLE IF NOT EXISTS crm_invoice (
     INDEX idx_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='发票表';
 
--- 插入发票菜单权限
+-- 插入发票菜单权限（幂等）
 INSERT IGNORE INTO sys_permission (name, code, type, parent_id, path, icon, sort) VALUES
 ('发票管理', 'invoice', 'menu', 0, '/invoice', 'Document', 13);
 
-SET @invoice_parent_id = LAST_INSERT_ID();
-
 INSERT IGNORE INTO sys_permission (name, code, type, parent_id, sort) VALUES
-('新增发票', 'invoice:add', 'button', @invoice_parent_id, 1),
-('编辑发票', 'invoice:edit', 'button', @invoice_parent_id, 2),
-('删除发票', 'invoice:delete', 'button', @invoice_parent_id, 3),
-('导出发票', 'invoice:export', 'button', @invoice_parent_id, 4);
+('新增发票', 'invoice:add', 'button', (SELECT id FROM (SELECT id FROM sys_permission WHERE code = 'invoice') AS tmp), 1),
+('编辑发票', 'invoice:edit', 'button', (SELECT id FROM (SELECT id FROM sys_permission WHERE code = 'invoice') AS tmp), 2),
+('删除发票', 'invoice:delete', 'button', (SELECT id FROM (SELECT id FROM sys_permission WHERE code = 'invoice') AS tmp), 3),
+('导出发票', 'invoice:export', 'button', (SELECT id FROM (SELECT id FROM sys_permission WHERE code = 'invoice') AS tmp), 4);
 
 -- 为超级管理员分配发票权限
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
@@ -46,5 +42,3 @@ WHERE r.id = 1 AND p.code IN ('invoice', 'invoice:add', 'invoice:edit', 'invoice
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
 WHERE r.id = 2 AND p.code IN ('invoice', 'invoice:add', 'invoice:edit', 'invoice:delete', 'invoice:export');
-
-SELECT '发票表创建完成' AS result;
