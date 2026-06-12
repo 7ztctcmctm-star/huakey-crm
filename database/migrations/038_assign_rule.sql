@@ -18,5 +18,7 @@ CREATE TABLE IF NOT EXISTS crm_assign_rule (
   update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='客户自动分配规则';
 
--- 索引
-CREATE INDEX idx_assign_rule_active ON crm_assign_rule(is_active, priority DESC);
+-- 索引（幂等）
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='crm_assign_rule' AND INDEX_NAME='idx_assign_rule_active');
+SET @sql = IF(@idx_exists = 0, 'CREATE INDEX idx_assign_rule_active ON crm_assign_rule(is_active, priority DESC)', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
