@@ -264,6 +264,31 @@
           </el-table>
           <el-empty v-if="scoreLogs.length === 0" description="暂无评分记录" />
         </el-tab-pane>
+
+        <el-tab-pane label="邮件" name="email">
+          <div class="tab-toolbar">
+            <el-button type="primary" :icon="Message" @click="goComposeEmail">发送邮件</el-button>
+          </div>
+          <el-table :data="emailList" stripe border v-loading="emailLoading">
+            <el-table-column prop="direction" label="方向" width="70" align="center">
+              <template #default="{ row }">
+                <el-tag :type="row.direction === 'in' ? 'success' : 'primary'" size="small">{{ row.direction === 'in' ? '收' : '发' }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="from_address" label="发件人" width="180" show-overflow-tooltip />
+            <el-table-column prop="subject" label="主题" min-width="200" show-overflow-tooltip />
+            <el-table-column prop="is_read" label="状态" width="70" align="center">
+              <template #default="{ row }">
+                <span v-if="!row.is_read" style="color:#409eff;font-weight:bold">●</span>
+                <span v-else style="color:#c0c4cc">○</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="created_at" label="时间" width="160">
+              <template #default="{ row }">{{ formatTime(row.received_at || row.sent_at || row.created_at) }}</template>
+            </el-table-column>
+          </el-table>
+          <el-empty v-if="emailList.length === 0 && !emailLoading" description="暂无关联邮件" />
+        </el-tab-pane>
       </el-tabs>
     </el-card>
 
@@ -454,7 +479,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Plus, Edit, EditPen, Delete, User, Clock, Share, Refresh, Phone, Message, Location, ChatLineRound } from '@element-plus/icons-vue'
@@ -531,6 +556,10 @@ const serviceList = ref([])
 const serviceLoading = ref(false)
 const scoreLogs = ref([])
 const scoreCalculating = ref(false)
+
+// 邮件相关
+const emailList = ref([])
+const emailLoading = ref(false)
 
 // 统计卡片
 const stats = reactive({
@@ -616,6 +645,20 @@ const handleCalculateScore = async () => {
     }
   } catch { ElMessage.error('评分计算失败') }
   finally { scoreCalculating.value = false }
+}
+
+// 邮件相关
+const fetchEmails = async () => {
+  emailLoading.value = true
+  try {
+    const res = await request.get('/email/list', { params: { customer_id: customer.id, page: 1, page_size: 50 } })
+    if (res.code === 200) emailList.value = res.data.list || []
+  } catch {}
+  finally { emailLoading.value = false }
+}
+
+const goComposeEmail = () => {
+  router.push({ path: '/email/compose', query: { to: customer.email, customer_id: customer.id } })
 }
 
 // ============ 编辑客户 ============
@@ -832,6 +875,11 @@ const handleFollowDialogClosed = () => {
   Object.assign(followForm, { contact_id: null, follow_type: '电话', content: '', next_time: '', next_content: '' })
   followUploadList.value = []; followAttachmentIds.value = []
 }
+
+// 监听Tab切换，懒加载邮件数据
+watch(activeTab, (tab) => {
+  if (tab === 'email' && emailList.value.length === 0) fetchEmails()
+})
 
 onMounted(() => { fetchDetail(); fetchSalesUsers() })
 </script>

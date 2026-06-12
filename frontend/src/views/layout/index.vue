@@ -37,6 +37,11 @@
           <el-menu-item index="/followup/template" v-if="hasMenuPermission('customer:list')">跟进模板</el-menu-item>
         </el-sub-menu>
 
+        <el-menu-item index="/email/inbox">
+          <el-icon><Message /></el-icon>
+          <template #title>邮件</template>
+        </el-menu-item>
+
         <el-menu-item index="/opportunity" v-if="hasMenuPermission('opportunity')">
           <el-icon><TrendCharts /></el-icon>
           <template #title>商机管理</template>
@@ -725,7 +730,8 @@ import {
   Stamp,
   Notebook,
   Opportunity,
-  Calendar
+  Calendar,
+  Message
 } from '@element-plus/icons-vue'
 
 const { clearUser } = useUser()
