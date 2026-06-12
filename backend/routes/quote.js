@@ -81,13 +81,15 @@ router.post('/add', authenticateToken, checkPermission('quotation:add'), async (
     const disc = discount || 0;
     const finalAmount = totalAmount * (1 - disc);
     const quoteNo = await generateQuoteNo(connection);
+    const currency = req.body.currency || 'CNY';
+    const exchangeRate = req.body.exchange_rate || 1.0000;
 
-    // [业务修复] 支持关联商机ID
+    // [业务修复] 支持关联商机ID + 多币种
     const [quoteResult] = await connection.query(
       `INSERT INTO crm_quote
-        (quote_no, customer_id, opportunity_id, amount, discount, final_amount, valid_days, remark, status, create_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
-      [quoteNo, customer_id, opportunity_id || null, totalAmount, disc, finalAmount, valid_days || 30, remark || null, req.user.userId]
+        (quote_no, customer_id, opportunity_id, amount, discount, final_amount, valid_days, remark, status, create_by, currency, exchange_rate)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+      [quoteNo, customer_id, opportunity_id || null, totalAmount, disc, finalAmount, valid_days || 30, remark || null, req.user.userId, currency, exchangeRate]
     );
 
     const quoteId = quoteResult.insertId;
@@ -181,14 +183,17 @@ router.post('/list', authenticateToken, async (req, res) => {
     const total = countResult[0].total;
 
     const [list] = await pool.query(
-      `SELECT 
+      `SELECT
         q.id, q.quote_no, q.customer_id, q.amount, q.discount, q.final_amount,
         q.valid_days, q.remark, q.status, q.create_by, q.create_time,
+        q.currency, q.exchange_rate,
         c.company_name as customer_name,
-        u.real_name as create_name
+        u.real_name as create_name,
+        cur.symbol as currency_symbol
       FROM crm_quote q
       LEFT JOIN crm_customer c ON q.customer_id = c.id
       LEFT JOIN sys_user u ON q.create_by = u.id
+      LEFT JOIN crm_currency cur ON q.currency = cur.code
       ${whereClause}
       ORDER BY q.create_time DESC
       LIMIT ? OFFSET ?`,

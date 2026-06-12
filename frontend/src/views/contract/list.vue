@@ -41,10 +41,10 @@
         <el-table-column prop="contract_no" label="合同编号" width="160" />
         <el-table-column prop="customer_name" label="客户名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="amount" label="合同金额" width="130" align="right">
-          <template #default="{ row }">¥{{ fmt(row.amount) }}</template>
+          <template #default="{ row }">{{ row.currency_symbol || '¥' }}{{ fmt(row.amount) }}</template>
         </el-table-column>
         <el-table-column prop="paid_amount" label="已回款" width="130" align="right">
-          <template #default="{ row }">¥{{ fmt(row.paid_amount) }}</template>
+          <template #default="{ row }">{{ row.currency_symbol || '¥' }}{{ fmt(row.paid_amount) }}</template>
         </el-table-column>
         <el-table-column prop="sign_date" label="签订日期" width="110" />
         <el-table-column prop="delivery_date" label="交付日期" width="110" />

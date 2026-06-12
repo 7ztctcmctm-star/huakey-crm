@@ -57,7 +57,7 @@
             </el-col>
           </el-row>
           <el-row :gutter="24">
-            <el-col :span="12">
+            <el-col :span="8">
               <el-form-item label="折扣">
                 <div class="discount-input">
                   <el-input-number
@@ -73,8 +73,18 @@
                 </div>
               </el-form-item>
             </el-col>
-            <el-col :span="12">
-              <el-form-item label="状态" v-if="isEdit">
+            <el-col :span="8">
+              <el-form-item label="货币">
+                <el-select v-model="formData.currency" @change="handleCurrencyChange" style="width: 100%">
+                  <el-option v-for="c in currencyList" :key="c.code" :label="`${c.symbol} ${c.code} - ${c.name}`" :value="c.code" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item label="汇率" v-if="formData.currency !== 'CNY'">
+                <el-input-number v-model="formData.exchange_rate" :min="0.0001" :max="99999" :step="0.01" :precision="4" style="width: 100%" />
+              </el-form-item>
+              <el-form-item label="状态" v-else-if="isEdit">
                 <el-select v-model="formData.status" style="width: 100%">
                   <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
@@ -193,15 +203,19 @@
           <h3 class="section-title">金额汇总</h3>
           <div class="total-row">
             <span class="total-label">产品总价:</span>
-            <span class="total-value">¥{{ formatAmount(totalAmount) }}</span>
+            <span class="total-value">{{ currencySymbol }}{{ formatAmount(totalAmount) }}</span>
           </div>
           <div class="total-row">
             <span class="total-label">折扣:</span>
-            <span class="total-value">-¥{{ formatAmount(discountAmount) }}</span>
+            <span class="total-value">-{{ currencySymbol }}{{ formatAmount(discountAmount) }}</span>
           </div>
           <div class="total-row final">
             <span class="total-label">折后金额:</span>
-            <span class="total-value">¥{{ formatAmount(finalAmount) }}</span>
+            <span class="total-value">{{ currencySymbol }}{{ formatAmount(finalAmount) }}</span>
+          </div>
+          <div v-if="formData.currency !== 'CNY'" class="total-row">
+            <span class="total-label">折合人民币:</span>
+            <span class="total-value">¥{{ formatAmount(finalAmount * formData.exchange_rate) }}</span>
           </div>
         </div>
       </el-form>
@@ -303,8 +317,22 @@ const formData = reactive({
   remark: '',
   quote_no: '',
   status: 1,
+  currency: 'CNY',
+  exchange_rate: 1.0000,
   items: []
 })
+
+// 货币相关
+const currencyList = ref([])
+const currencySymbol = computed(() => {
+  const c = currencyList.value.find(item => item.code === formData.currency)
+  return c ? c.symbol : '¥'
+})
+
+const handleCurrencyChange = (code) => {
+  const c = currencyList.value.find(item => item.code === code)
+  if (c) formData.exchange_rate = parseFloat(c.exchange_rate)
+}
 
 // 客户信息
 const customerInfo = ref(null)
@@ -526,7 +554,9 @@ const handleSubmit = async () => {
       })),
       discount: formData.discount,
       valid_days: formData.valid_days,
-      remark: formData.remark
+      remark: formData.remark,
+      currency: formData.currency,
+      exchange_rate: formData.exchange_rate
     }
 
     let res
@@ -555,8 +585,17 @@ const handleBack = () => {
   router.push('/quotation')
 }
 
+// 获取货币列表
+const fetchCurrencyList = async () => {
+  try {
+    const res = await request.get('/currency/list')
+    if (res.code === 200) currencyList.value = res.data
+  } catch {}
+}
+
 onMounted(() => {
   fetchCategories()
+  fetchCurrencyList()
   if (isEdit.value) {
     fetchQuoteDetail()
   } else if (route.query.customer_id) {

@@ -64,9 +64,10 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link :icon="Edit" @click="handleEdit(row)" v-permission="'product:edit'">编辑</el-button>
+            <el-button type="primary" link @click="openPriceTable(row)">价格表</el-button>
             <el-button
               :type="row.status === 1 ? 'warning' : 'success'"
               link
@@ -142,6 +143,62 @@
         <el-button type="primary" :loading="submitLoading" @click="handleSubmit">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- 价格表弹窗 -->
+    <el-dialog v-model="priceDialogVisible" title="产品价格表" width="800px">
+      <div style="margin-bottom: 16px">
+        <el-button type="primary" size="small" @click="showAddPrice = true">添加价格</el-button>
+      </div>
+      <el-table :data="priceList" stripe border size="small">
+        <el-table-column prop="price_type" label="价格类型" width="100">
+          <template #default="{ row }">{{ priceTypeMap[row.price_type] || row.price_type }}</template>
+        </el-table-column>
+        <el-table-column prop="customer_level" label="客户等级" width="100">
+          <template #default="{ row }">{{ row.customer_level || '-' }}</template>
+        </el-table-column>
+        <el-table-column prop="unit_price" label="单价" width="120" align="right">
+          <template #default="{ row }">{{ row.currency || 'CNY' }} {{ formatAmount(row.unit_price) }}</template>
+        </el-table-column>
+        <el-table-column prop="min_quantity" label="最小起订量" width="100" align="center" />
+        <el-table-column prop="valid_from" label="生效日期" width="110" />
+        <el-table-column prop="valid_to" label="失效日期" width="110" />
+        <el-table-column label="操作" width="120" align="center">
+          <template #default="{ row }">
+            <el-button type="danger" link size="small" @click="deletePrice(row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <!-- 添加价格表单 -->
+      <el-dialog v-model="showAddPrice" title="添加价格" width="500px" append-to-body>
+        <el-form :model="priceForm" label-width="100px">
+          <el-form-item label="价格类型">
+            <el-select v-model="priceForm.price_type" style="width:100%">
+              <el-option label="零售" value="retail" /><el-option label="批发" value="wholesale" />
+              <el-option label="VIP" value="vip" /><el-option label="定制" value="custom" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="客户等级">
+            <el-select v-model="priceForm.customer_level" clearable style="width:100%">
+              <el-option label="A级" value="A" /><el-option label="B级" value="B" /><el-option label="C级" value="C" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="单价">
+            <el-input-number v-model="priceForm.unit_price" :min="0" :precision="2" style="width:100%" />
+          </el-form-item>
+          <el-form-item label="最小起订量">
+            <el-input-number v-model="priceForm.min_quantity" :min="1" style="width:100%" />
+          </el-form-item>
+          <el-form-item label="有效期">
+            <el-date-picker v-model="priceForm.dateRange" type="daterange" start-placeholder="开始" end-placeholder="结束" style="width:100%" />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="showAddPrice = false">取消</el-button>
+          <el-button type="primary" @click="addPrice">确定</el-button>
+        </template>
+      </el-dialog>
+    </el-dialog>
   </div>
 </template>
 
@@ -166,6 +223,16 @@ const editId = ref(null)
 
 const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
 const isAdmin = computed(() => userInfo.manageAll || userInfo.roleId === 1)
+
+// 价格表相关
+const priceDialogVisible = ref(false)
+const showAddPrice = ref(false)
+const currentProductId = ref(null)
+const priceList = ref([])
+const priceTypeMap = { retail: '零售', wholesale: '批发', vip: 'VIP', custom: '定制' }
+const priceForm = reactive({
+  price_type: 'retail', customer_level: '', unit_price: 0, min_quantity: 1, dateRange: null
+})
 
 const searchForm = reactive({ keyword: '', category: '', status: '' })
 
@@ -262,6 +329,51 @@ const handleSubmit = async () => {
 const resetForm = () => {
   formRef.value?.resetFields()
   Object.assign(form, { name: '', code: '', category: '', unit: '台', price: 0, cost_price: 0, stock: 0, description: '' })
+}
+
+// 价格表功能
+const openPriceTable = async (row) => {
+  currentProductId.value = row.id
+  priceDialogVisible.value = true
+  await fetchPrices(row.id)
+}
+
+const fetchPrices = async (productId) => {
+  try {
+    const res = await request.get(`/product/${productId}/prices`)
+    if (res.code === 200) priceList.value = res.data
+  } catch {}
+}
+
+const addPrice = async () => {
+  try {
+    const data = {
+      price_type: priceForm.price_type,
+      customer_level: priceForm.customer_level || null,
+      unit_price: priceForm.unit_price,
+      min_quantity: priceForm.min_quantity
+    }
+    if (priceForm.dateRange && priceForm.dateRange.length === 2) {
+      data.valid_from = priceForm.dateRange[0]
+      data.valid_to = priceForm.dateRange[1]
+    }
+    const res = await request.post(`/product/${currentProductId.value}/prices`, data)
+    if (res.code === 200) {
+      ElMessage.success('添加成功')
+      showAddPrice.value = false
+      fetchPrices(currentProductId.value)
+    }
+  } catch {}
+}
+
+const deletePrice = async (row) => {
+  try {
+    const res = await request.delete(`/product/price/${row.id}`)
+    if (res.code === 200) {
+      ElMessage.success('删除成功')
+      fetchPrices(currentProductId.value)
+    }
+  } catch {}
 }
 
 onMounted(() => { fetchList(); fetchCategories() })

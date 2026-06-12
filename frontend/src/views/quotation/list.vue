@@ -49,7 +49,7 @@
         <el-table-column prop="customer_name" label="客户名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="amount" label="总金额" width="130" align="right">
           <template #default="{ row }">
-            <span class="amount">¥{{ formatAmount(row.amount) }}</span>
+            <span class="amount">{{ row.currency_symbol || '¥' }}{{ formatAmount(row.amount) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="discount" label="折扣" width="90" align="center">
@@ -59,7 +59,7 @@
         </el-table-column>
         <el-table-column prop="final_amount" label="折后金额" width="130" align="right">
           <template #default="{ row }">
-            <span class="amount final">¥{{ formatAmount(row.final_amount) }}</span>
+            <span class="amount final">{{ row.currency_symbol || '¥' }}{{ formatAmount(row.final_amount) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="valid_days" label="有效期" width="90" align="center">

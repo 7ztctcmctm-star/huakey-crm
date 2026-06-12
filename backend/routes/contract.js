@@ -139,10 +139,12 @@ router.post('/list', authenticateToken, validate(listSchema), async (req, res) =
 
     let sql = `SELECT c.*, cu.company_name as customer_name, u.real_name as create_by_name,
       (SELECT COALESCE(SUM(p.pay_amount), 0) FROM crm_payment p WHERE p.contract_id = c.id AND p.deleted_at IS NULL) as paid_amount,
-      (SELECT COALESCE(SUM(pp.plan_amount), 0) FROM crm_payment_plan pp WHERE pp.contract_id = c.id) as plan_total
+      (SELECT COALESCE(SUM(pp.plan_amount), 0) FROM crm_payment_plan pp WHERE pp.contract_id = c.id) as plan_total,
+      cur.symbol as currency_symbol
       FROM crm_contract c
       LEFT JOIN crm_customer cu ON c.customer_id = cu.id
       LEFT JOIN sys_user u ON c.create_by = u.id
+      LEFT JOIN crm_currency cur ON c.currency = cur.code
       WHERE c.deleted_at IS NULL AND ${permissionClause}`;
 
     const params = [...permParams];
