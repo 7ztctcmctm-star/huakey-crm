@@ -38,11 +38,13 @@ INSERT IGNORE INTO sys_permission (name, code, type, parent_id, sort) VALUES
 ('导出发票', 'invoice:export', 'button', @invoice_parent_id, 4);
 
 -- 为超级管理员分配发票权限
-INSERT INTO sys_role_permission (role_id, permission_id)
-SELECT 1, id FROM sys_permission WHERE code IN ('invoice', 'invoice:add', 'invoice:edit', 'invoice:delete', 'invoice:export');
+INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
+SELECT r.id, p.id FROM sys_role r, sys_permission p
+WHERE r.id = 1 AND p.code IN ('invoice', 'invoice:add', 'invoice:edit', 'invoice:delete', 'invoice:export');
 
 -- 为管理员分配发票权限
-INSERT INTO sys_role_permission (role_id, permission_id)
-SELECT 2, id FROM sys_permission WHERE code IN ('invoice', 'invoice:add', 'invoice:edit', 'invoice:delete', 'invoice:export');
+INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
+SELECT r.id, p.id FROM sys_role r, sys_permission p
+WHERE r.id = 2 AND p.code IN ('invoice', 'invoice:add', 'invoice:edit', 'invoice:delete', 'invoice:export');
 
 SELECT '发票表创建完成' AS result;
