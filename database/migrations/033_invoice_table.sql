@@ -26,12 +26,12 @@ CREATE TABLE IF NOT EXISTS crm_invoice (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='发票表';
 
 -- 插入发票菜单权限
-INSERT INTO sys_permission (name, code, type, parent_id, path, icon, sort) VALUES
+INSERT IGNORE INTO sys_permission (name, code, type, parent_id, path, icon, sort) VALUES
 ('发票管理', 'invoice', 'menu', 0, '/invoice', 'Document', 13);
 
 SET @invoice_parent_id = LAST_INSERT_ID();
 
-INSERT INTO sys_permission (name, code, type, parent_id, sort) VALUES
+INSERT IGNORE INTO sys_permission (name, code, type, parent_id, sort) VALUES
 ('新增发票', 'invoice:add', 'button', @invoice_parent_id, 1),
 ('编辑发票', 'invoice:edit', 'button', @invoice_parent_id, 2),
 ('删除发票', 'invoice:delete', 'button', @invoice_parent_id, 3),

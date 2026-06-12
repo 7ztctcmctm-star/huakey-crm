@@ -57,16 +57,8 @@ async function migrate() {
       const sql = fs.readFileSync(filePath, 'utf8');
 
       try {
-        // 按分号拆分并逐条执行（跳过空语句和注释）
-        const statements = sql.split(';')
-          .map(s => s.trim())
-          .filter(s => s.length > 0 && !s.match(/^--/) && !s.match(/^\/\*/));
-
-        for (const stmt of statements) {
-          if (stmt && stmt !== 'SELECT 1') {
-            await pool.query(stmt);
-          }
-        }
+        // 整个文件一次性执行（multipleStatements: true 保证 SET/PREPARE 变量在同一连接上下文）
+        await pool.query(sql);
 
         // 记录迁移版本（如果文件自己没记录的话）
         const [existing] = await pool.query(
