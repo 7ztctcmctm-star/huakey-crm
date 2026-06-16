@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 
 const router = express.Router();
@@ -38,7 +39,7 @@ const userDeleteSchema = Joi.object({
 });
 
 // 1. 获取用户列表
-router.post('/list', authenticateToken, validate(userListSchema), async (req, res) => {
+router.post('/list', authenticateToken, checkPermission('system:user'), validate(userListSchema), async (req, res) => {
   try {
     const { page = 1, pageSize = 10, username, realName } = req.body;
 

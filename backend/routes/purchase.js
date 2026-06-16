@@ -84,7 +84,7 @@ router.post('/list', authenticateToken, validate(listSchema), async (req, res) =
     const [rows] = await pool.query(sql, params);
 
     let countSql = `SELECT COUNT(*) as total FROM crm_purchase_order po LEFT JOIN crm_supplier s ON po.supplier_id = s.id WHERE ${permissionClause}`;
-    const countParams = [];
+    const countParams = [...permParams];
     if (keyword) { countSql += ' AND (po.order_no LIKE ? OR po.title LIKE ? OR s.name LIKE ?)'; countParams.push(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`); }
     if (status) { countSql += ' AND po.status = ?'; countParams.push(status); }
     if (type) { countSql += ' AND po.type = ?'; countParams.push(type); }

@@ -352,10 +352,10 @@ router.get('/documents', authenticateToken, async (req, res) => {
   try {
     const { keyword = '', type = '', page = 1, pageSize = 20 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(pageSize);
-    let where = 'WHERE deleted_at IS NULL';
+    let where = 'WHERE d.deleted_at IS NULL';
     const params = [];
-    if (keyword) { where += ' AND (name LIKE ? OR description LIKE ?)'; params.push(`%${keyword}%`, `%${keyword}%`); }
-    if (type) { where += ' AND type = ?'; params.push(type); }
+    if (keyword) { where += ' AND (d.name LIKE ? OR d.description LIKE ?)'; params.push(`%${keyword}%`, `%${keyword}%`); }
+    if (type) { where += ' AND d.type = ?'; params.push(type); }
     const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total FROM crm_knowledge_document d ${where}`, params);
     const [rows] = await pool.query(
       `SELECT d.*, u.real_name as create_by_name FROM crm_knowledge_document d LEFT JOIN sys_user u ON d.create_by = u.id ${where} ORDER BY d.create_time DESC LIMIT ? OFFSET ?`,

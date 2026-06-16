@@ -11,7 +11,7 @@ const requireAdmin = (req, res, next) => {
 // ============ 员工档案 ============
 
 // 员工列表
-router.get('/employees', authenticateToken, async (req, res) => {
+router.get('/employees', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { dept_id, status, keyword, contract_expiring, page = 1, page_size = 20 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(page_size);
@@ -52,6 +52,38 @@ router.get('/employees', authenticateToken, async (req, res) => {
     res.json({ code: 200, message: '查询成功', data: { list: rows, total, expiring_contracts: expiring } });
   } catch (error) {
     console.error('[HR] 员工列表查询失败:', error);
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+  }
+});
+
+// 员工统计
+router.get('/employees/stats', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const [[total]] = await pool.query('SELECT COUNT(*) as cnt FROM sys_user');
+    const [[active]] = await pool.query('SELECT COUNT(*) as cnt FROM sys_user WHERE status = 1');
+    const [[inactive]] = await pool.query('SELECT COUNT(*) as cnt FROM sys_user WHERE status != 1');
+
+    const now = new Date();
+    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const [[newHire]] = await pool.query(
+      "SELECT COUNT(*) as cnt FROM crm_employee_profile WHERE hire_date >= ?", [monthStart]
+    );
+    const [[newLeave]] = await pool.query(
+      "SELECT COUNT(*) as cnt FROM crm_employee_profile WHERE leave_date >= ?", [monthStart]
+    );
+
+    const [deptDist] = await pool.query(`
+      SELECT d.name, COUNT(u.id) as count
+      FROM sys_dept d LEFT JOIN sys_user u ON d.id = u.dept_id AND u.status = 1
+      GROUP BY d.id ORDER BY count DESC
+    `);
+
+    res.json({
+      code: 200, message: '查询成功',
+      data: { total: total.cnt, active: active.cnt, inactive: inactive.cnt, new_hire: newHire.cnt, new_leave: newLeave.cnt, dept_distribution: deptDist }
+    });
+  } catch (error) {
+    console.error('[HR] 员工统计查询失败:', error);
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -107,10 +139,16 @@ router.post('/employees/:id/profile', authenticateToken, requireAdmin, async (re
       'emergency_contact', 'emergency_phone', 'address', 'education', 'university', 'major', 'remark'];
 
     const cols = [], vals = [], updates = [];
+    const dateFields = ['birth_date', 'hire_date', 'leave_date', 'contract_start', 'contract_end'];
     for (const f of fields) {
       if (req.body[f] !== undefined) {
+        let val = req.body[f] || null;
+        // 日期字段格式转换：ISO格式 -> YYYY-MM-DD
+        if (dateFields.includes(f) && val && typeof val === 'string' && val.includes('T')) {
+          val = val.split('T')[0];
+        }
         cols.push(f);
-        vals.push(req.body[f] || null);
+        vals.push(val);
         updates.push(`${f} = VALUES(${f})`);
       }
     }
@@ -128,38 +166,6 @@ router.post('/employees/:id/profile', authenticateToken, requireAdmin, async (re
     res.json({ code: 200, message: '保存成功', data: null });
   } catch (error) {
     console.error('[HR] 员工档案保存失败:', error);
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
-  }
-});
-
-// 员工统计
-router.get('/employees/stats', authenticateToken, async (req, res) => {
-  try {
-    const [[total]] = await pool.query('SELECT COUNT(*) as cnt FROM sys_user');
-    const [[active]] = await pool.query('SELECT COUNT(*) as cnt FROM sys_user WHERE status = 1');
-    const [[inactive]] = await pool.query('SELECT COUNT(*) as cnt FROM sys_user WHERE status != 1');
-
-    const now = new Date();
-    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-    const [[newHire]] = await pool.query(
-      "SELECT COUNT(*) as cnt FROM crm_employee_profile WHERE hire_date >= ?", [monthStart]
-    );
-    const [[newLeave]] = await pool.query(
-      "SELECT COUNT(*) as cnt FROM crm_employee_profile WHERE leave_date >= ?", [monthStart]
-    );
-
-    const [deptDist] = await pool.query(`
-      SELECT d.name, COUNT(u.id) as count
-      FROM sys_dept d LEFT JOIN sys_user u ON d.id = u.dept_id AND u.status = 1
-      GROUP BY d.id ORDER BY count DESC
-    `);
-
-    res.json({
-      code: 200, message: '查询成功',
-      data: { total, active, inactive, new_hire: newHire.cnt, new_leave: newLeave.cnt, dept_distribution: deptDist }
-    });
-  } catch (error) {
-    console.error('[HR] 员工统计查询失败:', error);
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });

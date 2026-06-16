@@ -42,7 +42,7 @@
         </el-table-column>
         <el-table-column prop="phone" label="手机" width="130" />
         <el-table-column prop="hire_date" label="入职日期" width="110">
-          <template #default="{ row }">{{ row.hire_date || '-' }}</template>
+          <template #default="{ row }">{{ row.hire_date ? row.hire_date.split('T')[0] : '-' }}</template>
         </el-table-column>
         <el-table-column label="用工类型" width="100" align="center">
           <template #default="{ row }">

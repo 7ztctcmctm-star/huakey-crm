@@ -12,7 +12,7 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
-router.post('/list', authenticateToken, async (req, res) => {
+router.post('/list', authenticateToken, checkPermission('system:log'), async (req, res) => {
   const { page = 1, pageSize = 20, module, action, status, startDate, endDate, actionType, userId } = req.body;
   const safePageSize = Math.min(Math.max(1, parseInt(pageSize) || 20), 200); // 上限200
   const offset = (Math.max(1, parseInt(page) || 1) - 1) * safePageSize;

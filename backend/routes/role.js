@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 
 const router = express.Router();
@@ -23,7 +24,7 @@ const roleDeleteSchema = Joi.object({
   id: Joi.number().integer().required()
 });
 
-router.post('/list', authenticateToken, async (req, res) => {
+router.post('/list', authenticateToken, checkPermission('system:role'), async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT id, name, code, description, status, create_time, update_time FROM sys_role ORDER BY id');
     res.json({ code: 200, message: '查询成功', data: { list: rows, total: rows.length } });

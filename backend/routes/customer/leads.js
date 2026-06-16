@@ -178,15 +178,15 @@ router.get('/stats', authenticateToken, async (req, res) => {
     const { clause: permissionClause, params: permParams } = buildPermissionClause(permission, 'c');
 
     const [total] = await pool.query(
-      `SELECT COUNT(*) as cnt FROM crm_customer WHERE ${permissionClause} AND status = ${CUSTOMER_STATUS.LEAD}`,
+      `SELECT COUNT(*) as cnt FROM crm_customer c WHERE ${permissionClause} AND status = ${CUSTOMER_STATUS.LEAD}`,
       permParams
     );
     const [month] = await pool.query(
-      `SELECT COUNT(*) as cnt FROM crm_customer WHERE ${permissionClause} AND status = ${CUSTOMER_STATUS.LEAD} AND YEAR(create_time) = YEAR(NOW()) AND WEEK(create_time, 1) = WEEK(NOW(), 1)`,
+      `SELECT COUNT(*) as cnt FROM crm_customer c WHERE ${permissionClause} AND status = ${CUSTOMER_STATUS.LEAD} AND YEAR(create_time) = YEAR(NOW()) AND WEEK(create_time, 1) = WEEK(NOW(), 1)`,
       permParams
     );
     const [converted] = await pool.query(
-      `SELECT COUNT(*) as cnt FROM crm_customer WHERE ${permissionClause} AND status = ${CUSTOMER_STATUS.PROSPECT} AND converted_at >= NOW() - INTERVAL 30 DAY`,
+      `SELECT COUNT(*) as cnt FROM crm_customer c WHERE ${permissionClause} AND status = ${CUSTOMER_STATUS.PROSPECT} AND converted_at >= NOW() - INTERVAL 30 DAY`,
       permParams
     );
 

@@ -1,13 +1,14 @@
 const express = require('express');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 
 const router = express.Router();
 
 const deptAddSchema = Joi.object({
   name: Joi.string().required().max(100),
-  parent_id: Joi.number().integer().min(0).optional().default(0),
+  parent_id: Joi.number().integer().min(0).allow(null).optional().default(0),
   sort: Joi.number().integer().min(0).optional().default(0)
 });
 
@@ -29,7 +30,7 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
-router.post('/list', authenticateToken, async (req, res) => {
+router.post('/list', authenticateToken, checkPermission('system:dept'), async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT id, name, parent_id, sort, create_time, update_time FROM sys_dept ORDER BY sort, id');
     res.json({ code: 200, message: '查询成功', data: { list: rows, total: rows.length } });

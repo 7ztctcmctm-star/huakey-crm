@@ -127,6 +127,7 @@ const apiPlatformRoutes = require('./routes/api-platform');
 const competitorRoutes = require('./routes/competitor');
 const currencyRoutes = require('./routes/currency');
 const emailRoutes = require('./routes/email');
+const invoiceRoutes = require('./routes/invoice');
 
 // API 路由前缀 /api
 const apiRouter = express.Router();
@@ -208,6 +209,7 @@ apiRouter.use('/platform', apiPlatformRoutes);
 apiRouter.use('/competitor', competitorRoutes);
 apiRouter.use('/currency', currencyRoutes);
 apiRouter.use('/email', emailRoutes);
+apiRouter.use('/invoice', invoiceRoutes);
 
 // Vercel Cron Jobs 端点（也兼容本地 node-cron）
 const cronJobRoutes = require('./routes/cronJobs');
