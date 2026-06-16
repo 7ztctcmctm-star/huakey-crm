@@ -62,10 +62,7 @@ backend/
 
 ## Database
 
-PostgreSQL（Supabase 托管），原 MySQL 8.0 已迁移。
-
-迁移对照：项目根目录 `MIGRATION_GUIDE.md`
-迁移文件：`supabase/migrations/000_baseline.sql` + `001-034`
+MySQL 8.0，群晖Docker部署。
 
 主要表（48张）：
 
@@ -146,26 +143,24 @@ sys_系统表（15张）：
 
 ## 部署架构
 
-### 生产环境（Vercel + Supabase）
-- Frontend：Vercel 静态托管（SPA）
-- Backend：Vercel Serverless Functions（@vercel/node）
-- Database：Supabase PostgreSQL
-- Storage：Supabase Storage
-- Cron：Vercel Cron Jobs
+### 生产环境（Docker + 群晖NAS）
+- 前端+后端：一体化Docker容器（huakey-app）
+- 数据库：MySQL 8.0 Docker容器（huakey-mysql）
+- 端口：应用6789，MySQL 3307
+- 地址：192.168.0.200:6789
 
 ### 本地开发（Docker Compose）
 - frontend（内置 Nginx，非独立服务）
 - backend
 - mysql
-- redis（默认禁用）
 
 ---
 
 ## 文件上传
 
-- **生产环境：** Supabase Storage（attachments bucket）
-- **本地开发：** `uploads/` 目录（multer + 本地磁盘），通过 `express.static` 提供
-- 原 volume 持久化方案仅供本地开发使用
+- **生产环境：** 本地磁盘 + multer（Docker volume持久化）
+- **本地开发：** `uploads/` 目录（multer + 本地磁盘）
+- Docker volume: `app-uploads:/app/uploads`
 
 ---
 
@@ -208,22 +203,16 @@ config/
 根目录独立脚本：
 
 - `analyze_query.js`（SQL查询分析）
-- `backup.js`（数据库备份，待适配 pg_dump）
-- `create_sys_log_table.js`（日志表初始化，待适配 PG）
+- `backup.js`（数据库备份）
+- `create_sys_log_table.js`（日志表初始化）
 - `optimize_indices.js`（索引优化）
 
 `backend/scripts/` 目录：
 
 - `auto_release.js`（公海自动回收）
-- `backup.js`（备份脚本，待适配 pg_dump）
+- `backup.js`（备份脚本）
 - `generate_reminders.js`（提醒生成）
 - `overdue_reminder.js`（逾期提醒）
-
-`supabase/migrations/` 新增目录：
-
-- `000_baseline.sql`（基线建表，27张基础表）
-- `001-034`（34个增量迁移）
-- `run_migrations.js`（PG 迁移运行器）
 
 ---
 
@@ -298,9 +287,9 @@ config/
 | 每天 03:00 | 过期日志清理（保留90天） | 同上 |
 | 每天 08:30 | 跟进提醒生成 | 同上 |
 
-- 生产环境通过 Vercel Cron Jobs 触发 `/api/cron/*` 端点
-- 本地开发仍使用 node-cron 原方案
-- 参见 `backend/app.js`（本地）和 `backend/routes/cronJobs.js`（新增，Serverless）
+- 生产环境通过 node-cron 在Docker容器内执行
+- 本地开发同样使用 node-cron
+- 参见 `backend/app.js`
 
 ---
 

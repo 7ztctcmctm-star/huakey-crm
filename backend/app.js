@@ -46,7 +46,7 @@ const corsOrigin = isProduction
 
 app.use(cors({
   origin: corsOrigin,
-  credentials: true,
+  credentials: false,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));

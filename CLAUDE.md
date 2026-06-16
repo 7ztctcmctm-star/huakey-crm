@@ -5,7 +5,7 @@
 **技术栈**
 - 后端: Node.js + Express + mysql2
 - 前端: Vue 3 + Element Plus + ECharts
-- 数据库: MySQL 8.0.46（群晖 Docker 部署）
+- 数据库: MySQL 8.0（群晖 Docker 部署）
 - 端口: 后端 5000, 前端 5173
 
 **数据库连接**

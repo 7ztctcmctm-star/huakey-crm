@@ -86,16 +86,16 @@ AI不是"代码生成器"，必须同时扮演：
 **Frontend：**
 - Vue 3 + Vite
 - Element Plus
-- 部署：Vercel 静态托管（原 Docker Nginx）
+- 部署：Docker 容器（群晖NAS）
 
 **Backend：**
 - Node.js + Express 5
 - RESTful API
-- 部署：Vercel Serverless Functions（原 Docker 容器）
+- 部署：Docker 容器（群晖NAS）
 
 **Database：**
-- PostgreSQL（Supabase 托管）
-- 原为 MySQL 8.0，已迁移（参见 MIGRATION_GUIDE.md）
+- MySQL 8.0
+- 群晖 Docker 部署
 
 **Cache：**
 - Redis（后期按需增加，可选 Upstash Redis）
@@ -123,9 +123,8 @@ AI不是"代码生成器"，必须同时扮演：
 
 ### 部署环境
 
-- **生产环境：** Vercel + Supabase（PostgreSQL + Storage）
-- **本地开发：** Docker Compose（MySQL + Redis + Nginx）仍可用
-- 迁移对照：参见项目根目录 `MIGRATION_GUIDE.md`
+- **生产环境：** Docker + 群晖NAS（192.168.0.200:6789）
+- **本地开发：** Docker Compose（MySQL + Redis + Nginx）
 
 ### 模块划分原则
 

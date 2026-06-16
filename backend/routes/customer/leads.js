@@ -10,7 +10,6 @@ const MODULE_NAME = '客户管理';
 const { createRouteLogger } = require('../../middleware/logger');
 const logAction = createRouteLogger(MODULE_NAME);
 
-const { getDataPermission, buildPermissionClause } = require('../../utils/permission');
 
 const router = express.Router();
 
@@ -21,18 +20,47 @@ router.post('/list', authenticateToken, async (req, res) => {
     const offset = (page - 1) * pageSize;
     const params = [];
 
-    const permission = await getDataPermission(req.user);
-    const { clause: permissionClause, params: permParams } = buildPermissionClause(permission, 'c');
+    // 线索管理独立权限逻辑
+    // 销售用户可以看到：未认领线索 + 自己认领的线索 + 同部门同事认领的线索
+    let permissionClause = '1=1';
+    let permParams = [];
+
+    if (req.user.roleId === 3) { // 销售角色
+      const [users] = await pool.query(
+        'SELECT dept_id FROM sys_user WHERE id = ?',
+        [req.user.userId]
+      );
+      const deptId = users.length > 0 ? users[0].dept_id : null;
+
+      if (deptId) {
+        const [deptUserIds] = await pool.query(
+          'SELECT id FROM sys_user WHERE dept_id = ?',
+          [deptId]
+        );
+        const userIds = deptUserIds.map(u => u.id);
+        permissionClause = `(c.owner_id IS NULL OR c.owner_id = ? OR c.owner_id IN (${userIds.map(() => '?').join(',')}))`;
+        permParams = [req.user.userId, ...userIds];
+      } else {
+        permissionClause = `(c.owner_id IS NULL OR c.owner_id = ?)`;
+        permParams = [req.user.userId];
+      }
+    } else if (req.user.roleId === 1 || req.user.roleId === 2 || req.user.manageAll) {
+      permissionClause = '1=1';
+      permParams = [];
+    } else {
+      permissionClause = `(c.owner_id IS NULL OR c.owner_id = ?)`;
+      permParams = [req.user.userId];
+    }
+
     params.push(...permParams);
 
-    // 线索池准入：status=5（线索状态）且 负责人为空或为管理员
-    // 支持"我的线索"模式
+    // 线索池准入：status=5（线索状态）
     let whereClause;
     if (req.body.owner_id) {
       whereClause = `WHERE ${permissionClause} AND c.status = ${CUSTOMER_STATUS.LEAD} AND c.owner_id = ?`;
       params.push(req.body.owner_id);
     } else {
-      whereClause = `WHERE ${permissionClause} AND c.status = ${CUSTOMER_STATUS.LEAD} AND (c.owner_id IS NULL OR c.owner_id = 1)`;
+      whereClause = `WHERE ${permissionClause} AND c.status = ${CUSTOMER_STATUS.LEAD}`;
     }
 
     if (company_name) { whereClause += ' AND c.company_name LIKE ?'; params.push(`%${company_name}%`); }
@@ -129,9 +157,16 @@ router.post('/claim', authenticateToken, checkPermission('leads'), async (req, r
     );
     if (rows.length === 0) return res.status(404).json({ code: 404, message: '线索不存在或已被领取', data: null });
 
+    // 认领线索时，同时更新dept_id为认领者所在部门
+    const [userInfo] = await pool.query(
+      'SELECT dept_id FROM sys_user WHERE id = ?',
+      [req.user.userId]
+    );
+    const deptId = userInfo.length > 0 ? userInfo[0].dept_id : null;
+
     await pool.query(
-      'UPDATE crm_customer SET owner_id = ?, follow_status = ? WHERE id = ?',
-      [req.user.userId, '初次联系', id]
+      'UPDATE crm_customer SET owner_id = ?, dept_id = ?, follow_status = ? WHERE id = ?',
+      [req.user.userId, deptId, '初次联系', id]
     );
 
     await logAction(req, 'claim-lead', `领取线索: ${rows[0].company_name}`);
@@ -174,8 +209,36 @@ router.post('/mark-lost', authenticateToken, checkPermission('leads'), async (re
 // 线索统计
 router.get('/stats', authenticateToken, async (req, res) => {
   try {
-    const permission = await getDataPermission(req.user);
-    const { clause: permissionClause, params: permParams } = buildPermissionClause(permission, 'c');
+    // 线索管理独立权限逻辑（与list路由相同）
+    let permissionClause = '1=1';
+    let permParams = [];
+
+    if (req.user.roleId === 3) { // 销售角色
+      const [users] = await pool.query(
+        'SELECT dept_id FROM sys_user WHERE id = ?',
+        [req.user.userId]
+      );
+      const deptId = users.length > 0 ? users[0].dept_id : null;
+
+      if (deptId) {
+        const [deptUserIds] = await pool.query(
+          'SELECT id FROM sys_user WHERE dept_id = ?',
+          [deptId]
+        );
+        const userIds = deptUserIds.map(u => u.id);
+        permissionClause = `(c.owner_id IS NULL OR c.owner_id = ? OR c.owner_id IN (${userIds.map(() => '?').join(',')}))`;
+        permParams = [req.user.userId, ...userIds];
+      } else {
+        permissionClause = `(c.owner_id IS NULL OR c.owner_id = ?)`;
+        permParams = [req.user.userId];
+      }
+    } else if (req.user.roleId === 1 || req.user.roleId === 2 || req.user.manageAll) {
+      permissionClause = '1=1';
+      permParams = [];
+    } else {
+      permissionClause = `(c.owner_id IS NULL OR c.owner_id = ?)`;
+      permParams = [req.user.userId];
+    }
 
     const [total] = await pool.query(
       `SELECT COUNT(*) as cnt FROM crm_customer c WHERE ${permissionClause} AND status = ${CUSTOMER_STATUS.LEAD}`,

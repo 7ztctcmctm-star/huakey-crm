@@ -151,48 +151,50 @@ const refreshCaptcha = () => {
 const handleLogin = async () => {
   if (!loginFormRef.value) return
 
-  await loginFormRef.value.validate(async (valid) => {
-    if (!valid) return
+  try {
+    await loginFormRef.value.validate()
+  } catch {
+    return
+  }
 
-    if (loginForm.captcha.toUpperCase() !== captchaCode) {
-      ElMessage.error('验证码错误')
-      refreshCaptcha()
-      loginForm.captcha = ''
-      return
-    }
+  if (loginForm.captcha.toUpperCase() !== captchaCode) {
+    ElMessage.error('验证码错误')
+    refreshCaptcha()
+    loginForm.captcha = ''
+    return
+  }
 
-    loading.value = true
-    try {
-      const res = await request.post('/auth/login', {
-        username: loginForm.username,
-        password: loginForm.password
-      })
+  loading.value = true
+  try {
+    const res = await request.post('/auth/login', {
+      username: loginForm.username,
+      password: loginForm.password
+    })
 
-      if (res.code === 200) {
-        localStorage.setItem('token', res.data.token)
-        setUser(res.data.userInfo)
+    if (res.code === 200) {
+      localStorage.setItem('token', res.data.token)
+      setUser(res.data.userInfo)
 
-        if (loginForm.remember) {
-          localStorage.setItem('remembered_user', loginForm.username)
-        } else {
-          localStorage.removeItem('remembered_user')
-        }
-
-        ElMessage.success('登录成功')
-        router.push('/')
+      if (loginForm.remember) {
+        localStorage.setItem('remembered_user', loginForm.username)
       } else {
-        ElMessage.error(res.message || '登录失败')
-        refreshCaptcha()
-        loginForm.captcha = ''
+        localStorage.removeItem('remembered_user')
       }
-    } catch (error) {
-      console.error('登录错误:', error)
+
+      ElMessage.success('登录成功')
+      router.push('/')
+    } else {
+      ElMessage.error(res.message || '登录失败')
       refreshCaptcha()
       loginForm.captcha = ''
-    } finally {
-      loading.value = false
     }
-  })
+  } catch (error) {
+    console.error('登录错误:', error)
+    refreshCaptcha()
+    loginForm.captcha = ''
+  } finally {
+    loading.value = false
+  }
 }
 
 onMounted(() => {

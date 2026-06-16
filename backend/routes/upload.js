@@ -81,8 +81,7 @@ router.post('/file', authenticateToken, upload.single('file'), async (req, res) 
 
     const [result] = await pool.query(
       `INSERT INTO crm_attachment (business_type, business_id, file_name, file_path, file_size, file_type, create_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
-       RETURNING id`,
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [business_type || null, business_id || null, file.originalname, filePath, file.size, file.mimetype, req.user.userId]
     );
 

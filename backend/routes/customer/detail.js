@@ -324,8 +324,7 @@ router.post('/add', authenticateToken, checkPermission('customer:add'), validate
     const [result] = await pool.query(
       `INSERT INTO crm_customer
         (company_name, contact_name, phone, email, address, industry, source, level, owner_id, status, customer_type, lifecycle_status, remark)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'prospect', 'new', ?)
-      RETURNING id`,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'prospect', 'new', ?)`,
       [
         company_name,
         contact_name || null,
@@ -359,7 +358,7 @@ router.post('/add', authenticateToken, checkPermission('customer:add'), validate
     });
   } catch (error) {
     console.error('添加客户错误:', error);
-    if (error.code === '23505') {
+    if (error.code === 'ER_DUP_ENTRY') {
       return res.status(409).json({
         code: 409,
         message: '检测到重复客户（相同公司名和电话已存在），请核对后重试',
@@ -474,7 +473,7 @@ router.post('/update', authenticateToken, checkPermission('customer:edit'), vali
     });
   } catch (error) {
     console.error('修改客户错误:', error);
-    if (error.code === '23505') {
+    if (error.code === 'ER_DUP_ENTRY') {
       return res.status(409).json({
         code: 409,
         message: '检测到重复客户（相同公司名和电话已存在），请核对后重试',
