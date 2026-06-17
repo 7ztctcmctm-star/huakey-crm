@@ -4,12 +4,13 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
 const requireAdmin = require('../middleware/admin');
+const { requireManager } = require('../middleware/admin');
 
 // 货币列表
 router.get('/list', authenticateToken, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT * FROM crm_currency WHERE status = 1 ORDER BY is_default DESC, code ASC'
+      'SELECT * FROM crm_currency WHERE deleted_at IS NULL ORDER BY is_default DESC, code ASC'
     );
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
@@ -22,7 +23,7 @@ router.get('/list', authenticateToken, async (req, res) => {
 router.get('/rates', authenticateToken, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT code, name, symbol, exchange_rate, is_default FROM crm_currency WHERE status = 1'
+      'SELECT code, name, symbol, exchange_rate, is_default FROM crm_currency WHERE deleted_at IS NULL'
     );
     const rates = {};
     rows.forEach(r => {
@@ -59,6 +60,18 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
     console.error('[货币] 更新汇率失败:', error);
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+  }
+});
+
+// 删除货币（软删除，仅管理员/经理）
+router.delete('/:id', authenticateToken, requireManager, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('UPDATE crm_currency SET deleted_at = NOW() WHERE id = ?', [id]);
+    res.json({ code: 200, message: '删除成功', data: null });
+  } catch (error) {
+    console.error('[货币] 删除失败:', error);
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });

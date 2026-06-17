@@ -10,7 +10,7 @@ const { requireManager } = require('../middleware/admin');
 router.get('/rules', authenticateToken, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT * FROM crm_score_rule ORDER BY condition_type, name'
+      'SELECT * FROM crm_score_rule WHERE deleted_at IS NULL ORDER BY condition_type, name'
     );
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
@@ -82,7 +82,7 @@ router.put('/rules/:id', authenticateToken, requireAdmin, async (req, res) => {
 router.delete('/rules/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    await pool.query('DELETE FROM crm_score_rule WHERE id = ?', [id]);
+    await pool.query('UPDATE crm_score_rule SET deleted_at = NOW() WHERE id = ?', [id]);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     console.error('[评分] 删除规则失败:', error);

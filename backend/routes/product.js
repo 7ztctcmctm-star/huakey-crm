@@ -208,7 +208,7 @@ router.get('/categories', authenticateToken, checkPermission('product'), async (
 router.get('/:id/prices', authenticateToken, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT * FROM crm_product_price WHERE product_id = ? AND status = 1 ORDER BY price_type, customer_level',
+      'SELECT * FROM crm_product_price WHERE product_id = ? AND deleted_at IS NULL ORDER BY price_type, customer_level',
       [req.params.id]
     );
     res.json({ code: 200, message: '查询成功', data: rows });
@@ -274,7 +274,7 @@ router.put('/price/:id', authenticateToken, requireAdmin, async (req, res) => {
 // 10. 删除产品价格
 router.delete('/price/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    await pool.query('DELETE FROM crm_product_price WHERE id = ?', [req.params.id]);
+    await pool.query('UPDATE crm_product_price SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     console.error('[产品] 删除价格失败:', error);
@@ -293,7 +293,7 @@ router.get('/:id/price', authenticateToken, async (req, res) => {
     // 优先匹配客户等级对应的价格
     if (customer_level) {
       const [levelPrices] = await pool.query(
-        `SELECT * FROM crm_product_price WHERE product_id = ? AND customer_level = ? AND status = 1
+        `SELECT * FROM crm_product_price WHERE product_id = ? AND customer_level = ? AND deleted_at IS NULL
          AND (valid_from IS NULL OR valid_from <= CURDATE()) AND (valid_to IS NULL OR valid_to >= CURDATE())
          ORDER BY unit_price ASC LIMIT 1`,
         [productId, customer_level]
