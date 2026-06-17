@@ -7,7 +7,7 @@ const { requireManager } = require('../middleware/admin');
 // 获取所有标签
 router.get('/list', authenticateToken, async (req, res) => {
   try {
-    const [tags] = await pool.query('SELECT id, name, color, sort FROM crm_tag ORDER BY sort');
+    const [tags] = await pool.query('SELECT id, name, color, sort FROM crm_tag WHERE deleted_at IS NULL ORDER BY sort');
     res.json({ code: 200, message: 'success', data: tags });
   } catch (error) {
     console.error('获取标签列表错误:', error);
@@ -91,7 +91,7 @@ router.post('/manage', authenticateToken, requireManager, async (req, res) => {
       res.json({ code: 200, message: '标签已更新', data: null });
     } else if (action === 'delete') {
       await pool.query('DELETE FROM crm_customer_tag WHERE tag_id = ?', [id]);
-      await pool.query('DELETE FROM crm_tag WHERE id = ?', [id]);
+      await pool.query('UPDATE crm_tag SET deleted_at = NOW() WHERE id = ?', [id]);
       res.json({ code: 200, message: '标签已删除', data: null });
     } else {
       return res.status(400).json({ code: 400, message: '无效操作', data: null });

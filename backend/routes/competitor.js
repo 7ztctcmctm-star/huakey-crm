@@ -19,8 +19,8 @@ router.get('/list', authenticateToken, checkPermission('competitor'), async (req
     const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total FROM crm_competitor c ${where}`, params);
     const [rows] = await pool.query(`
       SELECT c.*,
-        (SELECT COUNT(*) FROM crm_competitor_encounter e WHERE e.competitor_id = c.id) as encounter_count,
-        (SELECT COUNT(*) FROM crm_competitor_encounter e WHERE e.competitor_id = c.id AND e.encounter_type = 'won') as win_count
+        (SELECT COUNT(*) FROM crm_competitor_encounter e WHERE e.competitor_id = c.id AND e.deleted_at IS NULL) as encounter_count,
+        (SELECT COUNT(*) FROM crm_competitor_encounter e WHERE e.competitor_id = c.id AND e.encounter_type = 'won' AND e.deleted_at IS NULL) as win_count
       FROM crm_competitor c ${where} ORDER BY c.name LIMIT ? OFFSET ?
     `, [...params, parseInt(pageSize), offset]);
 
@@ -36,8 +36,8 @@ router.get('/:id', authenticateToken, checkPermission('competitor'), async (req,
   try {
     const [[row]] = await pool.query(`
       SELECT c.*,
-        (SELECT COUNT(*) FROM crm_competitor_encounter e WHERE e.competitor_id = c.id) as encounter_count,
-        (SELECT COUNT(*) FROM crm_competitor_encounter e WHERE e.competitor_id = c.id AND e.encounter_type = 'won') as win_count
+        (SELECT COUNT(*) FROM crm_competitor_encounter e WHERE e.competitor_id = c.id AND e.deleted_at IS NULL) as encounter_count,
+        (SELECT COUNT(*) FROM crm_competitor_encounter e WHERE e.competitor_id = c.id AND e.encounter_type = 'won' AND e.deleted_at IS NULL) as win_count
       FROM crm_competitor c WHERE c.id = ? AND c.deleted_at IS NULL
     `, [req.params.id]);
     if (!row) return res.status(404).json({ code: 404, message: '竞争对手不存在', data: null });
@@ -114,7 +114,7 @@ router.get('/:id/encounters', authenticateToken, checkPermission('competitor'), 
       FROM crm_competitor_encounter e
       LEFT JOIN crm_customer c ON e.customer_id = c.id
       LEFT JOIN sys_user u ON e.create_by = u.id
-      WHERE e.competitor_id = ? ORDER BY e.encounter_date DESC
+      WHERE e.competitor_id = ? AND e.deleted_at IS NULL ORDER BY e.encounter_date DESC
     `, [req.params.id]);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
@@ -159,7 +159,7 @@ router.put('/encounters/:id', authenticateToken, checkPermission('competitor'), 
 
 router.delete('/encounters/:id', authenticateToken, checkPermission('competitor'), async (req, res) => {
   try {
-    await pool.query('DELETE FROM crm_competitor_encounter WHERE id = ?', [req.params.id]);
+    await pool.query('UPDATE crm_competitor_encounter SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     console.error('[竞品] 删除交锋记录失败:', error);
@@ -174,7 +174,7 @@ router.get('/:id/intel', authenticateToken, checkPermission('competitor'), async
     const [rows] = await pool.query(`
       SELECT i.*, u.real_name as create_by_name
       FROM crm_competitor_intel i LEFT JOIN sys_user u ON i.create_by = u.id
-      WHERE i.competitor_id = ? ORDER BY i.importance DESC, i.create_time DESC
+      WHERE i.competitor_id = ? AND i.deleted_at IS NULL ORDER BY i.importance DESC, i.create_time DESC
     `, [req.params.id]);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
@@ -218,7 +218,7 @@ router.put('/intel/:id', authenticateToken, checkPermission('competitor'), async
 
 router.delete('/intel/:id', authenticateToken, checkPermission('competitor'), async (req, res) => {
   try {
-    await pool.query('DELETE FROM crm_competitor_intel WHERE id = ?', [req.params.id]);
+    await pool.query('UPDATE crm_competitor_intel SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     console.error('[竞品] 删除情报失败:', error);
@@ -231,9 +231,9 @@ router.delete('/intel/:id', authenticateToken, checkPermission('competitor'), as
 router.get('/analysis/overview', authenticateToken, checkPermission('competitor'), async (req, res) => {
   try {
     const [[{ total_competitors }]] = await pool.query('SELECT COUNT(*) as total_competitors FROM crm_competitor WHERE deleted_at IS NULL');
-    const [[{ total_encounters }]] = await pool.query('SELECT COUNT(*) as total_encounters FROM crm_competitor_encounter');
-    const [[{ total_won }]] = await pool.query("SELECT COUNT(*) as total_won FROM crm_competitor_encounter WHERE encounter_type = 'won'");
-    const [[{ total_lost }]] = await pool.query("SELECT COUNT(*) as total_lost FROM crm_competitor_encounter WHERE encounter_type = 'lost'");
+    const [[{ total_encounters }]] = await pool.query('SELECT COUNT(*) as total_encounters FROM crm_competitor_encounter WHERE deleted_at IS NULL');
+    const [[{ total_won }]] = await pool.query("SELECT COUNT(*) as total_won FROM crm_competitor_encounter WHERE encounter_type = 'won' AND deleted_at IS NULL");
+    const [[{ total_lost }]] = await pool.query("SELECT COUNT(*) as total_lost FROM crm_competitor_encounter WHERE encounter_type = 'lost' AND deleted_at IS NULL");
     const winRate = (total_won + total_lost) > 0 ? Math.round(total_won / (total_won + total_lost) * 100) : 0;
 
     // 各对手交锋次数
@@ -251,7 +251,7 @@ router.get('/analysis/overview', authenticateToken, checkPermission('competitor'
     const [reasons] = await pool.query(`
       SELECT win_reason as name, COUNT(*) as value
       FROM crm_competitor_encounter
-      WHERE encounter_type IN ('won', 'lost') AND win_reason IS NOT NULL AND win_reason != ''
+      WHERE deleted_at IS NULL AND encounter_type IN ('won', 'lost') AND win_reason IS NOT NULL AND win_reason != ''
       GROUP BY win_reason ORDER BY value DESC LIMIT 10
     `);
 
@@ -261,6 +261,7 @@ router.get('/analysis/overview', authenticateToken, checkPermission('competitor'
       FROM crm_competitor_encounter e
       JOIN crm_competitor c ON e.competitor_id = c.id
       LEFT JOIN crm_customer cu ON e.customer_id = cu.id
+      WHERE e.deleted_at IS NULL
       ORDER BY e.encounter_date DESC LIMIT 10
     `);
 
@@ -287,9 +288,9 @@ router.get('/analysis/compare', authenticateToken, checkPermission('competitor')
 
     const result = [];
     for (const comp of competitors) {
-      const [[{ encounters }]] = await pool.query('SELECT COUNT(*) as encounters FROM crm_competitor_encounter WHERE competitor_id = ?', [comp.id]);
-      const [[{ wins }]] = await pool.query("SELECT COUNT(*) as wins FROM crm_competitor_encounter WHERE competitor_id = ? AND encounter_type = 'won'", [comp.id]);
-      const [[{ losses }]] = await pool.query("SELECT COUNT(*) as losses FROM crm_competitor_encounter WHERE competitor_id = ? AND encounter_type = 'lost'", [comp.id]);
+      const [[{ encounters }]] = await pool.query('SELECT COUNT(*) as encounters FROM crm_competitor_encounter WHERE competitor_id = ? AND deleted_at IS NULL', [comp.id]);
+      const [[{ wins }]] = await pool.query("SELECT COUNT(*) as wins FROM crm_competitor_encounter WHERE competitor_id = ? AND encounter_type = 'won' AND deleted_at IS NULL", [comp.id]);
+      const [[{ losses }]] = await pool.query("SELECT COUNT(*) as losses FROM crm_competitor_encounter WHERE competitor_id = ? AND encounter_type = 'lost' AND deleted_at IS NULL", [comp.id]);
       const winRate = (wins + losses) > 0 ? Math.round(wins / (wins + losses) * 100) : 0;
 
       let strengths = [], weaknesses = [];

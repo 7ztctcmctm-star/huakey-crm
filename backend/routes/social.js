@@ -8,7 +8,7 @@ router.get('/records', authenticateToken, async (req, res) => {
   try {
     const { customer_id, contact_id, platform, page = 1, pageSize = 20 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(pageSize);
-    let where = 'WHERE 1=1';
+    let where = 'WHERE 1=1 AND s.deleted_at IS NULL';
     const params = [];
     if (customer_id) { where += ' AND s.customer_id = ?'; params.push(customer_id); }
     if (contact_id) { where += ' AND s.contact_id = ?'; params.push(contact_id); }
@@ -77,7 +77,7 @@ router.delete('/records/:id', authenticateToken, async (req, res) => {
       return res.status(403).json({ code: 403, message: '无权删除此记录', data: null });
     }
 
-    await pool.query('DELETE FROM crm_social_contact WHERE id = ?', [req.params.id]);
+    await pool.query('UPDATE crm_social_contact SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     console.error('[社媒] 删除记录失败:', error);
@@ -88,12 +88,12 @@ router.delete('/records/:id', authenticateToken, async (req, res) => {
 // 社媒统计
 router.get('/stats', authenticateToken, async (req, res) => {
   try {
-    const [[{ total }]] = await pool.query('SELECT COUNT(*) as total FROM crm_social_contact');
-    const [[{ week_new }]] = await pool.query("SELECT COUNT(*) as week_new FROM crm_social_contact WHERE create_time >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)");
-    const [platformDist] = await pool.query('SELECT platform, COUNT(*) as count FROM crm_social_contact GROUP BY platform ORDER BY count DESC');
+    const [[{ total }]] = await pool.query('SELECT COUNT(*) as total FROM crm_social_contact WHERE deleted_at IS NULL');
+    const [[{ week_new }]] = await pool.query("SELECT COUNT(*) as week_new FROM crm_social_contact WHERE deleted_at IS NULL AND create_time >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)");
+    const [platformDist] = await pool.query('SELECT platform, COUNT(*) as count FROM crm_social_contact WHERE deleted_at IS NULL GROUP BY platform ORDER BY count DESC');
     const [trend] = await pool.query(`
       SELECT DATE(message_time) as date, COUNT(*) as count
-      FROM crm_social_contact WHERE message_time >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+      FROM crm_social_contact WHERE deleted_at IS NULL AND message_time >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
       GROUP BY DATE(message_time) ORDER BY date
     `);
 
@@ -112,7 +112,7 @@ router.get('/customer/:id/timeline', authenticateToken, async (req, res) => {
       FROM crm_social_contact s
       LEFT JOIN crm_contact ct ON s.contact_id = ct.id
       LEFT JOIN sys_user u ON s.create_by = u.id
-      WHERE s.customer_id = ?
+      WHERE s.customer_id = ? AND s.deleted_at IS NULL
       ORDER BY s.message_time DESC LIMIT 100
     `, [req.params.id]);
     res.json({ code: 200, message: '查询成功', data: rows });

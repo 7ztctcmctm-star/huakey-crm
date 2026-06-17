@@ -64,7 +64,7 @@ router.post('/account', authenticateToken, checkPermission('email'), async (req,
 router.get('/accounts', authenticateToken, checkPermission('email'), async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, email, display_name, imap_host, imap_port, smtp_host, smtp_port, use_ssl, sync_status, last_sync_at, status FROM crm_email_account WHERE user_id = ? ORDER BY created_at DESC',
+      'SELECT id, email, display_name, imap_host, imap_port, smtp_host, smtp_port, use_ssl, sync_status, last_sync_at, status FROM crm_email_account WHERE user_id = ? AND deleted_at IS NULL ORDER BY created_at DESC',
       [req.user.userId]
     );
     res.json({ code: 200, message: '查询成功', data: rows });
@@ -79,7 +79,7 @@ router.delete('/account/:id', authenticateToken, checkPermission('email'), async
   try {
     const [existing] = await pool.query('SELECT id FROM crm_email_account WHERE id = ? AND user_id = ?', [req.params.id, req.user.userId]);
     if (existing.length === 0) return res.status(404).json({ code: 404, message: '账号不存在', data: null });
-    await pool.query('DELETE FROM crm_email_account WHERE id = ?', [req.params.id]);
+    await pool.query('UPDATE crm_email_account SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     console.error('[邮件] 删除账号失败:', error);

@@ -104,7 +104,7 @@ router.get('/list', authenticateToken, checkPermission('file'), async (req, res)
       return res.status(400).json({ code: 400, message: '参数不完整', data: null });
     }
     const [list] = await pool.query(
-      'SELECT * FROM crm_attachment WHERE business_type = ? AND business_id = ? ORDER BY create_time DESC',
+      'SELECT * FROM crm_attachment WHERE business_type = ? AND business_id = ? AND deleted_at IS NULL ORDER BY create_time DESC',
       [business_type, business_id]
     );
     res.json({ code: 200, message: '查询成功', data: list });
@@ -120,7 +120,7 @@ router.post('/delete', authenticateToken, checkPermission('file'), async (req, r
     const { id } = req.body;
     if (!id) return res.status(400).json({ code: 400, message: '附件ID不能为空', data: null });
 
-    const [rows] = await pool.query('SELECT * FROM crm_attachment WHERE id = ?', [id]);
+    const [rows] = await pool.query('SELECT * FROM crm_attachment WHERE id = ? AND deleted_at IS NULL', [id]);
     if (rows.length === 0) return res.status(404).json({ code: 404, message: '附件不存在', data: null });
 
     const attachment = rows[0];
@@ -138,7 +138,7 @@ router.post('/delete', authenticateToken, checkPermission('file'), async (req, r
       if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
     }
 
-    await pool.query('DELETE FROM crm_attachment WHERE id = ?', [id]);
+    await pool.query('UPDATE crm_attachment SET deleted_at = NOW() WHERE id = ?', [id]);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     console.error('删除附件错误:', error);
