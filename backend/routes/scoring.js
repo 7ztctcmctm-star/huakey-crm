@@ -3,11 +3,7 @@ const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
-// 管理员权限检查
-const requireAdmin = (req, res, next) => {
-  if (req.user.manageAll || req.user.roleId === 1) return next();
-  return res.status(403).json({ code: 403, message: '需要管理员权限', data: null });
-};
+const requireAdmin = require('../middleware/admin');
 
 // 获取所有评分规则
 router.get('/rules', authenticateToken, async (req, res) => {

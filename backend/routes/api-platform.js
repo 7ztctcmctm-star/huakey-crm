@@ -4,10 +4,7 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const crypto = require('crypto');
 
-const requireAdmin = (req, res, next) => {
-  if (req.user.manageAll || req.user.roleId === 1) return next();
-  return res.status(403).json({ code: 403, message: '需要管理员权限', data: null });
-};
+const requireAdmin = require('../middleware/admin');
 
 // 生成随机密钥
 const generateKey = (prefix = '', length = 32) => {
@@ -206,8 +203,8 @@ router.get('/webhooks/:id/logs', authenticateToken, requireAdmin, async (req, re
   }
 });
 
-// API文档概览
-router.get('/docs', authenticateToken, async (req, res) => {
+// API文档概览（同步响应，无需try/catch）
+router.get('/docs', authenticateToken, (req, res) => {
   res.json({
     code: 200, message: '查询成功',
     data: {

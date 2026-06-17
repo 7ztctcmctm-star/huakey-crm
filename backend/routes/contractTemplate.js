@@ -28,6 +28,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
 // 管理模板（管理员）
 router.post('/manage', authenticateToken, async (req, res) => {
+  try {
   const { action, id, name, amount, payment_terms, delivery_days, remark } = req.body;
   const roleId = req.user.roleId;
   if (roleId !== 1 && roleId !== 2) {
@@ -53,6 +54,10 @@ router.post('/manage', authenticateToken, async (req, res) => {
     } else {
       return res.status(400).json({ code: 400, message: '无效操作', data: null });
     }
+  } catch (error) {
+    console.error('管理模板错误:', error);
+    res.status(500).json({ code: 500, message: '操作失败', data: null });
+  }
   } catch (error) {
     console.error('管理模板错误:', error);
     res.status(500).json({ code: 500, message: '操作失败', data: null });

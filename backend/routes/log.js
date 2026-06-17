@@ -5,14 +5,10 @@ const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const XLSX = require('xlsx');
 
-const requireAdmin = (req, res, next) => {
-  if (!req.user.manageAll && req.user.roleId !== 1) {
-    return res.status(403).json({ code: 403, message: '无权限操作', data: null });
-  }
-  next();
-};
+const requireAdmin = require('../middleware/admin');
 
 router.post('/list', authenticateToken, checkPermission('system:log'), async (req, res) => {
+  try {
   const { page = 1, pageSize = 20, module, action, status, startDate, endDate, actionType, userId } = req.body;
   const safePageSize = Math.min(Math.max(1, parseInt(pageSize) || 20), 200); // 上限200
   const offset = (Math.max(1, parseInt(page) || 1) - 1) * safePageSize;
@@ -101,6 +97,10 @@ router.post('/list', authenticateToken, checkPermission('system:log'), async (re
     console.error('查询日志失败:', error);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
+  } catch (error) {
+    console.error('查询日志失败:', error);
+    res.status(500).json({ code: 500, message: '查询失败', data: null });
+  }
 });
 
 router.get('/detail/:id', authenticateToken, async (req, res) => {
@@ -170,6 +170,7 @@ router.post('/clear', authenticateToken, requireAdmin, async (req, res) => {
 
 // 导出日志
 router.post('/export', authenticateToken, checkPermission('log:export'), requireAdmin, async (req, res) => {
+  try {
   const { module, action, status, startDate, endDate } = req.body;
 
   let whereClause = '1=1';
@@ -209,6 +210,10 @@ router.post('/export', authenticateToken, checkPermission('log:export'), require
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=operation_logs.xlsx');
     res.send(buf);
+  } catch (error) {
+    console.error('导出日志失败:', error);
+    res.status(500).json({ code: 500, message: '导出失败', data: null });
+  }
   } catch (error) {
     console.error('导出日志失败:', error);
     res.status(500).json({ code: 500, message: '导出失败', data: null });

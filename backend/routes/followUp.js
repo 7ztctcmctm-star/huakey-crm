@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { checkPermission } = require('../middleware/permission');
+const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 
 const router = express.Router();
@@ -174,7 +174,7 @@ router.post('/batch-add', authenticateToken, checkPermission('customer:edit'), v
 });
 
 // 2. 获取客户的跟进记录列表
-router.post('/list', authenticateToken, async (req, res) => {
+router.post('/list', authenticateToken, checkPermission('followup:calendar'), async (req, res) => {
   try {
     const { customer_id, page = 1, pageSize = 20 } = req.body;
 
@@ -229,21 +229,9 @@ router.post('/list', authenticateToken, async (req, res) => {
 });
 
 // 3. 获取今日需要跟进的提醒
-router.get('/remind', authenticateToken, async (req, res) => {
+router.get('/remind', authenticateToken, checkPermission('followup:calendar'), checkDataPermission('followup', 'create_by'), async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const roleId = req.user.roleId;
-
-    let whereClause = '';
-    const params = [];
-
-    // 数据权限
-    if (roleId === 1 || roleId === 2) {
-      whereClause = '1=1';
-    } else {
-      whereClause = 'f.create_by = ?';
-      params.push(userId);
-    }
+    const { clause: permClause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'f');
 
     const [records] = await pool.query(
       `SELECT f.id, f.customer_id, f.contact_id, f.follow_type, f.content,
@@ -253,11 +241,11 @@ router.get('/remind', authenticateToken, async (req, res) => {
       FROM crm_follow_up f
       LEFT JOIN crm_customer cu ON f.customer_id = cu.id AND cu.status != 0
       LEFT JOIN crm_contact co ON f.contact_id = co.id
-      WHERE ${whereClause}
+      WHERE ${permClause}
         AND f.next_time IS NOT NULL
         AND DATE(f.next_time) = CURRENT_DATE
       ORDER BY f.next_time ASC`,
-      params
+      permParams
     );
 
     res.json({
@@ -279,20 +267,9 @@ router.get('/remind', authenticateToken, async (req, res) => {
 });
 
 // 3.1 明日计划跟进列表
-router.get('/tomorrow', authenticateToken, async (req, res) => {
+router.get('/tomorrow', authenticateToken, checkPermission('followup:calendar'), checkDataPermission('followup', 'create_by'), async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const roleId = req.user.roleId;
-
-    let dataPermission = '';
-    const params = [];
-
-    if (roleId === 1 || roleId === 2) {
-      dataPermission = '1=1';
-    } else {
-      dataPermission = '(f.create_by = ? OR cu.owner_id = ?)';
-      params.push(userId, userId);
-    }
+    const { clause: permClause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'f');
 
     const [records] = await pool.query(
       `SELECT f.id, f.customer_id, f.contact_id, f.follow_type, f.content,
@@ -306,9 +283,9 @@ router.get('/tomorrow', authenticateToken, async (req, res) => {
       LEFT JOIN sys_user u ON f.create_by = u.id
       WHERE f.deleted_at IS NULL
         AND DATE(f.next_time) = DATE_ADD(CURRENT_DATE, INTERVAL 1 DAY)
-        AND ${dataPermission}
+        AND ${permClause}
       ORDER BY f.next_time ASC`,
-      params
+      permParams
     );
 
     res.json({
@@ -322,20 +299,9 @@ router.get('/tomorrow', authenticateToken, async (req, res) => {
 });
 
 // 3.2 逾期未跟进列表
-router.get('/overdue', authenticateToken, async (req, res) => {
+router.get('/overdue', authenticateToken, checkPermission('followup:calendar'), checkDataPermission('followup', 'create_by'), async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const roleId = req.user.roleId;
-
-    let dataPermission = '';
-    const params = [];
-
-    if (roleId === 1 || roleId === 2) {
-      dataPermission = '1=1';
-    } else {
-      dataPermission = '(f.create_by = ? OR cu.owner_id = ?)';
-      params.push(userId, userId);
-    }
+    const { clause: permClause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'f');
 
     const [records] = await pool.query(
       `SELECT f.id, f.customer_id, f.contact_id, f.follow_type, f.content,
@@ -350,9 +316,9 @@ router.get('/overdue', authenticateToken, async (req, res) => {
       WHERE f.deleted_at IS NULL
         AND f.next_time IS NOT NULL
         AND DATE(f.next_time) < CURRENT_DATE
-        AND ${dataPermission}
+        AND ${permClause}
       ORDER BY f.next_time ASC`,
-      params
+      permParams
     );
 
     res.json({
@@ -366,19 +332,37 @@ router.get('/overdue', authenticateToken, async (req, res) => {
 });
 
 // 3.3 任务统计（今日/明日/逾期数量）
-router.get('/task-stats', authenticateToken, async (req, res) => {
+// 注意：此端点需要同时检查 create_by 和 customer_owner 两个字段
+router.get('/task-stats', authenticateToken, checkPermission('followup:calendar'), checkDataPermission('followup', 'create_by'), async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const roleId = req.user.roleId;
+    const dp = req.dataPermission;
+    let permClause = '1=1';
+    const permParams = [];
 
-    let dataPermission = '';
-    const params = [];
-
-    if (roleId === 1 || roleId === 2) {
-      dataPermission = '1=1';
+    if (dp.type === 'all') {
+      permClause = '1=1';
+    } else if (dp.type === 'dept' || dp.type === 'dept_and_sub') {
+      const [deptRows] = await pool.query('SELECT dept_id FROM sys_user WHERE id = ?', [dp.userId]);
+      const deptId = deptRows[0]?.dept_id;
+      if (deptId) {
+        const [deptUsers] = await pool.query('SELECT id FROM sys_user WHERE dept_id = ?', [deptId]);
+        const ids = deptUsers.map(u => u.id);
+        if (ids.length > 0) {
+          const ph = ids.map(() => '?').join(',');
+          permClause = `(create_by IN (${ph}) OR customer_owner IN (${ph}))`;
+          permParams.push(...ids, ...ids);
+        }
+      }
+    } else if (dp.type === 'custom' && dp.customDeptIds) {
+      const deptIds = String(dp.customDeptIds).split(',').map(Number).filter(n => !isNaN(n));
+      if (deptIds.length > 0) {
+        const ph = deptIds.map(() => '?').join(',');
+        permClause = `(create_by IN (SELECT id FROM sys_user WHERE dept_id IN (${ph})) OR customer_owner IN (SELECT id FROM sys_user WHERE dept_id IN (${ph})))`;
+        permParams.push(...deptIds, ...deptIds);
+      }
     } else {
-      dataPermission = '(create_by = ? OR customer_owner = ?)';
-      params.push(userId, userId);
+      permClause = '(create_by = ? OR customer_owner = ?)';
+      permParams.push(dp.userId, dp.userId);
     }
 
     const [stats] = await pool.query(
@@ -392,8 +376,8 @@ router.get('/task-stats', authenticateToken, async (req, res) => {
         LEFT JOIN crm_customer cu ON f.customer_id = cu.id AND cu.status != 0
         WHERE f.deleted_at IS NULL AND f.next_time IS NOT NULL
       ) t
-      WHERE ${dataPermission}`,
-      params
+      WHERE ${permClause}`,
+      permParams
     );
 
     res.json({
@@ -485,11 +469,10 @@ router.post('/delete', authenticateToken, checkPermission('customer:delete'), va
 });
 
 // 6. 跟进日历：获取某月的跟进记录（含下次跟进时间）
-router.post('/calendar', authenticateToken, async (req, res) => {
+// 注意：此端点需要同时检查 f.create_by 和 cu.owner_id 两个字段
+router.post('/calendar', authenticateToken, checkPermission('followup:calendar'), checkDataPermission('followup', 'create_by'), async (req, res) => {
   try {
     const { year, month } = req.body;
-    const userId = req.user.userId;
-    const roleId = req.user.roleId;
 
     if (!year || !month) {
       return res.status(400).json({ code: 400, message: '请提供年份和月份', data: null });
@@ -498,12 +481,38 @@ router.post('/calendar', authenticateToken, async (req, res) => {
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
     const endDate = `${year}-${String(month).padStart(2, '0')}-31`;
 
-    let ownerFilter = '';
-    const params = [startDate, endDate, startDate, endDate];
-    if (roleId !== 1 && roleId !== 2) {
-      ownerFilter = ' AND (f.create_by = ? OR cu.owner_id = ?)';
-      params.push(userId, userId);
+    // 构建数据权限条件（需要同时检查 create_by 和 customer owner）
+    const dp = req.dataPermission;
+    let permClause = '1=1';
+    const permExtraParams = [];
+
+    if (dp.type === 'all') {
+      permClause = '1=1';
+    } else if (dp.type === 'dept' || dp.type === 'dept_and_sub') {
+      const [deptRows] = await pool.query('SELECT dept_id FROM sys_user WHERE id = ?', [dp.userId]);
+      const deptId = deptRows[0]?.dept_id;
+      if (deptId) {
+        const [deptUsers] = await pool.query('SELECT id FROM sys_user WHERE dept_id = ?', [deptId]);
+        const ids = deptUsers.map(u => u.id);
+        if (ids.length > 0) {
+          const ph = ids.map(() => '?').join(',');
+          permClause = `(f.create_by IN (${ph}) OR cu.owner_id IN (${ph}))`;
+          permExtraParams.push(...ids, ...ids);
+        }
+      }
+    } else if (dp.type === 'custom' && dp.customDeptIds) {
+      const deptIds = String(dp.customDeptIds).split(',').map(Number).filter(n => !isNaN(n));
+      if (deptIds.length > 0) {
+        const ph = deptIds.map(() => '?').join(',');
+        permClause = `(f.create_by IN (SELECT id FROM sys_user WHERE dept_id IN (${ph})) OR cu.owner_id IN (SELECT id FROM sys_user WHERE dept_id IN (${ph})))`;
+        permExtraParams.push(...deptIds, ...deptIds);
+      }
+    } else {
+      permClause = '(f.create_by = ? OR cu.owner_id = ?)';
+      permExtraParams.push(dp.userId, dp.userId);
     }
+
+    const params = [startDate, endDate, startDate, endDate, ...permExtraParams];
 
     const [records] = await pool.query(
       `SELECT f.id, f.customer_id, f.contact_id, f.follow_type, f.content,
@@ -516,7 +525,7 @@ router.post('/calendar', authenticateToken, async (req, res) => {
       LEFT JOIN crm_customer cu ON f.customer_id = cu.id AND cu.status != 0
       LEFT JOIN crm_contact co ON f.contact_id = co.id
       WHERE (DATE(f.create_time) BETWEEN ? AND ? OR DATE(f.next_time) BETWEEN ? AND ?)
-        ${ownerFilter}
+        AND ${permClause}
       ORDER BY f.create_time DESC`,
       params
     );

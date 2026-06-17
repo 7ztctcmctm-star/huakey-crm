@@ -2,9 +2,8 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { checkPermission } = require('../middleware/permission');
+const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
-const { getDataPermission, buildPermissionClause } = require('../utils/permission');
 
 const MODULE_NAME = '合同管理';
 
@@ -121,13 +120,12 @@ const paymentDeleteSchema = Joi.object({
 });
 
 
-router.post('/list', authenticateToken, validate(listSchema), async (req, res) => {
+router.post('/list', authenticateToken, checkDataPermission('contract', 'create_by'), validate(listSchema), async (req, res) => {
   const { page = 1, pageSize = 10, keyword = '', status = '', customer_id = '', approval_status = '', payment_status = '' } = req.body;
   const offset = (page - 1) * pageSize;
 
   try {
-    const permission = await getDataPermission(req.user);
-    const { clause: permissionClause, params: permParams } = buildPermissionClause(permission, 'c', 'create_by');
+    const { clause: permissionClause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'c');
 
     // 回款状态子查询条件
     const PAYMENT_STATUS_CLAUSE = {
@@ -207,12 +205,11 @@ router.post('/list', authenticateToken, validate(listSchema), async (req, res) =
   }
 });
 
-router.get('/detail/:id', authenticateToken, async (req, res) => {
+router.get('/detail/:id', authenticateToken, checkDataPermission('contract', 'create_by'), async (req, res) => {
   const { id } = req.params;
 
   try {
-    const permission = await getDataPermission(req.user);
-    const { clause: permissionClause, params: permParams } = buildPermissionClause(permission, 'c', 'create_by');
+    const { clause: permissionClause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'c');
 
     const [contract] = await pool.query(`
       SELECT c.*, cu.company_name as customer_name, cu.contact_name as contact, cu.phone, cu.address,
@@ -543,11 +540,9 @@ router.post('/payment/delete', authenticateToken, checkPermission('contract'), v
   }
 });
 
-router.get('/opportunity-list', authenticateToken, async (req, res) => {
+router.get('/opportunity-list', authenticateToken, checkDataPermission('opportunity', 'owner_id'), async (req, res) => {
   try {
-    const { getDataPermission, buildPermissionClause } = require('../utils/permission');
-    const permission = await getDataPermission(req.user);
-    const { clause: permissionClause, params: permParams } = buildPermissionClause(permission, 'o');
+    const { clause: permissionClause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'o');
 
     const [rows] = await pool.query(
       `SELECT o.id, o.name FROM crm_opportunity o WHERE ${permissionClause} AND o.stage != 5 AND o.stage != 6 AND o.deleted_at IS NULL ORDER BY o.name`,
@@ -571,12 +566,11 @@ const importUpload = multer({
   }
 });
 
-router.post('/export', authenticateToken, checkPermission('contract'), async (req, res) => {
+router.post('/export', authenticateToken, checkPermission('contract'), checkDataPermission('contract', 'create_by'), async (req, res) => {
   try {
     const { keyword = '', status = '' } = req.body;
 
-    const permission = await getDataPermission(req.user);
-    const { clause: permissionClause, params: permParams } = buildPermissionClause(permission, 'c', 'create_by');
+    const { clause: permissionClause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'c');
 
     let sql = `SELECT c.contract_no, cu.company_name as customer_name, c.amount,
       (SELECT COALESCE(SUM(p.pay_amount), 0) FROM crm_payment p WHERE p.contract_id = c.id AND p.deleted_at IS NULL) as paid_amount,
@@ -626,7 +620,7 @@ router.post('/export', authenticateToken, checkPermission('contract'), async (re
 });
 
 // 回款管理：回款列表 + 逾期未回款
-router.post('/payment/list', authenticateToken, async (req, res) => {
+router.post('/payment/list', authenticateToken, checkPermission('contract'), async (req, res) => {
   try {
     const { page = 1, pageSize = 20, tab = 'all', keyword, start_date, end_date } = req.body;
     const offset = (page - 1) * pageSize;
@@ -737,7 +731,7 @@ router.post('/payment/list', authenticateToken, async (req, res) => {
 });
 
 // 回款合并视图（计划+记录）
-router.post('/payment/merged', authenticateToken, async (req, res) => {
+router.post('/payment/merged', authenticateToken, checkPermission('contract'), async (req, res) => {
   try {
     const { page = 1, pageSize = 20, keyword, start_date, end_date } = req.body;
     const offset = (page - 1) * pageSize;
@@ -786,7 +780,7 @@ router.post('/payment/merged', authenticateToken, async (req, res) => {
 });
 
 // 回款导出
-router.post('/payment/export', authenticateToken, async (req, res) => {
+router.post('/payment/export', authenticateToken, checkPermission('contract'), async (req, res) => {
   try {
     const { keyword, start_date, end_date } = req.body;
     const params = [];
@@ -864,7 +858,7 @@ router.get('/search', authenticateToken, async (req, res) => {
 });
 
 // 客户对账汇总
-router.post('/payment/summary', authenticateToken, async (req, res) => {
+router.post('/payment/summary', authenticateToken, checkPermission('contract'), async (req, res) => {
   try {
     const { page = 1, pageSize = 20, keyword } = req.body;
     const offset = (page - 1) * pageSize;
@@ -916,7 +910,7 @@ router.post('/payment/summary', authenticateToken, async (req, res) => {
 });
 
 // 对账单导出
-router.post('/payment/statement-export', authenticateToken, async (req, res) => {
+router.post('/payment/statement-export', authenticateToken, checkPermission('contract'), async (req, res) => {
   try {
     const { keyword, start_date, end_date } = req.body;
 
@@ -1058,6 +1052,7 @@ router.post('/approve', authenticateToken, async (req, res) => {
 
 // 批量导入回款（Excel）
 router.post('/payment/import', authenticateToken, checkPermission('contract'), importUpload.single('file'), async (req, res) => {
+  try {
   if (!req.file) {
     return res.status(400).json({ code: 400, message: '请上传文件', data: null });
   }
@@ -1136,6 +1131,10 @@ router.post('/payment/import', authenticateToken, checkPermission('contract'), i
     res.status(500).json({ code: 500, message: '导入失败', data: null });
   } finally {
     connection.release();
+  }
+  } catch (error) {
+    console.error('[合同] 回款导入错误:', error);
+    res.status(500).json({ code: 500, message: '导入失败', data: null });
   }
 });
 

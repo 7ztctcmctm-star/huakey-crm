@@ -50,8 +50,9 @@ router.get('/sales-funnel', authenticateToken, async (req, res) => {
 
 // 业绩统计
 router.get('/performance', authenticateToken, async (req, res) => {
+  try {
   const { startDate, endDate } = req.query;
-  
+
   let dateFilter = '';
   const params = [];
   
@@ -81,6 +82,10 @@ router.get('/performance', authenticateToken, async (req, res) => {
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
     console.error(error);
+    res.status(500).json({ code: 500, message: '查询失败', data: null });
+  }
+  } catch (error) {
+    console.error('[报表] 业绩统计错误:', error);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -697,7 +702,7 @@ router.post('/export', authenticateToken, checkPermission('report'), async (req,
 
 // ============ 财务报表 ============
 
-router.get('/finance', authenticateToken, async (req, res) => {
+router.get('/finance', authenticateToken, checkPermission('report'), async (req, res) => {
   try {
     const { start_date, end_date } = req.query;
     const now = new Date();
@@ -814,7 +819,7 @@ router.get('/finance', authenticateToken, async (req, res) => {
 });
 
 // 财务报表导出CSV
-router.get('/finance/export', authenticateToken, async (req, res) => {
+router.get('/finance/export', authenticateToken, checkPermission('report'), async (req, res) => {
   try {
     const { type = 'receivable', start_date, end_date } = req.query;
     const now = new Date();
@@ -872,7 +877,7 @@ router.get('/finance/export', authenticateToken, async (req, res) => {
 
 // ============ 经营分析看板 ============
 
-router.get('/business', authenticateToken, async (req, res) => {
+router.get('/business', authenticateToken, checkPermission('report'), async (req, res) => {
   try {
     const now = new Date();
     const year = now.getFullYear();
@@ -1026,7 +1031,7 @@ const SOURCE_FIELDS = {
 };
 
 // 获取自定义报表列表
-router.get('/custom', authenticateToken, async (req, res) => {
+router.get('/custom', authenticateToken, checkPermission('report'), async (req, res) => {
   try {
     const [rows] = await pool.query(
       "SELECT * FROM crm_report_config WHERE (create_by = ? OR is_public = 1) AND deleted_at IS NULL ORDER BY create_time DESC",
@@ -1040,7 +1045,7 @@ router.get('/custom', authenticateToken, async (req, res) => {
 });
 
 // 创建自定义报表
-router.post('/custom', authenticateToken, async (req, res) => {
+router.post('/custom', authenticateToken, checkPermission('report'), async (req, res) => {
   try {
     const { name, description, report_type, data_source, columns_config, filter_config, chart_config, is_public } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ code: 400, message: '报表名称不能为空', data: null });
@@ -1060,7 +1065,7 @@ router.post('/custom', authenticateToken, async (req, res) => {
 });
 
 // 更新自定义报表
-router.put('/custom/:id', authenticateToken, async (req, res) => {
+router.put('/custom/:id', authenticateToken, checkPermission('report'), async (req, res) => {
   try {
     const { id } = req.params;
     const [existing] = await pool.query('SELECT create_by FROM crm_report_config WHERE id = ? AND deleted_at IS NULL', [id]);
@@ -1091,7 +1096,7 @@ router.put('/custom/:id', authenticateToken, async (req, res) => {
 });
 
 // 删除自定义报表
-router.delete('/custom/:id', authenticateToken, async (req, res) => {
+router.delete('/custom/:id', authenticateToken, checkPermission('report'), async (req, res) => {
   try {
     const { id } = req.params;
     const [existing] = await pool.query('SELECT create_by FROM crm_report_config WHERE id = ? AND deleted_at IS NULL', [id]);
@@ -1108,18 +1113,23 @@ router.delete('/custom/:id', authenticateToken, async (req, res) => {
 });
 
 // 获取可用字段列表
-router.get('/custom/fields/:source', authenticateToken, async (req, res) => {
+router.get('/custom/fields/:source', authenticateToken, checkPermission('report'), async (req, res) => {
+  try {
   const src = SOURCE_FIELDS[req.params.source];
   if (!src) return res.status(400).json({ code: 400, message: '无效的数据来源', data: null });
   const fields = Object.entries(src.fields).map(([key, label]) => ({ key, label }));
   res.json({ code: 200, message: '查询成功', data: fields });
+  } catch (error) {
+    console.error('[报表] 获取字段列表错误:', error);
+    res.status(500).json({ code: 500, message: '查询失败', data: null });
+  }
 });
 
 // 执行自定义报表
-router.post('/custom/:id/run', authenticateToken, async (req, res) => {
+router.post('/custom/:id/run', authenticateToken, checkPermission('report'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { page = 1, page_size = 20, filters = {} } = req.body;
+    const { page = 1, pageSize = 20, filters = {} } = req.body;
 
     const [configs] = await pool.query('SELECT * FROM crm_report_config WHERE id = ? AND deleted_at IS NULL', [id]);
     if (configs.length === 0) return res.status(404).json({ code: 404, message: '报表不存在', data: null });
@@ -1176,11 +1186,11 @@ router.post('/custom/:id/run', authenticateToken, async (req, res) => {
     const [[{ total }]] = await pool.query(countSql, params);
 
     // 数据
-    const offset = (parseInt(page) - 1) * parseInt(page_size);
+    const offset = (parseInt(page) - 1) * parseInt(pageSize);
     const dataSql = `SELECT ${selectParts.join(', ')} FROM ${src.table} ${src.alias} ${join} WHERE ${where} ${groupBy} LIMIT ? OFFSET ?`;
-    const [rows] = await pool.query(dataSql, [...params, parseInt(page_size), offset]);
+    const [rows] = await pool.query(dataSql, [...params, parseInt(pageSize), offset]);
 
-    res.json({ code: 200, message: '查询成功', data: { list: rows, total, page: parseInt(page), page_size: parseInt(page_size) } });
+    res.json({ code: 200, message: '查询成功', data: { list: rows, total, page: parseInt(page), pageSize: parseInt(pageSize) } });
   } catch (error) {
     console.error('[报表] 执行自定义报表失败:', error);
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });

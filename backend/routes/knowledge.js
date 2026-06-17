@@ -2,15 +2,12 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/permission');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// 管理员权限检查
-const requireAdmin = (req, res, next) => {
-  if (req.user.manageAll || req.user.roleId === 1) return next();
-  return res.status(403).json({ code: 403, message: '需要管理员权限', data: null });
-};
+const requireAdmin = require('../middleware/admin');
 
 // 文件上传配置
 const uploadDir = path.join(__dirname, '../uploads/knowledge');
@@ -29,7 +26,7 @@ const upload = multer({ storage, limits: { fileSize: 20 * 1024 * 1024 } });
 // ============ 产品知识库 ============
 
 // 产品列表
-router.get('/products', authenticateToken, async (req, res) => {
+router.get('/products', authenticateToken, checkPermission('knowledge'), async (req, res) => {
   try {
     const { page = 1, pageSize = 20, keyword = '', category = '' } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(pageSize);
@@ -58,7 +55,7 @@ router.get('/products', authenticateToken, async (req, res) => {
 });
 
 // 产品详情
-router.get('/products/:id', authenticateToken, async (req, res) => {
+router.get('/products/:id', authenticateToken, checkPermission('knowledge'), async (req, res) => {
   try {
     const [[row]] = await pool.query(
       'SELECT p.*, u.real_name as create_by_name FROM crm_knowledge_product p LEFT JOIN sys_user u ON p.create_by = u.id WHERE p.id = ? AND p.deleted_at IS NULL',
@@ -139,7 +136,7 @@ router.post('/products/:id/images', authenticateToken, requireAdmin, upload.arra
 });
 
 // 产品分类列表（去重）
-router.get('/products-meta/categories', authenticateToken, async (req, res) => {
+router.get('/products-meta/categories', authenticateToken, checkPermission('knowledge'), async (req, res) => {
   try {
     const [rows] = await pool.query(
       "SELECT DISTINCT category FROM crm_knowledge_product WHERE deleted_at IS NULL AND category IS NOT NULL AND category != '' ORDER BY category"
@@ -154,7 +151,7 @@ router.get('/products-meta/categories', authenticateToken, async (req, res) => {
 // ============ 销售话术 ============
 
 // 话术列表
-router.get('/scripts', authenticateToken, async (req, res) => {
+router.get('/scripts', authenticateToken, checkPermission('knowledge'), async (req, res) => {
   try {
     const { keyword = '', scene = '', page = 1, pageSize = 20 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(pageSize);
@@ -175,7 +172,7 @@ router.get('/scripts', authenticateToken, async (req, res) => {
 });
 
 // 话术详情（usage_count+1）
-router.get('/scripts/:id', authenticateToken, async (req, res) => {
+router.get('/scripts/:id', authenticateToken, checkPermission('knowledge'), async (req, res) => {
   try {
     await pool.query('UPDATE crm_knowledge_script SET usage_count = usage_count + 1 WHERE id = ?', [req.params.id]);
     const [[row]] = await pool.query('SELECT * FROM crm_knowledge_script WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
@@ -236,7 +233,7 @@ router.delete('/scripts/:id', authenticateToken, async (req, res) => {
 });
 
 // 话术场景列表
-router.get('/scripts-meta/scenes', authenticateToken, async (req, res) => {
+router.get('/scripts-meta/scenes', authenticateToken, checkPermission('knowledge'), async (req, res) => {
   try {
     const [rows] = await pool.query(
       "SELECT DISTINCT scene FROM crm_knowledge_script WHERE deleted_at IS NULL AND scene IS NOT NULL AND scene != '' ORDER BY scene"
@@ -251,7 +248,7 @@ router.get('/scripts-meta/scenes', authenticateToken, async (req, res) => {
 // ============ FAQ ============
 
 // FAQ列表
-router.get('/faqs', authenticateToken, async (req, res) => {
+router.get('/faqs', authenticateToken, checkPermission('knowledge'), async (req, res) => {
   try {
     const { keyword = '', category = '', page = 1, pageSize = 20 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(pageSize);
@@ -272,7 +269,7 @@ router.get('/faqs', authenticateToken, async (req, res) => {
 });
 
 // FAQ详情（view_count+1）
-router.get('/faqs/:id', authenticateToken, async (req, res) => {
+router.get('/faqs/:id', authenticateToken, checkPermission('knowledge'), async (req, res) => {
   try {
     await pool.query('UPDATE crm_knowledge_faq SET view_count = view_count + 1 WHERE id = ?', [req.params.id]);
     const [[row]] = await pool.query('SELECT * FROM crm_knowledge_faq WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
@@ -333,7 +330,7 @@ router.delete('/faqs/:id', authenticateToken, async (req, res) => {
 });
 
 // FAQ分类列表
-router.get('/faqs-meta/categories', authenticateToken, async (req, res) => {
+router.get('/faqs-meta/categories', authenticateToken, checkPermission('knowledge'), async (req, res) => {
   try {
     const [rows] = await pool.query(
       "SELECT DISTINCT category FROM crm_knowledge_faq WHERE deleted_at IS NULL AND category IS NOT NULL AND category != '' ORDER BY category"
@@ -348,7 +345,7 @@ router.get('/faqs-meta/categories', authenticateToken, async (req, res) => {
 // ============ 文档管理 ============
 
 // 文档列表
-router.get('/documents', authenticateToken, async (req, res) => {
+router.get('/documents', authenticateToken, checkPermission('knowledge'), async (req, res) => {
   try {
     const { keyword = '', type = '', page = 1, pageSize = 20 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(pageSize);
@@ -369,7 +366,7 @@ router.get('/documents', authenticateToken, async (req, res) => {
 });
 
 // 文档详情
-router.get('/documents/:id', authenticateToken, async (req, res) => {
+router.get('/documents/:id', authenticateToken, checkPermission('knowledge'), async (req, res) => {
   try {
     const [[row]] = await pool.query(
       'SELECT d.*, u.real_name as create_by_name FROM crm_knowledge_document d LEFT JOIN sys_user u ON d.create_by = u.id WHERE d.id = ? AND d.deleted_at IS NULL',
@@ -448,7 +445,7 @@ router.delete('/documents/:id', authenticateToken, async (req, res) => {
 });
 
 // 下载文档
-router.get('/documents/:id/download', authenticateToken, async (req, res) => {
+router.get('/documents/:id/download', authenticateToken, checkPermission('knowledge'), async (req, res) => {
   try {
     const [[row]] = await pool.query('SELECT * FROM crm_knowledge_document WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
     if (!row || !row.file_path) return res.status(404).json({ code: 404, message: '文档不存在', data: null });
@@ -467,7 +464,7 @@ router.get('/documents/:id/download', authenticateToken, async (req, res) => {
 
 // ============ 知识库首页统计 ============
 
-router.get('/stats', authenticateToken, async (req, res) => {
+router.get('/stats', authenticateToken, checkPermission('knowledge'), async (req, res) => {
   try {
     const [[productCount]] = await pool.query('SELECT COUNT(*) as cnt FROM crm_knowledge_product WHERE deleted_at IS NULL');
     const [[scriptCount]] = await pool.query('SELECT COUNT(*) as cnt FROM crm_knowledge_script WHERE deleted_at IS NULL');

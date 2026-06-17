@@ -47,8 +47,8 @@
 
 **1. 后端"胖路由"架构 — 没有Controller/Service分层**
 - 28个路由文件，业务逻辑全部内联在路由处理函数中
-- `src/controllers/`、`src/services/`、`src/models/` 目录存在但全部为空
-- `contract.js` 单文件918行，`report.js` 690行，`supplier.js` 589行
+- `backend/src/` 空壳目录已删除（2026-06-17）
+- `contract.js` 单文件1162行，`report.js` 1190行，`supplier.js` 662行
 - 仅客户模块被拆分到 `routes/customer/` 子目录（8个文件）
 - **后果**：代码复用困难、测试困难、维护成本指数级上升
 
@@ -169,16 +169,18 @@
 
 ### 四、当前数据库风险
 
-| 风险 | 说明 |
-|------|------|
-| `crm_sales_target` 无CREATE TABLE | 新环境部署直接失败 |
-| `sys_log` 与 `sys_operation_log` 功能重复 | 应统一为一张表 |
-| SQL初始化文件三处重复 | 版本漂移风险 |
-| 软删除标准不统一 | status=0 vs deleted_at |
-| `sys_user.dept_id` ON DELETE SET NULL | 删除部门后用户成"孤儿" |
-| `crm_customer` CASCADE删除 | 删除客户会级联删除联系人/跟进/商机/合同 |
-| 连接池上限仅10 | 20-50人并发可能不够 |
-| 无读写分离 | 报表查询可能阻塞业务操作 |
+| 风险 | 说明 | 状态 |
+|------|------|------|
+| `crm_sales_target` 无CREATE TABLE | 新环境部署直接失败 | 待修复 |
+| `sys_log` 与 `sys_operation_log` 功能重复 | 应统一为一张表 | 待修复 |
+| SQL初始化文件三处重复 | 版本漂移风险 | 待修复 |
+| 软删除标准不统一 | status=0 vs deleted_at | 待修复 |
+| `sys_user.dept_id` ON DELETE SET NULL | 删除部门后用户成"孤儿" | 待修复 |
+| `crm_customer` CASCADE删除 | 删除客户会级联删除联系人/跟进/商机/合同 | 待修复 |
+| 连接池上限仅10 | 20-50人并发可能不够 | 待修复 |
+| 无读写分离 | 报表查询可能阻塞业务操作 | 待修复 |
+| ~~`sys_log` 无归档策略~~ | ~~3.45MB且持续增长~~ | ✅ 已修复（2026-06-17：归档3024条，定时事件每月执行） |
+| ~~5张表冗余索引（47对）~~ | ~~INSERT/UPDATE性能开销~~ | ✅ 部分修复（2026-06-17：清理12个冗余索引） |
 
 ---
 

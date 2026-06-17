@@ -45,13 +45,11 @@
               clearable
               @keyup.enter="handleLogin"
             />
-            <canvas
-              ref="captchaCanvas"
-              class="captcha-canvas"
-              width="120"
-              height="40"
+            <div
+              class="captcha-svg"
               @click="refreshCaptcha"
               title="点击刷新验证码"
+              v-html="captchaSvg"
             />
           </div>
         </el-form-item>
@@ -91,9 +89,9 @@ import { useUser } from '@/composables/useUser'
 const router = useRouter()
 const { setUser } = useUser()
 const loginFormRef = ref(null)
-const captchaCanvas = ref(null)
 const loading = ref(false)
-let captchaCode = ''
+const captchaSvg = ref('')
+const captchaKey = ref('')
 
 const loginForm = reactive({
   username: '',
@@ -116,35 +114,15 @@ const loginRules = {
   ]
 }
 
-const refreshCaptcha = () => {
-  const canvas = captchaCanvas.value
-  if (!canvas) return
-  const ctx = canvas.getContext('2d')
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  captchaCode = ''
-  for (let i = 0; i < 4; i++) {
-    captchaCode += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  ctx.fillStyle = '#f0f2f5'
-  ctx.fillRect(0, 0, 120, 40)
-  for (let i = 0; i < 4; i++) {
-    ctx.font = `${18 + Math.random() * 6}px serif`
-    ctx.fillStyle = `rgb(${Math.random() * 100}, ${Math.random() * 100}, ${Math.random() * 100})`
-    const x = 15 + i * 25 + Math.random() * 8
-    const y = 26 + Math.random() * 8
-    const angle = (Math.random() - 0.5) * 0.5
-    ctx.save()
-    ctx.translate(x, y)
-    ctx.rotate(angle)
-    ctx.fillText(captchaCode[i], 0, 0)
-    ctx.restore()
-  }
-  for (let i = 0; i < 3; i++) {
-    ctx.strokeStyle = `rgb(${Math.random() * 200}, ${Math.random() * 200}, ${Math.random() * 200})`
-    ctx.beginPath()
-    ctx.moveTo(Math.random() * 120, Math.random() * 40)
-    ctx.lineTo(Math.random() * 120, Math.random() * 40)
-    ctx.stroke()
+const refreshCaptcha = async () => {
+  try {
+    const res = await request.get('/auth/captcha')
+    if (res.code === 200) {
+      captchaSvg.value = res.data.svg
+      captchaKey.value = res.data.key
+    }
+  } catch {
+    console.error('获取验证码失败')
   }
 }
 
@@ -157,22 +135,16 @@ const handleLogin = async () => {
     return
   }
 
-  if (loginForm.captcha.toUpperCase() !== captchaCode) {
-    ElMessage.error('验证码错误')
-    refreshCaptcha()
-    loginForm.captcha = ''
-    return
-  }
-
   loading.value = true
   try {
     const res = await request.post('/auth/login', {
       username: loginForm.username,
-      password: loginForm.password
+      password: loginForm.password,
+      captcha: loginForm.captcha,
+      captchaKey: captchaKey.value
     })
 
     if (res.code === 200) {
-      localStorage.setItem('token', res.data.token)
       setUser(res.data.userInfo)
 
       if (loginForm.remember) {
@@ -277,9 +249,17 @@ onMounted(() => {
   width: 100%;
 }
 
-.captcha-canvas {
+.captcha-svg {
   cursor: pointer;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.captcha-svg :deep(svg) {
+  display: block;
 }
 </style>

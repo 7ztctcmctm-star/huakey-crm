@@ -78,8 +78,6 @@ const { createRouteLogger } = require('../../middleware/logger');
 const { logFieldChanges } = require('../../utils/fieldLog');
 const logAction = createRouteLogger(MODULE_NAME);
 
-const { getDataPermission, buildPermissionClause } = require('../../utils/permission');
-
 // 检查用户是否有权限查看/编辑指定客户
 const canManageCustomer = async (user, customerOwnerId) => {
   // 老板可以管理全部
@@ -641,7 +639,7 @@ router.get('/detail/:id', authenticateToken, checkDataPermission('customer', 'ow
 });
 
 // 5.5 客户360度视图
-router.get('/:id/360', authenticateToken, async (req, res) => {
+router.get('/:id/360', authenticateToken, checkPermission('customer:list'), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -785,13 +783,12 @@ router.get('/:id/360', authenticateToken, async (req, res) => {
 const XLSX = require('xlsx');
 
 // 6. 导出客户列表
-router.post('/export', authenticateToken, checkPermission('customer:list'), async (req, res) => {
+router.post('/export', authenticateToken, checkPermission('customer:list'), checkDataPermission('customer', 'owner_id'), async (req, res) => {
   try {
     const { company_name, contact_name, phone, source, level, status, customer_type, lifecycle_status, owner_id, start_date, end_date } = req.body;
     const params = [];
 
-    const permission = await getDataPermission(req.user);
-    const { clause: permissionClause, params: permParams } = buildPermissionClause(permission, 'c');
+    const { clause: permissionClause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'c');
     params.push(...permParams);
 
     let whereClause;

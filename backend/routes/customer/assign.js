@@ -124,7 +124,7 @@ router.post('/batch-assign', authenticateToken, checkPermission('customer:assign
 });
 
 // 查询分配日志
-router.post('/assign-log', authenticateToken, async (req, res) => {
+router.post('/assign-log', authenticateToken, checkPermission('customer:assign'), async (req, res) => {
   try {
     const { customer_id, page = 1, pageSize = 20 } = req.body;
     const offset = (page - 1) * pageSize;
@@ -170,7 +170,7 @@ router.post('/assign-log', authenticateToken, async (req, res) => {
 });
 
 // 获取销售用户列表（供分配下拉选择）
-router.get('/sales-users', authenticateToken, async (req, res) => {
+router.get('/sales-users', authenticateToken, checkPermission('customer:assign'), async (req, res) => {
   try {
     const [users] = await pool.query(
       `SELECT u.id, u.real_name, u.username, d.name as dept_name
@@ -357,6 +357,7 @@ module.exports.autoAssignOwner = autoAssignOwner;
 
 // 轮询自动分配：将公海客户均匀分配给销售团队
 router.post('/auto-assign', authenticateToken, checkPermission('customer:assign'), async (req, res) => {
+  try {
   if (!(req.user.manageAll || req.user.roleId === 1 || req.user.roleId === 2)) {
     return res.status(403).json({ code: 403, message: '无权执行自动分配', data: null });
   }
@@ -426,5 +427,9 @@ router.post('/auto-assign', authenticateToken, checkPermission('customer:assign'
     res.status(500).json({ code: 500, message: '自动分配失败', data: null });
   } finally {
     connection.release();
+  }
+  } catch (error) {
+    console.error('自动分配错误:', error);
+    res.status(500).json({ code: 500, message: '自动分配失败', data: null });
   }
 });

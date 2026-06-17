@@ -100,7 +100,7 @@ router.post('/list', authenticateToken, checkPermission('system:user'), validate
 });
 
 // 2. 添加用户
-router.post('/add', authenticateToken, validate(userAddSchema), async (req, res) => {
+router.post('/add', authenticateToken, checkPermission('system:user:add'), validate(userAddSchema), async (req, res) => {
   try {
     const { username, password, real_name, phone, email, dept_id, role_id } = req.body;
 
@@ -144,7 +144,7 @@ router.post('/add', authenticateToken, validate(userAddSchema), async (req, res)
 });
 
 // 3. 修改用户
-router.post('/update', authenticateToken, validate(userUpdateSchema), async (req, res) => {
+router.post('/update', authenticateToken, checkPermission('system:user:edit'), validate(userUpdateSchema), async (req, res) => {
   try {
     const { id, real_name, phone, email, dept_id, role_id, status } = req.body;
 
@@ -222,7 +222,7 @@ router.post('/update', authenticateToken, validate(userUpdateSchema), async (req
 });
 
 // 4. 删除用户（逻辑删除）
-router.post('/delete', authenticateToken, validate(userDeleteSchema), async (req, res) => {
+router.post('/delete', authenticateToken, checkPermission('system:user:delete'), validate(userDeleteSchema), async (req, res) => {
   try {
     const { id } = req.body;
 
@@ -271,7 +271,7 @@ router.post('/delete', authenticateToken, validate(userDeleteSchema), async (req
 });
 
 // 5. 获取用户详情
-router.get('/detail/:id', authenticateToken, async (req, res) => {
+router.get('/detail/:id', authenticateToken, checkPermission('system:user'), async (req, res) => {
   try {
     const { id } = req.params;
 

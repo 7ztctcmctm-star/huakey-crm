@@ -2,19 +2,30 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { checkPermission } = require('../middleware/permission');
-const { getDataPermission } = require('../utils/permission');
+const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
 
 // 构建售后工单数据权限SQL（涉及create_by和assignee_id两个字段）
-const buildServicePermissionClause = (permission, tableAlias = 'so') => {
-  if (permission.type === 'all') {
+const buildServicePermissionClause = async (dataPermission, tableAlias = 'so') => {
+  if (!dataPermission) return '1=1';
+  const { type, userId } = dataPermission;
+  if (type === 'all') {
     return '1=1';
   }
-  if (permission.type === 'dept') {
-    const ids = permission.userIds.join(',');
-    return `(${tableAlias}.create_by IN (${ids}) OR ${tableAlias}.assignee_id IN (${ids}))`;
+  if (type === 'dept' || type === 'dept_and_sub') {
+    // 查询用户所在部门的所有用户ID
+    const [deptRows] = await pool.query('SELECT dept_id FROM sys_user WHERE id = ?', [userId]);
+    const deptId = deptRows[0]?.dept_id;
+    if (deptId) {
+      const [deptUsers] = await pool.query('SELECT id FROM sys_user WHERE dept_id = ?', [deptId]);
+      const ids = deptUsers.map(u => u.id);
+      if (ids.length > 0) {
+        const placeholders = ids.map(() => '?').join(',');
+        return `(${tableAlias}.create_by IN (${placeholders}) OR ${tableAlias}.assignee_id IN (${placeholders}))`;
+      }
+    }
+    return `(${tableAlias}.create_by = ? OR ${tableAlias}.assignee_id = ?)`;
   }
-  return `(${tableAlias}.create_by = ${permission.userId} OR ${tableAlias}.assignee_id = ${permission.userId})`;
+  return `(${tableAlias}.create_by = ${pool.escape(userId)} OR ${tableAlias}.assignee_id = ${pool.escape(userId)})`;
 };
 
 // 检查用户是否有权操作某工单
@@ -49,14 +60,13 @@ const canManageService = async (user, serviceOrder) => {
 };
 
 // 获取工单列表
-router.post('/list', authenticateToken, async (req, res) => {
+router.post('/list', authenticateToken, checkDataPermission('service', 'create_by'), async (req, res) => {
   const { page = 1, pageSize = 10, status, type, priority, keyword, assignee_id, created_today, is_timeout } = req.body;
   const safePageSize = Math.min(Math.max(1, parseInt(pageSize) || 10), 200);
   const offset = (Math.max(1, parseInt(page) || 1) - 1) * safePageSize;
 
   try {
-    const permission = await getDataPermission(req.user);
-    const permissionClause = buildServicePermissionClause(permission);
+    const permissionClause = await buildServicePermissionClause(req.dataPermission);
 
     let sql = `
       SELECT so.*, cu.company_name as customer_name, cu.contact_name as customer_contact,
@@ -324,6 +334,7 @@ router.post('/assign', authenticateToken, checkPermission('service:edit'), async
 
 // 批量分配工程师
 router.post('/batch-assign', authenticateToken, checkPermission('service:edit'), async (req, res) => {
+  try {
   const { ids, assignee_id } = req.body;
 
   if (!ids || !Array.isArray(ids) || ids.length === 0) {
@@ -356,6 +367,10 @@ router.post('/batch-assign', authenticateToken, checkPermission('service:edit'),
     );
 
     res.json({ code: 200, message: `已批量分配 ${ids.length} 个工单`, data: { count: ids.length } });
+  } catch (error) {
+    console.error('批量分配工单错误:', error);
+    res.status(500).json({ code: 500, message: '批量分配失败', data: null });
+  }
   } catch (error) {
     console.error('批量分配工单错误:', error);
     res.status(500).json({ code: 500, message: '批量分配失败', data: null });

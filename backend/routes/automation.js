@@ -3,10 +3,7 @@ const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
-const requireAdmin = (req, res, next) => {
-  if (req.user.manageAll || req.user.roleId === 1) return next();
-  return res.status(403).json({ code: 403, message: '需要管理员权限', data: null });
-};
+const requireAdmin = require('../middleware/admin');
 
 // ============ 工作流规则 ============
 
@@ -211,8 +208,8 @@ router.post('/workflows/trigger', authenticateToken, async (req, res) => {
 // 执行日志
 router.get('/workflows/logs', authenticateToken, async (req, res) => {
   try {
-    const { rule_id, page = 1, page_size = 20 } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(page_size);
+    const { rule_id, page = 1, pageSize = 20 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(pageSize);
     let where = 'WHERE 1=1';
     const params = [];
     if (rule_id) { where += ' AND wl.rule_id = ?'; params.push(rule_id); }
@@ -222,7 +219,7 @@ router.get('/workflows/logs', authenticateToken, async (req, res) => {
       SELECT wl.*, w.name as rule_name
       FROM crm_workflow_log wl JOIN crm_workflow_rule w ON wl.rule_id = w.id
       ${where} ORDER BY wl.create_time DESC LIMIT ? OFFSET ?
-    `, [...params, parseInt(page_size), offset]);
+    `, [...params, parseInt(pageSize), offset]);
 
     res.json({ code: 200, message: '查询成功', data: { list: rows, total } });
   } catch (error) {

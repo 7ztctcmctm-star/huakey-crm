@@ -32,6 +32,7 @@ router.get('/customer/:customerId', authenticateToken, async (req, res) => {
 
 // 设置客户标签（管理员）
 router.post('/customer/:customerId', authenticateToken, async (req, res) => {
+  try {
   const { tag_ids } = req.body;
   const customerId = req.params.customerId;
   const userId = req.user.userId;
@@ -72,10 +73,15 @@ router.post('/customer/:customerId', authenticateToken, async (req, res) => {
   } finally {
     conn.release();
   }
+  } catch (error) {
+    console.error('设置客户标签错误:', error);
+    res.status(500).json({ code: 500, message: '设置失败', data: null });
+  }
 });
 
 // 管理标签（增删改）
 router.post('/manage', authenticateToken, async (req, res) => {
+  try {
   const { action, id, name, color } = req.body;
   const roleId = req.user.roleId;
   if (roleId !== 1 && roleId !== 2) {
@@ -99,6 +105,10 @@ router.post('/manage', authenticateToken, async (req, res) => {
     } else {
       return res.status(400).json({ code: 400, message: '无效操作', data: null });
     }
+  } catch (error) {
+    console.error('管理标签错误:', error);
+    res.status(500).json({ code: 500, message: '操作失败', data: null });
+  }
   } catch (error) {
     console.error('管理标签错误:', error);
     res.status(500).json({ code: 500, message: '操作失败', data: null });

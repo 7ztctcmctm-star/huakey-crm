@@ -3,10 +3,7 @@ const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
-const requireAdmin = (req, res, next) => {
-  if (req.user.manageAll || req.user.roleId === 1) return next();
-  return res.status(403).json({ code: 403, message: '需要管理员权限', data: null });
-};
+const requireAdmin = require('../middleware/admin');
 
 // 货币列表
 router.get('/list', authenticateToken, async (req, res) => {

@@ -2,12 +2,13 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/permission');
 const { getOverdueDays } = require('../utils/config');
 
 // 老板团队跟单全景视图 API
 
 // 1. 团队总览卡片数据
-router.get('/overview', authenticateToken, async (req, res) => {
+router.get('/overview', authenticateToken, checkPermission('team'), async (req, res) => {
   try {
     const userId = req.user.userId;
     const isBoss = req.user.viewAll || req.user.roleId === 1 || req.user.roleId === 2;
@@ -130,7 +131,7 @@ router.get('/overview', authenticateToken, async (req, res) => {
 
 // 2. 每个销售的实况卡片
 // [性能修复] 用聚合查询替代N+1循环，20人团队从141条查询降为4条
-router.get('/sales-breakdown', authenticateToken, async (req, res) => {
+router.get('/sales-breakdown', authenticateToken, checkPermission('team'), async (req, res) => {
   try {
     const isBoss = req.user.viewAll || req.user.roleId === 1 || req.user.roleId === 2;
     const userId = req.user.userId;
@@ -267,7 +268,7 @@ router.get('/sales-breakdown', authenticateToken, async (req, res) => {
 });
 
 // 3. 下钻：某个销售的逾期未跟进客户明细
-router.post('/sales-overdue-customers', authenticateToken, async (req, res) => {
+router.post('/sales-overdue-customers', authenticateToken, checkPermission('team'), async (req, res) => {
   try {
     const { user_id, page = 1, pageSize = 20 } = req.body;
     const offset = (page - 1) * pageSize;
@@ -310,7 +311,7 @@ router.post('/sales-overdue-customers', authenticateToken, async (req, res) => {
 });
 
 // 4. 下钻：某个销售的所有客户列表
-router.post('/sales-customers', authenticateToken, async (req, res) => {
+router.post('/sales-customers', authenticateToken, checkPermission('team'), async (req, res) => {
   try {
     const { user_id, page = 1, pageSize = 20 } = req.body;
     const offset = (page - 1) * pageSize;
@@ -345,7 +346,7 @@ router.post('/sales-customers', authenticateToken, async (req, res) => {
 });
 
 // 5. 催办：主管对销售员的逾期客户发起跟进催促
-router.post('/urge-followup', authenticateToken, async (req, res) => {
+router.post('/urge-followup', authenticateToken, checkPermission('team'), async (req, res) => {
   try {
     const { customer_id, user_id } = req.body;
     const isBoss = req.user.viewAll || req.user.roleId === 1 || req.user.roleId === 2;
@@ -396,7 +397,7 @@ router.post('/urge-followup', authenticateToken, async (req, res) => {
 });
 
 // 6. 获取待审批列表（报价+合同，供团队看板直接审批）
-router.get('/pending-approvals', authenticateToken, async (req, res) => {
+router.get('/pending-approvals', authenticateToken, checkPermission('team'), async (req, res) => {
   try {
     const isBoss = req.user.viewAll || req.user.roleId === 1 || req.user.roleId === 2;
     if (!isBoss) {
@@ -446,7 +447,7 @@ router.get('/pending-approvals', authenticateToken, async (req, res) => {
 });
 
 // 8. 卡住的商机（阶段停留超过N天未推进）
-router.get('/stuck-opportunities', authenticateToken, async (req, res) => {
+router.get('/stuck-opportunities', authenticateToken, checkPermission('team'), async (req, res) => {
   try {
     const isBoss = req.user.viewAll || req.user.roleId === 1 || req.user.roleId === 2;
     if (!isBoss) {

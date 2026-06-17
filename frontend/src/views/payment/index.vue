@@ -137,7 +137,7 @@
         <el-button type="success" @click="openQuickPay" style="margin-left: auto;">快速录入回款</el-button>
         <el-upload
           :action="importUrl"
-          :headers="uploadHeaders"
+          with-credentials
           :show-file-list="false"
           :on-success="handleImportSuccess"
           :on-error="handleImportError"
@@ -236,7 +236,6 @@ const exportLoading = ref(false)
 
 // 导入相关
 const importUrl = '/api/contract/payment/import'
-const uploadHeaders = { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
 
 // 对账汇总
 const summaryLoading = ref(false)

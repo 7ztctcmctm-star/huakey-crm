@@ -1062,7 +1062,6 @@ const handleLogout = () => {
       await request.post('/auth/logout')
     } catch (e) { /* 即使后端请求失败也继续登出 */ }
 
-    localStorage.removeItem('token')
     clearUser()
 
     ElMessage.success('退出登录成功')

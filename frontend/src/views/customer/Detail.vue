@@ -366,7 +366,7 @@
           <el-upload
             ref="followUploadRef"
             :action="uploadUrl"
-            :headers="uploadHeaders"
+            with-credentials
             :data="{ business_type: 'follow_up' }"
             :on-success="handleFollowUploadSuccess"
             :on-remove="handleFollowUploadRemove"
@@ -809,7 +809,6 @@ const insertScript = (item) => {
 watch(scriptDialogVisible, (v) => { if (v) fetchScripts() })
 
 const uploadUrl = '/api/upload/file'
-const uploadHeaders = { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
 const followUploadRef = ref(null)
 const followUploadList = ref([])
 const followAttachmentIds = ref([])

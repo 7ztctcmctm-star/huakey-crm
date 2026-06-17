@@ -21,7 +21,7 @@ const logAction = createRouteLogger(MODULE_NAME);
 const router = express.Router();
 
 // 公海客户列表
-router.post('/pool', authenticateToken, async (req, res) => {
+router.post('/pool', authenticateToken, checkPermission('customer:pool'), async (req, res) => {
   try {
     const { page = 1, pageSize = 10, company_name, industry, source, level, pool_type } = req.body;
     const offset = (page - 1) * pageSize;
@@ -345,7 +345,7 @@ router.post('/batch-release', authenticateToken, checkPermission('customer:pool'
 });
 
 // 获取公海操作日志
-router.post('/pool-log', authenticateToken, async (req, res) => {
+router.post('/pool-log', authenticateToken, checkPermission('customer:pool'), async (req, res) => {
   try {
     const { customer_id, page = 1, pageSize = 20 } = req.body;
     const offset = (page - 1) * pageSize;

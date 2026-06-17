@@ -162,7 +162,7 @@
           <el-upload
             ref="uploadRef"
             :action="uploadUrl"
-            :headers="uploadHeaders"
+            with-credentials
             :data="{ business_type: 'service_order' }"
             :on-success="handleUploadSuccess"
             :on-remove="handleUploadRemove"
@@ -353,7 +353,6 @@ import { formatTime } from '@/composables/useFormat'
 
 // 上传相关
 const uploadUrl = '/api/upload/file'
-const uploadHeaders = { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
 const uploadFileList = ref([])
 const attachmentIds = ref([])
 const uploadRef = ref(null)

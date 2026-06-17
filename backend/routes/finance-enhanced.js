@@ -2,14 +2,15 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/permission');
 
 // ============ 回款提醒 ============
 
 // 提醒列表
-router.get('/reminders', authenticateToken, async (req, res) => {
+router.get('/reminders', authenticateToken, checkPermission('finance'), async (req, res) => {
   try {
-    const { status = '', page = 1, page_size = 20 } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(page_size);
+    const { status = '', page = 1, pageSize = 20 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(pageSize);
     let where = 'WHERE 1=1';
     const params = [];
     if (status) { where += ' AND r.status = ?'; params.push(status); }
@@ -21,7 +22,7 @@ router.get('/reminders', authenticateToken, async (req, res) => {
       JOIN crm_contract c ON r.contract_id = c.id
       JOIN crm_customer cu ON r.customer_id = cu.id
       ${where} ORDER BY r.remind_date ASC LIMIT ? OFFSET ?
-    `, [...params, parseInt(page_size), offset]);
+    `, [...params, parseInt(pageSize), offset]);
 
     res.json({ code: 200, message: '查询成功', data: { list: rows, total } });
   } catch (error) {
@@ -31,7 +32,7 @@ router.get('/reminders', authenticateToken, async (req, res) => {
 });
 
 // 生成回款提醒
-router.post('/reminders/generate', authenticateToken, async (req, res) => {
+router.post('/reminders/generate', authenticateToken, checkPermission('finance'), async (req, res) => {
   try {
     let created = 0;
 
@@ -89,7 +90,7 @@ router.post('/reminders/generate', authenticateToken, async (req, res) => {
 });
 
 // 确认提醒
-router.put('/reminders/:id/acknowledge', authenticateToken, async (req, res) => {
+router.put('/reminders/:id/acknowledge', authenticateToken, checkPermission('finance'), async (req, res) => {
   try {
     await pool.query("UPDATE crm_payment_reminder SET status = 'acknowledged' WHERE id = ?", [req.params.id]);
     res.json({ code: 200, message: '已确认', data: null });
@@ -100,7 +101,7 @@ router.put('/reminders/:id/acknowledge', authenticateToken, async (req, res) => 
 });
 
 // 提醒汇总
-router.get('/reminders/summary', authenticateToken, async (req, res) => {
+router.get('/reminders/summary', authenticateToken, checkPermission('finance'), async (req, res) => {
   try {
     const [[{ today_pending }]] = await pool.query("SELECT COUNT(*) as today_pending FROM crm_payment_reminder WHERE status = 'pending' AND remind_date = CURDATE()");
     const [[{ upcoming }]] = await pool.query("SELECT COUNT(*) as upcoming FROM crm_payment_reminder WHERE status = 'pending' AND remind_type = 'upcoming'");
@@ -120,7 +121,7 @@ router.get('/reminders/summary', authenticateToken, async (req, res) => {
 // ============ 对账管理 ============
 
 // 客户对账数据
-router.get('/reconciliation/customer', authenticateToken, async (req, res) => {
+router.get('/reconciliation/customer', authenticateToken, checkPermission('finance'), async (req, res) => {
   try {
     const { customer_id, start_date, end_date } = req.query;
     if (!customer_id) return res.status(400).json({ code: 400, message: '请选择客户', data: null });
@@ -165,7 +166,7 @@ router.get('/reconciliation/customer', authenticateToken, async (req, res) => {
 });
 
 // 供应商对账数据
-router.get('/reconciliation/supplier', authenticateToken, async (req, res) => {
+router.get('/reconciliation/supplier', authenticateToken, checkPermission('finance'), async (req, res) => {
   try {
     const { supplier_id, start_date, end_date } = req.query;
     if (!supplier_id) return res.status(400).json({ code: 400, message: '请选择供应商', data: null });
@@ -205,7 +206,7 @@ const generateReconNo = async () => {
 };
 
 // 保存对账单
-router.post('/reconciliation/save', authenticateToken, async (req, res) => {
+router.post('/reconciliation/save', authenticateToken, checkPermission('finance'), async (req, res) => {
   try {
     const { recon_type, target_id, target_name, period_start, period_end, total_amount, paid_amount, unpaid_amount, detail_data } = req.body;
     if (!recon_type || !target_id) return res.status(400).json({ code: 400, message: '参数不完整', data: null });
@@ -223,10 +224,10 @@ router.post('/reconciliation/save', authenticateToken, async (req, res) => {
 });
 
 // 对账单列表
-router.get('/reconciliation/list', authenticateToken, async (req, res) => {
+router.get('/reconciliation/list', authenticateToken, checkPermission('finance'), async (req, res) => {
   try {
-    const { recon_type = '', status = '', page = 1, page_size = 20 } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(page_size);
+    const { recon_type = '', status = '', page = 1, pageSize = 20 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(pageSize);
     let where = 'WHERE 1=1';
     const params = [];
     if (recon_type) { where += ' AND recon_type = ?'; params.push(recon_type); }
@@ -237,7 +238,7 @@ router.get('/reconciliation/list', authenticateToken, async (req, res) => {
       SELECT r.*, u.real_name as create_by_name
       FROM crm_reconciliation r LEFT JOIN sys_user u ON r.create_by = u.id
       ${where} ORDER BY r.create_time DESC LIMIT ? OFFSET ?
-    `, [...params, parseInt(page_size), offset]);
+    `, [...params, parseInt(pageSize), offset]);
 
     res.json({ code: 200, message: '查询成功', data: { list: rows, total } });
   } catch (error) {
@@ -248,7 +249,7 @@ router.get('/reconciliation/list', authenticateToken, async (req, res) => {
 
 // ============ 财务分析 ============
 
-router.get('/analysis', authenticateToken, async (req, res) => {
+router.get('/analysis', authenticateToken, checkPermission('finance'), async (req, res) => {
   try {
     const { start_date, end_date } = req.query;
     const now = new Date();
@@ -357,7 +358,7 @@ router.get('/analysis', authenticateToken, async (req, res) => {
 });
 
 // 财务分析导出CSV
-router.get('/analysis/export', authenticateToken, async (req, res) => {
+router.get('/analysis/export', authenticateToken, checkPermission('finance'), async (req, res) => {
   try {
     const { start_date, end_date } = req.query;
     const now = new Date();

@@ -2,12 +2,9 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/permission');
 
-// 管理员权限检查
-const requireAdmin = (req, res, next) => {
-  if (req.user.manageAll || req.user.roleId === 1) return next();
-  return res.status(403).json({ code: 403, message: '需要管理员权限', data: null });
-};
+const requireAdmin = require('../middleware/admin');
 
 // 业务表映射
 const BUSINESS_TABLE_MAP = {
@@ -17,7 +14,7 @@ const BUSINESS_TABLE_MAP = {
 };
 
 // 获取所有审批流程
-router.get('/workflows', authenticateToken, async (req, res) => {
+router.get('/workflows', authenticateToken, checkPermission('approval'), async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT w.*, u.real_name as create_by_name,
@@ -157,7 +154,7 @@ router.delete('/workflows/:id', authenticateToken, requireAdmin, async (req, res
 });
 
 // 提交审批
-router.post('/submit', authenticateToken, async (req, res) => {
+router.post('/submit', authenticateToken, checkPermission('approval'), async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const { business_type, business_id } = req.body;
@@ -243,7 +240,7 @@ router.post('/submit', authenticateToken, async (req, res) => {
 });
 
 // 审批通过
-router.post('/approve/:id', authenticateToken, async (req, res) => {
+router.post('/approve/:id', authenticateToken, checkPermission('approval'), async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const { id } = req.params;
@@ -313,7 +310,7 @@ router.post('/approve/:id', authenticateToken, async (req, res) => {
 });
 
 // 审批驳回
-router.post('/reject/:id', authenticateToken, async (req, res) => {
+router.post('/reject/:id', authenticateToken, checkPermission('approval'), async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const { id } = req.params;
@@ -356,7 +353,7 @@ router.post('/reject/:id', authenticateToken, async (req, res) => {
 });
 
 // 撤回审批
-router.delete('/withdraw/:business_type/:business_id', authenticateToken, async (req, res) => {
+router.delete('/withdraw/:business_type/:business_id', authenticateToken, checkPermission('approval'), async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const { business_type, business_id } = req.params;
@@ -404,7 +401,7 @@ router.delete('/withdraw/:business_type/:business_id', authenticateToken, async 
 });
 
 // 获取审批详情
-router.get('/detail/:business_type/:business_id', authenticateToken, async (req, res) => {
+router.get('/detail/:business_type/:business_id', authenticateToken, checkPermission('approval'), async (req, res) => {
   try {
     const { business_type, business_id } = req.params;
 
@@ -427,7 +424,7 @@ router.get('/detail/:business_type/:business_id', authenticateToken, async (req,
 });
 
 // 审批详情+客户历史
-router.get('/detail-with-history/:business_type/:business_id', authenticateToken, async (req, res) => {
+router.get('/detail-with-history/:business_type/:business_id', authenticateToken, checkPermission('approval'), async (req, res) => {
   try {
     const { business_type, business_id } = req.params;
     let customerId = null;
@@ -464,7 +461,7 @@ router.get('/detail-with-history/:business_type/:business_id', authenticateToken
 });
 
 // 我的待审批
-router.get('/my-pending', authenticateToken, async (req, res) => {
+router.get('/my-pending', authenticateToken, checkPermission('approval'), async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT r.*, w.name as workflow_name, w.type as business_type_name,
@@ -510,7 +507,7 @@ router.get('/my-pending', authenticateToken, async (req, res) => {
 });
 
 // 我提交的审批
-router.get('/my-submitted', authenticateToken, async (req, res) => {
+router.get('/my-submitted', authenticateToken, checkPermission('approval'), async (req, res) => {
   try {
     // 通过业务表查询我创建的记录的审批状态
     const results = [];
@@ -570,7 +567,8 @@ router.get('/my-submitted', authenticateToken, async (req, res) => {
 });
 
 // 批量通过
-router.post('/batch-approve', authenticateToken, async (req, res) => {
+router.post('/batch-approve', authenticateToken, checkPermission('approval'), async (req, res) => {
+  try {
   const { ids, remark } = req.body;
   if (!ids || !Array.isArray(ids) || ids.length === 0) {
     return res.status(400).json({ code: 400, message: '请选择要审批的记录', data: null });
@@ -613,10 +611,15 @@ router.post('/batch-approve', authenticateToken, async (req, res) => {
     }
   }
   res.json({ code: 200, message: `批量审批完成：成功${success}条，失败${failed}条`, data: { success, failed } });
+  } catch (error) {
+    console.error('[审批] 批量通过错误:', error);
+    res.status(500).json({ code: 500, message: '批量审批失败', data: null });
+  }
 });
 
 // 批量驳回
-router.post('/batch-reject', authenticateToken, async (req, res) => {
+router.post('/batch-reject', authenticateToken, checkPermission('approval'), async (req, res) => {
+  try {
   const { ids, remark } = req.body;
   if (!ids || !Array.isArray(ids) || ids.length === 0) {
     return res.status(400).json({ code: 400, message: '请选择要驳回的记录', data: null });
@@ -645,6 +648,10 @@ router.post('/batch-reject', authenticateToken, async (req, res) => {
     }
   }
   res.json({ code: 200, message: `批量驳回完成：成功${success}条，失败${failed}条`, data: { success, failed } });
+  } catch (error) {
+    console.error('[审批] 批量驳回错误:', error);
+    res.status(500).json({ code: 500, message: '批量驳回失败', data: null });
+  }
 });
 
 module.exports = router;

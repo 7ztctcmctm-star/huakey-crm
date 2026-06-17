@@ -7,8 +7,8 @@ const { checkPermission } = require('../middleware/permission');
 // 库存列表
 router.get('/list', authenticateToken, async (req, res) => {
   try {
-    const { category = '', keyword = '', stock_status = '', page = 1, page_size = 20 } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(page_size);
+    const { category = '', keyword = '', stock_status = '', page = 1, pageSize = 20 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(pageSize);
     let where = 'WHERE p.deleted_at IS NULL';
     const params = [];
 
@@ -41,7 +41,7 @@ router.get('/list', authenticateToken, async (req, res) => {
       ${where}
       ORDER BY p.category, p.name
       LIMIT ? OFFSET ?
-    `, [...params, parseInt(page_size), offset]);
+    `, [...params, parseInt(pageSize), offset]);
 
     res.json({ code: 200, message: '查询成功', data: { list: rows, total } });
   } catch (error) {
@@ -53,8 +53,8 @@ router.get('/list', authenticateToken, async (req, res) => {
 // 库存变动记录
 router.get('/movements', authenticateToken, async (req, res) => {
   try {
-    const { product_id, movement_type, start_date, end_date, page = 1, page_size = 20 } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(page_size);
+    const { product_id, movement_type, start_date, end_date, page = 1, pageSize = 20 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(pageSize);
     let where = 'WHERE 1=1';
     const params = [];
 
@@ -74,7 +74,7 @@ router.get('/movements', authenticateToken, async (req, res) => {
       LEFT JOIN sys_user u ON m.operator_id = u.id
       ${where}
       ORDER BY m.create_time DESC LIMIT ? OFFSET ?
-    `, [...params, parseInt(page_size), offset]);
+    `, [...params, parseInt(pageSize), offset]);
 
     res.json({ code: 200, message: '查询成功', data: { list: rows, total } });
   } catch (error) {

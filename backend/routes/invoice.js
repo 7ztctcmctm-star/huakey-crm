@@ -2,9 +2,8 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { checkPermission } = require('../middleware/permission');
+const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
-const { getDataPermission, buildPermissionClause } = require('../utils/permission');
 const XLSX = require('xlsx');
 
 const MODULE_NAME = '发票管理';
@@ -52,13 +51,12 @@ const deleteSchema = Joi.object({
 });
 
 // 列表查询
-router.post('/list', authenticateToken, validate(listSchema), async (req, res) => {
+router.post('/list', authenticateToken, checkDataPermission('invoice', 'create_by'), validate(listSchema), async (req, res) => {
   try {
     const { page = 1, pageSize = 10, keyword, status, type, start_date, end_date } = req.body;
     const offset = (page - 1) * pageSize;
 
-    const permission = await getDataPermission(req.user);
-    const { clause: permissionClause, params: permParams } = buildPermissionClause(permission, 'i', 'create_by');
+    const { clause: permissionClause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'i');
 
     let sql = `SELECT i.*, cu.company_name as customer_name, u.real_name as create_by_name
       FROM crm_invoice i
@@ -212,12 +210,11 @@ router.post('/delete', authenticateToken, checkPermission('invoice:delete'), val
 });
 
 // 导出
-router.post('/export', authenticateToken, checkPermission('invoice:export'), async (req, res) => {
+router.post('/export', authenticateToken, checkPermission('invoice:export'), checkDataPermission('invoice', 'create_by'), async (req, res) => {
   try {
     const { keyword = '', status = '', type = '' } = req.body;
 
-    const permission = await getDataPermission(req.user);
-    const { clause: permissionClause, params: permParams } = buildPermissionClause(permission, 'i', 'create_by');
+    const { clause: permissionClause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'i');
 
     let sql = `SELECT i.invoice_no, cu.company_name as customer_name, i.type, i.amount,
       i.tax_rate, i.tax_amount, i.invoice_date, i.status, i.remark,

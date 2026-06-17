@@ -6,8 +6,8 @@ const { authenticateToken } = require('../middleware/auth');
 // 沟通记录列表
 router.get('/records', authenticateToken, async (req, res) => {
   try {
-    const { customer_id, contact_id, platform, page = 1, page_size = 20 } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(page_size);
+    const { customer_id, contact_id, platform, page = 1, pageSize = 20 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(pageSize);
     let where = 'WHERE 1=1';
     const params = [];
     if (customer_id) { where += ' AND s.customer_id = ?'; params.push(customer_id); }
@@ -22,7 +22,7 @@ router.get('/records', authenticateToken, async (req, res) => {
       LEFT JOIN crm_contact ct ON s.contact_id = ct.id
       LEFT JOIN sys_user u ON s.create_by = u.id
       ${where} ORDER BY s.message_time DESC LIMIT ? OFFSET ?
-    `, [...params, parseInt(page_size), offset]);
+    `, [...params, parseInt(pageSize), offset]);
 
     res.json({ code: 200, message: '查询成功', data: { list: rows, total } });
   } catch (error) {

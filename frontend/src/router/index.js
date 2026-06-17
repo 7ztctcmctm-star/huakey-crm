@@ -528,33 +528,29 @@ const router = createRouter({
 })
 
 // 路由守卫
-router.beforeEach((to, from, next) => {
-  const token = localStorage.getItem('token')
-
+router.beforeEach(async (to, from, next) => {
   // 公开页面直接放行
   if (to.meta.public) {
     next()
     return
   }
 
-  // 未登录跳转到登录页
-  if (!token) {
+  // 验证登录状态（cookie + 后端校验）
+  const { useUser } = await import('../composables/useUser')
+  const { userInfo, verifyAuth } = useUser()
+
+  const isAuthenticated = await verifyAuth()
+  if (!isAuthenticated) {
     next('/login')
     return
   }
 
   // 获取用户信息
-  let userInfo = {}
-  try {
-    userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
-  } catch {
-    next('/login')
-    return
-  }
+  const user = userInfo.value || {}
 
   // 检查管理员权限
   if (to.meta.admin) {
-    if (userInfo.manageAll || userInfo.roleId === 1) {
+    if (user.manageAll || user.roleId === 1) {
       next()
     } else {
       next('/dashboard')
@@ -564,9 +560,9 @@ router.beforeEach((to, from, next) => {
 
   // 检查菜单权限
   if (to.meta.permission) {
-    const permissions = userInfo.permissions || []
-    const hasAuth = userInfo.roleId === 1 ||
-                    userInfo.manageAll ||
+    const permissions = user.permissions || []
+    const hasAuth = user.roleId === 1 ||
+                    user.manageAll ||
                     permissions.includes(to.meta.permission)
 
     if (!hasAuth) {

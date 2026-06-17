@@ -5,12 +5,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const { restore, permanentDelete, getDeletedList } = require('../utils/softDelete');
 
-const requireAdmin = (req, res, next) => {
-  if (!req.user.manageAll && req.user.roleId !== 1) {
-    return res.status(403).json({ code: 403, message: '无权限操作', data: null });
-  }
-  next();
-};
+const requireAdmin = require('../middleware/admin');
 
 // 可回收站管理的表配置
 const TABLE_CONFIG = {
@@ -68,6 +63,7 @@ router.post('/list', authenticateToken, checkPermission('recycle_bin:view'), asy
 
 // 恢复记录
 router.post('/restore', authenticateToken, checkPermission('data:restore'), requireAdmin, async (req, res) => {
+  try {
   const { module, id } = req.body;
 
   if (!module || !TABLE_CONFIG[module] || !id) {
@@ -87,10 +83,15 @@ router.post('/restore', authenticateToken, checkPermission('data:restore'), requ
     console.error('恢复记录失败:', error);
     res.status(500).json({ code: 500, message: '恢复失败', data: null });
   }
+  } catch (error) {
+    console.error('恢复记录失败:', error);
+    res.status(500).json({ code: 500, message: '恢复失败', data: null });
+  }
 });
 
 // 彻底删除
 router.post('/permanent-delete', authenticateToken, checkPermission('data:restore'), requireAdmin, async (req, res) => {
+  try {
   const { module, id } = req.body;
 
   if (!module || !TABLE_CONFIG[module] || !id) {
@@ -106,6 +107,10 @@ router.post('/permanent-delete', authenticateToken, checkPermission('data:restor
     } else {
       res.json({ code: 404, message: '记录不存在', data: null });
     }
+  } catch (error) {
+    console.error('彻底删除失败:', error);
+    res.status(500).json({ code: 500, message: '删除失败', data: null });
+  }
   } catch (error) {
     console.error('彻底删除失败:', error);
     res.status(500).json({ code: 500, message: '删除失败', data: null });

@@ -2,19 +2,15 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-
-const requireAdmin = (req, res, next) => {
-  if (req.user.manageAll || req.user.roleId === 1) return next();
-  return res.status(403).json({ code: 403, message: '需要管理员权限', data: null });
-};
+const { requireManager } = require('../middleware/admin');
 
 // ============ 员工档案 ============
 
 // 员工列表
-router.get('/employees', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/employees', authenticateToken, requireManager, async (req, res) => {
   try {
-    const { dept_id, status, keyword, contract_expiring, page = 1, page_size = 20 } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(page_size);
+    const { dept_id, status, keyword, contract_expiring, page = 1, pageSize = 20 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(pageSize);
     let where = 'WHERE 1=1';
     const params = [];
 
@@ -39,7 +35,7 @@ router.get('/employees', authenticateToken, requireAdmin, async (req, res) => {
       LEFT JOIN sys_role r ON u.role_id = r.id
       LEFT JOIN crm_employee_profile p ON u.id = p.user_id
       ${where} ORDER BY u.id LIMIT ? OFFSET ?
-    `, [...params, parseInt(page_size), offset]);
+    `, [...params, parseInt(pageSize), offset]);
 
     // 即将到期合同数
     const [[{ expiring }]] = await pool.query(
@@ -57,7 +53,7 @@ router.get('/employees', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // 员工统计
-router.get('/employees/stats', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/employees/stats', authenticateToken, requireManager, async (req, res) => {
   try {
     const [[total]] = await pool.query('SELECT COUNT(*) as cnt FROM sys_user');
     const [[active]] = await pool.query('SELECT COUNT(*) as cnt FROM sys_user WHERE status = 1');
@@ -114,7 +110,7 @@ router.get('/employees/:id', authenticateToken, async (req, res) => {
 });
 
 // 员工薪资信息（仅管理员可访问）
-router.get('/employees/:id/salary', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/employees/:id/salary', authenticateToken, requireManager, async (req, res) => {
   try {
     const [[profile]] = await pool.query(
       'SELECT salary_base, salary_commission_rate, bank_name, bank_account FROM crm_employee_profile WHERE user_id = ?',
@@ -128,7 +124,7 @@ router.get('/employees/:id/salary', authenticateToken, requireAdmin, async (req,
 });
 
 // 创建/更新员工档案
-router.post('/employees/:id/profile', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/employees/:id/profile', authenticateToken, requireManager, async (req, res) => {
   try {
     const userId = req.params.id;
     const [[user]] = await pool.query('SELECT id FROM sys_user WHERE id = ?', [userId]);
@@ -218,7 +214,7 @@ router.get('/commission/rules', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/commission/rules', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/commission/rules', authenticateToken, requireManager, async (req, res) => {
   try {
     const { name, rule_type, apply_to, config, remark } = req.body;
     if (!name || !rule_type || !config) return res.status(400).json({ code: 400, message: '参数不完整', data: null });
@@ -234,7 +230,7 @@ router.post('/commission/rules', authenticateToken, requireAdmin, async (req, re
   }
 });
 
-router.put('/commission/rules/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/commission/rules/:id', authenticateToken, requireManager, async (req, res) => {
   try {
     const { name, rule_type, apply_to, config, status, remark } = req.body;
     const fields = [], values = [];
@@ -254,7 +250,7 @@ router.put('/commission/rules/:id', authenticateToken, requireAdmin, async (req,
   }
 });
 
-router.delete('/commission/rules/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.delete('/commission/rules/:id', authenticateToken, requireManager, async (req, res) => {
   try {
     await pool.query('UPDATE crm_commission_rule SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
     res.json({ code: 200, message: '删除成功', data: null });
@@ -265,7 +261,7 @@ router.delete('/commission/rules/:id', authenticateToken, requireAdmin, async (r
 });
 
 // 计算佣金
-router.post('/commission/calculate', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/commission/calculate', authenticateToken, requireManager, async (req, res) => {
   try {
     const { period, user_ids } = req.body;
     if (!period) return res.status(400).json({ code: 400, message: '请选择月份', data: null });
@@ -353,8 +349,8 @@ router.post('/commission/calculate', authenticateToken, requireAdmin, async (req
 // 佣金记录列表
 router.get('/commission/records', authenticateToken, async (req, res) => {
   try {
-    const { period, user_id, status, page = 1, page_size = 20 } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(page_size);
+    const { period, user_id, status, page = 1, pageSize = 20 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(pageSize);
     let where = 'WHERE 1=1';
     const params = [];
     if (period) { where += ' AND r.period = ?'; params.push(period); }
@@ -374,7 +370,7 @@ router.get('/commission/records', authenticateToken, async (req, res) => {
       LEFT JOIN crm_contract c2 ON p.contract_id = c2.id
       LEFT JOIN crm_customer cu2 ON c2.customer_id = cu2.id
       ${where} ORDER BY r.period DESC, r.create_time DESC LIMIT ? OFFSET ?
-    `, [...params, parseInt(page_size), offset]);
+    `, [...params, parseInt(pageSize), offset]);
 
     res.json({ code: 200, message: '查询成功', data: { list: rows, total } });
   } catch (error) {
@@ -406,7 +402,7 @@ router.get('/commission/stats', authenticateToken, async (req, res) => {
 });
 
 // 批量确认
-router.post('/commission/records/batch-confirm', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/commission/records/batch-confirm', authenticateToken, requireManager, async (req, res) => {
   try {
     const { ids } = req.body;
     if (!ids || ids.length === 0) return res.status(400).json({ code: 400, message: '请选择记录', data: null });
@@ -420,7 +416,7 @@ router.post('/commission/records/batch-confirm', authenticateToken, requireAdmin
 });
 
 // 批量发放
-router.post('/commission/records/batch-pay', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/commission/records/batch-pay', authenticateToken, requireManager, async (req, res) => {
   try {
     const { ids } = req.body;
     if (!ids || ids.length === 0) return res.status(400).json({ code: 400, message: '请选择记录', data: null });

@@ -2,10 +2,9 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { checkPermission } = require('../middleware/permission');
+const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const { maskSensitiveData } = require('../utils/mask');
-const { getDataPermission, buildPermissionClause } = require('../utils/permission');
 
 const MODULE_NAME = '供应商管理';
 
@@ -72,6 +71,7 @@ const addContactSchema = Joi.object({
 });
 
 const supplierListHandler = async (req, res) => {
+  try {
   const source = req.method === 'GET' ? req.query : req.body;
   const page = parseInt(source.page) || 1;
   const pageSize = parseInt(source.pageSize) || 10;
@@ -82,8 +82,7 @@ const supplierListHandler = async (req, res) => {
   const offset = (page - 1) * pageSize;
 
   try {
-    const permission = await getDataPermission(req.user);
-    const { clause: permissionClause, params: permParams } = buildPermissionClause(permission, 's');
+    const { clause: permissionClause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 's');
 
     let sql = `SELECT s.*, u.real_name as owner_name,
       (SELECT COUNT(*) FROM crm_supplier_contact c WHERE c.supplier_id = s.id) as contact_count,
@@ -142,17 +141,20 @@ const supplierListHandler = async (req, res) => {
     console.error('[供应商] 供应商列表错误:', error.message);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
+  } catch (error) {
+    console.error('[供应商] 供应商列表错误:', error.message);
+    res.status(500).json({ code: 500, message: '查询失败', data: null });
+  }
 };
 
-router.get('/list', authenticateToken, supplierListHandler);
-router.post('/list', authenticateToken, validate(listSchema), supplierListHandler);
+router.get('/list', authenticateToken, checkDataPermission('supplier', 'owner_id'), supplierListHandler);
+router.post('/list', authenticateToken, checkDataPermission('supplier', 'owner_id'), validate(listSchema), supplierListHandler);
 
-router.get('/detail/:id', authenticateToken, async (req, res) => {
+router.get('/detail/:id', authenticateToken, checkDataPermission('supplier', 'owner_id'), async (req, res) => {
   const { id } = req.params;
 
   try {
-    const permission = await getDataPermission(req.user);
-    const { clause: permissionClause, params: permParams } = buildPermissionClause(permission, 's');
+    const { clause: permissionClause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 's');
 
     const [suppliers] = await pool.query(`
       SELECT s.*, u.real_name as owner_name, ub.real_name as create_by_name

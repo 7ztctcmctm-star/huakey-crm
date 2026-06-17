@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
 const compression = require('compression');
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
@@ -46,33 +47,13 @@ const corsOrigin = isProduction
 
 app.use(cors({
   origin: corsOrigin,
-  credentials: false,
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// 统一响应格式中间件
-app.use((req, res, next) => {
-  res.success = (data = null, message = '操作成功') => {
-    res.json({
-      code: 200,
-      message,
-      data
-    });
-  };
-
-  res.error = (message = '操作失败', code = 500) => {
-    res.status(code).json({
-      code,
-      message,
-      data: null
-    });
-  };
-
-  next();
-});
 
 // 加载日志中间件
 const { globalLogMiddleware } = require('./middleware/logger');
@@ -140,21 +121,29 @@ apiRouter.use(globalLogMiddleware);
 
 // 测试路由
 apiRouter.get('/', (req, res) => {
-  res.success({
-    name: '铧旗CRM系统 API',
-    version: 'crm_v1',
-    build: '1.0.0',
-    status: 'running'
-  }, '欢迎使用铧旗CRM系统 API');
+  res.json({
+    code: 200,
+    message: '欢迎使用铧旗CRM系统 API',
+    data: {
+      name: '铧旗CRM系统 API',
+      version: 'crm_v1',
+      build: '1.0.0',
+      status: 'running'
+    }
+  });
 });
 
 // 健康检查
 apiRouter.get('/health', (req, res) => {
-  res.success({
-    status: 'ok',
-    version: 'crm_v1',
-    timestamp: new Date().toISOString()
-  }, '服务运行正常');
+  res.json({
+    code: 200,
+    message: '服务运行正常',
+    data: {
+      status: 'ok',
+      version: 'crm_v1',
+      timestamp: new Date().toISOString()
+    }
+  });
 });
 
 // 认证路由（更严格的限流）
@@ -401,6 +390,17 @@ if (!process.env.VERCEL) {
       console.error('[提醒生成] 执行失败:', error.message);
     }
   }, { timezone: 'Asia/Shanghai' });
+
+  // 全局未捕获Promise拒绝处理器
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('[FATAL] 未捕获的Promise拒绝:', reason);
+  });
+
+  // 全局未捕获异常处理器
+  process.on('uncaughtException', (error) => {
+    console.error('[FATAL] 未捕获异常:', error);
+    process.exit(1);
+  });
 
   // 启动服务器
   app.listen(PORT, () => {

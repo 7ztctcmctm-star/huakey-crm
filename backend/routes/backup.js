@@ -7,12 +7,7 @@ const { execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-const requireAdmin = (req, res, next) => {
-  if (!req.user.manageAll && req.user.roleId !== 1) {
-    return res.status(403).json({ code: 403, message: '无权限操作', data: null });
-  }
-  next();
-};
+const requireAdmin = require('../middleware/admin');
 
 const backupDir = path.join(__dirname, '../backups');
 
@@ -119,6 +114,7 @@ router.post('/list', authenticateToken, checkPermission('backup:create'), async 
 
 // 恢复备份（需确认码）
 router.post('/restore', authenticateToken, checkPermission('backup:restore'), requireAdmin, async (req, res) => {
+  try {
   const { id, confirm_code } = req.body;
 
   if (!confirm_code || confirm_code !== `RESTORE-${id}`) {
@@ -171,6 +167,10 @@ router.post('/restore', authenticateToken, checkPermission('backup:restore'), re
     ).stdin.end(sqlContent);
 
     res.json({ code: 200, message: '恢复任务已执行', data: null });
+  } catch (error) {
+    console.error('[备份] 恢复备份失败:', error);
+    res.status(500).json({ code: 500, message: '恢复失败', data: null });
+  }
   } catch (error) {
     console.error('[备份] 恢复备份失败:', error);
     res.status(500).json({ code: 500, message: '恢复失败', data: null });

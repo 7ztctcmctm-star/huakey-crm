@@ -23,12 +23,7 @@ const deptDeleteSchema = Joi.object({
   id: Joi.number().integer().required()
 });
 
-const requireAdmin = (req, res, next) => {
-  if (!req.user.manageAll && req.user.roleId !== 1) {
-    return res.status(403).json({ code: 403, message: '无权限操作', data: null });
-  }
-  next();
-};
+const requireAdmin = require('../middleware/admin');
 
 router.post('/list', authenticateToken, checkPermission('system:dept'), async (req, res) => {
   try {

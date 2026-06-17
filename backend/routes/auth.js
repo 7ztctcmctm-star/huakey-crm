@@ -1,12 +1,24 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const svgCaptcha = require('svg-captcha');
 const pool = require('../config/database');
-const { generateToken } = require('../middleware/auth');
+const { authenticateToken, generateToken, getTokenFromRequest } = require('../middleware/auth');
 const { validate, Joi } = require('../middleware/validate');
 const { logAction, getIpAddress } = require('../middleware/logger');
 const { getUserPermissions, getMenuPermissions, getDataPermissions } = require('../services/permissionService');
 
 const router = express.Router();
+
+// 验证码存储（key: captcha_key, value: {code, expires}）
+const captchaStore = new Map();
+
+// 定期清理过期验证码（每5分钟）
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, val] of captchaStore) {
+    if (val.expires < now) captchaStore.delete(key);
+  }
+}, 5 * 60 * 1000);
 
 // [安全修复] 密码正则：至少8位，含大小写字母和数字
 const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
@@ -14,7 +26,9 @@ const PASSWORD_MESSAGE = '密码至少8位，需包含大写字母、小写字�
 
 const loginSchema = Joi.object({
   username: Joi.string().required().min(2).max(50),
-  password: Joi.string().required().max(200)
+  password: Joi.string().required().max(200),
+  captcha: Joi.string().required().length(4),
+  captchaKey: Joi.string().required()
 });
 
 const registerSchema = Joi.object({
@@ -34,11 +48,56 @@ const changePasswordSchema = Joi.object({
   new_password: Joi.string().required().max(200).pattern(PASSWORD_PATTERN).message(PASSWORD_MESSAGE)
 });
 
+// 0. 获取验证码
+router.get('/captcha', (req, res) => {
+  const captcha = svgCaptcha.create({
+    size: 4,
+    ignoreChars: '0o1il',
+    noise: 2,
+    color: true,
+    background: '#f5f5f7'
+  });
+
+  const key = Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
+  captchaStore.set(key, {
+    code: captcha.text.toLowerCase(),
+    expires: Date.now() + 5 * 60 * 1000 // 5分钟过期
+  });
+
+  res.json({
+    code: 200,
+    data: {
+      key: key,
+      svg: captcha.data  // SVG字符串，前端直接渲染
+    }
+  });
+});
+
 // 1. 登录接口
 router.post('/login', validate(loginSchema), async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, captcha, captchaKey } = req.body;
     const ip = getIpAddress(req);
+
+    // 验证码校验
+    const stored = captchaStore.get(captchaKey);
+    if (!stored || stored.expires < Date.now()) {
+      captchaStore.delete(captchaKey);
+      return res.status(400).json({
+        code: 400,
+        message: '验证码已过期，请刷新',
+        data: null
+      });
+    }
+    if (stored.code !== captcha.toLowerCase()) {
+      captchaStore.delete(captchaKey);
+      return res.status(400).json({
+        code: 400,
+        message: '验证码错误',
+        data: null
+      });
+    }
+    captchaStore.delete(captchaKey); // 一次性使用
 
     // 参数验证
     if (!username || !password) {
@@ -117,7 +176,15 @@ router.post('/login', validate(loginSchema), async (req, res) => {
       description: `${user.real_name} 登录成功`, status: 1
     });
 
-    // 返回结果
+    // 设置httpOnly cookie
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: false,        // 内网HTTP，生产HTTPS时改为true
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000  // 7天
+    });
+
+    // 返回结果（token仍在body中保持兼容）
     res.json({
       code: 200,
       message: '登录成功',
@@ -153,8 +220,16 @@ router.post('/login', validate(loginSchema), async (req, res) => {
 // 2. 登出接口
 router.post('/logout', (req, res) => {
   const ip = getIpAddress(req);
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+
+  // 清除httpOnly cookie
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: false,
+    sameSite: 'strict'
+  });
+
+  // 从cookie或header获取token用于日志记录
+  const token = getTokenFromRequest(req);
 
   if (token) {
     try {
@@ -174,8 +249,58 @@ router.post('/logout', (req, res) => {
   res.json({ code: 200, message: '登出成功', data: null });
 });
 
-// 3. 注册接口（仅管理员可用，禁止公开注册）
-const { authenticateToken } = require('../middleware/auth');
+// 3. 获取当前用户信息（用于前端验证登录状态）
+router.get('/me', authenticateToken, async (req, res) => {
+  try {
+    const [users] = await pool.query(
+      `SELECT u.id, u.username, u.real_name, u.phone, u.email,
+              u.dept_id, u.role_id, u.status,
+              COALESCE(r.view_all, 0) as view_all,
+              COALESCE(r.manage_all, 0) as manage_all
+       FROM sys_user u
+       LEFT JOIN sys_role r ON u.role_id = r.id
+       WHERE u.id = ? AND u.status = 1`,
+      [req.user.userId]
+    );
+
+    if (users.length === 0) {
+      return res.status(401).json({ code: 401, message: '用户不存在或已禁用', data: null });
+    }
+
+    const user = users[0];
+
+    // 三个权限查询互不依赖，并行执行
+    const [permissions, menus, dataPermissions] = await Promise.all([
+      getUserPermissions(user.id, user.role_id),
+      getMenuPermissions(user.role_id),
+      getDataPermissions(user.role_id)
+    ]);
+
+    res.json({
+      code: 200,
+      message: '获取成功',
+      data: {
+        id: user.id,
+        username: user.username,
+        realName: user.real_name,
+        phone: user.phone,
+        email: user.email,
+        deptId: user.dept_id,
+        roleId: user.role_id,
+        viewAll: user.view_all === 1,
+        manageAll: user.manage_all === 1,
+        permissions,
+        menus,
+        dataPermissions
+      }
+    });
+  } catch (error) {
+    console.error('[认证] 获取用户信息错误:', error);
+    res.status(500).json({ code: 500, message: '获取用户信息失败', data: null });
+  }
+});
+
+// 4. 注册接口（仅管理员可用，禁止公开注册）
 router.post('/register', authenticateToken, validate(registerSchema), async (req, res) => {
   try {
     // 仅管理员可创建账号

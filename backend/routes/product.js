@@ -44,15 +44,10 @@ const productListSchema = Joi.object({
   status: Joi.number().integer().valid(0, 1).allow('', null).optional()
 });
 
-const requireAdmin = (req, res, next) => {
-  if (!req.user.manageAll && req.user.roleId !== 1) {
-    return res.status(403).json({ code: 403, message: '无权限操作', data: null });
-  }
-  next();
-};
+const requireAdmin = require('../middleware/admin');
 
 // 1. 产品列表
-router.post('/list', authenticateToken, validate(productListSchema), async (req, res) => {
+router.post('/list', authenticateToken, checkPermission('product'), validate(productListSchema), async (req, res) => {
   try {
     const { page = 1, pageSize = 20, keyword, name, code, category, status } = req.body;
     const offset = (page - 1) * pageSize;
@@ -178,7 +173,7 @@ router.post('/delete', authenticateToken, checkPermission('product:delete'), req
 });
 
 // 5. 产品详情
-router.get('/detail/:id', authenticateToken, async (req, res) => {
+router.get('/detail/:id', authenticateToken, checkPermission('product'), async (req, res) => {
   try {
     const [rows] = await pool.query(
       'SELECT id, name, code, category, unit, price, stock, description, status, create_time, update_time FROM crm_product WHERE id = ?', [req.params.id]
@@ -194,7 +189,7 @@ router.get('/detail/:id', authenticateToken, async (req, res) => {
 });
 
 // 6. 产品分类列表
-router.get('/categories', authenticateToken, async (req, res) => {
+router.get('/categories', authenticateToken, checkPermission('product'), async (req, res) => {
   try {
     const [rows] = await pool.query(
       'SELECT DISTINCT category FROM crm_product WHERE category IS NOT NULL AND status = 1 ORDER BY category'

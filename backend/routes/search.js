@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { getDataPermission, buildPermissionClause } = require('../utils/permission');
+const { buildDataPermissionWhere } = require('../middleware/permission');
+const { getDataPermissions } = require('../services/permissionService');
 
 // 全局搜索
 router.get('/global', authenticateToken, async (req, res) => {
@@ -18,13 +19,25 @@ router.get('/global', authenticateToken, async (req, res) => {
     const likeKeyword = `%${keyword}%`;
     const user = req.user;
 
-    // 客户搜索（使用新版权限）
-    let customerWhere = '(c.company_name LIKE ? OR c.contact_name LIKE ? OR c.phone LIKE ?)';
-    const customerParams = [likeKeyword, likeKeyword, likeKeyword];
-    if (!user.manageAll && user.roleId !== 1) {
-      customerWhere += ' AND c.owner_id = ?';
-      customerParams.push(user.userId);
+    // 加载用户权限配置（一次查询，复用于所有模块）
+    const allPerms = await getDataPermissions(user.roleId);
+
+    // 辅助函数：为指定模块构建数据权限SQL
+    async function buildPermClause(module, alias, ownerColumn) {
+      const cfg = allPerms.find(p => p.module === module);
+      const dp = {
+        type: user.manageAll || user.roleId === 1 ? 'all' : (cfg?.data_scope || 'self'),
+        userId: user.userId,
+        ownerColumn,
+        customDeptIds: cfg?.custom_dept_ids
+      };
+      return buildDataPermissionWhere(dp, alias);
     }
+
+    // 客户搜索（使用新版数据权限）
+    const customerClause = await buildPermClause('customer', 'c', 'owner_id');
+    let customerWhere = `(c.company_name LIKE ? OR c.contact_name LIKE ? OR c.phone LIKE ?) AND ${customerClause.clause}`;
+    const customerParams = [likeKeyword, likeKeyword, likeKeyword, ...customerClause.params];
 
     const [customers] = await pool.query(
       `SELECT c.id, c.company_name, c.contact_name, c.phone, c.level
@@ -35,9 +48,8 @@ router.get('/global', authenticateToken, async (req, res) => {
       customerParams
     );
 
-    // 合同搜索（使用旧版权限）
-    const contractPerm = await getDataPermission(user);
-    const contractClause = buildPermissionClause(contractPerm, 'ct', 'create_by');
+    // 合同搜索（使用新版数据权限）
+    const contractClause = await buildPermClause('contract', 'ct', 'create_by');
     const [contracts] = await pool.query(
       `SELECT ct.id, ct.contract_no, ct.amount as contract_amount,
               cu.company_name as customer_name
@@ -51,13 +63,10 @@ router.get('/global', authenticateToken, async (req, res) => {
       [likeKeyword, likeKeyword, ...contractClause.params]
     );
 
-    // 商机搜索
-    let oppWhere = '(o.name LIKE ? OR cu.company_name LIKE ?)';
-    const oppParams = [likeKeyword, likeKeyword];
-    if (!user.manageAll && user.roleId !== 1) {
-      oppWhere += ' AND o.owner_id = ?';
-      oppParams.push(user.userId);
-    }
+    // 商机搜索（使用新版数据权限）
+    const oppClause = await buildPermClause('opportunity', 'o', 'owner_id');
+    let oppWhere = `(o.name LIKE ? OR cu.company_name LIKE ?) AND ${oppClause.clause}`;
+    const oppParams = [likeKeyword, likeKeyword, ...oppClause.params];
 
     const [opportunities] = await pool.query(
       `SELECT o.id, o.name, o.stage, o.expected_amount,
@@ -70,9 +79,8 @@ router.get('/global', authenticateToken, async (req, res) => {
       oppParams
     );
 
-    // 报价搜索
-    const quotePerm = await getDataPermission(user);
-    const quoteClause = buildPermissionClause(quotePerm, 'q', 'create_by');
+    // 报价搜索（使用新版数据权限）
+    const quoteClause = await buildPermClause('quote', 'q', 'create_by');
     const [quotes] = await pool.query(
       `SELECT q.id, q.quote_no, q.amount as total_amount,
               cu.company_name as customer_name

@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/permission');
 
 // 竞争对手列表
-router.get('/list', authenticateToken, async (req, res) => {
+router.get('/list', authenticateToken, checkPermission('competitor'), async (req, res) => {
   try {
     const { industry, scale, status, keyword, page = 1, pageSize = 20 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(pageSize);
@@ -31,7 +32,7 @@ router.get('/list', authenticateToken, async (req, res) => {
 });
 
 // 竞争对手详情
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get('/:id', authenticateToken, checkPermission('competitor'), async (req, res) => {
   try {
     const [[row]] = await pool.query(`
       SELECT c.*,
@@ -48,7 +49,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // 创建竞争对手
-router.post('/add', authenticateToken, async (req, res) => {
+router.post('/add', authenticateToken, checkPermission('competitor'), async (req, res) => {
   try {
     const { name, website, industry, scale, headquarters, strengths, weaknesses, products, price_range, market_share, description } = req.body;
     if (!name) return res.status(400).json({ code: 400, message: '名称不能为空', data: null });
@@ -67,7 +68,7 @@ router.post('/add', authenticateToken, async (req, res) => {
 });
 
 // 更新竞争对手
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/:id', authenticateToken, checkPermission('competitor'), async (req, res) => {
   try {
     const { name, website, industry, scale, headquarters, strengths, weaknesses, products, price_range, market_share, description, status } = req.body;
     const fields = [], values = [];
@@ -94,7 +95,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 });
 
 // 删除竞争对手
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', authenticateToken, checkPermission('competitor'), async (req, res) => {
   try {
     await pool.query('UPDATE crm_competitor SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
     res.json({ code: 200, message: '删除成功', data: null });
@@ -106,7 +107,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 
 // ============ 交锋记录 ============
 
-router.get('/:id/encounters', authenticateToken, async (req, res) => {
+router.get('/:id/encounters', authenticateToken, checkPermission('competitor'), async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT e.*, c.company_name as customer_name, u.real_name as create_by_name
@@ -122,7 +123,7 @@ router.get('/:id/encounters', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/encounters/add', authenticateToken, async (req, res) => {
+router.post('/encounters/add', authenticateToken, checkPermission('competitor'), async (req, res) => {
   try {
     const { competitor_id, customer_id, opportunity_id, encounter_type, our_price, their_price, win_reason, our_advantage, their_advantage, lesson_learned, encounter_date } = req.body;
     if (!competitor_id || !encounter_type) return res.status(400).json({ code: 400, message: '参数不完整', data: null });
@@ -138,7 +139,7 @@ router.post('/encounters/add', authenticateToken, async (req, res) => {
   }
 });
 
-router.put('/encounters/:id', authenticateToken, async (req, res) => {
+router.put('/encounters/:id', authenticateToken, checkPermission('competitor'), async (req, res) => {
   try {
     const fields = [], values = [];
     for (const [k, v] of Object.entries(req.body)) {
@@ -156,7 +157,7 @@ router.put('/encounters/:id', authenticateToken, async (req, res) => {
   }
 });
 
-router.delete('/encounters/:id', authenticateToken, async (req, res) => {
+router.delete('/encounters/:id', authenticateToken, checkPermission('competitor'), async (req, res) => {
   try {
     await pool.query('DELETE FROM crm_competitor_encounter WHERE id = ?', [req.params.id]);
     res.json({ code: 200, message: '删除成功', data: null });
@@ -168,7 +169,7 @@ router.delete('/encounters/:id', authenticateToken, async (req, res) => {
 
 // ============ 情报 ============
 
-router.get('/:id/intel', authenticateToken, async (req, res) => {
+router.get('/:id/intel', authenticateToken, checkPermission('competitor'), async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT i.*, u.real_name as create_by_name
@@ -182,7 +183,7 @@ router.get('/:id/intel', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/intel/add', authenticateToken, async (req, res) => {
+router.post('/intel/add', authenticateToken, checkPermission('competitor'), async (req, res) => {
   try {
     const { competitor_id, intel_type, title, content, source, importance } = req.body;
     if (!competitor_id || !intel_type || !title || !content) return res.status(400).json({ code: 400, message: '参数不完整', data: null });
@@ -197,7 +198,7 @@ router.post('/intel/add', authenticateToken, async (req, res) => {
   }
 });
 
-router.put('/intel/:id', authenticateToken, async (req, res) => {
+router.put('/intel/:id', authenticateToken, checkPermission('competitor'), async (req, res) => {
   try {
     const fields = [], values = [];
     for (const [k, v] of Object.entries(req.body)) {
@@ -215,7 +216,7 @@ router.put('/intel/:id', authenticateToken, async (req, res) => {
   }
 });
 
-router.delete('/intel/:id', authenticateToken, async (req, res) => {
+router.delete('/intel/:id', authenticateToken, checkPermission('competitor'), async (req, res) => {
   try {
     await pool.query('DELETE FROM crm_competitor_intel WHERE id = ?', [req.params.id]);
     res.json({ code: 200, message: '删除成功', data: null });
@@ -227,7 +228,7 @@ router.delete('/intel/:id', authenticateToken, async (req, res) => {
 
 // ============ 分析总览 ============
 
-router.get('/analysis/overview', authenticateToken, async (req, res) => {
+router.get('/analysis/overview', authenticateToken, checkPermission('competitor'), async (req, res) => {
   try {
     const [[{ total_competitors }]] = await pool.query('SELECT COUNT(*) as total_competitors FROM crm_competitor WHERE deleted_at IS NULL');
     const [[{ total_encounters }]] = await pool.query('SELECT COUNT(*) as total_encounters FROM crm_competitor_encounter');
@@ -274,7 +275,7 @@ router.get('/analysis/overview', authenticateToken, async (req, res) => {
 });
 
 // 竞争对手对比
-router.get('/analysis/compare', authenticateToken, async (req, res) => {
+router.get('/analysis/compare', authenticateToken, checkPermission('competitor'), async (req, res) => {
   try {
     const ids = (req.query.ids || '').split(',').map(Number).filter(Boolean);
     if (ids.length === 0) return res.status(400).json({ code: 400, message: '请选择竞争对手', data: null });

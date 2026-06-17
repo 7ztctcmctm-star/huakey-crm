@@ -19,6 +19,7 @@
     "@supabase/supabase-js": "^2.106.2",
     "bcryptjs": "^3.0.3",
     "compression": "^1.8.1",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^4.22.2",
@@ -32,6 +33,7 @@
     "node-cron": "^3.0.3",
     "nodemailer": "^8.0.11",
     "pg": "^8.13.0",
+    "svg-captcha": "^1.4.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

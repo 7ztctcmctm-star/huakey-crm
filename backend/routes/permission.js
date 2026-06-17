@@ -3,13 +3,7 @@ const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
-// 管理员权限校验中间件
-const requireAdmin = (req, res, next) => {
-  if (!req.user.manageAll && req.user.roleId !== 1) {
-    return res.status(403).json({ code: 403, message: '仅管理员可操作', data: null });
-  }
-  next();
-};
+const requireAdmin = require('../middleware/admin');
 const {
   getUserPermissions,
   clearPermissionCache,

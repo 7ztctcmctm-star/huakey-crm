@@ -6,6 +6,7 @@ import router from '../router'
 const request = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   timeout: 60000,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json'
   }
@@ -14,14 +15,6 @@ const request = axios.create({
 // 请求拦截器
 request.interceptors.request.use(
   (config) => {
-    // 从localStorage获取token
-    const token = localStorage.getItem('token')
-    
-    // 如果有token，添加到请求头
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    
     return config
   },
   (error) => {
@@ -49,10 +42,7 @@ request.interceptors.response.use(
         case 401:
           // token过期或无效
           ElMessage.error(data.message || '登录已过期，请重新登录')
-          // 清除登录状态
-          localStorage.removeItem('token')
-          localStorage.removeItem('userInfo')
-          // 跳转到登录页
+          // 跳转到登录页（cookie由后端管理）
           router.push('/login')
           break
         case 403:

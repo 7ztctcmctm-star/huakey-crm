@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/permission');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 
@@ -34,7 +35,7 @@ const EMAIL_PRESETS = {
 };
 
 // 1. 配置邮件账号
-router.post('/account', authenticateToken, async (req, res) => {
+router.post('/account', authenticateToken, checkPermission('email'), async (req, res) => {
   try {
     const { email, password, display_name, imap_host, imap_port, smtp_host, smtp_port, use_ssl } = req.body;
     if (!email || !password) return res.status(400).json({ code: 400, message: '邮箱和密码不能为空', data: null });
@@ -60,7 +61,7 @@ router.post('/account', authenticateToken, async (req, res) => {
 });
 
 // 2. 我的邮件账号列表
-router.get('/accounts', authenticateToken, async (req, res) => {
+router.get('/accounts', authenticateToken, checkPermission('email'), async (req, res) => {
   try {
     const [rows] = await pool.query(
       'SELECT id, email, display_name, imap_host, imap_port, smtp_host, smtp_port, use_ssl, sync_status, last_sync_at, status FROM crm_email_account WHERE user_id = ? ORDER BY created_at DESC',
@@ -74,7 +75,7 @@ router.get('/accounts', authenticateToken, async (req, res) => {
 });
 
 // 3. 删除账号
-router.delete('/account/:id', authenticateToken, async (req, res) => {
+router.delete('/account/:id', authenticateToken, checkPermission('email'), async (req, res) => {
   try {
     const [existing] = await pool.query('SELECT id FROM crm_email_account WHERE id = ? AND user_id = ?', [req.params.id, req.user.userId]);
     if (existing.length === 0) return res.status(404).json({ code: 404, message: '账号不存在', data: null });
@@ -87,7 +88,7 @@ router.delete('/account/:id', authenticateToken, async (req, res) => {
 });
 
 // 4. 测试连接
-router.post('/account/:id/test', authenticateToken, async (req, res) => {
+router.post('/account/:id/test', authenticateToken, checkPermission('email'), async (req, res) => {
   try {
     const [[account]] = await pool.query('SELECT * FROM crm_email_account WHERE id = ? AND user_id = ?', [req.params.id, req.user.userId]);
     if (!account) return res.status(404).json({ code: 404, message: '账号不存在', data: null });
@@ -120,10 +121,10 @@ router.post('/account/:id/test', authenticateToken, async (req, res) => {
 });
 
 // 5. 邮件列表
-router.get('/list', authenticateToken, async (req, res) => {
+router.get('/list', authenticateToken, checkPermission('email'), async (req, res) => {
   try {
-    const { folder = 'inbox', customer_id, keyword, is_starred, page = 1, page_size = 20 } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(page_size);
+    const { folder = 'inbox', customer_id, keyword, is_starred, page = 1, pageSize = 20 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(pageSize);
     let where = 'WHERE e.account_id IN (SELECT id FROM crm_email_account WHERE user_id = ?)';
     const params = [req.user.userId];
 
@@ -146,9 +147,9 @@ router.get('/list', authenticateToken, async (req, res) => {
       ${where}
       ORDER BY COALESCE(e.received_at, e.sent_at, e.created_at) DESC
       LIMIT ? OFFSET ?
-    `, [...params, parseInt(page_size), offset]);
+    `, [...params, parseInt(pageSize), offset]);
 
-    res.json({ code: 200, message: '查询成功', data: { list: rows, total, page: parseInt(page), page_size: parseInt(page_size) } });
+    res.json({ code: 200, message: '查询成功', data: { list: rows, total, page: parseInt(page), pageSize: parseInt(pageSize) } });
   } catch (error) {
     console.error('[邮件] 查询邮件列表失败:', error);
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
@@ -156,7 +157,7 @@ router.get('/list', authenticateToken, async (req, res) => {
 });
 
 // 6. 邮件详情
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get('/:id', authenticateToken, checkPermission('email'), async (req, res) => {
   try {
     const [[email]] = await pool.query(`
       SELECT e.*, c.company_name as customer_name, ct.name as contact_name
@@ -182,7 +183,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // 7. 发送邮件
-router.post('/send', authenticateToken, async (req, res) => {
+router.post('/send', authenticateToken, checkPermission('email:send'), async (req, res) => {
   try {
     const { account_id, to, cc, subject, body_html, reply_to_id } = req.body;
     if (!account_id || !to || !subject) return res.status(400).json({ code: 400, message: '参数不完整', data: null });
@@ -245,7 +246,7 @@ router.post('/send', authenticateToken, async (req, res) => {
 });
 
 // 8. 回复邮件
-router.post('/reply/:id', authenticateToken, async (req, res) => {
+router.post('/reply/:id', authenticateToken, checkPermission('email:send'), async (req, res) => {
   try {
     const { body_html, account_id } = req.body;
     const [[original]] = await pool.query('SELECT * FROM crm_email WHERE id = ?', [req.params.id]);
@@ -264,7 +265,7 @@ router.post('/reply/:id', authenticateToken, async (req, res) => {
 });
 
 // 9. 标记已读
-router.put('/:id/read', authenticateToken, async (req, res) => {
+router.put('/:id/read', authenticateToken, checkPermission('email'), async (req, res) => {
   try {
     await pool.query('UPDATE crm_email SET is_read = 1 WHERE id = ?', [req.params.id]);
     res.json({ code: 200, message: '已标记已读', data: null });
@@ -275,7 +276,7 @@ router.put('/:id/read', authenticateToken, async (req, res) => {
 });
 
 // 10. 标记星标
-router.put('/:id/star', authenticateToken, async (req, res) => {
+router.put('/:id/star', authenticateToken, checkPermission('email'), async (req, res) => {
   try {
     const [[email]] = await pool.query('SELECT is_starred FROM crm_email WHERE id = ?', [req.params.id]);
     if (!email) return res.status(404).json({ code: 404, message: '邮件不存在', data: null });
@@ -289,7 +290,7 @@ router.put('/:id/star', authenticateToken, async (req, res) => {
 });
 
 // 11. 手动关联客户
-router.post('/:id/link-customer', authenticateToken, async (req, res) => {
+router.post('/:id/link-customer', authenticateToken, checkPermission('email'), async (req, res) => {
   try {
     const { customer_id } = req.body;
     if (!customer_id) return res.status(400).json({ code: 400, message: '客户ID不能为空', data: null });
@@ -306,7 +307,7 @@ router.post('/:id/link-customer', authenticateToken, async (req, res) => {
 });
 
 // 12. 手动同步邮件（简化版：从SMTP发送的邮件同步）
-router.post('/sync/:account_id', authenticateToken, async (req, res) => {
+router.post('/sync/:account_id', authenticateToken, checkPermission('email'), async (req, res) => {
   try {
     const [[account]] = await pool.query('SELECT * FROM crm_email_account WHERE id = ? AND user_id = ?', [req.params.account_id, req.user.userId]);
     if (!account) return res.status(404).json({ code: 404, message: '账号不存在', data: null });
@@ -326,7 +327,7 @@ router.post('/sync/:account_id', authenticateToken, async (req, res) => {
 });
 
 // 13. 邮件统计
-router.get('/stats/overview', authenticateToken, async (req, res) => {
+router.get('/stats/overview', authenticateToken, checkPermission('email'), async (req, res) => {
   try {
     const userId = req.user.userId;
     const [[{ total }]] = await pool.query(

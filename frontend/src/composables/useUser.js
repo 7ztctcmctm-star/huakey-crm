@@ -1,12 +1,31 @@
 import { ref, computed } from 'vue'
+import request from '@/utils/request'
 
 const userInfo = ref(null)
+let authChecked = false
 
 function loadUser() {
   try {
     const stored = localStorage.getItem('userInfo')
     if (stored) userInfo.value = JSON.parse(stored)
   } catch { /* ignore */ }
+}
+
+// 验证cookie登录状态（仅首次调用时请求后端）
+async function verifyAuth() {
+  if (authChecked) return !!userInfo.value
+  authChecked = true
+  try {
+    const res = await request.get('/auth/me')
+    if (res.code === 200) {
+      userInfo.value = res.data
+      localStorage.setItem('userInfo', JSON.stringify(res.data))
+      return true
+    }
+  } catch { /* ignore */ }
+  userInfo.value = null
+  localStorage.removeItem('userInfo')
+  return false
 }
 
 export function useUser() {
@@ -26,8 +45,9 @@ export function useUser() {
 
   function clearUser() {
     userInfo.value = null
+    authChecked = false
     localStorage.removeItem('userInfo')
   }
 
-  return { userInfo, userId, roleId, isBoss, isAdmin, canViewAll, canClaim, setUser, clearUser, loadUser }
+  return { userInfo, userId, roleId, isBoss, isAdmin, canViewAll, canClaim, setUser, clearUser, loadUser, verifyAuth }
 }

@@ -4,17 +4,13 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 
-// 管理员权限检查
-const requireAdmin = (req, res, next) => {
-  if (req.user.manageAll || req.user.roleId === 1) return next();
-  return res.status(403).json({ code: 403, message: '需要管理员权限', data: null });
-};
+const requireAdmin = require('../middleware/admin');
 
 // 采购计划列表
 router.get('/list', authenticateToken, async (req, res) => {
   try {
-    const { status = '', page = 1, page_size = 20 } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(page_size);
+    const { status = '', page = 1, pageSize = 20 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(pageSize);
     let where = 'WHERE p.deleted_at IS NULL';
     const params = [];
     if (status) { where += ' AND p.status = ?'; params.push(status); }
@@ -25,7 +21,7 @@ router.get('/list', authenticateToken, async (req, res) => {
       FROM crm_purchase_plan p
       LEFT JOIN sys_user u ON p.create_by = u.id
       ${where} ORDER BY p.create_time DESC LIMIT ? OFFSET ?
-    `, [...params, parseInt(page_size), offset]);
+    `, [...params, parseInt(pageSize), offset]);
 
     res.json({ code: 200, message: '查询成功', data: { list: rows, total } });
   } catch (error) {

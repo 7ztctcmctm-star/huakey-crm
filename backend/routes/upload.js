@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const { authenticateToken } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/permission');
 const pool = require('../config/database');
 const { getSupabaseStorage } = require('../utils/supabaseStorage');
 
@@ -96,7 +97,7 @@ router.post('/file', authenticateToken, upload.single('file'), async (req, res) 
 });
 
 // 查询附件列表
-router.get('/list', authenticateToken, async (req, res) => {
+router.get('/list', authenticateToken, checkPermission('file'), async (req, res) => {
   try {
     const { business_type, business_id } = req.query;
     if (!business_type || !business_id) {
@@ -114,7 +115,7 @@ router.get('/list', authenticateToken, async (req, res) => {
 });
 
 // 删除附件
-router.post('/delete', authenticateToken, async (req, res) => {
+router.post('/delete', authenticateToken, checkPermission('file'), async (req, res) => {
   try {
     const { id } = req.body;
     if (!id) return res.status(400).json({ code: 400, message: '附件ID不能为空', data: null });

@@ -184,8 +184,6 @@ const changePassword = async () => {
       })
       if (res.code === 200) {
         ElMessage.success('密码修改成功，请重新登录')
-        localStorage.removeItem('token')
-        localStorage.removeItem('userInfo')
         router.push('/login')
       }
     } catch (e) {

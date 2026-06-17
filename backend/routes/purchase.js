@@ -2,9 +2,8 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { checkPermission } = require('../middleware/permission');
+const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
-const { getDataPermission, buildPermissionClause } = require('../utils/permission');
 
 const MODULE_NAME = '采购管理';
 
@@ -56,13 +55,12 @@ const addReceiptSchema = Joi.object({
 const { createRouteLogger } = require('../middleware/logger');
 const logAction = createRouteLogger(MODULE_NAME);
 
-router.post('/list', authenticateToken, validate(listSchema), async (req, res) => {
+router.post('/list', authenticateToken, checkDataPermission('purchase', 'owner_id'), validate(listSchema), async (req, res) => {
   const { page = 1, pageSize = 10, keyword = '', status = '', type = '', supplier_id } = req.body;
   const offset = (page - 1) * pageSize;
 
   try {
-    const permission = await getDataPermission(req.user);
-    const { clause: permissionClause, params: permParams } = buildPermissionClause(permission, 'po', 'owner_id');
+    const { clause: permissionClause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'po');
 
     let sql = `SELECT po.*, s.name as supplier_name, u.real_name as owner_name
       FROM crm_purchase_order po
@@ -99,11 +97,10 @@ router.post('/list', authenticateToken, validate(listSchema), async (req, res) =
   }
 });
 
-router.get('/detail/:id', authenticateToken, async (req, res) => {
+router.get('/detail/:id', authenticateToken, checkDataPermission('purchase', 'owner_id'), async (req, res) => {
   const { id } = req.params;
   try {
-    const permission = await getDataPermission(req.user);
-    const { clause: permissionClause, params: permParams } = buildPermissionClause(permission, 'po', 'owner_id');
+    const { clause: permissionClause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'po');
 
     const [orders] = await pool.query(`
       SELECT po.*, s.name as supplier_name, s.contact_person, s.contact_phone,

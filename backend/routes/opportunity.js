@@ -49,7 +49,6 @@ const updateOpportunitySchema = Joi.object({
   owner_id: Joi.number().integer().positive().allow(null)
 });
 
-const { getDataPermission, buildPermissionClause } = require('../utils/permission');
 
 // 1. 商机列表
 router.post('/list',
@@ -531,7 +530,7 @@ router.get('/funnel',
         COALESCE(SUM(expected_amount), 0) as total_amount
       FROM crm_opportunity o
       WHERE ${permissionWhere} AND o.deleted_at IS NULL`,
-      []
+      permParams
     );
 
     const funnel = [];
