@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const svgCaptcha = require('svg-captcha');
 const pool = require('../config/database');
 const { authenticateToken, generateToken, getTokenFromRequest } = require('../middleware/auth');
+const ROLES = require('../config/roles');
 const { validate, Joi } = require('../middleware/validate');
 const { logAction, getIpAddress } = require('../middleware/logger');
 const { getUserPermissions, getMenuPermissions, getDataPermissions } = require('../services/permissionService');
@@ -304,7 +305,7 @@ router.get('/me', authenticateToken, async (req, res) => {
 router.post('/register', authenticateToken, validate(registerSchema), async (req, res) => {
   try {
     // 仅管理员可创建账号
-    if (!(req.user.manageAll || req.user.roleId === 1)) {
+    if (!(req.user.manageAll || req.user.roleId === ROLES.ADMIN)) {
       return res.status(403).json({ code: 403, message: '仅管理员可创建账号', data: null });
     }
     const { username, password, real_name } = req.body;

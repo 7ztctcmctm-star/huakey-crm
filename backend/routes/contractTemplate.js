@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { requireManager } = require('../middleware/admin');
 
 // 获取模板列表
 router.get('/list', authenticateToken, async (req, res) => {
@@ -26,14 +27,10 @@ router.get('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// 管理模板（管理员）
-router.post('/manage', authenticateToken, async (req, res) => {
+// 管理模板（仅管理员/经理）
+router.post('/manage', authenticateToken, requireManager, async (req, res) => {
   try {
   const { action, id, name, amount, payment_terms, delivery_days, remark } = req.body;
-  const roleId = req.user.roleId;
-  if (roleId !== 1 && roleId !== 2) {
-    return res.status(403).json({ code: 403, message: '仅管理员可管理模板', data: null });
-  }
 
   try {
     if (action === 'add') {

@@ -3,6 +3,7 @@ const pool = require('../../config/database');
 const { authenticateToken } = require('../../middleware/auth');
 const { validate, Joi } = require('../../middleware/validate');
 const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../../middleware/permission');
+const ROLES = require('../../config/roles');
 const { autoAssignOwner } = require('./assign');
 const { getOverdueDays } = require('../../utils/config');
 const { CUSTOMER_STATUS } = require('../../constants/customer');
@@ -81,11 +82,11 @@ const logAction = createRouteLogger(MODULE_NAME);
 // 检查用户是否有权限查看/编辑指定客户
 const canManageCustomer = async (user, customerOwnerId) => {
   // 老板可以管理全部
-  if (user.manageAll || user.roleId === 1) {
+  if (user.manageAll || user.roleId === ROLES.ADMIN) {
     return true;
   }
-  // 部门经理(roleId=2)：按 custom 数据范围检查（dept_ids: 1,5,6,7）
-  if (user.roleId === 2) {
+  // 部门经理：按 custom 数据范围检查（dept_ids: 1,5,6,7）
+  if (user.roleId === ROLES.MANAGER) {
     if (customerOwnerId === null || customerOwnerId === undefined) {
       return true; // 无负责人客户，经理可以管理
     }

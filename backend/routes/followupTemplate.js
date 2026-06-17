@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { requireManager } = require('../middleware/admin');
+const ROLES = require('../config/roles');
 
 // 获取所有模板
 router.get('/', authenticateToken, async (req, res) => {
@@ -19,8 +21,8 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
-// 创建模板
-router.post('/', authenticateToken, async (req, res) => {
+// 创建模板（仅管理员/经理）
+router.post('/', authenticateToken, requireManager, async (req, res) => {
   try {
     const { name, type = 'general', content } = req.body;
     if (!name || !name.trim()) {
@@ -43,8 +45,8 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
-// 更新模板
-router.put('/:id', authenticateToken, async (req, res) => {
+// 更新模板（仅管理员/经理）
+router.put('/:id', authenticateToken, requireManager, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, type, content } = req.body;
@@ -60,7 +62,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 
     // 权限检查：创建人或管理员
     const isOwner = existing[0].create_by === req.user.userId;
-    const isAdmin = req.user.manageAll || req.user.roleId === 1;
+    const isAdmin = req.user.manageAll || req.user.roleId === ROLES.ADMIN;
     if (!isOwner && !isAdmin) {
       return res.status(403).json({ code: 403, message: '无权修改此模板', data: null });
     }
@@ -86,8 +88,8 @@ router.put('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// 删除模板（软删除）
-router.delete('/:id', authenticateToken, async (req, res) => {
+// 删除模板（仅管理员/经理）
+router.delete('/:id', authenticateToken, requireManager, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -101,7 +103,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 
     // 权限检查：创建人或管理员
     const isOwner = existing[0].create_by === req.user.userId;
-    const isAdmin = req.user.manageAll || req.user.roleId === 1;
+    const isAdmin = req.user.manageAll || req.user.roleId === ROLES.ADMIN;
     if (!isOwner && !isAdmin) {
       return res.status(403).json({ code: 403, message: '无权删除此模板', data: null });
     }

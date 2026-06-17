@@ -4,6 +4,7 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
 const requireAdmin = require('../middleware/admin');
+const { requireManager } = require('../middleware/admin');
 const {
   getUserPermissions,
   clearPermissionCache,
@@ -46,8 +47,8 @@ router.get('/my-permissions', authenticateToken, async (req, res) => {
   }
 });
 
-// 获取所有权限列表（树形结构）
-router.get('/list', authenticateToken, async (req, res) => {
+// 获取所有权限列表（树形结构，仅管理员/经理）
+router.get('/list', authenticateToken, requireManager, async (req, res) => {
   try {
     const [permissions] = await pool.query(
       'SELECT * FROM sys_permission ORDER BY sort'
@@ -71,8 +72,8 @@ router.get('/list', authenticateToken, async (req, res) => {
   }
 });
 
-// 获取角色权限
-router.get('/role/:roleId', authenticateToken, async (req, res) => {
+// 获取角色权限（仅管理员/经理）
+router.get('/role/:roleId', authenticateToken, requireManager, async (req, res) => {
   try {
     const { roleId } = req.params;
 
@@ -152,8 +153,8 @@ router.post('/role/update', authenticateToken, requireAdmin, async (req, res) =>
   }
 });
 
-// 获取数据权限配置
-router.get('/data-scope/:roleId', authenticateToken, async (req, res) => {
+// 获取数据权限配置（仅管理员/经理）
+router.get('/data-scope/:roleId', authenticateToken, requireManager, async (req, res) => {
   try {
     const { roleId } = req.params;
 

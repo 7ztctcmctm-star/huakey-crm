@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { requireManager } = require('../middleware/admin');
 
-// 1. 销售预测（简单移动平均法）
-router.get('/prediction', authenticateToken, async (req, res) => {
+// 1. 销售预测（仅管理员/经理）
+router.get('/prediction', authenticateToken, requireManager, async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT DATE_FORMAT(sign_date, '%Y-%m') as month,
@@ -58,7 +59,7 @@ router.get('/prediction', authenticateToken, async (req, res) => {
 });
 
 // 2. 客户流失预警
-router.get('/churn-alert', authenticateToken, async (req, res) => {
+router.get('/churn-alert', authenticateToken, requireManager, async (req, res) => {
   try {
     const { page = 1, pageSize = 20 } = req.query;
     const offset = (page - 1) * pageSize;
@@ -95,7 +96,7 @@ router.get('/churn-alert', authenticateToken, async (req, res) => {
 });
 
 // 3. 异常检测
-router.get('/anomaly', authenticateToken, async (req, res) => {
+router.get('/anomaly', authenticateToken, requireManager, async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT DATE(create_time) as date,
@@ -148,7 +149,7 @@ router.get('/anomaly', authenticateToken, async (req, res) => {
 });
 
 // 4. 客户评分
-router.get('/customer-score/:id', authenticateToken, async (req, res) => {
+router.get('/customer-score/:id', authenticateToken, requireManager, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -204,7 +205,7 @@ router.get('/customer-score/:id', authenticateToken, async (req, res) => {
 });
 
 // 5. 赢单率分析
-router.get('/win-rate', authenticateToken, async (req, res) => {
+router.get('/win-rate', authenticateToken, requireManager, async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT stage, COUNT(*) as count
@@ -243,7 +244,7 @@ router.get('/win-rate', authenticateToken, async (req, res) => {
 });
 
 // 6. 销售漏斗
-router.get('/funnel', authenticateToken, async (req, res) => {
+router.get('/funnel', authenticateToken, requireManager, async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT stage, COUNT(*) as count, COALESCE(SUM(expected_amount), 0) as amount
@@ -269,7 +270,7 @@ router.get('/funnel', authenticateToken, async (req, res) => {
 });
 
 // 7. 客户价值评分 RFM
-router.get('/rfm', authenticateToken, async (req, res) => {
+router.get('/rfm', authenticateToken, requireManager, async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT c.id, c.company_name,
@@ -320,7 +321,7 @@ router.get('/rfm', authenticateToken, async (req, res) => {
 });
 
 // 8. 销售排行榜
-router.get('/ranking', authenticateToken, async (req, res) => {
+router.get('/ranking', authenticateToken, requireManager, async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT u.id, u.real_name,
@@ -355,7 +356,7 @@ router.get('/ranking', authenticateToken, async (req, res) => {
 
 // ============ 增强版销售预测 ============
 
-router.get('/prediction/enhanced', authenticateToken, async (req, res) => {
+router.get('/prediction/enhanced', authenticateToken, requireManager, async (req, res) => {
   try {
     const monthsAhead = parseInt(req.query.months_ahead) || 3;
 
@@ -453,7 +454,7 @@ router.get('/prediction/enhanced', authenticateToken, async (req, res) => {
 
 // ============ 增强版智能建议 ============
 
-router.get('/suggestions/enhanced', authenticateToken, async (req, res) => {
+router.get('/suggestions/enhanced', authenticateToken, requireManager, async (req, res) => {
   try {
     const suggestions = [];
 

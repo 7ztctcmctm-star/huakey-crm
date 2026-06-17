@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../../config/database');
 const { authenticateToken } = require('../../middleware/auth');
 const { checkPermission } = require('../../middleware/permission');
+const ROLES = require('../../config/roles');
 const { SOURCE_PARENT_MAP } = require('./detail');
 const { CUSTOMER_STATUS } = require('../../constants/customer');
 
@@ -25,7 +26,7 @@ router.post('/list', authenticateToken, async (req, res) => {
     let permissionClause = '1=1';
     let permParams = [];
 
-    if (req.user.roleId === 3) { // 销售角色
+    if (req.user.roleId === ROLES.SALES) { // 销售角色
       const [users] = await pool.query(
         'SELECT dept_id FROM sys_user WHERE id = ?',
         [req.user.userId]
@@ -44,7 +45,7 @@ router.post('/list', authenticateToken, async (req, res) => {
         permissionClause = `(c.owner_id IS NULL OR c.owner_id = ?)`;
         permParams = [req.user.userId];
       }
-    } else if (req.user.roleId === 1 || req.user.roleId === 2 || req.user.manageAll) {
+    } else if (req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER || req.user.manageAll) {
       permissionClause = '1=1';
       permParams = [];
     } else {
@@ -213,7 +214,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
     let permissionClause = '1=1';
     let permParams = [];
 
-    if (req.user.roleId === 3) { // 销售角色
+    if (req.user.roleId === ROLES.SALES) { // 销售角色
       const [users] = await pool.query(
         'SELECT dept_id FROM sys_user WHERE id = ?',
         [req.user.userId]
@@ -232,7 +233,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
         permissionClause = `(c.owner_id IS NULL OR c.owner_id = ?)`;
         permParams = [req.user.userId];
       }
-    } else if (req.user.roleId === 1 || req.user.roleId === 2 || req.user.manageAll) {
+    } else if (req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER || req.user.manageAll) {
       permissionClause = '1=1';
       permParams = [];
     } else {

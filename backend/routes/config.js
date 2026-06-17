@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { requireManager } = require('../middleware/admin');
 const { clearConfigCache, getOverdueDays } = require('../utils/config');
 const notification = require('../utils/notification');
 
@@ -17,14 +18,9 @@ router.get('/overdue-days', authenticateToken, async (req, res) => {
   }
 });
 
-// 获取所有配置
-router.get('/list', authenticateToken, async (req, res) => {
+// 获取所有配置（仅管理员/经理）
+router.get('/list', authenticateToken, requireManager, async (req, res) => {
   try {
-    // 仅管理员可查看配置
-    if (req.user.roleId !== 1 && req.user.roleId !== 2) {
-      return res.status(403).json({ code: 403, message: '无权查看系统配置', data: null });
-    }
-
     const [rows] = await pool.query('SELECT config_key, config_value, description FROM sys_config ORDER BY id');
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
@@ -33,13 +29,9 @@ router.get('/list', authenticateToken, async (req, res) => {
   }
 });
 
-// 更新配置
-router.post('/update', authenticateToken, async (req, res) => {
+// 更新配置（仅管理员/经理）
+router.post('/update', authenticateToken, requireManager, async (req, res) => {
   try {
-    if (req.user.roleId !== 1 && req.user.roleId !== 2) {
-      return res.status(403).json({ code: 403, message: '无权修改系统配置', data: null });
-    }
-
     const { configs } = req.body;
     if (!configs || !Array.isArray(configs) || configs.length === 0) {
       return res.status(400).json({ code: 400, message: '配置数据不能为空', data: null });

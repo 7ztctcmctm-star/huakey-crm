@@ -3,6 +3,7 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
+const ROLES = require('../config/roles');
 
 const router = express.Router();
 
@@ -91,7 +92,7 @@ router.post('/list', authenticateToken, checkPermission('product'), validate(pro
 
     // 非管理员不返回成本价字段
     const { manageAll, roleId } = req.user;
-    const isAdmin = manageAll || roleId === 1;
+    const isAdmin = manageAll || roleId === ROLES.ADMIN;
     if (!isAdmin) {
       list.forEach(item => { delete item.cost_price; });
     }

@@ -85,7 +85,7 @@ router.get('/employees/stats', authenticateToken, requireManager, async (req, re
 });
 
 // 员工详情
-router.get('/employees/:id', authenticateToken, async (req, res) => {
+router.get('/employees/:id', authenticateToken, requireManager, async (req, res) => {
   try {
     const [[row]] = await pool.query(`
       SELECT u.id, u.username, u.real_name, u.phone, u.email, u.status, u.dept_id, u.role_id, u.manager_id,
@@ -167,7 +167,7 @@ router.post('/employees/:id/profile', authenticateToken, requireManager, async (
 });
 
 // 员工佣金汇总
-router.get('/employees/:id/commission', authenticateToken, async (req, res) => {
+router.get('/employees/:id/commission', authenticateToken, requireManager, async (req, res) => {
   try {
     const userId = req.params.id;
     const now = new Date();
@@ -204,7 +204,7 @@ router.get('/employees/:id/commission', authenticateToken, async (req, res) => {
 
 // ============ 佣金规则 ============
 
-router.get('/commission/rules', authenticateToken, async (req, res) => {
+router.get('/commission/rules', authenticateToken, requireManager, async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM crm_commission_rule WHERE deleted_at IS NULL ORDER BY create_time DESC');
     res.json({ code: 200, message: '查询成功', data: rows });
@@ -347,7 +347,7 @@ router.post('/commission/calculate', authenticateToken, requireManager, async (r
 });
 
 // 佣金记录列表
-router.get('/commission/records', authenticateToken, async (req, res) => {
+router.get('/commission/records', authenticateToken, requireManager, async (req, res) => {
   try {
     const { period, user_id, status, page = 1, pageSize = 20 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(pageSize);
@@ -380,7 +380,7 @@ router.get('/commission/records', authenticateToken, async (req, res) => {
 });
 
 // 佣金统计
-router.get('/commission/stats', authenticateToken, async (req, res) => {
+router.get('/commission/stats', authenticateToken, requireManager, async (req, res) => {
   try {
     const now = new Date();
     const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -431,7 +431,7 @@ router.post('/commission/records/batch-pay', authenticateToken, requireManager, 
 
 // ============ 组织架构 ============
 
-router.get('/org-tree', authenticateToken, async (req, res) => {
+router.get('/org-tree', authenticateToken, requireManager, async (req, res) => {
   try {
     const [depts] = await pool.query(`
       SELECT d.id, d.name, d.parent_id, d.sort,
@@ -467,7 +467,7 @@ router.get('/org-tree', authenticateToken, async (req, res) => {
 });
 
 // 部门员工列表
-router.get('/org-tree/:deptId/employees', authenticateToken, async (req, res) => {
+router.get('/org-tree/:deptId/employees', authenticateToken, requireManager, async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT u.id, u.real_name, u.phone, u.email, p.position, p.employment_type

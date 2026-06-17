@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { requireManager } = require('../middleware/admin');
 
 // 获取所有标签
 router.get('/list', authenticateToken, async (req, res) => {
@@ -30,18 +31,12 @@ router.get('/customer/:customerId', authenticateToken, async (req, res) => {
   }
 });
 
-// 设置客户标签（管理员）
-router.post('/customer/:customerId', authenticateToken, async (req, res) => {
+// 设置客户标签（仅管理员/经理）
+router.post('/customer/:customerId', authenticateToken, requireManager, async (req, res) => {
   try {
   const { tag_ids } = req.body;
   const customerId = req.params.customerId;
   const userId = req.user.userId;
-  const roleId = req.user.roleId;
-
-  // 仅管理员可设置标签
-  if (roleId !== 1 && roleId !== 2) {
-    return res.status(403).json({ code: 403, message: '仅管理员可设置标签', data: null });
-  }
 
   const conn = await pool.getConnection();
   try {
@@ -79,14 +74,10 @@ router.post('/customer/:customerId', authenticateToken, async (req, res) => {
   }
 });
 
-// 管理标签（增删改）
-router.post('/manage', authenticateToken, async (req, res) => {
+// 管理标签（仅管理员/经理）
+router.post('/manage', authenticateToken, requireManager, async (req, res) => {
   try {
   const { action, id, name, color } = req.body;
-  const roleId = req.user.roleId;
-  if (roleId !== 1 && roleId !== 2) {
-    return res.status(403).json({ code: 403, message: '仅管理员可管理标签', data: null });
-  }
 
   try {
     if (action === 'add') {

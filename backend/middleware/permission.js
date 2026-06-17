@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const ROLES = require('../config/roles');
 const { getUserPermissions, getDataPermissions } = require('../services/permissionService');
 
 /**
@@ -12,7 +13,7 @@ const checkPermission = (permissionCodes) => {
       const roleId = req.user.roleId;
 
       // 超级管理员直接通过
-      if (roleId === 1) {
+      if (roleId === ROLES.ADMIN) {
         return next();
       }
 
@@ -55,7 +56,7 @@ const checkDataPermission = (module, ownerColumn = 'owner_id') => {
       const roleId = req.user.roleId;
 
       // 超级管理员直接通过
-      if (roleId === 1 || req.user.manageAll) {
+      if (roleId === ROLES.ADMIN || req.user.manageAll) {
         req.dataPermission = { type: 'all', ownerColumn };
         return next();
       }

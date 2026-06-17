@@ -4,6 +4,7 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
 const requireAdmin = require('../middleware/admin');
+const { requireManager } = require('../middleware/admin');
 
 // 获取所有评分规则
 router.get('/rules', authenticateToken, async (req, res) => {
@@ -90,7 +91,7 @@ router.delete('/rules/:id', authenticateToken, requireAdmin, async (req, res) =>
 });
 
 // 计算单个客户评分
-router.post('/calculate/:customerId', authenticateToken, async (req, res) => {
+router.post('/calculate/:customerId', authenticateToken, requireManager, async (req, res) => {
   try {
     const { customerId } = req.params;
 

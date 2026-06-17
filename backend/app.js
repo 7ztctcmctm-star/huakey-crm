@@ -206,9 +206,10 @@ apiRouter.use('/cron', cronJobRoutes);
 
 // 系统健康检查（管理员）
 const { authenticateToken } = require('./middleware/auth');
+const ROLES = require('./config/roles');
 apiRouter.get('/system/health', authenticateToken, async (req, res) => {
   try {
-    const isAdmin = req.user.manageAll || req.user.roleId === 1;
+    const isAdmin = req.user.manageAll || req.user.roleId === ROLES.ADMIN;
     if (!isAdmin) {
       return res.status(403).json({ code: 403, message: '仅管理员可查看', data: null });
     }

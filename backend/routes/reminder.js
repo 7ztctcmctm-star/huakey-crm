@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const ROLES = require('../config/roles');
 const { getOverdueDays } = require('../utils/config');
 
 // ============ 跟进提醒 API ============
@@ -74,7 +75,7 @@ router.get('/my-reminders', authenticateToken, async (req, res) => {
     const service_unread_count = allNotifications.length > 0 ? parseInt(allNotifications[0].service_unread || 0) : 0;
 
     // 超时工单：紧急(priority=1)创建超2小时未处理，高(priority=2)超4小时未处理
-    const isBoss = req.user.viewAll || req.user.roleId === 1 || req.user.roleId === 2;
+    const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
     let overdueServiceFilter = 'so.status IN (1, 2) AND so.deleted_at IS NULL';
     const overdueServiceParams = [];
     if (!isBoss) {
@@ -129,7 +130,7 @@ router.get('/my-reminders', authenticateToken, async (req, res) => {
 // 2. 获取所有逾期客户列表（老板看全局）
 router.post('/overdue-list', authenticateToken, async (req, res) => {
   try {
-    const isBoss = req.user.viewAll || req.user.roleId === 1 || req.user.roleId === 2;
+    const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
     const userId = req.user.userId;
     const { page = 1, pageSize = 20 } = req.body;
     const offset = (page - 1) * pageSize;
@@ -231,7 +232,7 @@ router.post('/dismiss', authenticateToken, async (req, res) => {
 // 6. 获取逾期回款计划
 router.get('/payment-overdue', authenticateToken, async (req, res) => {
   try {
-    const isBoss = req.user.viewAll || req.user.roleId === 1 || req.user.roleId === 2;
+    const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
     const userId = req.user.userId;
 
     let ownerFilter = '';

@@ -4,6 +4,7 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { buildDataPermissionWhere } = require('../middleware/permission');
 const { getDataPermissions } = require('../services/permissionService');
+const ROLES = require('../config/roles');
 
 // 全局搜索
 router.get('/global', authenticateToken, async (req, res) => {
@@ -26,7 +27,7 @@ router.get('/global', authenticateToken, async (req, res) => {
     async function buildPermClause(module, alias, ownerColumn) {
       const cfg = allPerms.find(p => p.module === module);
       const dp = {
-        type: user.manageAll || user.roleId === 1 ? 'all' : (cfg?.data_scope || 'self'),
+        type: user.manageAll || user.roleId === ROLES.ADMIN ? 'all' : (cfg?.data_scope || 'self'),
         userId: user.userId,
         ownerColumn,
         customDeptIds: cfg?.custom_dept_ids

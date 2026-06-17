@@ -3,6 +3,7 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
+const ROLES = require('../config/roles');
 
 const router = express.Router();
 
@@ -81,7 +82,7 @@ router.post('/list', authenticateToken, validate(listPlanSchema), async (req, re
 
     // 数据权限：管理员/经理看全部，其他人只看自己创建的
     let whereClause;
-    if (roleId === 1 || roleId === 2) {
+    if (roleId === ROLES.ADMIN || roleId === ROLES.MANAGER) {
       whereClause = 'WHERE fp.deleted_at IS NULL';
     } else {
       whereClause = 'WHERE fp.deleted_at IS NULL AND fp.create_by = ?';

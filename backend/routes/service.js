@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
+const ROLES = require('../config/roles');
 
 // 构建售后工单数据权限SQL（涉及create_by和assignee_id两个字段）
 const buildServicePermissionClause = async (dataPermission, tableAlias = 'so') => {
@@ -30,10 +31,10 @@ const buildServicePermissionClause = async (dataPermission, tableAlias = 'so') =
 
 // 检查用户是否有权操作某工单
 const canManageService = async (user, serviceOrder) => {
-  if (user.manageAll || user.roleId === 1 || user.roleId === 2) {
+  if (user.manageAll || user.roleId === ROLES.ADMIN || user.roleId === ROLES.MANAGER) {
     return true;
   }
-  if (user.roleId === 3) {
+  if (user.roleId === ROLES.SALES) {
     const [users] = await pool.query(
       'SELECT dept_id FROM sys_user WHERE id = ?',
       [user.userId]

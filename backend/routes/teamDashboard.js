@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
+const ROLES = require('../config/roles');
 const { getOverdueDays } = require('../utils/config');
 
 // 老板团队跟单全景视图 API
@@ -11,7 +12,7 @@ const { getOverdueDays } = require('../utils/config');
 router.get('/overview', authenticateToken, checkPermission('team'), async (req, res) => {
   try {
     const userId = req.user.userId;
-    const isBoss = req.user.viewAll || req.user.roleId === 1 || req.user.roleId === 2;
+    const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
     // 支持日期范围筛选（默认当月）
     const { startDate, endDate } = req.query;
     const dateFilter = startDate && endDate;
@@ -133,7 +134,7 @@ router.get('/overview', authenticateToken, checkPermission('team'), async (req, 
 // [性能修复] 用聚合查询替代N+1循环，20人团队从141条查询降为4条
 router.get('/sales-breakdown', authenticateToken, checkPermission('team'), async (req, res) => {
   try {
-    const isBoss = req.user.viewAll || req.user.roleId === 1 || req.user.roleId === 2;
+    const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
     const userId = req.user.userId;
 
     // 获取所有活跃销售用户
@@ -349,7 +350,7 @@ router.post('/sales-customers', authenticateToken, checkPermission('team'), asyn
 router.post('/urge-followup', authenticateToken, checkPermission('team'), async (req, res) => {
   try {
     const { customer_id, user_id } = req.body;
-    const isBoss = req.user.viewAll || req.user.roleId === 1 || req.user.roleId === 2;
+    const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
 
     if (!isBoss) {
       return res.status(403).json({ code: 403, message: '仅主管/管理员可催办', data: null });
@@ -399,7 +400,7 @@ router.post('/urge-followup', authenticateToken, checkPermission('team'), async 
 // 6. 获取待审批列表（报价+合同，供团队看板直接审批）
 router.get('/pending-approvals', authenticateToken, checkPermission('team'), async (req, res) => {
   try {
-    const isBoss = req.user.viewAll || req.user.roleId === 1 || req.user.roleId === 2;
+    const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
     if (!isBoss) {
       return res.status(403).json({ code: 403, message: '无权限', data: null });
     }
@@ -449,7 +450,7 @@ router.get('/pending-approvals', authenticateToken, checkPermission('team'), asy
 // 8. 卡住的商机（阶段停留超过N天未推进）
 router.get('/stuck-opportunities', authenticateToken, checkPermission('team'), async (req, res) => {
   try {
-    const isBoss = req.user.viewAll || req.user.roleId === 1 || req.user.roleId === 2;
+    const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
     if (!isBoss) {
       return res.status(403).json({ code: 403, message: '仅主管可查看', data: null });
     }

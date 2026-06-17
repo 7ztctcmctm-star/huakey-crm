@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../../config/database');
 const { authenticateToken } = require('../../middleware/auth');
 const { checkPermission } = require('../../middleware/permission');
+const ROLES = require('../../config/roles');
 
 const MODULE_NAME = '客户管理';
 
@@ -22,7 +23,7 @@ router.post('/assign', authenticateToken, checkPermission('customer:assign'), as
     }
 
     // 权限检查：只有 manageAll 或管理员可分配
-    if (!(req.user.manageAll || req.user.roleId === 1 || req.user.roleId === 2)) {
+    if (!(req.user.manageAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER)) {
       return res.status(403).json({ code: 403, message: '无权分配客户负责人', data: null });
     }
 
@@ -79,7 +80,7 @@ router.post('/batch-assign', authenticateToken, checkPermission('customer:assign
       return res.status(400).json({ code: 400, message: '单次批量操作不能超过100条', data: null });
     }
 
-    if (!(req.user.manageAll || req.user.roleId === 1 || req.user.roleId === 2)) {
+    if (!(req.user.manageAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER)) {
       return res.status(403).json({ code: 403, message: '无权批量分配客户', data: null });
     }
 
@@ -210,7 +211,7 @@ router.get('/my-subordinates', authenticateToken, async (req, res) => {
 
 // 获取分配规则列表
 router.get('/assign-rules', authenticateToken, async (req, res) => {
-  if (!(req.user.manageAll || req.user.roleId === 1 || req.user.roleId === 2)) {
+  if (!(req.user.manageAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER)) {
     return res.status(403).json({ code: 403, message: '无权查看分配规则', data: null });
   }
   try {
@@ -226,7 +227,7 @@ router.get('/assign-rules', authenticateToken, async (req, res) => {
 
 // 添加分配规则
 router.post('/assign-rules/add', authenticateToken, async (req, res) => {
-  if (!(req.user.manageAll || req.user.roleId === 1 || req.user.roleId === 2)) {
+  if (!(req.user.manageAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER)) {
     return res.status(403).json({ code: 403, message: '无权管理分配规则', data: null });
   }
   try {
@@ -259,7 +260,7 @@ router.post('/assign-rules/add', authenticateToken, async (req, res) => {
 
 // 更新分配规则
 router.post('/assign-rules/update', authenticateToken, async (req, res) => {
-  if (!(req.user.manageAll || req.user.roleId === 1 || req.user.roleId === 2)) {
+  if (!(req.user.manageAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER)) {
     return res.status(403).json({ code: 403, message: '无权管理分配规则', data: null });
   }
   try {
@@ -290,7 +291,7 @@ router.post('/assign-rules/update', authenticateToken, async (req, res) => {
 
 // 删除分配规则
 router.post('/assign-rules/delete', authenticateToken, async (req, res) => {
-  if (!(req.user.manageAll || req.user.roleId === 1 || req.user.roleId === 2)) {
+  if (!(req.user.manageAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER)) {
     return res.status(403).json({ code: 403, message: '无权管理分配规则', data: null });
   }
   try {
@@ -358,7 +359,7 @@ module.exports.autoAssignOwner = autoAssignOwner;
 // 轮询自动分配：将公海客户均匀分配给销售团队
 router.post('/auto-assign', authenticateToken, checkPermission('customer:assign'), async (req, res) => {
   try {
-  if (!(req.user.manageAll || req.user.roleId === 1 || req.user.roleId === 2)) {
+  if (!(req.user.manageAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER)) {
     return res.status(403).json({ code: 403, message: '无权执行自动分配', data: null });
   }
 

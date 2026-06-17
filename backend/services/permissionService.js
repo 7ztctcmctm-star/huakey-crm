@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const ROLES = require('../config/roles');
 const NodeCache = require('node-cache');
 
 // 权限缓存，TTL 5分钟
@@ -42,7 +43,7 @@ async function getUserPermissions(userId, roleId) {
  */
 async function hasPermission(userId, roleId, permissionCode) {
   // 超级管理员拥有所有权限
-  if (roleId === 1) {
+  if (roleId === ROLES.ADMIN) {
     return true;
   }
 

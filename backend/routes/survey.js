@@ -4,6 +4,7 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
 const requireAdmin = require('../middleware/admin');
+const { requireManager } = require('../middleware/admin');
 
 // 可选认证（公开接口也支持登录用户）
 const optionalAuth = (req, res, next) => {
@@ -39,7 +40,7 @@ router.get('/templates', authenticateToken, async (req, res) => {
 });
 
 // 创建模板
-router.post('/templates', authenticateToken, async (req, res) => {
+router.post('/templates', authenticateToken, requireManager, async (req, res) => {
   try {
     const { name, description, survey_type, questions } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ code: 400, message: '模板名称不能为空', data: null });
@@ -57,7 +58,7 @@ router.post('/templates', authenticateToken, async (req, res) => {
 });
 
 // 更新模板
-router.put('/templates/:id', authenticateToken, async (req, res) => {
+router.put('/templates/:id', authenticateToken, requireManager, async (req, res) => {
   try {
     const { id } = req.params;
     const [[existing]] = await pool.query('SELECT * FROM crm_survey_template WHERE id = ? AND deleted_at IS NULL', [id]);
@@ -81,7 +82,7 @@ router.put('/templates/:id', authenticateToken, async (req, res) => {
 });
 
 // 删除模板
-router.delete('/templates/:id', authenticateToken, async (req, res) => {
+router.delete('/templates/:id', authenticateToken, requireManager, async (req, res) => {
   try {
     const [[existing]] = await pool.query('SELECT is_system FROM crm_survey_template WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
     if (!existing) return res.status(404).json({ code: 404, message: '模板不存在', data: null });
@@ -160,7 +161,7 @@ router.get('/campaigns/:id', authenticateToken, async (req, res) => {
 });
 
 // 创建活动
-router.post('/campaigns', authenticateToken, async (req, res) => {
+router.post('/campaigns', authenticateToken, requireManager, async (req, res) => {
   try {
     const { name, template_id, target_type, target_ids, send_method, start_date, end_date } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ code: 400, message: '活动名称不能为空', data: null });
@@ -177,7 +178,7 @@ router.post('/campaigns', authenticateToken, async (req, res) => {
 });
 
 // 更新活动
-router.put('/campaigns/:id', authenticateToken, async (req, res) => {
+router.put('/campaigns/:id', authenticateToken, requireManager, async (req, res) => {
   try {
     const [[existing]] = await pool.query('SELECT status FROM crm_survey_campaign WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
     if (!existing) return res.status(404).json({ code: 404, message: '活动不存在', data: null });
@@ -203,7 +204,7 @@ router.put('/campaigns/:id', authenticateToken, async (req, res) => {
 });
 
 // 启动活动
-router.post('/campaigns/:id/start', authenticateToken, async (req, res) => {
+router.post('/campaigns/:id/start', authenticateToken, requireManager, async (req, res) => {
   try {
     const [[existing]] = await pool.query('SELECT status FROM crm_survey_campaign WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
     if (!existing) return res.status(404).json({ code: 404, message: '活动不存在', data: null });
@@ -228,7 +229,7 @@ router.post('/campaigns/:id/start', authenticateToken, async (req, res) => {
 });
 
 // 关闭活动
-router.post('/campaigns/:id/close', authenticateToken, async (req, res) => {
+router.post('/campaigns/:id/close', authenticateToken, requireManager, async (req, res) => {
   try {
     const [[existing]] = await pool.query('SELECT status FROM crm_survey_campaign WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
     if (!existing) return res.status(404).json({ code: 404, message: '活动不存在', data: null });

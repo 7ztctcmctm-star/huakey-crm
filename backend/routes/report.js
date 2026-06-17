@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
+const ROLES = require('../config/roles');
 const { getOverdueDays } = require('../utils/config');
 const { createRouteLogger } = require('../middleware/logger');
 const logAction = createRouteLogger('报表管理');
@@ -261,7 +262,7 @@ router.get('/overview', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
     const roleId = req.user.roleId;
 
-    const isAdmin = roleId === 1 || roleId === 2;
+    const isAdmin = roleId === ROLES.ADMIN || roleId === ROLES.MANAGER;
 
     let customerFilter = '';
     let contractFilter = '';
@@ -346,7 +347,7 @@ router.get('/today-tasks', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const roleId = req.user.roleId;
-    const isAdmin = roleId === 1 || roleId === 2;
+    const isAdmin = roleId === ROLES.ADMIN || roleId === ROLES.MANAGER;
 
     let followFilter = isAdmin ? '1=1' : 'f.create_by = ?';
     let serviceFilter = isAdmin ? '1=1' : 'so.assignee_id = ?';
@@ -417,7 +418,7 @@ router.get('/quick-stats', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const roleId = req.user.roleId;
-    const isAdmin = roleId === 1 || roleId === 2;
+    const isAdmin = roleId === ROLES.ADMIN || roleId === ROLES.MANAGER;
 
     const [customerPool] = await pool.query(`
       SELECT COUNT(*) as count FROM crm_customer WHERE pool_status = 1 AND status != 0 ${isAdmin ? '' : ' AND owner_id = ?'}
@@ -458,8 +459,8 @@ router.post('/overdue', authenticateToken, checkPermission('report'), async (req
   try {
     const userId = req.user.userId;
     const roleId = req.user.roleId;
-    const isAdmin = roleId === 1 || roleId === 2;
-    const isDeptManager = roleId === 2; // roleId 2=部门经理
+    const isAdmin = roleId === ROLES.ADMIN || roleId === ROLES.MANAGER;
+    const isDeptManager = roleId === ROLES.MANAGER; // roleId 2=部门经理
     const { page = 1, pageSize = 20 } = req.body;
     const safePageSize = Math.min(Math.max(1, parseInt(pageSize) || 20), 200);
     const offset = (Math.max(1, parseInt(page) || 1) - 1) * safePageSize;
@@ -514,14 +515,14 @@ router.get('/overdue-stats', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const roleId = req.user.roleId;
-    const isAdmin = roleId === 1 || roleId === 2;
+    const isAdmin = roleId === ROLES.ADMIN || roleId === ROLES.MANAGER;
     const overdueDays = await getOverdueDays();
 
     let whereClause = `c.pool_status = 0 AND c.status != 0 AND c.owner_id IS NOT NULL
       AND ((c.last_follow_time IS NULL AND c.create_time < NOW() - INTERVAL ${overdueDays} DAY)
         OR c.last_follow_time < NOW() - INTERVAL ${overdueDays} DAY)`;
 
-    if (roleId === 2) {
+    if (roleId === ROLES.MANAGER) {
       // 部门经理看本部门数据
       whereClause += ' AND c.owner_id IN (SELECT id FROM sys_user WHERE dept_id = (SELECT dept_id FROM sys_user WHERE id = ?))';
     } else if (roleId >= 3) {
