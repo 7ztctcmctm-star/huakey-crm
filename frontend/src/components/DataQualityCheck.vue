@@ -98,7 +98,7 @@ const fetchReport = async () => {
     if (res.code === 200 && res.data) {
       report.value = res.data
     }
-  } catch { /* ignore */ }
+  } catch (e) { console.error('[DataQualityCheck] 获取质量报告失败:', e) }
 }
 
 const runCheck = async () => {

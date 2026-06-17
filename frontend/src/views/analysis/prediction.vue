@@ -88,7 +88,7 @@ const fetchData = async () => {
       await nextTick()
       renderChart()
     }
-  } catch (e) { /* */ }
+  } catch (e) { console.error('[prediction] 获取预测数据失败:', e) }
   finally { loading.value = false }
 }
 

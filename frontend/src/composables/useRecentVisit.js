@@ -24,7 +24,7 @@ export function recordVisit(type, id, name) {
     // 截断
     const trimmed = filtered.slice(0, MAX_ITEMS)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed))
-  } catch { /* ignore */ }
+  } catch (e) { console.error('[useRecentVisit] 保存最近访问失败:', e) }
 }
 
 /**

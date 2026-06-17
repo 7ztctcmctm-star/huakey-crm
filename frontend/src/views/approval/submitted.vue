@@ -66,7 +66,7 @@ const fetchList = async () => {
         return row
       })
     }
-  } catch (e) { /* */ }
+  } catch (e) { console.error('[submitted] 获取已提交列表失败:', e) }
   finally { loading.value = false }
 }
 

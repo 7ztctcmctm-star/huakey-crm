@@ -101,7 +101,7 @@ const fetchStats = async () => {
         fetchList()
       }
     }
-  } catch (e) { /* ignore */ }
+  } catch (e) { console.error('[RecycleBin] 加载回收站失败:', e) }
 }
 
 const handleModuleChange = (val) => {
@@ -125,7 +125,7 @@ const fetchList = async () => {
       deletedList.value = res.data.list || []
       total.value = res.data.total || 0
     }
-  } catch (e) { /* ignore */ }
+  } catch (e) { console.error('[RecycleBin] 加载列表失败:', e) }
   finally { loading.value = false }
 }
 

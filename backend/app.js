@@ -119,6 +119,17 @@ apiRouter.use(apiLimiter);
 // 全局操作日志中间件（自动记录所有API请求）
 apiRouter.use(globalLogMiddleware);
 
+// 全局错误处理中间件（捕获路由中未处理的错误）
+apiRouter.use((err, req, res, next) => {
+  console.error('[ErrorHandler]', err.stack || err.message);
+  const statusCode = err.status || 500;
+  res.status(statusCode).json({
+    code: statusCode,
+    message: statusCode === 500 ? '服务器内部错误' : (err.message || '请求失败'),
+    data: null
+  });
+});
+
 // 测试路由
 apiRouter.get('/', (req, res) => {
   res.json({
@@ -225,16 +236,16 @@ apiRouter.get('/system/health', authenticateToken, async (req, res) => {
       dbStatus = 'error';
     }
 
-    // 数据库表统计（PG: pg_stat_user_tables 替代 information_schema.TABLES）
-    const { rows: tables } = await pool.query(`
-      SELECT tablename as name, n_live_tup as rows,
-        ROUND(pg_total_relation_size(schemaname || '.' || tablename) / 1024.0 / 1024.0, 2) as size_mb
-      FROM pg_stat_user_tables
-      ORDER BY pg_total_relation_size(schemaname || '.' || tablename) DESC LIMIT 10
-    `);
+    // 数据库表统计
+    const [tables] = await pool.query(`
+      SELECT TABLE_NAME as name, TABLE_ROWS as \`rows\`,
+        ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024, 2) as size_mb
+      FROM information_schema.TABLES
+      WHERE TABLE_SCHEMA = ? ORDER BY (DATA_LENGTH + INDEX_LENGTH) DESC LIMIT 10
+    `, [process.env.DB_NAME || 'huakey_crm']);
 
     // 在线用户
-    const { rows: onlineUsers } = await pool.query(
+    const [[onlineUserRow]] = await pool.query(
       'SELECT COUNT(*) as count FROM sys_user WHERE status = 1'
     );
 
@@ -254,7 +265,7 @@ apiRouter.get('/system/health', authenticateToken, async (req, res) => {
           latency_ms: dbLatency,
           top_tables: tables
         },
-        active_users: onlineUsers[0].count
+        active_users: onlineUserRow.count
       }
     });
   } catch (error) {

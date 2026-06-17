@@ -8,7 +8,7 @@ function loadUser() {
   try {
     const stored = localStorage.getItem('userInfo')
     if (stored) userInfo.value = JSON.parse(stored)
-  } catch { /* ignore */ }
+  } catch (e) { console.error('[useUser] 加载用户信息失败:', e) }
 }
 
 // 验证cookie登录状态（仅首次调用时请求后端）
@@ -22,7 +22,7 @@ async function verifyAuth() {
       localStorage.setItem('userInfo', JSON.stringify(res.data))
       return true
     }
-  } catch { /* ignore */ }
+  } catch (e) { console.error('[useUser] 验证登录状态失败:', e) }
   userInfo.value = null
   localStorage.removeItem('userInfo')
   return false

@@ -99,7 +99,7 @@ const fetchList = async () => {
   try {
     const res = await request.get('/approval/my-pending')
     if (res.code === 200) tableData.value = res.data
-  } catch (e) { /* */ }
+  } catch (e) { console.error('[pending] 获取待审批列表失败:', e) }
   finally { loading.value = false }
 }
 
@@ -144,7 +144,7 @@ const handleBatchApprove = () => {
     const ids = selectedRows.value.map(r => r.id)
     const res = await request.post('/approval/batch-approve', { ids, remark: '批量通过' })
     if (res.code === 200) { ElMessage.success(res.message); fetchList() }
-  }).catch(() => {})
+  }).catch(e => console.error('[pending] 批量通过失败:', e))
 }
 
 const handleBatchReject = () => {
@@ -152,7 +152,7 @@ const handleBatchReject = () => {
     const ids = selectedRows.value.map(r => r.id)
     const res = await request.post('/approval/batch-reject', { ids, remark: value || '批量驳回' })
     if (res.code === 200) { ElMessage.success(res.message); fetchList() }
-  }).catch(() => {})
+  }).catch(e => console.error('[pending] 批量驳回失败:', e))
 }
 
 onMounted(() => { fetchList() })

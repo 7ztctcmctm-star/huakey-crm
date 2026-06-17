@@ -10,7 +10,7 @@ export function useAssign() {
     try {
       const res = await get('/customer/sales-users')
       if (res?.code === 200) salesUsers.value = res.data
-    } catch { /* ignore */ }
+    } catch (e) { console.error('[useAssign] 获取销售人员失败:', e) }
   }
 
   async function assignCustomer(customerId, toUserId, remark = '手动分配') {
