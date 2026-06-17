@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { checkPermission } = require('../middleware/permission');
+const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
 
 const router = express.Router();
 
@@ -12,7 +12,6 @@ const STATUS_MAP = {
   4: '已失效'
 };
 
-const { getDataPermission, buildPermissionClause } = require('../utils/permission');
 
 // 生成报价单号（需在事务内调用，传入connection）
 const generateQuoteNo = async (connection) => {
@@ -147,14 +146,13 @@ router.post('/add', authenticateToken, checkPermission('quotation:add'), async (
 });
 
 // 2. 报价单列表
-router.post('/list', authenticateToken, async (req, res) => {
+router.post('/list', authenticateToken, checkDataPermission('quote', 'create_by'), async (req, res) => {
   try {
     const { page = 1, pageSize = 10, quote_no, customer_name, status, approval_status } = req.body;
     const offset = (page - 1) * pageSize;
     const params = [];
 
-    const permission = await getDataPermission(req.user);
-    const { clause: permissionClause, params: permParams } = buildPermissionClause(permission, 'q', 'create_by');
+    const { clause: permissionClause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'q');
     params.push(...permParams);
 
     let whereClause = `WHERE ${permissionClause} AND q.deleted_at IS NULL`;
@@ -219,12 +217,11 @@ router.post('/list', authenticateToken, async (req, res) => {
 });
 
 // 3. 报价单详情
-router.get('/detail/:id', authenticateToken, async (req, res) => {
+router.get('/detail/:id', authenticateToken, checkDataPermission('quote', 'create_by'), async (req, res) => {
   try {
     const { id } = req.params;
 
-    const permission = await getDataPermission(req.user);
-    const { clause: permissionClause, params: permParams } = buildPermissionClause(permission, 'q', 'create_by');
+    const { clause: permissionClause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'q');
 
     const [quote] = await pool.query(
       `SELECT

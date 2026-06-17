@@ -1,5 +1,15 @@
 # CLAUDE.md
 
+## Database Rules
+
+This project uses **MySQL**, NOT PostgreSQL. Never use PostgreSQL-specific syntax. Specifically:
+- Do NOT use `DELIMITER`, `$$` procedural blocks, or `CREATE PROCEDURE` in migration files
+- Do NOT use `EXTRACT(... FROM ...)`, `INTERVAL '1 day'`, or `GENERATED ALWAYS AS` — use MySQL equivalents
+- Use `IF NOT EXISTS` with backticks, not bare SQL
+- `CREATE INDEX IF NOT EXISTS` is NOT valid MySQL — check if index exists via `SHOW INDEX` first
+- Avoid MySQL reserved words as column names (e.g., use `sort_order` not `rank`, `phone_number` not `phone`)
+- Always verify column names exist in the schema before referencing them in queries or migrations
+
 ## 铧旗 CRM 项目
 
 **技术栈**
@@ -30,6 +40,16 @@
 - `backend/config/` — 数据库配置
 - `frontend/src/views/` — 页面组件
 - `frontend/src/styles/apple.css` — 苹果风格样式
+
+---
+
+## Deployment Target
+
+The project deploys to a **NAS via Docker Container Manager**. Key rules:
+- Docker containers may have stale caches — always suggest `docker compose build --no-cache` when deployments seem stale
+- Port 5000 is often in conflict — check before binding
+- Migration scripts run at container startup and may race with DB readiness — add retry logic to migrate.js
+- After changing backend code, always rebuild and redeploy the container for changes to take effect
 
 ---
 
@@ -170,3 +190,21 @@
 - 未 commit 就执行回退操作
 - 跳过二次确认直接回退
 - 丢失未提交的修改
+
+---
+
+## Code Quality Rules
+
+- Always check that referenced database columns actually exist in the current schema before writing queries
+- When fixing one file, scan for the same pattern/bug in ALL related files (e.g., if fixing SQL syntax in one route, check all other route files too)
+- Never write code that can delete production data as part of a test script — use separate test databases only
+- For frontend: Element Plus components must be properly imported — verify on-demand import registration before adding new components
+- When the user says something is broken, investigate the actual root cause before proposing fixes — don't assume browser cache or other surface-level causes
+
+---
+
+## Language & Style Preferences
+
+- Respond in the same language the user writes in (Chinese/English)
+- When generating content (documents, templates, etc.), match the user's desired tone — if they say it feels 'too AI-generated' or 'too generic', rewrite with more natural, colloquial language and concrete examples
+- For large output tasks (100+ items), output in batches to a file rather than trying to generate everything in one response
