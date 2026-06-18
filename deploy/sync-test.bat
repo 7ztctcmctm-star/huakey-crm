@@ -1,4 +1,6 @@
 @echo off
+chcp 65001 >nul 2>&1
+setlocal enabledelayedexpansion
 set SSH_KEY=C:\Users\a8466\.ssh\id_rsa_nas
 set NAS=syadmin@192.168.0.200
 set TEST=/volume1/docker/huakey-crm-deploy/test
@@ -9,9 +11,28 @@ echo  Huakey CRM Deploy: Local -^> Test
 echo ========================================
 echo.
 
+REM Check if local git is clean before syncing
+echo [0/4] Checking local git status...
+cd /d "%LOCAL%"
+git diff --quiet
+if errorlevel 1 (
+    echo.
+    echo WARNING: Local git has uncommitted changes!
+    echo          Consider committing before deploy.
+    echo.
+    set /p CONTINUE="Continue anyway? (y/N): "
+    if /i not "!CONTINUE!"=="y" (
+        echo Deploy cancelled.
+        pause
+        exit /b 0
+    )
+)
+echo Git status OK.
+echo.
+
 echo [1/4] Syncing backend (tar over SSH)...
 cd /d "%LOCAL%"
-tar czf - --exclude=node_modules --exclude=.git --exclude=logs --exclude=backups --exclude=uploads backend | ssh -i "%SSH_KEY%" -o StrictHostKeyChecking=no %NAS% "tar xzf - -C %TEST%"
+tar czf - --exclude=node_modules --exclude=.git --exclude=logs --exclude=backups --exclude=uploads --exclude=*.tar.gz backend | ssh -i "%SSH_KEY%" -o StrictHostKeyChecking=no %NAS% "tar xzf - -C %TEST%"
 if errorlevel 1 (
     echo ERROR: backend sync failed
     pause
