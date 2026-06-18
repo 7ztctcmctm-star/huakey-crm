@@ -40,10 +40,11 @@ request.interceptors.response.use(
           ElMessage.error(data.message || '请求参数错误')
           break
         case 401:
-          // token过期或无效
-          ElMessage.error(data.message || '登录已过期，请重新登录')
-          // 跳转到登录页（cookie由后端管理）
-          router.push('/login')
+          // 登录页的401是正常的未认证状态，不需要弹窗
+          if (router.currentRoute?.value?.path !== '/login') {
+            ElMessage.error(data.message || '登录已过期，请重新登录')
+            router.push('/login')
+          }
           break
         case 403:
           ElMessage.error(data.message || '没有权限访问')
