@@ -121,7 +121,14 @@ apiRouter.use(globalLogMiddleware);
 
 // 全局错误处理中间件（捕获路由中未处理的错误）
 apiRouter.use((err, req, res, next) => {
-  console.error('[ErrorHandler]', err.stack || err.message);
+  const ctx = {
+    userId: req.user?.userId || 'anonymous',
+    method: req.method,
+    path: req.originalUrl,
+    ip: req.ip,
+    body: req.method !== 'GET' ? JSON.stringify(req.body).substring(0, 500) : undefined
+  };
+  console.error('[ErrorHandler]', { ...ctx, error: err.stack || err.message });
   const statusCode = err.status || 500;
   res.status(statusCode).json({
     code: statusCode,
@@ -312,7 +319,13 @@ app.use((req, res) => {
 // 全局错误处理中间件
 app.use((err, req, res, next) => {
   const statusCode = err.statusCode || err.status || 500;
-  console.error('[服务器] 错误:', err);
+  const ctx = {
+    userId: req.user?.userId || 'anonymous',
+    method: req.method,
+    path: req.originalUrl,
+    ip: req.ip
+  };
+  console.error('[AppErrorHandler]', { ...ctx, error: err.stack || err.message });
 
   res.status(statusCode).json({
     code: statusCode,
@@ -405,13 +418,23 @@ if (!process.env.VERCEL) {
 
   // 全局未捕获Promise拒绝处理器
   process.on('unhandledRejection', (reason, promise) => {
-    console.error('[FATAL] 未捕获的Promise拒绝:', reason);
+    console.error('[UnhandledRejection]', {
+      message: reason?.message || reason,
+      stack: reason?.stack?.substring(0, 500),
+      timestamp: new Date().toISOString()
+    });
+    // 不 exit，只记录。让PM2/Docker重启策略处理
   });
 
   // 全局未捕获异常处理器
-  process.on('uncaughtException', (error) => {
-    console.error('[FATAL] 未捕获异常:', error);
-    process.exit(1);
+  process.on('uncaughtException', (err) => {
+    console.error('[UncaughtException]', {
+      message: err.message,
+      stack: err.stack?.substring(0, 500),
+      timestamp: new Date().toISOString()
+    });
+    // 给进程1秒写日志后退出，让Docker自动重启
+    setTimeout(() => process.exit(1), 1000);
   });
 
   // 启动服务器

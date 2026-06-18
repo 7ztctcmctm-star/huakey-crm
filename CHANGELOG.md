@@ -18,6 +18,12 @@
 - **Migration 060**：为辅助表添加11个外键约束（stage_log/pool_log/calendar/email/notification/payment_reminder/sales_target/competitor_encounter）
 - **输入校验补全**：assign.js（2路由）、leads.js（3路由）、reminder.js（5路由）添加 Joi schema 校验
 
+## 错误处理标准化
+
+- **后端错误日志**：全局错误中间件增加请求上下文（userId/method/path/ip/body）
+- **进程异常处理**：`unhandledRejection` 标准化日志格式，`uncaughtException` 延迟1秒退出让Docker重启
+- **前端Vue错误处理**：添加 `app.config.errorHandler`，生产环境显示友好提示避免白屏
+
 ## 部署脚本优化
 
 - **sync-test.bat**：添加 `chcp 65001`、git clean检查、排除 `*.tar.gz`
