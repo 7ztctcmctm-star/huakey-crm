@@ -55,7 +55,7 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { Download } from '@element-plus/icons-vue'
 import request from '@/utils/request'
-import * as echarts from 'echarts'
+import echarts from '@/composables/useECharts'
 
 const loading = ref(false)
 const period = ref('month')

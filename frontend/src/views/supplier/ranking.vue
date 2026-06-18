@@ -54,7 +54,7 @@
 <script setup>
 import { ref, onMounted, nextTick } from 'vue'
 import request from '@/utils/request'
-import * as echarts from 'echarts'
+import echarts from '@/composables/useECharts'
 
 const loading = ref(false)
 const rankingList = ref([])

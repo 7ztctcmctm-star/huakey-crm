@@ -286,19 +286,28 @@ router.get('/analysis/compare', authenticateToken, checkPermission('competitor')
       `SELECT * FROM crm_competitor WHERE id IN (${placeholders}) AND deleted_at IS NULL`, ids
     );
 
-    const result = [];
-    for (const comp of competitors) {
-      const [[{ encounters }]] = await pool.query('SELECT COUNT(*) as encounters FROM crm_competitor_encounter WHERE competitor_id = ? AND deleted_at IS NULL', [comp.id]);
-      const [[{ wins }]] = await pool.query("SELECT COUNT(*) as wins FROM crm_competitor_encounter WHERE competitor_id = ? AND encounter_type = 'won' AND deleted_at IS NULL", [comp.id]);
-      const [[{ losses }]] = await pool.query("SELECT COUNT(*) as losses FROM crm_competitor_encounter WHERE competitor_id = ? AND encounter_type = 'lost' AND deleted_at IS NULL", [comp.id]);
-      const winRate = (wins + losses) > 0 ? Math.round(wins / (wins + losses) * 100) : 0;
+    // 批量查询统计数据（避免 N+1）
+    const [stats] = await pool.query(
+      `SELECT competitor_id,
+         COUNT(*) as encounters,
+         SUM(CASE WHEN encounter_type = 'won' THEN 1 ELSE 0 END) as wins,
+         SUM(CASE WHEN encounter_type = 'lost' THEN 1 ELSE 0 END) as losses
+       FROM crm_competitor_encounter
+       WHERE competitor_id IN (${placeholders}) AND deleted_at IS NULL
+       GROUP BY competitor_id`,
+      ids
+    );
+    const statMap = {};
+    stats.forEach(s => { statMap[s.competitor_id] = s; });
 
+    const result = competitors.map(comp => {
+      const s = statMap[comp.id] || { encounters: 0, wins: 0, losses: 0 };
+      const winRate = (s.wins + s.losses) > 0 ? Math.round(s.wins / (s.wins + s.losses) * 100) : 0;
       let strengths = [], weaknesses = [];
       try { strengths = JSON.parse(comp.strengths || '[]'); } catch { /* */ }
       try { weaknesses = JSON.parse(comp.weaknesses || '[]'); } catch { /* */ }
-
-      result.push({ id: comp.id, name: comp.name, strengths, weaknesses, encounters, wins, losses, win_rate: winRate });
-    }
+      return { id: comp.id, name: comp.name, strengths, weaknesses, encounters: s.encounters, wins: s.wins, losses: s.losses, win_rate: winRate };
+    });
 
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {

@@ -103,7 +103,7 @@
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
 import request from '@/utils/request'
-import * as echarts from 'echarts'
+import echarts from '@/composables/useECharts'
 
 const data = ref({ kpi: {}, teamRanking: [], distribution: { level: [], industry: [] }, trends: { customer: [], contract: [], payment: [] }, warnings: {} })
 const customerTrendRef = ref(null)

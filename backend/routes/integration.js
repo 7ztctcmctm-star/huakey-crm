@@ -99,7 +99,7 @@ router.post('/test', authenticateToken, checkPermission('system'), async (req, r
     res.json({ code: 200, message: '连接测试成功', data: { success: true } });
   } catch (error) {
     console.error('邮件测试失败:', error.message);
-    await pool.query("UPDATE sys_integration SET status = 'error' WHERE type = 'email'").catch(() => {});
+    await pool.query("UPDATE sys_integration SET status = 'error' WHERE type = 'email'").catch(err => { console.error('[Integration] 更新状态失败:', err.message); });
     res.json({ code: 200, message: '连接测试失败，请检查配置', data: { success: false } });
   }
 });

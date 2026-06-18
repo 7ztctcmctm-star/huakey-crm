@@ -68,7 +68,7 @@
 <script setup>
 import { ref, onMounted, nextTick, watch } from 'vue'
 import request from '@/utils/request'
-import * as echarts from 'echarts'
+import echarts from '@/composables/useECharts'
 
 const loading = ref(false)
 const monthsAhead = ref(3)

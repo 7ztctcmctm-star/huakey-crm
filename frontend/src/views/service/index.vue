@@ -488,7 +488,7 @@ function getTypes() {
     if (res.code === 200) {
       types.value = res.data
     }
-  })
+  }).catch(err => { console.error('获取服务类型失败:', err); ElMessage.error('获取服务类型失败'); })
 }
 
 function getStatusList() {
@@ -496,7 +496,7 @@ function getStatusList() {
     if (res.code === 200) {
       statusList.value = res.data
     }
-  })
+  }).catch(err => { console.error('获取状态列表失败:', err); ElMessage.error('获取状态列表失败'); })
 }
 
 function getPriorityList() {
@@ -504,7 +504,7 @@ function getPriorityList() {
     if (res.code === 200) {
       priorityList.value = res.data
     }
-  })
+  }).catch(err => { console.error('获取优先级列表失败:', err); ElMessage.error('获取优先级列表失败'); })
 }
 
 function getCustomers() {
@@ -543,7 +543,7 @@ function getList() {
       tableData.value = res.data.list
       pagination.total = res.data.total
     }
-  }).finally(() => {
+  }).catch(err => { console.error('获取工单列表失败:', err); ElMessage.error('获取工单列表失败'); }).finally(() => {
     loading.value = false
   })
 }
@@ -671,7 +671,7 @@ function getContracts() {
     if (res.code === 200) {
       contracts.value = res.data.list
     }
-  })
+  }).catch(err => { console.error('获取合同列表失败:', err); ElMessage.error('获取合同列表失败'); })
 }
 
 function handleView(row) {
@@ -680,7 +680,7 @@ function handleView(row) {
       detailData.value = res.data
       detailVisible.value = true
     }
-  })
+  }).catch(err => { console.error('获取工单详情失败:', err); ElMessage.error('获取工单详情失败'); })
 }
 
 function handleAssign(row) {
@@ -697,7 +697,7 @@ function handleSubmitAssign() {
       assignVisible.value = false
       getList()
     }
-  }).finally(() => { submitting.value = false })
+  }).catch(err => { console.error('分配工单失败:', err); ElMessage.error('分配工单失败'); }).finally(() => { submitting.value = false })
 }
 
 function handleProcess(row) {
@@ -718,14 +718,14 @@ function handleSubmitProcess() {
         processVisible.value = false
         getList()
       }
-    }).finally(() => { submitting.value = false })
+    }).catch(err => { console.error('开始处理失败:', err); ElMessage.error('开始处理失败'); }).finally(() => { submitting.value = false })
   } else {
     request.post('/service/finish', { id: processData.id, finish_desc: processData.finish_desc }).then(res => {
       if (res.code === 200) {
         processVisible.value = false
         getList()
       }
-    }).finally(() => { submitting.value = false })
+    }).catch(err => { console.error('完成工单失败:', err); ElMessage.error('完成工单失败'); }).finally(() => { submitting.value = false })
   }
 }
 
@@ -742,7 +742,7 @@ function handleSubmitConfirm() {
       confirmVisible.value = false
       getList()
     }
-  }).finally(() => { submitting.value = false })
+  }).catch(err => { console.error('确认工单失败:', err); ElMessage.error('确认工单失败'); }).finally(() => { submitting.value = false })
 }
 
 function handleDelete(row) {

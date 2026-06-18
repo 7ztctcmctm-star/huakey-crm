@@ -52,7 +52,7 @@
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
 import request from '@/utils/request'
-import * as echarts from 'echarts'
+import echarts from '@/composables/useECharts'
 
 const typeName = { nps: 'NPS', csat: 'CSAT', custom: '自定义' }
 

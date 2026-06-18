@@ -1,17 +1,18 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import ElementPlus from 'element-plus'
-import 'element-plus/dist/index.css'
 import '@/styles/apple.css'
 import App from './App.vue'
 import router from '@/router/index.js'
 import { permissionDirective, permissionAllDirective, permissionDisabledDirective } from '@/directives/permission'
 
+// ElMessage/ElMessageBox 样式（按需导入插件无法自动处理JS调用的样式）
+import 'element-plus/theme-chalk/src/message.scss'
+import 'element-plus/theme-chalk/src/message-box.scss'
+
 const app = createApp(App)
 
 app.use(createPinia())
 app.use(router)
-app.use(ElementPlus)
 
 // 注册权限指令
 app.directive('permission', permissionDirective)

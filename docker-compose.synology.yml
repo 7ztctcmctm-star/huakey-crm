@@ -10,11 +10,18 @@ services:
     image: mysql:8.0
     container_name: huakey-mysql
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: '1.0'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-HuakeyRoot@2024}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: huakey_crm
       MYSQL_USER: crm_user
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-Huakey@2024}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
       - "3307:3306"
     volumes:
@@ -25,7 +32,7 @@ services:
       - --collation-server=utf8mb4_unicode_ci
       - --default-authentication-plugin=mysql_native_password
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-HuakeyRoot@2024}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -38,15 +45,22 @@ services:
       dockerfile: Dockerfile.synology
     container_name: huakey-app
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: '1.0'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
       NODE_ENV: production
       PORT: 5000
       DB_HOST: mysql
       DB_PORT: 3306
       DB_USER: crm_user
-      DB_PASSWORD: ${MYSQL_PASSWORD:-Huakey@2024}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
       DB_NAME: huakey_crm
-      JWT_SECRET: ${JWT_SECRET:-a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6}
+      JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: 7d
     ports:
       - "6789:5000"

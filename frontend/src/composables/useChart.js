@@ -1,5 +1,5 @@
 import { ref, onMounted, onUnmounted } from 'vue'
-import * as echarts from 'echarts'
+import echarts from '@/composables/useECharts'
 
 /**
  * ECharts 生命周期管理 composable

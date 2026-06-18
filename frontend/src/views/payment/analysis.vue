@@ -61,7 +61,7 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { Download } from '@element-plus/icons-vue'
 import request from '@/utils/request'
-import * as echarts from 'echarts'
+import echarts from '@/composables/useECharts'
 
 const period = ref('year')
 const data = ref({ profit: {}, costStructure: [], aging: [], cashFlow: [], collection: { avg_days: 0, trend: [] } })

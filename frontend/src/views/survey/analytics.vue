@@ -75,7 +75,7 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import request from '@/utils/request'
-import * as echarts from 'echarts'
+import echarts from '@/composables/useECharts'
 
 const route = useRoute()
 const statusName = { draft: '草稿', active: '进行中', closed: '已关闭' }

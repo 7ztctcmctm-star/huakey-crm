@@ -435,8 +435,6 @@ router.post('/payment/add', authenticateToken, checkPermission('contract'), vali
   const { contract_id, plan_id, pay_date, pay_amount, pay_method, remark } = req.body;
 
   try {
-    console.log('收到回款登记请求:', { contract_id, plan_id, pay_date, pay_amount, pay_method, remark });
-
     // [安全修复] 归属校验：验证用户有权操作此合同的回款
     const [contracts] = await pool.query('SELECT create_by FROM crm_contract WHERE id=? AND deleted_at IS NULL', [contract_id]);
     if (!contracts.length) {

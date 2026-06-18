@@ -31,7 +31,19 @@ INSERT INTO sys_permission (name, code, type, parent_id, path, icon, sort) VALUE
 ('用户管理', 'system:user', 'menu', 16, '/system/user', NULL, 1),
 ('角色管理', 'system:role', 'menu', 16, '/system/role', NULL, 2),
 ('部门管理', 'system:dept', 'menu', 16, '/system/dept', NULL, 3),
-('操作日志', 'system:log', 'menu', 16, '/system/log', NULL, 4);
+('操作日志', 'system:log', 'menu', 16, '/system/log', NULL, 4),
+
+-- 新增模块菜单权限
+('财务管理', 'finance', 'menu', 0, '/finance', 'Money', 13),
+('审批管理', 'approval', 'menu', 0, '/approval', 'Check', 14),
+('邮件管理', 'email', 'menu', 0, '/email', 'Message', 15),
+('知识库', 'knowledge', 'menu', 0, '/knowledge', 'Reading', 16),
+('竞争对手', 'competitor', 'menu', 0, '/competitor', 'Aim', 17),
+('文件管理', 'file', 'menu', 0, '/file', 'Folder', 18),
+('发票管理', 'invoice', 'menu', 0, '/invoice', 'Ticket', 19),
+('团队面板', 'team', 'menu', 0, '/team', 'User', 20),
+('数据备份', 'backup', 'menu', 0, '/backup', 'CopyDocument', 21),
+('回收站', 'recycle_bin', 'menu', 0, '/recycle', 'Delete', 22);
 
 -- 插入按钮权限
 INSERT INTO sys_permission (name, code, type, parent_id, sort) VALUES
@@ -85,7 +97,26 @@ INSERT INTO sys_permission (name, code, type, parent_id, sort) VALUES
 ('新增角色', 'system:role:add', 'button', 18, 1),
 ('编辑角色', 'system:role:edit', 'button', 18, 2),
 ('删除角色', 'system:role:delete', 'button', 18, 3),
-('配置权限', 'system:role:permission', 'button', 18, 4);
+('配置权限', 'system:role:permission', 'button', 18, 4),
+
+-- 发票管理按钮
+('新增发票', 'invoice:add', 'button', (SELECT id FROM sys_permission WHERE code = 'invoice'), 1),
+('编辑发票', 'invoice:edit', 'button', (SELECT id FROM sys_permission WHERE code = 'invoice'), 2),
+('删除发票', 'invoice:delete', 'button', (SELECT id FROM sys_permission WHERE code = 'invoice'), 3),
+('导出发票', 'invoice:export', 'button', (SELECT id FROM sys_permission WHERE code = 'invoice'), 4),
+
+-- 系统管理扩展按钮
+('数据恢复', 'data:restore', 'button', (SELECT id FROM sys_permission WHERE code = 'system'), 10),
+('日志导出', 'log:export', 'button', (SELECT id FROM sys_permission WHERE code = 'system:log'), 1),
+('回收站查看', 'recycle_bin:view', 'button', (SELECT id FROM sys_permission WHERE code = 'recycle_bin'), 1),
+('数据质量检查', 'data_quality:check', 'button', (SELECT id FROM sys_permission WHERE code = 'system'), 11),
+
+-- 邮件按钮
+('发送邮件', 'email:send', 'button', (SELECT id FROM sys_permission WHERE code = 'email'), 1),
+
+-- 备份按钮
+('创建备份', 'backup:create', 'button', (SELECT id FROM sys_permission WHERE code = 'backup'), 1),
+('恢复备份', 'backup:restore', 'button', (SELECT id FROM sys_permission WHERE code = 'backup'), 2);
 
 -- 为超级管理员角色(id=1)分配所有权限
 INSERT INTO sys_role_permission (role_id, permission_id)
@@ -105,6 +136,12 @@ INSERT INTO sys_data_permission (role_id, module, data_scope) VALUES
 (1, 'purchase', 'all'),
 (1, 'quotation', 'all'),
 (1, 'service', 'all'),
+(1, 'finance', 'all'),
+(1, 'approval', 'all'),
+(1, 'knowledge', 'all'),
+(1, 'competitor', 'all'),
+(1, 'report', 'all'),
+(1, 'invoice', 'all'),
 
 -- 管理员：所有数据
 (2, 'customer', 'all'),
@@ -114,18 +151,28 @@ INSERT INTO sys_data_permission (role_id, module, data_scope) VALUES
 (2, 'purchase', 'all'),
 (2, 'quotation', 'all'),
 (2, 'service', 'all'),
+(2, 'finance', 'all'),
+(2, 'approval', 'all'),
+(2, 'knowledge', 'all'),
+(2, 'competitor', 'all'),
+(2, 'report', 'all'),
+(2, 'invoice', 'all'),
 
 -- 销售经理(id=3)：部门数据
 (3, 'customer', 'dept'),
 (3, 'opportunity', 'dept'),
 (3, 'contract', 'dept'),
 (3, 'quotation', 'dept'),
+(3, 'report', 'dept'),
+(3, 'invoice', 'dept'),
 
 -- 销售人员(id=4)：自己的数据
 (4, 'customer', 'self'),
 (4, 'opportunity', 'self'),
 (4, 'contract', 'self'),
-(4, 'quotation', 'self');
+(4, 'quotation', 'self'),
+(4, 'report', 'self'),
+(4, 'invoice', 'self');
 
 SELECT '权限数据插入完成' AS result;
 SELECT COUNT(*) AS permission_count FROM sys_permission;

@@ -7,14 +7,16 @@ const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 
 // 简单加密/解密（生产环境应使用 AES-256-CBC）
-const ENC_KEY = process.env.EMAIL_ENC_KEY || 'huakey-crm-email-enc-key-32b!';
+const ENC_KEY = process.env.EMAIL_ENC_KEY;
 function encrypt(text) {
+  if (!ENC_KEY) throw new Error('EMAIL_ENC_KEY 未配置，无法加密邮箱密码');
   const cipher = crypto.createCipheriv('aes-256-cbc', ENC_KEY.slice(0, 32), ENC_KEY.slice(0, 16));
   let encrypted = cipher.update(text, 'utf8', 'hex');
   encrypted += cipher.final('hex');
   return encrypted;
 }
 function decrypt(text) {
+  if (!ENC_KEY) { console.warn('[Email] EMAIL_ENC_KEY未配置，密码将明文返回'); return text; }
   try {
     const decipher = crypto.createDecipheriv('aes-256-cbc', ENC_KEY.slice(0, 32), ENC_KEY.slice(0, 16));
     let decrypted = decipher.update(text, 'hex', 'utf8');
