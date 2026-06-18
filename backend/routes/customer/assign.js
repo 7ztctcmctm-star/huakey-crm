@@ -3,6 +3,7 @@ const pool = require('../../config/database');
 const { authenticateToken } = require('../../middleware/auth');
 const { checkPermission } = require('../../middleware/permission');
 const { requireManager } = require('../../middleware/admin');
+const { validate, Joi } = require('../../middleware/validate');
 
 const MODULE_NAME = '客户管理';
 
@@ -11,16 +12,25 @@ const logAction = createRouteLogger(MODULE_NAME);
 
 const router = express.Router();
 
+// Validation schemas
+const assignSchema = Joi.object({
+  customer_id: Joi.number().integer().positive().required(),
+  to_user_id: Joi.number().integer().positive().allow(null),
+  remark: Joi.string().max(200).allow('', null)
+});
+
+const batchAssignSchema = Joi.object({
+  customer_ids: Joi.array().items(Joi.number().integer().positive()).min(1).max(100).required(),
+  to_user_id: Joi.number().integer().positive().allow(null),
+  remark: Joi.string().max(200).allow('', null)
+});
+
 // 分配/回收客户负责人（支持设为"无负责人"）
 // to_user_id 可以为 null，表示回收为无负责人状态
-router.post('/assign', authenticateToken, checkPermission('customer:assign'), requireManager, async (req, res) => {
+router.post('/assign', authenticateToken, checkPermission('customer:assign'), requireManager, validate(assignSchema), async (req, res) => {
   try {
     const { customer_id, to_user_id, remark } = req.body;
     const userId = req.user.userId;
-
-    if (!customer_id) {
-      return res.status(400).json({ code: 400, message: '客户ID不能为空', data: null });
-    }
 
     const [customers] = await pool.query(
       'SELECT id, owner_id, company_name FROM crm_customer WHERE id = ? AND status != 0',
@@ -58,22 +68,11 @@ router.post('/assign', authenticateToken, checkPermission('customer:assign'), re
 
 // 批量分配客户负责人
 // [安全修复] 添加事务保护和数量上限，防止部分失败导致数据不一致
-router.post('/batch-assign', authenticateToken, checkPermission('customer:assign'), requireManager, async (req, res) => {
+router.post('/batch-assign', authenticateToken, checkPermission('customer:assign'), requireManager, validate(batchAssignSchema), async (req, res) => {
   const connection = await pool.getConnection();
   try {
     const { customer_ids, to_user_id, remark } = req.body;
     const userId = req.user.userId;
-
-    if (!customer_ids || !Array.isArray(customer_ids) || customer_ids.length === 0) {
-      return res.status(400).json({ code: 400, message: '请选择要分配的客户', data: null });
-    }
-    // to_user_id 可以为 null（回收为待分配）
-    // 不再强制要求 to_user_id
-
-    // 数量上限防止恶意提交
-    if (customer_ids.length > 100) {
-      return res.status(400).json({ code: 400, message: '单次批量操作不能超过100条', data: null });
-    }
 
     await connection.beginTransaction();
 

@@ -5,6 +5,7 @@ const { checkPermission } = require('../../middleware/permission');
 const ROLES = require('../../config/roles');
 const { SOURCE_PARENT_MAP } = require('./detail');
 const { CUSTOMER_STATUS } = require('../../constants/customer');
+const { validate, Joi } = require('../../middleware/validate');
 
 const MODULE_NAME = '客户管理';
 
@@ -13,6 +14,19 @@ const logAction = createRouteLogger(MODULE_NAME);
 
 
 const router = express.Router();
+
+// Validation schemas
+const convertSchema = Joi.object({
+  id: Joi.number().integer().positive().required()
+});
+
+const claimSchema = Joi.object({
+  id: Joi.number().integer().positive().required()
+});
+
+const markLostSchema = Joi.object({
+  id: Joi.number().integer().positive().required()
+});
 
 // 线索数据权限子句构建（独立逻辑，不走通用 checkDataPermission）
 async function buildLeadsPermissionClause(user) {
@@ -100,13 +114,12 @@ router.post('/list', authenticateToken, checkPermission('leads'), async (req, re
 });
 
 // 线索转化：将线索转为潜客（status 5→1）
-router.post('/convert', authenticateToken, checkPermission('leads'), async (req, res) => {
+router.post('/convert', authenticateToken, checkPermission('leads'), validate(convertSchema), async (req, res) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
 
     const { id } = req.body;
-    if (!id) return res.status(400).json({ code: 400, message: '线索ID不能为空', data: null });
 
     const [rows] = await connection.query(
       `SELECT id, company_name, owner_id FROM crm_customer WHERE id = ? AND status = ${CUSTOMER_STATUS.LEAD}`,
@@ -142,10 +155,9 @@ router.post('/convert', authenticateToken, checkPermission('leads'), async (req,
 });
 
 // 销售领取线索
-router.post('/claim', authenticateToken, checkPermission('leads'), async (req, res) => {
+router.post('/claim', authenticateToken, checkPermission('leads'), validate(claimSchema), async (req, res) => {
   try {
     const { id } = req.body;
-    if (!id) return res.status(400).json({ code: 400, message: '线索ID不能为空', data: null });
 
     const [rows] = await pool.query(
       `SELECT id, company_name FROM crm_customer WHERE id = ? AND status = ${CUSTOMER_STATUS.LEAD} AND (owner_id IS NULL OR owner_id = 1)`,
@@ -175,10 +187,9 @@ router.post('/claim', authenticateToken, checkPermission('leads'), async (req, r
 });
 
 // 销售标记线索为已流失
-router.post('/mark-lost', authenticateToken, checkPermission('leads'), async (req, res) => {
+router.post('/mark-lost', authenticateToken, checkPermission('leads'), validate(markLostSchema), async (req, res) => {
   try {
     const { id } = req.body;
-    if (!id) return res.status(400).json({ code: 400, message: '线索ID不能为空', data: null });
 
     const [rows] = await pool.query(
       `SELECT id FROM crm_customer WHERE id = ? AND status = ${CUSTOMER_STATUS.LEAD} AND owner_id = ?`,

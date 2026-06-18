@@ -12,6 +12,12 @@
 - **[P2] 修复followPlan内联数据权限**：改用 `checkDataPermission` + `buildDataPermissionWhere` 替代内联角色判断
 - **[P2] 修复followupTemplate权限不一致**：`requireManager` 改为 `requireAdmin`，删除重复的 `isAdmin` 检查
 
+## 数据完整性
+
+- **Migration 059**：为核心业务表添加13个外键约束（crm_customer/follow_up/follow_plan/opportunity/contract/quote/invoice → sys_user/crm_customer），全部 ON DELETE SET NULL
+- **Migration 060**：为辅助表添加11个外键约束（stage_log/pool_log/calendar/email/notification/payment_reminder/sales_target/competitor_encounter）
+- **输入校验补全**：assign.js（2路由）、leads.js（3路由）、reminder.js（5路由）添加 Joi schema 校验
+
 ## 部署脚本优化
 
 - **sync-test.bat**：添加 `chcp 65001`、git clean检查、排除 `*.tar.gz`
