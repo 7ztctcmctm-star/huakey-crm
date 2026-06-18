@@ -2,6 +2,15 @@
 
 ---
 
+# 2026-06-18
+
+## Bug修复（P0/P1）
+
+- **[P0] 修复销售漏斗SQL错误**：`opportunity.js` funnel端点 `permParams` 未展开导致 `?` 占位符绑定失败，改为 `[...permParams]` 展开
+- **[P1] 修复Migration 056语法错误**：移除 `DELIMITER $$` 语法（mysql2不支持），简化 `STARTS` 表达式
+
+---
+
 # 2026-06-17
 
 ## 代码清理（P1/P2）

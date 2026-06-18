@@ -518,10 +518,10 @@ router.get('/funnel',
         COUNT(*) as count,
         COALESCE(SUM(expected_amount), 0) as total_amount
       FROM crm_opportunity o
-      WHERE ${permissionWhere} AND o.deleted_at IS NULL
+      WHERE o.deleted_at IS NULL AND ${permissionWhere}
       GROUP BY stage
       ORDER BY stage`,
-      permParams
+      [...permParams]
     );
 
     const [totalResult] = await pool.query(
@@ -529,8 +529,8 @@ router.get('/funnel',
         COUNT(*) as total_count,
         COALESCE(SUM(expected_amount), 0) as total_amount
       FROM crm_opportunity o
-      WHERE ${permissionWhere} AND o.deleted_at IS NULL`,
-      permParams
+      WHERE o.deleted_at IS NULL AND ${permissionWhere}`,
+      [...permParams]
     );
 
     const funnel = [];
