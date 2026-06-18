@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { requireAdmin } = require('../middleware/admin');
+const { requireAdmin, requireManager } = require('../middleware/admin');
 
 // 获取所有模板
 router.get('/', authenticateToken, async (req, res) => {
