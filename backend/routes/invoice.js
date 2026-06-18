@@ -5,6 +5,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const XLSX = require('xlsx');
+const { logFieldChanges } = require('../utils/fieldLog');
 
 const MODULE_NAME = '发票管理';
 const { createRouteLogger } = require('../middleware/logger');
@@ -171,10 +172,11 @@ router.post('/update', authenticateToken, checkPermission('invoice:edit'), valid
   const { id, contract_id, customer_id, type, amount, tax_rate, tax_amount, invoice_date, status, remark } = req.body;
 
   try {
-    const [oldRows] = await pool.query('SELECT id FROM crm_invoice WHERE id = ? AND deleted_at IS NULL', [id]);
+    const [oldRows] = await pool.query('SELECT * FROM crm_invoice WHERE id = ? AND deleted_at IS NULL', [id]);
     if (oldRows.length === 0) {
       return res.status(404).json({ code: 404, message: '发票不存在', data: null });
     }
+    const oldData = oldRows[0];
 
     await pool.query(
       `UPDATE crm_invoice SET contract_id=?, customer_id=?, type=?, amount=?, tax_rate=?, tax_amount=?, invoice_date=?, status=?, remark=? WHERE id=?`,
@@ -182,6 +184,15 @@ router.post('/update', authenticateToken, checkPermission('invoice:edit'), valid
     );
 
     await logAction(req, 'update', `修改发票: ID=${id}`);
+    await logFieldChanges(req, {
+      module: MODULE_NAME,
+      action: '编辑发票',
+      oldData,
+      newData: req.body,
+      allowedFields: ['invoice_no', 'customer_id', 'type', 'status', 'amount', 'tax_amount', 'total_amount', 'remark', 'due_date'],
+      description: `编辑发票: ${oldData.invoice_no || id}`
+    });
+
     res.json({ code: 200, message: '修改成功', data: null });
   } catch (error) {
     console.error('修改发票失败:', error);

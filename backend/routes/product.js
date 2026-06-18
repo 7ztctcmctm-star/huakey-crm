@@ -4,6 +4,9 @@ const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const ROLES = require('../config/roles');
+const { logFieldChanges } = require('../utils/fieldLog');
+
+const MODULE_NAME = '产品管理';
 
 const router = express.Router();
 
@@ -130,10 +133,11 @@ router.post('/update', authenticateToken, checkPermission('product:edit'), requi
   try {
     const { id, name, code, category, unit, price, cost_price, stock, status, description } = req.body;
 
-    const [rows] = await pool.query('SELECT id FROM crm_product WHERE id = ?', [id]);
-    if (rows.length === 0) {
+    const [oldRows] = await pool.query('SELECT * FROM crm_product WHERE id = ?', [id]);
+    if (oldRows.length === 0) {
       return res.status(404).json({ code: 404, message: '产品不存在', data: null });
     }
+    const oldData = oldRows[0];
 
     const updates = [];
     const params = [];
@@ -153,6 +157,15 @@ router.post('/update', authenticateToken, checkPermission('product:edit'), requi
 
     params.push(id);
     await pool.query(`UPDATE crm_product SET ${updates.join(', ')} WHERE id = ?`, params);
+
+    await logFieldChanges(req, {
+      module: MODULE_NAME,
+      action: '编辑产品',
+      oldData,
+      newData: req.body,
+      allowedFields: ['name', 'model', 'category', 'unit', 'price', 'cost', 'status', 'remark', 'description'],
+      description: `编辑产品: ${oldData.name}`
+    });
 
     res.json({ code: 200, message: '修改产品成功', data: null });
   } catch (error) {

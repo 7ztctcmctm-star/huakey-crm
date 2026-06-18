@@ -5,6 +5,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const { maskSensitiveData } = require('../utils/mask');
+const { logFieldChanges } = require('../utils/fieldLog');
 
 const MODULE_NAME = '供应商管理';
 
@@ -281,12 +282,13 @@ router.post('/update', authenticateToken, checkPermission('supplier:edit'), vali
 
   try {
     // 权限校验：非管理员只能修改自己负责/创建的供应商
-    const [supplier] = await pool.query('SELECT owner_id, create_by FROM crm_supplier WHERE id=? AND deleted_at IS NULL', [id]);
-    if (!supplier.length) {
+    const [oldRows] = await pool.query('SELECT * FROM crm_supplier WHERE id=? AND deleted_at IS NULL', [id]);
+    if (!oldRows.length) {
       return res.status(404).json({ code: 404, message: '供应商不存在', data: null });
     }
+    const oldData = oldRows[0];
     const { manageAll, roleId, userId } = req.user;
-    if (!manageAll && roleId !== 1 && roleId !== 2 && supplier[0].owner_id !== userId && supplier[0].create_by !== userId) {
+    if (!manageAll && roleId !== 1 && roleId !== 2 && oldData.owner_id !== userId && oldData.create_by !== userId) {
       return res.status(403).json({ code: 403, message: '无权限修改该供应商', data: null });
     }
 
@@ -309,6 +311,14 @@ router.post('/update', authenticateToken, checkPermission('supplier:edit'), vali
     await pool.query(`UPDATE crm_supplier SET ${setClauses.join(', ')} WHERE id = ?`, params);
 
     await logAction(req, 'update', `修改供应商: ID=${id}`);
+    await logFieldChanges(req, {
+      module: MODULE_NAME,
+      action: '编辑供应商',
+      oldData,
+      newData: req.body,
+      allowedFields: ['company_name', 'contact_name', 'phone', 'email', 'address', 'industry', 'level', 'status', 'remark', 'owner_id'],
+      description: `编辑供应商: ${oldData.name || oldData.company_name}`
+    });
 
     res.json({ code: 200, message: '修改供应商成功', data: null });
   } catch (error) {

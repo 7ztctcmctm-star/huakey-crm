@@ -2,6 +2,9 @@ const express = require('express');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
+const { logFieldChanges } = require('../utils/fieldLog');
+
+const MODULE_NAME = '报价管理';
 
 const router = express.Router();
 
@@ -270,7 +273,7 @@ router.post('/update', authenticateToken, checkPermission('quotation:edit'), asy
       return res.status(400).json({ code: 400, message: '报价单ID不能为空', data: null });
     }
 
-    const [quotes] = await connection.query('SELECT id, status FROM crm_quote WHERE id = ? AND deleted_at IS NULL', [id]);
+    const [quotes] = await connection.query('SELECT * FROM crm_quote WHERE id = ? AND deleted_at IS NULL', [id]);
     if (quotes.length === 0) {
       return res.status(404).json({ code: 404, message: '报价单不存在', data: null });
     }
@@ -359,6 +362,15 @@ router.post('/update', authenticateToken, checkPermission('quotation:edit'), asy
     }
 
     await connection.commit();
+
+    await logFieldChanges(req, {
+      module: MODULE_NAME,
+      action: '编辑报价单',
+      oldData: existingQuote,
+      newData: req.body,
+      allowedFields: ['quote_no', 'customer_id', 'status', 'approval_status', 'total_amount', 'remark', 'delivery_date'],
+      description: `编辑报价单: ${existingQuote.quote_no || id}`
+    });
 
     res.json({ code: 200, message: '修改报价单成功', data: null });
   } catch (error) {

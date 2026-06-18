@@ -24,6 +24,11 @@
 - **进程异常处理**：`unhandledRejection` 标准化日志格式，`uncaughtException` 延迟1秒退出让Docker重启
 - **前端Vue错误处理**：添加 `app.config.errorHandler`，生产环境显示友好提示避免白屏
 
+## 操作日志增强
+
+- **字段级变更追踪**：supplier/product/quote/invoice 的 update 路由补 `logFieldChanges`，记录变更前后值
+- 现有 customer/detail.js、contract.js、opportunity.js 已有 fieldLog（确认完整）
+
 ## 部署脚本优化
 
 - **sync-test.bat**：添加 `chcp 65001`、git clean检查、排除 `*.tar.gz`
