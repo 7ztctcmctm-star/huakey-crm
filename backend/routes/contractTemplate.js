@@ -3,15 +3,16 @@ const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { requireManager } = require('../middleware/admin');
+const { success, fail, serverError, notFound } = require('../utils/response');
 
 // 获取模板列表
 router.get('/list', authenticateToken, async (req, res) => {
   try {
     const [templates] = await pool.query('SELECT * FROM crm_contract_template WHERE deleted_at IS NULL ORDER BY sort');
-    res.json({ code: 200, message: 'success', data: templates });
+    success(res, templates);
   } catch (error) {
     console.error('获取模板列表错误:', error);
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    serverError(res, '查询失败');
   }
 });
 
@@ -19,45 +20,40 @@ router.get('/list', authenticateToken, async (req, res) => {
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM crm_contract_template WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
-    if (!rows.length) return res.status(404).json({ code: 404, message: '模板不存在', data: null });
-    res.json({ code: 200, message: 'success', data: rows[0] });
+    if (!rows.length) return notFound(res, '模板不存在');
+    success(res, rows[0]);
   } catch (error) {
     console.error('获取模板详情错误:', error);
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    serverError(res, '查询失败');
   }
 });
 
 // 管理模板（仅管理员/经理）
 router.post('/manage', authenticateToken, requireManager, async (req, res) => {
   try {
-  const { action, id, name, amount, payment_terms, delivery_days, remark } = req.body;
+    const { action, id, name, amount, payment_terms, delivery_days, remark } = req.body;
 
-  try {
     if (action === 'add') {
       const [result] = await pool.query(
         'INSERT INTO crm_contract_template (name, amount, payment_terms, delivery_days, remark) VALUES (?, ?, ?, ?, ?)',
         [name, amount || 0, payment_terms || '', delivery_days || 30, remark || '']
       );
-      res.json({ code: 200, message: '模板已添加', data: { id: result.insertId } });
+      success(res, { id: result.insertId }, '模板已添加');
     } else if (action === 'update') {
       await pool.query(
         'UPDATE crm_contract_template SET name=?, amount=?, payment_terms=?, delivery_days=?, remark=? WHERE id=?',
         [name, amount, payment_terms, delivery_days, remark, id]
       );
-      res.json({ code: 200, message: '模板已更新', data: null });
+      success(res, null, '模板已更新');
     } else if (action === 'delete') {
       await pool.query('UPDATE crm_contract_template SET deleted_at = NOW() WHERE id = ?', [id]);
-      res.json({ code: 200, message: '模板已删除', data: null });
+      success(res, null, '模板已删除');
     } else {
-      return res.status(400).json({ code: 400, message: '无效操作', data: null });
+      return fail(res, '无效操作');
     }
   } catch (error) {
     console.error('管理模板错误:', error);
-    res.status(500).json({ code: 500, message: '操作失败', data: null });
-  }
-  } catch (error) {
-    console.error('管理模板错误:', error);
-    res.status(500).json({ code: 500, message: '操作失败', data: null });
+    serverError(res, '操作失败');
   }
 });
 

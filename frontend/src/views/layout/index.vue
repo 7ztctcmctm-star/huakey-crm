@@ -240,88 +240,7 @@
           </el-breadcrumb>
 
           <!-- 全局搜索 -->
-          <el-popover
-            placement="bottom-start"
-            :width="420"
-            trigger="manual"
-            v-model:visible="searchVisible"
-            popper-class="global-search-popover"
-          >
-            <template #reference>
-              <el-input
-                v-model="searchKeyword"
-                placeholder="搜索客户、合同、商机..."
-                :prefix-icon="Search"
-                clearable
-                class="global-search-input"
-                @input="onSearchInput"
-                @focus="onSearchFocus"
-                @keydown.enter="doSearch"
-                @blur="onSearchBlur"
-              >
-                <template #suffix>
-                  <span class="search-shortcut-hint">Ctrl+K</span>
-                </template>
-              </el-input>
-            </template>
-            <div v-loading="searchLoading" class="search-results">
-              <div v-if="searchKeyword.length < 2" class="search-hint">请输入至少2个字符</div>
-              <template v-else>
-                <div v-if="searchResults.customers.length > 0" class="search-group">
-                  <div class="search-group-title">客户</div>
-                  <div
-                    v-for="item in searchResults.customers"
-                    :key="'c' + item.id"
-                    class="search-item"
-                    @click="goTo('/customer/detail/' + item.id)"
-                  >
-                    <span class="search-item-name">{{ item.company_name }}</span>
-                    <span class="search-item-sub">{{ item.contact_name }} {{ item.phone }}</span>
-                  </div>
-                </div>
-                <div v-if="searchResults.contracts.length > 0" class="search-group">
-                  <div class="search-group-title">合同</div>
-                  <div
-                    v-for="item in searchResults.contracts"
-                    :key="'ct' + item.id"
-                    class="search-item"
-                    @click="goTo('/contract/detail/' + item.id)"
-                  >
-                    <span class="search-item-name">{{ item.contract_no }}</span>
-                    <span class="search-item-sub">{{ item.customer_name }}</span>
-                  </div>
-                </div>
-                <div v-if="searchResults.opportunities.length > 0" class="search-group">
-                  <div class="search-group-title">商机</div>
-                  <div
-                    v-for="item in searchResults.opportunities"
-                    :key="'o' + item.id"
-                    class="search-item"
-                    @click="goTo('/opportunity')"
-                  >
-                    <span class="search-item-name">{{ item.name }}</span>
-                    <span class="search-item-sub">{{ item.customer_name }} · {{ item.stage_name }}</span>
-                  </div>
-                </div>
-                <div v-if="searchResults.quotes.length > 0" class="search-group">
-                  <div class="search-group-title">报价</div>
-                  <div
-                    v-for="item in searchResults.quotes"
-                    :key="'q' + item.id"
-                    class="search-item"
-                    @click="goTo('/quotation/edit/' + item.id)"
-                  >
-                    <span class="search-item-name">{{ item.quote_no }}</span>
-                    <span class="search-item-sub">{{ item.customer_name }}</span>
-                  </div>
-                </div>
-                <div
-                  v-if="searchResults.customers.length === 0 && searchResults.contracts.length === 0 && searchResults.opportunities.length === 0 && searchResults.quotes.length === 0"
-                  class="search-hint"
-                >未找到匹配结果</div>
-              </template>
-            </div>
-          </el-popover>
+          <SearchOverlay />
 
           <!-- 最近访问 -->
           <el-popover placement="bottom-start" :width="300" trigger="click" popper-class="recent-visit-popover">
@@ -345,83 +264,7 @@
           <QuickActions />
 
           <!-- 通知中心 -->
-          <el-popover trigger="click" width="380" :show-after="0" @show="fetchNotificationCenter" placement="bottom-end">
-            <template #reference>
-              <el-badge :value="centerUnreadCount" :hidden="centerUnreadCount === 0" :max="99" class="reminder-bell">
-                <el-button link>
-                  <el-icon :size="20"><Bell /></el-icon>
-                </el-button>
-              </el-badge>
-            </template>
-            <div class="notify-panel">
-              <div class="notify-tabs">
-                <span :class="['notify-tab', { active: notifyTab === 'todo' }]" @click="notifyTab = 'todo'">待办</span>
-                <span :class="['notify-tab', { active: notifyTab === 'system' }]" @click="notifyTab = 'system'">系统</span>
-              </div>
-              <div class="notify-body" v-loading="notifyLoading">
-                <!-- 待办Tab -->
-                <div v-if="notifyTab === 'todo'">
-                  <div v-if="centerData.todo?.approvals?.length" class="notify-group">
-                    <div class="notify-group-title">审批待处理</div>
-                    <div v-for="item in centerData.todo.approvals" :key="'a'+item.id" class="notify-item" @click="$router.push(item.link)">
-                      <div class="notify-dot" />
-                      <div class="notify-content">
-                        <div class="notify-title">{{ item.title }}</div>
-                        <div class="notify-time">{{ item.time }}</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div v-if="centerData.todo?.followups?.length" class="notify-group">
-                    <div class="notify-group-title">今日待跟进</div>
-                    <div v-for="item in centerData.todo.followups" :key="'f'+item.id" class="notify-item" @click="$router.push(item.link)">
-                      <div class="notify-dot" />
-                      <div class="notify-content">
-                        <div class="notify-title">{{ item.title }}</div>
-                        <div class="notify-time">{{ item.time }}</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div v-if="centerData.todo?.stock_alerts?.length" class="notify-group">
-                    <div class="notify-group-title">库存预警</div>
-                    <div v-for="item in centerData.todo.stock_alerts" :key="'s'+item.id" class="notify-item" @click="$router.push(item.link)">
-                      <div class="notify-dot" />
-                      <div class="notify-content">
-                        <div class="notify-title">{{ item.title }}</div>
-                        <div class="notify-time">{{ item.time }}</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div v-if="centerData.todo?.payment_overdue?.length" class="notify-group">
-                    <div class="notify-group-title">回款逾期</div>
-                    <div v-for="item in centerData.todo.payment_overdue" :key="'p'+item.id" class="notify-item" @click="$router.push(item.link)">
-                      <div class="notify-dot warn" />
-                      <div class="notify-content">
-                        <div class="notify-title">{{ item.title }}</div>
-                        <div class="notify-time">{{ item.time }}</div>
-                      </div>
-                    </div>
-                  </div>
-                  <el-empty v-if="!notifyLoading && !hasTodoItems" description="暂无待办" :image-size="48" />
-                </div>
-                <!-- 系统Tab -->
-                <div v-if="notifyTab === 'system'">
-                  <div v-for="item in centerData.system" :key="'n'+item.id" class="notify-item" :class="{ read: item.is_read }" @click="handleNotifyClick(item)">
-                    <div :class="['notify-dot', { hide: item.is_read }]" />
-                    <div class="notify-content">
-                      <div class="notify-title">{{ item.title }}</div>
-                      <div class="notify-desc">{{ item.content }}</div>
-                      <div class="notify-time">{{ item.time }}</div>
-                    </div>
-                  </div>
-                  <el-empty v-if="!notifyLoading && centerData.system?.length === 0" description="暂无通知" :image-size="48" />
-                </div>
-              </div>
-              <div class="notify-footer">
-                <el-button link size="small" @click="markCenterAllRead">全部已读</el-button>
-                <el-button link size="small" type="primary" @click="$router.push('/notification')">查看全部</el-button>
-              </div>
-            </div>
-          </el-popover>
+          <NotificationBadge />
 
           <!-- 回收站 -->
           <el-button v-if="isAdmin" link class="recycle-btn" @click="showRecycleBin = true" v-permission="'recycle_bin:view'">
@@ -434,20 +277,7 @@
             <span>团队看板</span>
           </el-button>
 
-          <el-dropdown @command="handleCommand">
-            <span class="user-info">
-              <el-icon><User /></el-icon>
-              {{ userInfo.realName || userInfo.username }}
-              <el-icon><ArrowDown /></el-icon>
-            </span>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="profile">个人中心</el-dropdown-item>
-                <el-dropdown-item command="settings">系统设置</el-dropdown-item>
-                <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
+          <UserDropdown :user-info="userInfo" />
         </div>
       </el-header>
       
@@ -693,12 +523,14 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
-import { useUser } from '@/composables/useUser'
 import AiChat from '@/components/AiChat.vue'
 import RecycleBin from '@/components/RecycleBin.vue'
 import QuickActions from '@/components/QuickActions.vue'
+import SearchOverlay from '@/components/layout/SearchOverlay.vue'
+import NotificationBadge from '@/components/layout/NotificationBadge.vue'
+import UserDropdown from '@/components/layout/UserDropdown.vue'
 import { formatTime } from '@/composables/useFormat'
 import { getVisits, getVisitPath, getVisitTypeLabel } from '@/composables/useRecentVisit'
 import { relativeTime } from '@/composables/useRelativeTime'
@@ -716,14 +548,10 @@ import {
   Setting,
   Fold,
   Expand,
-  User,
-  ArrowDown,
-  Bell,
   DataBoard,
   Delete,
   DataAnalysis,
   ChatDotRound,
-  Search,
   Clock,
   Trophy,
   Histogram,
@@ -734,7 +562,6 @@ import {
   Message
 } from '@element-plus/icons-vue'
 
-const { clearUser } = useUser()
 const route = useRoute()
 const router = useRouter()
 
@@ -783,86 +610,9 @@ const hasAnyMenuPermission = (permissionCodes) => {
   return permissionCodes.some(code => hasMenuPermission(code))
 }
 
-// 提醒相关
-// 全局搜索
-const searchKeyword = ref('')
-const searchVisible = ref(false)
-const searchLoading = ref(false)
-const searchResults = ref({ customers: [], contracts: [], opportunities: [], quotes: [] })
-let searchTimer = null
-
-const doSearch = async () => {
-  if (searchKeyword.value.trim().length < 2) {
-    searchResults.value = { customers: [], contracts: [], opportunities: [], quotes: [] }
-    return
-  }
-  searchLoading.value = true
-  try {
-    const res = await request.get('/search/global', { params: { keyword: searchKeyword.value.trim() } })
-    if (res.code === 200) {
-      searchResults.value = res.data
-    }
-  } catch { /* ignore */ }
-  finally { searchLoading.value = false }
-}
-
-const onSearchInput = () => {
-  searchVisible.value = searchKeyword.value.trim().length >= 1
-  clearTimeout(searchTimer)
-  searchTimer = setTimeout(doSearch, 500)
-}
-
-const onSearchFocus = () => {
-  if (searchKeyword.value.trim().length >= 1) {
-    searchVisible.value = true
-  }
-}
-
-const onSearchBlur = () => {
-  setTimeout(() => { searchVisible.value = false }, 200)
-}
-
-const goTo = (path) => {
-  searchVisible.value = false
-  searchKeyword.value = ''
-  router.push(path)
-}
-
 const showReminderDialog = ref(false)
 const showRecycleBin = ref(false)
 const reminderTab = ref('follow')
-
-// 通知中心下拉面板
-const notifyTab = ref('todo')
-const notifyLoading = ref(false)
-const centerData = ref({ todo: { approvals: [], followups: [], stock_alerts: [], payment_overdue: [] }, system: [], unread_count: 0 })
-const centerUnreadCount = computed(() => centerData.value.unread_count || 0)
-const hasTodoItems = computed(() => {
-  const t = centerData.value.todo
-  return t && (t.approvals?.length || t.followups?.length || t.stock_alerts?.length || t.payment_overdue?.length)
-})
-
-const fetchNotificationCenter = async () => {
-  notifyLoading.value = true
-  try {
-    const res = await request.get('/reminder/center')
-    if (res.code === 200) centerData.value = res.data
-  } catch { /* */ }
-  finally { notifyLoading.value = false }
-}
-
-const markCenterAllRead = async () => {
-  try {
-    await request.post('/reminder/center/mark-all-read')
-    centerData.value.unread_count = 0
-    centerData.value.system?.forEach(n => n.is_read = 1)
-  } catch { /* */ }
-}
-
-const handleNotifyClick = (item) => {
-  if (!item.is_read) item.is_read = 1
-  if (item.link) router.push(item.link)
-}
 const reminderList = ref([])
 const todayList = ref([])
 const upcomingList = ref([])
@@ -1034,39 +784,6 @@ onUnmounted(() => {
 // 切换菜单折叠
 const toggleCollapse = () => {
   isCollapse.value = !isCollapse.value
-}
-
-// 处理下拉菜单命令
-const handleCommand = (command) => {
-  switch (command) {
-    case 'profile':
-      router.push('/profile')
-      break
-    case 'settings':
-      router.push('/settings')
-      break
-    case 'logout':
-      handleLogout()
-      break
-  }
-}
-
-// 退出登录
-const handleLogout = () => {
-  ElMessageBox.confirm('确定要退出登录吗？', '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(async () => {
-    try {
-      await request.post('/auth/logout')
-    } catch (e) { /* 即使后端请求失败也继续登出 */ }
-
-    clearUser()
-
-    ElMessage.success('退出登录成功')
-    router.push('/login')
-  }).catch(() => {})
 }
 </script>
 

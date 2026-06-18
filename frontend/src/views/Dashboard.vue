@@ -1,517 +1,44 @@
 <template>
   <div class="dashboard">
-    <!-- 管理员/销售：经营概览 -->
-    <el-row :gutter="24" v-if="isAdmin || isSales">
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card" @click="handleQuickAction('sales')">
-          <div class="stat-body">
-            <div class="stat-icon" style="background: #eff6ff; color: #1a56db">
-              <el-icon :size="28"><TrendCharts /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value">¥{{ formatAmount(overview.month_sales) }}</div>
-              <div class="stat-label">本月销售额</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card" @click="handleQuickAction('customer')">
-          <div class="stat-body">
-            <div class="stat-icon" style="background: #eff6ff; color: #1a56db">
-              <el-icon :size="28"><Plus /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value">{{ overview.month_customers }}</div>
-              <div class="stat-label">本月新增客户</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card" @click="handleQuickAction('contract')">
-          <div class="stat-body">
-            <div class="stat-icon" style="background: #eff6ff; color: #1a56db">
-              <el-icon :size="28"><Document /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value">{{ overview.month_contracts }}</div>
-              <div class="stat-label">本月合同数</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card" @click="handleQuickAction('payment')">
-          <div class="stat-body">
-            <div class="stat-icon" style="background: #fef2f2; color: #dc2626">
-              <el-icon :size="28"><ShoppingCart /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value">¥{{ formatAmount(overview.month_payments) }}</div>
-              <div class="stat-label">本月回款</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
+    <!-- 统计卡片 -->
+    <StatsCards
+      :overview="overview"
+      :finance-data="financeData"
+      :purchase-data="purchaseData"
+      :service-data="serviceData"
+      :quick-stats="quickStats"
+      :task-stats="taskStats"
+      :overdue-count="overdueCount"
+      :overdue-days="overdueDays"
+      :is-admin="isAdmin"
+      :is-sales="isSales"
+      :is-finance="isFinance"
+      :is-purchase="isPurchase"
+      :is-service="isService"
+      @quick-action="handleQuickAction"
+      @go-tasks="goToTasks"
+    />
 
-    <!-- 财务：回款概览 -->
-    <el-row :gutter="24" v-else-if="isFinance">
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card">
-          <div class="stat-body">
-            <div class="stat-icon" style="background: #eff6ff; color: #0071e3">
-              <el-icon :size="28"><Money /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value">¥{{ formatAmount(financeData.month_plan) }}</div>
-              <div class="stat-label">本月应回款</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card">
-          <div class="stat-body">
-            <div class="stat-icon" style="background: #f0fdf4; color: #16a34a">
-              <el-icon :size="28"><Money /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value">¥{{ formatAmount(financeData.month_paid) }}</div>
-              <div class="stat-label">本月已回款</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card">
-          <div class="stat-body">
-            <div class="stat-icon" style="background: #fef3c7; color: #d97706">
-              <el-icon :size="28"><TrendCharts /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value">{{ financeData.month_rate }}%</div>
-              <div class="stat-label">回款率</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card">
-          <div class="stat-body">
-            <div class="stat-icon" style="background: #fef2f2; color: #dc2626">
-              <el-icon :size="28"><Warning /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value">{{ financeData.overdue_amount }}笔</div>
-              <div class="stat-label">逾期回款</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
+    <!-- 今日待办 -->
+    <PendingTasks
+      :today-tasks="todayTasks"
+      :follow-loading="followLoading"
+      :service-loading="serviceLoading"
+      :overdue-count="overdueCount"
+      @go-customer="goCustomer"
+      @go-follow="goFollow"
+      @go-service="goService"
+      @handle-service="handleService"
+    />
 
-    <!-- 采购：采购概览 -->
-    <el-row :gutter="24" v-else-if="isPurchase">
-      <el-col :span="8">
-        <el-card shadow="hover" class="stat-card">
-          <div class="stat-body">
-            <div class="stat-icon" style="background: #eff6ff; color: #0071e3">
-              <el-icon :size="28"><Goods /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value">¥{{ formatAmount(purchaseData.month_amount) }}</div>
-              <div class="stat-label">本月采购额</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="8">
-        <el-card shadow="hover" class="stat-card">
-          <div class="stat-body">
-            <div class="stat-icon" style="background: #fef3c7; color: #d97706">
-              <el-icon :size="28"><Document /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value">{{ purchaseData.pending_approval }}</div>
-              <div class="stat-label">待审批计划</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="8">
-        <el-card shadow="hover" class="stat-card" @click="$router.push('/inventory')">
-          <div class="stat-body">
-            <div class="stat-icon" style="background: #fef2f2; color: #dc2626">
-              <el-icon :size="28"><Warning /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value">{{ purchaseData.stock_alerts }}</div>
-              <div class="stat-label">库存预警</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <!-- 售后：工单概览 -->
-    <el-row :gutter="24" v-else-if="isService">
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card">
-          <div class="stat-body">
-            <div class="stat-icon" style="background: #eff6ff; color: #0071e3">
-              <el-icon :size="28"><Ticket /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value">{{ serviceData.pending }}</div>
-              <div class="stat-label">待处理工单</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card">
-          <div class="stat-body">
-            <div class="stat-icon" style="background: #fef2f2; color: #dc2626">
-              <el-icon :size="28"><Clock /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value">{{ serviceData.overtime }}</div>
-              <div class="stat-label">超时工单</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card">
-          <div class="stat-body">
-            <div class="stat-icon" style="background: #f0fdf4; color: #16a34a">
-              <el-icon :size="28"><Plus /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value">{{ serviceData.today_new }}</div>
-              <div class="stat-label">今日新增</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card">
-          <div class="stat-body">
-            <div class="stat-icon" style="background: #fef3c7; color: #d97706">
-              <el-icon :size="28"><Trophy /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value">{{ serviceData.satisfaction }}%</div>
-              <div class="stat-label">本月满意度</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <!-- 今日待办区域 - 所有角色可见 -->
-    <el-row :gutter="24" style="margin-top: 16px">
-      <el-col :span="24">
-        <el-card shadow="never" class="todo-card" :class="{ 'has-overdue': overdueCount > 0 }">
-          <template #header>
-            <div class="section-header">
-              <span class="section-title">
-                <el-icon><Bell /></el-icon> 今日待办
-                <el-badge v-if="todayTasks.follow_count > 0" :value="todayTasks.follow_count" class="todo-badge" type="danger" />
-              </span>
-              <div class="todo-summary">
-                <el-tag v-if="todayTasks.follow_count > 0" type="warning" effect="dark">
-                  {{ todayTasks.follow_count }} 个待跟进
-                </el-tag>
-                <el-tag v-if="todayTasks.service_count > 0" type="danger" effect="dark" style="margin-left: 8px">
-                  {{ todayTasks.service_count }} 个待处理工单
-                </el-tag>
-                <el-tag v-if="overdueCount > 0" type="danger" effect="plain" style="margin-left: 8px">
-                  {{ overdueCount }} 个逾期跟进
-                </el-tag>
-              </div>
-            </div>
-          </template>
-          <el-tabs v-model="activeTab" class="todo-tabs">
-            <el-tab-pane label="待跟进" name="follow">
-              <div v-if="followLoading" v-loading="followLoading" style="min-height: 100px" />
-              <div v-else-if="todayTasks.follow_list && todayTasks.follow_list.length > 0" class="todo-list">
-                <div v-for="item in todayTasks.follow_list" :key="'f-' + item.id"
-                     class="todo-item" :class="{ 'overdue': isOverdue(item.next_time) }"
-                     @click="goCustomer(item.customer_id)">
-                  <div class="todo-item-left">
-                    <el-tag :type="followTypeTag(item.follow_type)" size="small">{{ item.follow_type }}</el-tag>
-                    <span class="todo-customer">{{ item.company_name || '未知客户' }}</span>
-                    <el-tag v-if="isOverdue(item.next_time)" type="danger" size="small" effect="dark">逾期</el-tag>
-                  </div>
-                  <div class="todo-item-right">
-                    <span class="todo-time">{{ formatTimeShort(item.next_time) }}</span>
-                    <el-button type="primary" link size="small" @click.stop="goFollow(item)">跟进</el-button>
-                  </div>
-                </div>
-              </div>
-              <el-empty v-else description="今日没有待跟进任务" :image-size="60" />
-            </el-tab-pane>
-            <el-tab-pane label="待处理工单" name="service">
-              <div v-if="serviceLoading" v-loading="serviceLoading" style="min-height: 100px" />
-              <div v-else-if="todayTasks.service_list && todayTasks.service_list.length > 0" class="todo-list">
-                <div v-for="item in todayTasks.service_list" :key="'s-' + item.id" class="todo-item" @click="goService(item.id)">
-                  <div class="todo-item-left">
-                    <el-tag :type="getPriorityTag(item.priority)" size="small">{{ getPriorityText(item.priority) }}</el-tag>
-                    <span class="todo-title">{{ item.title }}</span>
-                  </div>
-                  <div class="todo-item-right">
-                    <el-tag size="small">{{ getServiceStatus(item.status) }}</el-tag>
-                    <el-button type="primary" link size="small" @click.stop="handleService(item)">处理</el-button>
-                  </div>
-                </div>
-              </div>
-              <el-empty v-else description="没有待处理工单" :image-size="60" />
-            </el-tab-pane>
-          </el-tabs>
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <!-- 管理员/销售：商机/回款/逾期/合同 -->
-    <el-row :gutter="24" style="margin-top: 16px" v-if="isAdmin || isSales">
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card mini">
-          <div class="stat-body">
-            <div class="stat-icon small" style="background: #eff6ff; color: #1a56db">
-              <el-icon :size="20"><DocumentChecked /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value small">¥{{ formatAmount(overview.opportunity_amount) }}</div>
-              <div class="stat-label">进行中商机</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card mini">
-          <div class="stat-body">
-            <div class="stat-icon small" style="background: #fef2f2; color: #dc2626">
-              <el-icon :size="20"><Service /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value small danger">{{ quickStats.pending_payment }}</div>
-              <div class="stat-label">待回款计划</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card mini" @click="$router.push({ path: '/customer/list', query: { overdue: 'true' } })">
-          <div class="stat-body">
-            <div class="stat-icon small" :style="{ background: overdueCount > 0 ? 'var(--color-accent-bg)' : '#f0f9eb', color: overdueCount > 0 ? 'var(--color-accent)' : 'var(--color-accent)' }">
-              <el-icon :size="20"><Clock /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value small danger">{{ overdueCount }}</div>
-              <div class="stat-label">逾期跟进 (>{{ overdueDays }}天)</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card mini">
-          <div class="stat-body">
-            <div class="stat-icon small" style="background: #eff6ff; color: #1a56db">
-              <el-icon :size="20"><Document /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value small">{{ quickStats.pending_contract }}</div>
-              <div class="stat-label">待执行合同</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <!-- 跟进提醒统计（管理员/销售） -->
-    <el-row :gutter="24" style="margin-top: 16px" v-if="isAdmin || isSales">
-      <el-col :span="8">
-        <el-card shadow="hover" class="stat-card mini" @click="goToTasks('today')">
-          <div class="stat-body">
-            <div class="stat-icon small" style="background: #fef3c7; color: #d97706">
-              <el-icon :size="20"><Bell /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value small orange">{{ taskStats.today_count }}</div>
-              <div class="stat-label">今日待跟进</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="8">
-        <el-card shadow="hover" class="stat-card mini" @click="goToTasks('tomorrow')">
-          <div class="stat-body">
-            <div class="stat-icon small" style="background: #eff6ff; color: #1a56db">
-              <el-icon :size="20"><Calendar /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value small blue">{{ taskStats.tomorrow_count }}</div>
-              <div class="stat-label">明日计划</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="8">
-        <el-card shadow="hover" class="stat-card mini" @click="goToTasks('overdue')">
-          <div class="stat-body">
-            <div class="stat-icon small" style="background: #fef2f2; color: #dc2626">
-              <el-icon :size="20"><Warning /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value small danger">{{ taskStats.overdue_count }}</div>
-              <div class="stat-label">逾期未跟进</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <el-row :gutter="24" style="margin-top: 24px" v-if="isAdmin || isSales">
-      <el-col :span="12">
-        <el-card shadow="never">
-          <template #header>
-            <div class="section-header">
-              <span class="section-title">
-                <el-icon><Setting /></el-icon> 快捷操作
-              </span>
-            </div>
-          </template>
-          <div class="quick-actions">
-            <div class="action-item" @click="handleQuickAction('add_customer')">
-              <div class="action-icon" style="background: #eff6ff; color: #1a56db">
-                <el-icon :size="24"><Plus /></el-icon>
-              </div>
-              <span>新建客户</span>
-            </div>
-            <div class="action-item" @click="handleQuickAction('add_follow')">
-              <div class="action-icon" style="background: #eff6ff; color: #1a56db">
-                <el-icon :size="24"><ArrowDown /></el-icon>
-              </div>
-              <span>添加跟进</span>
-            </div>
-            <div class="action-item" @click="handleQuickAction('add_opportunity')">
-              <div class="action-icon" style="background: #eff6ff; color: #1a56db">
-                <el-icon :size="24"><Star /></el-icon>
-              </div>
-              <span>新建商机</span>
-            </div>
-            <div class="action-item" @click="handleQuickAction('add_contract')">
-              <div class="action-icon" style="background: #eff6ff; color: #dc2626">
-                <el-icon :size="24"><Document /></el-icon>
-              </div>
-              <span>新建合同</span>
-            </div>
-            <div class="action-item" @click="handleQuickAction('add_service')">
-              <div class="action-icon" style="background: #eff6ff; color: #1a56db">
-                <el-icon :size="24"><Service /></el-icon>
-              </div>
-              <span>创建工单</span>
-            </div>
-            <div class="action-item" @click="handleQuickAction('report')">
-              <div class="action-icon" style="background: #eff6ff; color: #1a56db">
-                <el-icon :size="24"><Histogram /></el-icon>
-              </div>
-              <span>数据报表</span>
-            </div>
-            <div class="action-item" @click="handleQuickAction('batch_follow')">
-              <div class="action-icon" style="background: #f0fdf4; color: #16a34a">
-                <el-icon :size="24"><List /></el-icon>
-              </div>
-              <span>批量跟进</span>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-
-      <el-col :span="12">
-        <el-card shadow="never">
-          <template #header>
-            <div class="section-header">
-              <span class="section-title">
-                <el-icon><TrendCharts /></el-icon> 销售趋势
-              </span>
-            </div>
-          </template>
-          <div ref="trendChartRef" class="chart-container"></div>
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <el-row :gutter="24" style="margin-top: 24px" v-if="isAdmin || isSales">
-      <el-col :span="14">
-        <el-card shadow="never">
-          <template #header>
-            <div class="section-header">
-              <span class="section-title">
-                <el-icon><TrendCharts /></el-icon> 销售趋势
-              </span>
-            </div>
-          </template>
-          <div ref="trendChartRef" class="chart-container"></div>
-        </el-card>
-      </el-col>
-      <el-col :span="10">
-        <el-card shadow="never">
-          <template #header>
-            <div class="section-header">
-              <span class="section-title">
-                <el-icon><PieChart /></el-icon> 客户来源分布
-              </span>
-            </div>
-          </template>
-          <div ref="sourceChartRef" class="chart-container"></div>
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <el-row :gutter="24" style="margin-top: 24px" v-if="isAdmin">
-      <el-col :span="14">
-        <el-card shadow="never">
-          <template #header>
-            <div class="section-header">
-              <span class="section-title">
-                <el-icon><Search /></el-icon> 销售漏斗
-              </span>
-            </div>
-          </template>
-          <div ref="funnelChartRef" class="chart-container"></div>
-        </el-card>
-      </el-col>
-      <el-col :span="10">
-        <el-card shadow="never">
-          <template #header>
-            <div class="section-header">
-              <span class="section-title">
-                <el-icon><Trophy /></el-icon> 销售业绩排行
-              </span>
-            </div>
-          </template>
-          <div v-if="rankLoading" v-loading="rankLoading" style="min-height: 260px" />
-          <el-table v-else :data="performanceRank" stripe size="small">
-            <el-table-column type="index" label="排名" width="60" align="center" />
-            <el-table-column prop="name" label="销售" min-width="80" />
-            <el-table-column prop="contract_amount" label="成交金额" width="100" align="right">
-              <template #default="{ row }">
-                <span class="amount-text">¥{{ formatAmount(row.contract_amount) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="payment_amount" label="回款金额" width="100" align="right">
-              <template #default="{ row }">
-                <span class="amount-text">¥{{ formatAmount(row.payment_amount) }}</span>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-card>
-      </el-col>
-    </el-row>
+    <!-- 图表和快捷操作（管理员/销售） -->
+    <SalesChart
+      v-if="isAdmin || isSales"
+      ref="salesChartRef"
+      :performance-rank="performanceRank"
+      :rank-loading="rankLoading"
+      @quick-action="handleQuickAction"
+    />
 
     <!-- 快速跟进弹窗 -->
     <el-dialog v-model="quickFollowVisible" title="快速跟进" width="500px" @close="resetQuickFollow">
@@ -587,19 +114,16 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onActivated } from 'vue'
+import { ref, reactive, computed, onMounted, onActivated, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import {
-  TrendCharts, Plus, Document, ShoppingCart, DocumentChecked, Service, User,
-  Bell, Setting, ArrowDown, Star, Histogram,
-  PieChart, Search, Trophy, Clock, List, Delete,
-  Calendar, Warning, Money, Goods, Ticket
-} from '@element-plus/icons-vue'
+import { Delete } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { useChart } from '@/composables/useChart'
-import { formatAmount } from '@/composables/useFormat'
 import { PARENT_SOURCE_COLORS } from '@/constants/source'
+import StatsCards from '@/components/dashboard/StatsCards.vue'
+import PendingTasks from '@/components/dashboard/PendingTasks.vue'
+import SalesChart from '@/components/dashboard/SalesChart.vue'
 
 const router = useRouter()
 
@@ -614,94 +138,43 @@ const isFinance = computed(() => roleId.value === 4)
 const isPurchase = computed(() => roleId.value === 5)
 const isService = computed(() => roleId.value === 6)
 
-// 角色化首页数据
+// 数据
 const financeData = reactive({ month_plan: 0, month_paid: 0, month_rate: 0, overdue_amount: 0 })
 const purchaseData = reactive({ month_amount: 0, pending_approval: 0, stock_alerts: 0 })
 const serviceData = reactive({ pending: 0, overtime: 0, today_new: 0, satisfaction: 0 })
-
-const activeTab = ref('follow')
 const overview = reactive({
-  month_sales: '0',
-  month_customers: 0,
-  month_contracts: 0,
-  month_payments: '0',
-  opportunity_amount: '0'
+  month_sales: '0', month_customers: 0, month_contracts: 0, month_payments: '0', opportunity_amount: '0'
 })
-const quickStats = reactive({
-  customer_pool: 0,
-  pending_contract: 0,
-  pending_payment: 0
-})
-const todayTasks = reactive({
-  follow_list: [],
-  follow_count: 0,
-  service_list: [],
-  service_count: 0
-})
-const taskStats = reactive({
-  today_count: 0,
-  tomorrow_count: 0,
-  overdue_count: 0
-})
+const quickStats = reactive({ customer_pool: 0, pending_contract: 0, pending_payment: 0 })
+const todayTasks = reactive({ follow_list: [], follow_count: 0, service_list: [], service_count: 0 })
+const taskStats = reactive({ today_count: 0, tomorrow_count: 0, overdue_count: 0 })
 const performanceRank = ref([])
-
 const followLoading = ref(false)
 const serviceLoading = ref(false)
 const overdueCount = ref(0)
 const overdueDays = ref(15)
 const rankLoading = ref(false)
 
-const { refs: { trendChartRef, sourceChartRef, funnelChartRef }, echarts, initChart } = useChart('trendChartRef', 'sourceChartRef', 'funnelChartRef')
+// 图表
+const salesChartRef = ref(null)
+const { refs, echarts, initChart } = useChart('trendChartRef', 'sourceChartRef', 'funnelChartRef')
 
-const followTypeTag = (type) => {
-  const map = { '电话': 'warning', '拜访': '', '微信': 'success', '邮件': 'info', '其他': '' }
-  return map[type] || ''
-}
-
-const getPriorityTag = (priority) => {
-  const map = { 1: 'danger', 2: 'warning', 3: '', 4: 'info' }
-  return map[priority] || ''
-}
-
-const getPriorityText = (priority) => {
-  const map = { 1: '紧急', 2: '高', 3: '中', 4: '低' }
-  return map[priority] || ''
-}
-
-const getServiceStatus = (status) => {
-  const map = { 1: '待分配', 2: '已分配', 3: '处理中', 4: '待确认', 5: '已完成' }
-  return map[status] || ''
-}
-
-const formatTimeShort = (time) => {
-  if (!time) return '-'
-  return new Date(time).toLocaleString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit'
+// 监听子组件图表ref变化
+const initChartsFromChild = () => {
+  nextTick(() => {
+    if (salesChartRef.value) {
+      const { trendChartRef, trendChartRef2, sourceChartRef, funnelChartRef } = salesChartRef.value
+      if (trendChartRef) initChart('trendChartRef', undefined)
+      if (sourceChartRef) initChart('sourceChartRef', undefined)
+      if (funnelChartRef) initChart('funnelChartRef', undefined)
+    }
   })
 }
 
-// P0-1: 判断跟进是否逾期
-const isOverdue = (nextTime) => {
-  if (!nextTime) return false
-  return new Date(nextTime) < new Date()
-}
-
-const goCustomer = (id) => {
-  router.push(`/customer/detail/${id}`)
-}
-
-const goFollow = (item) => {
-  router.push(`/customer/detail/${item.customer_id}`)
-}
-
-const goService = (id) => {
-  router.push('/service')
-}
-
-const handleService = (item) => {
-  router.push('/service')
-}
+const goCustomer = (id) => router.push(`/customer/detail/${id}`)
+const goFollow = (item) => router.push(`/customer/detail/${item.customer_id}`)
+const goService = (id) => router.push('/service')
+const handleService = (item) => router.push('/service')
 
 const handleQuickAction = (action) => {
   if (action === 'add_follow') {
@@ -714,29 +187,23 @@ const handleQuickAction = (action) => {
     return
   }
   const routes = {
-    sales: '/report',
-    customer: '/customer/list',
-    contract: '/contract',
-    payment: '/payment',
-    add_customer: '/customer/list?action=add',
-    add_opportunity: '/opportunity?action=add',
-    add_contract: '/contract?action=add',
-    add_service: '/service?action=add',
-    report: '/report'
+    sales: '/report', customer: '/customer/list', contract: '/contract', payment: '/payment',
+    add_customer: '/customer/list?action=add', add_opportunity: '/opportunity?action=add',
+    add_contract: '/contract?action=add', add_service: '/service?action=add', report: '/report'
   }
   router.push(routes[action] || '/')
+}
+
+const goToTasks = (type) => {
+  const routes = { today: '/follow-up/today', tomorrow: '/follow-up/tomorrow', overdue: '/follow-up/today' }
+  router.push(routes[type] || '/follow-up/today')
 }
 
 // 快速跟进
 const quickFollowVisible = ref(false)
 const followCustomerLoading = ref(false)
 const followCustomerOptions = ref([])
-const quickFollowForm = ref({
-  customer_id: null,
-  follow_type: '电话',
-  content: '',
-  next_time: ''
-})
+const quickFollowForm = ref({ customer_id: null, follow_type: '电话', content: '', next_time: '' })
 const quickFollowFormRef = ref(null)
 const quickFollowRules = {
   customer_id: [{ required: true, message: '请选择客户', trigger: 'change' }],
@@ -749,16 +216,6 @@ const loadMyCustomers = async () => {
     const stored = localStorage.getItem('userInfo')
     const userId = stored ? JSON.parse(stored).id : null
     const res = await request.post('/customer/list', { page: 1, pageSize: 50, owner_id: userId || undefined })
-    if (res.code === 200) followCustomerOptions.value = res.data.list || []
-  } catch { /* ignore */ }
-  finally { followCustomerLoading.value = false }
-}
-
-const searchFollowCustomer = async (query) => {
-  if (!query || query.length < 1) { followCustomerOptions.value = []; return }
-  followCustomerLoading.value = true
-  try {
-    const res = await request.post('/customer/list', { page: 1, pageSize: 10, company_name: query })
     if (res.code === 200) followCustomerOptions.value = res.data.list || []
   } catch { /* ignore */ }
   finally { followCustomerLoading.value = false }
@@ -791,9 +248,7 @@ const batchFollowVisible = ref(false)
 const batchFollowLoading = ref(false)
 const batchCustomerOptions = ref([])
 const batchCustomerSearchLoading = ref(false)
-const batchRows = ref([
-  { customer_id: null, follow_type: '电话', content: '' }
-])
+const batchRows = ref([{ customer_id: null, follow_type: '电话', content: '' }])
 
 const searchBatchCustomer = async (query) => {
   if (!query || query.length < 1) { batchCustomerOptions.value = []; return }
@@ -835,26 +290,19 @@ const submitBatchFollow = async () => {
   finally { batchFollowLoading.value = false }
 }
 
+// 数据获取
 const fetchOverview = async () => {
   try {
     const res = await request.get('/report/overview')
-    if (res.code === 200) {
-      Object.assign(overview, res.data)
-    }
-  } catch (error) {
-    console.error('获取概览数据失败:', error)
-  }
+    if (res.code === 200) Object.assign(overview, res.data)
+  } catch (error) { console.error('获取概览数据失败:', error) }
 }
 
 const fetchQuickStats = async () => {
   try {
     const res = await request.get('/report/quick-stats')
-    if (res.code === 200) {
-      Object.assign(quickStats, res.data)
-    }
-  } catch (error) {
-    console.error('获取快捷统计失败:', error)
-  }
+    if (res.code === 200) Object.assign(quickStats, res.data)
+  } catch (error) { console.error('获取快捷统计失败:', error) }
 }
 
 const fetchTodayTasks = async () => {
@@ -862,44 +310,25 @@ const fetchTodayTasks = async () => {
   serviceLoading.value = true
   try {
     const res = await request.get('/report/today-tasks')
-    if (res.code === 200) {
-      Object.assign(todayTasks, res.data)
-    }
-  } catch (error) {
-    console.error('获取今日待办失败:', error)
-  } finally {
-    followLoading.value = false
-    serviceLoading.value = false
-  }
+    if (res.code === 200) Object.assign(todayTasks, res.data)
+  } catch (error) { console.error('获取今日待办失败:', error) }
+  finally { followLoading.value = false; serviceLoading.value = false }
 }
 
 const fetchPerformanceRank = async () => {
   rankLoading.value = true
   try {
     const res = await request.get('/report/performance')
-    if (res.code === 200) {
-      performanceRank.value = res.data.filter(item => item.contract_amount > 0).slice(0, 5)
-    }
-  } catch (error) {
-    console.error('获取业绩排行失败:', error)
-  } finally {
-    rankLoading.value = false
-  }
-}
-
-const initCharts = () => {
-  Promise.all([fetchSalesTrend(), fetchCustomerSource(), fetchSalesFunnel()])
+    if (res.code === 200) performanceRank.value = res.data.filter(item => item.contract_amount > 0).slice(0, 5)
+  } catch (error) { console.error('获取业绩排行失败:', error) }
+  finally { rankLoading.value = false }
 }
 
 const fetchSalesTrend = async () => {
   try {
     const res = await request.get('/report/sales-trend')
-    if (res.code === 200) {
-      renderTrendChart(res.data)
-    }
-  } catch (error) {
-    console.error('获取销售趋势失败:', error)
-  }
+    if (res.code === 200) renderTrendChart(res.data)
+  } catch (error) { console.error('获取销售趋势失败:', error) }
 }
 
 const renderTrendChart = (data) => {
@@ -908,23 +337,14 @@ const renderTrendChart = (data) => {
   initChart('trendChartRef', {
     tooltip: { trigger: 'axis' },
     grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-    xAxis: {
-      type: 'category',
-      data: months,
-      axisLabel: { rotate: 30 }
-    },
+    xAxis: { type: 'category', data: months, axisLabel: { rotate: 30 } },
     yAxis: { type: 'value', axisLabel: { formatter: '¥{value}' } },
     series: [{
-      name: '销售额',
-      type: 'line',
-      smooth: true,
-      data: amounts,
-      areaStyle: {
-        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: 'rgba(26, 86, 219, 0.15)' },
-          { offset: 1, color: 'rgba(26, 86, 219, 0.03)' }
-        ])
-      },
+      name: '销售额', type: 'line', smooth: true, data: amounts,
+      areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+        { offset: 0, color: 'rgba(26, 86, 219, 0.15)' },
+        { offset: 1, color: 'rgba(26, 86, 219, 0.03)' }
+      ])},
       lineStyle: { color: '#1a56db', width: 2 },
       itemStyle: { color: '#1a56db' }
     }]
@@ -934,12 +354,8 @@ const renderTrendChart = (data) => {
 const fetchCustomerSource = async () => {
   try {
     const res = await request.get('/report/customer')
-    if (res.code === 200) {
-      renderSourceChart(res.data.source_dist)
-    }
-  } catch (error) {
-    console.error('获取客户来源失败:', error)
-  }
+    if (res.code === 200) renderSourceChart(res.data.source_dist)
+  } catch (error) { console.error('获取客户来源失败:', error) }
 }
 
 const renderSourceChart = (data) => {
@@ -947,23 +363,13 @@ const renderSourceChart = (data) => {
     tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
     legend: { orient: 'vertical', left: 'left', top: 'center' },
     series: [{
-      type: 'pie',
-      radius: ['40%', '70%'],
-      center: ['60%', '50%'],
-      avoidLabelOverlap: false,
-      itemStyle: {
-        borderRadius: 10,
-        borderColor: '#fff',
-        borderWidth: 2
-      },
+      type: 'pie', radius: ['40%', '70%'], center: ['60%', '50%'], avoidLabelOverlap: false,
+      itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
       label: { show: false, position: 'center' },
-      emphasis: {
-        label: { show: true, fontSize: 16, fontWeight: 'bold' }
-      },
+      emphasis: { label: { show: true, fontSize: 16, fontWeight: 'bold' } },
       labelLine: { show: false },
       data: data.map((item) => ({
-        value: item.count,
-        name: item.source || '未知',
+        value: item.count, name: item.source || '未知',
         itemStyle: { color: PARENT_SOURCE_COLORS[item.source] || 'var(--color-text-tertiary)' }
       }))
     }]
@@ -973,12 +379,8 @@ const renderSourceChart = (data) => {
 const fetchSalesFunnel = async () => {
   try {
     const res = await request.get('/report/sales-funnel')
-    if (res.code === 200) {
-      renderFunnelChart(res.data)
-    }
-  } catch (error) {
-    console.error('获取销售漏斗失败:', error)
-  }
+    if (res.code === 200) renderFunnelChart(res.data)
+  } catch (error) { console.error('获取销售漏斗失败:', error) }
 }
 
 const renderFunnelChart = (data) => {
@@ -986,31 +388,18 @@ const renderFunnelChart = (data) => {
     tooltip: { trigger: 'item', formatter: '{b}: {c}个商机' },
     legend: { data: data.map(item => item.stage), bottom: 10 },
     series: [{
-      name: '销售漏斗',
-      type: 'funnel',
-      left: '10%',
-      top: '10%',
-      bottom: '20%',
-      width: '80%',
-      min: 0,
-      max: data[0]?.count || 10,
-      minSize: '0%',
-      maxSize: '100%',
-      sort: 'descending',
-      gap: 2,
+      name: '销售漏斗', type: 'funnel', left: '10%', top: '10%', bottom: '20%', width: '80%',
+      min: 0, max: data[0]?.count || 10, minSize: '0%', maxSize: '100%', sort: 'descending', gap: 2,
       label: { show: true, position: 'inside' },
       labelLine: { length: 10, lineStyle: { width: 1, type: 'solid' } },
       itemStyle: { borderColor: '#fff', borderWidth: 1 },
       emphasis: { label: { fontSize: 14 } },
       data: data.map((item, index) => ({
-        value: item.count,
-        name: item.stage,
-        itemStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-            { offset: 0, color: ['#1a56db', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#94a3b8'][index] },
-            { offset: 1, color: ['#dbeafe', '#bfdbfe', '#93c5fd', '#60a5fa', '#e2e8f0', '#cbd5e1'][index] }
-          ])
-        }
+        value: item.count, name: item.stage,
+        itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+          { offset: 0, color: ['#1a56db', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#94a3b8'][index] },
+          { offset: 1, color: ['#dbeafe', '#bfdbfe', '#93c5fd', '#60a5fa', '#e2e8f0', '#cbd5e1'][index] }
+        ])}
       }))
     }]
   })
@@ -1023,7 +412,7 @@ const fetchOverdueStats = async () => {
       overdueCount.value = res.data.overdue_count
       if (res.data.overdue_days) overdueDays.value = res.data.overdue_days
     }
-  } catch (e) { ElMessage.error('加载数据失败') }
+  } catch { ElMessage.error('加载数据失败') }
 }
 
 const fetchTaskStats = async () => {
@@ -1034,28 +423,17 @@ const fetchTaskStats = async () => {
       taskStats.tomorrow_count = res.data.tomorrow_count || 0
       taskStats.overdue_count = res.data.overdue_count || 0
     }
-  } catch (e) { /* 静默失败 */ }
+  } catch { /* 静默失败 */ }
 }
 
-const goToTasks = (type) => {
-  const routes = { today: '/follow-up/today', tomorrow: '/follow-up/tomorrow', overdue: '/follow-up/today' }
-  router.push(routes[type] || '/follow-up/today')
-}
-
-// 角色化首页数据获取
 const fetchFinanceDashboard = async () => {
   try {
-    const now = new Date()
-    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
-    const monthEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-31`
-    // 回款汇总
     const res = await request.post('/contract/payment/list', { page: 1, pageSize: 1, tab: 'summary' })
     if (res.code === 200 && res.data.summary) {
       financeData.month_plan = res.data.summary.month_plan_total || 0
       financeData.month_paid = res.data.summary.month_paid_total || 0
       financeData.month_rate = res.data.summary.month_rate || 0
     }
-    // 逾期金额
     const overdueRes = await request.post('/contract/payment/list', { page: 1, pageSize: 1, tab: 'overdue' })
     if (overdueRes.code === 200) financeData.overdue_amount = overdueRes.data.total || 0
   } catch { /* */ }
@@ -1064,10 +442,7 @@ const fetchFinanceDashboard = async () => {
 const fetchPurchaseDashboard = async () => {
   try {
     const statsRes = await request.get('/procurement-plan/stats')
-    if (statsRes.code === 200) {
-      purchaseData.pending_approval = statsRes.data.submitted || 0
-    }
-    // 库存预警
+    if (statsRes.code === 200) purchaseData.pending_approval = statsRes.data.submitted || 0
     const alertRes = await request.get('/inventory/alerts')
     if (alertRes.code === 200) purchaseData.stock_alerts = alertRes.data?.length || 0
   } catch { /* */ }
@@ -1076,20 +451,21 @@ const fetchPurchaseDashboard = async () => {
 const fetchServiceDashboard = async () => {
   try {
     const res = await request.get('/report/today-tasks')
-    if (res.code === 200) {
-      serviceData.pending = res.data.service_count || 0
-    }
+    if (res.code === 200) serviceData.pending = res.data.service_count || 0
   } catch { /* */ }
+}
+
+const initCharts = () => {
+  fetchSalesTrend()
+  fetchCustomerSource()
+  fetchSalesFunnel()
 }
 
 const loadDashboardData = () => {
   fetchTodayTasks()
   fetchOverdueStats()
   fetchTaskStats()
-  if (isAdmin.value) {
-    initCharts()
-    Promise.all([fetchOverview(), fetchQuickStats(), fetchPerformanceRank()])
-  } else if (isSales.value) {
+  if (isAdmin.value || isSales.value) {
     initCharts()
     Promise.all([fetchOverview(), fetchQuickStats(), fetchPerformanceRank()])
   } else if (isFinance.value) {
@@ -1110,222 +486,10 @@ onActivated(() => { loadDashboardData() })
   padding: 0;
 }
 
-.stat-card {
-  cursor: pointer;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border);
-  background: var(--color-bg);
-  box-shadow: var(--shadow-sm);
-  transition: all 0.3s var(--ease-out);
-  padding: var(--space-5);
-}
-
-.stat-card:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
-}
-
-.stat-card.mini {
-  cursor: default;
-}
-
-.stat-card.mini:hover {
-  transform: none;
-}
-
-.stat-card.mini[onclick] {
-  cursor: pointer;
-}
-
-.stat-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.stat-icon {
-  display: none !important;
-}
-
-.stat-info {
-  flex: 1;
-}
-
-.stat-value {
-  font-size: 40px;
-  font-weight: 700;
-  color: var(--color-text);
-  line-height: 1.1;
-  letter-spacing: -0.03em;
-}
-
-.stat-value.small {
-  font-size: 28px;
-}
-
-.stat-value.orange { color: var(--color-text); }
-.stat-value.blue { color: var(--color-text); }
-.stat-value.danger { color: var(--color-danger); }
-.stat-value.small.danger { color: var(--color-danger); }
-
-.stat-label {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  margin-top: var(--space-1);
-  font-weight: 500;
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: 17px;
-  font-weight: 600;
-  color: var(--color-text);
-  letter-spacing: -0.02em;
-}
-
-.chart-container {
-  height: 260px;
-}
-
-.todo-tabs :deep(.el-tabs__header) {
-  margin-bottom: 8px;
-}
-
-.todo-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--color-border);
-  cursor: pointer;
-  transition: background 0.2s var(--ease-out);
-  border-radius: var(--radius-sm);
-}
-
-.todo-item:hover {
-  background: var(--color-bg-secondary);
-}
-
-.todo-item:last-child {
-  border-bottom: none;
-}
-
-.todo-item-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-  min-width: 0;
-}
-
-.todo-customer, .todo-title {
-  font-size: 14px;
-  color: var(--color-text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.todo-item-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.todo-time {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-}
-
-.quick-actions {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-4);
-}
-
-.action-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-5) var(--space-3);
-  border-radius: var(--radius-lg);
-  cursor: pointer;
-  transition: background 0.2s var(--ease-out);
-}
-
-.action-item:hover {
-  background: var(--color-bg-secondary);
-}
-
-.action-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-bg-secondary);
-  color: var(--color-text-secondary);
-}
-
-.action-item span {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  font-weight: 500;
-}
-
-.amount-text {
-  font-size: 13px;
-  color: var(--color-text);
-}
-
 .batch-row {
   display: flex;
   gap: 8px;
   align-items: center;
   margin-bottom: 8px;
-}
-
-.todo-card {
-  border-left: 4px solid var(--color-accent);
-  border-radius: var(--radius-lg);
-}
-
-.todo-card.has-overdue {
-  border-left: 4px solid var(--color-danger);
-}
-
-.todo-badge {
-  margin-left: 8px;
-}
-
-.todo-summary {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.todo-list {
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.todo-item.overdue {
-  background: var(--color-danger-bg);
-  border-left: 3px solid var(--color-danger);
-}
-
-.todo-item.overdue:hover {
-  background: rgba(255, 69, 58, 0.12);
 }
 </style>
