@@ -1,0 +1,78 @@
+# ============================================
+# 铧旗CRM — Production 环境
+# Container Manager 项目导入此文件
+# ============================================
+
+services:
+
+  mysql:
+    image: mysql:8.0
+    container_name: crm-prod-mysql
+    restart: unless-stopped
+    mem_limit: 512m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: huakey_crm
+      MYSQL_USER: crm_user
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3307:3306"
+    volumes:
+      - prod-mysql-data:/var/lib/mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  app:
+    build:
+      context: /volume1/docker/huakey-crm-deploy
+      dockerfile: Dockerfile.synology
+    container_name: crm-prod-app
+    restart: unless-stopped
+    mem_limit: 512m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: crm_user
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      DB_NAME: huakey_crm
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: 7d
+      AI_PROVIDER: ${AI_PROVIDER:-}
+      MIMO_API_KEY: ${MIMO_API_KEY:-}
+      MIMO_BASE_URL: ${MIMO_BASE_URL:-}
+      MIMO_MODEL: ${MIMO_MODEL:-}
+      NODE_OPTIONS: --max-old-space-size=512
+    ports:
+      - "6789:5000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - /volume1/docker/huakey-crm-deploy/prod/backend:/app
+      - /volume1/docker/huakey-crm-deploy/prod/frontend/dist:/app/frontend/dist
+      - /volume1/docker/huakey-crm-deploy/prod/database/migrations:/app/database/migrations:ro
+      - prod-app-uploads:/app/uploads
+
+volumes:
+  prod-mysql-data:
+  prod-app-uploads:

@@ -12,7 +12,7 @@ echo ========================================
 echo.
 
 REM Check if local git is clean before syncing
-echo [0/4] Checking local git status...
+echo [0/5] Checking local git status...
 cd /d "%LOCAL%"
 git diff --quiet
 if errorlevel 1 (
@@ -30,7 +30,7 @@ if errorlevel 1 (
 echo Git status OK.
 echo.
 
-echo [1/4] Syncing backend (tar over SSH)...
+echo [1/5] Syncing backend (tar over SSH)...
 cd /d "%LOCAL%"
 tar czf - --exclude=node_modules --exclude=.git --exclude=logs --exclude=backups --exclude=uploads --exclude=*.tar.gz backend | ssh -i "%SSH_KEY%" -o StrictHostKeyChecking=no %NAS% "tar xzf - -C %TEST%"
 if errorlevel 1 (
@@ -41,7 +41,7 @@ if errorlevel 1 (
 echo Done.
 
 echo.
-echo [2/4] Building frontend...
+echo [2/5] Building frontend...
 cd /d "%LOCAL%\frontend"
 call npm run build
 if errorlevel 1 (
@@ -54,7 +54,7 @@ cd /d "%LOCAL%"
 echo Done.
 
 echo.
-echo [3/4] Syncing frontend...
+echo [3/5] Syncing frontend...
 tar czf - -C frontend dist | ssh -i "%SSH_KEY%" -o StrictHostKeyChecking=no %NAS% "mkdir -p %TEST%/frontend && tar xzf - -C %TEST%/frontend"
 if errorlevel 1 (
     echo ERROR: frontend sync failed
@@ -64,8 +64,13 @@ if errorlevel 1 (
 echo Done.
 
 echo.
-echo [4/4] Syncing migrations...
+echo [4/5] Syncing migrations...
 tar czf - -C database migrations | ssh -i "%SSH_KEY%" -o StrictHostKeyChecking=no %NAS% "mkdir -p %TEST%/database && tar xzf - -C %TEST%/database"
+echo Done.
+
+echo.
+echo [5/5] Syncing seed data...
+tar czf - -C database seeds | ssh -i "%SSH_KEY%" -o StrictHostKeyChecking=no %NAS% "mkdir -p %TEST%/database && tar xzf - -C %TEST%/database"
 echo Done.
 
 echo.
@@ -73,5 +78,9 @@ echo ========================================
 echo  Code synced!
 echo  Restart crm-test-app in Container Manager
 echo  Visit: http://192.168.0.200:6790
+echo.
+echo  IMPORTANT: If this is a fresh deploy,
+echo  run seed data in Container Manager:
+echo    docker exec crm-test-mysql mysql -u root -p huakey_crm ^< /volume1/docker/huakey-crm-deploy/test/database/seeds/seed_test_data.sql
 echo ========================================
 pause
