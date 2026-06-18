@@ -61,7 +61,7 @@ const canManageService = async (user, serviceOrder) => {
 };
 
 // 获取工单列表
-router.post('/list', authenticateToken, checkDataPermission('service', 'create_by'), async (req, res) => {
+router.post('/list', authenticateToken, checkPermission('service'), checkDataPermission('service', 'create_by'), async (req, res) => {
   const { page = 1, pageSize = 10, status, type, priority, keyword, assignee_id, created_today, is_timeout } = req.body;
   const safePageSize = Math.min(Math.max(1, parseInt(pageSize) || 10), 200);
   const offset = (Math.max(1, parseInt(page) || 1) - 1) * safePageSize;

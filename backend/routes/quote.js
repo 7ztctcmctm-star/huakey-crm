@@ -146,7 +146,7 @@ router.post('/add', authenticateToken, checkPermission('quotation:add'), async (
 });
 
 // 2. 报价单列表
-router.post('/list', authenticateToken, checkDataPermission('quote', 'create_by'), async (req, res) => {
+router.post('/list', authenticateToken, checkPermission('quotation'), checkDataPermission('quote', 'create_by'), async (req, res) => {
   try {
     const { page = 1, pageSize = 10, quote_no, customer_name, status, approval_status } = req.body;
     const offset = (page - 1) * pageSize;

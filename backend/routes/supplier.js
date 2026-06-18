@@ -147,8 +147,8 @@ const supplierListHandler = async (req, res) => {
   }
 };
 
-router.get('/list', authenticateToken, checkDataPermission('supplier', 'owner_id'), supplierListHandler);
-router.post('/list', authenticateToken, checkDataPermission('supplier', 'owner_id'), validate(listSchema), supplierListHandler);
+router.get('/list', authenticateToken, checkPermission('supplier'), checkDataPermission('supplier', 'owner_id'), supplierListHandler);
+router.post('/list', authenticateToken, checkPermission('supplier'), checkDataPermission('supplier', 'owner_id'), validate(listSchema), supplierListHandler);
 
 router.get('/detail/:id', authenticateToken, checkDataPermission('supplier', 'owner_id'), async (req, res) => {
   const { id } = req.params;

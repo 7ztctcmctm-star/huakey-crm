@@ -1,35 +1,34 @@
 @echo off
-chcp 65001 >nul 2>&1
-title 铧旗CRM - 一键部署
+title Huakey CRM - Full Deploy
 
 echo ============================================
-echo  铧旗CRM 一键部署: 本地 -^> 测试 -^> 生产
+echo  Huakey CRM Deploy: Local -^> Test -^> Prod
 echo ============================================
 echo.
 
-echo [阶段1] 同步到测试环境...
+echo [Phase 1] Syncing to test environment...
 call "%~dp0sync-test.bat"
 if errorlevel 1 (
-    echo [错误] 测试环境部署失败
+    echo [ERROR] Test environment deploy failed
     pause
     exit /b 1
 )
 
 echo.
 echo ============================================
-echo  请验证测试环境: http://192.168.0.200:6790
-echo  确认无误后按任意键推送到生产...
+echo  Please verify test env: http://192.168.0.200:6790
+echo  Press any key to push to production...
 echo ============================================
 pause >nul
 
 echo.
-echo [阶段2] 推送到生产环境...
+echo [Phase 2] Pushing to production...
 call "%~dp0push-prod.bat"
 
 echo.
 echo ============================================
-echo  全流程部署完成！
-echo  测试: http://192.168.0.200:6790
-echo  生产: http://192.168.0.200:6789
+echo  Full deploy complete!
+echo  Test: http://192.168.0.200:6790
+echo  Prod: http://192.168.0.200:6789
 echo ============================================
 pause

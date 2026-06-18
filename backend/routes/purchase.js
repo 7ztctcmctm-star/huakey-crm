@@ -55,7 +55,7 @@ const addReceiptSchema = Joi.object({
 const { createRouteLogger } = require('../middleware/logger');
 const logAction = createRouteLogger(MODULE_NAME);
 
-router.post('/list', authenticateToken, checkDataPermission('purchase', 'owner_id'), validate(listSchema), async (req, res) => {
+router.post('/list', authenticateToken, checkPermission('purchase'), checkDataPermission('purchase', 'owner_id'), validate(listSchema), async (req, res) => {
   const { page = 1, pageSize = 10, keyword = '', status = '', type = '', supplier_id } = req.body;
   const offset = (page - 1) * pageSize;
 

@@ -51,7 +51,7 @@ const deleteSchema = Joi.object({
 });
 
 // 列表查询
-router.post('/list', authenticateToken, checkDataPermission('invoice', 'create_by'), validate(listSchema), async (req, res) => {
+router.post('/list', authenticateToken, checkPermission('invoice'), checkDataPermission('invoice', 'create_by'), validate(listSchema), async (req, res) => {
   try {
     const { page = 1, pageSize = 10, keyword, status, type, start_date, end_date } = req.body;
     const offset = (page - 1) * pageSize;

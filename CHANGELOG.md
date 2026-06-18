@@ -8,6 +8,13 @@
 
 - **[P0] 修复销售漏斗SQL错误**：`opportunity.js` funnel端点 `permParams` 未展开导致 `?` 占位符绑定失败，改为 `[...permParams]` 展开
 - **[P1] 修复Migration 056语法错误**：移除 `DELIMITER $$` 语法（mysql2不支持），简化 `STARTS` 表达式
+- **[P0] 修复6模块list接口权限漏洞**：contract/invoice/quote/purchase/service/supplier 的 list 路由缺少 `checkPermission` 中间件，任何已登录用户可绕过功能权限访问列表
+
+## 部署脚本优化
+
+- **sync-test.bat**：添加 `chcp 65001`、git clean检查、排除 `*.tar.gz`
+- **push-prod.bat**：移除不可靠的 `sudo docker npm install`，改用 tar pipe 同步方式
+- **deploy-all.bat**：全部改用ASCII英文，避免编码问题
 
 ---
 

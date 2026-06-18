@@ -120,7 +120,7 @@ const paymentDeleteSchema = Joi.object({
 });
 
 
-router.post('/list', authenticateToken, checkDataPermission('contract', 'create_by'), validate(listSchema), async (req, res) => {
+router.post('/list', authenticateToken, checkPermission('contract'), checkDataPermission('contract', 'create_by'), validate(listSchema), async (req, res) => {
   const { page = 1, pageSize = 10, keyword = '', status = '', customer_id = '', approval_status = '', payment_status = '' } = req.body;
   const offset = (page - 1) * pageSize;
 
