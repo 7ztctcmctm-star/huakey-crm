@@ -1,9 +1,8 @@
 const express = require('express');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { checkPermission } = require('../middleware/permission');
+const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
-const ROLES = require('../config/roles');
 
 const router = express.Router();
 
@@ -65,7 +64,7 @@ router.post('/add', authenticateToken, checkPermission('customer:edit'), validat
 });
 
 // 2. 跟进计划列表
-router.post('/list', authenticateToken, validate(listPlanSchema), async (req, res) => {
+router.post('/list', authenticateToken, checkPermission('customer:edit'), checkDataPermission('followPlan', 'create_by'), validate(listPlanSchema), async (req, res) => {
   try {
     const {
       page = 1,
@@ -78,16 +77,11 @@ router.post('/list', authenticateToken, validate(listPlanSchema), async (req, re
 
     const offset = (page - 1) * pageSize;
     const params = [];
-    const { roleId, userId } = req.user;
 
-    // 数据权限：管理员/经理看全部，其他人只看自己创建的
-    let whereClause;
-    if (roleId === ROLES.ADMIN || roleId === ROLES.MANAGER) {
-      whereClause = 'WHERE fp.deleted_at IS NULL';
-    } else {
-      whereClause = 'WHERE fp.deleted_at IS NULL AND fp.create_by = ?';
-      params.push(userId);
-    }
+    // 数据权限：使用中间件提供的权限条件
+    const { clause: permissionClause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'fp');
+    params.push(...permParams);
+    let whereClause = `WHERE ${permissionClause} AND fp.deleted_at IS NULL`;
 
     if (customer_id) {
       whereClause += ' AND fp.customer_id = ?';

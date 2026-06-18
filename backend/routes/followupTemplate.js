@@ -2,8 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { requireManager } = require('../middleware/admin');
-const ROLES = require('../config/roles');
+const { requireAdmin } = require('../middleware/admin');
 
 // 获取所有模板
 router.get('/', authenticateToken, async (req, res) => {
@@ -45,8 +44,8 @@ router.post('/', authenticateToken, requireManager, async (req, res) => {
   }
 });
 
-// 更新模板（仅管理员/经理）
-router.put('/:id', authenticateToken, requireManager, async (req, res) => {
+// 更新模板（仅管理员）
+router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, type, content } = req.body;
@@ -60,10 +59,9 @@ router.put('/:id', authenticateToken, requireManager, async (req, res) => {
       return res.status(404).json({ code: 404, message: '模板不存在', data: null });
     }
 
-    // 权限检查：创建人或管理员
+    // 权限检查：创建人可修改
     const isOwner = existing[0].create_by === req.user.userId;
-    const isAdmin = req.user.manageAll || req.user.roleId === ROLES.ADMIN;
-    if (!isOwner && !isAdmin) {
+    if (!isOwner) {
       return res.status(403).json({ code: 403, message: '无权修改此模板', data: null });
     }
 
@@ -88,8 +86,8 @@ router.put('/:id', authenticateToken, requireManager, async (req, res) => {
   }
 });
 
-// 删除模板（仅管理员/经理）
-router.delete('/:id', authenticateToken, requireManager, async (req, res) => {
+// 删除模板（仅管理员）
+router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -101,10 +99,9 @@ router.delete('/:id', authenticateToken, requireManager, async (req, res) => {
       return res.status(404).json({ code: 404, message: '模板不存在', data: null });
     }
 
-    // 权限检查：创建人或管理员
+    // 权限检查：创建人可删除
     const isOwner = existing[0].create_by === req.user.userId;
-    const isAdmin = req.user.manageAll || req.user.roleId === ROLES.ADMIN;
-    if (!isOwner && !isAdmin) {
+    if (!isOwner) {
       return res.status(403).json({ code: 403, message: '无权删除此模板', data: null });
     }
 
