@@ -74,11 +74,25 @@ router.get('/captcha', (req, res) => {
   });
 });
 
+// 本地开发环境跳过验证码（前置中间件，必须在JOI校验之前）
+router.use('/login', (req, res, next) => {
+  if (process.env.SKIP_CAPTCHA === 'true') {
+    req.body.captchaKey = 'dev';
+    req.body.captcha = 'dev1';  // 4位，满足JOI length=4
+  }
+  next();
+});
+
 // 1. 登录接口
 router.post('/login', validate(loginSchema), async (req, res) => {
   try {
     const { username, password, captcha, captchaKey } = req.body;
     const ip = getIpAddress(req);
+
+    // 本地开发跳过验证码校验
+    if (process.env.SKIP_CAPTCHA === 'true') {
+      captchaStore.set('dev', { code: 'dev1', expires: Date.now() + 3600000 });
+    }
 
     // 验证码校验
     const stored = captchaStore.get(captchaKey);
@@ -219,24 +233,27 @@ router.post('/login', validate(loginSchema), async (req, res) => {
 });
 
 // 2. 登出接口
-router.post('/logout', (req, res) => {
+router.post('/logout', async (req, res) => {
   const ip = getIpAddress(req);
 
-  // 清除httpOnly cookie
-  res.clearCookie('token', {
-    httpOnly: true,
-    secure: false,
-    sameSite: 'strict'
-  });
-
-  // 从cookie或header获取token用于日志记录
+  // 从cookie或header获取token用于日志记录和黑名单
   const token = getTokenFromRequest(req);
 
   if (token) {
     try {
       const jwt = require('jsonwebtoken');
+      const crypto = require('crypto');
       const JWT_SECRET = process.env.JWT_SECRET;
       const decoded = jwt.verify(token, JWT_SECRET);
+
+      // 将token加入黑名单
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      const expireAt = new Date(decoded.exp * 1000);
+      await pool.query(
+        'INSERT IGNORE INTO sys_token_blacklist (token_hash, user_id, expire_at, reason) VALUES (?, ?, ?, ?)',
+        [tokenHash, decoded.userId, expireAt, 'logout']
+      );
+
       logAction({
         module: '系统管理', action: '登出', method: 'POST', url: '/api/auth/logout',
         params: null, ipAddress: ip, userId: decoded.userId, userName: decoded.username,
@@ -246,6 +263,13 @@ router.post('/logout', (req, res) => {
       // token无效也正常返回，无需记录
     }
   }
+
+  // 清除httpOnly cookie
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: false,
+    sameSite: 'strict'
+  });
 
   res.json({ code: 200, message: '登出成功', data: null });
 });

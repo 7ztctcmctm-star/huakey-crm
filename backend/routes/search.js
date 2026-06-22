@@ -5,17 +5,19 @@ const { authenticateToken } = require('../middleware/auth');
 const { buildDataPermissionWhere } = require('../middleware/permission');
 const { getDataPermissions } = require('../services/permissionService');
 const ROLES = require('../config/roles');
+const { queryValidate, Joi } = require('../middleware/validate');
+
+const globalSearchSchema = Joi.object({
+  keyword: Joi.string().min(2).max(100).required().messages({
+    'string.min': '搜索关键词至少2个字符',
+    'any.required': '搜索关键词不能为空'
+  })
+});
 
 // 全局搜索
-router.get('/global', authenticateToken, async (req, res) => {
+router.get('/global', authenticateToken, queryValidate(globalSearchSchema), async (req, res) => {
   try {
     const keyword = (req.query.keyword || '').trim();
-    if (keyword.length < 2) {
-      return res.json({
-        code: 200, message: '查询成功',
-        data: { customers: [], contracts: [], opportunities: [], quotes: [] }
-      });
-    }
 
     const likeKeyword = `%${keyword}%`;
     const user = req.user;

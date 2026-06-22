@@ -1078,7 +1078,6 @@ AI禁止主动新增复杂功能。
 - role.js（角色管理）
 - product.js（产品管理）
 - followUp.js（跟进记录）
-- service.js（售后服务）
 
 ### 禁止
 

@@ -1,4 +1,6 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const pool = require('../config/database');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -26,7 +28,7 @@ const authenticateToken = (req, res, next) => {
     });
   }
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
+  jwt.verify(token, JWT_SECRET, async (err, user) => {
     if (err) {
       if (err.name === 'TokenExpiredError') {
         return res.status(401).json({
@@ -35,7 +37,7 @@ const authenticateToken = (req, res, next) => {
           data: null
         });
       }
-      
+
       if (err.name === 'JsonWebTokenError') {
         return res.status(401).json({
           code: 401,
@@ -49,6 +51,25 @@ const authenticateToken = (req, res, next) => {
         message: '令牌验证失败',
         data: null
       });
+    }
+
+    // 检查token是否在黑名单中（已登出）
+    try {
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      const [blacklisted] = await pool.query(
+        'SELECT id FROM sys_token_blacklist WHERE token_hash = ? AND expire_at > NOW()',
+        [tokenHash]
+      );
+      if (blacklisted.length > 0) {
+        return res.status(401).json({
+          code: 401,
+          message: '令牌已失效，请重新登录',
+          data: null
+        });
+      }
+    } catch (dbErr) {
+      console.error('[认证] 黑名单查询失败:', dbErr.message);
+      // 黑名单查询失败不阻断请求，降级放行
     }
 
     req.user = {

@@ -2,6 +2,41 @@
 
 ---
 
+# 2026-06-22
+
+## Bug修复
+
+- **[P0] 修复跟进列表数据泄露**：POST /api/follow-up/list 补 checkDataPermission + buildDataPermissionWhere，防止跨用户查看跟进记录
+- **[P1] 修复报价列表500错误**：crm_quote 与 crm_currency 表 collation 不匹配（utf8mb4_unicode_ci vs utf8mb4_0900_ai_ci），JOIN 时添加 COLLATE 子句
+- **[P1] 修复端口配置**：根目录 .env PORT 从 5000 改为 9527，与 backend/.env 保持一致
+- **[P1] 修复测试账号密码**：种子数据用户密码哈希更新，boss/sales_wang/sales_li 等账号可正常登录
+
+## Redis缓存接入（P1）
+
+- 新建 backend/config/redis.js：Redis客户端封装，支持 getCache/setCache/clearByPrefix
+- 新建 backend/middleware/cache.js：缓存中间件，自动判断是否启用，支持GET/POST请求
+- app.js：REDIS_ENABLED=true 时自动连接Redis，失败降级为无缓存模式
+- customer/detail.js：客户列表缓存60秒，增删改时自动清除缓存
+- report.js：销售漏斗/概览仪表盘缓存300秒
+- 缓存key包含userId，避免不同权限用户读到他人缓存
+- REDIS_ENABLED=false 时所有新增代码被短路跳过，行为与修改前完全一致
+
+## Joi校验补全（P1）
+
+- service.js: list/add/update/delete/assign/rate 6个路由补 Joi schema
+- report.js: sales-funnel/payment/performance/customer-analysis 等查询参数补 queryValidate
+- search.js: /global 补 keyword 校验（min:2, max:100）
+- log.js: list/export 补分页+过滤参数校验
+
+## Token撤销机制（P1）
+
+- 新建 sys_token_blacklist 表，存储已注销token的SHA256哈希
+- middleware/auth.js: 验证token时增加黑名单检查
+- auth.js /logout: 登出时将token写入黑名单
+- app.js: 每天凌晨3点定时清理过期黑名单记录
+
+---
+
 # 2026-06-18
 
 ## Bug修复（P0/P1）

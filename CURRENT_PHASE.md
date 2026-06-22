@@ -4,6 +4,18 @@
 
 生产级稳定化阶段。
 
+## 最近完成（2026-06-22）
+
+### P1 修复
+
+- [x] Joi校验补全：service/report/search/log 补齐参数校验
+- [x] Token撤销：logout时将token加入黑名单，验证时检查黑名单
+- [x] Redis缓存接入：可选缓存层，customer/list + report/sales-funnel + report/overview 试点
+- [x] 报价列表500修复：crm_quote与crm_currency表collation不匹配
+- [x] 种子数据导入：565客户/16商机/4测试用户，数据隔离验证通过
+
+---
+
 ## 最近完成（2026-06-17）
 
 ### P1 修复

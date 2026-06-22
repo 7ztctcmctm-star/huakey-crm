@@ -7,6 +7,8 @@ const ROLES = require('../../config/roles');
 const { autoAssignOwner } = require('./assign');
 const { getOverdueDays } = require('../../utils/config');
 const { CUSTOMER_STATUS } = require('../../constants/customer');
+const { cache } = require('../../middleware/cache');
+const { clearByPrefix } = require('../../config/redis');
 
 const MODULE_NAME = '客户管理';
 
@@ -105,6 +107,7 @@ const router = express.Router();
 // 1. 获取客户列表
 router.post('/list',
   authenticateToken,
+  cache(60),
   checkDataPermission('customer', 'owner_id'),
   validate(customerListSchema),
   async (req, res) => {
@@ -348,6 +351,9 @@ router.post('/add', authenticateToken, checkPermission('customer:add'), validate
 
     await logAction(req, 'add', `新增客户: ${company_name}${assignedOwner ? '（已自动分配）' : ''}`);
 
+    // 清除客户列表缓存
+    clearByPrefix('cache:');
+
     res.json({
       code: 200,
       message: duplicates.length > 0
@@ -465,6 +471,9 @@ router.post('/update', authenticateToken, checkPermission('customer:edit'), vali
       description: `修改客户 "${customer.company_name}" 字段变更`
     });
 
+    // 清除客户列表缓存
+    clearByPrefix('cache:');
+
     res.json({
       code: 200,
       message: '修改客户成功',
@@ -530,6 +539,9 @@ router.post('/delete', authenticateToken, checkPermission('customer:delete'), va
     );
 
     await logAction(req, 'delete', `删除客户: ID=${id}`);
+
+    // 清除客户列表缓存
+    clearByPrefix('cache:');
 
     res.json({
       code: 200,

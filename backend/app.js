@@ -369,6 +369,18 @@ if (!process.env.VERCEL) {
     }
   }, { timezone: 'Asia/Shanghai' });
 
+  // 定时清理过期token黑名单（每天凌晨3点30分）
+  cron.schedule('30 3 * * *', async () => {
+    try {
+      const [result] = await pool.query('DELETE FROM sys_token_blacklist WHERE expire_at < NOW()');
+      if (result.affectedRows > 0) {
+        console.log(`[黑名单清理] 已清理 ${result.affectedRows} 条过期黑名单记录`);
+      }
+    } catch (error) {
+      console.error('[黑名单清理] 清理失败:', error.message);
+    }
+  }, { timezone: 'Asia/Shanghai' });
+
   // 定时任务：公海池自动回收
   const AUTO_RELEASE_DAYS = parseInt(process.env.AUTO_RELEASE_DAYS) || 30;
   cron.schedule('0 1 * * *', async () => {
@@ -436,6 +448,15 @@ if (!process.env.VERCEL) {
     // 给进程1秒写日志后退出，让Docker自动重启
     setTimeout(() => process.exit(1), 1000);
   });
+
+  // Redis 初始化（可选，REDIS_ENABLED=true 时启用）
+  const { REDIS_ENABLED } = require('./config/redis');
+  if (REDIS_ENABLED) {
+    const { redis } = require('./config/redis');
+    redis.connect().catch(err => {
+      console.warn('[Redis] 启动连接失败，缓存已禁用:', err.message);
+    });
+  }
 
   // 启动服务器
   app.listen(PORT, () => {

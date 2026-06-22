@@ -174,7 +174,7 @@ router.post('/batch-add', authenticateToken, checkPermission('customer:edit'), v
 });
 
 // 2. 获取客户的跟进记录列表
-router.post('/list', authenticateToken, checkPermission('followup:calendar'), async (req, res) => {
+router.post('/list', authenticateToken, checkPermission('followup:calendar'), checkDataPermission('followup', 'create_by'), async (req, res) => {
   try {
     const { customer_id, page = 1, pageSize = 20 } = req.body;
 
@@ -188,9 +188,11 @@ router.post('/list', authenticateToken, checkPermission('followup:calendar'), as
 
     const offset = (page - 1) * pageSize;
 
+    const { clause: permClause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'f');
+
     const [countResult] = await pool.query(
-      'SELECT COUNT(*) as total FROM crm_follow_up WHERE customer_id = ? AND deleted_at IS NULL',
-      [customer_id]
+      `SELECT COUNT(*) as total FROM crm_follow_up f WHERE f.customer_id = ? AND f.deleted_at IS NULL AND ${permClause}`,
+      [customer_id, ...permParams]
     );
     const total = countResult[0].total;
 
@@ -202,10 +204,10 @@ router.post('/list', authenticateToken, checkPermission('followup:calendar'), as
       FROM crm_follow_up f
       LEFT JOIN sys_user u ON f.create_by = u.id
       LEFT JOIN crm_contact c ON f.contact_id = c.id AND c.deleted_at IS NULL
-      WHERE f.customer_id = ? AND f.deleted_at IS NULL
+      WHERE f.customer_id = ? AND f.deleted_at IS NULL AND ${permClause}
       ORDER BY f.create_time DESC
       LIMIT ? OFFSET ?`,
-      [customer_id, parseInt(pageSize), parseInt(offset)]
+      [customer_id, ...permParams, parseInt(pageSize), parseInt(offset)]
     );
 
     res.json({

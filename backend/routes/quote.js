@@ -194,7 +194,7 @@ router.post('/list', authenticateToken, checkPermission('quotation'), checkDataP
       FROM crm_quote q
       LEFT JOIN crm_customer c ON q.customer_id = c.id
       LEFT JOIN sys_user u ON q.create_by = u.id
-      LEFT JOIN crm_currency cur ON q.currency = cur.code
+      LEFT JOIN crm_currency cur ON q.currency = cur.code COLLATE utf8mb4_unicode_ci
       ${whereClause}
       ORDER BY q.create_time DESC
       LIMIT ? OFFSET ?`,

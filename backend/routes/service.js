@@ -4,6 +4,65 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
 const ROLES = require('../config/roles');
+const { validate, Joi } = require('../middleware/validate');
+
+// Joi schemas
+const listSchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  pageSize: Joi.number().integer().min(1).max(200).default(10),
+  keyword: Joi.string().max(200).allow('', null),
+  status: Joi.number().integer().allow('', null),
+  type: Joi.string().max(50).allow('', null),
+  priority: Joi.number().integer().allow('', null),
+  assignee_id: Joi.number().integer().allow('', null),
+  created_today: Joi.boolean().allow('', null),
+  is_timeout: Joi.boolean().allow('', null)
+});
+
+const addSchema = Joi.object({
+  customer_id: Joi.number().integer().required().messages({'any.required': '客户ID必填'}),
+  contract_id: Joi.number().integer().allow(null),
+  type: Joi.string().required().max(50).messages({'any.required': '工单类型必填'}),
+  title: Joi.string().required().max(200).messages({'any.required': '工单标题必填'}),
+  description: Joi.string().max(2000).allow('', null),
+  priority: Joi.number().integer().min(1).max(4).default(3),
+  attachment_ids: Joi.array().items(Joi.number().integer())
+});
+
+const updateSchema = Joi.object({
+  id: Joi.number().integer().required().messages({'any.required': '工单ID必填'}),
+  customer_id: Joi.number().integer(),
+  contract_id: Joi.number().integer().allow(null),
+  type: Joi.string().max(50),
+  title: Joi.string().max(200),
+  description: Joi.string().max(2000).allow('', null),
+  priority: Joi.number().integer().min(1).max(4),
+  attachment_ids: Joi.array().items(Joi.number().integer())
+});
+
+const idSchema = Joi.object({
+  id: Joi.number().integer().required().messages({'any.required': '工单ID必填'})
+});
+
+const assignSchema = Joi.object({
+  id: Joi.number().integer().required().messages({'any.required': '工单ID必填'}),
+  assignee_id: Joi.number().integer().required().messages({'any.required': '请选择工程师'})
+});
+
+const batchAssignSchema = Joi.object({
+  ids: Joi.array().items(Joi.number().integer()).min(1).max(50).required().messages({'any.required': '请选择要分配的工单'}),
+  assignee_id: Joi.number().integer().required().messages({'any.required': '请选择工程师'})
+});
+
+const finishSchema = Joi.object({
+  id: Joi.number().integer().required().messages({'any.required': '工单ID必填'}),
+  finish_desc: Joi.string().max(2000).allow('', null)
+});
+
+const confirmSchema = Joi.object({
+  id: Joi.number().integer().required().messages({'any.required': '工单ID必填'}),
+  satisfaction: Joi.number().integer().min(1).max(5).required().messages({'any.required': '满意度评分必填'})
+});
 
 // 构建售后工单数据权限SQL（涉及create_by和assignee_id两个字段）
 const buildServicePermissionClause = async (dataPermission, tableAlias = 'so') => {
@@ -61,7 +120,7 @@ const canManageService = async (user, serviceOrder) => {
 };
 
 // 获取工单列表
-router.post('/list', authenticateToken, checkPermission('service'), checkDataPermission('service', 'create_by'), async (req, res) => {
+router.post('/list', authenticateToken, checkPermission('service'), checkDataPermission('service', 'create_by'), validate(listSchema), async (req, res) => {
   const { page = 1, pageSize = 10, status, type, priority, keyword, assignee_id, created_today, is_timeout } = req.body;
   const safePageSize = Math.min(Math.max(1, parseInt(pageSize) || 10), 200);
   const offset = (Math.max(1, parseInt(page) || 1) - 1) * safePageSize;
@@ -189,7 +248,7 @@ router.get('/detail/:id', authenticateToken, async (req, res) => {
 });
 
 // 创建工单
-router.post('/add', authenticateToken, checkPermission('service:add'), async (req, res) => {
+router.post('/add', authenticateToken, checkPermission('service:add'), validate(addSchema), async (req, res) => {
   const { customer_id, contract_id, type, title, description, priority } = req.body;
   const connection = await pool.getConnection();
 
@@ -242,7 +301,7 @@ router.post('/add', authenticateToken, checkPermission('service:add'), async (re
 });
 
 // 更新工单
-router.post('/update', authenticateToken, checkPermission('service:edit'), async (req, res) => {
+router.post('/update', authenticateToken, checkPermission('service:edit'), validate(updateSchema), async (req, res) => {
   const { id, customer_id, contract_id, type, title, description, priority } = req.body;
 
   try {
@@ -277,7 +336,7 @@ router.post('/update', authenticateToken, checkPermission('service:edit'), async
 });
 
 // 删除工单
-router.post('/delete', authenticateToken, checkPermission('service:delete'), async (req, res) => {
+router.post('/delete', authenticateToken, checkPermission('service:delete'), validate(idSchema), async (req, res) => {
   const { id } = req.body;
 
   try {
@@ -300,7 +359,7 @@ router.post('/delete', authenticateToken, checkPermission('service:delete'), asy
 });
 
 // 分配工程师
-router.post('/assign', authenticateToken, checkPermission('service:edit'), async (req, res) => {
+router.post('/assign', authenticateToken, checkPermission('service:edit'), validate(assignSchema), async (req, res) => {
   const { id, assignee_id } = req.body;
 
   try {
@@ -334,7 +393,7 @@ router.post('/assign', authenticateToken, checkPermission('service:edit'), async
 });
 
 // 批量分配工程师
-router.post('/batch-assign', authenticateToken, checkPermission('service:edit'), async (req, res) => {
+router.post('/batch-assign', authenticateToken, checkPermission('service:edit'), validate(batchAssignSchema), async (req, res) => {
   try {
   const { ids, assignee_id } = req.body;
 
@@ -379,7 +438,7 @@ router.post('/batch-assign', authenticateToken, checkPermission('service:edit'),
 });
 
 // 开始处理
-router.post('/start', authenticateToken, checkPermission('service:edit'), async (req, res) => {
+router.post('/start', authenticateToken, checkPermission('service:edit'), validate(idSchema), async (req, res) => {
   const { id } = req.body;
 
   try {
@@ -400,7 +459,7 @@ router.post('/start', authenticateToken, checkPermission('service:edit'), async 
 });
 
 // 完成处理（提交结果）
-router.post('/finish', authenticateToken, checkPermission('service:edit'), async (req, res) => {
+router.post('/finish', authenticateToken, checkPermission('service:edit'), validate(finishSchema), async (req, res) => {
   const { id, finish_desc } = req.body;
 
   try {
@@ -425,7 +484,7 @@ router.post('/finish', authenticateToken, checkPermission('service:edit'), async
 });
 
 // 客户确认
-router.post('/confirm', authenticateToken, checkPermission('service:edit'), async (req, res) => {
+router.post('/confirm', authenticateToken, checkPermission('service:edit'), validate(confirmSchema), async (req, res) => {
   const { id, satisfaction } = req.body;
 
   try {

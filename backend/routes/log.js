@@ -4,10 +4,46 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const XLSX = require('xlsx');
+const { validate, Joi } = require('../middleware/validate');
 
 const requireAdmin = require('../middleware/admin');
 
-router.post('/list', authenticateToken, checkPermission('system:log'), async (req, res) => {
+// Joi schemas
+const listSchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  pageSize: Joi.number().integer().min(1).max(200).default(20),
+  module: Joi.string().max(50).allow('', null),
+  action: Joi.string().max(100).allow('', null),
+  status: Joi.number().integer().valid(0, 1).allow('', null),
+  startDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null),
+  endDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null),
+  actionType: Joi.alternatives().try(
+    Joi.string().max(20),
+    Joi.array().items(Joi.string().max(20))
+  ).allow('', null),
+  userId: Joi.number().integer().allow('', null)
+});
+
+const exportSchema = Joi.object({
+  module: Joi.string().max(50).allow('', null),
+  action: Joi.string().max(100).allow('', null),
+  status: Joi.number().integer().valid(0, 1).allow('', null),
+  startDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null),
+  endDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null)
+});
+
+const deleteSchema = Joi.object({
+  ids: Joi.array().items(Joi.number().integer()).min(1).required().messages({
+    'any.required': '请选择要删除的日志',
+    'array.min': '请选择要删除的日志'
+  })
+});
+
+const clearSchema = Joi.object({
+  days: Joi.number().integer().min(1).max(365).default(30)
+});
+
+router.post('/list', authenticateToken, checkPermission('system:log'), validate(listSchema), async (req, res) => {
   try {
   const { page = 1, pageSize = 20, module, action, status, startDate, endDate, actionType, userId } = req.body;
   const safePageSize = Math.min(Math.max(1, parseInt(pageSize) || 20), 200); // 上限200
@@ -135,12 +171,8 @@ router.get('/modules', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/delete', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/delete', authenticateToken, requireAdmin, validate(deleteSchema), async (req, res) => {
   const { ids } = req.body;
-
-  if (!ids || !Array.isArray(ids) || ids.length === 0) {
-    return res.status(400).json({ code: 400, message: '请选择要删除的日志', data: null });
-  }
 
   try {
     const placeholders = ids.map(() => '?').join(',');
@@ -152,7 +184,7 @@ router.post('/delete', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-router.post('/clear', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/clear', authenticateToken, requireAdmin, validate(clearSchema), async (req, res) => {
   const { days } = req.body;
   const retentionDays = days || 30;
 
@@ -169,7 +201,7 @@ router.post('/clear', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // 导出日志
-router.post('/export', authenticateToken, checkPermission('log:export'), requireAdmin, async (req, res) => {
+router.post('/export', authenticateToken, checkPermission('log:export'), requireAdmin, validate(exportSchema), async (req, res) => {
   try {
   const { module, action, status, startDate, endDate } = req.body;
 

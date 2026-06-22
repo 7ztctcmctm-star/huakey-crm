@@ -142,7 +142,7 @@ router.post('/list', authenticateToken, checkPermission('contract'), checkDataPe
       FROM crm_contract c
       LEFT JOIN crm_customer cu ON c.customer_id = cu.id
       LEFT JOIN sys_user u ON c.create_by = u.id
-      LEFT JOIN crm_currency cur ON c.currency = cur.code
+      LEFT JOIN crm_currency cur ON c.currency = cur.code COLLATE utf8mb4_unicode_ci
       WHERE c.deleted_at IS NULL AND ${permissionClause}`;
 
     const params = [...permParams];

@@ -6,10 +6,67 @@ const { checkPermission } = require('../middleware/permission');
 const ROLES = require('../config/roles');
 const { getOverdueDays } = require('../utils/config');
 const { createRouteLogger } = require('../middleware/logger');
+const { validate, queryValidate, Joi } = require('../middleware/validate');
+const { cache } = require('../middleware/cache');
 const logAction = createRouteLogger('报表管理');
 
+// Joi schemas
+const dateRangeQuerySchema = Joi.object({
+  startDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null),
+  endDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null)
+});
+
+const financeQuerySchema = Joi.object({
+  start_date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null),
+  end_date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null)
+});
+
+const financeExportQuerySchema = Joi.object({
+  type: Joi.string().valid('receivable', 'income', 'purchase').default('receivable'),
+  start_date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null),
+  end_date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null)
+});
+
+const overdueSchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  pageSize: Joi.number().integer().min(1).max(200).default(20)
+});
+
+const exportSchema = Joi.object({
+  startDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null),
+  endDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null)
+});
+
+const customReportSchema = Joi.object({
+  name: Joi.string().required().max(200).messages({'any.required': '报表名称不能为空'}),
+  description: Joi.string().max(500).allow('', null),
+  report_type: Joi.string().required().max(50).messages({'any.required': '报表类型不能为空'}),
+  data_source: Joi.string().required().max(50).messages({'any.required': '数据来源不能为空'}),
+  columns_config: Joi.string().allow('', null),
+  filter_config: Joi.string().allow('', null),
+  chart_config: Joi.string().allow('', null),
+  is_public: Joi.number().integer().valid(0, 1).default(0)
+});
+
+const customReportUpdateSchema = Joi.object({
+  name: Joi.string().max(200),
+  description: Joi.string().max(500).allow('', null),
+  report_type: Joi.string().max(50),
+  data_source: Joi.string().max(50),
+  columns_config: Joi.string().allow('', null),
+  filter_config: Joi.string().allow('', null),
+  chart_config: Joi.string().allow('', null),
+  is_public: Joi.number().integer().valid(0, 1)
+});
+
+const customReportRunSchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  pageSize: Joi.number().integer().min(1).max(200).default(20),
+  filters: Joi.object().default({})
+});
+
 // 销售漏斗统计
-router.get('/sales-funnel', authenticateToken, async (req, res) => {
+router.get('/sales-funnel', authenticateToken, cache(300), queryValidate(dateRangeQuerySchema), async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     let dateFilter = '';
@@ -50,7 +107,7 @@ router.get('/sales-funnel', authenticateToken, async (req, res) => {
 });
 
 // 业绩统计
-router.get('/performance', authenticateToken, async (req, res) => {
+router.get('/performance', authenticateToken, queryValidate(dateRangeQuerySchema), async (req, res) => {
   try {
   const { startDate, endDate } = req.query;
 
@@ -92,7 +149,7 @@ router.get('/performance', authenticateToken, async (req, res) => {
 });
 
 // 客户统计
-router.get('/customer', authenticateToken, async (req, res) => {
+router.get('/customer', authenticateToken, queryValidate(dateRangeQuerySchema), async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     let dateFilter = '';
@@ -161,7 +218,7 @@ router.get('/customer', authenticateToken, async (req, res) => {
 });
 
 // 回款统计
-router.get('/payment', authenticateToken, async (req, res) => {
+router.get('/payment', authenticateToken, queryValidate(dateRangeQuerySchema), async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
 
@@ -225,7 +282,7 @@ router.get('/payment', authenticateToken, async (req, res) => {
 });
 
 // 销售趋势
-router.get('/sales-trend', authenticateToken, async (req, res) => {
+router.get('/sales-trend', authenticateToken, queryValidate(dateRangeQuerySchema), async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     let dateFilter;
@@ -257,7 +314,7 @@ router.get('/sales-trend', authenticateToken, async (req, res) => {
 });
 
 // 概览数据（首页仪表盘）
-router.get('/overview', authenticateToken, async (req, res) => {
+router.get('/overview', authenticateToken, cache(300), async (req, res) => {
   try {
     const userId = req.user.userId;
     const roleId = req.user.roleId;
@@ -455,7 +512,7 @@ router.get('/quick-stats', authenticateToken, async (req, res) => {
 });
 
 // 8. 逾期跟进客户列表
-router.post('/overdue', authenticateToken, checkPermission('report'), async (req, res) => {
+router.post('/overdue', authenticateToken, checkPermission('report'), validate(overdueSchema), async (req, res) => {
   try {
     const userId = req.user.userId;
     const roleId = req.user.roleId;
@@ -547,7 +604,7 @@ router.get('/overdue-stats', authenticateToken, async (req, res) => {
 });
 
 // 采购趋势（近12个月）
-router.get('/purchase-trend', authenticateToken, async (req, res) => {
+router.get('/purchase-trend', authenticateToken, queryValidate(dateRangeQuerySchema), async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     let dateFilter;
@@ -579,7 +636,7 @@ router.get('/purchase-trend', authenticateToken, async (req, res) => {
 });
 
 // 采购按供应商分布
-router.get('/purchase-by-supplier', authenticateToken, async (req, res) => {
+router.get('/purchase-by-supplier', authenticateToken, queryValidate(dateRangeQuerySchema), async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     let dateFilter = '';
@@ -611,7 +668,7 @@ router.get('/purchase-by-supplier', authenticateToken, async (req, res) => {
 const XLSX = require('xlsx');
 
 // 导出报表
-router.post('/export', authenticateToken, checkPermission('report'), async (req, res) => {
+router.post('/export', authenticateToken, checkPermission('report'), validate(exportSchema), async (req, res) => {
   try {
     const { startDate, endDate } = req.body;
     const dateFilter = startDate && endDate;
@@ -703,7 +760,7 @@ router.post('/export', authenticateToken, checkPermission('report'), async (req,
 
 // ============ 财务报表 ============
 
-router.get('/finance', authenticateToken, checkPermission('report'), async (req, res) => {
+router.get('/finance', authenticateToken, checkPermission('report'), queryValidate(financeQuerySchema), async (req, res) => {
   try {
     const { start_date, end_date } = req.query;
     const now = new Date();
@@ -820,7 +877,7 @@ router.get('/finance', authenticateToken, checkPermission('report'), async (req,
 });
 
 // 财务报表导出CSV
-router.get('/finance/export', authenticateToken, checkPermission('report'), async (req, res) => {
+router.get('/finance/export', authenticateToken, checkPermission('report'), queryValidate(financeExportQuerySchema), async (req, res) => {
   try {
     const { type = 'receivable', start_date, end_date } = req.query;
     const now = new Date();
@@ -1046,7 +1103,7 @@ router.get('/custom', authenticateToken, checkPermission('report'), async (req, 
 });
 
 // 创建自定义报表
-router.post('/custom', authenticateToken, checkPermission('report'), async (req, res) => {
+router.post('/custom', authenticateToken, checkPermission('report'), validate(customReportSchema), async (req, res) => {
   try {
     const { name, description, report_type, data_source, columns_config, filter_config, chart_config, is_public } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ code: 400, message: '报表名称不能为空', data: null });
@@ -1066,7 +1123,7 @@ router.post('/custom', authenticateToken, checkPermission('report'), async (req,
 });
 
 // 更新自定义报表
-router.put('/custom/:id', authenticateToken, checkPermission('report'), async (req, res) => {
+router.put('/custom/:id', authenticateToken, checkPermission('report'), validate(customReportUpdateSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const [existing] = await pool.query('SELECT create_by FROM crm_report_config WHERE id = ? AND deleted_at IS NULL', [id]);
@@ -1127,7 +1184,7 @@ router.get('/custom/fields/:source', authenticateToken, checkPermission('report'
 });
 
 // 执行自定义报表
-router.post('/custom/:id/run', authenticateToken, checkPermission('report'), async (req, res) => {
+router.post('/custom/:id/run', authenticateToken, checkPermission('report'), validate(customReportRunSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const { page = 1, pageSize = 20, filters = {} } = req.body;

@@ -537,6 +537,7 @@ import { relativeTime } from '@/composables/useRelativeTime'
 import {
   HomeFilled,
   UserFilled,
+  User,
   TrendCharts,
   Collection,
   Document,
