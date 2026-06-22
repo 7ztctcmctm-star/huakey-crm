@@ -52,6 +52,7 @@ describe('售后模块', () => {
   describe('POST /api/service/list', () => {
     it('应该返回200和工单列表', async () => {
       mockPool.query
+        .mockResolvedValueOnce([[]])  // blacklist check
         .mockResolvedValueOnce([[{ total: 1 }]])
         .mockResolvedValueOnce([[{ id: 1, order_no: 'SO-001', title: '测试工单', status: 1 }]]);
 

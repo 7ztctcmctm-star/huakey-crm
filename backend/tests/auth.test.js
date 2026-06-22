@@ -109,6 +109,7 @@ describe('认证模块', () => {
       const token = generateToken();
       const hashedPassword = await bcrypt.hash('CorrectOldPass1', 10);
       mockPool.query
+        .mockResolvedValueOnce([[]])  // blacklist check (empty = not blacklisted)
         .mockResolvedValueOnce([[{ password: hashedPassword }]])
         .mockResolvedValueOnce([{ affectedRows: 1 }]);
 

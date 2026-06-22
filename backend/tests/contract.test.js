@@ -80,7 +80,7 @@ describe('合同模块 - 参数验证', () => {
       const res = await request(app)
         .post('/api/contract/list')
         .set('Authorization', `Bearer ${token}`)
-        .send({ pageNum: 0, pageSize: 200 });
+        .send({ page: 0, pageSize: 200 });
 
       expect(res.status).toBe(400);
     });

@@ -39,6 +39,7 @@ describe('商机模块', () => {
   describe('POST /api/opportunity/list', () => {
     it('应该返回200和商机列表', async () => {
       mockPool.query
+        .mockResolvedValueOnce([[]])  // blacklist check
         .mockResolvedValueOnce([[{ total: 1 }]])
         .mockResolvedValueOnce([[{ id: 1, name: '测试商机', stage: 1 }]]);
 

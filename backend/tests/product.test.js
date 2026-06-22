@@ -39,6 +39,7 @@ describe('产品模块', () => {
   describe('POST /api/product/list', () => {
     it('应该返回200和产品列表', async () => {
       mockPool.query
+        .mockResolvedValueOnce([[]])  // blacklist check
         .mockResolvedValueOnce([[{ total: 1 }]])
         .mockResolvedValueOnce([[{ id: 1, name: '测试产品', code: 'P001', price: 100 }]]);
 

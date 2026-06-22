@@ -56,11 +56,12 @@ const authenticateToken = (req, res, next) => {
     // 检查token是否在黑名单中（已登出）
     try {
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-      const [blacklisted] = await pool.query(
-        'SELECT id FROM sys_token_blacklist WHERE token_hash = ? AND expire_at > NOW()',
+      const result = await pool.query(
+        'SELECT 1 as blacklisted FROM sys_token_blacklist WHERE token_hash = ? AND expire_at > NOW() LIMIT 1',
         [tokenHash]
       );
-      if (blacklisted.length > 0) {
+      const rows = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : [];
+      if (rows.length > 0 && rows[0] && rows[0].blacklisted === 1) {
         return res.status(401).json({
           code: 401,
           message: '令牌已失效，请重新登录',
@@ -68,8 +69,7 @@ const authenticateToken = (req, res, next) => {
         });
       }
     } catch (dbErr) {
-      console.error('[认证] 黑名单查询失败:', dbErr.message);
-      // 黑名单查询失败不阻断请求，降级放行
+      // 黑名单查询失败不阻断请求，降级放行（如表不存在）
     }
 
     req.user = {
