@@ -82,7 +82,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { Bell } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import { markAllRead, getReminderCenter } from '@/api/notification'
 
 const router = useRouter()
 
@@ -98,7 +98,7 @@ const hasTodoItems = computed(() => {
 const fetchNotificationCenter = async () => {
   notifyLoading.value = true
   try {
-    const res = await request.get('/reminder/center')
+    const res = await getReminderCenter()
     if (res.code === 200) centerData.value = res.data
   } catch { /* */ }
   finally { notifyLoading.value = false }
@@ -106,7 +106,7 @@ const fetchNotificationCenter = async () => {
 
 const markCenterAllRead = async () => {
   try {
-    await request.post('/reminder/center/mark-all-read')
+    await markAllRead()
     centerData.value.unread_count = 0
     centerData.value.system?.forEach(n => n.is_read = 1)
   } catch { /* */ }

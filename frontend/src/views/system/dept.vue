@@ -44,6 +44,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { getDeptList, deleteDept, saveDept } from '@/api/system'
 
 const loading = ref(false)
 const tableData = ref([])
@@ -73,7 +74,7 @@ function buildTree(list) {
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await request.post('/dept/list', {})
+    const res = await getDeptList({})
     if (res.code === 200) {
       tableData.value = buildTree(res.data.list)
       deptOptions.value = res.data.list
@@ -87,7 +88,7 @@ const handleEdit = (row) => { isEdit.value = true; editId.value = row.id; Object
 
 const handleDelete = (row) => {
   ElMessageBox.confirm(`确定删除部门 "${row.name}" 吗？`, '提示', { type: 'warning' }).then(async () => {
-    const res = await request.post('/dept/delete', { id: row.id })
+    const res = await deleteDept(row.id)
     if (res.code === 200) { ElMessage.success('已删除'); fetchList() }
   }).catch(() => {})
 }
@@ -97,7 +98,7 @@ const handleSubmit = async () => {
   await formRef.value.validate(async (valid) => {
     if (!valid) return
     const data = isEdit.value ? { id: editId.value, name: form.name, parent_id: form.parent_id, sort: form.sort } : { name: form.name, parent_id: form.parent_id, sort: form.sort }
-    const res = await request.post(isEdit.value ? '/dept/update' : '/dept/add', data)
+    const res = await saveDept(data, isEdit.value)
     if (res.code === 200) { ElMessage.success(isEdit.value ? '修改成功' : '新增成功'); dialogVisible.value = false; fetchList() }
   })
 }

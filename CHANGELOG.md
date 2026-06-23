@@ -4,6 +4,72 @@
 
 # 2026-06-22
 
+## 前端API层抽取
+
+- 新建 `frontend/src/api/` 目录，建立统一 API 入口
+- 新建 `frontend/src/api/customer.js`：客户模块 API（list/detail/add/update/delete/assign/batch-assign/convert/export/360-view/release/assign-rules 等 24 个函数）
+- 新建 `frontend/src/api/followUp.js`：跟进模块 API（list/add/update/delete/plan 等 7 个函数）
+- 重构 `Customer/List.vue`：10 个 request 调用替换为 API 函数
+- 重构 `Customer/Detail.vue`：11 个 request 调用替换为 API 函数（360 视图/联系人/跟进/分配/释放）
+- 重构 `Customer/AssignRules.vue`：5 个 request 调用替换为 API 函数（规则 CRUD + 销售用户列表）
+- 新建 `frontend/src/api/contract.js`：合同模块 API（list/detail/add/update/delete/approve/export/payment 等 12 个函数）
+- 新建 `frontend/src/api/opportunity.js`：商机模块 API（list/add/update/delete/stage/funnel/detail/log 等 8 个函数）
+- 重构 `contract/list.vue`：11 个 request 调用替换为 API 函数（列表/删除/模板/导出/回款/审批）
+- 重构 `contract/detail.vue`：4 个 request 调用替换为 API 函数（详情/回款添加/回款删除）
+- 重构 `opportunity/list.vue`：7 个 request 调用替换为 API 函数（列表/新增/编辑/删除/推进/漏斗/详情）
+- 新建 `frontend/src/api/service.js`：售后工单模块 API（list/detail/add/update/delete/assign/batch-assign/start/finish/confirm/types/status-list/priority-list 等 13 个函数）
+- 新建 `frontend/src/api/supplier.js`：供应商模块 API（list/detail/add/update/delete/performance/contact/qualification/rating/ranking/compare 等 15 个函数）
+- 新建 `frontend/src/api/purchase.js`：采购模块 API（list/detail/add/update-status/receipt/payment/statistics 等 7 个函数）
+- 新建 `frontend/src/api/product.js`：产品模块 API（list/add/update/delete/categories/prices 等 8 个函数）
+- 重构 `service/index.vue`：14 个 request 调用替换为 API 函数（列表/新增/编辑/删除/分配/批量分配/开始/完成/确认/类型/状态/优先级）
+- 重构 `supplier/list.vue`：3 个 request 调用替换为 API 函数（列表/新增/编辑/删除）
+- 重构 `supplier/detail.vue`：9 个 request 调用替换为 API 函数（详情/绩效/评分/联系人/资质）
+- 重构 `supplier/ranking.vue`：2 个 request 调用替换为 API 函数（排名/对比）
+- 重构 `purchase/list.vue`：4 个 request 调用替换为 API 函数（列表/新增/状态变更/统计）
+- 重构 `purchase/detail.vue`：4 个 request 调用替换为 API 函数（详情/状态变更/收货/付款）
+- 重构 `product/index.vue`：8 个 request 调用替换为 API 函数（列表/新增/编辑/删除/分类/价格管理）
+- 新建 `frontend/src/api/report.js`：报表模块 API（21 个函数）
+- 新建 `frontend/src/api/approval.js`：审批模块 API（11 个函数）
+- 新建 `frontend/src/api/knowledge.js`：知识库模块 API（25 个函数）
+- 新建 `frontend/src/api/email.js`：邮件模块 API（7 个函数）
+- 新建 `frontend/src/api/competitor.js`：竞品模块 API（6 个函数）
+- 新建 `frontend/src/api/inventory.js`：库存模块 API（6 个函数）
+- 新建 `frontend/src/api/calendar.js`：日历模块 API（4 个函数）
+- 新建 `frontend/src/api/tag.js`：标签模块 API（5 个函数）
+- 新建 `frontend/src/api/notification.js`：通知模块 API（3 个函数）
+- 重构 23 个辅助模块 Vue 文件：report(4)/approval(3)/knowledge(5)/email(3)/calendar(1)/tags(1)/notification(2)/competitor(2)/inventory(2) 共计 ~76 个 request 调用替换为 API 函数
+- **API 层总计**：17 个模块文件，196 个函数，覆盖全部核心+辅助模块
+- 新建 `frontend/src/api/quote.js`：报价模块 API（6 个函数）
+- 新建 `frontend/src/api/finance.js`：财务模块 API（8 个函数）
+- 补充 `customer.js`：batchClaimCustomer + autoAssignCustomer
+- 补充 `contract.js`：getPaymentSummary + getMergedPayments + exportPayments + exportPaymentStatement + searchContract
+- 重构 `quotation/list.vue` + `edit.vue`：8 个 request 调用替换为 quote API 函数
+- 重构 `customer/pool.vue`：8 个 request 调用替换为 customer API 函数（含命名冲突修复）
+- 重构 `payment/index.vue` + `reminders.vue` + `reconciliation.vue` + `analysis.vue`：13 个 request 调用替换为 finance/contract API 函数
+- **API 层最终总计**：21 个模块文件，216 个函数
+- 新建 `frontend/src/api/system.js`：系统管理 API（18 个函数：用户/角色/部门/权限/日志/备份/币种）
+- 新建 `frontend/src/api/hr.js`：人力资源 API（10 个函数：员工/组织架构/提成）
+- 新建 `frontend/src/api/automation.js`：自动化 API（11 个函数：工作流/智能提醒/分配规则）
+- 新建 `frontend/src/api/config.js`：配置 API（4 个函数）
+- 新建 `frontend/src/api/platform.js`：开放平台 API（5 个函数：API密钥/Webhook/文档）
+- 新建 `frontend/src/api/integration.js`：集成 API（3 个函数）
+- 新建 `frontend/src/api/procurementPlan.js`：采购计划 API（4 个函数）
+- 补充 `customer.js`：getLeadsList + convertLead + claimLead + markLeadLost + getLeadsStats
+- 重构 system(7) + leads(1) + hr(3) + automation(3) + settings(3) + procurement(2) 共 19 个 Vue 文件
+- **API 层最终总计**：28 个模块文件，271 个函数，覆盖全部业务模块
+- 新建 `frontend/src/api/survey.js`（5 函数）+ `scoring.js`（4）+ `social.js`（3）+ `target.js`（2）+ `analysis.js`（7）+ `auth.js`（6）+ `ai.js`（5）+ `recycle.js`（3）+ `search.js`（1）
+- 补充 `followUp.js`：+9 函数（模板/日历/提醒/批量/统计）
+- 补充 `customer.js`：+5 函数（模板/质量检查/导入预览/确认）
+- 补充 `email.js`：+1 函数（getEmailStats）
+- 补充 `notification.js`：+3 函数（getReminderCenter/getPaymentOverdue/getMyReminders）
+- 重构 Dashboard/TeamDashboard + survey(6) + scoring(2) + social(1) + target(1) + analysis(2) + ai(2) + login(1) + profile(1) + recycle(1) + search(1) + email(3) + followup(3) + follow-up(2) + notification(1) + layout(1) + components(4) 共 34 个 Vue 文件
+- **API 层最终总计**：36 个模块文件，300+ 个函数
+- 残留 ~133 个 request 调用为动态路径端点/PUT/DELETE 操作，暂不抽取
+- API 层最终收尾：21个API文件补充函数（competitor/email/hr/survey/scoring/automation/procurementPlan/platform/integration/finance/approval/contract/quote/customer/followUp/social/supplier/report/system/inventory）
+- Vue文件替换：40+个Vue文件全部替换为 API 函数调用
+- 残留 request.xxx() 调用：469 → 1（仅 composables/useUser.js 的 /auth/me）
+- 构建验证通过
+
 ## Bug修复
 
 - **[P0] 修复跟进列表数据泄露**：POST /api/follow-up/list 补 checkDataPermission + buildDataPermissionWhere，防止跨用户查看跟进记录

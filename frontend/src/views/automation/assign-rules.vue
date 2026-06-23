@@ -78,7 +78,8 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import { getAssignRules, saveAssignRule, applyAssignRule, deleteAssignRule } from '@/api/automation'
+import { getSalesUsers, getCustomerList } from '@/api/customer'
 
 const typeName = { round_robin: '轮询', by_source: '按来源', by_region: '按区域' }
 const typeTag = { round_robin: '', by_source: 'success', by_region: 'warning' }
@@ -104,16 +105,16 @@ const formatUsers = (v) => {
 
 const fetchList = async () => {
   loading.value = true
-  try { const res = await request.get('/automation/assign-rules'); if (res.code === 200) list.value = res.data } catch (e) { /* */ }
+  try { const res = await getAssignRules(); if (res.code === 200) list.value = res.data } catch (e) { /* */ }
   finally { loading.value = false }
 }
 
 const fetchUsers = async () => {
-  try { const res = await request.get('/customer/sales-users'); if (res.code === 200) userOptions.value = res.data } catch (e) { /* */ }
+  try { const res = await getSalesUsers(); if (res.code === 200) userOptions.value = res.data } catch (e) { /* */ }
 }
 
 const fetchCustomers = async () => {
-  try { const res = await request.post('/customer/list', { page: 1, pageSize: 200 }); if (res.code === 200) customerOptions.value = res.data.list } catch (e) { /* */ }
+  try { const res = await getCustomerList({ page: 1, pageSize: 200 }); if (res.code === 200) customerOptions.value = res.data.list } catch (e) { /* */ }
 }
 
 const handleCreate = () => {
@@ -136,15 +137,15 @@ const handleSave = async () => {
   try {
     const data = { ...form, user_ids: JSON.stringify(form.user_ids) }
     let res
-    if (isEdit.value) res = await request.put(`/automation/assign-rules/${editId.value}`, data)
-    else res = await request.post('/automation/assign-rules', data)
+    if (isEdit.value) res = await saveAssignRule({ id: editId.value, ...data })
+    else res = await saveAssignRule(data)
     if (res.code === 200) { ElMessage.success('保存成功'); dialogVisible.value = false; fetchList() }
   } finally { saveLoading.value = false }
 }
 
 const handleDelete = (row) => {
   ElMessageBox.confirm(`确定删除规则"${row.rule_name}"？`, '提示', { type: 'warning' }).then(async () => {
-    const res = await request.delete(`/automation/assign-rules/${row.id}`)
+    const res = await deleteAssignRule(row.id)
     if (res.code === 200) { ElMessage.success('已删除'); fetchList() }
   }).catch(() => {})
 }
@@ -154,7 +155,7 @@ const handleApplySubmit = async () => {
   if (applyCustomerIds.value.length === 0) { ElMessage.warning('请选择客户'); return }
   applyLoading.value = true
   try {
-    const res = await request.post('/automation/assign-rules/apply', { customer_ids: applyCustomerIds.value })
+    const res = await applyAssignRule(applyCustomerIds.value)
     if (res.code === 200) { ElMessage.success('分配完成'); applyVisible.value = false }
   } finally { applyLoading.value = false }
 }

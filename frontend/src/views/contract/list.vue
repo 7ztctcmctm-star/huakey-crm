@@ -147,7 +147,9 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh, View, Edit, Delete, Download, Coin } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import { getContractList, getContractDetail, addContract, updateContract, deleteContract, approveContract, exportContracts, getContractOpportunityList, getContractTemplates, addPayment, searchContract } from '@/api/contract'
+import { getCustomerList } from '@/api/customer'
+import { submitApproval, withdrawApproval } from '@/api/approval'
 
 const router = useRouter()
 const route = useRoute()
@@ -180,11 +182,11 @@ const isAdmin = userInfo.roleId === 1 || userInfo.roleId === 2 || userInfo.manag
 
 const fetchList = async () => {
   loading.value = true
-  try { const r = await request.post('/contract/list', { page: page.value, pageSize: pageSize.value, ...searchForm }); if (r.code === 200) { tableData.value = r.data.list; total.value = r.data.total } } catch { ElMessage.error('加载失败') }
+  try { const r = await getContractList({ page: page.value, pageSize: pageSize.value, ...searchForm }); if (r.code === 200) { tableData.value = r.data.list; total.value = r.data.total } } catch { ElMessage.error('加载失败') }
   finally { loading.value = false }
 }
-const fetchCustomers = async () => { try { const r = await request.post('/customer/list', { page: 1, pageSize: 200 }); if (r.code === 200) customerOptions.value = r.data.list } catch { /**/ } }
-const fetchOpportunities = async () => { try { const r = await request.get('/contract/opportunity-list'); if (r.code === 200) opportunityOptions.value = r.data } catch { /**/ } }
+const fetchCustomers = async () => { try { const r = await getCustomerList({ page: 1, pageSize: 200 }); if (r.code === 200) customerOptions.value = r.data.list } catch { /**/ } }
+const fetchOpportunities = async () => { try { const r = await getContractOpportunityList(); if (r.code === 200) opportunityOptions.value = r.data } catch { /**/ } }
 
 // P0-3: 逾期回款行高亮
 const tableRowClassName = ({ row }) => {
@@ -203,7 +205,7 @@ const handleView = (row) => {
 
 // P2-4: 合同模板
 const fetchTemplates = async () => {
-  try { const res = await request.get('/contract-template/list'); if (res.code === 200) templateOptions.value = res.data; } catch {}
+  try { const res = await getContractTemplates(); if (res.code === 200) templateOptions.value = res.data; } catch {}
 }
 const applyTemplate = (templateId) => {
   if (!templateId) { resetForm(); return }
@@ -219,7 +221,7 @@ const handleCreate = () => { isEdit.value = false; editId.value = null; selected
 const handleEdit = async (row) => {
   isEdit.value = true; editId.value = row.id
   try {
-    const r = await request.get(`/contract/detail/${row.id}`)
+    const r = await getContractDetail(row.id)
     if (r.code === 200) {
       const d = r.data
       Object.assign(form, { customer_id: d.customer_id, opportunity_id: d.opportunity_id, amount: d.amount, sign_date: d.sign_date||'', delivery_date: d.delivery_date||'', payment_terms: d.payment_terms||'', status: d.status, remark: d.remark||'', plans: (d.plans||[]).map(p=>({...p})) })
@@ -230,7 +232,7 @@ const handleEdit = async (row) => {
 
 const handleDelete = (row) => {
   ElMessageBox.confirm('删除合同将同时删除关联的回款记录，此操作不可恢复，确定继续？', '删除确认', { type: 'warning', confirmButtonText: '确定删除', cancelButtonText: '取消' }).then(async () => {
-    const r = await request.post('/contract/delete', { id: row.id })
+    const r = await deleteContract(row.id)
     if (r.code === 200) { ElMessage.success('已删除'); fetchList() } else { ElMessage.error(r.message||'删除失败') }
   }).catch(() => {})
 }
@@ -246,7 +248,7 @@ const submitForm = async () => {
     try {
       const data = { ...form, plans: form.plans.filter(p => p.plan_date && p.plan_amount > 0) }
       if (isEdit.value) data.id = editId.value
-      const r = await request.post(isEdit.value ? '/contract/update' : '/contract/add', data)
+      const r = isEdit.value ? await updateContract(data) : await addContract(data)
       if (r.code === 200) { ElMessage.success(isEdit.value ? '修改成功' : '创建成功'); formVisible.value = false; fetchList() }
       else { ElMessage.error(r.message||'保存失败') }
     } catch { ElMessage.error('保存失败') }
@@ -257,7 +259,7 @@ const submitForm = async () => {
 const handleExport = async () => {
   exportLoading.value = true
   try {
-    const blob = await request.post('/contract/export', { ...searchForm }, { responseType: 'blob' })
+    const blob = await exportContracts({ ...searchForm })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -275,7 +277,7 @@ const openQuickPay = async (row) => {
   Object.assign(quickPayForm, { plan_id: null, pay_date: today, pay_amount: 0, pay_method: '', remark: '' })
   quickPayPlans.value = []
   try {
-    const r = await request.get(`/contract/detail/${row.id}`)
+    const r = await getContractDetail(row.id)
     if (r.code === 200 && r.data.plans) {
       quickPayPlans.value = r.data.plans.filter(p => p.status !== 'completed')
     }
@@ -293,7 +295,7 @@ const submitQuickPay = async () => {
     if (!valid) return
     quickPayLoading.value = true
     try {
-      const r = await request.post('/contract/payment/add', { contract_id: quickPayContract.value.id, ...quickPayForm })
+      const r = await addPayment({ contract_id: quickPayContract.value.id, ...quickPayForm })
       if (r.code === 200) { ElMessage.success('回款登记成功'); quickPayVisible.value = false; fetchList() }
       else { ElMessage.error(r.message || '登记失败') }
     } catch { ElMessage.error('登记失败') }
@@ -314,7 +316,7 @@ const handleApprove = (row) => {
     type: 'success'
   }).then(async () => {
     try {
-      const r = await request.post('/contract/approve', { id: row.id, approval_status: 2 })
+      const r = await approveContract({ id: row.id, approval_status: 2 })
       if (r.code === 200) { ElMessage.success('审批通过'); fetchList() }
     } catch { ElMessage.error('审批失败') }
   }).catch(() => {})
@@ -328,7 +330,7 @@ const handleReject = (row) => {
     inputValidator: (v) => { if (!v || !v.trim()) return '拒绝原因不能为空'; return true }
   }).then(async ({ value }) => {
     try {
-      const r = await request.post('/contract/approve', { id: row.id, approval_status: 3, approval_remark: value.trim() })
+      const r = await approveContract({ id: row.id, approval_status: 3, approval_remark: value.trim() })
       if (r.code === 200) { ElMessage.success('已拒绝'); fetchList() }
     } catch { ElMessage.error('操作失败') }
   }).catch(() => {})
@@ -342,7 +344,7 @@ const handleSubmitApproval = (row) => {
     type: 'info'
   }).then(async () => {
     try {
-      const res = await request.post('/approval/submit', { business_type: 'contract', business_id: row.id })
+      const res = await submitApproval({ business_type: 'contract', business_id: row.id })
       if (res.code === 200) { ElMessage.success('已提交审批'); fetchList() }
     } catch (error) { console.error('提交审批失败:', error) }
   }).catch(() => {})
@@ -356,7 +358,7 @@ const handleWithdrawApproval = (row) => {
     type: 'warning'
   }).then(async () => {
     try {
-      const res = await request.delete(`/approval/withdraw/contract/${row.id}`)
+      const res = await withdrawApproval('contract', row.id)
       if (res.code === 200) { ElMessage.success('审批已撤回'); fetchList() }
     } catch (error) { console.error('撤回审批失败:', error) }
   }).catch(() => {})

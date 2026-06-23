@@ -148,6 +148,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
+import { getCommissionRules, saveCommissionRule, getCommissionRecords, getCommissionStats, calculateCommission, batchConfirmCommission, batchPayCommission, deleteCommissionRule } from '@/api/hr'
 
 const statusName = { calculated: '已计算', confirmed: '已确认', paid: '已发放' }
 const statusTag = { calculated: '', confirmed: 'warning', paid: 'success' }
@@ -169,7 +170,7 @@ const handleCalculate = async () => {
   if (!calcMonth.value) { ElMessage.warning('请选择月份'); return }
   calcLoading.value = true
   try {
-    const res = await request.post('/hr/commission/calculate', { period: calcMonth.value })
+    const res = await calculateCommission({ period: calcMonth.value })
     if (res.code === 200) { calcResults.value = res.data.results; ElMessage.success(`计算完成，${res.data.count}人`); fetchStats() }
   } finally { calcLoading.value = false }
 }
@@ -189,7 +190,7 @@ const fetchRecords = async () => {
     const params = { page: recordPage.value, page_size: 20 }
     if (recordMonth.value) params.period = recordMonth.value
     if (recordStatus.value) params.status = recordStatus.value
-    const res = await request.get('/hr/commission/records', { params })
+    const res = await getCommissionRecords(params)
     if (res.code === 200) { records.value = res.data.list; recordTotal.value = res.data.total }
   } catch (e) { /* */ }
   finally { recordsLoading.value = false }
@@ -200,7 +201,7 @@ const onSelectionChange = (rows) => { selectedIds.value = rows.map(r => r.id) }
 const handleBatchConfirm = async (ids) => {
   if (ids.length === 0) return
   try {
-    const res = await request.post('/hr/commission/records/batch-confirm', { ids })
+    const res = await batchConfirmCommission(ids)
     if (res.code === 200) { ElMessage.success('确认成功'); fetchRecords(); fetchStats() }
   } catch (e) { /* */ }
 }
@@ -208,7 +209,7 @@ const handleBatchConfirm = async (ids) => {
 const handleBatchPay = async (ids) => {
   if (ids.length === 0) return
   try {
-    const res = await request.post('/hr/commission/records/batch-pay', { ids })
+    const res = await batchPayCommission(ids)
     if (res.code === 200) { ElMessage.success('发放成功'); fetchRecords(); fetchStats() }
   } catch (e) { /* */ }
 }
@@ -221,7 +222,7 @@ const ruleEditId = ref(null)
 const ruleForm = reactive({ name: '', rule_type: 'fixed', apply_to: 'contract', rate: 3, per_unit: 500, remark: '' })
 
 const fetchRules = async () => {
-  try { const res = await request.get('/hr/commission/rules'); if (res.code === 200) rules.value = res.data } catch (e) { /* */ }
+  try { const res = await getCommissionRules(); if (res.code === 200) rules.value = res.data } catch (e) { /* */ }
 }
 
 const handleCreateRule = () => {
@@ -246,22 +247,20 @@ const handleSaveRule = async () => {
 
   const data = { name: ruleForm.name, rule_type: ruleForm.rule_type, apply_to: ruleForm.apply_to, config, remark: ruleForm.remark }
   try {
-    let res
-    if (isRuleEdit.value) res = await request.put(`/hr/commission/rules/${ruleEditId.value}`, data)
-    else res = await request.post('/hr/commission/rules', data)
+    const res = await saveCommissionRule(data, isRuleEdit.value ? ruleEditId.value : null)
     if (res.code === 200) { ElMessage.success('保存成功'); ruleDialogVisible.value = false; fetchRules() }
   } catch (e) { /* */ }
 }
 
 const handleDeleteRule = (row) => {
   ElMessageBox.confirm(`确定删除规则"${row.name}"？`, '提示', { type: 'warning' }).then(async () => {
-    const res = await request.delete(`/hr/commission/rules/${row.id}`)
+    const res = await deleteCommissionRule(row.id)
     if (res.code === 200) { ElMessage.success('已删除'); fetchRules() }
   }).catch(() => {})
 }
 
 const fetchStats = async () => {
-  try { const res = await request.get('/hr/commission/stats'); if (res.code === 200) stats.value = res.data } catch (e) { /* */ }
+  try { const res = await getCommissionStats(); if (res.code === 200) stats.value = res.data } catch (e) { /* */ }
 }
 
 onMounted(() => { fetchStats(); fetchRecords(); fetchRules() })

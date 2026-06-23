@@ -262,7 +262,9 @@
 <script setup>
 import { ref, reactive, onMounted, onActivated } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import request from '@/utils/request'
+import { getTeamOverview, getSalesBreakdown, getStuckOpportunities, getPendingApprovals, getSalesCustomers, getSalesOverdueCustomers, urgeFollowup as urgeFollowupApi } from '@/api/teamDashboard'
+import { approveQuote } from '@/api/quote'
+import { approveContract } from '@/api/contract'
 import { formatTime, formatAmount } from '@/composables/useFormat'
 import { useChart } from '@/composables/useChart'
 
@@ -289,7 +291,7 @@ const stuckDays = ref(14)
 
 const fetchStuckOpportunities = async () => {
   try {
-    const res = await request.get('/team-dashboard/stuck-opportunities')
+    const res = await getStuckOpportunities()
     if (res.code === 200) {
       stuckList.value = res.data.list || []
       stuckDays.value = res.data.stuck_days || 14
@@ -304,7 +306,7 @@ const stageTagType = (stage) => {
 
 const fetchPendingApprovals = async () => {
   try {
-    const res = await request.get('/team-dashboard/pending-approvals')
+    const res = await getPendingApprovals()
     if (res.code === 200) pendingApprovals.value = res.data || []
   } catch (e) { /* skip */ }
 }
@@ -317,8 +319,11 @@ const handleApprove = async (row, status) => {
       cancelButtonText: '取消',
       type: status === 2 ? 'success' : 'warning'
     })
-    const api = row.business_type === 'quote' ? '/quote/approve' : '/contract/approve'
-    await request.post(api, { id: row.business_id, approval_status: status })
+    if (row.business_type === 'quote') {
+      await approveQuote({ id: row.business_id, approval_status: status })
+    } else {
+      await approveContract({ id: row.business_id, approval_status: status })
+    }
     ElMessage.success(`已${action}`)
     fetchPendingApprovals()
   } catch (e) { /* cancel or error */ }
@@ -334,7 +339,7 @@ const getDateParams = () => {
 
 const fetchOverview = async () => {
   try {
-    const res = await request.get('/team-dashboard/overview', { params: getDateParams() })
+    const res = await getTeamOverview(getDateParams())
     if (res.code === 200) Object.assign(overview, res.data)
   } catch (e) { console.error('获取概览失败:', e) }
 }
@@ -342,7 +347,7 @@ const fetchOverview = async () => {
 const fetchSalesBreakdown = async () => {
   loading.value = true
   try {
-    const res = await request.get('/team-dashboard/sales-breakdown', { params: getDateParams() })
+    const res = await getSalesBreakdown(getDateParams())
     if (res.code === 200) {
       salesList.value = res.data
       renderContractChart(res.data)
@@ -427,7 +432,7 @@ const showSalesCustomers = (sales) => {
 const loadCustomerDetail = async () => {
   customerDetailLoading.value = true
   try {
-    const res = await request.post('/team-dashboard/sales-customers', {
+    const res = await getSalesCustomers({
       user_id: selectedSales.value.user_id,
       page: customerPage.value,
       pageSize: customerPageSize.value
@@ -459,7 +464,7 @@ const showOverdueCustomers = (sales) => {
 const loadOverdueDetail = async () => {
   overdueDetailLoading.value = true
   try {
-    const res = await request.post('/team-dashboard/sales-overdue-customers', {
+    const res = await getSalesOverdueCustomers({
       user_id: selectedSales.value.user_id,
       page: overduePage.value,
       pageSize: overduePageSize.value
@@ -474,7 +479,7 @@ const loadOverdueDetail = async () => {
 
 const urgeFollowup = async (row) => {
   try {
-    const res = await request.post('/team-dashboard/urge-followup', {
+    const res = await urgeFollowupApi({
       customer_id: row.id,
       user_id: selectedSales.value.user_id
     })

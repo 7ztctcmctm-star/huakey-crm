@@ -1,0 +1,15 @@
+import request from '@/utils/request'
+
+export const getEmailList = (params) => request.get('/email/list', { params })
+export const sendEmail = (data) => request.post('/email/send', data)
+export const getEmailAccounts = () => request.get('/email/accounts')
+export const addEmailAccount = (data) => request.post('/email/accounts/add', data)
+export const updateEmailAccount = (data) => request.post('/email/accounts/update', data)
+export const deleteEmailAccount = (id) => request.post('/email/accounts/delete', { id })
+export const syncEmails = () => request.post('/email/sync')
+export const getEmailStats = () => request.get('/email/stats/overview')
+export const markEmailRead = (id) => request.put(`/email/${id}/read`)
+export const getEmailDetail = (id) => request.get(`/email/${id}`)
+export const toggleEmailStar = (id) => request.put(`/email/${id}/star`)
+export const linkCustomerToEmail = (id, customerId) => request.post(`/email/${id}/link-customer`, { customer_id: customerId })
+export const testEmailAccount = (id) => request.post(`/email/account/${id}/test`)

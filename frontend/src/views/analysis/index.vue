@@ -118,6 +118,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
+import { getPrediction, getWinRate, getAnomaly, getAnalysisFunnel, getRfm, getAnalysisRanking, getChurnAlert } from '@/api/analysis'
 import request from '@/utils/request'
 import { useChart } from '@/composables/useChart'
 
@@ -146,7 +147,7 @@ const fetchAll = () => {
 // 销售预测
 const fetchPrediction = async () => {
   try {
-    const res = await request.get('/analysis/prediction')
+    const res = await getPrediction()
     if (res.code === 200) renderPredictionChart(res.data)
   } catch (e) { console.error('获取预测数据失败:', e) }
 }
@@ -191,7 +192,7 @@ const renderPredictionChart = (data) => {
 // 赢单率分析
 const fetchWinRate = async () => {
   try {
-    const res = await request.get('/analysis/win-rate')
+    const res = await getWinRate()
     if (res.code === 200) renderWinRateChart(res.data)
   } catch (e) { console.error('获取赢单率失败:', e) }
 }
@@ -221,7 +222,7 @@ const renderWinRateChart = (data) => {
 // 异常检测
 const fetchAnomaly = async () => {
   try {
-    const res = await request.get('/analysis/anomaly')
+    const res = await getAnomaly()
     if (res.code === 200) renderAnomalyChart(res.data)
   } catch (e) { console.error('获取异常数据失败:', e) }
 }
@@ -259,7 +260,7 @@ const renderAnomalyChart = (data) => {
 const fetchChurnAlert = async () => {
   churnLoading.value = true
   try {
-    const res = await request.get(`/analysis/churn-alert?page=${churnPage.value}&pageSize=20`)
+    const res = await getChurnAlert({ page: churnPage.value, pageSize: 20 })
     if (res.code === 200) {
       churnData.value = res.data
     }
@@ -275,7 +276,7 @@ const loadMoreChurn = () => {
 // 销售漏斗
 const fetchFunnel = async () => {
   try {
-    const res = await request.get('/analysis/funnel')
+    const res = await getAnalysisFunnel()
     if (res.code === 200) renderFunnelChart(res.data)
   } catch (e) { console.error('获取漏斗数据失败:', e) }
 }
@@ -306,7 +307,7 @@ const renderFunnelChart = (data) => {
 const fetchRfm = async () => {
   rfmLoading.value = true
   try {
-    const res = await request.get('/analysis/rfm')
+    const res = await getRfm()
     if (res.code === 200) {
       rfmData.value = res.data
       renderRfmChart(res.data.summary)
@@ -339,7 +340,7 @@ const renderRfmChart = (summary) => {
 // 销售排行榜
 const fetchRanking = async () => {
   try {
-    const res = await request.get('/analysis/ranking')
+    const res = await getAnalysisRanking()
     if (res.code === 200) renderRankingChart(res.data)
   } catch (e) { console.error('获取排行榜数据失败:', e) }
 }

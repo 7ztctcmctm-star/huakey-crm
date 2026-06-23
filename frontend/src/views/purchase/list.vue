@@ -245,6 +245,9 @@ import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, ArrowDown } from '@element-plus/icons-vue';
 import request from '@/utils/request';
+import { getPurchaseList, addPurchase, updatePurchaseStatus, getPurchaseStatistics } from '@/api/purchase';
+import { submitApproval, withdrawApproval } from '@/api/approval';
+import { getSupplierOptions } from '@/api/supplier';
 
 const router = useRouter();
 const loading = ref(false);
@@ -300,14 +303,14 @@ const removeItem = (index) => {
 
 const fetchStats = async () => {
   try {
-    const res = await request.get('/purchase/statistics');
+    const res = await getPurchaseStatistics();
     if (res.code === 200) stats.value = res.data;
   } catch (e) { console.error(e); }
 };
 
 const fetchSupplierOptions = async () => {
   try {
-    const res = await request.get('/supplier/options');
+    const res = await getSupplierOptions();
     if (res.code === 200) supplierOptions.value = res.data;
   } catch (e) { console.error(e); }
 };
@@ -315,7 +318,7 @@ const fetchSupplierOptions = async () => {
 const fetchList = async () => {
   loading.value = true;
   try {
-    const res = await request.post('/purchase/list', { page: page.value, pageSize: pageSize.value, ...searchForm });
+    const res = await getPurchaseList({ page: page.value, pageSize: pageSize.value, ...searchForm });
     if (res.code === 200) { tableData.value = res.data.list; total.value = res.data.total; }
   } catch (error) { console.error(error); }
   finally { loading.value = false; }
@@ -332,7 +335,7 @@ const handleSubmit = async () => {
     if (!valid) return;
     submitLoading.value = true;
     try {
-      const res = await request.post('/purchase/add', form);
+      const res = await addPurchase(form);
       if (res.code === 200) { ElMessage.success('创建成功'); dialogVisible.value = false; fetchList(); fetchStats(); }
     } catch (e) { console.error(e); }
     finally { submitLoading.value = false; }
@@ -342,7 +345,7 @@ const handleSubmit = async () => {
 const handleStatusChange = async (command, row) => {
   try {
     await ElMessageBox.confirm(`确定将状态改为「${command}」吗？`, '确认', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' });
-    const res = await request.post('/purchase/update-status', { id: row.id, status: command });
+    const res = await updatePurchaseStatus({ id: row.id, status: command });
     if (res.code === 200) { ElMessage.success('更新成功'); fetchList(); fetchStats(); }
   } catch (e) { if (e !== 'cancel') console.error(e); }
 };
@@ -357,7 +360,7 @@ const handleSubmitApproval = (row) => {
     confirmButtonText: '确定提交', cancelButtonText: '取消', type: 'info'
   }).then(async () => {
     try {
-      const res = await request.post('/approval/submit', { business_type: 'purchase', business_id: row.id })
+      const res = await submitApproval({ business_type: 'purchase', business_id: row.id })
       if (res.code === 200) { ElMessage.success('已提交审批'); fetchList() }
     } catch (error) { console.error('提交审批失败:', error) }
   }).catch(() => {})
@@ -369,7 +372,7 @@ const handleWithdrawApproval = (row) => {
     confirmButtonText: '确定撤回', cancelButtonText: '取消', type: 'warning'
   }).then(async () => {
     try {
-      const res = await request.delete(`/approval/withdraw/purchase/${row.id}`)
+      const res = await withdrawApproval('purchase', row.id)
       if (res.code === 200) { ElMessage.success('审批已撤回'); fetchList() }
     } catch (error) { console.error('撤回审批失败:', error) }
   }).catch(() => {})

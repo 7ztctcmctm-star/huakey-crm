@@ -67,7 +67,7 @@
 
 <script setup>
 import { ref, onMounted, nextTick, watch } from 'vue'
-import request from '@/utils/request'
+import { getPredictionEnhanced } from '@/api/analysis'
 import echarts from '@/composables/useECharts'
 
 const loading = ref(false)
@@ -80,7 +80,7 @@ const chartRef = ref(null)
 const fetchData = async () => {
   loading.value = true
   try {
-    const res = await request.get('/analysis/prediction/enhanced', { params: { months_ahead: monthsAhead.value } })
+    const res = await getPredictionEnhanced({ months_ahead: monthsAhead.value })
     if (res.code === 200) {
       history.value = res.data.history || []
       predictions.value = res.data.predictions || []

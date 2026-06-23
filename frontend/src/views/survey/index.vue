@@ -72,6 +72,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import { getSurveyTemplates, getSurveyCampaigns, getSurveyAnalytics, saveSurveyCampaign, startCampaign, closeCampaign } from '@/api/survey'
 import request from '@/utils/request'
 
 const typeName = { nps: 'NPS', csat: 'CSAT', custom: '自定义' }
@@ -98,19 +99,19 @@ const statCards = computed(() => [
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await request.get('/survey/campaigns', { params: { status: filterStatus.value } })
+    const res = await getSurveyCampaigns()
     if (res.code === 200) list.value = res.data
   } catch (e) { /* */ }
   finally { loading.value = false }
 }
 
 const fetchTemplates = async () => {
-  try { const res = await request.get('/survey/templates'); if (res.code === 200) templates.value = res.data } catch (e) { /* */ }
+  try { const res = await getSurveyTemplates(); if (res.code === 200) templates.value = res.data } catch (e) { /* */ }
 }
 
 const fetchStats = async () => {
   try {
-    const res = await request.get('/survey/analytics/overview')
+    const res = await getSurveyAnalytics()
     if (res.code === 200) {
       const s = res.data.stats
       stats.value = { total: s.total_campaigns, active: s.active_campaigns, responses: s.total_responses, avgNps: s.avg_nps }
@@ -124,21 +125,21 @@ const handleCreate = async () => {
   try {
     const data = { name: createForm.name, template_id: createForm.template_id }
     if (createForm.dateRange && createForm.dateRange.length === 2) { data.start_date = createForm.dateRange[0]; data.end_date = createForm.dateRange[1] }
-    const res = await request.post('/survey/campaigns', data)
+    const res = await saveSurveyCampaign(data)
     if (res.code === 200) { ElMessage.success('创建成功'); showCreate.value = false; fetchList(); fetchStats() }
   } finally { createLoading.value = false }
 }
 
 const handleStart = (row) => {
   ElMessageBox.confirm(`确定启动调查"${row.name}"？`, '启动确认', { type: 'info' }).then(async () => {
-    const res = await request.post(`/survey/campaigns/${row.id}/start`)
+    const res = await startCampaign(row.id)
     if (res.code === 200) { ElMessage.success('已启动'); fetchList(); fetchStats() }
   }).catch(() => {})
 }
 
 const handleClose = (row) => {
   ElMessageBox.confirm(`确定关闭调查"${row.name}"？`, '关闭确认', { type: 'warning' }).then(async () => {
-    const res = await request.post(`/survey/campaigns/${row.id}/close`)
+    const res = await closeCampaign(row.id)
     if (res.code === 200) { ElMessage.success('已关闭'); fetchList(); fetchStats() }
   }).catch(() => {})
 }

@@ -349,6 +349,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { getServiceList, getServiceDetail, addService, updateService, deleteService, assignService, batchAssignService, startService, finishService, confirmService, getServiceTypes, getServiceStatusList, getServicePriorityList } from '@/api/service'
+import { getCustomerList } from '@/api/customer'
+import { getUserList } from '@/api/system'
+import { getContractList } from '@/api/contract'
+import { getKnowledgeFaqs } from '@/api/knowledge'
 import { formatTime } from '@/composables/useFormat'
 
 // 上传相关
@@ -393,7 +398,7 @@ const fetchFaqs = async () => {
   try {
     const params = {}
     if (faqKeyword.value) params.keyword = faqKeyword.value
-    const res = await request.get('/knowledge/faqs', { params })
+    const res = await getKnowledgeFaqs(params)
     if (res.code === 200) faqList.value = (res.data || []).map(f => ({ ...f, _expanded: false }))
   } catch { /* */ }
   finally { faqLoading.value = false }
@@ -484,7 +489,7 @@ onMounted(() => {
 })
 
 function getTypes() {
-  request.get('/service/types').then(res => {
+  getServiceTypes().then(res => {
     if (res.code === 200) {
       types.value = res.data
     }
@@ -492,7 +497,7 @@ function getTypes() {
 }
 
 function getStatusList() {
-  request.get('/service/status-list').then(res => {
+  getServiceStatusList().then(res => {
     if (res.code === 200) {
       statusList.value = res.data
     }
@@ -500,7 +505,7 @@ function getStatusList() {
 }
 
 function getPriorityList() {
-  request.get('/service/priority-list').then(res => {
+  getServicePriorityList().then(res => {
     if (res.code === 200) {
       priorityList.value = res.data
     }
@@ -509,14 +514,14 @@ function getPriorityList() {
 
 function getCustomers() {
   // [修复] axios拦截器已解包，直接使用 res.code 而非 res.data?.code
-  request.post('/customer/list', { page: 1, pageSize: 200 }).then(res => {
+  getCustomerList({ page: 1, pageSize: 200 }).then(res => {
     if (res.code === 200) customers.value = res.data?.list || []
   }).catch(() => {})
 }
 
 function getEngineers() {
   // [修复] 同上
-  request.post('/user/list', { pageSize: 200 }).then(res => {
+  getUserList({ pageSize: 200 }).then(res => {
     if (res.code === 200) engineers.value = res.data?.list || []
   }).catch(() => {})
 }
@@ -538,7 +543,7 @@ function getList() {
   } else if (quickFilter.value === 'timeout') {
     params.is_timeout = true
   }
-  request.post('/service/list', params).then(res => {
+  getServiceList(params).then(res => {
     if (res.code === 200) {
       tableData.value = res.data.list
       pagination.total = res.data.total
@@ -567,7 +572,7 @@ function handleBatchAssign() {
   ElMessageBox.confirm(`确定将 ${selectedServiceRows.value.length} 个工单批量分配给该工程师？`, '批量分配', { type: 'warning' }).then(async () => {
     submitting.value = true
     try {
-      const res = await request.post('/service/batch-assign', {
+      const res = await batchAssignService({
         ids: selectedServiceRows.value.map(r => r.id),
         assignee_id: batchAssigneeId.value
       })
@@ -643,7 +648,7 @@ function handleAdd() {
   const data = { ...formData, attachment_ids: [...attachmentIds.value] }
   // 编辑模式：调用update接口
   if (isEdit.value) {
-    request.post('/service/update', { id: editingId.value, ...data }).then(res => {
+    updateService({ id: editingId.value, ...data }).then(res => {
       if (res.code === 200) {
         ElMessage.success('修改工单成功')
         addVisible.value = false
@@ -655,7 +660,7 @@ function handleAdd() {
     return
   }
 
-  request.post('/service/add', data).then(res => {
+  addService(data).then(res => {
     if (res.code === 200) {
       ElMessage.success('创建工单成功')
       addVisible.value = false
@@ -667,7 +672,7 @@ function handleAdd() {
 }
 
 function getContracts() {
-  request.post('/contract/list', { pageSize: 100 }).then(res => {
+  getContractList({ pageSize: 100 }).then(res => {
     if (res.code === 200) {
       contracts.value = res.data.list
     }
@@ -675,7 +680,7 @@ function getContracts() {
 }
 
 function handleView(row) {
-  request.get(`/service/detail/${row.id}`).then(res => {
+  getServiceDetail(row.id).then(res => {
     if (res.code === 200) {
       detailData.value = res.data
       detailVisible.value = true
@@ -692,7 +697,7 @@ function handleAssign(row) {
 function handleSubmitAssign() {
   if (!assignData.assignee_id) return
   submitting.value = true
-  request.post('/service/assign', { id: assignData.id, assignee_id: assignData.assignee_id }).then(res => {
+  assignService({ id: assignData.id, assignee_id: assignData.assignee_id }).then(res => {
     if (res.code === 200) {
       assignVisible.value = false
       getList()
@@ -713,14 +718,14 @@ function handleSubmitProcess() {
   }
   submitting.value = true
   if (processData.status === 3) {
-    request.post('/service/start', { id: processData.id }).then(res => {
+    startService(processData.id).then(res => {
       if (res.code === 200) {
         processVisible.value = false
         getList()
       }
     }).catch(err => { console.error('开始处理失败:', err); ElMessage.error('开始处理失败'); }).finally(() => { submitting.value = false })
   } else {
-    request.post('/service/finish', { id: processData.id, finish_desc: processData.finish_desc }).then(res => {
+    finishService({ id: processData.id, finish_desc: processData.finish_desc }).then(res => {
       if (res.code === 200) {
         processVisible.value = false
         getList()
@@ -737,7 +742,7 @@ function handleConfirm(row) {
 
 function handleSubmitConfirm() {
   submitting.value = true
-  request.post('/service/confirm', { id: confirmData.id, satisfaction: confirmData.satisfaction }).then(res => {
+  confirmService({ id: confirmData.id, satisfaction: confirmData.satisfaction }).then(res => {
     if (res.code === 200) {
       confirmVisible.value = false
       getList()
@@ -748,7 +753,7 @@ function handleSubmitConfirm() {
 function handleDelete(row) {
   ElMessageBox.confirm('确定要删除该工单吗？', '提示', { type: 'warning' }).then(() => {
     submitting.value = true
-    request.post('/service/delete', { id: row.id }).then(res => {
+    deleteService(row.id).then(res => {
       if (res.code === 200) {
         ElMessage.success('删除成功')
         getList()

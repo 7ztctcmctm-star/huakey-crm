@@ -47,6 +47,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import request from '@/utils/request'
+import { getInventoryList, getInventoryMovements } from '@/api/inventory'
 
 const typeName = { in: '入库', out: '出库', adjust: '调整', return: '退货' }
 const typeTag = { in: 'success', out: 'danger', adjust: '', return: 'warning' }
@@ -64,14 +65,14 @@ const fetchList = async () => {
   try {
     const params = { page: page.value, page_size: pageSize.value, product_id: search.product_id, movement_type: search.movement_type }
     if (search.dateRange && search.dateRange.length === 2) { params.start_date = search.dateRange[0]; params.end_date = search.dateRange[1] }
-    const res = await request.get('/inventory/movements', { params })
+    const res = await getInventoryMovements(params)
     if (res.code === 200) { list.value = res.data.list; total.value = res.data.total }
   } catch (e) { /* */ }
   finally { loading.value = false }
 }
 
 const fetchProducts = async () => {
-  try { const res = await request.get('/inventory/list', { params: { page_size: 200 } }); if (res.code === 200) products.value = res.data.list } catch (e) { /* */ }
+  try { const res = await getInventoryList({ page_size: 200 }); if (res.code === 200) products.value = res.data.list } catch (e) { /* */ }
 }
 
 onMounted(() => { fetchList(); fetchProducts() })

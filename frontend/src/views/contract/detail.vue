@@ -127,6 +127,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Plus } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { getContractDetail, addPayment, deletePayment as deletePaymentApi } from '@/api/contract'
 import { recordVisit } from '@/composables/useRecentVisit'
 
 const route = useRoute()
@@ -162,7 +163,7 @@ const goBack = () => router.push('/contract')
 const fetchDetail = async () => {
   loading.value = true
   try {
-    const r = await request.get(`/contract/detail/${route.params.id}`)
+    const r = await getContractDetail(route.params.id)
     if (r.code === 200) {
       detail.value = r.data
       // 记录最近访问
@@ -181,7 +182,7 @@ const submitPayment = async () => {
     if (!valid) return
     payLoading.value = true
     try {
-      const r = await request.post('/contract/payment/add', { contract_id: detail.value.id, ...payForm })
+      const r = await addPayment({ contract_id: detail.value.id, ...payForm })
       if (r.code === 200) {
         ElMessage.success('登记成功')
         showAddPayment.value = false
@@ -200,7 +201,7 @@ const submitPayment = async () => {
 
 const deletePayment = (row) => {
   ElMessageBox.confirm('确定删除该回款记录吗？', '提示', { type: 'warning' }).then(async () => {
-    const r = await request.post('/contract/payment/delete', { id: row.id })
+    const r = await deletePaymentApi(row.id)
     if (r.code === 200) { ElMessage.success('已删除'); fetchDetail() }
     else { ElMessage.error(r.message || '删除失败') }
   }).catch(() => {})

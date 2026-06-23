@@ -102,7 +102,7 @@
 
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
-import request from '@/utils/request'
+import { getReportBusiness } from '@/api/report'
 import echarts from '@/composables/useECharts'
 
 const data = ref({ kpi: {}, teamRanking: [], distribution: { level: [], industry: [] }, trends: { customer: [], contract: [], payment: [] }, warnings: {} })
@@ -137,7 +137,7 @@ const handleSellerSort = ({ prop, order }) => {
 
 const fetchData = async () => {
   try {
-    const res = await request.get('/report/business')
+    const res = await getReportBusiness()
     if (res.code === 200) {
       data.value = res.data
       sellerDetails.value = res.data.sellerDetails || []

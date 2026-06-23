@@ -38,7 +38,7 @@
 import { ref, nextTick, onMounted } from 'vue'
 import { ChatDotSquare, Close } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
-import request from '@/utils/request'
+import { getAiStatus, aiQuery, aiChat } from '@/api/ai'
 
 const route = useRoute()
 const open = ref(false)
@@ -77,13 +77,13 @@ async function send() {
   try {
     let r
     if (isDataQuery(t)) {
-      r = await request.post('/ai/query', { question: t }, { timeout: 60000 })
+      r = await aiQuery({ question: t }, { timeout: 60000 })
       if (r.code === 200) {
         const d = r.data
         msgs.value.push({ role: 'assistant', content: d.answer + '\n\n查询到 ' + d.total + ' 条记录' })
       }
     } else {
-      r = await request.post('/ai/chat', {
+      r = await aiChat({
         messages: msgs.value.map(m => ({ role: m.role, content: m.content })),
         context: getCtx()
       }, { timeout: 60000 })
@@ -103,7 +103,7 @@ async function send() {
 
 onMounted(async () => {
   try {
-    const r = await request.get('/ai/status')
+    const r = await getAiStatus()
     if (r.data) {
       online.value = r.data.online
       const label = r.data.model || r.data.models?.[0] || 'AI'

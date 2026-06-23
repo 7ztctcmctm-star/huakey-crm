@@ -186,6 +186,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { ArrowDown } from '@element-plus/icons-vue';
 import request from '@/utils/request';
+import { getPurchaseDetail, updatePurchaseStatus, addReceipt, addPurchasePayment } from '@/api/purchase';
 
 const route = useRoute();
 const router = useRouter();
@@ -234,7 +235,7 @@ const fetchDetail = async () => {
   if (!id) return;
   loading.value = true;
   try {
-    const res = await request.get(`/purchase/detail/${id}`);
+    const res = await getPurchaseDetail(id);
     if (res.code === 200) {
       order.value = res.data;
       items.value = res.data.items || [];
@@ -259,7 +260,7 @@ const handleStatusChange = async (command) => {
     } else {
       await ElMessageBox.confirm(`确定将状态改为「${command}」？`, '确认', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' });
     }
-    const res = await request.post('/purchase/update-status', { id: route.params.id, status: command, approveRemark });
+    const res = await updatePurchaseStatus({ id: route.params.id, status: command, approveRemark });
     if (res.code === 200) { ElMessage.success('更新成功'); fetchDetail(); }
   } catch (e) { if (e !== 'cancel') console.error(e); }
 };
@@ -270,7 +271,7 @@ const handleReceiptSubmit = async () => {
     receiptLoading.value = true;
     try {
       receiptForm.order_id = route.params.id;
-      const res = await request.post('/purchase/receipt/add', receiptForm);
+      const res = await addReceipt(receiptForm);
       if (res.code === 200) { ElMessage.success('入库成功'); showReceiptDialog.value = false; fetchDetail(); }
     } catch (e) { console.error(e); }
     finally { receiptLoading.value = false; }
@@ -284,7 +285,7 @@ const handlePaymentSubmit = async () => {
     if (!valid) return;
     paymentLoading.value = true;
     try {
-      const res = await request.post('/purchase/payment/add', {
+      const res = await addPurchasePayment({
         order_id: route.params.id,
         amount: paymentForm.amount,
         pay_method: paymentForm.pay_method,

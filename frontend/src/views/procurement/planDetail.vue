@@ -60,7 +60,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import { getProcurementPlanDetail, submitProcurementPlan, approveProcurementPlan, convertPlanToPurchase } from '@/api/procurementPlan'
 
 const route = useRoute()
 const router = useRouter()
@@ -75,7 +75,7 @@ const plan = ref({})
 const fetchDetail = async () => {
   loading.value = true
   try {
-    const res = await request.get(`/procurement-plan/detail/${route.params.id}`)
+    const res = await getProcurementPlanDetail(route.params.id)
     if (res.code === 200) plan.value = res.data
   } catch (e) { /* */ }
   finally { loading.value = false }
@@ -83,21 +83,21 @@ const fetchDetail = async () => {
 
 const handleSubmit = () => {
   ElMessageBox.confirm('确定提交审批？', '确认', { type: 'info' }).then(async () => {
-    const res = await request.post(`/procurement-plan/${route.params.id}/submit`)
+    const res = await submitProcurementPlan(route.params.id)
     if (res.code === 200) { ElMessage.success('已提交'); fetchDetail() }
   }).catch(() => {})
 }
 
 const handleApprove = () => {
   ElMessageBox.confirm('确定批准该计划？', '确认', { type: 'success' }).then(async () => {
-    const res = await request.post(`/procurement-plan/${route.params.id}/approve`)
+    const res = await approveProcurementPlan(route.params.id)
     if (res.code === 200) { ElMessage.success('已批准'); fetchDetail() }
   }).catch(() => {})
 }
 
 const handleConvert = () => {
   ElMessageBox.confirm('确定将该计划转为采购单？将按供应商自动生成采购单。', '转采购单', { type: 'info' }).then(async () => {
-    const res = await request.post(`/procurement-plan/${route.params.id}/convert-to-purchase`)
+    const res = await convertPlanToPurchase(route.params.id)
     if (res.code === 200) {
       ElMessage.success(res.message)
       router.push('/purchase/list')

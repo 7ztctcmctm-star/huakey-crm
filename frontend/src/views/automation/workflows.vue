@@ -101,6 +101,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Delete } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { getWorkflows, saveWorkflow, executeWorkflow, getWorkflowLogs, toggleWorkflow, deleteWorkflow } from '@/api/automation'
 
 const eventName = { customer_created: '新客户创建', contract_expiring: '合同即将到期', followup_overdue: '跟进超期', payment_overdue: '回款逾期', opportunity_stale: '商机停滞' }
 const eventTag = { customer_created: '', contract_expiring: 'warning', followup_overdue: 'danger', payment_overdue: '', opportunity_stale: 'info' }
@@ -128,13 +129,13 @@ const form = reactive({ name: '', description: '', trigger_event: 'customer_crea
 
 const fetchList = async () => {
   loading.value = true
-  try { const res = await request.get('/automation/workflows'); if (res.code === 200) list.value = res.data } catch (e) { /* */ }
+  try { const res = await getWorkflows(); if (res.code === 200) list.value = res.data } catch (e) { /* */ }
   finally { loading.value = false }
 }
 
 const fetchLogs = async () => {
   logsLoading.value = true
-  try { const res = await request.get('/automation/workflows/logs', { params: { page: 1, page_size: 20 } }); if (res.code === 200) logs.value = res.data.list } catch (e) { /* */ }
+  try { const res = await getWorkflowLogs(); if (res.code === 200) logs.value = res.data.list } catch (e) { /* */ }
   finally { logsLoading.value = false }
 }
 
@@ -163,27 +164,27 @@ const handleSave = async () => {
     const actions = form.actions.map(a => ({ type: a.type, params: JSON.parse(a.params_str || '{}') }))
     const data = { ...form, actions, conditions: form.conditions.filter(c => c.field) }
     let res
-    if (isEdit.value) res = await request.put(`/automation/workflows/${editId.value}`, data)
-    else res = await request.post('/automation/workflows', data)
+    if (isEdit.value) res = await saveWorkflow({ id: editId.value, ...data })
+    else res = await saveWorkflow(data)
     if (res.code === 200) { ElMessage.success('保存成功'); dialogVisible.value = false; fetchList() }
   } catch (e) { ElMessage.error('参数格式错误') }
   finally { saveLoading.value = false }
 }
 
 const handleToggle = async (row) => {
-  try { await request.post(`/automation/workflows/${row.id}/toggle`) } catch { row.status = row.status === 1 ? 0 : 1 }
+  try { await toggleWorkflow(row.id) } catch { row.status = row.status === 1 ? 0 : 1 }
 }
 
 const handleDelete = (row) => {
   ElMessageBox.confirm(`确定删除规则"${row.name}"？`, '提示', { type: 'warning' }).then(async () => {
-    const res = await request.delete(`/automation/workflows/${row.id}`)
+    const res = await deleteWorkflow(row.id)
     if (res.code === 200) { ElMessage.success('已删除'); fetchList() }
   }).catch(() => {})
 }
 
 const handleTest = (row) => {
   ElMessageBox.prompt('输入目标客户ID', '手动执行', { inputPattern: /^\d+$/, inputErrorMessage: '请输入数字' }).then(async ({ value }) => {
-    const res = await request.post('/automation/workflows/execute', { rule_id: row.id, target_type: 'customer', target_id: parseInt(value) })
+    const res = await executeWorkflow({ rule_id: row.id, target_type: 'customer', target_id: parseInt(value) })
     if (res.code === 200) { ElMessage.success('执行完成'); fetchLogs() }
   }).catch(() => {})
 }

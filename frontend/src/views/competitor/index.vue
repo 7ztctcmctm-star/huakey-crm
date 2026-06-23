@@ -82,7 +82,7 @@
 import { ref, reactive, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import { getCompetitorList, addCompetitor, updateCompetitor, deleteCompetitor, getCompetitorAnalysis } from '@/api/competitor'
 import echarts from '@/composables/useECharts'
 
 const loading = ref(false)
@@ -99,13 +99,13 @@ const reasonChartRef = ref(null)
 
 const fetchList = async () => {
   loading.value = true
-  try { const res = await request.get('/competitor/list'); if (res.code === 200) list.value = res.data } catch (e) { /* */ }
+  try { const res = await getCompetitorList(); if (res.code === 200) list.value = res.data } catch (e) { /* */ }
   finally { loading.value = false }
 }
 
 const fetchStats = async () => {
   try {
-    const res = await request.get('/competitor/analysis/overview')
+    const res = await getCompetitorAnalysis()
     if (res.code === 200) {
       stats.value = res.data
       await nextTick()
@@ -154,15 +154,15 @@ const handleSave = async () => {
   saveLoading.value = true
   try {
     let res
-    if (isEdit.value) res = await request.put(`/competitor/${editId.value}`, form)
-    else res = await request.post('/competitor/add', form)
+    if (isEdit.value) res = await updateCompetitor({ id: editId.value, ...form })
+    else res = await addCompetitor(form)
     if (res.code === 200) { ElMessage.success('保存成功'); dialogVisible.value = false; fetchList(); fetchStats() }
   } finally { saveLoading.value = false }
 }
 
 const handleDelete = (row) => {
   ElMessageBox.confirm(`确定删除"${row.name}"？`, '提示', { type: 'warning' }).then(async () => {
-    const res = await request.delete(`/competitor/${row.id}`)
+    const res = await deleteCompetitor(row.id)
     if (res.code === 200) { ElMessage.success('已删除'); fetchList(); fetchStats() }
   }).catch(() => {})
 }

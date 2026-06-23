@@ -170,7 +170,7 @@
 
     <!-- 分配弹窗（老板） -->
     <el-dialog v-model="assignDialogVisible" title="分配客户" width="400px">
-      <p v-if="assignCustomer"><strong>{{ assignCustomer.company_name }}</strong></p>
+      <p v-if="assignTarget"><strong>{{ assignTarget.company_name }}</strong></p>
       <el-select v-model="assignUserId" placeholder="选择负责人" style="width:100%">
         <el-option v-for="u in salesUsers" :key="u.id" :label="u.real_name + ' (' + u.dept_name + ')'" :value="u.id" />
       </el-select>
@@ -182,9 +182,9 @@
 
     <!-- 认领弹窗 -->
     <el-dialog v-model="claimDialogVisible" title="认领客户" width="450px">
-      <div v-if="claimCustomer" class="claim-info">
-        <p><strong>公司名称：</strong>{{ claimCustomer.company_name }}</p>
-        <p><strong>原负责人：</strong>{{ claimCustomer.owner_name || '无' }}</p>
+      <div v-if="claimTarget" class="claim-info">
+        <p><strong>公司名称：</strong>{{ claimTarget.company_name }}</p>
+        <p><strong>原负责人：</strong>{{ claimTarget.owner_name || '无' }}</p>
         <el-alert type="info" :closable="false" show-icon>
           认领后您将成为该客户的负责人，享有 <strong>7天</strong> 保护期。
           保护期内其他销售不可抢走，保护期后若超过 30 天未跟进将自动掉回公海。
@@ -203,7 +203,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Aim } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import { getPoolList, claimCustomer, batchClaimCustomer, assignCustomer, batchAssignCustomer, autoAssignCustomer, getSalesUsers } from '@/api/customer'
 import { formatTime } from '@/composables/useFormat'
 import { SOURCE_SEARCH_OPTIONS } from '@/constants/source'
 
@@ -239,12 +239,12 @@ const poolTableRef = ref(null)
 
 const fetchSalesUsers = async () => {
   if (!isBoss.value && !isManager.value) return
-  try { const res = await request.get('/customer/sales-users'); if (res.code === 200) salesUsers.value = res.data } catch (e) { /* */ }
+  try { const res = await getSalesUsers(); if (res.code === 200) salesUsers.value = res.data } catch (e) { /* */ }
 }
 
 const fetchStats = async () => {
   try {
-    const res = await request.post('/customer/pool', { page: 1, pageSize: 1 })
+    const res = await getPoolList({ page: 1, pageSize: 1 })
     if (res.code === 200) {
       stats.total = res.data.total
       stats.claimable = res.data.total
@@ -257,7 +257,7 @@ const handlePoolSelectionChange = (rows) => { selectedRows.value = rows }
 const handleBatchAssign = async () => {
   if (selectedRows.value.length === 0 || !batchNewOwnerId.value) return
   try {
-    const res = await request.post('/customer/batch-assign', {
+    const res = await batchAssignCustomer({
       customer_ids: selectedRows.value.map(r => r.id),
       to_user_id: batchNewOwnerId.value,
       remark: '公海批量分配'
@@ -278,9 +278,7 @@ const handleBatchClaim = async () => {
       '批量认领',
       { confirmButtonText: '确定认领', cancelButtonText: '取消', type: 'success' }
     )
-    const res = await request.post('/customer/batch-claim', {
-      customer_ids: selectedRows.value.map(r => r.id)
-    })
+    const res = await batchClaimCustomer(selectedRows.value.map(r => r.id))
     if (res.code === 200) {
       ElMessage.success(res.message)
       selectedRows.value = []
@@ -296,7 +294,7 @@ const handleAutoAssign = async () => {
       '轮询自动分配',
       { confirmButtonText: '确定分配', cancelButtonText: '取消', type: 'warning' }
     )
-    const res = await request.post('/customer/auto-assign')
+    const res = await autoAssignCustomer()
     if (res.code === 200) {
       ElMessage.success(res.message)
       fetchList()
@@ -307,18 +305,18 @@ const handleAutoAssign = async () => {
 
 // 单个分配
 const assignDialogVisible = ref(false)
-const assignCustomer = ref(null)
+const assignTarget = ref(null)
 const assignUserId = ref(null)
 const assignLoading = ref(false)
 
-const quickAssign = (row) => { assignCustomer.value = row; assignUserId.value = null; assignDialogVisible.value = true }
+const quickAssign = (row) => { assignTarget.value = row; assignUserId.value = null; assignDialogVisible.value = true }
 
 const confirmAssign = async () => {
   if (!assignUserId.value) return ElMessage.warning('请选择负责人')
   assignLoading.value = true
   try {
-    const res = await request.post('/customer/assign', {
-      customer_id: assignCustomer.value.id, to_user_id: assignUserId.value, remark: '公海分配'
+    const res = await assignCustomer({
+      customer_id: assignTarget.value.id, to_user_id: assignUserId.value, remark: '公海分配'
     })
     if (res.code === 200) { ElMessage.success('分配成功'); assignDialogVisible.value = false; fetchList() }
   } catch (e) { ElMessage.error('分配失败') }
@@ -353,7 +351,7 @@ const getPoolDays = (row) => {
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await request.post('/customer/pool', {
+    const res = await getPoolList({
       page: searchForm.page, pageSize: searchForm.pageSize,
       company_name: searchForm.company_name || undefined,
       source: searchForm.source || undefined,
@@ -373,16 +371,16 @@ const handleReset = () => { searchForm.company_name = ''; searchForm.source = ''
 
 // 认领
 const claimDialogVisible = ref(false)
-const claimCustomer = ref(null)
+const claimTarget = ref(null)
 const claimLoading = ref(false)
 
-const handleClaim = (row) => { claimCustomer.value = row; claimDialogVisible.value = true }
+const handleClaim = (row) => { claimTarget.value = row; claimDialogVisible.value = true }
 
 const confirmClaim = async () => {
   claimLoading.value = true
   try {
-    const customerId = claimCustomer.value.id
-    const res = await request.post('/customer/claim', { customer_id: customerId })
+    const customerId = claimTarget.value.id
+    const res = await claimCustomer(customerId)
     if (res.code === 200) {
       ElMessage.success('认领成功！该客户已归您负责，保护期7天')
       tableData.value = tableData.value.filter(r => r.id !== customerId)

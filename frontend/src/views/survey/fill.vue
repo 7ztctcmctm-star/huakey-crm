@@ -63,7 +63,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import { getCampaignDetail, submitSurveyResponse } from '@/api/survey'
 
 const route = useRoute()
 const loading = ref(false)
@@ -81,7 +81,7 @@ const ratingText = (v) => ['', '非常不满意', '不太满意', '一般', '比
 const fetchCampaign = async () => {
   loading.value = true
   try {
-    const res = await request.get(`/survey/campaigns/${route.params.campaign_id}`)
+    const res = await getCampaignDetail(route.params.campaign_id)
     if (res.code === 200) {
       campaign.value = res.data
       try { questions.value = JSON.parse(res.data.template_questions || '[]') } catch { questions.value = [] }
@@ -100,7 +100,7 @@ const handleSubmit = async () => {
 
   submitting.value = true
   try {
-    const res = await request.post(`/survey/respond/${route.params.campaign_id}`, {
+    const res = await submitSurveyResponse(route.params.campaign_id, {
       answers: JSON.stringify(answers),
       respondent_name: respondent_name.value || null,
       respondent_contact: respondent_contact.value || null

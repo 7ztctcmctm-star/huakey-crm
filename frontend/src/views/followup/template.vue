@@ -71,6 +71,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, View } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { getFollowupTemplates, saveFollowupTemplate, deleteFollowupTemplate } from '@/api/followUp'
 
 const typeNameMap = { general: '通用', first: '首次跟进', quote: '报价跟进', deal: '成交跟进' }
 const typeTagMap = { general: 'info', first: 'primary', quote: 'warning', deal: 'success' }
@@ -95,7 +96,7 @@ const previewData = reactive({ name: '', type: 'general', content: '' })
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await request.get('/followup-templates')
+    const res = await getFollowupTemplates()
     if (res.code === 200) tableData.value = res.data
   } catch (e) { /* */ }
   finally { loading.value = false }
@@ -122,7 +123,7 @@ const handlePreview = (row) => {
 
 const handleDelete = (row) => {
   ElMessageBox.confirm(`确定删除模板 "${row.name}" 吗？`, '提示', { type: 'warning' }).then(async () => {
-    const res = await request.delete(`/followup-templates/${row.id}`)
+    const res = await deleteFollowupTemplate(row.id)
     if (res.code === 200) { ElMessage.success('已删除'); fetchList() }
   }).catch(() => {})
 }
@@ -135,9 +136,9 @@ const handleSubmit = async () => {
     try {
       let res
       if (isEdit.value) {
-        res = await request.put(`/followup-templates/${editId.value}`, { name: form.name, type: form.type, content: form.content })
+        res = await saveFollowupTemplate({ id: editId.value, name: form.name, type: form.type, content: form.content })
       } else {
-        res = await request.post('/followup-templates', { name: form.name, type: form.type, content: form.content })
+        res = await saveFollowupTemplate({ name: form.name, type: form.type, content: form.content })
       }
       if (res.code === 200) {
         ElMessage.success(isEdit.value ? '修改成功' : '新增成功')

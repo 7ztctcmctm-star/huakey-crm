@@ -102,6 +102,9 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { getProcurementPlanList, createProcurementPlan, autoGeneratePlan, getProcurementStats, submitProcurementPlan, approveProcurementPlan, deleteProcurementPlan } from '@/api/procurementPlan'
+import { getSupplierList } from '@/api/supplier'
+import { getInventoryList } from '@/api/inventory'
 
 const router = useRouter()
 const statusName = { draft: '草稿', submitted: '待审批', approved: '已批准', ordered: '已下单', completed: '已完成', cancelled: '已取消' }
@@ -135,21 +138,21 @@ const formTotal = computed(() => form.items.reduce((sum, i) => sum + (i.quantity
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await request.get('/procurement-plan/list', { params: { page: page.value, page_size: pageSize.value, status: search.status } })
+    const res = await getProcurementPlanList({ page: page.value, page_size: pageSize.value, status: search.status })
     if (res.code === 200) { list.value = res.data.list; total.value = res.data.total }
   } catch (e) { /* */ }
   finally { loading.value = false }
 }
 
 const fetchStats = async () => {
-  try { const res = await request.get('/procurement-plan/stats'); if (res.code === 200) stats.value = res.data } catch (e) { /* */ }
+  try { const res = await getProcurementStats(); if (res.code === 200) stats.value = res.data } catch (e) { /* */ }
 }
 
 const fetchOptions = async () => {
   try {
     const [pRes, sRes] = await Promise.all([
-      request.get('/inventory/list', { params: { page_size: 200 } }),
-      request.get('/supplier/list', { params: { page: 1, pageSize: 200 } })
+      getInventoryList({ page_size: 200 }),
+      getSupplierList({ page: 1, pageSize: 200 })
     ])
     if (pRes.code === 200) productOptions.value = pRes.data.list
     if (sRes.code === 200) supplierOptions.value = sRes.data.list || sRes.data
@@ -174,35 +177,35 @@ const handleSave = async () => {
   if (form.items.length === 0) { ElMessage.warning('请添加计划明细'); return }
   saveLoading.value = true
   try {
-    const res = await request.post('/procurement-plan/create', form)
+    const res = await createProcurementPlan(form)
     if (res.code === 200) { ElMessage.success('创建成功'); dialogVisible.value = false; fetchList(); fetchStats() }
   } finally { saveLoading.value = false }
 }
 
 const handleSubmit = (row) => {
   ElMessageBox.confirm(`确定提交计划"${row.name}"审批？`, '确认', { type: 'info' }).then(async () => {
-    const res = await request.post(`/procurement-plan/${row.id}/submit`)
+    const res = await submitProcurementPlan(row.id)
     if (res.code === 200) { ElMessage.success('已提交'); fetchList(); fetchStats() }
   }).catch(() => {})
 }
 
 const handleApprove = (row) => {
   ElMessageBox.confirm(`确定批准计划"${row.name}"？`, '确认', { type: 'success' }).then(async () => {
-    const res = await request.post(`/procurement-plan/${row.id}/approve`)
+    const res = await approveProcurementPlan(row.id)
     if (res.code === 200) { ElMessage.success('已批准'); fetchList(); fetchStats() }
   }).catch(() => {})
 }
 
 const handleDelete = (row) => {
   ElMessageBox.confirm(`确定删除计划"${row.name}"？`, '提示', { type: 'warning' }).then(async () => {
-    const res = await request.delete(`/procurement-plan/${row.id}`)
+    const res = await deleteProcurementPlan(row.id)
     if (res.code === 200) { ElMessage.success('已删除'); fetchList(); fetchStats() }
   }).catch(() => {})
 }
 
 const handleAutoGenerate = () => {
   ElMessageBox.confirm('将根据库存偏低产品自动生成采购计划，确定继续？', '自动生成', { type: 'info' }).then(async () => {
-    const res = await request.post('/procurement-plan/auto-generate', {})
+    const res = await autoGeneratePlan()
     if (res.code === 200 && res.data) {
       ElMessage.success(`已生成计划 ${res.data.plan_no}，包含 ${res.data.item_count} 个产品`)
       fetchList(); fetchStats()

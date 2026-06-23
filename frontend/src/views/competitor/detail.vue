@@ -152,6 +152,8 @@ import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Plus } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { getCompetitorDetail, addCompetitorEncounter, addCompetitorIntel, getCompetitorEncounters, getCompetitorIntel, deleteCompetitorEncounter, deleteCompetitorIntel } from '@/api/competitor'
+import { getCustomerList } from '@/api/customer'
 
 const intelTypeName = { product: '产品', pricing: '价格', strategy: '策略', partnership: '合作', market: '市场' }
 const intelTypeTag = { product: '', pricing: 'warning', strategy: 'success', partnership: 'info', market: '' }
@@ -180,22 +182,22 @@ const intelForm = reactive({ intel_type: 'product', title: '', content: '', sour
 const fetchDetail = async () => {
   loading.value = true
   try {
-    const res = await request.get(`/competitor/${route.params.id}`)
+    const res = await getCompetitorDetail(route.params.id)
     if (res.code === 200) competitor.value = res.data
   } catch (e) { /* */ }
   finally { loading.value = false }
 }
 
 const fetchEncounters = async () => {
-  try { const res = await request.get(`/competitor/${route.params.id}/encounters`); if (res.code === 200) encounters.value = res.data } catch (e) { /* */ }
+  try { const res = await getCompetitorEncounters(route.params.id); if (res.code === 200) encounters.value = res.data } catch (e) { /* */ }
 }
 
 const fetchIntel = async () => {
-  try { const res = await request.get(`/competitor/${route.params.id}/intel`); if (res.code === 200) intelList.value = res.data } catch (e) { /* */ }
+  try { const res = await getCompetitorIntel(route.params.id); if (res.code === 200) intelList.value = res.data } catch (e) { /* */ }
 }
 
 const fetchCustomers = async () => {
-  try { const res = await request.post('/customer/list', { page: 1, pageSize: 200 }); if (res.code === 200) customerOptions.value = res.data.list } catch (e) { /* */ }
+  try { const res = await getCustomerList({ page: 1, pageSize: 200 }); if (res.code === 200) customerOptions.value = res.data.list } catch (e) { /* */ }
 }
 
 const handleEdit = () => { ElMessage.info('请返回列表页编辑') }
@@ -207,14 +209,14 @@ const handleCreateEncounter = () => {
 
 const handleSaveEncounter = async () => {
   try {
-    const res = await request.post('/competitor/encounters/add', { ...encounterForm, competitor_id: parseInt(route.params.id) })
+    const res = await addCompetitorEncounter({ ...encounterForm, competitor_id: parseInt(route.params.id) })
     if (res.code === 200) { ElMessage.success('创建成功'); encounterDialogVisible.value = false; fetchEncounters(); fetchDetail() }
   } catch (e) { /* */ }
 }
 
 const handleDeleteEncounter = (row) => {
   ElMessageBox.confirm('确定删除？', '提示', { type: 'warning' }).then(async () => {
-    const res = await request.delete(`/competitor/encounters/${row.id}`)
+    const res = await deleteCompetitorEncounter(row.id)
     if (res.code === 200) { ElMessage.success('已删除'); fetchEncounters(); fetchDetail() }
   }).catch(() => {})
 }
@@ -227,14 +229,14 @@ const handleCreateIntel = () => {
 const handleSaveIntel = async () => {
   if (!intelForm.title || !intelForm.content) { ElMessage.warning('请填写标题和内容'); return }
   try {
-    const res = await request.post('/competitor/intel/add', { ...intelForm, competitor_id: parseInt(route.params.id) })
+    const res = await addCompetitorIntel({ ...intelForm, competitor_id: parseInt(route.params.id) })
     if (res.code === 200) { ElMessage.success('创建成功'); intelDialogVisible.value = false; fetchIntel() }
   } catch (e) { /* */ }
 }
 
 const handleDeleteIntel = (row) => {
   ElMessageBox.confirm('确定删除？', '提示', { type: 'warning' }).then(async () => {
-    const res = await request.delete(`/competitor/intel/${row.id}`)
+    const res = await deleteCompetitorIntel(row.id)
     if (res.code === 200) { ElMessage.success('已删除'); fetchIntel() }
   }).catch(() => {})
 }

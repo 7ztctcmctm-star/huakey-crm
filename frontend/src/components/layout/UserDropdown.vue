@@ -19,7 +19,7 @@
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { User, ArrowDown } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import { logout } from '@/api/auth'
 import { useUser } from '@/composables/useUser'
 
 const props = defineProps({
@@ -50,7 +50,7 @@ const handleLogout = () => {
     type: 'warning'
   }).then(async () => {
     try {
-      await request.post('/auth/logout')
+      await logout()
     } catch (e) { /* 即使后端请求失败也继续登出 */ }
     clearUser()
     ElMessage.success('退出登录成功')

@@ -46,7 +46,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import request from '@/utils/request'
+import { getScoringRanking } from '@/api/scoring'
 
 const router = useRouter()
 const loading = ref(false)
@@ -60,7 +60,7 @@ const levelTagType = (level) => {
 const fetchRanking = async () => {
   loading.value = true
   try {
-    const res = await request.get('/scoring/ranking')
+    const res = await getScoringRanking()
     if (res.code === 200) tableData.value = res.data
   } catch (e) { ElMessage.error('加载排行榜失败') }
   finally { loading.value = false }

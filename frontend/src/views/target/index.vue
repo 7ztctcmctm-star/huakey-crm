@@ -44,7 +44,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Check } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import { getTargetList, batchSetTarget } from '@/api/target'
 
 const loading = ref(false)
 const saveLoading = ref(false)
@@ -61,7 +61,7 @@ const fetchData = async () => {
   loading.value = true
   try {
     const [year, month] = queryMonth.value.split('-').map(Number)
-    const res = await request.post('/target/list', { year, month })
+    const res = await getTargetList({ year, month })
     if (res.code === 200) {
       tableData.value = res.data.list
     }
@@ -79,7 +79,7 @@ const handleSave = async () => {
     const targets = tableData.value
       .filter(r => r.target_amount > 0)
       .map(r => ({ user_id: r.user_id, target_amount: r.target_amount }))
-    const res = await request.post('/target/batch-set', { year, month, targets })
+    const res = await batchSetTarget({ year, month, targets })
     if (res.code === 200) {
       ElMessage.success('保存成功')
       fetchData()

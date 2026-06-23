@@ -69,6 +69,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
+import { getEmailAccounts, addEmailAccount, deleteEmailAccount, testEmailAccount } from '@/api/email'
 
 const loading = ref(false)
 const accounts = ref([])
@@ -99,7 +100,7 @@ const autoConfig = () => {
 const fetchAccounts = async () => {
   loading.value = true
   try {
-    const res = await request.get('/email/accounts')
+    const res = await getEmailAccounts()
     if (res.code === 200) accounts.value = res.data
   } finally {
     loading.value = false
@@ -110,7 +111,7 @@ const handleAdd = async () => {
   if (!addForm.value.email || !addForm.value.password) return ElMessage.warning('请填写邮箱和密码')
   adding.value = true
   try {
-    const res = await request.post('/email/account', addForm.value)
+    const res = await addEmailAccount(addForm.value)
     if (res.code === 200) {
       ElMessage.success('添加成功')
       showAdd.value = false
@@ -123,7 +124,7 @@ const handleAdd = async () => {
 }
 
 const testConnection = async (row) => {
-  const res = await request.post(`/email/account/${row.id}/test`)
+  const res = await testEmailAccount(row.id)
   if (res.code === 200) {
     ElMessage.success(res.message)
     fetchAccounts()
@@ -132,7 +133,7 @@ const testConnection = async (row) => {
 
 const handleDelete = async (row) => {
   await ElMessageBox.confirm('确定删除此邮箱配置？', '确认')
-  const res = await request.delete(`/email/account/${row.id}`)
+  const res = await deleteEmailAccount(row.id)
   if (res.code === 200) {
     ElMessage.success('已删除')
     fetchAccounts()

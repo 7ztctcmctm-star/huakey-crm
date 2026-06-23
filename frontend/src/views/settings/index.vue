@@ -119,7 +119,7 @@
               <span style="color: var(--color-text-secondary); font-size: 13px;">跟进提醒、回款逾期、商机提醒</span>
             </el-descriptions-item>
           </el-descriptions>
-          <el-button type="primary" :loading="testLoading" style="margin-top: 16px" @click="testNotification">
+          <el-button type="primary" :loading="testLoading" style="margin-top: 16px" @click="handleTestNotification">
             发送测试消息
           </el-button>
         </el-card>
@@ -132,6 +132,12 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
+import { getConfigList, updateConfig, testNotification, getHealth } from '@/api/config'
+import { getUserList } from '@/api/system'
+import { getCustomerList } from '@/api/customer'
+import { getOpportunityList } from '@/api/opportunity'
+import { getContractList } from '@/api/contract'
+import { getServiceList } from '@/api/service'
 
 const health = reactive({ api: false, db: false, redis: false, timestamp: '' })
 const stats = reactive({ userCount: 0, customerCount: 0, opportunityCount: 0, contractCount: 0, serviceCount: 0 })
@@ -155,7 +161,7 @@ const fetchConfig = async () => {
   if (!isAdmin.value) return
   configLoading.value = true
   try {
-    const res = await request.get('/config/list')
+    const res = await getConfigList()
     if (res.code === 200) {
       const item = res.data.find(c => c.config_key === 'overdue_days')
       if (item) overdueDays.value = parseInt(item.config_value) || 15
@@ -167,7 +173,7 @@ const fetchConfig = async () => {
 const saveConfig = async () => {
   configSaving.value = true
   try {
-    const res = await request.post('/config/update', {
+    const res = await updateConfig({
       configs: [{ config_key: 'overdue_days', config_value: String(overdueDays.value) }]
     })
     if (res.code === 200) ElMessage.success('配置保存成功')
@@ -177,7 +183,7 @@ const saveConfig = async () => {
 
 const checkHealth = async () => {
   try {
-    const res = await request.get('/health')
+    const res = await getHealth()
     if (res.code === 200) {
       health.api = res.data.status === 'ok'
       health.timestamp = res.data.timestamp
@@ -189,11 +195,11 @@ const fetchStats = async () => {
   statsLoading.value = true
   try {
     const [users, customers, opps, contracts, services] = await Promise.allSettled([
-      request.post('/user/list', { page: 1, pageSize: 1 }),
-      request.post('/customer/list', { page: 1, pageSize: 1 }),
-      request.post('/opportunity/list', { page: 1, pageSize: 1 }),
-      request.post('/contract/list', { page: 1, pageSize: 1 }),
-      request.post('/service/list', { page: 1, pageSize: 1 })
+      getUserList({ page: 1, pageSize: 1 }),
+      getCustomerList({ page: 1, pageSize: 1 }),
+      getOpportunityList({ page: 1, pageSize: 1 }),
+      getContractList({ page: 1, pageSize: 1 }),
+      getServiceList({ page: 1, pageSize: 1 })
     ])
 
     stats.userCount = users.value?.data?.total || 0
@@ -213,10 +219,10 @@ onMounted(() => {
 
 // 企业微信通知测试
 const testLoading = ref(false)
-const testNotification = async () => {
+const handleTestNotification = async () => {
   testLoading.value = true
   try {
-    const res = await request.post('/config/test-notification')
+    const res = await testNotification()
     if (res.code === 200) {
       ElMessage.success('测试消息已发送，请查看企业微信群')
     } else {

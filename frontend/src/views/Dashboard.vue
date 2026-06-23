@@ -118,7 +118,12 @@ import { ref, reactive, computed, onMounted, onActivated, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Delete } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import { getCustomerList } from '@/api/customer'
+import { getPaymentList } from '@/api/contract'
+import { getInventoryAlerts } from '@/api/inventory'
+import { getReportOverview, getReportQuickStats, getReportTodayTasks, getReportPerformance, getReportSalesTrend, getReportCustomerAnalysis, getReportSalesFunnel, getReportOverdueStats } from '@/api/report'
+import { addFollowUp, batchAddFollowUp, getFollowUpTaskStats } from '@/api/followUp'
+import { getProcurementStats } from '@/api/procurementPlan'
 import { useChart } from '@/composables/useChart'
 import { PARENT_SOURCE_COLORS } from '@/constants/source'
 import StatsCards from '@/components/dashboard/StatsCards.vue'
@@ -215,7 +220,7 @@ const loadMyCustomers = async () => {
   try {
     const stored = localStorage.getItem('userInfo')
     const userId = stored ? JSON.parse(stored).id : null
-    const res = await request.post('/customer/list', { page: 1, pageSize: 50, owner_id: userId || undefined })
+    const res = await getCustomerList({ page: 1, pageSize: 50, owner_id: userId || undefined })
     if (res.code === 200) followCustomerOptions.value = res.data.list || []
   } catch { /* ignore */ }
   finally { followCustomerLoading.value = false }
@@ -236,7 +241,7 @@ const submitQuickFollow = async () => {
       content: quickFollowForm.value.content,
       next_time: quickFollowForm.value.next_time || undefined
     }
-    await request.post('/follow-up/add', body)
+    await addFollowUp(body)
     ElMessage.success('跟进记录已保存')
     quickFollowVisible.value = false
     fetchTodayTasks()
@@ -254,7 +259,7 @@ const searchBatchCustomer = async (query) => {
   if (!query || query.length < 1) { batchCustomerOptions.value = []; return }
   batchCustomerSearchLoading.value = true
   try {
-    const res = await request.post('/customer/list', { page: 1, pageSize: 10, company_name: query })
+    const res = await getCustomerList({ page: 1, pageSize: 10, company_name: query })
     if (res.code === 200) batchCustomerOptions.value = res.data.list || []
   } catch { /* ignore */ }
   finally { batchCustomerSearchLoading.value = false }
@@ -280,7 +285,7 @@ const submitBatchFollow = async () => {
   if (items.length === 0) return ElMessage.warning('请至少填写一条完整的跟进记录')
   batchFollowLoading.value = true
   try {
-    const res = await request.post('/follow-up/batch-add', { items })
+    const res = await batchAddFollowUp(items)
     if (res.code === 200) {
       ElMessage.success(res.message)
       batchFollowVisible.value = false
@@ -293,14 +298,14 @@ const submitBatchFollow = async () => {
 // 数据获取
 const fetchOverview = async () => {
   try {
-    const res = await request.get('/report/overview')
+    const res = await getReportOverview()
     if (res.code === 200) Object.assign(overview, res.data)
   } catch (error) { console.error('获取概览数据失败:', error) }
 }
 
 const fetchQuickStats = async () => {
   try {
-    const res = await request.get('/report/quick-stats')
+    const res = await getReportQuickStats()
     if (res.code === 200) Object.assign(quickStats, res.data)
   } catch (error) { console.error('获取快捷统计失败:', error) }
 }
@@ -309,7 +314,7 @@ const fetchTodayTasks = async () => {
   followLoading.value = true
   serviceLoading.value = true
   try {
-    const res = await request.get('/report/today-tasks')
+    const res = await getReportTodayTasks()
     if (res.code === 200) Object.assign(todayTasks, res.data)
   } catch (error) { console.error('获取今日待办失败:', error) }
   finally { followLoading.value = false; serviceLoading.value = false }
@@ -318,7 +323,7 @@ const fetchTodayTasks = async () => {
 const fetchPerformanceRank = async () => {
   rankLoading.value = true
   try {
-    const res = await request.get('/report/performance')
+    const res = await getReportPerformance()
     if (res.code === 200) performanceRank.value = res.data.filter(item => item.contract_amount > 0).slice(0, 5)
   } catch (error) { console.error('获取业绩排行失败:', error) }
   finally { rankLoading.value = false }
@@ -326,7 +331,7 @@ const fetchPerformanceRank = async () => {
 
 const fetchSalesTrend = async () => {
   try {
-    const res = await request.get('/report/sales-trend')
+    const res = await getReportSalesTrend()
     if (res.code === 200) renderTrendChart(res.data)
   } catch (error) { console.error('获取销售趋势失败:', error) }
 }
@@ -353,7 +358,7 @@ const renderTrendChart = (data) => {
 
 const fetchCustomerSource = async () => {
   try {
-    const res = await request.get('/report/customer')
+    const res = await getReportCustomerAnalysis()
     if (res.code === 200) renderSourceChart(res.data.source_dist)
   } catch (error) { console.error('获取客户来源失败:', error) }
 }
@@ -378,7 +383,7 @@ const renderSourceChart = (data) => {
 
 const fetchSalesFunnel = async () => {
   try {
-    const res = await request.get('/report/sales-funnel')
+    const res = await getReportSalesFunnel()
     if (res.code === 200) renderFunnelChart(res.data)
   } catch (error) { console.error('获取销售漏斗失败:', error) }
 }
@@ -407,7 +412,7 @@ const renderFunnelChart = (data) => {
 
 const fetchOverdueStats = async () => {
   try {
-    const res = await request.get('/report/overdue-stats')
+    const res = await getReportOverdueStats()
     if (res.code === 200) {
       overdueCount.value = res.data.overdue_count
       if (res.data.overdue_days) overdueDays.value = res.data.overdue_days
@@ -417,7 +422,7 @@ const fetchOverdueStats = async () => {
 
 const fetchTaskStats = async () => {
   try {
-    const res = await request.get('/follow-up/task-stats')
+    const res = await getFollowUpTaskStats()
     if (res.code === 200) {
       taskStats.today_count = res.data.today_count || 0
       taskStats.tomorrow_count = res.data.tomorrow_count || 0
@@ -428,29 +433,29 @@ const fetchTaskStats = async () => {
 
 const fetchFinanceDashboard = async () => {
   try {
-    const res = await request.post('/contract/payment/list', { page: 1, pageSize: 1, tab: 'summary' })
+    const res = await getPaymentList({ page: 1, pageSize: 1, tab: 'summary' })
     if (res.code === 200 && res.data.summary) {
       financeData.month_plan = res.data.summary.month_plan_total || 0
       financeData.month_paid = res.data.summary.month_paid_total || 0
       financeData.month_rate = res.data.summary.month_rate || 0
     }
-    const overdueRes = await request.post('/contract/payment/list', { page: 1, pageSize: 1, tab: 'overdue' })
+    const overdueRes = await getPaymentList({ page: 1, pageSize: 1, tab: 'overdue' })
     if (overdueRes.code === 200) financeData.overdue_amount = overdueRes.data.total || 0
   } catch { /* */ }
 }
 
 const fetchPurchaseDashboard = async () => {
   try {
-    const statsRes = await request.get('/procurement-plan/stats')
+    const statsRes = await getProcurementStats()
     if (statsRes.code === 200) purchaseData.pending_approval = statsRes.data.submitted || 0
-    const alertRes = await request.get('/inventory/alerts')
+    const alertRes = await getInventoryAlerts()
     if (alertRes.code === 200) purchaseData.stock_alerts = alertRes.data?.length || 0
   } catch { /* */ }
 }
 
 const fetchServiceDashboard = async () => {
   try {
-    const res = await request.get('/report/today-tasks')
+    const res = await getReportTodayTasks()
     if (res.code === 200) serviceData.pending = res.data.service_count || 0
   } catch { /* */ }
 }

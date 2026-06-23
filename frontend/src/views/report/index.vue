@@ -162,6 +162,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Download } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { getReportPayment, getReportPerformance, getReportSalesFunnel, getReportSalesTrend, getReportPurchaseTrend, getReportPurchaseBySupplier, getReportCustomer, exportReport } from '@/api/report'
 import { formatAmount } from '@/composables/useFormat'
 import { useChart } from '@/composables/useChart'
 import { PARENT_SOURCE_COLORS } from '@/constants/source'
@@ -199,14 +200,14 @@ const fetchData = () => {
 
 const getDateParams = () => {
   if (dateRange.value && dateRange.value.length === 2) {
-    return `?startDate=${dateRange.value[0]}&endDate=${dateRange.value[1]}`
+    return { startDate: dateRange.value[0], endDate: dateRange.value[1] }
   }
-  return ''
+  return {}
 }
 
 const fetchPayment = async () => {
   try {
-    const res = await request.get(`/report/payment${getDateParams()}`)
+    const res = await getReportPayment(getDateParams())
     if (res.code === 200) {
       Object.assign(paymentData, res.data)
     }
@@ -218,7 +219,7 @@ const fetchPayment = async () => {
 
 const fetchCustomer = async () => {
   try {
-    const res = await request.get(`/report/customer${getDateParams()}`)
+    const res = await getReportCustomer(getDateParams())
     if (res.code === 200) {
       Object.assign(customerData, res.data)
       renderSourceChart(customerData.source_dist || [])
@@ -233,7 +234,7 @@ const fetchCustomer = async () => {
 const fetchPerformance = async () => {
   performanceLoading.value = true
   try {
-    const res = await request.get(`/report/performance${getDateParams()}`)
+    const res = await getReportPerformance(getDateParams())
     if (res.code === 200) {
       performanceList.value = res.data
     }
@@ -252,7 +253,7 @@ const initCharts = () => {
 
 const fetchSalesFunnel = async () => {
   try {
-    const res = await request.get(`/report/sales-funnel${getDateParams()}`)
+    const res = await getReportSalesFunnel(getDateParams())
     if (res.code === 200) {
       renderFunnelChart(res.data)
     }
@@ -324,7 +325,7 @@ const renderSourceChart = (data) => {
 
 const fetchSalesTrend = async () => {
   try {
-    const res = await request.get(`/report/sales-trend${getDateParams()}`)
+    const res = await getReportSalesTrend(getDateParams())
     if (res.code === 200) {
       renderTrendChart(res.data)
     }
@@ -396,7 +397,7 @@ const renderLevelChart = (data) => {
 
 const fetchPurchaseTrend = async () => {
   try {
-    const res = await request.get(`/report/purchase-trend${getDateParams()}`)
+    const res = await getReportPurchaseTrend(getDateParams())
     if (res.code === 200) {
       renderPurchaseTrendChart(res.data)
     }
@@ -440,7 +441,7 @@ const renderPurchaseTrendChart = (data) => {
 
 const fetchPurchaseBySupplier = async () => {
   try {
-    const res = await request.get(`/report/purchase-by-supplier${getDateParams()}`)
+    const res = await getReportPurchaseBySupplier(getDateParams())
     if (res.code === 200) {
       renderPurchaseSupplierChart(res.data)
     }
@@ -481,7 +482,7 @@ const handleExport = async () => {
       params.startDate = dateRange.value[0]
       params.endDate = dateRange.value[1]
     }
-    const blob = await request.post('/report/export', params, { responseType: 'blob' })
+    const blob = await exportReport(params)
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url

@@ -82,7 +82,7 @@
 import { ref, reactive, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { UploadFilled, Download } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import { getCustomerTemplate, importPreview, importConfirm } from '@/api/customer'
 
 const emit = defineEmits(['imported'])
 const visible = defineModel({ type: Boolean, default: false })
@@ -103,7 +103,7 @@ const handleFileRemove = () => { file.value = null }
 
 const downloadTemplate = async () => {
   try {
-    const res = await request.get('/customer/template', { responseType: 'blob' })
+    const res = await getCustomerTemplate()
     const url = URL.createObjectURL(res)
     const a = document.createElement('a')
     a.href = url; a.download = 'customer_import_template.xlsx'
@@ -119,8 +119,7 @@ const previewImport = async () => {
   abortController.value = new AbortController()
   try {
     const fd = new FormData(); fd.append('file', file.value)
-    const res = await request.post('/customer/import-preview', fd, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+    const res = await importPreview(fd, {
       signal: abortController.value.signal,
       onUploadProgress: (e) => { if (e.total) uploadProgress.value = Math.round(e.loaded / e.total * 100) }
     })
@@ -136,8 +135,7 @@ const confirmImport = async () => {
   abortController.value = new AbortController()
   try {
     const fd = new FormData(); fd.append('file', file.value)
-    const res = await request.post('/customer/import-confirm', fd, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+    const res = await importConfirm(fd, {
       signal: abortController.value.signal,
       onUploadProgress: (e) => { if (e.total) uploadProgress.value = Math.round(e.loaded / e.total * 100) }
     })

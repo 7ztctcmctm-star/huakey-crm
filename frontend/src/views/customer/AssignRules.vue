@@ -95,6 +95,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { getSalesUsers, getAssignRules, createAssignRule, updateAssignRule, deleteAssignRule } from '@/api/customer'
 import { ALL_SOURCE_VALUES } from '@/constants/source'
 
 defineOptions({ name: 'AssignRules' })
@@ -137,14 +138,14 @@ const getUserName = (id) => {
 const fetchRules = async () => {
   loading.value = true
   try {
-    const r = await request.get('/customer/assign-rules')
+    const r = await getAssignRules()
     if (r.code === 200) rules.value = r.data
   } finally { loading.value = false }
 }
 
 const fetchSalesUsers = async () => {
   try {
-    const r = await request.get('/customer/sales-users')
+    const r = await getSalesUsers()
     if (r.code === 200) salesUsers.value = r.data
   } catch {}
 }
@@ -174,10 +175,10 @@ const handleSubmit = async () => {
     if (!valid) return
     saveLoading.value = true
     try {
-      const url = isEdit.value ? '/customer/assign-rules/update' : '/customer/assign-rules/add'
       const data = { ...form }
-      if (isEdit.value) data.id = editId.value
-      const r = await request.post(url, data)
+      const r = isEdit.value
+        ? await updateAssignRule({ id: editId.value, ...data })
+        : await createAssignRule(data)
       if (r.code === 200) {
         ElMessage.success(isEdit.value ? '更新成功' : '添加成功')
         dialogVisible.value = false
@@ -189,13 +190,13 @@ const handleSubmit = async () => {
 
 const toggleActive = async (row) => {
   try {
-    const r = await request.post('/customer/assign-rules/update', { id: row.id, is_active: row.is_active })
+    const r = await updateAssignRule({ id: row.id, is_active: row.is_active })
     if (r.code !== 200) { row.is_active = row.is_active ? 0 : 1 }
   } catch { row.is_active = row.is_active ? 0 : 1 }
 }
 
 const handleDelete = async (row) => {
-  const r = await request.post('/customer/assign-rules/delete', { id: row.id })
+  const r = await deleteAssignRule(row.id)
   if (r.code === 200) { ElMessage.success('删除成功'); fetchRules() }
 }
 

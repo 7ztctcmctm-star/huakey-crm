@@ -60,7 +60,7 @@
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { Download } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import { getFinanceAnalysis } from '@/api/finance'
 import echarts from '@/composables/useECharts'
 
 const period = ref('year')
@@ -94,7 +94,7 @@ const fetchData = async () => {
       start_date = `${now.getFullYear()}-01-01`
       end_date = `${now.getFullYear()}-12-31`
     }
-    const res = await request.get('/finance/analysis', { params: { start_date, end_date } })
+    const res = await getFinanceAnalysis({ start_date, end_date })
     if (res.code === 200) {
       data.value = res.data
       await nextTick()

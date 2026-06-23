@@ -92,6 +92,8 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import { getSocialRecords, saveSocialRecord, getSocialStats, deleteSocialRecord } from '@/api/social'
+import { getCustomerList } from '@/api/customer'
 import request from '@/utils/request'
 
 const platformName = { wechat: '微信', whatsapp: 'WhatsApp', telegram: 'Telegram', email: '邮件', linkedin: 'LinkedIn', facebook: 'Facebook', instagram: 'Instagram' }
@@ -116,18 +118,18 @@ const fetchList = async () => {
     const params = { page: page.value, page_size: pageSize.value }
     if (search.customer_id) params.customer_id = search.customer_id
     if (search.platform) params.platform = search.platform
-    const res = await request.get('/social/records', { params })
+    const res = await getSocialRecords(params)
     if (res.code === 200) { list.value = res.data.list; total.value = res.data.total }
   } catch (e) { /* */ }
   finally { loading.value = false }
 }
 
 const fetchStats = async () => {
-  try { const res = await request.get('/social/stats'); if (res.code === 200) stats.value = res.data } catch (e) { /* */ }
+  try { const res = await getSocialStats(); if (res.code === 200) stats.value = res.data } catch (e) { /* */ }
 }
 
 const fetchCustomers = async () => {
-  try { const res = await request.post('/customer/list', { page: 1, pageSize: 200 }); if (res.code === 200) customerOptions.value = res.data.list } catch (e) { /* */ }
+  try { const res = await getCustomerList({ page: 1, pageSize: 200 }); if (res.code === 200) customerOptions.value = res.data.list } catch (e) { /* */ }
 }
 
 const handleCreate = () => {
@@ -139,14 +141,14 @@ const handleSave = async () => {
   if (!form.platform || !form.direction) { ElMessage.warning('请选择平台和方向'); return }
   saveLoading.value = true
   try {
-    const res = await request.post('/social/records', form)
+    const res = await saveSocialRecord(form)
     if (res.code === 200) { ElMessage.success('创建成功'); dialogVisible.value = false; fetchList(); fetchStats() }
   } finally { saveLoading.value = false }
 }
 
 const handleDelete = (row) => {
   ElMessageBox.confirm('确定删除该记录？', '提示', { type: 'warning' }).then(async () => {
-    const res = await request.delete(`/social/records/${row.id}`)
+    const res = await deleteSocialRecord(row.id)
     if (res.code === 200) { ElMessage.success('已删除'); fetchList(); fetchStats() }
   }).catch(() => {})
 }

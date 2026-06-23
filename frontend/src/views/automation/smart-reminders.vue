@@ -102,6 +102,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { getSmartReminders, saveSmartReminder, runSmartReminder, getPendingReminders, deleteSmartReminder, markReminderSeen } from '@/api/automation'
 
 const typeName = { followup_gap: '跟进间隔', contract_expire: '合同到期', payment_due: '回款到期', birthday: '生日', inactive: '沉默客户' }
 const typeTag = { followup_gap: '', contract_expire: 'warning', payment_due: 'danger', birthday: 'success', inactive: 'info' }
@@ -135,13 +136,13 @@ const onTypeChange = () => {
 }
 
 const fetchRules = async () => {
-  try { const res = await request.get('/automation/smart-reminders'); if (res.code === 200) rules.value = res.data } catch (e) { /* */ }
+  try { const res = await getSmartReminders(); if (res.code === 200) rules.value = res.data } catch (e) { /* */ }
 }
 
 const fetchPending = async () => {
   pendingLoading.value = true
   try {
-    const res = await request.get('/automation/smart-reminders/pending')
+    const res = await getPendingReminders()
     if (res.code === 200) { pendingList.value = res.data; pendingCount.value = res.data.length }
   } catch (e) { /* */ }
   finally { pendingLoading.value = false }
@@ -167,15 +168,15 @@ const handleSaveRule = async () => {
   const data = { ...ruleForm, config: JSON.stringify(config) }
   try {
     let res
-    if (isRuleEdit.value) res = await request.put(`/automation/smart-reminders/${ruleEditId.value}`, data)
-    else res = await request.post('/automation/smart-reminders', data)
+    if (isRuleEdit.value) res = await saveSmartReminder({ id: ruleEditId.value, ...data })
+    else res = await saveSmartReminder(data)
     if (res.code === 200) { ElMessage.success('保存成功'); ruleDialogVisible.value = false; fetchRules() }
   } catch (e) { /* */ }
 }
 
 const handleDeleteRule = (row) => {
   ElMessageBox.confirm(`确定删除规则"${row.name}"？`, '提示', { type: 'warning' }).then(async () => {
-    const res = await request.delete(`/automation/smart-reminders/${row.id}`)
+    const res = await deleteSmartReminder(row.id)
     if (res.code === 200) { ElMessage.success('已删除'); fetchRules() }
   }).catch(() => {})
 }
@@ -183,14 +184,14 @@ const handleDeleteRule = (row) => {
 const handleScan = async () => {
   scanLoading.value = true
   try {
-    const res = await request.post('/automation/smart-reminders/run')
+    const res = await runSmartReminder()
     if (res.code === 200) { ElMessage.success(res.message); fetchPending() }
   } finally { scanLoading.value = false }
 }
 
 const handleSeen = async (row) => {
   try {
-    const res = await request.put(`/automation/smart-reminders/log/${row.id}/seen`)
+    const res = await markReminderSeen(row.id)
     if (res.code === 200) { fetchPending() }
   } catch (e) { /* */ }
 }

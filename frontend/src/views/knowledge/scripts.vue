@@ -58,6 +58,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { getKnowledgeScripts, addKnowledgeScript, updateKnowledgeScript, deleteKnowledgeScript, getKnowledgeScript, getKnowledgeScriptsScenes } from '@/api/knowledge'
 
 const loading = ref(false)
 const list = ref([])
@@ -78,14 +79,14 @@ const rules = {
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await request.get('/knowledge/scripts', { params: search })
+    const res = await getKnowledgeScripts(search)
     if (res.code === 200) list.value = res.data
   } catch (e) { /* */ }
   finally { loading.value = false }
 }
 
 const fetchScenes = async () => {
-  try { const res = await request.get('/knowledge/scripts-meta/scenes'); if (res.code === 200) scenes.value = res.data } catch (e) { /* */ }
+  try { const res = await getKnowledgeScriptsScenes(); if (res.code === 200) scenes.value = res.data } catch (e) { /* */ }
 }
 
 const handleAdd = () => { isEdit.value = false; editId.value = null; Object.assign(form, { title: '', scene: '', content: '', sort_order: 0 }); dialogVisible.value = true }
@@ -96,7 +97,7 @@ const handleEdit = (item) => {
 }
 const handleDelete = (item) => {
   ElMessageBox.confirm(`确定删除话术"${item.title}"？`, '提示', { type: 'warning' }).then(async () => {
-    const res = await request.delete(`/knowledge/scripts/${item.id}`)
+    const res = await deleteKnowledgeScript(item.id)
     if (res.code === 200) { ElMessage.success('已删除'); fetchList() }
   }).catch(() => {})
 }
@@ -106,7 +107,7 @@ const handleCopy = async (item) => {
     await navigator.clipboard.writeText(item.content)
     ElMessage.success('已复制到剪贴板')
     // 更新使用次数
-    request.get(`/knowledge/scripts/${item.id}`)
+    getKnowledgeScript(item.id)
   } catch { ElMessage.error('复制失败') }
 }
 
@@ -117,8 +118,8 @@ const handleSubmit = async () => {
     submitLoading.value = true
     try {
       let res
-      if (isEdit.value) res = await request.put(`/knowledge/scripts/${editId.value}`, form)
-      else res = await request.post('/knowledge/scripts', form)
+      if (isEdit.value) res = await updateKnowledgeScript({ id: editId.value, ...form })
+      else res = await addKnowledgeScript(form)
       if (res.code === 200) { ElMessage.success(isEdit.value ? '修改成功' : '新增成功'); dialogVisible.value = false; fetchList(); fetchScenes() }
     } finally { submitLoading.value = false }
   })

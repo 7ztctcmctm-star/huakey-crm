@@ -69,7 +69,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import request from '@/utils/request'
+import { qualityCheck, qualityReport } from '@/api/customer'
 
 const props = defineProps({
   table: { type: String, default: 'crm_customer' }
@@ -94,7 +94,7 @@ const scoreLabel = computed(() => {
 
 const fetchReport = async () => {
   try {
-    const res = await request.post('/customer/quality-report', { table: props.table })
+    const res = await qualityReport({ table: props.table })
     if (res.code === 200 && res.data) {
       report.value = res.data
     }
@@ -104,7 +104,7 @@ const fetchReport = async () => {
 const runCheck = async () => {
   checking.value = true
   try {
-    const res = await request.post('/customer/quality-check', { table: props.table })
+    const res = await qualityCheck({ table: props.table })
     if (res.code === 200) {
       report.value = res.data
       ElMessage.success('数据质量检查完成')

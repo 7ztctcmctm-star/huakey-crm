@@ -104,6 +104,8 @@ import { useRouter } from 'vue-router'
 import { Edit, Setting, Search, Star, Paperclip, RefreshRight, Connection, Document } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
+import { getEmailList, getEmailStats, markEmailRead, getEmailDetail, toggleEmailStar, linkCustomerToEmail } from '@/api/email'
+import { getCustomerList } from '@/api/customer'
 import DOMPurify from 'dompurify'
 
 const sanitize = (html) => DOMPurify.sanitize(html, { ADD_ATTR: ['target'] })
@@ -142,7 +144,7 @@ const fetchList = async () => {
   try {
     const params = { folder: currentFolder.value, page: page.value, page_size: pageSize.value }
     if (keyword.value) params.keyword = keyword.value
-    const res = await request.get('/email/list', { params })
+    const res = await getEmailList(params)
     if (res.code === 200) {
       emailList.value = res.data.list
       total.value = res.data.total
@@ -153,23 +155,23 @@ const fetchList = async () => {
 }
 
 const fetchStats = async () => {
-  const res = await request.get('/email/stats/overview')
+  const res = await getEmailStats()
   if (res.code === 200) stats.value = res.data
 }
 
 const selectEmail = async (item) => {
   selectedId.value = item.id
   if (!item.is_read) {
-    await request.put(`/email/${item.id}/read`)
+    await markEmailRead(item.id)
     item.is_read = 1
     if (stats.value.unread > 0) stats.value.unread--
   }
-  const res = await request.get(`/email/${item.id}`)
+  const res = await getEmailDetail(item.id)
   if (res.code === 200) selectedEmail.value = res.data
 }
 
 const toggleStar = async (item) => {
-  const res = await request.put(`/email/${item.id}/star`)
+  const res = await toggleEmailStar(item.id)
   if (res.code === 200) {
     item.is_starred = res.data.is_starred
     fetchStats()
@@ -182,13 +184,13 @@ const handleReply = () => {
 
 const searchCustomers = async (query) => {
   if (!query) return
-  const res = await request.post('/customer/list', { keyword: query, pageSize: 10 })
+  const res = await getCustomerList({ keyword: query, pageSize: 10 })
   if (res.code === 200) customerOptions.value = res.data.list
 }
 
 const linkCustomer = async () => {
   if (!linkCustomerId.value) return
-  const res = await request.post(`/email/${selectedEmail.value.id}/link-customer`, { customer_id: linkCustomerId.value })
+  const res = await linkCustomerToEmail(selectedEmail.value.id, linkCustomerId.value)
   if (res.code === 200) {
     ElMessage.success('关联成功')
     showLinkDialog.value = false

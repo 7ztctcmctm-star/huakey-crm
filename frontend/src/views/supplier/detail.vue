@@ -285,6 +285,7 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import request from '@/utils/request';
+import { getSupplierDetail, getSupplierPerformance, addSupplierContact, updateSupplierContact, deleteSupplierContact, addQualification, updateQualification, deleteQualification as deleteQualificationApi, addSupplierRating } from '@/api/supplier';
 
 const route = useRoute();
 const router = useRouter();
@@ -346,7 +347,7 @@ const fetchDetail = async () => {
 
   loading.value = true;
   try {
-    const res = await request.get(`/supplier/detail/${id}`);
+    const res = await getSupplierDetail(id);
     if (res.code === 200) {
       supplier.value = res.data;
       contacts.value = res.data.contacts || [];
@@ -369,7 +370,7 @@ const fetchPerformance = async () => {
   const id = route.params.id;
   if (!id) return;
   try {
-    const res = await request.get(`/supplier/performance/${id}`);
+    const res = await getSupplierPerformance(id);
     if (res.code === 200) performance.value = res.data;
   } catch (e) { console.error(e); }
 };
@@ -384,7 +385,7 @@ const handleRatingSubmit = async () => {
     if (!valid) return;
     ratingLoading.value = true;
     try {
-      const res = await request.post('/supplier/rating/add', { supplier_id: route.params.id, ...ratingForm });
+      const res = await addSupplierRating({ supplier_id: route.params.id, ...ratingForm });
       if (res.code === 200) {
         ElMessage.success('评分成功');
         showRatingDialog.value = false;
@@ -412,10 +413,10 @@ const handleContactSubmit = async () => {
     contactLoading.value = true;
     try {
       if (editingContact.value) {
-        const res = await request.post('/supplier/contact/update', { id: editingContact.value.id, ...contactForm });
+        const res = await updateSupplierContact({ id: editingContact.value.id, ...contactForm });
         if (res.code === 200) { ElMessage.success('修改成功'); showContactDialog.value = false; fetchDetail(); }
       } else {
-        const res = await request.post('/supplier/contact/add', { supplier_id: route.params.id, ...contactForm });
+        const res = await addSupplierContact({ supplier_id: route.params.id, ...contactForm });
         if (res.code === 200) { ElMessage.success('添加成功'); showContactDialog.value = false; fetchDetail(); }
       }
     } catch (e) { console.error(e); }
@@ -425,7 +426,7 @@ const handleContactSubmit = async () => {
 
 const deleteContact = async (id) => {
   try {
-    const res = await request.post('/supplier/contact/delete', { id });
+    const res = await deleteSupplierContact(id);
     if (res.code === 200) { ElMessage.success('删除成功'); fetchDetail(); }
   } catch (e) { console.error(e); }
 };
@@ -446,10 +447,10 @@ const handleQualSubmit = async () => {
     qualLoading.value = true;
     try {
       if (editingQual.value) {
-        const res = await request.post('/supplier/qualification/update', { id: editingQual.value.id, ...qualForm });
+        const res = await updateQualification({ id: editingQual.value.id, ...qualForm });
         if (res.code === 200) { ElMessage.success('修改成功'); showQualDialog.value = false; fetchDetail(); }
       } else {
-        const res = await request.post('/supplier/qualification/add', { supplier_id: route.params.id, ...qualForm });
+        const res = await addQualification({ supplier_id: route.params.id, ...qualForm });
         if (res.code === 200) { ElMessage.success('添加成功'); showQualDialog.value = false; fetchDetail(); }
       }
     } catch (e) { console.error(e); }
@@ -459,7 +460,7 @@ const handleQualSubmit = async () => {
 
 const deleteQualification = async (id) => {
   try {
-    const res = await request.post('/supplier/qualification/delete', { id });
+    const res = await deleteQualificationApi(id);
     if (res.code === 200) { ElMessage.success('删除成功'); fetchDetail(); }
   } catch (e) { console.error(e); }
 };

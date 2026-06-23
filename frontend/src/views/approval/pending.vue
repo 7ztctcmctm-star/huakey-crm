@@ -68,7 +68,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import request from '@/utils/request'
+import { getMyPending, getApprovalDetail, approveRequest, rejectRequest, batchApprove, batchReject } from '@/api/approval'
 import { formatTime } from '@/composables/useFormat'
 
 const typeNameMap = { quote: '报价', contract: '合同', purchase: '采购', discount: '折扣' }
@@ -87,7 +87,7 @@ const customerHistory = ref(null)
 
 const fetchCustomerHistory = async (row) => {
   try {
-    const res = await request.get(`/approval/detail-with-history/${row.business_type}/${row.business_id}`)
+    const res = await getApprovalDetail(row.business_type, row.business_id)
     if (res.code === 200) customerHistory.value = res.data
   } catch { customerHistory.value = null }
 }
@@ -97,7 +97,7 @@ const handleSelectionChange = (rows) => { selectedRows.value = rows }
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await request.get('/approval/my-pending')
+    const res = await getMyPending()
     if (res.code === 200) tableData.value = res.data
   } catch (e) { console.error('[pending] 获取待审批列表失败:', e) }
   finally { loading.value = false }
@@ -127,10 +127,9 @@ const handleSubmit = async () => {
   if (!currentRecord.value) return
   submitLoading.value = true
   try {
-    const url = dialogType.value === 'success'
-      ? `/approval/approve/${currentRecord.value.id}`
-      : `/approval/reject/${currentRecord.value.id}`
-    const res = await request.post(url, { remark: remark.value })
+    const res = dialogType.value === 'success'
+      ? await approveRequest(currentRecord.value.id, remark.value)
+      : await rejectRequest(currentRecord.value.id, remark.value)
     if (res.code === 200) {
       ElMessage.success(dialogType.value === 'success' ? '审批通过' : '已驳回')
       dialogVisible.value = false
@@ -142,7 +141,7 @@ const handleSubmit = async () => {
 const handleBatchApprove = () => {
   ElMessageBox.confirm(`确定批量通过选中的 ${selectedRows.value.length} 条审批？`, '批量通过', { type: 'success' }).then(async () => {
     const ids = selectedRows.value.map(r => r.id)
-    const res = await request.post('/approval/batch-approve', { ids, remark: '批量通过' })
+    const res = await batchApprove(ids)
     if (res.code === 200) { ElMessage.success(res.message); fetchList() }
   }).catch(e => console.error('[pending] 批量通过失败:', e))
 }
@@ -150,7 +149,7 @@ const handleBatchApprove = () => {
 const handleBatchReject = () => {
   ElMessageBox.prompt('请输入驳回理由', '批量驳回', { type: 'warning', inputType: 'textarea', inputPlaceholder: '输入驳回理由（可选）' }).then(async ({ value }) => {
     const ids = selectedRows.value.map(r => r.id)
-    const res = await request.post('/approval/batch-reject', { ids, remark: value || '批量驳回' })
+    const res = await batchReject(ids, value || '批量驳回')
     if (res.code === 200) { ElMessage.success(res.message); fetchList() }
   }).catch(e => console.error('[pending] 批量驳回失败:', e))
 }

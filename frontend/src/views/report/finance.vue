@@ -54,7 +54,7 @@
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { Download } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import { getReportFinance } from '@/api/report'
 import echarts from '@/composables/useECharts'
 
 const loading = ref(false)
@@ -83,7 +83,7 @@ const receivables = computed(() => data.value.receivables || [])
 const fetchData = async () => {
   loading.value = true
   try {
-    const res = await request.get('/report/finance')
+    const res = await getReportFinance()
     if (res.code === 200) {
       data.value = res.data
       await nextTick()

@@ -43,6 +43,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { Box, ChatLineSquare, QuestionFilled, Folder } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { getKnowledgeStats } from '@/api/knowledge'
 
 const stats = ref({ counts: { products: 0, scripts: 0, faqs: 0, documents: 0 }, recent: { products: [], scripts: [], faqs: [], documents: [] } })
 
@@ -62,7 +63,7 @@ const recentSections = computed(() => [
 
 const fetchStats = async () => {
   try {
-    const res = await request.get('/knowledge/stats')
+    const res = await getKnowledgeStats()
     if (res.code === 200) stats.value = res.data
   } catch (e) { /* */ }
 }

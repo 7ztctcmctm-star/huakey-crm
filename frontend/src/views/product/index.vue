@@ -207,6 +207,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, Search, Refresh } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { getProductList, addProduct, updateProduct, deleteProduct, getProductCategories, getProductPrices, addProductPrice, deleteProductPrice } from '@/api/product'
 import { formatAmount } from '@/composables/useFormat'
 
 const loading = ref(false)
@@ -257,7 +258,7 @@ const fetchList = async () => {
     if (searchForm.keyword) params.keyword = searchForm.keyword
     if (searchForm.category) params.category = searchForm.category
     if (searchForm.status !== '' && searchForm.status !== null) params.status = searchForm.status
-    const res = await request.post('/product/list', params)
+    const res = await getProductList(params)
     if (res.code === 200) {
       tableData.value = res.data.list
       total.value = res.data.total
@@ -268,7 +269,7 @@ const fetchList = async () => {
 
 const fetchCategories = async () => {
   try {
-    const res = await request.get('/product/categories')
+    const res = await getProductCategories()
     if (res.code === 200) categories.value = res.data
   } catch (e) { /* ignore */ }
 }
@@ -295,14 +296,14 @@ const toggleStatus = async (row) => {
   const newStatus = row.status === 1 ? 0 : 1
   const action = newStatus === 1 ? '上架' : '下架'
   try {
-    const res = await request.post('/product/update', { id: row.id, status: newStatus })
+    const res = await updateProduct({ id: row.id, status: newStatus })
     if (res.code === 200) { ElMessage.success(`已${action}`); fetchList() }
   } catch (e) { ElMessage.error(`${action}失败`) }
 }
 
 const handleDelete = (row) => {
   ElMessageBox.confirm(`确定删除 "${row.name}" 吗？`, '提示', { type: 'warning' }).then(async () => {
-    const res = await request.post('/product/delete', { id: row.id })
+    const res = await deleteProduct(row.id)
     if (res.code === 200) { ElMessage.success('已删除'); fetchList() }
   }).catch(() => {})
 }
@@ -315,7 +316,7 @@ const handleSubmit = async () => {
     try {
       const data = { ...form }
       if (isEdit.value) data.id = editId.value
-      const res = await request.post(isEdit.value ? '/product/update' : '/product/add', data)
+      const res = isEdit.value ? await updateProduct(data) : await addProduct(data)
       if (res.code === 200) {
         ElMessage.success(isEdit.value ? '修改成功' : '新增成功')
         dialogVisible.value = false
@@ -340,7 +341,7 @@ const openPriceTable = async (row) => {
 
 const fetchPrices = async (productId) => {
   try {
-    const res = await request.get(`/product/${productId}/prices`)
+    const res = await getProductPrices(productId)
     if (res.code === 200) priceList.value = res.data
   } catch {}
 }
@@ -357,7 +358,7 @@ const addPrice = async () => {
       data.valid_from = priceForm.dateRange[0]
       data.valid_to = priceForm.dateRange[1]
     }
-    const res = await request.post(`/product/${currentProductId.value}/prices`, data)
+    const res = await addProductPrice(currentProductId.value, data)
     if (res.code === 200) {
       ElMessage.success('添加成功')
       showAddPrice.value = false
@@ -368,7 +369,7 @@ const addPrice = async () => {
 
 const deletePrice = async (row) => {
   try {
-    const res = await request.delete(`/product/price/${row.id}`)
+    const res = await deleteProductPrice(row.id)
     if (res.code === 200) {
       ElMessage.success('删除成功')
       fetchPrices(currentProductId.value)

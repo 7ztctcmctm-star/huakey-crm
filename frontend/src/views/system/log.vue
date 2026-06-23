@@ -152,6 +152,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Delete, Download } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { getLogList, exportLog, clearLog, getLogModules, getLogDetail } from '@/api/system'
 
 const loading = ref(false)
 const tableData = ref([])
@@ -187,7 +188,7 @@ const handleQuery = async () => {
       endDate: dateRange.value?.[1] || undefined
     }
 
-    const res = await request.post('/log/list', params)
+    const res = await getLogList(params)
     if (res.code === 200) {
       tableData.value = res.data.list
       pagination.total = res.data.total
@@ -219,7 +220,7 @@ const handleHighRisk = () => {
   pagination.page = 1
   // 高风险操作：删除 + 导出 + 导入
   loading.value = true
-  request.post('/log/list', {
+  getLogList({
     page: pagination.page,
     pageSize: pagination.pageSize,
     actionType: ['delete', 'export', 'import']
@@ -234,7 +235,7 @@ const handleHighRisk = () => {
 
 const handleView = async (row) => {
   try {
-    const res = await request.get(`/log/detail/${row.id}`)
+    const res = await getLogDetail(row.id)
     if (res.code === 200) {
       currentLog.value = res.data
       detailVisible.value = true
@@ -252,7 +253,7 @@ const handleClear = async () => {
       type: 'warning'
     })
 
-    const res = await request.post('/log/clear', { days: 30 })
+    const res = await clearLog({ days: 30 })
     if (res.code === 200) {
       ElMessage.success(res.message)
       handleQuery()
@@ -267,13 +268,13 @@ const handleClear = async () => {
 
 const handleExport = async () => {
   try {
-    const res = await request.post('/log/export', {
+    const res = await exportLog({
       module: filterForm.module || undefined,
       action: filterForm.action || undefined,
       status: filterForm.status !== '' ? filterForm.status : undefined,
       startDate: dateRange.value?.[0] || undefined,
       endDate: dateRange.value?.[1] || undefined
-    }, { responseType: 'blob' })
+    })
 
     const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
     const url = URL.createObjectURL(blob)
@@ -291,7 +292,7 @@ const handleExport = async () => {
 
 const fetchModules = async () => {
   try {
-    const res = await request.get('/log/modules')
+    const res = await getLogModules()
     if (res.code === 200) {
       moduleList.value = res.data
     }

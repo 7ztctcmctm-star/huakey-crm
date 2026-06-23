@@ -52,7 +52,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import { getBackupList, createBackup, deleteBackup, restoreBackup } from '@/api/system'
 
 const loading = ref(false)
 const createLoading = ref(false)
@@ -73,7 +73,7 @@ const formatSize = (bytes) => {
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await request.post('/backup/list', { page: page.value, pageSize: pageSize.value })
+    const res = await getBackupList()
     if (res.code === 200) {
       tableData.value = res.data.list
       total.value = res.data.total
@@ -88,7 +88,7 @@ const fetchList = async () => {
 const handleCreate = async () => {
   createLoading.value = true
   try {
-    const res = await request.post('/backup/create')
+    const res = await createBackup()
     if (res.code === 200) {
       ElMessage.success('备份任务已创建')
       setTimeout(fetchList, 1000)
@@ -102,14 +102,14 @@ const handleCreate = async () => {
 
 const handleRestore = (row) => {
   ElMessageBox.confirm(`确定恢复该备份吗？此操作将覆盖当前数据！`, '警告', { type: 'warning' }).then(async () => {
-    const res = await request.post('/backup/restore', { id: row.id })
+    const res = await restoreBackup(row.id)
     if (res.code === 200) ElMessage.success('恢复任务已执行')
   }).catch(() => {})
 }
 
 const handleDelete = (row) => {
   ElMessageBox.confirm('确定删除该备份文件吗？', '提示', { type: 'warning' }).then(async () => {
-    const res = await request.post('/backup/delete', { id: row.id })
+    const res = await deleteBackup(row.id)
     if (res.code === 200) { ElMessage.success('已删除'); fetchList() }
   }).catch(() => {})
 }

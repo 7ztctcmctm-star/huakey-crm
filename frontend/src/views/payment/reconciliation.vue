@@ -181,6 +181,10 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
+import { getCustomerReconciliation, getSupplierReconciliation, saveReconciliation, getReconciliationList } from '@/api/finance'
+import { getCustomerList } from '@/api/customer'
+import { getSupplierList } from '@/api/supplier'
+import { sendIntegrationEmail } from '@/api/integration'
 
 const activeType = ref('customer')
 const customerOptions = ref([])
@@ -216,7 +220,7 @@ const sendEmail = async () => {
   if (!emailForm.to) return ElMessage.warning('请输入收件人邮箱')
   emailSending.value = true
   try {
-    const res = await request.post('/integration/send-email', { to: emailForm.to, subject: emailForm.subject, body: emailForm.body })
+    const res = await sendIntegrationEmail({ to: emailForm.to, subject: emailForm.subject, body: emailForm.body })
     if (res.code === 200) { ElMessage.success('邮件发送成功'); emailVisible.value = false }
     else { ElMessage.error(res.message || '发送失败') }
   } catch { ElMessage.error('发送失败') }
@@ -226,8 +230,8 @@ const sendEmail = async () => {
 const fetchOptions = async () => {
   try {
     const [cRes, sRes] = await Promise.all([
-      request.post('/customer/list', { page: 1, pageSize: 200 }),
-      request.post('/supplier/list', { page: 1, pageSize: 200 })
+      getCustomerList({ page: 1, pageSize: 200 }),
+      getSupplierList({ page: 1, pageSize: 200 })
     ])
     if (cRes.code === 200) customerOptions.value = cRes.data.list
     if (sRes.code === 200) supplierOptions.value = sRes.data.list || sRes.data
@@ -239,7 +243,7 @@ const fetchCustomerRecon = async () => {
   try {
     const params = { customer_id: custForm.customer_id }
     if (custForm.dateRange && custForm.dateRange.length === 2) { params.start_date = custForm.dateRange[0]; params.end_date = custForm.dateRange[1] }
-    const res = await request.get('/finance/reconciliation/customer', { params })
+    const res = await getCustomerReconciliation(params)
     if (res.code === 200) custData.value = res.data
   } catch (e) { /* */ }
 }
@@ -249,7 +253,7 @@ const fetchSupplierRecon = async () => {
   try {
     const params = { supplier_id: suppForm.supplier_id }
     if (suppForm.dateRange && suppForm.dateRange.length === 2) { params.start_date = suppForm.dateRange[0]; params.end_date = suppForm.dateRange[1] }
-    const res = await request.get('/finance/reconciliation/supplier', { params })
+    const res = await getSupplierReconciliation(params)
     if (res.code === 200) suppData.value = res.data
   } catch (e) { /* */ }
 }
@@ -268,7 +272,7 @@ const handleSaveRecon = async (type) => {
     unpaid_amount: data.summary.unpaid_amount
   }
   try {
-    const res = await request.post('/finance/reconciliation/save', payload)
+    const res = await saveReconciliation(payload)
     if (res.code === 200) { ElMessage.success(`对账单 ${res.data.recon_no} 已保存`); fetchHistory() }
   } catch (e) { /* */ }
 }
@@ -276,7 +280,7 @@ const handleSaveRecon = async (type) => {
 const fetchHistory = async () => {
   historyLoading.value = true
   try {
-    const res = await request.get('/finance/reconciliation/list', { params: { page: 1, page_size: 50 } })
+    const res = await getReconciliationList({ page: 1, page_size: 50 })
     if (res.code === 200) historyList.value = res.data.list
   } catch (e) { /* */ }
   finally { historyLoading.value = false }

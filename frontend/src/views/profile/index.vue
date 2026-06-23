@@ -78,7 +78,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Edit } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import { getProfile, updateProfile, changePassword as changePasswordApi } from '@/api/auth'
 
 const router = useRouter()
 
@@ -125,7 +125,7 @@ const passwordRules = {
 const fetchProfile = async () => {
   loading.value = true
   try {
-    const res = await request.get('/auth/profile')
+    const res = await getProfile()
     if (res.code === 200) {
       Object.assign(profile, res.data)
     }
@@ -154,7 +154,7 @@ const saveProfile = async () => {
     if (!valid) return
     saveLoading.value = true
     try {
-      const res = await request.post('/auth/update-profile', {
+      const res = await updateProfile({
         real_name: editForm.real_name,
         phone: editForm.phone,
         email: editForm.email
@@ -178,7 +178,7 @@ const changePassword = async () => {
     if (!valid) return
     passwordLoading.value = true
     try {
-      const res = await request.post('/auth/change-password', {
+      const res = await changePasswordApi({
         old_password: passwordForm.old_password,
         new_password: passwordForm.new_password
       })

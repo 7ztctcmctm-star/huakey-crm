@@ -63,6 +63,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { getKnowledgeFaqs, addKnowledgeFaq, updateKnowledgeFaq, deleteKnowledgeFaq, getKnowledgeFaqsCategories } from '@/api/knowledge'
 
 const loading = ref(false)
 const list = ref([])
@@ -84,14 +85,14 @@ const rules = {
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await request.get('/knowledge/faqs', { params: search })
+    const res = await getKnowledgeFaqs(search)
     if (res.code === 200) list.value = res.data
   } catch (e) { /* */ }
   finally { loading.value = false }
 }
 
 const fetchCategories = async () => {
-  try { const res = await request.get('/knowledge/faqs-meta/categories'); if (res.code === 200) categoryList.value = res.data } catch (e) { /* */ }
+  try { const res = await getKnowledgeFaqsCategories(); if (res.code === 200) categoryList.value = res.data } catch (e) { /* */ }
 }
 
 const handleAdd = () => { isEdit.value = false; editId.value = null; Object.assign(form, { question: '', answer: '', category: '', sort_order: 0 }); dialogVisible.value = true }
@@ -102,7 +103,7 @@ const handleEdit = (item) => {
 }
 const handleDelete = (item) => {
   ElMessageBox.confirm(`确定删除该FAQ？`, '提示', { type: 'warning' }).then(async () => {
-    const res = await request.delete(`/knowledge/faqs/${item.id}`)
+    const res = await deleteKnowledgeFaq(item.id)
     if (res.code === 200) { ElMessage.success('已删除'); fetchList() }
   }).catch(() => {})
 }
@@ -114,8 +115,8 @@ const handleSubmit = async () => {
     submitLoading.value = true
     try {
       let res
-      if (isEdit.value) res = await request.put(`/knowledge/faqs/${editId.value}`, form)
-      else res = await request.post('/knowledge/faqs', form)
+      if (isEdit.value) res = await updateKnowledgeFaq({ id: editId.value, ...form })
+      else res = await addKnowledgeFaq(form)
       if (res.code === 200) { ElMessage.success(isEdit.value ? '修改成功' : '新增成功'); dialogVisible.value = false; fetchList(); fetchCategories() }
     } finally { submitLoading.value = false }
   })

@@ -43,7 +43,8 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Promotion } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import request from '@/utils/request'
+import { getEmailAccounts, sendEmail } from '@/api/email'
+import { getCustomerList } from '@/api/customer'
 
 const route = useRoute()
 const router = useRouter()
@@ -62,7 +63,7 @@ const form = ref({
 })
 
 const fetchAccounts = async () => {
-  const res = await request.get('/email/accounts')
+  const res = await getEmailAccounts()
   if (res.code === 200) {
     accounts.value = res.data
     if (res.data.length > 0 && !form.value.account_id) {
@@ -72,7 +73,7 @@ const fetchAccounts = async () => {
 }
 
 const fetchContacts = async () => {
-  const res = await request.post('/customer/list', { pageSize: 50 })
+  const res = await getCustomerList({ pageSize: 50 })
   if (res.code === 200) {
     // 从客户列表提取联系人邮箱
     const contacts = []
@@ -99,7 +100,7 @@ const handleSend = async () => {
     }
     if (route.query.reply_to) payload.reply_to_id = parseInt(route.query.reply_to)
 
-    const res = await request.post('/email/send', payload)
+    const res = await sendEmail(payload)
     if (res.code === 200) {
       ElMessage.success('发送成功')
       router.push('/email/inbox')

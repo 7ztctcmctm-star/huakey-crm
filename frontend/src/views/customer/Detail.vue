@@ -484,6 +484,10 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Plus, Edit, EditPen, Delete, User, Clock, Share, Refresh, Phone, Message, Location, ChatLineRound } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { getCustomer360, updateCustomer, assignCustomer, releaseCustomer, getSalesUsers, addContact, updateContact, deleteContact, calculateCustomerScore } from '@/api/customer'
+import { addFollowUp, updateFollowUp, deleteFollowUp, getFollowupTemplates } from '@/api/followUp'
+import { getEmailList } from '@/api/email'
+import { getKnowledgeScripts } from '@/api/knowledge'
 import { formatTime } from '@/composables/useFormat'
 import { recordVisit } from '@/composables/useRecentVisit'
 import { ALL_SOURCE_VALUES } from '@/constants/source'
@@ -509,7 +513,7 @@ try {
 const fetchSalesUsers = async () => {
   if (!isBoss.value && !isManager.value) return
   try {
-    const res = await request.get('/customer/sales-users')
+    const res = await getSalesUsers()
     if (res.code === 200) salesUsers.value = res.data
   } catch (e) { /* */ }
 }
@@ -518,7 +522,7 @@ const handleAssignOwner = (newOwnerId) => {
   const target = salesUsers.value.find(u => u.id === newOwnerId)
   ElMessageBox.confirm(`确认将客户分配给「${target?.real_name || newOwnerId}」吗？`, '变更负责人', { type: 'warning' }).then(async () => {
     try {
-      const res = await request.post('/customer/assign', { customer_id: customer.id, to_user_id: newOwnerId, remark: '手动重新分配' })
+      const res = await assignCustomer({ customer_id: customer.id, to_user_id: newOwnerId, remark: '手动重新分配' })
       if (res.code === 200) { ElMessage.success('负责人已更新'); fetchDetail() }
     } catch { ElMessage.error('分配失败') }
   }).catch(() => {})
@@ -596,7 +600,7 @@ const fetchDetail = async () => {
 
   loading.value = true
   try {
-    const res = await request.get(`/customer/${id}/360`)
+    const res = await getCustomer360(id)
     if (res.code === 200) {
       const d = res.data
       Object.assign(customer, d.customer)
@@ -628,7 +632,7 @@ const isProtected = () => customer.protect_until && new Date(customer.protect_un
 const handleRelease = () => {
   ElMessageBox.confirm(`确定要将"${customer.company_name}"释放到公海吗？`, '释放确认', { type: 'warning' }).then(async () => {
     try {
-      const res = await request.post('/customer/release', { customer_id: customer.id })
+      const res = await releaseCustomer(customer.id)
       if (res.code === 200) { ElMessage.success('已释放到公海'); fetchDetail() }
     } catch (e) { console.error('释放失败:', e) }
   }).catch(() => {})
@@ -638,7 +642,7 @@ const handleRelease = () => {
 const handleCalculateScore = async () => {
   scoreCalculating.value = true
   try {
-    const res = await request.post(`/scoring/calculate/${customer.id}`)
+    const res = await calculateCustomerScore(customer.id)
     if (res.code === 200) {
       ElMessage.success(`评分计算完成：${res.data.score} 分`)
       fetchDetail()
@@ -651,7 +655,7 @@ const handleCalculateScore = async () => {
 const fetchEmails = async () => {
   emailLoading.value = true
   try {
-    const res = await request.get('/email/list', { params: { customer_id: customer.id, page: 1, page_size: 50 } })
+    const res = await getEmailList({ customer_id: customer.id, page: 1, page_size: 50 })
     if (res.code === 200) emailList.value = res.data.list || []
   } catch {}
   finally { emailLoading.value = false }
@@ -685,7 +689,7 @@ const handleEditSubmit = async () => {
     if (!valid) return
     editSubmitLoading.value = true
     try {
-      const res = await request.post('/customer/update', { id: customer.id, ...editForm })
+      const res = await updateCustomer({ id: customer.id, ...editForm })
       if (res.code === 200) { ElMessage.success('修改成功'); editDialogVisible.value = false; fetchDetail() }
     } catch { ElMessage.error('修改失败') }
     finally { editSubmitLoading.value = false }
@@ -719,8 +723,8 @@ const handleContactSubmit = async () => {
     try {
       const data = { ...contactForm }
       let res
-      if (isContactEdit.value) { data.id = contactEditId.value; res = await request.post('/customer/contact/update', data) }
-      else { data.customer_id = customer.id; res = await request.post('/customer/contact/add', data) }
+      if (isContactEdit.value) { data.id = contactEditId.value; res = await updateContact(data) }
+      else { data.customer_id = customer.id; res = await addContact(data) }
       if (res.code === 200) { ElMessage.success(isContactEdit.value ? '修改成功' : '新增成功'); contactDialogVisible.value = false; fetchDetail() }
     } catch (error) { console.error('提交联系人失败:', error) }
     finally { contactSubmitLoading.value = false }
@@ -730,7 +734,7 @@ const handleContactSubmit = async () => {
 const handleContactDelete = (row) => {
   ElMessageBox.confirm(`确定要删除联系人"${row.name}"吗？`, '删除确认', { type: 'warning' }).then(async () => {
     try {
-      const res = await request.post('/customer/contact/delete', { id: row.id })
+      const res = await deleteContact(row.id)
       if (res.code === 200) { ElMessage.success('删除成功'); fetchDetail() }
     } catch (error) { console.error('删除联系人失败:', error) }
   }).catch(() => {})
@@ -749,7 +753,7 @@ const followTemplates = ref([])
 const selectedTemplateId = ref(null)
 
 const fetchTemplates = async () => {
-  try { const res = await request.get('/followup-templates'); if (res.code === 200) followTemplates.value = res.data } catch (e) { /* */ }
+  try { const res = await getFollowupTemplates(); if (res.code === 200) followTemplates.value = res.data } catch (e) { /* */ }
 }
 const handleTemplateChange = (templateId) => {
   if (!templateId) return
@@ -793,7 +797,7 @@ const fetchScripts = async () => {
     const params = {}
     if (scriptKeyword.value) params.keyword = scriptKeyword.value
     if (scriptScene.value) params.scene = scriptScene.value
-    const res = await request.get('/knowledge/scripts', { params })
+    const res = await getKnowledgeScripts(params)
     if (res.code === 200) scriptList.value = res.data || []
   } catch { /* */ }
   finally { scriptLoading.value = false }
@@ -832,9 +836,9 @@ const handleFollowSubmit = async () => {
     try {
       let res
       if (isFollowEdit.value) {
-        res = await request.post('/follow-up/update', { id: followEditId.value, ...followForm, next_time: followForm.next_time || null, next_content: followForm.next_content || null })
+        res = await updateFollowUp({ id: followEditId.value, ...followForm, next_time: followForm.next_time || null, next_content: followForm.next_content || null })
       } else {
-        res = await request.post('/follow-up/add', { customer_id: customer.id, ...followForm, next_time: followForm.next_time || null, next_content: followForm.next_content || null, attachment_ids: [...followAttachmentIds.value] })
+        res = await addFollowUp({ customer_id: customer.id, ...followForm, next_time: followForm.next_time || null, next_content: followForm.next_content || null, attachment_ids: [...followAttachmentIds.value] })
       }
       if (res.code === 200) {
         ElMessage.success(isFollowEdit.value ? '修改成功' : '跟进记录添加成功')
@@ -849,7 +853,7 @@ const handleFollowSubmit = async () => {
               confirmButtonText: '确定', cancelButtonText: '取消', inputType: 'date', inputPlaceholder: '选择日期'
             }).then(async ({ value }) => {
               if (value) {
-                await request.post('/follow-up/update', { id: res.data?.id, next_time: value + ' 09:00:00' })
+                await updateFollowUp({ id: res.data?.id, next_time: value + ' 09:00:00' })
                 ElMessage.success('已设定下次跟进时间')
                 fetchDetail()
               }
@@ -864,7 +868,7 @@ const handleFollowSubmit = async () => {
 
 const handleFollowDelete = (item) => {
   ElMessageBox.confirm('确定要删除该跟进记录吗？', '删除确认', { type: 'warning' }).then(async () => {
-    try { const res = await request.post('/follow-up/delete', { id: item.id }); if (res.code === 200) { ElMessage.success('删除成功'); fetchDetail() } }
+    try { const res = await deleteFollowUp(item.id); if (res.code === 200) { ElMessage.success('删除成功'); fetchDetail() } }
     catch (error) { console.error('删除跟进记录失败:', error) }
   }).catch(() => {})
 }

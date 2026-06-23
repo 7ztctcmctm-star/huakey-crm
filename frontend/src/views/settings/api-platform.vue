@@ -135,6 +135,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { getApiKeys, saveApiKey, getWebhooks, saveWebhook, getApiDocs, regenerateApiKey, deleteApiKey, testWebhook, deleteWebhook } from '@/api/platform'
 
 const activeTab = ref('keys')
 const allPermissions = ['customer:read', 'customer:write', 'contract:read', 'contract:write', 'opportunity:read', 'product:read', 'payment:read']
@@ -153,7 +154,7 @@ const keyResultVisible = ref(false)
 const keyResult = reactive({ api_key: '', api_secret: '' })
 
 const fetchKeys = async () => {
-  try { const res = await request.get('/platform/keys'); if (res.code === 200) keys.value = res.data } catch (e) { /* */ }
+  try { const res = await getApiKeys(); if (res.code === 200) keys.value = res.data } catch (e) { /* */ }
 }
 
 const handleCreateKey = () => {
@@ -173,8 +174,8 @@ const handleSaveKey = async () => {
   try {
     const data = { ...keyForm }
     let res
-    if (isKeyEdit.value) res = await request.put(`/platform/keys/${keyEditId.value}`, data)
-    else res = await request.post('/platform/keys', data)
+    if (isKeyEdit.value) res = await saveApiKey(data, keyEditId.value)
+    else res = await saveApiKey(data)
     if (res.code === 200) {
       ElMessage.success('保存成功')
       keyDialogVisible.value = false
@@ -189,7 +190,7 @@ const handleSaveKey = async () => {
 
 const handleRegenerate = (row) => {
   ElMessageBox.confirm(`确定重新生成"${row.name}"的密钥？旧密钥将立即失效。`, '确认', { type: 'warning' }).then(async () => {
-    const res = await request.post(`/platform/keys/${row.id}/regenerate`)
+    const res = await regenerateApiKey(row.id)
     if (res.code === 200) {
       Object.assign(keyResult, { api_key: res.data.api_key, api_secret: res.data.api_secret })
       keyResultVisible.value = true
@@ -200,7 +201,7 @@ const handleRegenerate = (row) => {
 
 const handleDeleteKey = (row) => {
   ElMessageBox.confirm(`确定删除密钥"${row.name}"？`, '提示', { type: 'warning' }).then(async () => {
-    const res = await request.delete(`/platform/keys/${row.id}`)
+    const res = await deleteApiKey(row.id)
     if (res.code === 200) { ElMessage.success('已删除'); fetchKeys() }
   }).catch(() => {})
 }
@@ -217,7 +218,7 @@ const webhookEditId = ref(null)
 const webhookForm = reactive({ name: '', url: '', events: [] })
 
 const fetchWebhooks = async () => {
-  try { const res = await request.get('/platform/webhooks'); if (res.code === 200) webhooks.value = res.data } catch (e) { /* */ }
+  try { const res = await getWebhooks(); if (res.code === 200) webhooks.value = res.data } catch (e) { /* */ }
 }
 
 const handleCreateWebhook = () => {
@@ -237,15 +238,15 @@ const handleSaveWebhook = async () => {
   try {
     const data = { ...webhookForm }
     let res
-    if (isWebhookEdit.value) res = await request.put(`/platform/webhooks/${webhookEditId.value}`, data)
-    else res = await request.post('/platform/webhooks', data)
+    if (isWebhookEdit.value) res = await saveWebhook(data, webhookEditId.value)
+    else res = await saveWebhook(data)
     if (res.code === 200) { ElMessage.success('保存成功'); webhookDialogVisible.value = false; fetchWebhooks() }
   } catch (e) { /* */ }
 }
 
 const handleTestWebhook = async (row) => {
   try {
-    const res = await request.post(`/platform/webhooks/${row.id}/test`)
+    const res = await testWebhook(row.id)
     if (res.code === 200) {
       if (res.data.ok) ElMessage.success('测试成功')
       else ElMessage.warning(`测试返回 ${res.data.status}`)
@@ -255,7 +256,7 @@ const handleTestWebhook = async (row) => {
 
 const handleDeleteWebhook = (row) => {
   ElMessageBox.confirm(`确定删除"${row.name}"？`, '提示', { type: 'warning' }).then(async () => {
-    const res = await request.delete(`/platform/webhooks/${row.id}`)
+    const res = await deleteWebhook(row.id)
     if (res.code === 200) { ElMessage.success('已删除'); fetchWebhooks() }
   }).catch(() => {})
 }
@@ -263,7 +264,7 @@ const handleDeleteWebhook = (row) => {
 // API文档
 const docs = ref({ auth: {}, endpoints: [], rate_limit: '' })
 const fetchDocs = async () => {
-  try { const res = await request.get('/platform/docs'); if (res.code === 200) docs.value = res.data } catch (e) { /* */ }
+  try { const res = await getApiDocs(); if (res.code === 200) docs.value = res.data } catch (e) { /* */ }
 }
 
 onMounted(() => { fetchKeys(); fetchWebhooks(); fetchDocs() })

@@ -197,6 +197,7 @@ import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import request from '@/utils/request';
+import { getSupplierList, addSupplier, updateSupplier, deleteSupplier } from '@/api/supplier';
 
 const router = useRouter();
 const loading = ref(false);
@@ -256,7 +257,7 @@ const getStatusText = (status) => ({ 1: '合作中', 2: '暂停', 3: '终止' }[
 const fetchList = async () => {
   loading.value = true;
   try {
-    const res = await request.post('/supplier/list', {
+    const res = await getSupplierList({
       page: page.value,
       pageSize: pageSize.value,
       ...searchForm
@@ -312,8 +313,7 @@ const handleSubmit = async () => {
 
     submitLoading.value = true;
     try {
-      const url = isEdit.value ? '/supplier/update' : '/supplier/add';
-      const res = await request.post(url, form);
+      const res = isEdit.value ? await updateSupplier(form) : await addSupplier(form);
       if (res.code === 200) {
         ElMessage.success(isEdit.value ? '修改成功' : '创建成功');
         dialogVisible.value = false;
@@ -335,7 +335,7 @@ const handleDelete = async (row) => {
       type: 'warning'
     });
 
-    const res = await request.post('/supplier/delete', { id: row.id });
+    const res = await deleteSupplier(row.id);
     if (res.code === 200) {
       ElMessage.success('删除成功');
       fetchList();

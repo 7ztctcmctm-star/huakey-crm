@@ -151,6 +151,8 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
+import { getEmployees, getEmployeeStats, getEmployeeDetail, updateEmployeeProfile } from '@/api/hr'
+import { getDeptList } from '@/api/system'
 
 const empTypeName = { fulltime: '全职', parttime: '兼职', intern: '实习' }
 const empTypeTag = { fulltime: 'success', parttime: 'warning', intern: 'info' }
@@ -190,23 +192,23 @@ const profileForm = reactive({
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await request.get('/hr/employees', { params: { page: page.value, page_size: pageSize.value, ...search } })
+    const res = await getEmployees({ page: page.value, page_size: pageSize.value, ...search })
     if (res.code === 200) { list.value = res.data.list; total.value = res.data.total; expiringContracts.value = res.data.expiring_contracts || 0 }
   } catch (e) { /* */ }
   finally { loading.value = false }
 }
 
 const fetchStats = async () => {
-  try { const res = await request.get('/hr/employees/stats'); if (res.code === 200) stats.value = res.data } catch (e) { /* */ }
+  try { const res = await getEmployeeStats(); if (res.code === 200) stats.value = res.data } catch (e) { /* */ }
 }
 
 const fetchDepts = async () => {
-  try { const res = await request.post('/dept/list', {}); if (res.code === 200) deptOptions.value = res.data.list || [] } catch (e) { /* */ }
+  try { const res = await getDeptList({}); if (res.code === 200) deptOptions.value = res.data.list || [] } catch (e) { /* */ }
 }
 
 const handleView = async (row) => {
   try {
-    const res = await request.get(`/hr/employees/${row.id}`)
+    const res = await getEmployeeDetail(row.id)
     if (res.code === 200) { detail.value = res.data; detailTab.value = 'basic'; detailVisible.value = true }
   } catch (e) { /* */ }
 }
@@ -214,7 +216,7 @@ const handleView = async (row) => {
 const handleEditProfile = async (row) => {
   editUserId.value = row.id
   try {
-    const res = await request.get(`/hr/employees/${row.id}`)
+    const res = await getEmployeeDetail(row.id)
     if (res.code === 200) {
       const d = res.data
       Object.assign(profileForm, {
@@ -236,7 +238,7 @@ const handleEditProfile = async (row) => {
 const handleSaveProfile = async () => {
   saveLoading.value = true
   try {
-    const res = await request.post(`/hr/employees/${editUserId.value}/profile`, profileForm)
+    const res = await updateEmployeeProfile(editUserId.value, profileForm)
     if (res.code === 200) { ElMessage.success('保存成功'); editVisible.value = false; fetchList() }
   } finally { saveLoading.value = false }
 }

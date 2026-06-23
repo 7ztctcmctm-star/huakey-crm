@@ -50,7 +50,7 @@
 import { ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import { getRecycleList, restoreRecycle, permanentDelete } from '@/api/recycle'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false }
@@ -91,7 +91,7 @@ watch(visible, (val) => {
 
 const fetchStats = async () => {
   try {
-    const res = await request.post('/recycle/list', {})
+    const res = await getRecycleList({})
     if (res.code === 200) {
       moduleStats.value = res.data.stats || []
       if (!currentModule.value && moduleStats.value.length > 0) {
@@ -115,7 +115,7 @@ const handleModuleChange = (val) => {
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await request.post('/recycle/list', {
+    const res = await getRecycleList({
       module: currentModule.value,
       page: page.value,
       pageSize: pageSize.value,
@@ -132,7 +132,7 @@ const fetchList = async () => {
 const handleRestore = async (row) => {
   try {
     await ElMessageBox.confirm('确定要恢复该记录吗？', '提示', { type: 'warning' })
-    const res = await request.post('/recycle/restore', { module: currentModule.value, id: row.id })
+    const res = await restoreRecycle({ module: currentModule.value, id: row.id })
     if (res.code === 200) {
       ElMessage.success(res.message)
       fetchList()
@@ -144,7 +144,7 @@ const handleRestore = async (row) => {
 const handlePermanentDelete = async (row) => {
   try {
     await ElMessageBox.confirm('彻底删除后无法恢复，确定要继续吗？', '警告', { type: 'error' })
-    const res = await request.post('/recycle/permanent-delete', { module: currentModule.value, id: row.id })
+    const res = await permanentDelete({ module: currentModule.value, id: row.id })
     if (res.code === 200) {
       ElMessage.success(res.message)
       fetchList()

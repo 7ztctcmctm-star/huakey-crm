@@ -108,6 +108,8 @@ import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { getCalendarEvents, addCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from '@/api/calendar'
+import { getCustomerList } from '@/api/customer'
 import { formatTime } from '@/composables/useFormat'
 
 const eventTypeName = { meeting: '会议', followup: '跟进', task: '任务', reminder: '提醒' }
@@ -230,13 +232,13 @@ const fetchEvents = async () => {
     start = end = d.toISOString().slice(0, 10)
   }
   try {
-    const res = await request.get('/calendar/events', { params: { start_date: start, end_date: end } })
+    const res = await getCalendarEvents({ start_date: start, end_date: end })
     if (res.code === 200) events.value = res.data
   } catch (e) { /* */ }
 }
 
 const fetchCustomers = async () => {
-  try { const res = await request.post('/customer/list', { page: 1, pageSize: 200 }); if (res.code === 200) customerOptions.value = res.data.list } catch (e) { /* */ }
+  try { const res = await getCustomerList({ page: 1, pageSize: 200 }); if (res.code === 200) customerOptions.value = res.data.list } catch (e) { /* */ }
 }
 
 const handleCreate = () => {
@@ -264,15 +266,15 @@ const handleSave = async () => {
   saveLoading.value = true
   try {
     let res
-    if (isEdit.value) res = await request.put(`/calendar/events/${editId.value}`, form)
-    else res = await request.post('/calendar/events', form)
+    if (isEdit.value) res = await updateCalendarEvent({ id: editId.value, ...form })
+    else res = await addCalendarEvent(form)
     if (res.code === 200) { ElMessage.success('保存成功'); dialogVisible.value = false; fetchEvents() }
   } finally { saveLoading.value = false }
 }
 
 const handleDelete = () => {
   ElMessageBox.confirm('确定删除该日程？', '提示', { type: 'warning' }).then(async () => {
-    const res = await request.delete(`/calendar/events/${editId.value}`)
+    const res = await deleteCalendarEvent(editId.value)
     if (res.code === 200) { ElMessage.success('已删除'); dialogVisible.value = false; fetchEvents() }
   }).catch(() => {})
 }

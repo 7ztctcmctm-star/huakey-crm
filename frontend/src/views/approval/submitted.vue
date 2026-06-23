@@ -43,7 +43,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { SuccessFilled, CircleCloseFilled, Clock } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import { getMySubmitted } from '@/api/approval'
 import { formatTime } from '@/composables/useFormat'
 
 const typeNameMap = { quote: '报价', contract: '合同', purchase: '采购', discount: '折扣' }
@@ -57,7 +57,7 @@ const tableData = ref([])
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await request.get('/approval/my-submitted')
+    const res = await getMySubmitted()
     if (res.code === 200) {
       tableData.value = (res.data || []).map(row => {
         if (typeof row.approval_history === 'string') {

@@ -87,7 +87,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import { globalSearch } from '@/api/search'
 
 const router = useRouter()
 
@@ -104,7 +104,7 @@ const doSearch = async () => {
   }
   searchLoading.value = true
   try {
-    const res = await request.get('/search/global', { params: { keyword: searchKeyword.value.trim() } })
+    const res = await globalSearch(searchKeyword.value.trim())
     if (res.code === 200) searchResults.value = res.data
   } catch { /* ignore */ }
   finally { searchLoading.value = false }

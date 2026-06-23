@@ -48,6 +48,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
+import { getAiSuggestions, generateAiSuggestions, aiSuggestionFeedback } from '@/api/ai'
 import request from '@/utils/request'
 
 const router = useRouter()
@@ -63,7 +64,7 @@ const fetchSuggestions = async () => {
   loading.value = true
   try {
     const params = filterType.value ? `?type=${filterType.value}` : ''
-    const res = await request.get(`/ai/suggestions${params}`)
+    const res = await getAiSuggestions(params)
     if (res.code === 200) suggestions.value = res.data.list
   } catch (e) { console.error(e) }
   finally { loading.value = false }
@@ -72,7 +73,7 @@ const fetchSuggestions = async () => {
 const handleGenerate = async () => {
   generating.value = true
   try {
-    const res = await request.post('/ai/generate-suggestions')
+    const res = await generateAiSuggestions()
     if (res.code === 200) {
       ElMessage.success(res.message)
       fetchSuggestions()
@@ -83,7 +84,7 @@ const handleGenerate = async () => {
 
 const handleFeedback = async (id, isAccepted) => {
   try {
-    const res = await request.post('/ai/suggestion/feedback', { id, is_accepted: isAccepted })
+    const res = await aiSuggestionFeedback({ id, is_accepted: isAccepted })
     if (res.code === 200) {
       const item = suggestions.value.find(s => s.id === id)
       if (item) item.is_accepted = isAccepted

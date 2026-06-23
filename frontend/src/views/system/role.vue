@@ -76,6 +76,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, Setting } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { getRoleList, deleteRole, getPermissionList, updateRolePermission, saveRole, getRolePermissions } from '@/api/system'
 
 const loading = ref(false)
 const tableData = ref([])
@@ -97,7 +98,7 @@ const rules = { name: [{ required: true, message: '请输入角色名称', trigg
 
 const fetchList = async () => {
   loading.value = true
-  try { const res = await request.post('/role/list', {}); if (res.code === 200) tableData.value = res.data.list } catch (e) { /* */ }
+  try { const res = await getRoleList({}); if (res.code === 200) tableData.value = res.data.list } catch (e) { /* */ }
   finally { loading.value = false }
 }
 
@@ -106,7 +107,7 @@ const handleEdit = (row) => { isEdit.value = true; editId.value = row.id; Object
 
 const handleDelete = (row) => {
   ElMessageBox.confirm(`确定删除角色 "${row.name}" 吗？`, '提示', { type: 'warning' }).then(async () => {
-    const res = await request.post('/role/delete', { id: row.id })
+    const res = await deleteRole(row.id)
     if (res.code === 200) { ElMessage.success('已删除'); fetchList() }
   }).catch(() => {})
 }
@@ -116,7 +117,7 @@ const handleSubmit = async () => {
   await formRef.value.validate(async (valid) => {
     if (!valid) return
     const data = isEdit.value ? { id: editId.value, ...form } : { ...form }
-    if (!valid) return; submitLoading.value = true; try { const res = await request.post(isEdit.value ? '/role/update' : '/role/add', data)
+    if (!valid) return; submitLoading.value = true; try { const res = await saveRole(data, isEdit.value)
     if (res.code === 200) { ElMessage.success(isEdit.value ? '修改成功' : '新增成功'); dialogVisible.value = false; fetchList() }
     } finally { submitLoading.value = false }
   })
@@ -128,8 +129,8 @@ const handlePermission = async (row) => {
   permDialogVisible.value = true
   try {
     const [treeRes, roleRes] = await Promise.all([
-      request.get('/permission/list'),
-      request.get(`/permission/role/${row.id}`)
+      getPermissionList(),
+      getRolePermissions(row.id)
     ])
     if (treeRes.code === 200) permTree.value = treeRes.data
     if (roleRes.code === 200) checkedPermIds.value = roleRes.data
@@ -143,7 +144,7 @@ const handleSavePermission = async () => {
   const checkedKeys = permTreeRef.value.getCheckedKeys()
   permLoading.value = true
   try {
-    const res = await request.post('/permission/role/update', { role_id: permRoleId.value, permission_ids: checkedKeys })
+    const res = await updateRolePermission({ role_id: permRoleId.value, permission_ids: checkedKeys })
     if (res.code === 200) { ElMessage.success('权限配置成功'); permDialogVisible.value = false }
     else { ElMessage.error(res.message || '保存失败') }
   } catch {

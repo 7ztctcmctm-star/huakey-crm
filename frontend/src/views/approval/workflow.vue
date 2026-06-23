@@ -113,6 +113,9 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, View } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { getWorkflows, updateWorkflow, saveApprovalWorkflow, deleteApprovalWorkflow } from '@/api/approval'
+import { getSalesUsers } from '@/api/customer'
+import { getRoleList } from '@/api/system'
 
 const typeNameMap = { quote: '报价', contract: '合同', purchase: '采购', discount: '折扣' }
 const typeTagMap = { quote: '', contract: 'success', purchase: 'warning', discount: 'danger' }
@@ -148,7 +151,7 @@ const addStep = () => {
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await request.get('/approval/workflows')
+    const res = await getWorkflows()
     if (res.code === 200) tableData.value = res.data
   } catch (e) { console.error('[workflow] 获取流程列表失败:', e) }
   finally { loading.value = false }
@@ -157,8 +160,8 @@ const fetchList = async () => {
 const fetchUsersAndRoles = async () => {
   try {
     const [uRes, rRes] = await Promise.all([
-      request.get('/customer/sales-users'),
-      request.post('/role/list', { page: 1, pageSize: 100 })
+      getSalesUsers(),
+      getRoleList({ page: 1, pageSize: 100 })
     ])
     if (uRes.code === 200) userList.value = uRes.data
     if (rRes.code === 200) roleList.value = rRes.data.list || []
@@ -188,13 +191,13 @@ const handleView = (row) => { viewData.value = row; viewVisible.value = true }
 
 const handleDelete = (row) => {
   ElMessageBox.confirm(`确定删除流程 "${row.name}" 吗？`, '提示', { type: 'warning' }).then(async () => {
-    const res = await request.delete(`/approval/workflows/${row.id}`)
+    const res = await deleteApprovalWorkflow(row.id)
     if (res.code === 200) { ElMessage.success('已删除'); fetchList() }
   }).catch(e => console.error('[workflow] 删除流程失败:', e))
 }
 
 const handleToggleStatus = async (row) => {
-  try { await request.put(`/approval/workflows/${row.id}`, { status: row.status }) }
+  try { await updateWorkflow({ id: row.id, status: row.status }) }
   catch (e) { row.status = row.status === 1 ? 0 : 1 }
 }
 
@@ -210,8 +213,8 @@ const handleSubmit = async () => {
     submitLoading.value = true
     try {
       let res
-      if (isEdit.value) { res = await request.put(`/approval/workflows/${editId.value}`, form) }
-      else { res = await request.post('/approval/workflows', form) }
+      if (isEdit.value) { res = await updateWorkflow({ id: editId.value, ...form }) }
+      else { res = await saveApprovalWorkflow(form) }
       if (res.code === 200) { ElMessage.success(isEdit.value ? '修改成功' : '新增成功'); dialogVisible.value = false; fetchList() }
     } finally { submitLoading.value = false }
   })

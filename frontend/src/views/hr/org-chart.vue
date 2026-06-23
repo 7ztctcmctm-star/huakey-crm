@@ -50,6 +50,7 @@
 <script setup>
 import { ref, onMounted, h, defineComponent } from 'vue'
 import request from '@/utils/request'
+import { getOrgTree, getOrgTreeEmployees } from '@/api/hr'
 
 // 递归节点组件
 const OrgNode = defineComponent({
@@ -97,14 +98,14 @@ const selectedDeptName = ref('')
 const selectedDeptEmployees = ref([])
 
 const fetchTree = async () => {
-  try { const res = await request.get('/hr/org-tree'); if (res.code === 200) treeData.value = res.data } catch (e) { /* */ }
+  try { const res = await getOrgTree(); if (res.code === 200) treeData.value = res.data } catch (e) { /* */ }
 }
 
 const handleSelectDept = async (node) => {
   selectedDeptId.value = node.id
   selectedDeptName.value = node.name
   try {
-    const res = await request.get(`/hr/org-tree/${node.id}/employees`)
+    const res = await getOrgTreeEmployees(node.id)
     if (res.code === 200) selectedDeptEmployees.value = res.data
   } catch (e) { /* */ }
 }

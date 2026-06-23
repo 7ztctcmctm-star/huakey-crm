@@ -106,7 +106,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import request from '@/utils/request'
+import { getNotifications, markNotificationRead, markAllRead as apiMarkAllRead, getMyReminders } from '@/api/notification'
 import { formatTime } from '@/composables/useFormat'
 
 const router = useRouter()
@@ -133,7 +133,7 @@ const fetchData = () => {
 
 const fetchTodoData = async () => {
   try {
-    const res = await request.get('/reminder/my-reminders')
+    const res = await getMyReminders()
     if (res.code === 200) {
       approvals.value = res.data.pending_approvals || []
       urges.value = res.data.urge_notifications || []
@@ -145,7 +145,7 @@ const fetchTodoData = async () => {
 const fetchSystemNotifications = async () => {
   loading.value = true
   try {
-    const res = await request.get('/reminder/notification-list', { params: { page: page.value, pageSize: pageSize.value } })
+    const res = await getNotifications({ page: page.value, pageSize: pageSize.value })
     if (res.code === 200) {
       systemNotifications.value = res.data.list || []
       systemTotal.value = res.data.total || 0
@@ -161,14 +161,14 @@ const handleTabChange = () => {
 
 const markRead = async (row) => {
   try {
-    await request.post('/reminder/notification-read', { id: row.id })
+    await markNotificationRead(row.id)
     row.is_read = 1
   } catch { /* */ }
 }
 
 const markAllRead = async () => {
   try {
-    await request.post('/reminder/mark-all-read')
+    await apiMarkAllRead()
     ElMessage.success('已全部标记为已读')
     fetchData()
   } catch { /* */ }

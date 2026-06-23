@@ -82,6 +82,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Upload, Edit, Delete } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { getKnowledgeDocuments, addKnowledgeDocument, updateKnowledgeDocument, deleteKnowledgeDocument } from '@/api/knowledge'
 import { formatTime } from '@/composables/useFormat'
 
 const typeName = { contract: '合同模板', quote: '报价模板', general: '通用文档' }
@@ -101,7 +102,7 @@ const formatSize = (bytes) => {
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await request.get('/knowledge/documents', { params: search })
+    const res = await getKnowledgeDocuments(search)
     if (res.code === 200) list.value = res.data
   } catch (e) { /* */ }
   finally { loading.value = false }
@@ -137,7 +138,7 @@ const handleUploadSubmit = async () => {
       fd.append('type', uploadForm.type)
       fd.append('description', uploadForm.description)
       if (selectedFile.value) fd.append('file', selectedFile.value)
-      const res = await request.post('/knowledge/documents', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      const res = await addKnowledgeDocument(fd, { headers: { 'Content-Type': 'multipart/form-data' } })
       if (res.code === 200) { ElMessage.success('上传成功'); uploadVisible.value = false; fetchList() }
     } finally { submitLoading.value = false }
   })
@@ -151,14 +152,14 @@ const handleEdit = (row) => { editId.value = row.id; Object.assign(editForm, { n
 const handleEditSubmit = async () => {
   submitLoading.value = true
   try {
-    const res = await request.put(`/knowledge/documents/${editId.value}`, editForm)
+    const res = await updateKnowledgeDocument(editId.value, editForm)
     if (res.code === 200) { ElMessage.success('修改成功'); editVisible.value = false; fetchList() }
   } finally { submitLoading.value = false }
 }
 
 const handleDelete = (row) => {
   ElMessageBox.confirm(`确定删除文档"${row.name}"？`, '提示', { type: 'warning' }).then(async () => {
-    const res = await request.delete(`/knowledge/documents/${row.id}`)
+    const res = await deleteKnowledgeDocument(row.id)
     if (res.code === 200) { ElMessage.success('已删除'); fetchList() }
   }).catch(() => {})
 }

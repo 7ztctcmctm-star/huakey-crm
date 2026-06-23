@@ -473,6 +473,8 @@ import { Search, Refresh, Plus, View, Edit, Delete, Upload, Switch, Select, Down
 import CustomerImport from '@/components/CustomerImport.vue'
 import DataQualityCheck from '@/components/DataQualityCheck.vue'
 import request, { post, get } from '@/utils/request'
+import { getCustomerList, addCustomer, updateCustomer, deleteCustomer, assignCustomer as assignCustomerApi, batchAssignCustomer, convertCustomer, exportCustomers, getSalesUsers, getMySubordinates } from '@/api/customer'
+import { getTagList } from '@/api/tag'
 import { SOURCE_SEARCH_OPTIONS, SOURCE_FORM_OPTIONS, ALL_SOURCE_VALUES } from '@/constants/source'
 import { relativeTime, fullTime } from '@/composables/useRelativeTime'
 import { hasPermissionFromStorage } from '@/utils/permission'
@@ -525,7 +527,7 @@ const staffOptions = computed(() => {
 const fetchSalesUsers = async () => {
   if (!isBoss.value && !isManager.value) return
   try {
-    const res = await get('/customer/sales-users')
+    const res = await getSalesUsers()
     if (res.code === 200) salesUsers.value = res.data
   } catch (e) { /* ignore */ }
 }
@@ -533,7 +535,7 @@ const fetchSalesUsers = async () => {
 const fetchSubordinates = async () => {
   if (!isManager.value) return
   try {
-    const res = await get('/customer/my-subordinates')
+    const res = await getMySubordinates()
     if (res.code === 200) subordinateUsers.value = res.data
   } catch (e) { /* ignore */ }
 }
@@ -556,7 +558,7 @@ const handleBatchAssign = async () => {
   } catch { return }
 
   try {
-    const res = await post('/customer/batch-assign', {
+    const res = await batchAssignCustomer({
       customer_ids: selectedRows.value.map(r => r.id),
       to_user_id: batchNewOwnerId.value || null,
       remark: '批量重新分配'
@@ -588,7 +590,7 @@ const confirmAssign = async () => {
   const isRecycle = assignUserId.value === ''
   assignLoading.value = true
   try {
-    const res = await post('/customer/assign', {
+    const res = await assignCustomerApi({
       customer_id: assignCustomer.value.id,
       to_user_id: assignUserId.value || null,
       remark: isRecycle ? '回收为待分配' : '手动分配'
@@ -661,7 +663,7 @@ const statusMap = {
 // 标签
 const tagOptions = ref([])
 const fetchTags = async () => {
-  try { const res = await request.get('/tag/list'); if (res.code === 200) tagOptions.value = res.data; } catch {}
+  try { const res = await getTagList(); if (res.code === 200) tagOptions.value = res.data; } catch {}
 }
 
 // 表格数据
@@ -780,7 +782,7 @@ const fetchList = async () => {
       params.status = 3
     }
 
-    const res = await post('/customer/list', params)
+    const res = await getCustomerList(params)
     if (res.code === 200) {
       tableData.value = res.data.list
       total.value = res.data.total
@@ -910,7 +912,7 @@ const handleConvert = (row, action) => {
 const confirmConvert = async () => {
   convertLoading.value = true
   try {
-    const res = await request.post('/customer/convert', {
+    const res = await convertCustomer({
       customer_id: convertTarget.value.id,
       action: convertAction.value
     })
@@ -953,9 +955,9 @@ const handleSubmit = async () => {
       if (isEdit.value) {
         data.id = currentId.value
         data.status = formData.status
-        res = await post('/customer/update', data)
+        res = await updateCustomer(data)
       } else {
-        res = await post('/customer/add', data)
+        res = await addCustomer(data)
       }
 
       if (res.code === 200) {
@@ -983,7 +985,7 @@ const handleDelete = (row) => {
     }
   ).then(async () => {
     try {
-      const res = await post('/customer/delete', { id: row.id })
+      const res = await deleteCustomer(row.id)
       if (res.code === 200) {
         ElMessage.success('删除成功')
         fetchList()
@@ -1142,7 +1144,7 @@ const handleExport = async () => {
     if (viewMode.value === 'staff' && staffFilterId.value) {
       params.owner_id = staffFilterId.value
     }
-    const blob = await request.post('/customer/export', params, { responseType: 'blob' })
+    const blob = await exportCustomers(params)
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url

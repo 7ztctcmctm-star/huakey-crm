@@ -64,6 +64,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
+import { getFinanceReminders, getReminderSummary, generateReminders, acknowledgeReminder } from '@/api/finance'
 
 const loading = ref(false)
 const generating = ref(false)
@@ -84,27 +85,27 @@ const statCards = computed(() => [
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await request.get('/finance/reminders', { params: { page: page.value, page_size: pageSize.value, status: filterStatus.value } })
+    const res = await getFinanceReminders({ page: page.value, page_size: pageSize.value, status: filterStatus.value })
     if (res.code === 200) { list.value = res.data.list; total.value = res.data.total }
   } catch (e) { /* */ }
   finally { loading.value = false }
 }
 
 const fetchSummary = async () => {
-  try { const res = await request.get('/finance/reminders/summary'); if (res.code === 200) summary.value = res.data } catch (e) { /* */ }
+  try { const res = await getReminderSummary(); if (res.code === 200) summary.value = res.data } catch (e) { /* */ }
 }
 
 const handleGenerate = async () => {
   generating.value = true
   try {
-    const res = await request.post('/finance/reminders/generate')
+    const res = await generateReminders()
     if (res.code === 200) { ElMessage.success(res.message); fetchList(); fetchSummary() }
   } finally { generating.value = false }
 }
 
 const handleAcknowledge = async (row) => {
   try {
-    const res = await request.put(`/finance/reminders/${row.id}/acknowledge`)
+    const res = await acknowledgeReminder(row.id)
     if (res.code === 200) { ElMessage.success('已确认'); fetchList(); fetchSummary() }
   } catch (e) { /* */ }
 }

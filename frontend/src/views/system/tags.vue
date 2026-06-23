@@ -52,7 +52,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import { getTagList, manageTag } from '@/api/tag'
 
 const presetColors = [
   '#409EFF', '#67C23A', '#E6A23C', '#F56C6C', '#909399',
@@ -73,7 +73,7 @@ const rules = { name: [{ required: true, message: '请输入标签名称', trigg
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await request.get('/tag/list')
+    const res = await getTagList()
     if (res.code === 200) tableData.value = res.data
   } catch (e) { /* */ }
   finally { loading.value = false }
@@ -95,7 +95,7 @@ const handleEdit = (row) => {
 
 const handleDelete = (row) => {
   ElMessageBox.confirm(`确定删除标签 "${row.name}" 吗？删除后客户身上的该标签也会被移除。`, '提示', { type: 'warning' }).then(async () => {
-    const res = await request.post('/tag/manage', { action: 'delete', id: row.id })
+    const res = await manageTag({ action: 'delete', id: row.id })
     if (res.code === 200) { ElMessage.success('已删除'); fetchList() }
   }).catch(() => {})
 }
@@ -107,10 +107,10 @@ const handleSubmit = async () => {
     submitLoading.value = true
     try {
       if (isEdit.value) {
-        const res = await request.post('/tag/manage', { action: 'update', id: editId.value, name: form.name, color: form.color })
+        const res = await manageTag({ action: 'update', id: editId.value, name: form.name, color: form.color })
         if (res.code === 200) { ElMessage.success('修改成功'); dialogVisible.value = false; fetchList() }
       } else {
-        const res = await request.post('/tag/manage', { action: 'add', name: form.name, color: form.color })
+        const res = await manageTag({ action: 'add', name: form.name, color: form.color })
         if (res.code === 200) { ElMessage.success('新增成功'); dialogVisible.value = false; fetchList() }
       }
     } finally { submitLoading.value = false }

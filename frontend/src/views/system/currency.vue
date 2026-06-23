@@ -69,6 +69,7 @@ import { ref, onMounted } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
+import { getCurrencyList, updateCurrency } from '@/api/system'
 
 const list = ref([])
 const loading = ref(false)
@@ -79,7 +80,7 @@ const editForm = ref({})
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await request.get('/currency/list')
+    const res = await getCurrencyList()
     if (res.code === 200) list.value = res.data
   } finally {
     loading.value = false
@@ -94,7 +95,7 @@ const handleEdit = (row) => {
 const handleSave = async () => {
   saving.value = true
   try {
-    const res = await request.put(`/currency/${editForm.value.id}`, {
+    const res = await updateCurrency(editForm.value.id, {
       exchange_rate: editForm.value.exchange_rate,
       is_default: editForm.value.is_default
     })

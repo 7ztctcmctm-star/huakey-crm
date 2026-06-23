@@ -524,7 +524,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import request from '@/utils/request'
+import { getMyReminders, getPaymentOverdue, markAllRead, markNotificationRead } from '@/api/notification'
 import AiChat from '@/components/AiChat.vue'
 import RecycleBin from '@/components/RecycleBin.vue'
 import QuickActions from '@/components/QuickActions.vue'
@@ -665,7 +665,7 @@ const fmt = (v) => { if (!v && v !== 0) return '0.00'; return parseFloat(v).toLo
 
 const fetchReminders = async () => {
   try {
-    const res = await request.get('/reminder/my-reminders')
+    const res = await getMyReminders()
     if (res.code === 200) {
       reminderList.value = res.data.list || []
       todayList.value = res.data.today_list || []
@@ -692,7 +692,7 @@ const fetchReminders = async () => {
 const fetchPaymentOverdue = async () => {
   paymentOverdueLoading.value = true
   try {
-    const res = await request.get('/reminder/payment-overdue')
+    const res = await getPaymentOverdue()
     if (res.code === 200) {
       paymentOverdueList.value = res.data.list || []
       paymentUpcomingList.value = res.data.upcoming || []
@@ -703,7 +703,7 @@ const fetchPaymentOverdue = async () => {
 
 const markAllRemindersRead = async () => {
   try {
-    await request.post('/reminder/mark-all-read')
+    await markAllRead()
     unreadReminderCount.value = 0
     urgeUnreadCount.value = 0
   } catch (e) { /* ignore */ }
@@ -722,7 +722,7 @@ const goToContract = (id) => {
 const goToApproval = async (row) => {
   showReminderDialog.value = false
   // 标记通知已读
-  try { await request.post('/reminder/notification-read', { notification_id: row.id }) } catch {}
+  try { await markNotificationRead(row.id) } catch {}
   // 跳转到对应详情
   if (row.business_type === 'quote') {
     router.push(`/quotation?id=${row.business_id}`)
@@ -733,7 +733,7 @@ const goToApproval = async (row) => {
 
 const goToUrgeCustomer = async (row) => {
   showReminderDialog.value = false
-  try { await request.post('/reminder/notification-read', { notification_id: row.id }) } catch {}
+  try { await markNotificationRead(row.id) } catch {}
   if (row.business_type === 'customer' && row.business_id) {
     router.push(`/customer/detail/${row.business_id}`)
   }
@@ -746,7 +746,7 @@ const goToService = (row) => {
 
 const goToNewService = async (row) => {
   showReminderDialog.value = false
-  try { await request.post('/reminder/notification-read', { notification_id: row.id }) } catch {}
+  try { await markNotificationRead(row.id) } catch {}
   router.push(`/service?id=${row.business_id}`)
 }
 

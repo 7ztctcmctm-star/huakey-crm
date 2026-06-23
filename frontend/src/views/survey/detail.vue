@@ -90,7 +90,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import { getCampaignDetail, getCampaignResponses, startCampaign, closeCampaign } from '@/api/survey'
 
 const route = useRoute()
 const typeName = { nps: 'NPS', csat: 'CSAT', custom: '自定义' }
@@ -112,7 +112,7 @@ const shareLink = computed(() => `${window.location.origin}/survey/fill/${campai
 const fetchDetail = async () => {
   loading.value = true
   try {
-    const res = await request.get(`/survey/campaigns/${route.params.id}`)
+    const res = await getCampaignDetail(route.params.id)
     if (res.code === 200) campaign.value = res.data
   } catch (e) { /* */ }
   finally { loading.value = false }
@@ -120,21 +120,21 @@ const fetchDetail = async () => {
 
 const fetchResponses = async () => {
   try {
-    const res = await request.get(`/survey/campaigns/${route.params.id}/responses`, { params: { page: responsePage.value, pageSize: 20 } })
+    const res = await getCampaignResponses(route.params.id, { page: responsePage.value, pageSize: 20 })
     if (res.code === 200) { responses.value = res.data.list; responseTotal.value = res.data.total }
   } catch (e) { /* */ }
 }
 
 const handleStart = () => {
   ElMessageBox.confirm('确定启动此调查？', '确认', { type: 'info' }).then(async () => {
-    const res = await request.post(`/survey/campaigns/${route.params.id}/start`)
+    const res = await startCampaign(route.params.id)
     if (res.code === 200) { ElMessage.success('已启动'); fetchDetail() }
   }).catch(() => {})
 }
 
 const handleClose = () => {
   ElMessageBox.confirm('确定关闭此调查？', '确认', { type: 'warning' }).then(async () => {
-    const res = await request.post(`/survey/campaigns/${route.params.id}/close`)
+    const res = await closeCampaign(route.params.id)
     if (res.code === 200) { ElMessage.success('已关闭'); fetchDetail() }
   }).catch(() => {})
 }

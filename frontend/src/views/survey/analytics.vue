@@ -74,7 +74,7 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { ArrowLeft } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import { getSurveyAnalytics } from '@/api/survey'
 import echarts from '@/composables/useECharts'
 
 const route = useRoute()
@@ -97,7 +97,7 @@ const npsPercent = (n) => npsData.value.total > 0 ? Math.round(n / npsData.value
 const fetchData = async () => {
   loading.value = true
   try {
-    const res = await request.get(`/survey/analytics/${route.params.id}`)
+    const res = await getSurveyAnalytics(route.params.id)
     if (res.code === 200) {
       campaign.value = res.data.campaign
       npsData.value = res.data.nps

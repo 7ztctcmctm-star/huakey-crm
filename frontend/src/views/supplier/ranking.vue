@@ -54,6 +54,7 @@
 <script setup>
 import { ref, onMounted, nextTick } from 'vue'
 import request from '@/utils/request'
+import { getSupplierRanking, getSupplierCompare } from '@/api/supplier'
 import echarts from '@/composables/useECharts'
 
 const loading = ref(false)
@@ -65,7 +66,7 @@ const radarRef = ref(null)
 const fetchRanking = async () => {
   loading.value = true
   try {
-    const res = await request.get('/supplier/ranking')
+    const res = await getSupplierRanking()
     if (res.code === 200) rankingList.value = res.data
   } catch (e) { /* */ }
   finally { loading.value = false }
@@ -74,7 +75,7 @@ const fetchRanking = async () => {
 const fetchCompare = async () => {
   if (compareIds.value.length === 0) { compareData.value = []; return }
   try {
-    const res = await request.get('/supplier/compare', { params: { ids: compareIds.value.join(',') } })
+    const res = await getSupplierCompare(compareIds.value.join(','))
     if (res.code === 200) {
       compareData.value = res.data
       await nextTick()

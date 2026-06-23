@@ -104,6 +104,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
+import { getInventoryList, updateInventory, addInventoryMovement, getInventoryStats, getInventoryCategories } from '@/api/inventory'
 
 const router = useRouter()
 
@@ -136,7 +137,7 @@ const filterAlertProducts = () => {
 const handleAutoGenerate = async () => {
   autoGenLoading.value = true
   try {
-    const res = await request.post('/procurement-plan/auto-generate')
+    const res = await autoGeneratePlan()
     if (res.code === 200) {
       ElMessage.success(res.message || '已生成采购计划')
       router.push('/procurement/plan')
@@ -160,18 +161,18 @@ const alertForm = reactive({ min_qty: 0, max_qty: 9999, alert_enabled: 1 })
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await request.get('/inventory/list', { params: { page: page.value, page_size: pageSize.value, ...search } })
+    const res = await getInventoryList({ page: page.value, page_size: pageSize.value, ...search })
     if (res.code === 200) { list.value = res.data.list; total.value = res.data.total }
   } catch (e) { /* */ }
   finally { loading.value = false }
 }
 
 const fetchStats = async () => {
-  try { const res = await request.get('/inventory/stats'); if (res.code === 200) stats.value = res.data } catch (e) { /* */ }
+  try { const res = await getInventoryStats(); if (res.code === 200) stats.value = res.data } catch (e) { /* */ }
 }
 
 const fetchCategories = async () => {
-  try { const res = await request.get('/inventory/categories'); if (res.code === 200) categories.value = res.data } catch (e) { /* */ }
+  try { const res = await getInventoryCategories(); if (res.code === 200) categories.value = res.data } catch (e) { /* */ }
 }
 
 const openDialog = (type, row) => {
@@ -183,10 +184,9 @@ const openDialog = (type, row) => {
 const handleMove = async () => {
   moveLoading.value = true
   try {
-    const url = `/inventory/${moveType.value}`
-    const data = { product_id: moveProduct.value.id, quantity: moveForm.quantity, remark: moveForm.remark }
-    if (moveType.value === 'adjust') data.new_qty = moveForm.quantity; delete data.quantity
-    const res = await request.post(url, data)
+    const data = { product_id: moveProduct.value.id, quantity: moveForm.quantity, remark: moveForm.remark, movement_type: moveType.value }
+    if (moveType.value === 'adjust') { data.new_qty = moveForm.quantity; delete data.quantity }
+    const res = await addInventoryMovement(data)
     if (res.code === 200) { ElMessage.success('操作成功'); moveVisible.value = false; fetchList(); fetchStats() }
   } finally { moveLoading.value = false }
 }
@@ -200,7 +200,7 @@ const openAlertConfig = (row) => {
 const handleAlertConfig = async () => {
   alertLoading.value = true
   try {
-    const res = await request.put(`/inventory/alert-config/${alertProduct.value.id}`, alertForm)
+    const res = await updateInventory({ id: alertProduct.value.id, ...alertForm })
     if (res.code === 200) { ElMessage.success('配置成功'); alertVisible.value = false; fetchList() }
   } finally { alertLoading.value = false }
 }

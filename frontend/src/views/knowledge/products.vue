@@ -92,6 +92,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, Box } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { getKnowledgeProducts, getKnowledgeProductsCategories, addKnowledgeProduct, updateKnowledgeProduct, deleteKnowledgeProduct } from '@/api/knowledge'
 
 const loading = ref(false)
 const list = ref([])
@@ -119,14 +120,14 @@ const parseSpecs = (v) => { try { return JSON.parse(v) } catch { return [] } }
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await request.get('/knowledge/products', { params: { page: page.value, pageSize: pageSize.value, ...search } })
+    const res = await getKnowledgeProducts({ page: page.value, pageSize: pageSize.value, ...search })
     if (res.code === 200) { list.value = res.data.list; total.value = res.data.total }
   } catch (e) { /* */ }
   finally { loading.value = false }
 }
 
 const fetchCategories = async () => {
-  try { const res = await request.get('/knowledge/products-meta/categories'); if (res.code === 200) categories.value = res.data } catch (e) { /* */ }
+  try { const res = await getKnowledgeProductsCategories(); if (res.code === 200) categories.value = res.data } catch (e) { /* */ }
 }
 
 const handleAdd = () => { isEdit.value = false; editId.value = null; Object.assign(form, { name: '', category: '', model: '', description: '', price: null, specsList: [] }); dialogVisible.value = true }
@@ -138,7 +139,7 @@ const handleEdit = (item) => {
 const handleView = (item) => { detail.value = item; detailVisible.value = true }
 const handleDelete = (item) => {
   ElMessageBox.confirm(`确定删除产品"${item.name}"？`, '提示', { type: 'warning' }).then(async () => {
-    const res = await request.delete(`/knowledge/products/${item.id}`)
+    const res = await deleteKnowledgeProduct(item.id)
     if (res.code === 200) { ElMessage.success('已删除'); fetchList() }
   }).catch(() => {})
 }
@@ -152,8 +153,8 @@ const handleSubmit = async () => {
       const data = { ...form, specs: form.specsList.length > 0 ? JSON.stringify(form.specsList) : null }
       delete data.specsList
       let res
-      if (isEdit.value) res = await request.put(`/knowledge/products/${editId.value}`, data)
-      else res = await request.post('/knowledge/products', data)
+      if (isEdit.value) res = await updateKnowledgeProduct(editId.value, data)
+      else res = await addKnowledgeProduct(data)
       if (res.code === 200) { ElMessage.success(isEdit.value ? '修改成功' : '新增成功'); dialogVisible.value = false; fetchList(); fetchCategories() }
     } finally { submitLoading.value = false }
   })

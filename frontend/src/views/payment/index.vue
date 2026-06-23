@@ -217,6 +217,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
+import { getMergedPayments, getPaymentSummary, exportPayments, exportPaymentStatement, searchContract, addPayment, getPaymentList } from '@/api/contract'
 
 const router = useRouter()
 const activeTab = ref('merged')
@@ -270,7 +271,7 @@ const fmt = (v) => {
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await request.post('/contract/payment/list', {
+    const res = await getPaymentList({
       page: page.value,
       pageSize: pageSize.value,
       tab: activeTab.value,
@@ -292,7 +293,7 @@ const fetchList = async () => {
 // 获取逾期数量（用于顶部统计卡片）
 const fetchOverdueCount = async () => {
   try {
-    const res = await request.post('/contract/payment/list', { page: 1, pageSize: 1, tab: 'overdue' })
+    const res = await getPaymentList({ page: 1, pageSize: 1, tab: 'overdue' })
     if (res.code === 200) overdueCount.value = res.data.total
   } catch { /* ignore */ }
 }
@@ -300,7 +301,7 @@ const fetchOverdueCount = async () => {
 // 获取本月回款汇总
 const fetchMonthSummary = async () => {
   try {
-    const res = await request.post('/contract/payment/list', { page: 1, pageSize: 1, tab: 'summary' })
+    const res = await getPaymentList({ page: 1, pageSize: 1, tab: 'summary' })
     if (res.code === 200 && res.data.summary) {
       monthPlanTotal.value = res.data.summary.month_plan_total || 0
       monthPaidTotal.value = res.data.summary.month_paid_total || 0
@@ -325,7 +326,7 @@ const handleTabChange = () => {
 const fetchMerged = async () => {
   loading.value = true
   try {
-    const res = await request.post('/contract/payment/merged', {
+    const res = await getMergedPayments({
       page: page.value, pageSize: pageSize.value,
       keyword: keyword.value || undefined,
       start_date: dateRange.value?.[0] || undefined,
@@ -339,7 +340,7 @@ const fetchMerged = async () => {
 const fetchSummary = async () => {
   summaryLoading.value = true
   try {
-    const res = await request.post('/contract/payment/summary', {
+    const res = await getPaymentSummary({
       page: page.value,
       pageSize: pageSize.value,
       keyword: keyword.value || undefined
@@ -361,7 +362,7 @@ const searchContracts = async (query) => {
   if (!query) { contractOptions.value = []; return }
   contractSearchLoading.value = true
   try {
-    const res = await request.get('/contract/search', { params: { keyword: query } })
+    const res = await searchContract(query)
     if (res.code === 200) contractOptions.value = res.data
   } catch { /* ignore */ }
   finally { contractSearchLoading.value = false }
@@ -396,7 +397,7 @@ const submitQuickPay = async () => {
   if (!valid) return
   quickPaySubmitting.value = true
   try {
-    await request.post('/contract/payment/add', quickPayForm.value)
+    await addPayment(quickPayForm.value)
     ElMessage.success('回款录入成功')
     quickPayVisible.value = false
     fetchList()
@@ -426,11 +427,11 @@ const downloadTemplate = () => {
 const handleExport = async () => {
   exportLoading.value = true
   try {
-    const res = await request.post('/contract/payment/export', {
+    const res = await exportPayments({
       keyword: keyword.value || undefined,
       start_date: dateRange.value?.[0] || undefined,
       end_date: dateRange.value?.[1] || undefined
-    }, { responseType: 'blob' })
+    })
     const url = window.URL.createObjectURL(new Blob([res]))
     const link = document.createElement('a')
     link.href = url
@@ -448,11 +449,11 @@ const handleExport = async () => {
 const handleStatementExport = async () => {
   statementExportLoading.value = true
   try {
-    const res = await request.post('/contract/payment/statement-export', {
+    const res = await exportPaymentStatement({
       keyword: keyword.value || undefined,
       start_date: dateRange.value?.[0] || undefined,
       end_date: dateRange.value?.[1] || undefined
-    }, { responseType: 'blob' })
+    })
     const url = window.URL.createObjectURL(new Blob([res]))
     const link = document.createElement('a')
     link.href = url

@@ -51,7 +51,7 @@
 
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
-import request from '@/utils/request'
+import { getSurveyAnalytics } from '@/api/survey'
 import echarts from '@/composables/useECharts'
 
 const typeName = { nps: 'NPS', csat: 'CSAT', custom: '自定义' }
@@ -72,7 +72,7 @@ const latestData = computed(() => data.value.latestData)
 
 const fetchData = async () => {
   try {
-    const res = await request.get('/survey/analytics/overview')
+    const res = await getSurveyAnalytics()
     if (res.code === 200) {
       data.value = res.data
       await nextTick()

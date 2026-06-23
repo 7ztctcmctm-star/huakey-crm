@@ -83,7 +83,7 @@ import { ref, reactive, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import { login, getCaptcha } from '@/api/auth'
 import { useUser } from '@/composables/useUser'
 
 const router = useRouter()
@@ -116,7 +116,7 @@ const loginRules = {
 
 const refreshCaptcha = async () => {
   try {
-    const res = await request.get('/auth/captcha')
+    const res = await getCaptcha()
     if (res.code === 200) {
       captchaSvg.value = res.data.svg
       captchaKey.value = res.data.key
@@ -137,7 +137,7 @@ const handleLogin = async () => {
 
   loading.value = true
   try {
-    const res = await request.post('/auth/login', {
+    const res = await login({
       username: loginForm.username,
       password: loginForm.password,
       captcha: loginForm.captcha,

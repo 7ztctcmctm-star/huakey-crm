@@ -79,7 +79,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import { getReportCustomList, createReportCustom, updateReportCustom, deleteReportCustom, runReportCustom, getReportCustomFields } from '@/api/report'
 
 const typeName = { table: '表格', bar: '柱状图', line: '折线图', pie: '饼图' }
 const typeTag = { table: '', bar: 'warning', line: 'success', pie: 'info' }
@@ -104,12 +104,12 @@ const resultColumns = ref([])
 const fieldLabel = (key) => { const f = availableFields.value.find(f => f.key === key); return f ? f.label : key }
 
 const fetchList = async () => {
-  try { const res = await request.get('/report/custom'); if (res.code === 200) reportList.value = res.data } catch (e) { /* */ }
+  try { const res = await getReportCustomList(); if (res.code === 200) reportList.value = res.data } catch (e) { /* */ }
 }
 
 const fetchFields = async () => {
   try {
-    const res = await request.get(`/report/custom/fields/${form.data_source}`)
+    const res = await getReportCustomFields(form.data_source)
     if (res.code === 200) { availableFields.value = res.data; selectedFields.value = res.data.slice(0, 4).map(f => f.key); aggConfig.value = {} }
   } catch (e) { /* */ }
 }
@@ -146,15 +146,15 @@ const handleSave = async () => {
     const columns_config = JSON.stringify(selectedFields.value.map(f => ({ field: f, label: fieldLabel(f), agg: aggConfig.value[f] || null })))
     const data = { ...form, columns_config }
     let res
-    if (isEditing.value) res = await request.put(`/report/custom/${editId.value}`, data)
-    else res = await request.post('/report/custom', data)
+    if (isEditing.value) res = await updateReportCustom(editId.value, data)
+    else res = await createReportCustom(data)
     if (res.code === 200) { ElMessage.success(isEditing.value ? '修改成功' : '创建成功'); fetchList() }
   } finally { saveLoading.value = false }
 }
 
 const handleDelete = (item) => {
   ElMessageBox.confirm(`确定删除报表"${item.name}"？`, '提示', { type: 'warning' }).then(async () => {
-    const res = await request.delete(`/report/custom/${item.id}`)
+    const res = await deleteReportCustom(item.id)
     if (res.code === 200) { ElMessage.success('已删除'); if (currentId.value === item.id) handleCreate(); fetchList() }
   }).catch(() => {})
 }
@@ -163,7 +163,7 @@ const handleRun = async () => {
   if (!currentId.value) { ElMessage.warning('请先选择或保存报表'); return }
   runLoading.value = true
   try {
-    const res = await request.post(`/report/custom/${currentId.value}/run`, { page: runPage.value, page_size: 20 })
+    const res = await runReportCustom(currentId.value, { page: runPage.value, page_size: 20 })
     if (res.code === 200) {
       resultData.value = res.data
       resultColumns.value = res.data.list.length > 0 ? Object.keys(res.data.list[0]) : []

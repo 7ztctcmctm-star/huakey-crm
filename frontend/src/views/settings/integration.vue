@@ -72,7 +72,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import request from '@/utils/request'
+import { getIntegrationList, updateIntegration, testIntegration, getEmailLog } from '@/api/integration'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -91,7 +91,7 @@ const logPage = ref(1)
 const fetchConfig = async () => {
   loading.value = true
   try {
-    const res = await request.get('/integration/list')
+    const res = await getIntegrationList()
     if (res.code === 200) {
       const emailItem = res.data.find(i => i.type === 'email')
       if (emailItem) {
@@ -113,7 +113,7 @@ const handleSave = async () => {
   }
   saving.value = true
   try {
-    const res = await request.post('/integration/update', {
+    const res = await updateIntegration({
       id: emailConfig.value.id,
       config: { ...emailForm }
     })
@@ -128,7 +128,7 @@ const handleSave = async () => {
 const handleTest = async () => {
   testing.value = true
   try {
-    const res = await request.post('/integration/test')
+    const res = await testIntegration()
     if (res.code === 200) {
       if (res.data.success) {
         ElMessage.success('连接测试成功')
@@ -144,7 +144,7 @@ const handleTest = async () => {
 const fetchEmailLogs = async () => {
   logLoading.value = true
   try {
-    const res = await request.get(`/integration/email-log?page=${logPage.value}&pageSize=20`)
+    const res = await getEmailLog({ page: logPage.value, pageSize: 20 })
     if (res.code === 200) {
       emailLogs.value = res.data.list
       logTotal.value = res.data.total

@@ -74,6 +74,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Delete } from '@element-plus/icons-vue'
+import { getSurveyTemplates, saveSurveyTemplate, deleteSurveyTemplate } from '@/api/survey'
 import request from '@/utils/request'
 
 const typeName = { nps: 'NPS', csat: 'CSAT', custom: '自定义' }
@@ -95,7 +96,7 @@ const npsClass = (n) => n <= 6 ? 'nps-detractor' : n <= 8 ? 'nps-passive' : 'nps
 
 const fetchList = async () => {
   loading.value = true
-  try { const res = await request.get('/survey/templates'); if (res.code === 200) list.value = res.data } catch (e) { /* */ }
+  try { const res = await getSurveyTemplates(); if (res.code === 200) list.value = res.data } catch (e) { /* */ }
   finally { loading.value = false }
 }
 
@@ -115,7 +116,7 @@ const handlePreview = (t) => { previewData.value = t; previewVisible.value = tru
 
 const handleDelete = (t) => {
   ElMessageBox.confirm(`确定删除模板"${t.name}"？`, '提示', { type: 'warning' }).then(async () => {
-    const res = await request.delete(`/survey/templates/${t.id}`)
+    const res = await deleteSurveyTemplate(t.id)
     if (res.code === 200) { ElMessage.success('已删除'); fetchList() }
   }).catch(() => {})
 }
@@ -127,8 +128,8 @@ const handleSubmit = async () => {
   try {
     const data = { ...form, questions: JSON.stringify(form.questions) }
     let res
-    if (isEdit.value) res = await request.put(`/survey/templates/${editId.value}`, data)
-    else res = await request.post('/survey/templates', data)
+    if (isEdit.value) res = await saveSurveyTemplate({ ...data, id: editId.value })
+    else res = await saveSurveyTemplate(data)
     if (res.code === 200) { ElMessage.success(isEdit.value ? '修改成功' : '创建成功'); dialogVisible.value = false; fetchList() }
   } finally { submitLoading.value = false }
 }

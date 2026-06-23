@@ -75,6 +75,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { getUserList, deleteUser, getDeptList, getRoleList, saveUser } from '@/api/system'
 
 const loading = ref(false)
 const tableData = ref([])
@@ -99,12 +100,12 @@ const rules = { username: [{ required: true, message: '请输入用户名', trig
 
 const fetchList = async () => {
   loading.value = true
-  try { const res = await request.post('/user/list', { page: 1, pageSize: 100 }); if (res.code === 200) tableData.value = res.data.list } catch (e) { /* */ }
+  try { const res = await getUserList({ page: 1, pageSize: 100 }); if (res.code === 200) tableData.value = res.data.list } catch (e) { /* */ }
   finally { loading.value = false }
 }
 
-const fetchDepts = async () => { try { const res = await request.post('/dept/list', {}); if (res.code === 200) depts.value = res.data.list } catch (e) { /* */ } }
-const fetchRoles = async () => { try { const res = await request.post('/role/list', {}); if (res.code === 200) roles.value = res.data.list } catch (e) { /* */ } }
+const fetchDepts = async () => { try { const res = await getDeptList({}); if (res.code === 200) depts.value = res.data.list } catch (e) { /* */ } }
+const fetchRoles = async () => { try { const res = await getRoleList({}); if (res.code === 200) roles.value = res.data.list } catch (e) { /* */ } }
 
 const handleAdd = () => { isEdit.value = false; editId.value = null; Object.assign(form, { username: '', password: '', real_name: '', phone: '', email: '', dept_id: null, role_id: null }); dialogVisible.value = true }
 
@@ -116,7 +117,7 @@ const handleEdit = (row) => {
 
 const handleDelete = (row) => {
   ElMessageBox.confirm(`确定删除用户 "${row.username}" 吗？`, '提示', { type: 'warning' }).then(async () => {
-    const res = await request.post('/user/delete', { id: row.id })
+    const res = await deleteUser(row.id)
     if (res.code === 200) { ElMessage.success('已删除'); fetchList() }
   }).catch(() => {})
 }
@@ -128,8 +129,7 @@ const handleSubmit = async () => {
     submitLoading.value = true
     try {
       const data = isEdit.value ? { id: editId.value, real_name: form.real_name, phone: form.phone, email: form.email, dept_id: form.dept_id, role_id: form.role_id } : { ...form }
-      const url = isEdit.value ? '/user/update' : '/user/add'
-      const res = await request.post(url, data)
+      const res = await saveUser(data, isEdit.value ? editId.value : null)
       if (res.code === 200) { ElMessage.success(isEdit.value ? '修改成功' : '新增成功'); dialogVisible.value = false; fetchList() }
     } finally { submitLoading.value = false }
   })

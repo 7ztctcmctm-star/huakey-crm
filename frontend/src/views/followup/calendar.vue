@@ -103,7 +103,7 @@
 import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import request from '@/utils/request'
+import { getFollowUpCalendar, getFollowUpPlans } from '@/api/followUp'
 import { formatTime } from '@/composables/useFormat'
 
 const router = useRouter()
@@ -129,7 +129,7 @@ const fetchCalendar = async () => {
 
   loading.value = true
   try {
-    const res = await request.post('/follow-up/calendar', { year, month })
+    const res = await getFollowUpCalendar({ year, month })
     if (res.code === 200) {
       records.value = res.data.list || []
       buildDateMap()
@@ -187,7 +187,7 @@ const goToCustomer = (id) => {
 const fetchPlanList = async () => {
   planLoading.value = true
   try {
-    const res = await request.get('/follow-up/plans')
+    const res = await getFollowUpPlans()
     if (res.code === 200) {
       planList.value = res.data.list || []
     }

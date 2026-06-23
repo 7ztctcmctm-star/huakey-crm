@@ -84,6 +84,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, Refresh } from '@element-plus/icons-vue'
+import { getScoringRules, saveScoringRule, batchCalculateScore, deleteScoringRule, updateScoringRule } from '@/api/scoring'
 import request from '@/utils/request'
 
 const typeNameMap = { source: '来源', action: '行为', interaction: '互动' }
@@ -141,7 +142,7 @@ const formatCondition = (row) => {
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await request.get('/scoring/rules')
+    const res = await getScoringRules()
     if (res.code === 200) tableData.value = res.data
   } catch (e) { /* */ }
   finally { loading.value = false }
@@ -166,14 +167,14 @@ const handleEdit = (row) => {
 
 const handleDelete = (row) => {
   ElMessageBox.confirm(`确定删除规则 "${row.name}" 吗？`, '提示', { type: 'warning' }).then(async () => {
-    const res = await request.delete(`/scoring/rules/${row.id}`)
+    const res = await deleteScoringRule(row.id)
     if (res.code === 200) { ElMessage.success('已删除'); fetchList() }
   }).catch(() => {})
 }
 
 const handleToggleStatus = async (row) => {
   try {
-    await request.put(`/scoring/rules/${row.id}`, { status: row.status })
+    await updateScoringRule(row.id, { status: row.status })
   } catch (e) { row.status = row.status === 1 ? 0 : 1 }
 }
 
@@ -185,9 +186,9 @@ const handleSubmit = async () => {
     try {
       let res
       if (isEdit.value) {
-        res = await request.put(`/scoring/rules/${editId.value}`, form)
+        res = await updateScoringRule(editId.value, form)
       } else {
-        res = await request.post('/scoring/rules', form)
+        res = await saveScoringRule(form)
       }
       if (res.code === 200) {
         ElMessage.success(isEdit.value ? '修改成功' : '新增成功')
@@ -202,7 +203,7 @@ const handleBatchCalculate = () => {
   ElMessageBox.confirm('将重新计算所有客户的评分，可能需要一些时间，确定继续？', '提示', { type: 'warning' }).then(async () => {
     batchLoading.value = true
     try {
-      const res = await request.post('/scoring/batch-calculate')
+      const res = await batchCalculateScore()
       if (res.code === 200) ElMessage.success(`评分计算完成，处理 ${res.data.processed} 个客户`)
     } finally { batchLoading.value = false }
   }).catch(() => {})

@@ -200,6 +200,8 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus, View, Edit, Promotion, Delete } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { getQuoteList, addQuote, updateQuote, deleteQuote, approveQuote, quoteToContract, getQuoteDetail } from '@/api/quote'
+import { submitApproval, withdrawApproval } from '@/api/approval'
 import { formatTime, formatAmount } from '@/composables/useFormat'
 
 const router = useRouter()
@@ -277,7 +279,7 @@ const fetchList = async () => {
     if (searchForm.status !== '' && searchForm.status !== null) params.status = searchForm.status
     if (searchForm.approval_status !== '' && searchForm.approval_status !== null) params.approval_status = searchForm.approval_status
 
-    const res = await request.post('/quote/list', params)
+    const res = await getQuoteList(params)
     if (res.code === 200) {
       tableData.value = res.data.list
       total.value = res.data.total
@@ -314,7 +316,7 @@ const handleEdit = (row) => {
 
 const handleView = async (row) => {
   try {
-    const res = await request.get(`/quote/detail/${row.id}`)
+    const res = await getQuoteDetail(row.id)
     if (res.code === 200) {
       detailData.value = res.data
       detailVisible.value = true
@@ -331,7 +333,7 @@ const handleSend = (row) => {
     { confirmButtonText: '确定发送', cancelButtonText: '取消', type: 'warning' }
   ).then(async () => {
     try {
-      const res = await request.post('/quote/update', { id: row.id, status: 2 })
+      const res = await updateQuote({ id: row.id, status: 2 })
       if (res.code === 200) {
         ElMessage.success('已发送')
         fetchList()
@@ -353,7 +355,7 @@ const handleDelete = (row) => {
     }
   ).then(async () => {
     try {
-      const res = await request.post('/quote/delete', { id: row.id })
+      const res = await deleteQuote(row.id)
       if (res.code === 200) {
         ElMessage.success('删除成功')
         fetchList()
@@ -375,7 +377,7 @@ const handleConvertToContract = (row) => {
     }
   ).then(async () => {
     try {
-      const res = await request.post('/quote/to-contract', { id: row.id })
+      const res = await quoteToContract(row.id)
       if (res.code === 200) {
         ElMessage.success(res.message)
         // [修复] 路由中无 /contract/edit/:id，改为已存在的合同详情页
@@ -400,7 +402,7 @@ const handleApprove = (row) => {
     type: 'success'
   }).then(async () => {
     try {
-      const res = await request.post('/quote/approve', { id: row.id, approval_status: 2 })
+      const res = await approveQuote({ id: row.id, approval_status: 2 })
       if (res.code === 200) {
         ElMessage.success('审批通过')
         fetchList()
@@ -420,7 +422,7 @@ const handleReject = (row) => {
     inputValidator: (v) => { if (!v || !v.trim()) return '拒绝原因不能为空'; return true }
   }).then(async ({ value }) => {
     try {
-      const res = await request.post('/quote/approve', { id: row.id, approval_status: 3, approval_remark: value.trim() })
+      const res = await approveQuote({ id: row.id, approval_status: 3, approval_remark: value.trim() })
       if (res.code === 200) {
         ElMessage.success('已拒绝')
         fetchList()
@@ -439,7 +441,7 @@ const handleSubmitApproval = (row) => {
     type: 'info'
   }).then(async () => {
     try {
-      const res = await request.post('/approval/submit', { business_type: 'quote', business_id: row.id })
+      const res = await submitApproval({ business_type: 'quote', business_id: row.id })
       if (res.code === 200) {
         ElMessage.success('已提交审批')
         fetchList()
@@ -458,7 +460,7 @@ const handleWithdrawApproval = (row) => {
     type: 'warning'
   }).then(async () => {
     try {
-      const res = await request.delete(`/approval/withdraw/quote/${row.id}`)
+      const res = await withdrawApproval('quote', row.id)
       if (res.code === 200) {
         ElMessage.success('审批已撤回')
         fetchList()
