@@ -400,7 +400,7 @@ router.get('/overview', authenticateToken, cache(300), async (req, res) => {
 });
 
 // 今日待办
-router.get('/today-tasks', authenticateToken, async (req, res) => {
+router.get('/today-tasks', authenticateToken, cache(30), async (req, res) => {
   try {
     const userId = req.user.userId;
     const roleId = req.user.roleId;
@@ -471,7 +471,7 @@ router.get('/today-tasks', authenticateToken, async (req, res) => {
 });
 
 // 快捷操作统计
-router.get('/quick-stats', authenticateToken, async (req, res) => {
+router.get('/quick-stats', authenticateToken, cache(120), async (req, res) => {
   try {
     const userId = req.user.userId;
     const roleId = req.user.roleId;

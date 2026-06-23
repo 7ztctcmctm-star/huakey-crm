@@ -1,4 +1,4 @@
-const { getCache, setCache, REDIS_ENABLED } = require('../config/redis');
+const { getCache, setCache, delCacheByPattern, REDIS_ENABLED } = require('../config/redis');
 
 // 请求缓存中间件（支持 GET 和 POST）
 // 用法: router.get('/xxx', authenticateToken, cache(60), handler)
@@ -30,4 +30,12 @@ function cache(ttl = 300) {
   };
 }
 
-module.exports = { cache };
+// 清除匹配模式的缓存（写操作后调用）
+async function invalidateCache(patterns) {
+  if (!REDIS_ENABLED) return;
+  for (const pattern of patterns) {
+    await delCacheByPattern(pattern);
+  }
+}
+
+module.exports = { cache, invalidateCache };

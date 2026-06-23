@@ -4,6 +4,7 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
+const { cache, invalidateCache } = require('../middleware/cache');
 
 const MODULE_NAME = '合同管理';
 
@@ -120,7 +121,7 @@ const paymentDeleteSchema = Joi.object({
 });
 
 
-router.post('/list', authenticateToken, checkPermission('contract'), checkDataPermission('contract', 'create_by'), validate(listSchema), async (req, res) => {
+router.post('/list', authenticateToken, cache(60), checkPermission('contract'), checkDataPermission('contract', 'create_by'), validate(listSchema), async (req, res) => {
   const { page = 1, pageSize = 10, keyword = '', status = '', customer_id = '', approval_status = '', payment_status = '' } = req.body;
   const offset = (page - 1) * pageSize;
 
@@ -392,6 +393,7 @@ router.post('/update', authenticateToken, checkPermission('contract:edit'), vali
       });
     }
 
+    await invalidateCache(['cache:*:/api/contract/*']);
     res.json({ code: 200, message: '修改合同成功', data: null });
   } catch (error) {
     await connection.rollback();
@@ -424,6 +426,7 @@ router.post('/delete', authenticateToken, checkPermission('contract:delete'), va
     await pool.query('UPDATE crm_payment SET deleted_at = NOW() WHERE contract_id=? AND deleted_at IS NULL', [id]);
     await pool.query('UPDATE crm_payment_plan SET deleted_at = NOW() WHERE contract_id=? AND deleted_at IS NULL', [id]);
     await logAction(req, 'delete', `删除合同: ID=${id}`);
+    await invalidateCache(['cache:*:/api/contract/*']);
     res.json({ code: 200, message: '删除合同成功', data: null });
   } catch (error) {
     console.error('[合同] 删除合同失败:', error);

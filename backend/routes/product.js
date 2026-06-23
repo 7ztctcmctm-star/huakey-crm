@@ -3,6 +3,7 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
+const { cache, invalidateCache } = require('../middleware/cache');
 const ROLES = require('../config/roles');
 const { logFieldChanges } = require('../utils/fieldLog');
 
@@ -51,7 +52,7 @@ const productListSchema = Joi.object({
 const requireAdmin = require('../middleware/admin');
 
 // 1. 产品列表
-router.post('/list', authenticateToken, checkPermission('product'), validate(productListSchema), async (req, res) => {
+router.post('/list', authenticateToken, cache(120), checkPermission('product'), validate(productListSchema), async (req, res) => {
   try {
     const { page = 1, pageSize = 20, keyword, name, code, category, status } = req.body;
     const offset = (page - 1) * pageSize;
@@ -167,6 +168,7 @@ router.post('/update', authenticateToken, checkPermission('product:edit'), requi
       description: `编辑产品: ${oldData.name}`
     });
 
+    await invalidateCache(['cache:*:/api/product/*']);
     res.json({ code: 200, message: '修改产品成功', data: null });
   } catch (error) {
     console.error('[产品] 操作失败:', error);
@@ -179,6 +181,7 @@ router.post('/delete', authenticateToken, checkPermission('product:delete'), req
   try {
     const { id } = req.body;
     await pool.query('UPDATE crm_product SET status = 0 WHERE id = ?', [id]);
+    await invalidateCache(['cache:*:/api/product/*']);
     res.json({ code: 200, message: '删除产品成功', data: null });
   } catch (error) {
     console.error('[产品] 操作失败:', error);

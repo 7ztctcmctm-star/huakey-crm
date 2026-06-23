@@ -5,6 +5,21 @@
 
 services:
 
+  redis:
+    image: redis:7-alpine
+    container_name: crm-test-redis
+    restart: unless-stopped
+    mem_limit: 128m
+    ports:
+      - "6380:6379"
+    volumes:
+      - test-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   mysql:
     image: mysql:8.0
     container_name: crm-test-mysql
@@ -62,10 +77,15 @@ services:
       MIMO_BASE_URL: ${MIMO_BASE_URL:-}
       MIMO_MODEL: ${MIMO_MODEL:-}
       NODE_OPTIONS: --max-old-space-size=512
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_ENABLED: "true"
     ports:
       - "6790:5000"
     depends_on:
       mysql:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     volumes:
       - /volume1/docker/huakey-crm-deploy/test/backend:/app
@@ -76,3 +96,4 @@ services:
 volumes:
   test-mysql-data:
   test-app-uploads:
+  test-redis-data:

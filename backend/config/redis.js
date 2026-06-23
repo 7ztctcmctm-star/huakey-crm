@@ -52,5 +52,13 @@ module.exports = {
       const keys = await redis.keys(`${prefix}*`);
       if (keys.length > 0) await redis.del(keys);
     } catch {}
+  },
+  // 按模式清除缓存（支持通配符）
+  async delCacheByPattern(pattern) {
+    if (!redis) return;
+    try {
+      const keys = await redis.keys(pattern);
+      if (keys.length > 0) await redis.del(...keys);
+    } catch {}
   }
 };
