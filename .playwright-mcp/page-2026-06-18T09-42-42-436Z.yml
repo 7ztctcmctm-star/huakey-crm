@@ -1,0 +1,26 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e603]:
+    - generic [ref=e604]:
+      - heading "铧旗CRM系统" [level=1] [ref=e605]
+      - paragraph [ref=e606]: 客户关系管理系统 crm_v1
+    - generic [ref=e607]:
+      - generic [ref=e611]:
+        - img [ref=e614]
+        - textbox "请输入用户名" [ref=e616]
+      - generic [ref=e621]:
+        - img [ref=e624]
+        - textbox "请输入密码" [ref=e627]
+      - generic [ref=e631]:
+        - textbox "请输入验证码" [ref=e634]
+        - generic "点击刷新验证码" [ref=e636] [cursor=pointer]:
+          - img [ref=e637]
+      - generic [ref=e647] [cursor=pointer]:
+        - generic [ref=e648]:
+          - checkbox "记住用户名"
+        - generic [ref=e650]: 记住用户名
+      - button "登录" [ref=e653] [cursor=pointer]:
+        - generic [ref=e654]: 登录
+    - paragraph [ref=e656]: 铧旗CRM — 账号由管理员统一创建
+  - alert [ref=e657]:
+    - img [ref=e659]
+    - paragraph [ref=e661]: 退出登录成功
