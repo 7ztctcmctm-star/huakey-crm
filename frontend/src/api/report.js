@@ -3,7 +3,7 @@ import request from '@/utils/request'
 export const getReportSalesFunnel = (params) => request.get('/report/sales-funnel', { params })
 export const getReportPayment = (params) => request.get('/report/payment', { params })
 export const getReportPerformance = (params) => request.get('/report/performance', { params })
-export const getReportCustomerAnalysis = (params) => request.get('/report/customer-analysis', { params })
+export const getReportCustomerAnalysis = (params) => request.get('/report/customer', { params })
 export const getReportOverview = () => request.get('/report/overview')
 export const getReportDashboardStats = () => request.get('/report/dashboard-stats')
 export const getReportBusiness = (params) => request.get('/report/business', { params })
