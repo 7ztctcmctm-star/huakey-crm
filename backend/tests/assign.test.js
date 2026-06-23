@@ -63,17 +63,23 @@ describe('客户分配模块', () => {
         .send({ to_user_id: 2 });
 
       expect(res.status).toBe(400);
+      expect(res.body.code).toBe(400);
     });
 
-    it('应该返回400当缺少to_user_id', async () => {
-      mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+    it('应该返回200当缺少to_user_id时执行回收', async () => {
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ id: 1, owner_id: 3, company_name: '测试公司' }]]) // customer lookup
+        .mockResolvedValueOnce([{ affectedRows: 1 }]) // update owner
+        .mockResolvedValueOnce([{ insertId: 1 }]); // assign_log insert
 
       const res = await request(app)
         .post('/api/customer/assign')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: 1 });
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(200);
+      expect(res.body.code).toBe(200);
     });
 
     it('应该返回200当正常分配客户', async () => {
