@@ -104,7 +104,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
-import { getInventoryList, updateInventory, addInventoryMovement, getInventoryStats, getInventoryCategories } from '@/api/inventory'
+import { getInventoryList, updateInventory, addInventoryMovement, getInventoryStats, getInventoryCategories } from '@/api/product'
 
 const router = useRouter()
 

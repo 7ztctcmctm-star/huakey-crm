@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/permission');
 
 // 日程列表
-router.get('/events', authenticateToken, async (req, res) => {
+router.get('/events', authenticateToken, checkPermission('calendar'), async (req, res) => {
   try {
     const { start_date, end_date, event_type } = req.query;
     let where = 'WHERE e.deleted_at IS NULL';
@@ -30,7 +31,7 @@ router.get('/events', authenticateToken, async (req, res) => {
 });
 
 // 日程详情
-router.get('/events/:id', authenticateToken, async (req, res) => {
+router.get('/events/:id', authenticateToken, checkPermission('calendar'), async (req, res) => {
   try {
     const [[row]] = await pool.query(`
       SELECT e.*, c.company_name as customer_name, ct.name as contact_name
@@ -48,7 +49,7 @@ router.get('/events/:id', authenticateToken, async (req, res) => {
 });
 
 // 创建日程
-router.post('/events', authenticateToken, async (req, res) => {
+router.post('/events', authenticateToken, checkPermission('calendar'), async (req, res) => {
   try {
     const { title, event_type, description, start_time, end_time, all_day, location, customer_id, contact_id, related_type, related_id, attendees, reminder_minutes, color } = req.body;
     if (!title || !start_time) return res.status(400).json({ code: 400, message: '标题和开始时间必填', data: null });
@@ -66,7 +67,7 @@ router.post('/events', authenticateToken, async (req, res) => {
 });
 
 // 更新日程
-router.put('/events/:id', authenticateToken, async (req, res) => {
+router.put('/events/:id', authenticateToken, checkPermission('calendar'), async (req, res) => {
   try {
     // 校验所有权
     const [[event]] = await pool.query('SELECT create_by FROM crm_calendar_event WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
@@ -101,7 +102,7 @@ router.put('/events/:id', authenticateToken, async (req, res) => {
 });
 
 // 删除日程
-router.delete('/events/:id', authenticateToken, async (req, res) => {
+router.delete('/events/:id', authenticateToken, checkPermission('calendar'), async (req, res) => {
   try {
     // 校验所有权
     const [[event]] = await pool.query('SELECT create_by FROM crm_calendar_event WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
@@ -119,7 +120,7 @@ router.delete('/events/:id', authenticateToken, async (req, res) => {
 });
 
 // 标记完成
-router.post('/events/:id/complete', authenticateToken, async (req, res) => {
+router.post('/events/:id/complete', authenticateToken, checkPermission('calendar'), async (req, res) => {
   try {
     await pool.query("UPDATE crm_calendar_event SET status = 'completed' WHERE id = ? AND deleted_at IS NULL", [req.params.id]);
     res.json({ code: 200, message: '已标记完成', data: null });
@@ -130,7 +131,7 @@ router.post('/events/:id/complete', authenticateToken, async (req, res) => {
 });
 
 // 今日日程
-router.get('/today', authenticateToken, async (req, res) => {
+router.get('/today', authenticateToken, checkPermission('calendar'), async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT e.*, c.company_name as customer_name
@@ -147,7 +148,7 @@ router.get('/today', authenticateToken, async (req, res) => {
 });
 
 // 未来7天日程
-router.get('/upcoming', authenticateToken, async (req, res) => {
+router.get('/upcoming', authenticateToken, checkPermission('calendar'), async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT e.*, c.company_name as customer_name

@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
@@ -20,30 +20,13 @@ if (isProduction || process.env.VERCEL) {
   app.set('trust proxy', 1);
 }
 
-// helmet 暂时完全禁用，排查 HTTPS 强制升级问题
-// app.use(helmet({
-//   contentSecurityPolicy: {
-//     directives: {
-//       defaultSrc: ["'self'"],
-//       scriptSrc: ["'self'", "'unsafe-inline'"],
-//       styleSrc: ["'self'", "'unsafe-inline'"],
-//       imgSrc: ["'self'", "data:", "blob:"],
-//       connectSrc: ["'self'", "http:", "https:"],
-//       fontSrc: ["'self'"],
-//       objectSrc: ["'none'"],
-//       frameAncestors: ["'none'"]
-//     }
-//   },
-//   crossOriginEmbedderPolicy: false,
-//   strictTransportSecurity: false,
-//   crossOriginOpenerPolicy: false,
-//   originAgentCluster: false
-// }));
+// 启用 helmet 安全头（CSP、HSTS、X-Frame-Options 等）
+app.use(helmet());
 
-// CORS 配置：开发环境允许所有来源，生产环境按需配置
+// CORS 配置：生产环境使用白名单，开发环境限制为本地前端
 const corsOrigin = isProduction
-  ? (process.env.CORS_ORIGIN || 'http://localhost:5173')
-  : '*';
+  ? (process.env.CORS_ORIGIN || 'https://your-domain.com')
+  : 'http://localhost:5173';
 
 app.use(cors({
   origin: corsOrigin,
@@ -52,7 +35,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(cookieParser());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // 加载日志中间件
@@ -152,13 +135,39 @@ apiRouter.get('/', (req, res) => {
 });
 
 // 健康检查
-apiRouter.get('/health', (req, res) => {
+apiRouter.get('/health', async (req, res) => {
+  let dbOk = false;
+  let redisOk = false;
+  let mysqlVersion = '未知';
+
+  // 检测数据库
+  try {
+    const pool = require('./config/database');
+    const [rows] = await pool.query('SELECT VERSION() AS v');
+    dbOk = true;
+    if (rows && rows[0]) mysqlVersion = 'MySQL ' + rows[0].v;
+  } catch {}
+
+  // 检测Redis
+  try {
+    const { redis, REDIS_ENABLED } = require('./config/redis');
+    if (REDIS_ENABLED && redis) {
+      await redis.ping();
+      redisOk = true;
+    }
+  } catch {}
+
   res.json({
     code: 200,
     message: '服务运行正常',
     data: {
       status: 'ok',
       version: 'crm_v1',
+      nodeEnv: process.env.NODE_ENV || 'development',
+      expressVersion: require('express/package.json').version,
+      mysqlVersion,
+      db: dbOk,
+      redis: redisOk,
       timestamp: new Date().toISOString()
     }
   });
@@ -339,94 +348,9 @@ const pool = require('./config/database');
 
 // Vercel Serverless 环境：跳过 node-cron 和 app.listen（由平台处理）
 if (!process.env.VERCEL) {
-  const cron = require('node-cron');
-  const { checkAllSuppliersScores } = require('./utils/scoring');
-  const { checkQualificationExpiry, updateQualificationStatus } = require('./utils/qualification-reminder');
-
-  cron.schedule('0 2 * * *', async () => {
-    console.log('[定时任务] 开始执行供应商评分');
-    try {
-      await checkAllSuppliersScores();
-      await updateQualificationStatus();
-      await checkQualificationExpiry();
-      console.log('[定时任务] 供应商评分完成');
-    } catch (error) {
-      console.error('[定时任务] 供应商评分失败:', error.message);
-    }
-  }, { timezone: 'Asia/Shanghai' });
-
-  // 定时清理过期日志（每天凌晨3点，保留90天）
-  cron.schedule('0 3 * * *', async () => {
-    try {
-      const result = await pool.query(
-        "DELETE FROM sys_log WHERE create_time < NOW() - INTERVAL 90 DAY"
-      );
-      if (result.rowCount > 0) {
-        console.log(`[日志清理] 已清理 ${result.rowCount} 条过期日志`);
-      }
-    } catch (error) {
-      console.error('[日志清理] 清理失败:', error.message);
-    }
-  }, { timezone: 'Asia/Shanghai' });
-
-  // 定时清理过期token黑名单（每天凌晨3点30分）
-  cron.schedule('30 3 * * *', async () => {
-    try {
-      const [result] = await pool.query('DELETE FROM sys_token_blacklist WHERE expire_at < NOW()');
-      if (result.affectedRows > 0) {
-        console.log(`[黑名单清理] 已清理 ${result.affectedRows} 条过期黑名单记录`);
-      }
-    } catch (error) {
-      console.error('[黑名单清理] 清理失败:', error.message);
-    }
-  }, { timezone: 'Asia/Shanghai' });
-
-  // 定时任务：公海池自动回收
-  const AUTO_RELEASE_DAYS = parseInt(process.env.AUTO_RELEASE_DAYS) || 30;
-  cron.schedule('0 1 * * *', async () => {
-    console.log('[公海回收] 开始检查超期未跟进客户...');
-    try {
-      const [customers] = await pool.query(
-        `SELECT id, company_name, owner_id FROM crm_customer
-         WHERE pool_status = 0 AND status != 0 AND owner_id IS NOT NULL
-           AND (last_follow_time IS NULL AND create_time < NOW() - INTERVAL ? DAY
-             OR last_follow_time < NOW() - INTERVAL ? DAY)`,
-        [AUTO_RELEASE_DAYS, AUTO_RELEASE_DAYS]
-      );
-      if (customers.length === 0) {
-        console.log('[公海回收] 无需要释放的客户');
-        return;
-      }
-      let released = 0;
-      for (const c of customers) {
-        await pool.query(
-          'UPDATE crm_customer SET pool_status = 1, owner_id = NULL, protect_until = NULL WHERE id = ?',
-          [c.id]
-        );
-        await pool.query(
-          `INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id)
-           VALUES (?, 'auto_release', ?, NULL)`,
-          [c.id, c.owner_id]
-        );
-        released++;
-      }
-      console.log(`[公海回收] 已释放 ${released} 个客户（超过${AUTO_RELEASE_DAYS}天未跟进）`);
-    } catch (error) {
-      console.error('[公海回收] 执行失败:', error.message);
-    }
-  }, { timezone: 'Asia/Shanghai' });
-
-  // 定时任务：跟进提醒生成
-  const { generateReminders } = require('./scripts/generate_reminders');
-  cron.schedule('30 8 * * *', async () => {
-    console.log('[提醒生成] 开始执行...');
-    try {
-      await generateReminders(pool);
-      console.log('[提醒生成] 执行完成');
-    } catch (error) {
-      console.error('[提醒生成] 执行失败:', error.message);
-    }
-  }, { timezone: 'Asia/Shanghai' });
+  // 启动定时任务（已抽取到 cron/scheduler.js，带失败重试和执行日志）
+  const { startAllCronJobs } = require('./cron/scheduler');
+  startAllCronJobs(pool);
 
   // 全局未捕获Promise拒绝处理器
   process.on('unhandledRejection', (reason, promise) => {

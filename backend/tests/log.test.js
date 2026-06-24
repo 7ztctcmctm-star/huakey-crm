@@ -41,6 +41,7 @@ describe('操作日志模块', () => {
     it('应该返回200和分页日志列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 100 }]])  // count query
         .mockResolvedValueOnce([[                     // data query
           { id: 1, module: 'auth', action: '登录', create_time: '2025-01-01' },
@@ -63,6 +64,7 @@ describe('操作日志模块', () => {
     it('应该支持按模块筛选', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 5 }]])
         .mockResolvedValueOnce([[{ id: 1, module: 'auth', action: '登录' }]]);
 
@@ -78,6 +80,7 @@ describe('操作日志模块', () => {
     it('应该支持按日期范围筛选', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 3 }]])
         .mockResolvedValueOnce([[{ id: 1, module: 'customer', action: '新增' }]]);
 
@@ -95,6 +98,7 @@ describe('操作日志模块', () => {
     it('应该返回404当日志不存在', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[]]); // log not found
 
       const res = await request(app)
@@ -108,6 +112,7 @@ describe('操作日志模块', () => {
     it('应该返回200和日志详情', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[
           { id: 1, module: 'auth', action: '登录', method: 'POST', url: '/api/auth/login', user_name: '管理员', ip_address: '127.0.0.1', status: 1, create_time: '2025-01-01 10:00:00' }
         ]]);
@@ -127,6 +132,7 @@ describe('操作日志模块', () => {
     it('应该返回200和模块列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ module: 'auth' }, { module: 'customer' }, { module: 'contract' }]]);
 
       const res = await request(app)

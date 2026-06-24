@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const pool = require('../config/database');
+const ROLES = require('../config/roles');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -53,32 +54,50 @@ const authenticateToken = (req, res, next) => {
       });
     }
 
-    // 检查token是否在黑名单中（已登出）
+    // 检查token是否在黑名单中（已登出）+ 查询最新角色权限
     try {
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-      const result = await pool.query(
-        'SELECT 1 as blacklisted FROM sys_token_blacklist WHERE token_hash = ? AND expire_at > NOW() LIMIT 1',
-        [tokenHash]
-      );
-      const rows = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : [];
-      if (rows.length > 0 && rows[0] && rows[0].blacklisted === 1) {
+
+      // 并行：黑名单检查 + 角色权限查询
+      const [blacklistResult, roleResult] = await Promise.all([
+        pool.query(
+          'SELECT 1 as blacklisted FROM sys_token_blacklist WHERE token_hash = ? AND expire_at > NOW() LIMIT 1',
+          [tokenHash]
+        ),
+        pool.query(
+          'SELECT COALESCE(view_all, 0) as view_all, COALESCE(manage_all, 0) as manage_all FROM sys_role WHERE id = ?',
+          [user.roleId]
+        )
+      ]);
+
+      const blacklistRows = Array.isArray(blacklistResult) && Array.isArray(blacklistResult[0]) ? blacklistResult[0] : [];
+      if (blacklistRows.length > 0 && blacklistRows[0] && blacklistRows[0].blacklisted === 1) {
         return res.status(401).json({
           code: 401,
           message: '令牌已失效，请重新登录',
           data: null
         });
       }
-    } catch (dbErr) {
-      // 黑名单查询失败不阻断请求，降级放行（如表不存在）
-    }
 
-    req.user = {
-      userId: user.userId,
-      username: user.username,
-      roleId: user.roleId,
-      viewAll: user.viewAll === true || [1].includes(user.roleId),
-      manageAll: user.manageAll === true || [1].includes(user.roleId)
-    };
+      // 从 DB 获取最新权限，不依赖 token 中的过期值
+      const roleRows = Array.isArray(roleResult) && Array.isArray(roleResult[0]) ? roleResult[0] : [];
+      const freshRole = roleRows[0] || {};
+
+      req.user = {
+        userId: user.userId,
+        username: user.username,
+        roleId: user.roleId,
+        viewAll: freshRole.view_all === 1 || user.roleId === ROLES.ADMIN,
+        manageAll: freshRole.manage_all === 1 || user.roleId === ROLES.ADMIN
+      };
+    } catch (dbErr) {
+      console.error('[Auth] 数据库查询失败:', dbErr);
+      return res.status(500).json({
+        code: 500,
+        message: '令牌验证失败，请稍后重试',
+        data: null
+      });
+    }
 
     next();
   });

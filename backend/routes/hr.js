@@ -2,12 +2,13 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/permission');
 const { requireManager } = require('../middleware/admin');
 
 // ============ 员工档案 ============
 
 // 员工列表
-router.get('/employees', authenticateToken, requireManager, async (req, res) => {
+router.get('/employees', authenticateToken, checkPermission('hr'), requireManager, async (req, res) => {
   try {
     const { dept_id, status, keyword, contract_expiring, page = 1, pageSize = 20 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(pageSize);
@@ -53,7 +54,7 @@ router.get('/employees', authenticateToken, requireManager, async (req, res) => 
 });
 
 // 员工统计
-router.get('/employees/stats', authenticateToken, requireManager, async (req, res) => {
+router.get('/employees/stats', authenticateToken, checkPermission('hr'), requireManager, async (req, res) => {
   try {
     const [[total]] = await pool.query('SELECT COUNT(*) as cnt FROM sys_user');
     const [[active]] = await pool.query('SELECT COUNT(*) as cnt FROM sys_user WHERE status = 1');
@@ -85,7 +86,7 @@ router.get('/employees/stats', authenticateToken, requireManager, async (req, re
 });
 
 // 员工详情
-router.get('/employees/:id', authenticateToken, requireManager, async (req, res) => {
+router.get('/employees/:id', authenticateToken, checkPermission('hr'), requireManager, async (req, res) => {
   try {
     const [[row]] = await pool.query(`
       SELECT u.id, u.username, u.real_name, u.phone, u.email, u.status, u.dept_id, u.role_id, u.manager_id,
@@ -110,7 +111,7 @@ router.get('/employees/:id', authenticateToken, requireManager, async (req, res)
 });
 
 // 员工薪资信息（仅管理员可访问）
-router.get('/employees/:id/salary', authenticateToken, requireManager, async (req, res) => {
+router.get('/employees/:id/salary', authenticateToken, checkPermission('hr'), requireManager, async (req, res) => {
   try {
     const [[profile]] = await pool.query(
       'SELECT salary_base, salary_commission_rate, bank_name, bank_account FROM crm_employee_profile WHERE user_id = ?',
@@ -124,7 +125,7 @@ router.get('/employees/:id/salary', authenticateToken, requireManager, async (re
 });
 
 // 创建/更新员工档案
-router.post('/employees/:id/profile', authenticateToken, requireManager, async (req, res) => {
+router.post('/employees/:id/profile', authenticateToken, checkPermission('hr'), requireManager, async (req, res) => {
   try {
     const userId = req.params.id;
     const [[user]] = await pool.query('SELECT id FROM sys_user WHERE id = ?', [userId]);
@@ -167,7 +168,7 @@ router.post('/employees/:id/profile', authenticateToken, requireManager, async (
 });
 
 // 员工佣金汇总
-router.get('/employees/:id/commission', authenticateToken, requireManager, async (req, res) => {
+router.get('/employees/:id/commission', authenticateToken, checkPermission('hr'), requireManager, async (req, res) => {
   try {
     const userId = req.params.id;
     const now = new Date();
@@ -204,7 +205,7 @@ router.get('/employees/:id/commission', authenticateToken, requireManager, async
 
 // ============ 佣金规则 ============
 
-router.get('/commission/rules', authenticateToken, requireManager, async (req, res) => {
+router.get('/commission/rules', authenticateToken, checkPermission('hr'), requireManager, async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM crm_commission_rule WHERE deleted_at IS NULL ORDER BY create_time DESC');
     res.json({ code: 200, message: '查询成功', data: rows });
@@ -214,7 +215,7 @@ router.get('/commission/rules', authenticateToken, requireManager, async (req, r
   }
 });
 
-router.post('/commission/rules', authenticateToken, requireManager, async (req, res) => {
+router.post('/commission/rules', authenticateToken, checkPermission('hr'), requireManager, async (req, res) => {
   try {
     const { name, rule_type, apply_to, config, remark } = req.body;
     if (!name || !rule_type || !config) return res.status(400).json({ code: 400, message: '参数不完整', data: null });
@@ -230,7 +231,7 @@ router.post('/commission/rules', authenticateToken, requireManager, async (req, 
   }
 });
 
-router.put('/commission/rules/:id', authenticateToken, requireManager, async (req, res) => {
+router.put('/commission/rules/:id', authenticateToken, checkPermission('hr'), requireManager, async (req, res) => {
   try {
     const { name, rule_type, apply_to, config, status, remark } = req.body;
     const fields = [], values = [];
@@ -250,7 +251,7 @@ router.put('/commission/rules/:id', authenticateToken, requireManager, async (re
   }
 });
 
-router.delete('/commission/rules/:id', authenticateToken, requireManager, async (req, res) => {
+router.delete('/commission/rules/:id', authenticateToken, checkPermission('hr'), requireManager, async (req, res) => {
   try {
     await pool.query('UPDATE crm_commission_rule SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
     res.json({ code: 200, message: '删除成功', data: null });
@@ -261,7 +262,7 @@ router.delete('/commission/rules/:id', authenticateToken, requireManager, async 
 });
 
 // 计算佣金
-router.post('/commission/calculate', authenticateToken, requireManager, async (req, res) => {
+router.post('/commission/calculate', authenticateToken, checkPermission('hr'), requireManager, async (req, res) => {
   try {
     const { period, user_ids } = req.body;
     if (!period) return res.status(400).json({ code: 400, message: '请选择月份', data: null });
@@ -347,7 +348,7 @@ router.post('/commission/calculate', authenticateToken, requireManager, async (r
 });
 
 // 佣金记录列表
-router.get('/commission/records', authenticateToken, requireManager, async (req, res) => {
+router.get('/commission/records', authenticateToken, checkPermission('hr'), requireManager, async (req, res) => {
   try {
     const { period, user_id, status, page = 1, pageSize = 20 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(pageSize);
@@ -380,7 +381,7 @@ router.get('/commission/records', authenticateToken, requireManager, async (req,
 });
 
 // 佣金统计
-router.get('/commission/stats', authenticateToken, requireManager, async (req, res) => {
+router.get('/commission/stats', authenticateToken, checkPermission('hr'), requireManager, async (req, res) => {
   try {
     const now = new Date();
     const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -402,7 +403,7 @@ router.get('/commission/stats', authenticateToken, requireManager, async (req, r
 });
 
 // 批量确认
-router.post('/commission/records/batch-confirm', authenticateToken, requireManager, async (req, res) => {
+router.post('/commission/records/batch-confirm', authenticateToken, checkPermission('hr'), requireManager, async (req, res) => {
   try {
     const { ids } = req.body;
     if (!ids || ids.length === 0) return res.status(400).json({ code: 400, message: '请选择记录', data: null });
@@ -416,7 +417,7 @@ router.post('/commission/records/batch-confirm', authenticateToken, requireManag
 });
 
 // 批量发放
-router.post('/commission/records/batch-pay', authenticateToken, requireManager, async (req, res) => {
+router.post('/commission/records/batch-pay', authenticateToken, checkPermission('hr'), requireManager, async (req, res) => {
   try {
     const { ids } = req.body;
     if (!ids || ids.length === 0) return res.status(400).json({ code: 400, message: '请选择记录', data: null });
@@ -431,7 +432,7 @@ router.post('/commission/records/batch-pay', authenticateToken, requireManager, 
 
 // ============ 组织架构 ============
 
-router.get('/org-tree', authenticateToken, requireManager, async (req, res) => {
+router.get('/org-tree', authenticateToken, checkPermission('hr'), requireManager, async (req, res) => {
   try {
     const [depts] = await pool.query(`
       SELECT d.id, d.name, d.parent_id, d.sort,
@@ -467,7 +468,7 @@ router.get('/org-tree', authenticateToken, requireManager, async (req, res) => {
 });
 
 // 部门员工列表
-router.get('/org-tree/:deptId/employees', authenticateToken, requireManager, async (req, res) => {
+router.get('/org-tree/:deptId/employees', authenticateToken, checkPermission('hr'), requireManager, async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT u.id, u.real_name, u.phone, u.email, p.position, p.employment_type

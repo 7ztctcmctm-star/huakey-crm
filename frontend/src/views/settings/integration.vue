@@ -72,7 +72,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getIntegrationList, updateIntegration, testIntegration, getEmailLog } from '@/api/integration'
+import { getIntegrationList, updateIntegration, testIntegration, getEmailLog } from '@/api/system'
 
 const loading = ref(false)
 const saving = ref(false)

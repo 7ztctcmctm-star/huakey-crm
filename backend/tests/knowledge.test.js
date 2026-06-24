@@ -51,6 +51,7 @@ describe('知识库模块', () => {
     it('应该返回产品知识列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 2 }]]) // count
         .mockResolvedValueOnce([[ // list
           { id: 1, name: '产品A', category: '电子', model: 'A-001', create_by_name: '张三' },
@@ -72,6 +73,7 @@ describe('知识库模块', () => {
   describe('POST /api/knowledge/products', () => {
     it('应该返回400当缺少name', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/knowledge/products')
@@ -85,6 +87,7 @@ describe('知识库模块', () => {
     it('应该返回200当正常创建产品', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
@@ -102,6 +105,7 @@ describe('知识库模块', () => {
     it('应该返回FAQ列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[ // list
           { id: 1, question: '如何报价？', answer: '进入报价模块...', category: '操作指南' }
@@ -122,6 +126,7 @@ describe('知识库模块', () => {
     it('应该返回产品分类列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // categories
           { category: '电子' },
           { category: '机械' },

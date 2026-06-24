@@ -17,7 +17,7 @@ jest.mock('../middleware/logger', () => ({
 }));
 
 jest.mock('../services/permissionService', () => ({
-  getUserPermissions: jest.fn().mockResolvedValue([]),
+  getUserPermissions: jest.fn().mockResolvedValue(["calendar"]),
   getMenuPermissions: jest.fn().mockResolvedValue([]),
   getDataPermissions: jest.fn().mockResolvedValue([])
 }));
@@ -40,6 +40,7 @@ describe('日历模块', () => {
   describe('POST /api/calendar/events', () => {
     it('应该返回400当缺少title', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/calendar/events')
@@ -52,6 +53,7 @@ describe('日历模块', () => {
     it('应该返回200当正常创建日程事件', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
@@ -69,6 +71,7 @@ describe('日历模块', () => {
     it('应该返回日程事件列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1, title: '客户拜访' }, { id: 2, title: '团队会议' }]]); // list
 
       const res = await request(app)
@@ -85,6 +88,7 @@ describe('日历模块', () => {
     it('应该返回400当没有要更新的字段', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ create_by: 1 }]]); // ownership check
 
       const res = await request(app)
@@ -98,6 +102,7 @@ describe('日历模块', () => {
     it('应该返回200当正常更新日程', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ create_by: 1 }]]) // ownership check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
 
@@ -115,6 +120,7 @@ describe('日历模块', () => {
     it('应该返回200当正常删除日程', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ create_by: 1 }]]) // ownership check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 

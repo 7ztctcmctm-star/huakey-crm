@@ -41,6 +41,7 @@ describe('客户导入模块', () => {
   describe('GET /api/customer/template', () => {
     it('应该返回导入模板文件', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .get('/api/customer/template')
@@ -54,6 +55,7 @@ describe('客户导入模块', () => {
   describe('POST /api/customer/import-preview', () => {
     it('应该返回400当缺少file', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/customer/import-preview')
@@ -67,6 +69,7 @@ describe('客户导入模块', () => {
     it('应该返回200当正常预览', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // validation rules
           { id: 1, field_name: 'company_name', rule_type: 'required', is_active: 1 }
         ]]);

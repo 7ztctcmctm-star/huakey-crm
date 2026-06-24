@@ -101,7 +101,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Delete } from '@element-plus/icons-vue'
 import request from '@/utils/request'
-import { getWorkflows, saveWorkflow, executeWorkflow, getWorkflowLogs, toggleWorkflow, deleteWorkflow } from '@/api/automation'
+import { getWorkflows, saveWorkflow, executeWorkflow, getWorkflowLogs, toggleWorkflow, deleteWorkflow } from '@/api/tools'
 
 const eventName = { customer_created: '新客户创建', contract_expiring: '合同即将到期', followup_overdue: '跟进超期', payment_overdue: '回款逾期', opportunity_stale: '商机停滞' }
 const eventTag = { customer_created: '', contract_expiring: 'warning', followup_overdue: 'danger', payment_overdue: '', opportunity_stale: 'info' }

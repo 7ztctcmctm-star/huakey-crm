@@ -104,7 +104,7 @@ import { useRouter } from 'vue-router'
 import { Edit, Setting, Search, Star, Paperclip, RefreshRight, Connection, Document } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
-import { getEmailList, getEmailStats, markEmailRead, getEmailDetail, toggleEmailStar, linkCustomerToEmail } from '@/api/email'
+import { getEmailList, getEmailStats, markEmailRead, getEmailDetail, toggleEmailStar, linkCustomerToEmail } from '@/api/tools'
 import { getCustomerList } from '@/api/customer'
 import DOMPurify from 'dompurify'
 

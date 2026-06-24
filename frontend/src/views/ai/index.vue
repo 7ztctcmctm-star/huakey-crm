@@ -48,7 +48,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
-import { getAiSuggestions, generateAiSuggestions, aiSuggestionFeedback } from '@/api/ai'
+import { getAiSuggestions, generateAiSuggestions, aiSuggestionFeedback } from '@/api/tools'
 import request from '@/utils/request'
 
 const router = useRouter()

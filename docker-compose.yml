@@ -11,12 +11,14 @@ services:
     container_name: huakey-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-CHANGE_ME}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME:-huakey_crm}
       MYSQL_USER: ${DB_USER:-crm_user}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-CHANGE_ME}
-    ports:
-      - "${DB_PORT:-3306}:3306"
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    # 生产环境不暴露 MySQL 端口，仅内网访问
+    # 如需本地直连，取消下行注释:
+    # ports:
+    #   - "${DB_PORT:-3306}:3306"
     volumes:
       - ./docker/data/mysql:/var/lib/mysql
       - ./init-complete.sql:/docker-entrypoint-initdb.d/00_init.sql:ro
@@ -59,7 +61,7 @@ services:
       DB_HOST: mysql
       DB_PORT: 3306
       DB_USER: ${DB_USER:-crm_user}
-      DB_PASSWORD: ${DB_PASSWORD:-CHANGE_ME}
+      DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME:-huakey_crm}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}

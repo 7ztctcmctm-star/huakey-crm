@@ -60,6 +60,7 @@ describe('发票管理模块', () => {
   describe('POST /api/invoice/add', () => {
     it('应该返回400当缺少必填字段', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/invoice/add')
@@ -72,6 +73,7 @@ describe('发票管理模块', () => {
 
     it('应该返回200当正常创建发票', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       mockConnection.query
         .mockResolvedValueOnce([[{ cnt: 0 }]]) // count for invoice_no generation
@@ -94,6 +96,7 @@ describe('发票管理模块', () => {
     it('应该返回发票列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 2 }]]) // count
         .mockResolvedValueOnce([[ // list
           { id: 1, invoice_no: 'INV-260623-001', amount: 10000 },
@@ -116,6 +119,7 @@ describe('发票管理模块', () => {
     it('应该返回200当正常更新发票', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1, invoice_no: 'INV-260623-001', amount: 10000 }]]) // old data
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
 
@@ -133,6 +137,7 @@ describe('发票管理模块', () => {
     it('应该返回200当正常删除发票', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1 }]]) // existence check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 

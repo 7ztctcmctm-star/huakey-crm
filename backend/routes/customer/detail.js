@@ -146,7 +146,7 @@ router.post('/list',
       whereClause = `WHERE ${permissionWhere} AND c.status = ?`;
       params.push(parseInt(status));
     } else {
-      whereClause = `WHERE ${permissionWhere} AND c.status != 0`;
+      whereClause = `WHERE ${permissionWhere} AND c.deleted_at IS NULL`;
     }
 
     if (owner_id) {
@@ -315,7 +315,7 @@ router.post('/add', authenticateToken, checkPermission('customer:add'), validate
 
     // 重复检测
     const [duplicates] = await pool.query(
-      'SELECT id, company_name, phone, email FROM crm_customer WHERE company_name = ? AND status != 0 LIMIT 5',
+      'SELECT id, company_name, phone, email FROM crm_customer WHERE company_name = ? AND deleted_at IS NULL LIMIT 5',
       [company_name]
     );
 
@@ -392,7 +392,7 @@ router.post('/update', authenticateToken, checkPermission('customer:edit'), vali
     }
 
     const [customers] = await pool.query(
-      'SELECT id, owner_id, company_name, contact_name, phone, email, address, industry, source, level, status, remark FROM crm_customer WHERE id = ? AND status != 0',
+      'SELECT id, owner_id, company_name, contact_name, phone, email, address, industry, source, level, status, remark FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
       [id]
     );
 
@@ -444,7 +444,7 @@ router.post('/update', authenticateToken, checkPermission('customer:edit'), vali
     // 重复检测：公司名变更时检查是否与已有客户重名
     if (updateFields.company_name && updateFields.company_name !== customer.company_name) {
       const [dups] = await pool.query(
-        'SELECT id, company_name FROM crm_customer WHERE company_name = ? AND id != ? AND status != 0 LIMIT 5',
+        'SELECT id, company_name FROM crm_customer WHERE company_name = ? AND id != ? AND deleted_at IS NULL LIMIT 5',
         [updateFields.company_name, id]
       );
       if (dups.length > 0) {
@@ -510,7 +510,7 @@ router.post('/delete', authenticateToken, checkPermission('customer:delete'), va
     }
 
     const [customers] = await pool.query(
-      'SELECT id, owner_id FROM crm_customer WHERE id = ? AND status != 0',
+      'SELECT id, owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
       [id]
     );
 
@@ -534,7 +534,7 @@ router.post('/delete', authenticateToken, checkPermission('customer:delete'), va
     }
 
     await pool.query(
-      'UPDATE crm_customer SET status = 0 WHERE id = ?',
+      'UPDATE crm_customer SET deleted_at = NOW() WHERE id = ?',
       [id]
     );
 
@@ -576,7 +576,7 @@ router.get('/detail/:id', authenticateToken, checkDataPermission('customer', 'ow
         u.real_name as owner_name
       FROM crm_customer c
       LEFT JOIN sys_user u ON c.owner_id = u.id
-      WHERE c.id = ? AND c.status != 0 AND ${permissionWhere}`,
+      WHERE c.id = ? AND c.deleted_at IS NULL AND ${permissionWhere}`,
       [id, ...permParams]
     );
 
@@ -809,7 +809,7 @@ router.post('/export', authenticateToken, checkPermission('customer:list'), chec
       whereClause = `WHERE ${permissionClause} AND c.status = ?`;
       params.push(parseInt(status));
     } else {
-      whereClause = `WHERE ${permissionClause} AND c.status != 0`;
+      whereClause = `WHERE ${permissionClause} AND c.deleted_at IS NULL`;
     }
 
     if (owner_id) { whereClause += ' AND c.owner_id = ?'; params.push(owner_id); }
@@ -891,7 +891,7 @@ router.post('/convert',
       const roleId = req.user.roleId;
 
       // 权限：仅老板(1)和管理者(2)
-      if (roleId !== 1 && roleId !== 2) {
+      if (roleId !== ROLES.ADMIN && roleId !== ROLES.MANAGER) {
         return res.status(403).json({ code: 403, message: '仅管理者可执行转化操作', data: null });
       }
 
@@ -899,7 +899,7 @@ router.post('/convert',
         return res.status(400).json({ code: 400, message: '请指定客户', data: null });
       }
 
-      const [customers] = await pool.query('SELECT id, company_name, status FROM crm_customer WHERE id = ? AND status != 0', [customer_id]);
+      const [customers] = await pool.query('SELECT id, company_name, status FROM crm_customer WHERE id = ? AND deleted_at IS NULL', [customer_id]);
       if (!customers.length) {
         return res.status(404).json({ code: 404, message: '客户不存在', data: null });
       }

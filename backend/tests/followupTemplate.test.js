@@ -17,7 +17,7 @@ jest.mock('../middleware/logger', () => ({
 }));
 
 jest.mock('../services/permissionService', () => ({
-  getUserPermissions: jest.fn().mockResolvedValue([]),
+  getUserPermissions: jest.fn().mockResolvedValue(["followup_template"]),
   getMenuPermissions: jest.fn().mockResolvedValue([]),
   getDataPermissions: jest.fn().mockResolvedValue([])
 }));
@@ -40,6 +40,7 @@ describe('跟进模板模块', () => {
   describe('POST /api/followup-templates/', () => {
     it('应该返回400当缺少content', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/followup-templates/')
@@ -53,6 +54,7 @@ describe('跟进模板模块', () => {
     it('应该返回200当正常创建模板', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
@@ -70,6 +72,7 @@ describe('跟进模板模块', () => {
     it('应该返回模板列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // list
           { id: 1, name: '首次跟进', type: 'first', content: '模板内容1' },
           { id: 2, name: '报价跟进', type: 'quote', content: '模板内容2' }
@@ -89,6 +92,7 @@ describe('跟进模板模块', () => {
     it('应该返回200当正常删除模板', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1, create_by: 1 }]]) // existence + ownership check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 

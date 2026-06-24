@@ -39,6 +39,7 @@ describe('用户管理模块', () => {
     it('应该返回400当缺少username字段', async () => {
       const token = generateToken();
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/user/add')
@@ -52,6 +53,7 @@ describe('用户管理模块', () => {
     it('应该返回400当缺少password字段', async () => {
       const token = generateToken();
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/user/add')
@@ -66,6 +68,7 @@ describe('用户管理模块', () => {
       const token = generateToken();
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 99 }]]); // user exists
 
       const res = await request(app)
@@ -81,6 +84,7 @@ describe('用户管理模块', () => {
       const token = generateToken();
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[]])  // username not exists
         .mockResolvedValueOnce([{ insertId: 10 }]);
 
@@ -99,6 +103,7 @@ describe('用户管理模块', () => {
     it('应该返回400当缺少id字段', async () => {
       const token = generateToken();
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/user/update')
@@ -113,6 +118,7 @@ describe('用户管理模块', () => {
       const token = generateToken();
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 2 }]])  // user exists
         .mockResolvedValueOnce([{ affectedRows: 1 }]);
 
@@ -130,6 +136,7 @@ describe('用户管理模块', () => {
     it('应该返回400当缺少id字段', async () => {
       const token = generateToken();
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/user/delete')
@@ -144,6 +151,7 @@ describe('用户管理模块', () => {
       const token = generateToken(1); // userId = 1
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1 }]]); // user exists
 
       const res = await request(app)
@@ -159,6 +167,7 @@ describe('用户管理模块', () => {
       const token = generateToken(1); // userId = 1
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 2 }]])  // user exists
         .mockResolvedValueOnce([{ affectedRows: 1 }]);
 

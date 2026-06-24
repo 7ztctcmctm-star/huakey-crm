@@ -134,7 +134,11 @@ router.post('/delete', authenticateToken, checkPermission('file'), async (req, r
     } else {
       // 本地文件删除
       const fs = require('fs');
-      const fullPath = path.join(__dirname, '..', attachment.file_path);
+      const uploadsDir = path.resolve(__dirname, '..', 'uploads');
+      const fullPath = path.resolve(__dirname, '..', attachment.file_path.replace(/^\//, ''));
+      if (!fullPath.startsWith(uploadsDir)) {
+        return res.status(400).json({ code: 400, message: '非法文件路径', data: null });
+      }
       if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
     }
 

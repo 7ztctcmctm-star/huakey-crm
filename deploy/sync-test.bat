@@ -12,7 +12,7 @@ echo ========================================
 echo.
 
 REM Check if local git is clean before syncing
-echo [0/5] Checking local git status...
+echo [0/6] Checking local git status...
 cd /d "%LOCAL%"
 git diff --quiet
 if errorlevel 1 (
@@ -30,7 +30,7 @@ if errorlevel 1 (
 echo Git status OK.
 echo.
 
-echo [1/5] Syncing backend (tar over SSH)...
+echo [1/6] Syncing backend (tar over SSH)...
 cd /d "%LOCAL%"
 tar czf - --exclude=node_modules --exclude=.git --exclude=logs --exclude=backups --exclude=uploads --exclude=*.tar.gz backend | ssh -i "%SSH_KEY%" -o StrictHostKeyChecking=no %NAS% "tar xzf - -C %TEST%"
 if errorlevel 1 (
@@ -41,7 +41,7 @@ if errorlevel 1 (
 echo Done.
 
 echo.
-echo [2/5] Building frontend...
+echo [2/6] Building frontend...
 cd /d "%LOCAL%\frontend"
 call npm run build
 if errorlevel 1 (
@@ -54,7 +54,7 @@ cd /d "%LOCAL%"
 echo Done.
 
 echo.
-echo [3/5] Syncing frontend...
+echo [3/6] Syncing frontend...
 tar czf - -C frontend dist | ssh -i "%SSH_KEY%" -o StrictHostKeyChecking=no %NAS% "mkdir -p %TEST%/frontend && tar xzf - -C %TEST%/frontend"
 if errorlevel 1 (
     echo ERROR: frontend sync failed
@@ -64,20 +64,31 @@ if errorlevel 1 (
 echo Done.
 
 echo.
-echo [4/5] Syncing migrations...
+echo [4/6] Syncing migrations...
 tar czf - -C database migrations | ssh -i "%SSH_KEY%" -o StrictHostKeyChecking=no %NAS% "mkdir -p %TEST%/database && tar xzf - -C %TEST%/database"
 echo Done.
 
 echo.
-echo [5/5] Syncing seed data...
+echo [5/6] Syncing seed data...
 tar czf - -C database seeds | ssh -i "%SSH_KEY%" -o StrictHostKeyChecking=no %NAS% "mkdir -p %TEST%/database && tar xzf - -C %TEST%/database"
+echo Done.
+
+echo.
+echo [6/6] Syncing deploy configs...
+scp -i "%SSH_KEY%" -o StrictHostKeyChecking=no "%LOCAL%\deploy\docker-compose.test.yml" %NAS%:%TEST%/docker-compose.yml
+scp -i "%SSH_KEY%" -o StrictHostKeyChecking=no "%LOCAL%\deploy\synology\Dockerfile.synology" %NAS%:/volume1/docker/huakey-crm-deploy/Dockerfile.synology
 echo Done.
 
 echo.
 echo ========================================
 echo  Code synced!
-echo  Restart crm-test-app in Container Manager
-echo  Visit: http://192.168.0.200:6790
+echo.
+echo  Next steps:
+echo  1. Open Container Manager
+echo  2. Stop and recreate the test project
+echo     (docker-compose.yml updated with Redis)
+echo  3. Visit: http://192.168.0.200:6790
+echo  4. Check Settings: Redis should show green
 echo.
 echo  IMPORTANT: If this is a fresh deploy,
 echo  run seed data in Container Manager:

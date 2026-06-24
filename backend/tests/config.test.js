@@ -17,7 +17,7 @@ jest.mock('../middleware/logger', () => ({
 }));
 
 jest.mock('../services/permissionService', () => ({
-  getUserPermissions: jest.fn().mockResolvedValue([]),
+  getUserPermissions: jest.fn().mockResolvedValue(["system"]),
   getMenuPermissions: jest.fn().mockResolvedValue([]),
   getDataPermissions: jest.fn().mockResolvedValue([])
 }));
@@ -47,6 +47,7 @@ describe('系统配置模块', () => {
   describe('GET /api/config/overdue-days', () => {
     it('应该返回200和逾期天数配置', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .get('/api/config/overdue-days')
@@ -62,6 +63,7 @@ describe('系统配置模块', () => {
     it('应该返回200和配置列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[
           { config_key: 'overdue_days', config_value: '30', description: '逾期天数' },
           { config_key: 'notify_enabled', config_value: 'true', description: '通知开关' }
@@ -81,6 +83,7 @@ describe('系统配置模块', () => {
   describe('POST /api/config/update', () => {
     it('应该返回400当configs为空', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/config/update')
@@ -94,6 +97,7 @@ describe('系统配置模块', () => {
     it('应该返回200当正常更新配置', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
 
       const res = await request(app)
@@ -109,6 +113,7 @@ describe('系统配置模块', () => {
   describe('POST /api/config/test-notification', () => {
     it('应该返回200当发送测试通知成功', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/config/test-notification')

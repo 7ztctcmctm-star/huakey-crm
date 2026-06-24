@@ -46,6 +46,7 @@ describe('团队仪表盘模块', () => {
     it('应该返回概览数据', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ count: 100 }]]) // totalCustomers
         .mockResolvedValueOnce([[{ count: 5 }]]) // weekNew
         .mockResolvedValueOnce([[{ count: 20, total_amount: '500000' }]]) // activeOpps
@@ -70,6 +71,7 @@ describe('团队仪表盘模块', () => {
     it('应该返回销售分解数据', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // salesUsers
           { id: 1, real_name: '张三', username: 'zhangsan', dept_name: '销售部' },
           { id: 2, real_name: '李四', username: 'lisi', dept_name: '销售部' }
@@ -102,6 +104,7 @@ describe('团队仪表盘模块', () => {
     it('应该返回待审批列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // notifications
           { id: 1, type: 'quote_approval', business_type: 'quote', business_id: 1, content: '报价审批', from_user_name: '张三' },
           { id: 2, type: 'contract_approval', business_type: 'contract', business_id: 1, content: '合同审批', from_user_name: '李四' }
@@ -123,6 +126,7 @@ describe('团队仪表盘模块', () => {
     it('应该返回卡住商机列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // stuck opportunities
           { id: 1, name: '大项目商机', stage: 3, expected_amount: 200000, stuck_days: 21, customer_name: '测试公司', owner_name: '张三' }
         ]]);

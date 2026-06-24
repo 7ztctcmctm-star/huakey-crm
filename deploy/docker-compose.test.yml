@@ -80,6 +80,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_ENABLED: "true"
+      # REDIS_PASSWORD: ${REDIS_PASSWORD:-}  # 生产环境启用Redis密码
     ports:
       - "6790:5000"
     depends_on:

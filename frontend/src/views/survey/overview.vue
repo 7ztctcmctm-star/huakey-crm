@@ -51,7 +51,7 @@
 
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
-import { getSurveyAnalytics } from '@/api/survey'
+import { getSurveyAnalytics } from '@/api/tools'
 import echarts from '@/composables/useECharts'
 
 const typeName = { nps: 'NPS', csat: 'CSAT', custom: '自定义' }

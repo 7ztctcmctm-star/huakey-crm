@@ -52,6 +52,7 @@ describe('回收站模块', () => {
       // 8 module stats queries (one per TABLE_CONFIG entry)
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ cnt: 5 }]]) // customer
         .mockResolvedValueOnce([[{ cnt: 2 }]]) // opportunity
         .mockResolvedValueOnce([[{ cnt: 1 }]]) // contract
@@ -76,6 +77,7 @@ describe('回收站模块', () => {
   describe('POST /api/recycle/restore', () => {
     it('应该返回200当正常恢复记录', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/recycle/restore')
@@ -90,6 +92,7 @@ describe('回收站模块', () => {
   describe('POST /api/recycle/permanent-delete', () => {
     it('应该返回200当正常永久删除', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/recycle/permanent-delete')

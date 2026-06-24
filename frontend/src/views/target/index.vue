@@ -44,7 +44,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Check } from '@element-plus/icons-vue'
-import { getTargetList, batchSetTarget } from '@/api/target'
+import { getTargetList, batchSetTarget } from '@/api/system'
 
 const loading = ref(false)
 const saveLoading = ref(false)

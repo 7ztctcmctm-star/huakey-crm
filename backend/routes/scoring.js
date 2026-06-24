@@ -2,12 +2,13 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/permission');
 
 const requireAdmin = require('../middleware/admin');
 const { requireManager } = require('../middleware/admin');
 
 // 获取所有评分规则
-router.get('/rules', authenticateToken, async (req, res) => {
+router.get('/rules', authenticateToken, checkPermission('scoring'), async (req, res) => {
   try {
     const [rows] = await pool.query(
       'SELECT * FROM crm_score_rule WHERE deleted_at IS NULL ORDER BY condition_type, name'
@@ -20,7 +21,7 @@ router.get('/rules', authenticateToken, async (req, res) => {
 });
 
 // 创建评分规则
-router.post('/rules', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/rules', authenticateToken, checkPermission('scoring'), requireAdmin, async (req, res) => {
   try {
     const { name, condition_type, condition_field, condition_operator, condition_value, score } = req.body;
     if (!name || !name.trim()) {
@@ -45,7 +46,7 @@ router.post('/rules', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // 更新评分规则
-router.put('/rules/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/rules/:id', authenticateToken, checkPermission('scoring'), requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, condition_type, condition_field, condition_operator, condition_value, score, status } = req.body;
@@ -79,7 +80,7 @@ router.put('/rules/:id', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // 删除评分规则
-router.delete('/rules/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.delete('/rules/:id', authenticateToken, checkPermission('scoring'), requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     await pool.query('UPDATE crm_score_rule SET deleted_at = NOW() WHERE id = ?', [id]);
@@ -91,7 +92,7 @@ router.delete('/rules/:id', authenticateToken, requireAdmin, async (req, res) =>
 });
 
 // 计算单个客户评分
-router.post('/calculate/:customerId', authenticateToken, requireManager, async (req, res) => {
+router.post('/calculate/:customerId', authenticateToken, checkPermission('scoring'), requireManager, async (req, res) => {
   try {
     const { customerId } = req.params;
 
@@ -171,7 +172,7 @@ router.post('/calculate/:customerId', authenticateToken, requireManager, async (
 });
 
 // 批量计算所有客户评分
-router.post('/batch-calculate', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/batch-calculate', authenticateToken, checkPermission('scoring'), requireAdmin, async (req, res) => {
   try {
     const [customers] = await pool.query('SELECT id FROM crm_customer WHERE deleted_at IS NULL');
     const [rules] = await pool.query('SELECT * FROM crm_score_rule WHERE status = 1');
@@ -229,7 +230,7 @@ router.post('/batch-calculate', authenticateToken, requireAdmin, async (req, res
 });
 
 // 评分排行榜
-router.get('/ranking', authenticateToken, async (req, res) => {
+router.get('/ranking', authenticateToken, checkPermission('scoring'), async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT id, company_name, score, level, owner_id,
@@ -247,7 +248,7 @@ router.get('/ranking', authenticateToken, async (req, res) => {
 });
 
 // 获取客户评分详情（含评分历史）
-router.get('/customer/:customerId', authenticateToken, async (req, res) => {
+router.get('/customer/:customerId', authenticateToken, checkPermission('scoring'), async (req, res) => {
   try {
     const { customerId } = req.params;
     const [[customer]] = await pool.query(

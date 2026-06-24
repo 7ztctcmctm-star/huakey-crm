@@ -33,7 +33,7 @@ router.post('/assign', authenticateToken, checkPermission('customer:assign'), re
     const userId = req.user.userId;
 
     const [customers] = await pool.query(
-      'SELECT id, owner_id, company_name FROM crm_customer WHERE id = ? AND status != 0',
+      'SELECT id, owner_id, company_name FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
       [customer_id]
     );
 
@@ -79,7 +79,7 @@ router.post('/batch-assign', authenticateToken, checkPermission('customer:assign
     let successCount = 0;
     for (const customerId of customer_ids) {
       const [customers] = await connection.query(
-        'SELECT id, company_name, owner_id FROM crm_customer WHERE id = ? AND status != 0',
+        'SELECT id, company_name, owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
         [customerId]
       );
 
@@ -342,7 +342,7 @@ router.post('/auto-assign', authenticateToken, checkPermission('customer:assign'
     // 获取公海可分配客户（无负责人且不在保护期）
     const [customers] = await connection.query(
       `SELECT id, owner_id FROM crm_customer
-       WHERE status != 0 AND owner_id IS NULL
+       WHERE deleted_at IS NULL AND owner_id IS NULL
          AND (protect_until IS NULL OR protect_until < NOW())
        ORDER BY create_time ASC
        LIMIT 500`

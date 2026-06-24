@@ -64,7 +64,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
-import { getFinanceReminders, getReminderSummary, generateReminders, acknowledgeReminder } from '@/api/finance'
+import { getFinanceReminders, getReminderSummary, generateReminders, acknowledgeReminder } from '@/api/hr'
 
 const loading = ref(false)
 const generating = ref(false)

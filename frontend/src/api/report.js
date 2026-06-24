@@ -1,5 +1,6 @@
 import request from '@/utils/request'
 
+// ============ 报表统计 ============
 export const getReportSalesFunnel = (params) => request.get('/report/sales-funnel', { params })
 export const getReportPayment = (params) => request.get('/report/payment', { params })
 export const getReportPerformance = (params) => request.get('/report/performance', { params })
@@ -23,3 +24,13 @@ export const runReportCustom = (id, params) => request.post(`/report/custom/${id
 export const getReportCustomFields = (source) => request.get(`/report/custom/fields/${source}`)
 export const getReportCustomer = (params) => request.get('/report/customer', { params })
 export const exportReport = (params) => request.post('/report/export', params, { responseType: 'blob' })
+
+// ============ 数据分析 ============
+export const getWinRate = () => request.get('/analysis/win-rate')
+export const getRfm = () => request.get('/analysis/rfm')
+export const getAnalysisRanking = () => request.get('/analysis/ranking')
+export const getPrediction = () => request.get('/analysis/prediction')
+export const getPredictionEnhanced = (params) => request.get('/analysis/prediction/enhanced', { params })
+export const getAnalysisFunnel = () => request.get('/analysis/funnel')
+export const getAnomaly = () => request.get('/analysis/anomaly')
+export const getChurnAlert = (params) => request.get('/analysis/churn-alert', { params })

@@ -82,7 +82,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Upload, Edit, Delete } from '@element-plus/icons-vue'
 import request from '@/utils/request'
-import { getKnowledgeDocuments, addKnowledgeDocument, updateKnowledgeDocument, deleteKnowledgeDocument } from '@/api/knowledge'
+import { getKnowledgeDocuments, addKnowledgeDocument, updateKnowledgeDocument, deleteKnowledgeDocument } from '@/api/tools'
 import { formatTime } from '@/composables/useFormat'
 
 const typeName = { contract: '合同模板', quote: '报价模板', general: '通用文档' }

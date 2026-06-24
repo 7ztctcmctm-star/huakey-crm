@@ -56,6 +56,7 @@ describe('审批流程模块', () => {
     it('应该返回待审批列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[]]); // pending list (empty)
 
       const res = await request(app)
@@ -72,6 +73,7 @@ describe('审批流程模块', () => {
     it('应该返回已提交列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // quotes
           { business_type: 'quote', business_id: 1, business_title: 'Q-001', approval_status: 1, create_time: '2026-06-23' }
         ]])
@@ -92,6 +94,7 @@ describe('审批流程模块', () => {
     it('应该返回200当正常提交审批', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1, approval_status: 0 }]]) // business record check
         .mockResolvedValueOnce([[{ id: 1 }]]) // workflow lookup
         .mockResolvedValueOnce([[{ id: 1, step_order: 1, approver_type: 'manager', approver_id: null }]]) // first step
@@ -116,6 +119,7 @@ describe('审批流程模块', () => {
     it('应该返回200当正常通过审批', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1, workflow_id: 1, business_type: 'quote', business_id: 1, step_id: 1, step_order: 1, approver_id: 1, status: 'pending' }]]) // record lookup
         .mockResolvedValueOnce([[]]); // no next step (final step)
 
@@ -139,6 +143,7 @@ describe('审批流程模块', () => {
     it('应该返回200当正常驳回审批', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1, workflow_id: 1, business_type: 'quote', business_id: 1, step_id: 1, step_order: 1, approver_id: 1, status: 'pending' }]]) // record lookup
         .mockResolvedValueOnce([[{ id: 1, approval_status: 1 }]]); // business record check
 

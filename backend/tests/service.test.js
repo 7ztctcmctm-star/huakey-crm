@@ -53,6 +53,7 @@ describe('售后模块', () => {
     it('应该返回200和工单列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]])  // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 1 }]])
         .mockResolvedValueOnce([[{ id: 1, order_no: 'SO-001', title: '测试工单', status: 1 }]]);
 

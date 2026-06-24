@@ -550,7 +550,7 @@ router.beforeEach(async (to, from, next) => {
 
   // 检查管理员权限
   if (to.meta.admin) {
-    if (user.manageAll || user.roleId === 1) {
+    if (user.manageAll) {
       next()
     } else {
       next('/dashboard')
@@ -561,9 +561,7 @@ router.beforeEach(async (to, from, next) => {
   // 检查菜单权限
   if (to.meta.permission) {
     const permissions = user.permissions || []
-    const hasAuth = user.roleId === 1 ||
-                    user.manageAll ||
-                    permissions.includes(to.meta.permission)
+    const hasAuth = user.manageAll || permissions.includes(to.meta.permission)
 
     if (!hasAuth) {
       next('/dashboard')

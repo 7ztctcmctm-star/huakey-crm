@@ -71,7 +71,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, View } from '@element-plus/icons-vue'
 import request from '@/utils/request'
-import { getFollowupTemplates, saveFollowupTemplate, deleteFollowupTemplate } from '@/api/followUp'
+import { getFollowupTemplates, saveFollowupTemplate, deleteFollowupTemplate } from '@/api/customer'
 
 const typeNameMap = { general: '通用', first: '首次跟进', quote: '报价跟进', deal: '成交跟进' }
 const typeTagMap = { general: 'info', first: 'primary', quote: 'warning', deal: 'success' }

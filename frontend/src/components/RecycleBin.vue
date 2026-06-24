@@ -50,7 +50,7 @@
 import { ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
-import { getRecycleList, restoreRecycle, permanentDelete } from '@/api/recycle'
+import { getRecycleList, restoreRecycle, permanentDelete } from '@/api/tools'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false }

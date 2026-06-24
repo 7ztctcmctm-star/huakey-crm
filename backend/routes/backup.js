@@ -9,7 +9,8 @@ const fs = require('fs');
 
 const requireAdmin = require('../middleware/admin');
 
-const backupDir = path.join(__dirname, '../backups');
+// 备份目录：优先使用 BACKUP_DIR 环境变量（Docker 挂载持久化卷），默认 /app/data/backups
+const backupDir = process.env.BACKUP_DIR || '/app/data/backups';
 
 // 确保备份目录存在（Vercel 只读文件系统上静默跳过）
 try {
@@ -117,8 +118,13 @@ router.post('/restore', authenticateToken, checkPermission('backup:restore'), re
   try {
   const { id, confirm_code } = req.body;
 
-  if (!confirm_code || confirm_code !== `RESTORE-${id}`) {
-    return res.status(400).json({ code: 400, message: '确认码不正确，恢复操作已拒绝。确认码格式: RESTORE-{备份ID}', data: null });
+  // 使用 HMAC 生成服务端确认码，防止简单猜测
+  const expectedCode = require('crypto').createHmac('sha256', process.env.JWT_SECRET)
+    .update(`backup-restore-${id}`)
+    .digest('hex')
+    .slice(0, 12);
+  if (!confirm_code || confirm_code !== expectedCode) {
+    return res.status(400).json({ code: 400, message: '确认码不正确，恢复操作已拒绝', data: null });
   }
 
   try {
@@ -174,6 +180,25 @@ router.post('/restore', authenticateToken, checkPermission('backup:restore'), re
   } catch (error) {
     console.error('[备份] 恢复备份失败:', error);
     res.status(500).json({ code: 500, message: '恢复失败', data: null });
+  }
+});
+
+// 获取备份恢复确认码（前端展示给用户确认）
+router.get('/confirm-code/:id', authenticateToken, checkPermission('backup:restore'), requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [records] = await pool.query('SELECT id FROM sys_backup_record WHERE id = ? AND status = ?', [id, 'success']);
+    if (records.length === 0) {
+      return res.status(404).json({ code: 404, message: '备份记录不存在或备份未完成', data: null });
+    }
+    const confirmCode = require('crypto').createHmac('sha256', process.env.JWT_SECRET)
+      .update(`backup-restore-${id}`)
+      .digest('hex')
+      .slice(0, 12);
+    res.json({ code: 200, message: '查询成功', data: { confirm_code: confirmCode } });
+  } catch (error) {
+    console.error('[备份] 获取确认码失败:', error);
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
 

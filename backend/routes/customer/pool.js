@@ -3,6 +3,7 @@ const pool = require('../../config/database');
 const { authenticateToken } = require('../../middleware/auth');
 const { checkPermission } = require('../../middleware/permission');
 const { validate, Joi } = require('../../middleware/validate');
+const ROLES = require('../../config/roles');
 const { SOURCE_PARENT_MAP } = require('./detail');
 
 const MODULE_NAME = '客户管理';
@@ -28,7 +29,7 @@ router.post('/pool', authenticateToken, checkPermission('customer:pool'), async 
     const params = [];
 
     // 公海准入：必须是已转化客户(status=2)，且负责人被置空
-    let whereClause = 'WHERE c.pool_status = 1 AND c.status != 0';
+    let whereClause = 'WHERE c.pool_status = 1 AND c.deleted_at IS NULL';
 
     if (company_name) {
       whereClause += ' AND c.company_name LIKE ?';
@@ -99,7 +100,7 @@ router.post('/claim', authenticateToken, checkPermission('customer:pool'), valid
     }
 
     const [customers] = await pool.query(
-      'SELECT id, pool_status, pool_type, protect_until, owner_id FROM crm_customer WHERE id = ? AND status != 0',
+      'SELECT id, pool_status, pool_type, protect_until, owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
       [customer_id]
     );
 
@@ -115,7 +116,7 @@ router.post('/claim', authenticateToken, checkPermission('customer:pool'), valid
     }
 
     // 私有池客户仅管理员可认领
-    if (customer.pool_type === 'private' && !req.user.manageAll && req.user.roleId !== 1 && req.user.roleId !== 2) {
+    if (customer.pool_type === 'private' && !req.user.manageAll && req.user.roleId !== ROLES.ADMIN && req.user.roleId !== ROLES.MANAGER) {
       return res.status(403).json({ code: 403, message: '私有池客户仅管理员可认领', data: null });
     }
 
@@ -177,7 +178,7 @@ router.post('/batch-claim', authenticateToken, checkPermission('customer:pool'),
 
     for (const customerId of customer_ids) {
       const [customers] = await connection.query(
-        'SELECT id, pool_status, pool_type, protect_until, owner_id, company_name FROM crm_customer WHERE id = ? AND status != 0',
+        'SELECT id, pool_status, pool_type, protect_until, owner_id, company_name FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
         [customerId]
       );
 
@@ -188,7 +189,7 @@ router.post('/batch-claim', authenticateToken, checkPermission('customer:pool'),
       if (customer.pool_status !== 1) { skipped.push(`${customer.company_name}(不在公海)`); continue; }
 
       // 私有池客户仅管理员可认领
-      if (customer.pool_type === 'private' && !req.user.manageAll && req.user.roleId !== 1 && req.user.roleId !== 2) {
+      if (customer.pool_type === 'private' && !req.user.manageAll && req.user.roleId !== ROLES.ADMIN && req.user.roleId !== ROLES.MANAGER) {
         skipped.push(`${customer.company_name}(私有池限制)`); continue;
       }
 
@@ -241,7 +242,7 @@ router.post('/release', authenticateToken, checkPermission('customer:pool'), val
     }
 
     const [customers] = await pool.query(
-      'SELECT id, owner_id, company_name FROM crm_customer WHERE id = ? AND status != 0',
+      'SELECT id, owner_id, company_name FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
       [customer_id]
     );
 
@@ -252,7 +253,7 @@ router.post('/release', authenticateToken, checkPermission('customer:pool'), val
     const customer = customers[0];
 
     // 权限检查：只能释放自己的客户（管理员/经理除外）
-    if (req.user.roleId !== 1 && req.user.roleId !== 2 && req.user.roleId !== 3) {
+    if (req.user.roleId !== ROLES.ADMIN && req.user.roleId !== ROLES.MANAGER && req.user.roleId !== ROLES.SALES) {
       if (customer.owner_id !== userId) {
         return res.status(403).json({ code: 403, message: '无权释放该客户', data: null });
       }
@@ -302,7 +303,7 @@ router.post('/batch-release', authenticateToken, checkPermission('customer:pool'
     let successCount = 0;
     for (const customerId of customer_ids) {
       const [customers] = await connection.query(
-        'SELECT id, owner_id, pool_status FROM crm_customer WHERE id = ? AND status != 0',
+        'SELECT id, owner_id, pool_status FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
         [customerId]
       );
 
@@ -310,7 +311,7 @@ router.post('/batch-release', authenticateToken, checkPermission('customer:pool'
       const customer = customers[0];
 
       // 权限检查
-      if (req.user.roleId !== 1 && req.user.roleId !== 2 && req.user.roleId !== 3) {
+      if (req.user.roleId !== ROLES.ADMIN && req.user.roleId !== ROLES.MANAGER && req.user.roleId !== ROLES.SALES) {
         if (customer.owner_id !== userId) continue;
       }
 

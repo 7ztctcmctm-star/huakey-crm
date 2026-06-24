@@ -3,9 +3,72 @@ const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
+const { validate, Joi } = require('../middleware/validate');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+
+// Joi schemas
+const productSchema = Joi.object({
+  name: Joi.string().required().max(200).trim(),
+  category: Joi.string().max(100).allow('', null),
+  model: Joi.string().max(100).allow('', null),
+  description: Joi.string().max(5000).allow('', null),
+  specs: Joi.string().max(5000).allow('', null),
+  price: Joi.number().precision(2).min(0).allow(null),
+  images: Joi.string().max(10000).allow('', null)
+});
+
+const productUpdateSchema = Joi.object({
+  name: Joi.string().max(200).trim(),
+  category: Joi.string().max(100).allow('', null),
+  model: Joi.string().max(100).allow('', null),
+  description: Joi.string().max(5000).allow('', null),
+  specs: Joi.string().max(5000).allow('', null),
+  price: Joi.number().precision(2).min(0).allow(null),
+  images: Joi.string().max(10000).allow('', null),
+  status: Joi.number().integer().valid(0, 1).allow(null)
+});
+
+const scriptSchema = Joi.object({
+  title: Joi.string().required().max(200).trim(),
+  scene: Joi.string().max(100).allow('', null),
+  content: Joi.string().required().max(10000).trim(),
+  sort_order: Joi.number().integer().min(0).default(0)
+});
+
+const scriptUpdateSchema = Joi.object({
+  title: Joi.string().max(200).trim(),
+  scene: Joi.string().max(100).allow('', null),
+  content: Joi.string().max(10000).trim(),
+  sort_order: Joi.number().integer().min(0)
+});
+
+const faqSchema = Joi.object({
+  question: Joi.string().required().max(500).trim(),
+  answer: Joi.string().required().max(10000).trim(),
+  category: Joi.string().max(100).allow('', null),
+  sort_order: Joi.number().integer().min(0).default(0)
+});
+
+const faqUpdateSchema = Joi.object({
+  question: Joi.string().max(500).trim(),
+  answer: Joi.string().max(10000).trim(),
+  category: Joi.string().max(100).allow('', null),
+  sort_order: Joi.number().integer().min(0)
+});
+
+const documentSchema = Joi.object({
+  name: Joi.string().required().max(200).trim(),
+  type: Joi.string().required().max(50),
+  description: Joi.string().max(1000).allow('', null)
+});
+
+const documentUpdateSchema = Joi.object({
+  name: Joi.string().max(200).trim(),
+  type: Joi.string().max(50),
+  description: Joi.string().max(1000).allow('', null)
+});
 
 const requireAdmin = require('../middleware/admin');
 
@@ -70,7 +133,7 @@ router.get('/products/:id', authenticateToken, checkPermission('knowledge'), asy
 });
 
 // 创建产品
-router.post('/products', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/products', authenticateToken, requireAdmin, validate(productSchema), async (req, res) => {
   try {
     const { name, category, model, description, specs, price, images } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ code: 400, message: '产品名称不能为空', data: null });
@@ -86,7 +149,7 @@ router.post('/products', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // 更新产品
-router.put('/products/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/products/:id', authenticateToken, requireAdmin, validate(productUpdateSchema), async (req, res) => {
   try {
     const { name, category, model, description, specs, price, images, status } = req.body;
     const fields = [];
@@ -185,7 +248,7 @@ router.get('/scripts/:id', authenticateToken, checkPermission('knowledge'), asyn
 });
 
 // 创建话术
-router.post('/scripts', authenticateToken, async (req, res) => {
+router.post('/scripts', authenticateToken, validate(scriptSchema), async (req, res) => {
   try {
     const { title, scene, content, sort_order } = req.body;
     if (!title || !title.trim()) return res.status(400).json({ code: 400, message: '话术标题不能为空', data: null });
@@ -202,7 +265,7 @@ router.post('/scripts', authenticateToken, async (req, res) => {
 });
 
 // 更新话术
-router.put('/scripts/:id', authenticateToken, async (req, res) => {
+router.put('/scripts/:id', authenticateToken, validate(scriptUpdateSchema), async (req, res) => {
   try {
     const { title, scene, content, sort_order } = req.body;
     const fields = [];
@@ -282,7 +345,7 @@ router.get('/faqs/:id', authenticateToken, checkPermission('knowledge'), async (
 });
 
 // 创建FAQ
-router.post('/faqs', authenticateToken, async (req, res) => {
+router.post('/faqs', authenticateToken, validate(faqSchema), async (req, res) => {
   try {
     const { question, answer, category, sort_order } = req.body;
     if (!question || !question.trim()) return res.status(400).json({ code: 400, message: '问题不能为空', data: null });
@@ -299,7 +362,7 @@ router.post('/faqs', authenticateToken, async (req, res) => {
 });
 
 // 更新FAQ
-router.put('/faqs/:id', authenticateToken, async (req, res) => {
+router.put('/faqs/:id', authenticateToken, validate(faqUpdateSchema), async (req, res) => {
   try {
     const { question, answer, category, sort_order } = req.body;
     const fields = [];
@@ -381,7 +444,7 @@ router.get('/documents/:id', authenticateToken, checkPermission('knowledge'), as
 });
 
 // 创建文档（支持文件上传）
-router.post('/documents', authenticateToken, upload.single('file'), async (req, res) => {
+router.post('/documents', authenticateToken, upload.single('file'), validate(documentSchema), async (req, res) => {
   try {
     const { name, type, description } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ code: 400, message: '文档名称不能为空', data: null });
@@ -406,7 +469,7 @@ router.post('/documents', authenticateToken, upload.single('file'), async (req, 
 });
 
 // 更新文档
-router.put('/documents/:id', authenticateToken, async (req, res) => {
+router.put('/documents/:id', authenticateToken, validate(documentUpdateSchema), async (req, res) => {
   try {
     const { name, type, description } = req.body;
     const fields = [];

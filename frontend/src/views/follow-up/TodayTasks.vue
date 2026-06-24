@@ -44,7 +44,7 @@
 <script setup>
 import { ref, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
-import { getTodayReminders } from '@/api/followUp'
+import { getTodayReminders } from '@/api/customer'
 
 defineOptions({ name: 'TodayTasks' })
 

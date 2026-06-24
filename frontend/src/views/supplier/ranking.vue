@@ -54,7 +54,7 @@
 <script setup>
 import { ref, onMounted, nextTick } from 'vue'
 import request from '@/utils/request'
-import { getSupplierRanking, getSupplierCompare } from '@/api/supplier'
+import { getSupplierRanking, getSupplierCompare } from '@/api/product'
 import echarts from '@/composables/useECharts'
 
 const loading = ref(false)

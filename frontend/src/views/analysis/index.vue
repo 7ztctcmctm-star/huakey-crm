@@ -118,7 +118,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
-import { getPrediction, getWinRate, getAnomaly, getAnalysisFunnel, getRfm, getAnalysisRanking, getChurnAlert } from '@/api/analysis'
+import { getPrediction, getWinRate, getAnomaly, getAnalysisFunnel, getRfm, getAnalysisRanking, getChurnAlert } from '@/api/report'
 import request from '@/utils/request'
 import { useChart } from '@/composables/useChart'
 

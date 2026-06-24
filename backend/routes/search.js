@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { buildDataPermissionWhere } = require('../middleware/permission');
+const { checkPermission, buildDataPermissionWhere } = require('../middleware/permission');
 const { getDataPermissions } = require('../services/permissionService');
 const ROLES = require('../config/roles');
 const { queryValidate, Joi } = require('../middleware/validate');
@@ -15,7 +15,7 @@ const globalSearchSchema = Joi.object({
 });
 
 // 全局搜索
-router.get('/global', authenticateToken, queryValidate(globalSearchSchema), async (req, res) => {
+router.get('/global', authenticateToken, checkPermission('search'), queryValidate(globalSearchSchema), async (req, res) => {
   try {
     const keyword = (req.query.keyword || '').trim();
 
@@ -23,7 +23,7 @@ router.get('/global', authenticateToken, queryValidate(globalSearchSchema), asyn
     const user = req.user;
 
     // 加载用户权限配置（一次查询，复用于所有模块）
-    const allPerms = await getDataPermissions(user.roleId);
+    const allPerms = await getDataPermissions(pool, user.roleId);
 
     // 辅助函数：为指定模块构建数据权限SQL
     async function buildPermClause(module, alias, ownerColumn) {

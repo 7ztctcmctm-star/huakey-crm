@@ -17,7 +17,7 @@ jest.mock('../middleware/logger', () => ({
 }));
 
 jest.mock('../services/permissionService', () => ({
-  getUserPermissions: jest.fn().mockResolvedValue([]),
+  getUserPermissions: jest.fn().mockResolvedValue(["contract_template"]),
   getMenuPermissions: jest.fn().mockResolvedValue([]),
   getDataPermissions: jest.fn().mockResolvedValue([])
 }));
@@ -48,6 +48,7 @@ describe('合同模板模块', () => {
     it('应该返回模板列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // list
           { id: 1, name: '标准合同模板', amount: 0, payment_terms: '月结30天' },
           { id: 2, name: '大客户合同模板', amount: 100000, payment_terms: '预付50%' }
@@ -67,6 +68,7 @@ describe('合同模板模块', () => {
     it('应该返回200当正常创建模板', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ insertId: 3 }]); // insert
 
       const res = await request(app)
@@ -84,6 +86,7 @@ describe('合同模板模块', () => {
     it('应该返回200当正常删除模板', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 
       const res = await request(app)

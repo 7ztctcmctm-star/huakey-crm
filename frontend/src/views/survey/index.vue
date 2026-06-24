@@ -72,7 +72,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { getSurveyTemplates, getSurveyCampaigns, getSurveyAnalytics, saveSurveyCampaign, startCampaign, closeCampaign } from '@/api/survey'
+import { getSurveyTemplates, getSurveyCampaigns, getSurveyAnalytics, saveSurveyCampaign, startCampaign, closeCampaign } from '@/api/tools'
 import request from '@/utils/request'
 
 const typeName = { nps: 'NPS', csat: 'CSAT', custom: '自定义' }

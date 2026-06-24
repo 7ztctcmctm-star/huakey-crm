@@ -17,7 +17,7 @@ jest.mock('../middleware/logger', () => ({
 }));
 
 jest.mock('../services/permissionService', () => ({
-  getUserPermissions: jest.fn().mockResolvedValue([]),
+  getUserPermissions: jest.fn().mockResolvedValue(["survey"]),
   getMenuPermissions: jest.fn().mockResolvedValue([]),
   getDataPermissions: jest.fn().mockResolvedValue([])
 }));
@@ -41,6 +41,7 @@ describe('问卷调查模块', () => {
     it('应该返回模板列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 2 }]]) // count
         .mockResolvedValueOnce([[ // list
           { id: 1, name: 'NPS调查', survey_type: 'nps', is_system: 1 },
@@ -63,6 +64,7 @@ describe('问卷调查模块', () => {
     it('应该返回200当正常创建模板', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ insertId: 3 }]); // insert
 
       const res = await request(app)
@@ -80,6 +82,7 @@ describe('问卷调查模块', () => {
     it('应该返回活动列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // campaigns list
           { id: 1, name: '6月满意度调查', status: 'active', template_name: 'NPS调查' },
           { id: 2, name: '客户回访', status: 'draft', template_name: '满意度调查' }
@@ -99,6 +102,7 @@ describe('问卷调查模块', () => {
     it('应该返回200当正常创建活动', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
@@ -116,6 +120,7 @@ describe('问卷调查模块', () => {
     it('应该返回200当启动活动', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ status: 'draft' }]]) // status check
         .mockResolvedValueOnce([[{ target_type: 'all', target_ids: null }]]) // campaign detail
         .mockResolvedValueOnce([[{ cnt: 50 }]]) // customer count

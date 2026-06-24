@@ -3,9 +3,45 @@ const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
+const { validate, queryValidate, Joi } = require('../middleware/validate');
+
+const inventoryListSchema = Joi.object({
+  category: Joi.string().allow('').optional(),
+  keyword: Joi.string().allow('').optional().max(100),
+  stock_status: Joi.string().valid('low', 'high', 'normal', '').allow('').optional(),
+  page: Joi.number().integer().min(1).default(1),
+  pageSize: Joi.number().integer().min(1).max(200).default(20)
+});
+
+const movementsSchema = Joi.object({
+  product_id: Joi.number().integer().positive().allow('', null).optional(),
+  movement_type: Joi.string().valid('in', 'out', 'adjust', '').allow('').optional(),
+  start_date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null).optional(),
+  end_date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null).optional(),
+  page: Joi.number().integer().min(1).default(1),
+  pageSize: Joi.number().integer().min(1).max(200).default(20)
+});
+
+const stockInSchema = Joi.object({
+  product_id: Joi.number().integer().positive().required(),
+  quantity: Joi.number().integer().min(1).required(),
+  remark: Joi.string().max(500).allow('', null)
+});
+
+const stockOutSchema = Joi.object({
+  product_id: Joi.number().integer().positive().required(),
+  quantity: Joi.number().integer().min(1).required(),
+  remark: Joi.string().max(500).allow('', null)
+});
+
+const stockAdjustSchema = Joi.object({
+  product_id: Joi.number().integer().positive().required(),
+  new_qty: Joi.number().integer().min(0).required(),
+  remark: Joi.string().max(500).allow('', null)
+});
 
 // 库存列表
-router.get('/list', authenticateToken, async (req, res) => {
+router.get('/list', authenticateToken, queryValidate(inventoryListSchema), async (req, res) => {
   try {
     const { category = '', keyword = '', stock_status = '', page = 1, pageSize = 20 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(pageSize);
@@ -51,7 +87,7 @@ router.get('/list', authenticateToken, async (req, res) => {
 });
 
 // 库存变动记录
-router.get('/movements', authenticateToken, async (req, res) => {
+router.get('/movements', authenticateToken, queryValidate(movementsSchema), async (req, res) => {
   try {
     const { product_id, movement_type, start_date, end_date, page = 1, pageSize = 20 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(pageSize);
@@ -84,7 +120,7 @@ router.get('/movements', authenticateToken, async (req, res) => {
 });
 
 // 入库
-router.post('/in', authenticateToken, checkPermission('purchase:add'), async (req, res) => {
+router.post('/in', authenticateToken, checkPermission('purchase:add'), validate(stockInSchema), async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const { product_id, quantity, remark } = req.body;
@@ -114,7 +150,7 @@ router.post('/in', authenticateToken, checkPermission('purchase:add'), async (re
 });
 
 // 出库
-router.post('/out', authenticateToken, checkPermission('purchase:add'), async (req, res) => {
+router.post('/out', authenticateToken, checkPermission('purchase:add'), validate(stockOutSchema), async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const { product_id, quantity, remark } = req.body;
@@ -145,7 +181,7 @@ router.post('/out', authenticateToken, checkPermission('purchase:add'), async (r
 });
 
 // 库存调整（盘点）
-router.post('/adjust', authenticateToken, checkPermission('purchase:add'), async (req, res) => {
+router.post('/adjust', authenticateToken, checkPermission('purchase:add'), validate(stockAdjustSchema), async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const { product_id, new_qty, remark } = req.body;

@@ -82,7 +82,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { Bell } from '@element-plus/icons-vue'
-import { markAllRead, getReminderCenter } from '@/api/notification'
+import { markAllRead, getReminderCenter } from '@/api/tools'
 
 const router = useRouter()
 

@@ -4,6 +4,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { validate, Joi } = require('../middleware/validate');
 const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
 const { logFieldChanges } = require('../utils/fieldLog');
+const ROLES = require('../config/roles');
 
 const MODULE_NAME = '商机管理';
 
@@ -452,7 +453,7 @@ router.post('/delete', authenticateToken, checkPermission('opportunity:delete'),
 
     // 权限检查：管理员或负责人可删除
     const { manageAll, roleId, userId } = req.user;
-    if (!manageAll && roleId !== 1 && roleId !== 2 && rows[0].owner_id !== userId) {
+    if (!manageAll && ![ROLES.ADMIN, ROLES.MANAGER].includes(roleId) && rows[0].owner_id !== userId) {
       return res.status(403).json({ code: 403, message: '无权删除该商机', data: null });
     }
 

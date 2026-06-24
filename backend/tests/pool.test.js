@@ -42,6 +42,7 @@ describe('客户池模块', () => {
     it('应该返回公海客户列表（分页）', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 2 }]]) // count
         .mockResolvedValueOnce([[{ id: 1, company_name: '公海客户A' }, { id: 2, company_name: '公海客户B' }]]); // list
 
@@ -70,6 +71,7 @@ describe('客户池模块', () => {
   describe('POST /api/customer/claim', () => {
     it('应该返回400当缺少customer_id', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/customer/claim')
@@ -82,6 +84,7 @@ describe('客户池模块', () => {
     it('应该返回200当正常领取公海客户', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1, pool_status: 1, pool_type: 'public', protect_until: null, owner_id: null }]]) // customer lookup
         .mockResolvedValueOnce([{ affectedRows: 1 }]) // update
         .mockResolvedValueOnce([{ insertId: 1 }]); // pool_log insert
@@ -100,6 +103,7 @@ describe('客户池模块', () => {
   describe('POST /api/customer/release', () => {
     it('应该返回400当缺少customer_id', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/customer/release')
@@ -112,6 +116,7 @@ describe('客户池模块', () => {
     it('应该返回200当正常释放客户到公海', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1, owner_id: 1, company_name: '测试公司' }]]) // customer lookup
         .mockResolvedValueOnce([{ affectedRows: 1 }]) // update
         .mockResolvedValueOnce([{ insertId: 1 }]) // pool_log insert

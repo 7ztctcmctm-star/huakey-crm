@@ -152,7 +152,7 @@ import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Plus } from '@element-plus/icons-vue'
 import request from '@/utils/request'
-import { getCompetitorDetail, addCompetitorEncounter, addCompetitorIntel, getCompetitorEncounters, getCompetitorIntel, deleteCompetitorEncounter, deleteCompetitorIntel } from '@/api/competitor'
+import { getCompetitorDetail, addCompetitorEncounter, addCompetitorIntel, getCompetitorEncounters, getCompetitorIntel, deleteCompetitorEncounter, deleteCompetitorIntel } from '@/api/tools'
 import { getCustomerList } from '@/api/customer'
 
 const intelTypeName = { product: '产品', pricing: '价格', strategy: '策略', partnership: '合作', market: '市场' }

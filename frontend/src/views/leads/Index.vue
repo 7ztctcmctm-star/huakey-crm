@@ -116,7 +116,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getLeadsList, convertLead, claimLead, markLeadLost, getLeadsStats, getSalesUsers, batchAssignCustomer, addCustomer, updateCustomer, getCustomerDetail } from '@/api/customer'
-import { addFollowUp } from '@/api/followUp'
+import { addFollowUp } from '@/api/customer'
 import { ALL_SOURCE_VALUES } from '@/constants/source'
 import { relativeTime } from '@/composables/useRelativeTime'
 

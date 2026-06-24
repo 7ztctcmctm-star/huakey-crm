@@ -17,7 +17,7 @@ jest.mock('../middleware/logger', () => ({
 }));
 
 jest.mock('../services/permissionService', () => ({
-  getUserPermissions: jest.fn().mockResolvedValue([]),
+  getUserPermissions: jest.fn().mockResolvedValue(["scoring"]),
   getMenuPermissions: jest.fn().mockResolvedValue([]),
   getDataPermissions: jest.fn().mockResolvedValue([])
 }));
@@ -40,6 +40,7 @@ describe('评分规则模块', () => {
   describe('POST /api/scoring/rules', () => {
     it('应该返回400当缺少name', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/scoring/rules')
@@ -53,6 +54,7 @@ describe('评分规则模块', () => {
     it('应该返回200当正常创建评分规则', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
@@ -70,6 +72,7 @@ describe('评分规则模块', () => {
     it('应该返回规则列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // rules list
           { id: 1, name: '官网来源加分', condition_type: 'source', score: 10 },
           { id: 2, name: '多次跟进加分', condition_type: 'action', score: 5 }
@@ -89,6 +92,7 @@ describe('评分规则模块', () => {
     it('应该返回200当正常更新规则', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1 }]]) // existing check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
 
@@ -106,6 +110,7 @@ describe('评分规则模块', () => {
     it('应该返回200当正常删除规则', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 
       const res = await request(app)

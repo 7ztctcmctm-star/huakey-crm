@@ -10,6 +10,8 @@ const { getUserPermissions, getMenuPermissions, getDataPermissions } = require('
 
 const router = express.Router();
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 // 验证码存储（key: captcha_key, value: {code, expires}）
 const captchaStore = new Map();
 
@@ -49,6 +51,8 @@ const changePasswordSchema = Joi.object({
   new_password: Joi.string().required().max(200).pattern(PASSWORD_PATTERN).message(PASSWORD_MESSAGE)
 });
 
+const logoutSchema = Joi.object({});
+
 // 0. 获取验证码
 router.get('/captcha', (req, res) => {
   const captcha = svgCaptcha.create({
@@ -76,7 +80,7 @@ router.get('/captcha', (req, res) => {
 
 // 本地开发环境跳过验证码（前置中间件，必须在JOI校验之前）
 router.use('/login', (req, res, next) => {
-  if (process.env.SKIP_CAPTCHA === 'true') {
+  if (process.env.NODE_ENV !== 'production' && process.env.SKIP_CAPTCHA === 'true') {
     req.body.captchaKey = 'dev';
     req.body.captcha = 'dev1';  // 4位，满足JOI length=4
   }
@@ -90,7 +94,7 @@ router.post('/login', validate(loginSchema), async (req, res) => {
     const ip = getIpAddress(req);
 
     // 本地开发跳过验证码校验
-    if (process.env.SKIP_CAPTCHA === 'true') {
+    if (process.env.NODE_ENV !== 'production' && process.env.SKIP_CAPTCHA === 'true') {
       captchaStore.set('dev', { code: 'dev1', expires: Date.now() + 3600000 });
     }
 
@@ -144,7 +148,7 @@ router.post('/login', validate(loginSchema), async (req, res) => {
       await logAction({
         module: '系统管理', action: '登录', method: 'POST', url: '/api/auth/login',
         params: { username }, ipAddress: ip, userId: null, userName: username,
-        description: '登录失败：用户名不存在', status: 0, errorMsg: '用户名或密码错误'
+        description: '登录失败：用户名或密码错误', status: 0, errorMsg: '用户名或密码错误'
       });
       return res.status(401).json({
         code: 401,
@@ -161,7 +165,7 @@ router.post('/login', validate(loginSchema), async (req, res) => {
       await logAction({
         module: '系统管理', action: '登录', method: 'POST', url: '/api/auth/login',
         params: { username }, ipAddress: ip, userId: user.id, userName: user.real_name,
-        description: '登录失败：密码错误', status: 0, errorMsg: '用户名或密码错误'
+        description: '登录失败：用户名或密码错误', status: 0, errorMsg: '用户名或密码错误'
       });
       return res.status(401).json({
         code: 401,
@@ -172,11 +176,6 @@ router.post('/login', validate(loginSchema), async (req, res) => {
 
     // 生成JWT token
     const token = generateToken(user);
-
-    // 获取用户权限
-    const permissions = await getUserPermissions(user.id, user.role_id);
-    const menus = await getMenuPermissions(user.role_id);
-    const dataPermissions = await getDataPermissions(user.role_id);
 
     // 更新最后登录信息
     await pool.query(
@@ -194,12 +193,12 @@ router.post('/login', validate(loginSchema), async (req, res) => {
     // 设置httpOnly cookie
     res.cookie('token', token, {
       httpOnly: true,
-      secure: false,        // 内网HTTP，生产HTTPS时改为true
+      secure: isProduction,        // 内网HTTP，生产HTTPS时改为true
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000  // 7天
     });
 
-    // 返回结果（token仍在body中保持兼容）
+    // 返回结果：只返回 token + 基本用户信息，权限数据走 /auth/me 获取
     res.json({
       code: 200,
       message: '登录成功',
@@ -208,16 +207,7 @@ router.post('/login', validate(loginSchema), async (req, res) => {
         userInfo: {
           id: user.id,
           username: user.username,
-          realName: user.real_name,
-          phone: user.phone,
-          email: user.email,
-          deptId: user.dept_id,
-          roleId: user.role_id,
-          viewAll: user.view_all === 1,
-          manageAll: user.manage_all === 1,
-          permissions,
-          menus,
-          dataPermissions
+          roleId: user.role_id
         }
       }
     });
@@ -233,7 +223,7 @@ router.post('/login', validate(loginSchema), async (req, res) => {
 });
 
 // 2. 登出接口
-router.post('/logout', async (req, res) => {
+router.post('/logout', validate(logoutSchema), async (req, res) => {
   const ip = getIpAddress(req);
 
   // 从cookie或header获取token用于日志记录和黑名单
@@ -267,7 +257,7 @@ router.post('/logout', async (req, res) => {
   // 清除httpOnly cookie
   res.clearCookie('token', {
     httpOnly: true,
-    secure: false,
+    secure: isProduction,
     sameSite: 'strict'
   });
 
@@ -296,28 +286,48 @@ router.get('/me', authenticateToken, async (req, res) => {
 
     // 三个权限查询互不依赖，并行执行
     const [permissions, menus, dataPermissions] = await Promise.all([
-      getUserPermissions(user.id, user.role_id),
-      getMenuPermissions(user.role_id),
-      getDataPermissions(user.role_id)
+      getUserPermissions(pool, user.id, user.role_id),
+      getMenuPermissions(pool, user.role_id),
+      getDataPermissions(pool, user.role_id)
     ]);
+
+    // 检查 token 中的权限是否与 DB 一致，不一致则签发新 token
+    const freshViewAll = user.view_all === 1;
+    const freshManageAll = user.manage_all === 1;
+    const tokenNeedsRefresh = req.user.viewAll !== freshViewAll || req.user.manageAll !== freshManageAll;
+
+    const responseData = {
+      id: user.id,
+      username: user.username,
+      realName: user.real_name,
+      phone: user.phone,
+      email: user.email,
+      deptId: user.dept_id,
+      roleId: user.role_id,
+      viewAll: freshViewAll,
+      manageAll: freshManageAll,
+      permissions,
+      menus,
+      dataPermissions
+    };
+
+    // 权限变化时签发新 token，前端通过 X-Token-Refresh 头感知
+    if (tokenNeedsRefresh) {
+      const newToken = generateToken(user);
+      res.cookie('token', newToken, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000
+      });
+      res.set('X-Token-Refresh', 'true');
+      responseData.token = newToken;
+    }
 
     res.json({
       code: 200,
       message: '获取成功',
-      data: {
-        id: user.id,
-        username: user.username,
-        realName: user.real_name,
-        phone: user.phone,
-        email: user.email,
-        deptId: user.dept_id,
-        roleId: user.role_id,
-        viewAll: user.view_all === 1,
-        manageAll: user.manage_all === 1,
-        permissions,
-        menus,
-        dataPermissions
-      }
+      data: responseData
     });
   } catch (error) {
     console.error('[认证] 获取用户信息错误:', error);
@@ -366,7 +376,7 @@ router.post('/register', authenticateToken, validate(registerSchema), async (req
     }
 
     // 密码加密
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     // 获取默认角色ID（销售人员 role_id = 4）
     const [roles] = await pool.query(
@@ -390,24 +400,10 @@ router.post('/register', authenticateToken, validate(registerSchema), async (req
 
     const newUser = newUsers[0];
 
-    // 生成token
-    const token = generateToken(newUser);
-
     res.json({
       code: 200,
-      message: '注册成功',
-      data: {
-        token,
-        userInfo: {
-          id: newUser.id,
-          username: newUser.username,
-          realName: newUser.real_name,
-          phone: newUser.phone,
-          email: newUser.email,
-          deptId: newUser.dept_id,
-          roleId: newUser.role_id
-        }
-      }
+      message: '用户创建成功',
+      data: { id: newUser.id, username: newUser.username }
     });
 
   } catch (error) {
@@ -508,7 +504,7 @@ router.post('/change-password', authenticateToken, validate(changePasswordSchema
       return res.status(400).json({ code: 400, message: '旧密码错误', data: null });
     }
 
-    const hashedPassword = await bcrypt.hash(new_password, 10);
+    const hashedPassword = await bcrypt.hash(new_password, 12);
     await pool.query('UPDATE sys_user SET password = ? WHERE id = ?', [hashedPassword, req.user.userId]);
 
     res.json({ code: 200, message: '密码修改成功，请重新登录', data: null });

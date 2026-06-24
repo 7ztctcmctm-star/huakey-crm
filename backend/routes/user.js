@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
+const { clearPermissionCache } = require('../services/permissionService');
 const { validate, Joi } = require('../middleware/validate');
 
 const router = express.Router();
@@ -45,7 +46,7 @@ router.post('/list', authenticateToken, checkPermission('system:user'), validate
 
     const offset = (page - 1) * pageSize;
     const params = [];
-    let whereClause = 'WHERE u.status = 1';
+    let whereClause = 'WHERE u.deleted_at IS NULL';
 
     if (username) {
       whereClause += ' AND u.username LIKE ?';
@@ -106,7 +107,7 @@ router.post('/add', authenticateToken, checkPermission('system:user:add'), valid
 
     // 检查用户名是否已存在（仅检查未删除的用户）
     const [existingUsers] = await pool.query(
-      'SELECT id FROM sys_user WHERE username = ? AND status = 1',
+      'SELECT id FROM sys_user WHERE username = ? AND deleted_at IS NULL',
       [username]
     );
 
@@ -119,7 +120,7 @@ router.post('/add', authenticateToken, checkPermission('system:user:add'), valid
     }
 
     // 加密密码
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     // 插入用户
     const [result] = await pool.query(
@@ -206,6 +207,11 @@ router.post('/update', authenticateToken, checkPermission('system:user:edit'), v
       params
     );
 
+    // 修改用户角色后清除该用户的权限缓存
+    if (role_id !== undefined) {
+      clearPermissionCache(id);
+    }
+
     res.json({
       code: 200,
       message: '修改用户成功',
@@ -251,7 +257,7 @@ router.post('/delete', authenticateToken, checkPermission('system:user:delete'),
 
     // 逻辑删除
     await pool.query(
-      'UPDATE sys_user SET status = 0 WHERE id = ?',
+      'UPDATE sys_user SET deleted_at = NOW() WHERE id = ?',
       [id]
     );
 

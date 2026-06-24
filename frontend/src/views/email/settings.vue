@@ -69,7 +69,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
-import { getEmailAccounts, addEmailAccount, deleteEmailAccount, testEmailAccount } from '@/api/email'
+import { getEmailAccounts, addEmailAccount, deleteEmailAccount, testEmailAccount } from '@/api/tools'
 
 const loading = ref(false)
 const accounts = ref([])

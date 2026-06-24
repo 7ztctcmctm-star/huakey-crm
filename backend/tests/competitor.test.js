@@ -17,7 +17,7 @@ jest.mock('../middleware/logger', () => ({
 }));
 
 jest.mock('../services/permissionService', () => ({
-  getUserPermissions: jest.fn().mockResolvedValue(['competitor', 'competitor:add', 'competitor:edit', 'competitor:delete']),
+  getUserPermissions: jest.fn().mockResolvedValue(['competitor:view', 'competitor:add', 'competitor:edit', 'competitor:delete']),
   getMenuPermissions: jest.fn().mockResolvedValue([]),
   getDataPermissions: jest.fn().mockResolvedValue([])
 }));
@@ -38,6 +38,7 @@ describe('竞争对手模块', () => {
   describe('POST /api/competitor/add', () => {
     it('应该返回400当缺少name', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/competitor/add')
@@ -46,12 +47,13 @@ describe('竞争对手模块', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.code).toBe(400);
-      expect(res.body.message).toContain('名称');
+      expect(res.body.message).toContain('校验失败');
     });
 
     it('应该返回200当正常创建', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ insertId: 1 }]);
 
       const res = await request(app)
@@ -69,6 +71,7 @@ describe('竞争对手模块', () => {
     it('应该返回200和竞争对手列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 2 }]]) // count
         .mockResolvedValueOnce([[ // list
           { id: 1, name: '竞品A', encounter_count: 5, win_count: 3 },
@@ -89,6 +92,7 @@ describe('竞争对手模块', () => {
   describe('POST /api/competitor/intel/add', () => {
     it('应该返回400当参数不完整', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/competitor/intel/add')
@@ -102,6 +106,7 @@ describe('竞争对手模块', () => {
     it('应该返回200当正常添加情报', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ insertId: 10 }]);
 
       const res = await request(app)
@@ -119,6 +124,7 @@ describe('竞争对手模块', () => {
     it('应该返回200当正常添加交锋记录', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ insertId: 20 }]);
 
       const res = await request(app)
@@ -136,6 +142,7 @@ describe('竞争对手模块', () => {
     it('应该返回200当正常删除竞争对手', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ affectedRows: 1 }]);
 
       const res = await request(app)

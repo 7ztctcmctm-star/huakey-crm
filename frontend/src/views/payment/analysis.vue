@@ -60,7 +60,7 @@
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { Download } from '@element-plus/icons-vue'
-import { getFinanceAnalysis } from '@/api/finance'
+import { getFinanceAnalysis } from '@/api/hr'
 import echarts from '@/composables/useECharts'
 
 const period = ref('year')

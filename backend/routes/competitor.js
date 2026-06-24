@@ -3,9 +3,83 @@ const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
+const { validate, Joi } = require('../middleware/validate');
+
+// Joi schemas
+const competitorSchema = Joi.object({
+  name: Joi.string().required().max(200).trim(),
+  website: Joi.string().max(500).allow('', null),
+  industry: Joi.string().max(100).allow('', null),
+  scale: Joi.string().max(50).allow('', null),
+  headquarters: Joi.string().max(200).allow('', null),
+  strengths: Joi.alternatives().try(Joi.array(), Joi.string().max(5000)).allow(null),
+  weaknesses: Joi.alternatives().try(Joi.array(), Joi.string().max(5000)).allow(null),
+  products: Joi.string().max(2000).allow('', null),
+  price_range: Joi.string().max(200).allow('', null),
+  market_share: Joi.string().max(100).allow('', null),
+  description: Joi.string().max(5000).allow('', null)
+});
+
+const competitorUpdateSchema = Joi.object({
+  name: Joi.string().max(200).trim(),
+  website: Joi.string().max(500).allow('', null),
+  industry: Joi.string().max(100).allow('', null),
+  scale: Joi.string().max(50).allow('', null),
+  headquarters: Joi.string().max(200).allow('', null),
+  strengths: Joi.alternatives().try(Joi.array(), Joi.string().max(5000)).allow(null),
+  weaknesses: Joi.alternatives().try(Joi.array(), Joi.string().max(5000)).allow(null),
+  products: Joi.string().max(2000).allow('', null),
+  price_range: Joi.string().max(200).allow('', null),
+  market_share: Joi.string().max(100).allow('', null),
+  description: Joi.string().max(5000).allow('', null),
+  status: Joi.number().integer().valid(0, 1).allow(null)
+});
+
+const encounterSchema = Joi.object({
+  competitor_id: Joi.number().integer().positive().required(),
+  customer_id: Joi.number().integer().positive().allow(null),
+  opportunity_id: Joi.number().integer().positive().allow(null),
+  encounter_type: Joi.string().valid('won', 'lost', 'competing', 'neutral').required(),
+  our_price: Joi.number().precision(2).min(0).allow(null),
+  their_price: Joi.number().precision(2).min(0).allow(null),
+  win_reason: Joi.string().max(500).allow('', null),
+  our_advantage: Joi.string().max(1000).allow('', null),
+  their_advantage: Joi.string().max(1000).allow('', null),
+  lesson_learned: Joi.string().max(2000).allow('', null),
+  encounter_date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null)
+});
+
+const encounterUpdateSchema = Joi.object({
+  encounter_type: Joi.string().valid('won', 'lost', 'competing', 'neutral'),
+  our_price: Joi.number().precision(2).min(0).allow(null),
+  their_price: Joi.number().precision(2).min(0).allow(null),
+  win_reason: Joi.string().max(500).allow('', null),
+  our_advantage: Joi.string().max(1000).allow('', null),
+  their_advantage: Joi.string().max(1000).allow('', null),
+  lesson_learned: Joi.string().max(2000).allow('', null),
+  encounter_date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null)
+});
+
+const intelSchema = Joi.object({
+  competitor_id: Joi.number().integer().positive().required(),
+  intel_type: Joi.string().valid('pricing', 'product', 'strategy', 'market', 'technology', 'other').required(),
+  title: Joi.string().required().max(200).trim(),
+  content: Joi.string().required().max(10000).trim(),
+  source: Joi.string().max(500).allow('', null),
+  importance: Joi.string().valid('low', 'medium', 'high', 'critical').default('medium')
+});
+
+const intelUpdateSchema = Joi.object({
+  intel_type: Joi.string().valid('pricing', 'product', 'strategy', 'market', 'technology', 'other'),
+  title: Joi.string().max(200).trim(),
+  content: Joi.string().max(10000).trim(),
+  source: Joi.string().max(500).allow('', null),
+  importance: Joi.string().valid('low', 'medium', 'high', 'critical'),
+  verified: Joi.number().integer().valid(0, 1).allow(null)
+});
 
 // 竞争对手列表
-router.get('/list', authenticateToken, checkPermission('competitor'), async (req, res) => {
+router.get('/list', authenticateToken, checkPermission('competitor:view'), async (req, res) => {
   try {
     const { industry, scale, status, keyword, page = 1, pageSize = 20 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(pageSize);
@@ -32,7 +106,7 @@ router.get('/list', authenticateToken, checkPermission('competitor'), async (req
 });
 
 // 竞争对手详情
-router.get('/:id', authenticateToken, checkPermission('competitor'), async (req, res) => {
+router.get('/:id', authenticateToken, checkPermission('competitor:view'), async (req, res) => {
   try {
     const [[row]] = await pool.query(`
       SELECT c.*,
@@ -49,7 +123,7 @@ router.get('/:id', authenticateToken, checkPermission('competitor'), async (req,
 });
 
 // 创建竞争对手
-router.post('/add', authenticateToken, checkPermission('competitor'), async (req, res) => {
+router.post('/add', authenticateToken, checkPermission('competitor:add'), validate(competitorSchema), async (req, res) => {
   try {
     const { name, website, industry, scale, headquarters, strengths, weaknesses, products, price_range, market_share, description } = req.body;
     if (!name) return res.status(400).json({ code: 400, message: '名称不能为空', data: null });
@@ -68,7 +142,7 @@ router.post('/add', authenticateToken, checkPermission('competitor'), async (req
 });
 
 // 更新竞争对手
-router.put('/:id', authenticateToken, checkPermission('competitor'), async (req, res) => {
+router.put('/:id', authenticateToken, checkPermission('competitor:edit'), validate(competitorUpdateSchema), async (req, res) => {
   try {
     const { name, website, industry, scale, headquarters, strengths, weaknesses, products, price_range, market_share, description, status } = req.body;
     const fields = [], values = [];
@@ -95,7 +169,7 @@ router.put('/:id', authenticateToken, checkPermission('competitor'), async (req,
 });
 
 // 删除竞争对手
-router.delete('/:id', authenticateToken, checkPermission('competitor'), async (req, res) => {
+router.delete('/:id', authenticateToken, checkPermission('competitor:delete'), async (req, res) => {
   try {
     await pool.query('UPDATE crm_competitor SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
     res.json({ code: 200, message: '删除成功', data: null });
@@ -107,7 +181,7 @@ router.delete('/:id', authenticateToken, checkPermission('competitor'), async (r
 
 // ============ 交锋记录 ============
 
-router.get('/:id/encounters', authenticateToken, checkPermission('competitor'), async (req, res) => {
+router.get('/:id/encounters', authenticateToken, checkPermission('competitor:view'), async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT e.*, c.company_name as customer_name, u.real_name as create_by_name
@@ -123,7 +197,7 @@ router.get('/:id/encounters', authenticateToken, checkPermission('competitor'), 
   }
 });
 
-router.post('/encounters/add', authenticateToken, checkPermission('competitor'), async (req, res) => {
+router.post('/encounters/add', authenticateToken, checkPermission('competitor:edit'), validate(encounterSchema), async (req, res) => {
   try {
     const { competitor_id, customer_id, opportunity_id, encounter_type, our_price, their_price, win_reason, our_advantage, their_advantage, lesson_learned, encounter_date } = req.body;
     if (!competitor_id || !encounter_type) return res.status(400).json({ code: 400, message: '参数不完整', data: null });
@@ -139,7 +213,7 @@ router.post('/encounters/add', authenticateToken, checkPermission('competitor'),
   }
 });
 
-router.put('/encounters/:id', authenticateToken, checkPermission('competitor'), async (req, res) => {
+router.put('/encounters/:id', authenticateToken, checkPermission('competitor:edit'), validate(encounterUpdateSchema), async (req, res) => {
   try {
     const fields = [], values = [];
     for (const [k, v] of Object.entries(req.body)) {
@@ -157,7 +231,7 @@ router.put('/encounters/:id', authenticateToken, checkPermission('competitor'), 
   }
 });
 
-router.delete('/encounters/:id', authenticateToken, checkPermission('competitor'), async (req, res) => {
+router.delete('/encounters/:id', authenticateToken, checkPermission('competitor:delete'), async (req, res) => {
   try {
     await pool.query('UPDATE crm_competitor_encounter SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
     res.json({ code: 200, message: '删除成功', data: null });
@@ -169,7 +243,7 @@ router.delete('/encounters/:id', authenticateToken, checkPermission('competitor'
 
 // ============ 情报 ============
 
-router.get('/:id/intel', authenticateToken, checkPermission('competitor'), async (req, res) => {
+router.get('/:id/intel', authenticateToken, checkPermission('competitor:view'), async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT i.*, u.real_name as create_by_name
@@ -183,7 +257,7 @@ router.get('/:id/intel', authenticateToken, checkPermission('competitor'), async
   }
 });
 
-router.post('/intel/add', authenticateToken, checkPermission('competitor'), async (req, res) => {
+router.post('/intel/add', authenticateToken, checkPermission('competitor:edit'), validate(intelSchema), async (req, res) => {
   try {
     const { competitor_id, intel_type, title, content, source, importance } = req.body;
     if (!competitor_id || !intel_type || !title || !content) return res.status(400).json({ code: 400, message: '参数不完整', data: null });
@@ -198,7 +272,7 @@ router.post('/intel/add', authenticateToken, checkPermission('competitor'), asyn
   }
 });
 
-router.put('/intel/:id', authenticateToken, checkPermission('competitor'), async (req, res) => {
+router.put('/intel/:id', authenticateToken, checkPermission('competitor:edit'), validate(intelUpdateSchema), async (req, res) => {
   try {
     const fields = [], values = [];
     for (const [k, v] of Object.entries(req.body)) {
@@ -216,7 +290,7 @@ router.put('/intel/:id', authenticateToken, checkPermission('competitor'), async
   }
 });
 
-router.delete('/intel/:id', authenticateToken, checkPermission('competitor'), async (req, res) => {
+router.delete('/intel/:id', authenticateToken, checkPermission('competitor:delete'), async (req, res) => {
   try {
     await pool.query('UPDATE crm_competitor_intel SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
     res.json({ code: 200, message: '删除成功', data: null });
@@ -228,7 +302,7 @@ router.delete('/intel/:id', authenticateToken, checkPermission('competitor'), as
 
 // ============ 分析总览 ============
 
-router.get('/analysis/overview', authenticateToken, checkPermission('competitor'), async (req, res) => {
+router.get('/analysis/overview', authenticateToken, checkPermission('competitor:view'), async (req, res) => {
   try {
     const [[{ total_competitors }]] = await pool.query('SELECT COUNT(*) as total_competitors FROM crm_competitor WHERE deleted_at IS NULL');
     const [[{ total_encounters }]] = await pool.query('SELECT COUNT(*) as total_encounters FROM crm_competitor_encounter WHERE deleted_at IS NULL');
@@ -276,7 +350,7 @@ router.get('/analysis/overview', authenticateToken, checkPermission('competitor'
 });
 
 // 竞争对手对比
-router.get('/analysis/compare', authenticateToken, checkPermission('competitor'), async (req, res) => {
+router.get('/analysis/compare', authenticateToken, checkPermission('competitor:view'), async (req, res) => {
   try {
     const ids = (req.query.ids || '').split(',').map(Number).filter(Boolean);
     if (ids.length === 0) return res.status(400).json({ code: 400, message: '请选择竞争对手', data: null });

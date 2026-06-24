@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
+const { clearPermissionCache, clearAllPermissionCache } = require('../services/permissionService');
 const { validate, Joi } = require('../middleware/validate');
 
 const router = express.Router();
@@ -57,6 +58,10 @@ router.post('/update', authenticateToken, requireAdmin, validate(roleUpdateSchem
       'UPDATE sys_role SET name=?, code=?, description=?, status=? WHERE id=?',
       [name, code, description, status !== undefined ? status : 1, id]
     );
+    // 修改角色后清除该角色所有用户的权限缓存
+    const [users] = await pool.query('SELECT id FROM sys_user WHERE role_id = ?', [id]);
+    users.forEach(u => clearPermissionCache(u.id));
+    clearAllPermissionCache();
     res.json({ code: 200, message: '修改角色成功', data: null });
   } catch (error) {
     console.error('[角色管理] 修改角色失败:', error);
@@ -73,6 +78,10 @@ router.post('/delete', authenticateToken, requireAdmin, validate(roleDeleteSchem
       return res.status(400).json({ code: 400, message: `该角色下有 ${users[0].cnt} 个用户，无法删除`, data: null });
     }
     await pool.query('DELETE FROM sys_role WHERE id=?', [id]);
+    // 删除角色后清除该角色所有用户的权限缓存
+    const [delUsers] = await pool.query('SELECT id FROM sys_user WHERE role_id = ?', [id]);
+    delUsers.forEach(u => clearPermissionCache(u.id));
+    clearAllPermissionCache();
     res.json({ code: 200, message: '删除角色成功', data: null });
   } catch (error) {
     console.error('[角色管理] 删除角色失败:', error);

@@ -41,6 +41,7 @@ describe('客户联系人模块', () => {
   describe('POST /api/customer/contact/add', () => {
     it('应该返回400当缺少name字段', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/customer/contact/add')
@@ -54,6 +55,7 @@ describe('客户联系人模块', () => {
     it('应该返回200当正常创建联系人', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1 }]]) // customer lookup
         .mockResolvedValueOnce([{ insertId: 10 }]); // insert contact
 
@@ -71,6 +73,7 @@ describe('客户联系人模块', () => {
   describe('POST /api/customer/contact/update', () => {
     it('应该返回400当缺少id字段', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/customer/contact/update')
@@ -84,6 +87,7 @@ describe('客户联系人模块', () => {
     it('应该返回200当正常更新联系人', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
 
       const res = await request(app)

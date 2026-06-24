@@ -42,7 +42,7 @@
 <script setup>
 import { ref, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
-import { getTomorrowTasks } from '@/api/followUp'
+import { getTomorrowTasks } from '@/api/customer'
 
 defineOptions({ name: 'TomorrowTasks' })
 

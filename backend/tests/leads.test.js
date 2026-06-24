@@ -57,6 +57,7 @@ describe('线索管理模块', () => {
     it('应该返回线索列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 2 }]]) // count
         .mockResolvedValueOnce([[{ id: 1, company_name: '线索公司A', status: 5 }, { id: 2, company_name: '线索公司B', status: 5 }]]); // list
 
@@ -75,6 +76,7 @@ describe('线索管理模块', () => {
   describe('POST /api/customer/leads/claim', () => {
     it('应该返回400当缺少id', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/customer/leads/claim')
@@ -87,6 +89,7 @@ describe('线索管理模块', () => {
     it('应该返回200当正常领取线索', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1, company_name: '线索公司' }]]) // claim lookup
         .mockResolvedValueOnce([[{ dept_id: 1 }]]) // getUserInfo
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
@@ -104,6 +107,7 @@ describe('线索管理模块', () => {
   describe('POST /api/customer/leads/convert', () => {
     it('应该返回400当缺少id', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/customer/leads/convert')
@@ -115,6 +119,7 @@ describe('线索管理模块', () => {
 
     it('应该返回200当正常转换线索为客户', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       mockConnection.query
         .mockResolvedValueOnce([[{ id: 1, company_name: '线索公司', owner_id: 1 }]]) // SELECT lead

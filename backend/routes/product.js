@@ -61,9 +61,9 @@ router.post('/list', authenticateToken, cache(120), checkPermission('product'), 
     // 默认显示上架产品，明确筛选status=0时才显示已删除
     let whereClause;
     if (status === 0 || status === '0') {
-      whereClause = 'WHERE status = 0';
+      whereClause = 'WHERE deleted_at IS NOT NULL';
     } else {
-      whereClause = 'WHERE status = 1';
+      whereClause = 'WHERE deleted_at IS NULL';
     }
     if (keyword) {
       whereClause += ' AND (name LIKE ? OR code LIKE ?)';
@@ -180,7 +180,7 @@ router.post('/update', authenticateToken, checkPermission('product:edit'), requi
 router.post('/delete', authenticateToken, checkPermission('product:delete'), requireAdmin, validate(productDeleteSchema), async (req, res) => {
   try {
     const { id } = req.body;
-    await pool.query('UPDATE crm_product SET status = 0 WHERE id = ?', [id]);
+    await pool.query('UPDATE crm_product SET deleted_at = NOW() WHERE id = ?', [id]);
     await invalidateCache(['cache:*:/api/product/*']);
     res.json({ code: 200, message: '删除产品成功', data: null });
   } catch (error) {
@@ -209,7 +209,7 @@ router.get('/detail/:id', authenticateToken, checkPermission('product'), async (
 router.get('/categories', authenticateToken, checkPermission('product'), async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT DISTINCT category FROM crm_product WHERE category IS NOT NULL AND status = 1 ORDER BY category'
+      'SELECT DISTINCT category FROM crm_product WHERE category IS NOT NULL AND deleted_at IS NULL ORDER BY category'
     );
     res.json({ code: 200, message: '查询成功', data: rows.map(r => r.category) });
   } catch (error) {

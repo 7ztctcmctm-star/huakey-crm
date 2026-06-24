@@ -4,6 +4,9 @@
   "description": "",
   "main": "run_migrations.js",
   "scripts": {
+    "migrate": "node run_migrations.js",
+    "migrate:rollback": "node run_migrations.js --rollback",
+    "migrate:rollback:to": "node run_migrations.js --rollback",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

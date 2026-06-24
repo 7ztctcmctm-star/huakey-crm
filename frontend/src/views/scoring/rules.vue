@@ -84,7 +84,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, Refresh } from '@element-plus/icons-vue'
-import { getScoringRules, saveScoringRule, batchCalculateScore, deleteScoringRule, updateScoringRule } from '@/api/scoring'
+import { getScoringRules, saveScoringRule, batchCalculateScore, deleteScoringRule, updateScoringRule } from '@/api/system'
 import request from '@/utils/request'
 
 const typeNameMap = { source: '来源', action: '行为', interaction: '互动' }

@@ -46,6 +46,7 @@ describe('API平台模块', () => {
     it('应该返回API Key列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // keys list
           { id: 1, name: '测试密钥', api_key: 'crm_abc123def456', permissions: '["customer:read"]', rate_limit: 100, status: 1 }
         ]]);
@@ -65,6 +66,7 @@ describe('API平台模块', () => {
     it('应该返回200当正常创建Key', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
@@ -83,6 +85,7 @@ describe('API平台模块', () => {
     it('应该返回200当重新生成密钥', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
 
       const res = await request(app)
@@ -101,6 +104,7 @@ describe('API平台模块', () => {
     it('应该返回200当删除Key', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 
       const res = await request(app)

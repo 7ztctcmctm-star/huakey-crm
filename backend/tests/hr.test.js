@@ -42,6 +42,7 @@ describe('人力资源模块', () => {
     it('应该返回员工列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // 1. blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 2 }]]) // 2. count
         .mockResolvedValueOnce([[ // 3. employee list
           { id: 1, real_name: '张三', username: 'zhangsan', dept_name: '销售部', role_name: '销售', hire_date: '2024-01-15' },
@@ -65,6 +66,7 @@ describe('人力资源模块', () => {
     it('应该返回员工详情', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1, real_name: '张三', dept_name: '销售部', hire_date: '2024-01-15', position: '销售经理' }]]); // employee detail
 
       const res = await request(app)
@@ -81,6 +83,7 @@ describe('人力资源模块', () => {
     it('应该返回400当没有要更新的字段', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1 }]]); // user exists check
 
       const res = await request(app)
@@ -95,6 +98,7 @@ describe('人力资源模块', () => {
     it('应该返回200当正常创建员工档案', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1 }]]) // user exists check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // insert/update profile
 
@@ -112,6 +116,7 @@ describe('人力资源模块', () => {
     it('应该返回组织架构树', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // departments
           { id: 1, name: '总公司', parent_id: null, sort: 1, employee_count: 10, manager_name: '张三' },
           { id: 2, name: '销售部', parent_id: 1, sort: 1, employee_count: 5, manager_name: '李四' }

@@ -12,16 +12,17 @@ const checkPermission = (permissionCodes) => {
       const userId = req.user.userId;
       const roleId = req.user.roleId;
 
-      // 超级管理员直接通过
-      if (roleId === ROLES.ADMIN) {
-        return next();
-      }
-
       // 确保permissionCodes是数组
       const codes = Array.isArray(permissionCodes) ? permissionCodes : [permissionCodes];
 
+      // 超级管理员直接通过（记录审计日志）
+      if (roleId === ROLES.ADMIN) {
+        console.log(`[PermissionAudit] ADMIN(userId=${userId}) bypassed permission check for [${codes.join(',')}], ${req.method} ${req.originalUrl}`);
+        return next();
+      }
+
       // 使用缓存获取用户权限
-      const userPermissions = await getUserPermissions(userId, roleId);
+      const userPermissions = await getUserPermissions(pool, userId, roleId);
       const hasAny = codes.some(code => userPermissions.includes(code));
 
       if (!hasAny) {
@@ -62,7 +63,7 @@ const checkDataPermission = (module, ownerColumn = 'owner_id') => {
       }
 
       // 使用缓存获取数据权限配置
-      const configs = await getDataPermissions(roleId);
+      const configs = await getDataPermissions(pool, roleId);
       const config = configs.find(c => c.module === module);
 
       if (!config) {

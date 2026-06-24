@@ -4,6 +4,19 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const { restore, permanentDelete, getDeletedList } = require('../utils/softDelete');
+const { validate, Joi } = require('../middleware/validate');
+
+const recycleListSchema = Joi.object({
+  module: Joi.string().valid('customer', 'opportunity', 'contract', 'quote', 'supplier', 'purchase', 'service', 'product').allow('', null),
+  page: Joi.number().integer().min(1).default(1),
+  pageSize: Joi.number().integer().min(1).max(200).default(20),
+  keyword: Joi.string().allow('').optional().max(200)
+});
+
+const recycleActionSchema = Joi.object({
+  module: Joi.string().valid('customer', 'opportunity', 'contract', 'quote', 'supplier', 'purchase', 'service', 'product').required(),
+  id: Joi.number().integer().positive().required()
+});
 
 const requireAdmin = require('../middleware/admin');
 
@@ -20,7 +33,7 @@ const TABLE_CONFIG = {
 };
 
 // 获取回收站列表
-router.post('/list', authenticateToken, checkPermission('recycle_bin:view'), async (req, res) => {
+router.post('/list', authenticateToken, checkPermission('recycle_bin:view'), validate(recycleListSchema), async (req, res) => {
   const { module, page = 1, pageSize = 20, keyword } = req.body;
 
   if (!module || !TABLE_CONFIG[module]) {
@@ -62,7 +75,7 @@ router.post('/list', authenticateToken, checkPermission('recycle_bin:view'), asy
 });
 
 // 恢复记录
-router.post('/restore', authenticateToken, checkPermission('data:restore'), requireAdmin, async (req, res) => {
+router.post('/restore', authenticateToken, checkPermission('data:restore'), requireAdmin, validate(recycleActionSchema), async (req, res) => {
   try {
   const { module, id } = req.body;
 
@@ -90,7 +103,7 @@ router.post('/restore', authenticateToken, checkPermission('data:restore'), requ
 });
 
 // 彻底删除
-router.post('/permanent-delete', authenticateToken, checkPermission('data:restore'), requireAdmin, async (req, res) => {
+router.post('/permanent-delete', authenticateToken, checkPermission('data:restore'), requireAdmin, validate(recycleActionSchema), async (req, res) => {
   try {
   const { module, id } = req.body;
 

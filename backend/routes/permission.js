@@ -20,13 +20,13 @@ router.get('/my-permissions', authenticateToken, async (req, res) => {
     const roleId = req.user.roleId;
 
     // 获取功能权限
-    const permissions = await getUserPermissions(userId, roleId);
+    const permissions = await getUserPermissions(pool, userId, roleId);
 
     // 获取菜单权限
-    const menus = await getMenuPermissions(roleId);
+    const menus = await getMenuPermissions(pool, roleId);
 
     // 获取数据权限
-    const dataPermissions = await getDataPermissions(roleId);
+    const dataPermissions = await getDataPermissions(pool, roleId);
 
     res.json({
       code: 200,

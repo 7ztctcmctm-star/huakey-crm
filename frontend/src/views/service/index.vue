@@ -349,11 +349,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import request from '@/utils/request'
-import { getServiceList, getServiceDetail, addService, updateService, deleteService, assignService, batchAssignService, startService, finishService, confirmService, getServiceTypes, getServiceStatusList, getServicePriorityList } from '@/api/service'
+import { getServiceList, getServiceDetail, addService, updateService, deleteService, assignService, batchAssignService, startService, finishService, confirmService, getServiceTypes, getServiceStatusList, getServicePriorityList } from '@/api/system'
 import { getCustomerList } from '@/api/customer'
 import { getUserList } from '@/api/system'
 import { getContractList } from '@/api/contract'
-import { getKnowledgeFaqs } from '@/api/knowledge'
+import { getKnowledgeFaqs } from '@/api/tools'
 import { formatTime } from '@/composables/useFormat'
 
 // 上传相关

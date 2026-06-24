@@ -56,6 +56,7 @@ describe('采购管理模块', () => {
   describe('POST /api/purchase/add', () => {
     it('应该返回400当缺少supplier_id', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/purchase/add')
@@ -68,6 +69,7 @@ describe('采购管理模块', () => {
 
     it('应该返回200当正常创建采购单', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       mockConnection.query
         .mockResolvedValueOnce([[{ cnt: 0 }]]) // count for order_no generation
@@ -99,6 +101,7 @@ describe('采购管理模块', () => {
     it('应该返回采购列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // list
           { id: 1, order_no: 'PO-260623-001', title: '6月采购单', status: '草稿' },
           { id: 2, order_no: 'PO-260623-002', title: '紧急采购', status: '已确认' }
@@ -121,6 +124,7 @@ describe('采购管理模块', () => {
     it('应该返回200当正常更新采购单状态', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update status
 
       const res = await request(app)
@@ -136,6 +140,7 @@ describe('采购管理模块', () => {
   describe('POST /api/purchase/receipt/add', () => {
     it('应该返回200当正常到货验收', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       mockConnection.query
         .mockResolvedValueOnce([[{ cnt: 0 }]]) // count for receipt_no
@@ -160,6 +165,7 @@ describe('采购管理模块', () => {
   describe('POST /api/purchase/receipt/add 缺少必填字段', () => {
     it('应该返回400当缺少order_id', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/purchase/receipt/add')

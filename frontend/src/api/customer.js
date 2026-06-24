@@ -1,133 +1,68 @@
 import request from '@/utils/request'
 
-// 客户列表
-export function getCustomerList(params) {
-  return request.post('/customer/list', params)
-}
-
-// 客户详情
-export function getCustomerDetail(id) {
-  return request.get(`/customer/detail/${id}`)
-}
-
-// 新建客户
-export function addCustomer(data) {
-  return request.post('/customer/add', data)
-}
-
-// 编辑客户
-export function updateCustomer(data) {
-  return request.post('/customer/update', data)
-}
-
-// 删除客户
-export function deleteCustomer(id) {
-  return request.post('/customer/delete', { id })
-}
-
-// 公海列表
-export function getPoolList(params) {
-  return request.post('/customer/pool', params)
-}
-
-// 领取客户
-export function claimCustomer(id) {
-  return request.post('/customer/claim', { id })
-}
-
-// 分配客户
-export function assignCustomer(data) {
-  return request.post('/customer/assign', data)
-}
-
-// 批量分配
-export function batchAssignCustomer(data) {
-  return request.post('/customer/batch-assign', data)
-}
-
-// 客户转化（潜客⇄正式客户）
-export function convertCustomer(data) {
-  return request.post('/customer/convert', data)
-}
-
-// 导入客户
-export function importCustomers(formData) {
-  return request.post('/customer/import', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  })
-}
-
-// 导出客户
-export function exportCustomers(params) {
-  return request.post('/customer/export', params, { responseType: 'blob' })
-}
-
-// 客户联系人
-export function addContact(data) {
-  return request.post('/customer/contact/add', data)
-}
-export function updateContact(data) {
-  return request.post('/customer/contact/update', data)
-}
-export function deleteContact(id) {
-  return request.post('/customer/contact/delete', { id })
-}
-
-// 销售用户列表（用于分配等下拉）
-export function getSalesUsers() {
-  return request.get('/customer/sales-users')
-}
-
-// 我的下属（经理用）
-export function getMySubordinates() {
-  return request.get('/customer/my-subordinates')
-}
-
-// 客户 360 视图
-export function getCustomer360(id) {
-  return request.get(`/customer/${id}/360`)
-}
-
-// 释放客户到公海
-export function releaseCustomer(customerId) {
-  return request.post('/customer/release', { customer_id: customerId })
-}
-
-// 分配规则
-export function getAssignRules() {
-  return request.get('/customer/assign-rules')
-}
-export function createAssignRule(data) {
-  return request.post('/customer/assign-rules/create', data)
-}
-export function updateAssignRule(data) {
-  return request.post('/customer/assign-rules/update', data)
-}
-export function deleteAssignRule(id) {
-  return request.post('/customer/assign-rules/delete', { id })
-}
-
-// 线索
-export function getLeadsList(params) { return request.post('/customer/leads/list', params) }
-export function convertLead(id) { return request.post('/customer/leads/convert', { id }) }
-export function claimLead(id) { return request.post('/customer/leads/claim', { id }) }
-export function markLeadLost(id) { return request.post('/customer/leads/mark-lost', { id }) }
-export function getLeadsStats() { return request.get('/customer/leads/stats') }
-
-// 公海批量领取
-export function batchClaimCustomer(ids) {
-  return request.post('/customer/batch-claim', { ids })
-}
-
-// 自动分配
-export function autoAssignCustomer(data) {
-  return request.post('/customer/auto-assign', data)
-}
-
-// 模板与质量检查
+// ============ 客户管理 ============
+export const getCustomerList = (params) => request.post('/customer/list', params)
+export const getCustomerDetail = (id) => request.get(`/customer/detail/${id}`)
+export const addCustomer = (data) => request.post('/customer/add', data)
+export const updateCustomer = (data) => request.post('/customer/update', data)
+export const deleteCustomer = (id) => request.post('/customer/delete', { id })
+export const getPoolList = (params) => request.post('/customer/pool', params)
+export const claimCustomer = (id) => request.post('/customer/claim', { id })
+export const assignCustomer = (data) => request.post('/customer/assign', data)
+export const batchAssignCustomer = (data) => request.post('/customer/batch-assign', data)
+export const convertCustomer = (data) => request.post('/customer/convert', data)
+export const importCustomers = (formData) => request.post('/customer/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+export const exportCustomers = (params) => request.post('/customer/export', params, { responseType: 'blob' })
+export const addContact = (data) => request.post('/customer/contact/add', data)
+export const updateContact = (data) => request.post('/customer/contact/update', data)
+export const deleteContact = (id) => request.post('/customer/contact/delete', { id })
+export const getSalesUsers = () => request.get('/customer/sales-users')
+export const getMySubordinates = () => request.get('/customer/my-subordinates')
+export const getCustomer360 = (id) => request.get(`/customer/${id}/360`)
+export const releaseCustomer = (customerId) => request.post('/customer/release', { customer_id: customerId })
+export const getAssignRules = () => request.get('/customer/assign-rules')
+export const createAssignRule = (data) => request.post('/customer/assign-rules/create', data)
+export const updateAssignRule = (data) => request.post('/customer/assign-rules/update', data)
+export const deleteAssignRule = (id) => request.post('/customer/assign-rules/delete', { id })
+export const getLeadsList = (params) => request.post('/customer/leads/list', params)
+export const convertLead = (id) => request.post('/customer/leads/convert', { id })
+export const claimLead = (id) => request.post('/customer/leads/claim', { id })
+export const markLeadLost = (id) => request.post('/customer/leads/mark-lost', { id })
+export const getLeadsStats = () => request.get('/customer/leads/stats')
+export const batchClaimCustomer = (ids) => request.post('/customer/batch-claim', { ids })
+export const autoAssignCustomer = (data) => request.post('/customer/auto-assign', data)
 export const getCustomerTemplate = () => request.get('/customer/template')
 export const qualityCheck = (data) => request.post('/customer/quality-check', data)
 export const qualityReport = (data) => request.post('/customer/quality-report', data)
 export const importPreview = (data) => request.post('/customer/import-preview', data)
 export const importConfirm = (data) => request.post('/customer/import-confirm', data)
 export const calculateCustomerScore = (id) => request.post(`/scoring/calculate/${id}`)
+
+// ============ 跟进记录 ============
+export const getFollowUpList = (customerId, params = {}) => request.post('/follow-up/list', { customer_id: customerId, ...params })
+export const addFollowUp = (data) => request.post('/follow-up/add', data)
+export const updateFollowUp = (data) => request.post('/follow-up/update', data)
+export const deleteFollowUp = (id) => request.post('/follow-up/delete', { id })
+export const getFollowPlanList = (customerId) => request.post('/follow-plan/list', { customer_id: customerId })
+export const addFollowPlan = (data) => request.post('/follow-plan/add', data)
+export const completeFollowPlan = (id) => request.post('/follow-plan/complete', { id })
+export const cancelFollowPlan = (data) => request.post('/follow-plan/cancel', data)
+export const getFollowupTemplates = () => request.get('/followup-templates')
+export const saveFollowupTemplate = (data) => request.post('/followup-templates', data)
+export const deleteFollowupTemplate = (id) => request.delete(`/followup-templates/${id}`)
+export const getFollowUpCalendar = (params) => request.post('/follow-up/calendar', params)
+export const getTodayReminders = () => request.get('/follow-up/remind')
+export const getTomorrowTasks = () => request.get('/follow-up/tomorrow')
+export const getFollowUpPlans = () => request.get('/follow-up/plans')
+export const batchAddFollowUp = (items) => request.post('/follow-up/batch-add', { items })
+export const getFollowUpTaskStats = () => request.get('/follow-up/task-stats')
+
+// ============ 商机管理 ============
+export const getOpportunityList = (params) => request.post('/opportunity/list', params)
+export const addOpportunity = (data) => request.post('/opportunity/add', data)
+export const updateOpportunity = (data) => request.post('/opportunity/update', data)
+export const deleteOpportunity = (id) => request.post('/opportunity/delete', { id })
+export const updateOpportunityStage = (id, stage) => request.post('/opportunity/update-stage', { id, stage })
+export const getSalesFunnel = (params) => request.get('/opportunity/funnel', { params })
+export const getOpportunityDetail = (id) => request.get(`/opportunity/detail/${id}`)
+export const getOpportunityStageLog = (id) => request.get(`/opportunity/stage-log/${id}`)

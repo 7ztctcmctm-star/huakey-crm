@@ -106,7 +106,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { getNotifications, markNotificationRead, markAllRead as apiMarkAllRead, getMyReminders } from '@/api/notification'
+import { getNotifications, markNotificationRead, markAllRead as apiMarkAllRead, getMyReminders } from '@/api/tools'
 import { formatTime } from '@/composables/useFormat'
 
 const router = useRouter()

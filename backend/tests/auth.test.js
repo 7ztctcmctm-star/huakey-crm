@@ -110,8 +110,9 @@ describe('认证模块', () => {
       const hashedPassword = await bcrypt.hash('CorrectOldPass1', 10);
       mockPool.query
         .mockResolvedValueOnce([[]])  // blacklist check (empty = not blacklisted)
-        .mockResolvedValueOnce([[{ password: hashedPassword }]])
-        .mockResolvedValueOnce([{ affectedRows: 1 }]);
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ password: hashedPassword }]])  // get user password
+        .mockResolvedValueOnce([{ affectedRows: 1 }]);  // update password
 
       const res = await request(app)
         .post('/api/auth/change-password')

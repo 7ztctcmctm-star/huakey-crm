@@ -92,7 +92,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { getSocialRecords, saveSocialRecord, getSocialStats, deleteSocialRecord } from '@/api/social'
+import { getSocialRecords, saveSocialRecord, getSocialStats, deleteSocialRecord } from '@/api/tools'
 import { getCustomerList } from '@/api/customer'
 import request from '@/utils/request'
 

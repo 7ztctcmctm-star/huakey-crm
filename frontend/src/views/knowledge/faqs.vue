@@ -63,7 +63,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete } from '@element-plus/icons-vue'
 import request from '@/utils/request'
-import { getKnowledgeFaqs, addKnowledgeFaq, updateKnowledgeFaq, deleteKnowledgeFaq, getKnowledgeFaqsCategories } from '@/api/knowledge'
+import { getKnowledgeFaqs, addKnowledgeFaq, updateKnowledgeFaq, deleteKnowledgeFaq, getKnowledgeFaqsCategories } from '@/api/tools'
 
 const loading = ref(false)
 const list = ref([])

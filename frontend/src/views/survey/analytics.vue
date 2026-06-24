@@ -74,7 +74,7 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { ArrowLeft } from '@element-plus/icons-vue'
-import { getSurveyAnalytics } from '@/api/survey'
+import { getSurveyAnalytics } from '@/api/tools'
 import echarts from '@/composables/useECharts'
 
 const route = useRoute()

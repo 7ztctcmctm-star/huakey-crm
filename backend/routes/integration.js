@@ -3,6 +3,12 @@ const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
+const { validate, Joi } = require('../middleware/validate');
+
+const integrationUpdateSchema = Joi.object({
+  id: Joi.number().integer().positive().required(),
+  config: Joi.object().required().unknown(true)
+});
 
 // 获取集成配置列表
 router.get('/list', authenticateToken, checkPermission('system'), async (req, res) => {
@@ -34,7 +40,7 @@ router.get('/list', authenticateToken, checkPermission('system'), async (req, re
 });
 
 // 更新集成配置
-router.post('/update', authenticateToken, checkPermission('system'), async (req, res) => {
+router.post('/update', authenticateToken, checkPermission('system'), validate(integrationUpdateSchema), async (req, res) => {
   try {
     const { id, config } = req.body;
     if (!id || !config) {

@@ -43,7 +43,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Promotion } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { getEmailAccounts, sendEmail } from '@/api/email'
+import { getEmailAccounts, sendEmail } from '@/api/tools'
 import { getCustomerList } from '@/api/customer'
 
 const route = useRoute()

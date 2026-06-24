@@ -285,7 +285,7 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import request from '@/utils/request';
-import { getSupplierDetail, getSupplierPerformance, addSupplierContact, updateSupplierContact, deleteSupplierContact, addQualification, updateQualification, deleteQualification as deleteQualificationApi, addSupplierRating } from '@/api/supplier';
+import { getSupplierDetail, getSupplierPerformance, addSupplierContact, updateSupplierContact, deleteSupplierContact, addQualification, updateQualification, deleteQualification as deleteQualificationApi, addSupplierRating } from '@/api/product';
 
 const route = useRoute();
 const router = useRouter();

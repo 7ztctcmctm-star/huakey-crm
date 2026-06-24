@@ -55,6 +55,7 @@ describe('库存管理模块', () => {
   describe('POST /api/inventory/in 缺少必填字段', () => {
     it('应该返回400当缺少product_id', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/inventory/in')
@@ -69,6 +70,7 @@ describe('库存管理模块', () => {
   describe('POST /api/inventory/in', () => {
     it('应该返回200当正常入库', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       mockConnection.query
         .mockResolvedValueOnce([[{ id: 1, stock: 50 }]]) // SELECT FOR UPDATE
@@ -92,6 +94,7 @@ describe('库存管理模块', () => {
     it('应该返回库存列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 2 }]]) // count
         .mockResolvedValueOnce([[ // list
           { id: 1, name: '螺丝', code: 'P001', stock: 100, stock_status: 'normal' },
@@ -113,6 +116,7 @@ describe('库存管理模块', () => {
   describe('POST /api/inventory/out', () => {
     it('应该返回200当正常出库', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       mockConnection.query
         .mockResolvedValueOnce([[{ id: 1, stock: 100 }]]) // SELECT FOR UPDATE
@@ -135,6 +139,7 @@ describe('库存管理模块', () => {
   describe('POST /api/inventory/in 产品不存在', () => {
     it('应该返回404当产品不存在', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       mockConnection.query
         .mockResolvedValueOnce([[undefined]]); // SELECT FOR UPDATE → product not found

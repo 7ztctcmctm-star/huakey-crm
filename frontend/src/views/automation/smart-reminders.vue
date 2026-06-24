@@ -102,7 +102,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import request from '@/utils/request'
-import { getSmartReminders, saveSmartReminder, runSmartReminder, getPendingReminders, deleteSmartReminder, markReminderSeen } from '@/api/automation'
+import { getSmartReminders, saveSmartReminder, runSmartReminder, getPendingReminders, deleteSmartReminder, markReminderSeen } from '@/api/tools'
 
 const typeName = { followup_gap: '跟进间隔', contract_expire: '合同到期', payment_due: '回款到期', birthday: '生日', inactive: '沉默客户' }
 const typeTag = { followup_gap: '', contract_expire: 'warning', payment_due: 'danger', birthday: 'success', inactive: 'info' }

@@ -41,6 +41,7 @@ describe('币种管理模块', () => {
     it('应该返回币种列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // currency list
           { id: 1, code: 'CNY', name: '人民币', symbol: '¥', exchange_rate: 1, is_default: 1 },
           { id: 2, code: 'USD', name: '美元', symbol: '$', exchange_rate: 7.2, is_default: 0 }
@@ -59,6 +60,7 @@ describe('币种管理模块', () => {
   describe('PUT /api/currency/:id', () => {
     it('应该返回400当没有要更新的字段', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .put('/api/currency/1')
@@ -72,6 +74,7 @@ describe('币种管理模块', () => {
     it('应该返回200当正常更新汇率', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
 
       const res = await request(app)
@@ -88,6 +91,7 @@ describe('币种管理模块', () => {
     it('应该返回200当正常删除币种', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 
       const res = await request(app)

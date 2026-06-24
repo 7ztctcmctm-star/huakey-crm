@@ -1,6 +1,7 @@
 const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 
 process.env.JWT_SECRET = 'test_secret_key_for_unit_tests';
 process.env.DB_PASSWORD = 'test_db_pass';
@@ -55,6 +56,7 @@ describe('数据备份模块', () => {
     it('应该返回备份列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[{ id: 1, file_name: 'huakey_crm_full_2026-06-23.sql', status: 'success' }]]); // list
 
@@ -74,6 +76,7 @@ describe('数据备份模块', () => {
     it('应该返回200当正常创建备份', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert backup record
 
       const res = await request(app)
@@ -91,6 +94,7 @@ describe('数据备份模块', () => {
   describe('POST /api/backup/restore', () => {
     it('应该返回400当确认码不正确', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/backup/restore')
@@ -102,14 +106,17 @@ describe('数据备份模块', () => {
     });
 
     it('应该返回200当正常恢复备份', async () => {
+      const confirmCode = crypto.createHmac('sha256', process.env.JWT_SECRET)
+        .update('backup-restore-1').digest('hex').slice(0, 12);
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1, status: 'success', file_path: '/tmp/test_backup.sql' }]]); // SELECT backup record
 
       const res = await request(app)
         .post('/api/backup/restore')
         .set('Authorization', `Bearer ${token}`)
-        .send({ id: 1, confirm_code: 'RESTORE-1' });
+        .send({ id: 1, confirm_code: confirmCode });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
@@ -120,6 +127,7 @@ describe('数据备份模块', () => {
     it('应该返回200当正常删除备份', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1, file_path: '/tmp/test_backup.sql' }]]) // SELECT backup record
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // DELETE record
 

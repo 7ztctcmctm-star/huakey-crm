@@ -40,6 +40,7 @@ describe('商机模块', () => {
     it('应该返回200和商机列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]])  // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 1 }]])
         .mockResolvedValueOnce([[{ id: 1, name: '测试商机', stage: 1 }]]);
 

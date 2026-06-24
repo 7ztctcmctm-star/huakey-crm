@@ -63,7 +63,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
-import { getCampaignDetail, submitSurveyResponse } from '@/api/survey'
+import { getCampaignDetail, submitSurveyResponse } from '@/api/tools'
 
 const route = useRoute()
 const loading = ref(false)

@@ -18,7 +18,8 @@ const { checkAllSuppliersScores } = require('../utils/scoring');
 const { checkQualificationExpiry, updateQualificationStatus } = require('../utils/qualification-reminder');
 const { generateReminders } = require('../scripts/generate_reminders');
 
-// Vercel Cron 请求验证（必须设置 CRON_SECRET 环境变量）
+// Vercel Cron 请求验证
+// [安全] 生产环境必须设置 CRON_SECRET 为强随机字符串（≥32位），否则所有 Cron 端点将被拒绝
 const verifyCron = (req, res, next) => {
   const secret = process.env.CRON_SECRET;
   if (!secret) {
@@ -49,12 +50,12 @@ router.get('/daily-scoring', async (req, res) => {
 // 2. 清理过期日志（保留 90 天）
 router.get('/clean-logs', async (req, res) => {
   try {
-    const result = await pool.query(
+    const [result] = await pool.query(
       "DELETE FROM sys_log WHERE create_time < NOW() - INTERVAL 90 DAY"
     );
     res.json({
       code: 200,
-      message: `日志清理完成，已清理 ${result.rowCount || 0} 条`
+      message: `日志清理完成，已清理 ${result.affectedRows || 0} 条`
     });
   } catch (error) {
     console.error('[Cron] 日志清理失败:', error.message);
@@ -68,7 +69,7 @@ router.get('/auto-release', async (req, res) => {
   try {
     const [customers] = await pool.query(
       `SELECT id, company_name, owner_id FROM crm_customer
-       WHERE pool_status = 0 AND status != 0 AND owner_id IS NOT NULL
+       WHERE pool_status = 0 AND deleted_at IS NULL AND owner_id IS NOT NULL
          AND (last_follow_time IS NULL AND create_time < NOW() - INTERVAL ? DAY
            OR last_follow_time < NOW() - INTERVAL ? DAY)`,
       [AUTO_RELEASE_DAYS, AUTO_RELEASE_DAYS]

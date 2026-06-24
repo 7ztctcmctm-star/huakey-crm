@@ -181,10 +181,10 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
-import { getCustomerReconciliation, getSupplierReconciliation, saveReconciliation, getReconciliationList } from '@/api/finance'
+import { getCustomerReconciliation, getSupplierReconciliation, saveReconciliation, getReconciliationList } from '@/api/hr'
 import { getCustomerList } from '@/api/customer'
-import { getSupplierList } from '@/api/supplier'
-import { sendIntegrationEmail } from '@/api/integration'
+import { getSupplierList } from '@/api/product'
+import { sendIntegrationEmail } from '@/api/system'
 
 const activeType = ref('customer')
 const customerOptions = ref([])

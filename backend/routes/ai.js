@@ -1,17 +1,28 @@
 const express = require('express');
 const router = express.Router();
+const mysql = require('mysql2/promise');
 const { authenticateToken } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/permission');
 const pool = require('../config/database');
 const { chatCompletion, getProviderStatus } = require('../utils/llmClient');
 
-// AI查询使用主数据库连接池（PG 已兼容）
-const readOnlyPool = pool;
+// AI查询使用独立只读连接池（未配 DB_RO_* 时降级用主库）
+const readOnlyPool = process.env.DB_RO_HOST
+  ? mysql.createPool({
+      host: process.env.DB_RO_HOST || process.env.DB_HOST,
+      user: process.env.DB_RO_USER || 'ai_readonly',
+      password: process.env.DB_RO_PASSWORD,
+      database: process.env.DB_RO_NAME || process.env.DB_NAME,
+      waitForConnections: true,
+      connectionLimit: 5
+    })
+  : pool;
 
-if (!process.env.DB_RO_USER) {
+if (!process.env.DB_RO_HOST) {
   console.warn('[AI] 未配置DB_RO_*环境变量，AI查询将使用主数据库账号。建议配置只读数据库账号以降低安全风险。');
 }
 
-router.post('/chat', authenticateToken, async (req, res) => {
+router.post('/chat', authenticateToken, checkPermission('ai'), async (req, res) => {
   try {
     const { messages, context } = req.body;
 
@@ -45,7 +56,7 @@ router.post('/chat', authenticateToken, async (req, res) => {
   }
 });
 
-router.get('/status', authenticateToken, async (req, res) => {
+router.get('/status', authenticateToken, checkPermission('ai'), async (req, res) => {
   try {
     const status = await getProviderStatus();
     res.json({ code: 200, data: status });
@@ -72,7 +83,7 @@ const DB_SCHEMA = `
 - sys_email_log(邮件日志): id, to_email, subject, status(sent/failed), create_time
 `.trim();
 
-router.post('/query', authenticateToken, async (req, res) => {
+router.post('/query', authenticateToken, checkPermission('ai'), async (req, res) => {
   try {
     const { question } = req.body;
     if (!question) return res.status(400).json({ code: 400, message: '请输入问题', data: null });
@@ -126,7 +137,10 @@ router.post('/query', authenticateToken, async (req, res) => {
     // 第二步：执行 SQL（使用只读连接池）
     let rows;
     try {
-      [rows] = await readOnlyPool.query(sql + ' LIMIT 50');
+      // 安全处理 LIMIT：如果SQL已有LIMIT则不追加，否则用子查询包裹
+      const hasLimit = /\bLIMIT\s+\d+/i.test(sql);
+      const safeSql = hasLimit ? sql : `SELECT * FROM (${sql}) AS _ai_query LIMIT 50`;
+      [rows] = await readOnlyPool.query(safeSql);
     } catch (dbError) {
       console.error('[AI查询] SQL执行失败:', sql, dbError.message);
       return res.json({ code: 200, data: { sql, answer: '生成的SQL有误，请换个问法。', rows: [] } });
@@ -163,7 +177,7 @@ const DB_SCHEMA_EXTENDED = DB_SCHEMA + `
 `;
 
 // AI建议列表
-router.get('/suggestions', authenticateToken, async (req, res) => {
+router.get('/suggestions', authenticateToken, checkPermission('ai'), async (req, res) => {
   try {
     const { type, page = 1, pageSize = 20 } = req.query;
     const offset = (page - 1) * pageSize;
@@ -212,7 +226,7 @@ router.get('/suggestions', authenticateToken, async (req, res) => {
 });
 
 // 标记建议采纳/反馈
-router.post('/suggestion/feedback', authenticateToken, async (req, res) => {
+router.post('/suggestion/feedback', authenticateToken, checkPermission('ai'), async (req, res) => {
   try {
     const { id, is_accepted, feedback } = req.body;
     if (!id) return res.status(400).json({ code: 400, message: '建议ID不能为空', data: null });
@@ -233,7 +247,7 @@ router.post('/suggestion/feedback', authenticateToken, async (req, res) => {
 });
 
 // 生成AI建议
-router.post('/generate-suggestions', authenticateToken, async (req, res) => {
+router.post('/generate-suggestions', authenticateToken, checkPermission('ai'), async (req, res) => {
   try {
     const userId = req.user.userId;
     let created = 0;

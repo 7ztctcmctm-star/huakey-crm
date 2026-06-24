@@ -197,7 +197,7 @@ import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import request from '@/utils/request';
-import { getSupplierList, addSupplier, updateSupplier, deleteSupplier } from '@/api/supplier';
+import { getSupplierList, addSupplier, updateSupplier, deleteSupplier } from '@/api/product';
 
 const router = useRouter();
 const loading = ref(false);

@@ -102,9 +102,9 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import request from '@/utils/request'
-import { getProcurementPlanList, createProcurementPlan, autoGeneratePlan, getProcurementStats, submitProcurementPlan, approveProcurementPlan, deleteProcurementPlan } from '@/api/procurementPlan'
-import { getSupplierList } from '@/api/supplier'
-import { getInventoryList } from '@/api/inventory'
+import { getProcurementPlanList, createProcurementPlan, autoGeneratePlan, getProcurementStats, submitProcurementPlan, approveProcurementPlan, deleteProcurementPlan } from '@/api/product'
+import { getSupplierList } from '@/api/product'
+import { getInventoryList } from '@/api/product'
 
 const router = useRouter()
 const statusName = { draft: '草稿', submitted: '待审批', approved: '已批准', ordered: '已下单', completed: '已完成', cancelled: '已取消' }

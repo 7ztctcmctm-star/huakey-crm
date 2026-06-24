@@ -60,6 +60,7 @@ describe('跟进模块', () => {
     it('应该返回200当创建成功', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]])  // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1, company_name: '测试公司' }]])
         .mockResolvedValueOnce([{ insertId: 1 }]);
 

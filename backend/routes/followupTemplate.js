@@ -2,10 +2,24 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/permission');
 const { requireAdmin, requireManager } = require('../middleware/admin');
+const { validate, Joi } = require('../middleware/validate');
+
+const templateCreateSchema = Joi.object({
+  name: Joi.string().required().max(200).trim(),
+  type: Joi.string().valid('first', 'quote', 'deal', 'general').default('general'),
+  content: Joi.string().required().max(5000).trim()
+});
+
+const templateUpdateSchema = Joi.object({
+  name: Joi.string().max(200).trim(),
+  type: Joi.string().valid('first', 'quote', 'deal', 'general'),
+  content: Joi.string().max(5000).trim()
+});
 
 // 获取所有模板
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', authenticateToken, checkPermission('followup_template'), async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT id, name, type, content, create_by, create_time
@@ -21,7 +35,7 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // 创建模板（仅管理员/经理）
-router.post('/', authenticateToken, requireManager, async (req, res) => {
+router.post('/', authenticateToken, checkPermission('followup_template'), requireManager, validate(templateCreateSchema), async (req, res) => {
   try {
     const { name, type = 'general', content } = req.body;
     if (!name || !name.trim()) {
@@ -45,7 +59,7 @@ router.post('/', authenticateToken, requireManager, async (req, res) => {
 });
 
 // 更新模板（仅管理员）
-router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/:id', authenticateToken, checkPermission('followup_template'), requireAdmin, validate(templateUpdateSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const { name, type, content } = req.body;
@@ -87,7 +101,7 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // 删除模板（仅管理员）
-router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.delete('/:id', authenticateToken, checkPermission('followup_template'), requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 

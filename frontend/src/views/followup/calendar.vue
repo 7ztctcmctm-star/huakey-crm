@@ -103,7 +103,7 @@
 import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { getFollowUpCalendar, getFollowUpPlans } from '@/api/followUp'
+import { getFollowUpCalendar, getFollowUpPlans } from '@/api/customer'
 import { formatTime } from '@/composables/useFormat'
 
 const router = useRouter()

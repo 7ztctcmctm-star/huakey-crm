@@ -22,7 +22,7 @@ jest.mock('../utils/llmClient', () => ({
 }));
 
 jest.mock('../services/permissionService', () => ({
-  getUserPermissions: jest.fn().mockResolvedValue([]),
+  getUserPermissions: jest.fn().mockResolvedValue(["ai"]),
   getMenuPermissions: jest.fn().mockResolvedValue([]),
   getDataPermissions: jest.fn().mockResolvedValue([])
 }));
@@ -50,6 +50,7 @@ describe('AI模块', () => {
   describe('POST /api/ai/query', () => {
     it('应该返回400当缺少question', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/ai/query')
@@ -62,6 +63,7 @@ describe('AI模块', () => {
 
     it('应该返回200当正常查询', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       chatCompletion
         .mockResolvedValueOnce('SELECT COUNT(*) FROM crm_customer WHERE status != 0') // SQL generation
@@ -86,6 +88,7 @@ describe('AI模块', () => {
     it('应该返回建议列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[ // list
           { id: 1, type: 'follow_up', ref_id: 1, suggestion: '建议跟进客户', confidence: 0.85 }
@@ -106,6 +109,7 @@ describe('AI模块', () => {
   describe('GET /api/ai/status', () => {
     it('应该返回AI状态', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .get('/api/ai/status')

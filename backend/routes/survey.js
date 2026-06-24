@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/permission');
+const { validate, Joi } = require('../middleware/validate');
 
 const requireAdmin = require('../middleware/admin');
 const { requireManager } = require('../middleware/admin');
@@ -23,7 +25,7 @@ const optionalAuth = (req, res, next) => {
 // ============ 模板管理 ============
 
 // 模板列表
-router.get('/templates', authenticateToken, async (req, res) => {
+router.get('/templates', authenticateToken, checkPermission('survey'), async (req, res) => {
   try {
     const { page = 1, pageSize = 20 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(pageSize);
@@ -40,7 +42,7 @@ router.get('/templates', authenticateToken, async (req, res) => {
 });
 
 // 创建模板
-router.post('/templates', authenticateToken, requireManager, async (req, res) => {
+router.post('/templates', authenticateToken, checkPermission('survey'), requireManager, async (req, res) => {
   try {
     const { name, description, survey_type, questions } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ code: 400, message: '模板名称不能为空', data: null });
@@ -58,7 +60,7 @@ router.post('/templates', authenticateToken, requireManager, async (req, res) =>
 });
 
 // 更新模板
-router.put('/templates/:id', authenticateToken, requireManager, async (req, res) => {
+router.put('/templates/:id', authenticateToken, checkPermission('survey'), requireManager, async (req, res) => {
   try {
     const { id } = req.params;
     const [[existing]] = await pool.query('SELECT * FROM crm_survey_template WHERE id = ? AND deleted_at IS NULL', [id]);
@@ -82,7 +84,7 @@ router.put('/templates/:id', authenticateToken, requireManager, async (req, res)
 });
 
 // 删除模板
-router.delete('/templates/:id', authenticateToken, requireManager, async (req, res) => {
+router.delete('/templates/:id', authenticateToken, checkPermission('survey'), requireManager, async (req, res) => {
   try {
     const [[existing]] = await pool.query('SELECT is_system FROM crm_survey_template WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
     if (!existing) return res.status(404).json({ code: 404, message: '模板不存在', data: null });
@@ -96,7 +98,7 @@ router.delete('/templates/:id', authenticateToken, requireManager, async (req, r
 });
 
 // 初始化系统预设模板
-router.post('/templates/init', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/templates/init', authenticateToken, checkPermission('survey'), requireAdmin, async (req, res) => {
   try {
     const [[{ cnt }]] = await pool.query('SELECT COUNT(*) as cnt FROM crm_survey_template WHERE is_system = 1 AND deleted_at IS NULL');
     if (cnt > 0) return res.json({ code: 200, message: '预设模板已存在', data: { count: cnt } });
@@ -123,7 +125,7 @@ router.post('/templates/init', authenticateToken, requireAdmin, async (req, res)
 // ============ 活动管理 ============
 
 // 活动列表
-router.get('/campaigns', authenticateToken, async (req, res) => {
+router.get('/campaigns', authenticateToken, checkPermission('survey'), async (req, res) => {
   try {
     const { status = '' } = req.query;
     let where = 'WHERE c.deleted_at IS NULL';
@@ -144,7 +146,7 @@ router.get('/campaigns', authenticateToken, async (req, res) => {
 });
 
 // 活动详情
-router.get('/campaigns/:id', authenticateToken, async (req, res) => {
+router.get('/campaigns/:id', authenticateToken, checkPermission('survey'), async (req, res) => {
   try {
     const [[row]] = await pool.query(`
       SELECT c.*, t.name as template_name, t.survey_type, t.questions as template_questions
@@ -161,7 +163,7 @@ router.get('/campaigns/:id', authenticateToken, async (req, res) => {
 });
 
 // 创建活动
-router.post('/campaigns', authenticateToken, requireManager, async (req, res) => {
+router.post('/campaigns', authenticateToken, checkPermission('survey'), requireManager, async (req, res) => {
   try {
     const { name, template_id, target_type, target_ids, send_method, start_date, end_date } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ code: 400, message: '活动名称不能为空', data: null });
@@ -178,7 +180,7 @@ router.post('/campaigns', authenticateToken, requireManager, async (req, res) =>
 });
 
 // 更新活动
-router.put('/campaigns/:id', authenticateToken, requireManager, async (req, res) => {
+router.put('/campaigns/:id', authenticateToken, checkPermission('survey'), requireManager, async (req, res) => {
   try {
     const [[existing]] = await pool.query('SELECT status FROM crm_survey_campaign WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
     if (!existing) return res.status(404).json({ code: 404, message: '活动不存在', data: null });
@@ -204,7 +206,7 @@ router.put('/campaigns/:id', authenticateToken, requireManager, async (req, res)
 });
 
 // 启动活动
-router.post('/campaigns/:id/start', authenticateToken, requireManager, async (req, res) => {
+router.post('/campaigns/:id/start', authenticateToken, checkPermission('survey'), requireManager, async (req, res) => {
   try {
     const [[existing]] = await pool.query('SELECT status FROM crm_survey_campaign WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
     if (!existing) return res.status(404).json({ code: 404, message: '活动不存在', data: null });
@@ -229,7 +231,7 @@ router.post('/campaigns/:id/start', authenticateToken, requireManager, async (re
 });
 
 // 关闭活动
-router.post('/campaigns/:id/close', authenticateToken, requireManager, async (req, res) => {
+router.post('/campaigns/:id/close', authenticateToken, checkPermission('survey'), requireManager, async (req, res) => {
   try {
     const [[existing]] = await pool.query('SELECT status FROM crm_survey_campaign WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
     if (!existing) return res.status(404).json({ code: 404, message: '活动不存在', data: null });
@@ -244,8 +246,16 @@ router.post('/campaigns/:id/close', authenticateToken, requireManager, async (re
 
 // ============ 回复接口 ============
 
+const respondSchema = Joi.object({
+  campaign_id: Joi.number().integer().positive().required(),
+  answers: Joi.object().required(),
+  customer_id: Joi.number().integer().positive().allow(null),
+  respondent_name: Joi.string().max(100).allow('', null),
+  respondent_contact: Joi.string().max(100).allow('', null)
+});
+
 // 提交回复（公开接口，不需要登录）
-router.post('/respond/:campaign_id', async (req, res) => {
+router.post('/respond/:campaign_id', validate(respondSchema), async (req, res) => {
   try {
     const { campaign_id } = req.params;
     const { answers, customer_id, respondent_name, respondent_contact } = req.body;
@@ -301,7 +311,7 @@ router.post('/respond/:campaign_id', async (req, res) => {
 });
 
 // 查看回复列表
-router.get('/campaigns/:id/responses', authenticateToken, async (req, res) => {
+router.get('/campaigns/:id/responses', authenticateToken, checkPermission('survey'), async (req, res) => {
   try {
     const { page = 1, pageSize = 20 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(pageSize);
@@ -322,7 +332,7 @@ router.get('/campaigns/:id/responses', authenticateToken, async (req, res) => {
 // ============ 分析接口 ============
 
 // 整体满意度概览（必须在 :campaign_id 之前定义，否则 overview 会被当作参数）
-router.get('/analytics/overview', authenticateToken, async (req, res) => {
+router.get('/analytics/overview', authenticateToken, checkPermission('survey'), async (req, res) => {
   try {
     const [npsTrend] = await pool.query(`
       SELECT DATE_FORMAT(r.submitted_at, '%Y-%m') as month,
@@ -382,7 +392,7 @@ router.get('/analytics/overview', authenticateToken, async (req, res) => {
 });
 
 // 单个活动分析
-router.get('/analytics/:campaign_id', authenticateToken, async (req, res) => {
+router.get('/analytics/:campaign_id', authenticateToken, checkPermission('survey'), async (req, res) => {
   try {
     const { campaign_id } = req.params;
 

@@ -87,7 +87,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search } from '@element-plus/icons-vue'
-import { globalSearch } from '@/api/search'
+import { globalSearch } from '@/api/tools'
 
 const router = useRouter()
 

@@ -49,6 +49,7 @@ describe('邮件模块', () => {
   describe('POST /api/email/account', () => {
     it('应该返回400当缺少email', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/email/account')
@@ -62,6 +63,7 @@ describe('邮件模块', () => {
     it('应该返回200当正常创建邮件账号', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
@@ -79,6 +81,7 @@ describe('邮件模块', () => {
     it('应该返回邮件账号列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // accounts list
           { id: 1, email: 'test@qq.com', display_name: '测试邮箱', smtp_host: 'smtp.qq.com', status: 'active' }
         ]]);
@@ -97,6 +100,7 @@ describe('邮件模块', () => {
     it('应该返回邮件列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[ // emails list
           { id: 1, subject: '报价单确认', from_address: 'client@example.com', direction: 'in', is_read: 0 }
@@ -117,6 +121,7 @@ describe('邮件模块', () => {
     it('应该返回200当正常删除邮件账号', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1 }]]) // existence check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 

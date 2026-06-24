@@ -40,6 +40,7 @@ describe('销售目标模块', () => {
   describe('POST /api/target/set', () => {
     it('应该返回400当缺少user_id', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/target/set')
@@ -53,6 +54,7 @@ describe('销售目标模块', () => {
     it('应该返回200当正常设置销售目标', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 2 }]]) // user exists check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // INSERT ON DUPLICATE KEY UPDATE
 
@@ -70,6 +72,7 @@ describe('销售目标模块', () => {
     it('应该返回目标列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // users
           { id: 1, real_name: '张三', dept_name: '销售部' },
           { id: 2, real_name: '李四', dept_name: '销售部' }
@@ -102,6 +105,7 @@ describe('销售目标模块', () => {
     it('应该返回200当正常删除目标', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 
       const res = await request(app)

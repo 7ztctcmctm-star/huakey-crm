@@ -6,6 +6,7 @@ const { checkPermission, checkDataPermission, buildDataPermissionWhere } = requi
 const { validate, Joi } = require('../middleware/validate');
 const { maskSensitiveData } = require('../utils/mask');
 const { logFieldChanges } = require('../utils/fieldLog');
+const ROLES = require('../config/roles');
 
 const MODULE_NAME = '供应商管理';
 
@@ -288,7 +289,7 @@ router.post('/update', authenticateToken, checkPermission('supplier:edit'), vali
     }
     const oldData = oldRows[0];
     const { manageAll, roleId, userId } = req.user;
-    if (!manageAll && roleId !== 1 && roleId !== 2 && oldData.owner_id !== userId && oldData.create_by !== userId) {
+    if (!manageAll && ![ROLES.ADMIN, ROLES.MANAGER].includes(roleId) && oldData.owner_id !== userId && oldData.create_by !== userId) {
       return res.status(403).json({ code: 403, message: '无权限修改该供应商', data: null });
     }
 
@@ -337,7 +338,7 @@ router.post('/delete', authenticateToken, checkPermission('supplier:delete'), va
     }
 
     const { manageAll, roleId, userId } = req.user;
-    if (!manageAll && roleId !== 1 && roleId !== 2 && supplier[0].owner_id !== userId && supplier[0].create_by !== userId) {
+    if (!manageAll && ![ROLES.ADMIN, ROLES.MANAGER].includes(roleId) && supplier[0].owner_id !== userId && supplier[0].create_by !== userId) {
       return res.status(403).json({ code: 403, message: '无权限删除该供应商', data: null });
     }
 

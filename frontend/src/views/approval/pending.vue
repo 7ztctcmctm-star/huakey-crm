@@ -68,7 +68,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getMyPending, getApprovalDetail, approveRequest, rejectRequest, batchApprove, batchReject } from '@/api/approval'
+import { getMyPending, getApprovalDetail, approveRequest, rejectRequest, batchApprove, batchReject } from '@/api/tools'
 import { formatTime } from '@/composables/useFormat'
 
 const typeNameMap = { quote: '报价', contract: '合同', purchase: '采购', discount: '折扣' }

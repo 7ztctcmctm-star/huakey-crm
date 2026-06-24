@@ -60,7 +60,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
-import { getProcurementPlanDetail, submitProcurementPlan, approveProcurementPlan, convertPlanToPurchase } from '@/api/procurementPlan'
+import { getProcurementPlanDetail, submitProcurementPlan, approveProcurementPlan, convertPlanToPurchase } from '@/api/product'
 
 const route = useRoute()
 const router = useRouter()

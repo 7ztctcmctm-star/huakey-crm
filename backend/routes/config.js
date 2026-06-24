@@ -1,14 +1,25 @@
 const express = require('express');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/permission');
 const { requireManager } = require('../middleware/admin');
 const { clearConfigCache, getOverdueDays } = require('../utils/config');
 const notification = require('../utils/notification');
+const { validate, Joi } = require('../middleware/validate');
+
+const configUpdateSchema = Joi.object({
+  configs: Joi.array().items(
+    Joi.object({
+      config_key: Joi.string().required().max(100),
+      config_value: Joi.string().allow('').required().max(1000)
+    })
+  ).min(1).required()
+});
 
 const router = express.Router();
 
 // 获取逾期天数（所有登录用户可用）
-router.get('/overdue-days', authenticateToken, async (req, res) => {
+router.get('/overdue-days', authenticateToken, checkPermission('system'), async (req, res) => {
   try {
     const days = await getOverdueDays();
     res.json({ code: 200, message: '查询成功', data: { overdue_days: days } });
@@ -19,7 +30,7 @@ router.get('/overdue-days', authenticateToken, async (req, res) => {
 });
 
 // 获取所有配置（仅管理员/经理）
-router.get('/list', authenticateToken, requireManager, async (req, res) => {
+router.get('/list', authenticateToken, checkPermission('system'), requireManager, async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT config_key, config_value, description FROM sys_config ORDER BY id');
     res.json({ code: 200, message: '查询成功', data: rows });
@@ -30,7 +41,7 @@ router.get('/list', authenticateToken, requireManager, async (req, res) => {
 });
 
 // 更新配置（仅管理员/经理）
-router.post('/update', authenticateToken, requireManager, async (req, res) => {
+router.post('/update', authenticateToken, checkPermission('system'), requireManager, validate(configUpdateSchema), async (req, res) => {
   try {
     const { configs } = req.body;
     if (!configs || !Array.isArray(configs) || configs.length === 0) {
@@ -54,7 +65,7 @@ router.post('/update', authenticateToken, requireManager, async (req, res) => {
 });
 
 // 测试企业微信通知
-router.post('/test-notification', authenticateToken, async (req, res) => {
+router.post('/test-notification', authenticateToken, checkPermission('system'), async (req, res) => {
   try {
     await notification.sendText('🔔 CRM 通知测试\n\n如果您收到这条消息，说明企业微信通知配置成功！');
     res.json({ code: 200, message: '测试消息已发送', data: null });

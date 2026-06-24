@@ -4,8 +4,6 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 
-const requireAdmin = require('../middleware/admin');
-
 // 业务表映射
 const BUSINESS_TABLE_MAP = {
   quote: 'crm_quote',
@@ -45,7 +43,7 @@ router.get('/workflows', authenticateToken, checkPermission('approval'), async (
 });
 
 // 创建审批流程
-router.post('/workflows', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/workflows', authenticateToken, checkPermission('approval'), async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const { name, type, description, steps } = req.body;
@@ -92,7 +90,7 @@ router.post('/workflows', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // 更新审批流程
-router.put('/workflows/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/workflows/:id', authenticateToken, checkPermission('approval'), async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const { id } = req.params;
@@ -142,7 +140,7 @@ router.put('/workflows/:id', authenticateToken, requireAdmin, async (req, res) =
 });
 
 // 删除审批流程（软删除）
-router.delete('/workflows/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.delete('/workflows/:id', authenticateToken, checkPermission('approval'), async (req, res) => {
   try {
     const { id } = req.params;
     await pool.query('UPDATE crm_approval_workflow SET deleted_at = NOW() WHERE id = ?', [id]);

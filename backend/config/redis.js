@@ -3,6 +3,7 @@ const Redis = require('ioredis');
 const REDIS_ENABLED = process.env.REDIS_ENABLED === 'true';
 const REDIS_HOST = process.env.REDIS_HOST || '127.0.0.1';
 const REDIS_PORT = parseInt(process.env.REDIS_PORT || '6379');
+const REDIS_PASSWORD = process.env.REDIS_PASSWORD || undefined;
 
 let redis = null;
 
@@ -10,6 +11,7 @@ if (REDIS_ENABLED) {
   redis = new Redis({
     host: REDIS_HOST,
     port: REDIS_PORT,
+    password: REDIS_PASSWORD,
     maxRetriesPerRequest: 3,
     retryStrategy(times) {
       if (times > 3) return null; // 失败3次后放弃

@@ -90,7 +90,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
-import { getCampaignDetail, getCampaignResponses, startCampaign, closeCampaign } from '@/api/survey'
+import { getCampaignDetail, getCampaignResponses, startCampaign, closeCampaign } from '@/api/tools'
 
 const route = useRoute()
 const typeName = { nps: 'NPS', csat: 'CSAT', custom: '自定义' }

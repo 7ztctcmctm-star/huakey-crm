@@ -149,7 +149,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh, View, Edit, Delete, Download, Coin } from '@element-plus/icons-vue'
 import { getContractList, getContractDetail, addContract, updateContract, deleteContract, approveContract, exportContracts, getContractOpportunityList, getContractTemplates, addPayment, searchContract } from '@/api/contract'
 import { getCustomerList } from '@/api/customer'
-import { submitApproval, withdrawApproval } from '@/api/approval'
+import { submitApproval, withdrawApproval } from '@/api/tools'
 
 const router = useRouter()
 const route = useRoute()

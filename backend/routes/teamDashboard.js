@@ -462,7 +462,7 @@ router.get('/stuck-opportunities', authenticateToken, checkPermission('team'), a
     const params = [stuckDays];
 
     // 主管只看本部门，管理员看全部
-    if (!req.user.viewAll && req.user.roleId !== 1) {
+    if (!req.user.viewAll && req.user.roleId !== ROLES.ADMIN) {
       const [deptUsers] = await pool.query(
         'SELECT id FROM sys_user WHERE dept_id = (SELECT dept_id FROM sys_user WHERE id = ?)',
         [req.user.userId]

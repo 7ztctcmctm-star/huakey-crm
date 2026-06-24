@@ -14,10 +14,12 @@
             <el-descriptions-item label="系统名称">铧旗CRM系统</el-descriptions-item>
             <el-descriptions-item label="版本号">v1.0.0</el-descriptions-item>
             <el-descriptions-item label="前端框架">Vue 3 + Element Plus + Vite</el-descriptions-item>
-            <el-descriptions-item label="后端框架">Node.js + Express 5</el-descriptions-item>
-            <el-descriptions-item label="数据库">MySQL 8.0</el-descriptions-item>
+            <el-descriptions-item label="后端框架">Node.js + Express {{ health.expressVersion || '4.x' }}</el-descriptions-item>
+            <el-descriptions-item label="数据库">{{ health.mysqlVersion || 'MySQL' }}</el-descriptions-item>
             <el-descriptions-item label="运行模式">
-              <el-tag size="small" type="success">开发模式</el-tag>
+              <el-tag size="small" :type="health.nodeEnv === 'production' ? 'danger' : 'success'">
+                {{ health.nodeEnv === 'production' ? '生产模式' : '开发模式' }}
+              </el-tag>
             </el-descriptions-item>
           </el-descriptions>
         </el-card>
@@ -132,14 +134,14 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
-import { getConfigList, updateConfig, testNotification, getHealth } from '@/api/config'
+import { getConfigList, updateConfig, testNotification, getHealth } from '@/api/system'
 import { getUserList } from '@/api/system'
 import { getCustomerList } from '@/api/customer'
-import { getOpportunityList } from '@/api/opportunity'
+import { getOpportunityList } from '@/api/customer'
 import { getContractList } from '@/api/contract'
-import { getServiceList } from '@/api/service'
+import { getServiceList } from '@/api/system'
 
-const health = reactive({ api: false, db: false, redis: false, timestamp: '' })
+const health = reactive({ api: false, db: false, redis: false, timestamp: '', nodeEnv: '', expressVersion: '', mysqlVersion: '' })
 const stats = reactive({ userCount: 0, customerCount: 0, opportunityCount: 0, contractCount: 0, serviceCount: 0 })
 const statsLoading = ref(false)
 
@@ -186,7 +188,12 @@ const checkHealth = async () => {
     const res = await getHealth()
     if (res.code === 200) {
       health.api = res.data.status === 'ok'
+      health.db = !!res.data.db
+      health.redis = !!res.data.redis
       health.timestamp = res.data.timestamp
+      if (res.data.nodeEnv) health.nodeEnv = res.data.nodeEnv
+      if (res.data.expressVersion) health.expressVersion = res.data.expressVersion
+      if (res.data.mysqlVersion) health.mysqlVersion = res.data.mysqlVersion
     }
   } catch (e) { health.api = false }
 }

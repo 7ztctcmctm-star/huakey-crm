@@ -262,8 +262,8 @@
 <script setup>
 import { ref, reactive, onMounted, onActivated } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getTeamOverview, getSalesBreakdown, getStuckOpportunities, getPendingApprovals, getSalesCustomers, getSalesOverdueCustomers, urgeFollowup as urgeFollowupApi } from '@/api/teamDashboard'
-import { approveQuote } from '@/api/quote'
+import { getTeamOverview, getSalesBreakdown, getStuckOpportunities, getPendingApprovals, getSalesCustomers, getSalesOverdueCustomers, urgeFollowup as urgeFollowupApi } from '@/api/system'
+import { approveQuote } from '@/api/contract'
 import { approveContract } from '@/api/contract'
 import { formatTime, formatAmount } from '@/composables/useFormat'
 import { useChart } from '@/composables/useChart'

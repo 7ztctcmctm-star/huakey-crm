@@ -82,7 +82,7 @@
 import { ref, reactive, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { getCompetitorList, addCompetitor, updateCompetitor, deleteCompetitor, getCompetitorAnalysis } from '@/api/competitor'
+import { getCompetitorList, addCompetitor, updateCompetitor, deleteCompetitor, getCompetitorAnalysis } from '@/api/tools'
 import echarts from '@/composables/useECharts'
 
 const loading = ref(false)

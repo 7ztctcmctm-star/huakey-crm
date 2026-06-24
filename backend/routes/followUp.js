@@ -3,6 +3,7 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
+const ROLES = require('../config/roles');
 
 const router = express.Router();
 
@@ -415,7 +416,7 @@ router.post('/update', authenticateToken, checkPermission('customer:edit'), vali
 
     // 只有创建人可编辑
     const { manageAll, roleId, userId } = req.user;
-    if (!manageAll && roleId !== 1 && roleId !== 2 && rows[0].create_by !== userId) {
+    if (!manageAll && ![ROLES.ADMIN, ROLES.MANAGER].includes(roleId) && rows[0].create_by !== userId) {
       return res.status(403).json({ code: 403, message: '无权编辑该记录', data: null });
     }
 
@@ -447,7 +448,7 @@ router.post('/delete', authenticateToken, checkPermission('customer:delete'), va
     }
 
     const { manageAll, roleId, userId } = req.user;
-    if (!manageAll && roleId !== 1 && roleId !== 2 && rows[0].create_by !== userId) {
+    if (!manageAll && ![ROLES.ADMIN, ROLES.MANAGER].includes(roleId) && rows[0].create_by !== userId) {
       return res.status(403).json({ code: 403, message: '无权删除该记录', data: null });
     }
 

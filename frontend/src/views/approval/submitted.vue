@@ -43,7 +43,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { SuccessFilled, CircleCloseFilled, Clock } from '@element-plus/icons-vue'
-import { getMySubmitted } from '@/api/approval'
+import { getMySubmitted } from '@/api/tools'
 import { formatTime } from '@/composables/useFormat'
 
 const typeNameMap = { quote: '报价', contract: '合同', purchase: '采购', discount: '折扣' }

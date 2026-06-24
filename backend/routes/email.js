@@ -3,8 +3,45 @@ const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
+const { validate, Joi } = require('../middleware/validate');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
+
+// Joi schemas
+const accountSchema = Joi.object({
+  email: Joi.string().email().required().max(200),
+  password: Joi.string().required().max(500),
+  display_name: Joi.string().max(100).allow('', null),
+  imap_host: Joi.string().max(200).allow('', null),
+  imap_port: Joi.number().integer().min(1).max(65535).allow(null),
+  smtp_host: Joi.string().max(200).allow('', null),
+  smtp_port: Joi.number().integer().min(1).max(65535).allow(null),
+  use_ssl: Joi.number().integer().valid(0, 1).allow(null)
+});
+
+const sendSchema = Joi.object({
+  account_id: Joi.number().integer().positive().required(),
+  to: Joi.alternatives().try(
+    Joi.string().email().max(200),
+    Joi.array().items(Joi.string().email().max(200)).min(1)
+  ).required(),
+  cc: Joi.alternatives().try(
+    Joi.string().email().max(200),
+    Joi.array().items(Joi.string().email().max(200))
+  ).allow('', null),
+  subject: Joi.string().required().max(500),
+  body_html: Joi.string().max(50000).allow('', null),
+  reply_to_id: Joi.number().integer().positive().allow(null)
+});
+
+const replySchema = Joi.object({
+  body_html: Joi.string().max(50000).allow('', null),
+  account_id: Joi.number().integer().positive().allow(null)
+});
+
+const linkCustomerSchema = Joi.object({
+  customer_id: Joi.number().integer().positive().required()
+});
 
 // 简单加密/解密（生产环境应使用 AES-256-CBC）
 const ENC_KEY = process.env.EMAIL_ENC_KEY;
@@ -37,7 +74,7 @@ const EMAIL_PRESETS = {
 };
 
 // 1. 配置邮件账号
-router.post('/account', authenticateToken, checkPermission('email'), async (req, res) => {
+router.post('/account', authenticateToken, checkPermission('email'), validate(accountSchema), async (req, res) => {
   try {
     const { email, password, display_name, imap_host, imap_port, smtp_host, smtp_port, use_ssl } = req.body;
     if (!email || !password) return res.status(400).json({ code: 400, message: '邮箱和密码不能为空', data: null });
@@ -185,7 +222,7 @@ router.get('/:id', authenticateToken, checkPermission('email'), async (req, res)
 });
 
 // 7. 发送邮件
-router.post('/send', authenticateToken, checkPermission('email:send'), async (req, res) => {
+router.post('/send', authenticateToken, checkPermission('email:send'), validate(sendSchema), async (req, res) => {
   try {
     const { account_id, to, cc, subject, body_html, reply_to_id } = req.body;
     if (!account_id || !to || !subject) return res.status(400).json({ code: 400, message: '参数不完整', data: null });
@@ -248,7 +285,7 @@ router.post('/send', authenticateToken, checkPermission('email:send'), async (re
 });
 
 // 8. 回复邮件
-router.post('/reply/:id', authenticateToken, checkPermission('email:send'), async (req, res) => {
+router.post('/reply/:id', authenticateToken, checkPermission('email:send'), validate(replySchema), async (req, res) => {
   try {
     const { body_html, account_id } = req.body;
     const [[original]] = await pool.query('SELECT * FROM crm_email WHERE id = ?', [req.params.id]);
@@ -292,7 +329,7 @@ router.put('/:id/star', authenticateToken, checkPermission('email'), async (req,
 });
 
 // 11. 手动关联客户
-router.post('/:id/link-customer', authenticateToken, checkPermission('email'), async (req, res) => {
+router.post('/:id/link-customer', authenticateToken, checkPermission('email'), validate(linkCustomerSchema), async (req, res) => {
   try {
     const { customer_id } = req.body;
     if (!customer_id) return res.status(400).json({ code: 400, message: '客户ID不能为空', data: null });

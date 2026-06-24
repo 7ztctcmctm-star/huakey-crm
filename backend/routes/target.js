@@ -3,9 +3,37 @@ const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
+const { validate, Joi } = require('../middleware/validate');
+
+const targetListSchema = Joi.object({
+  year: Joi.number().integer().min(2020).max(2030).optional(),
+  month: Joi.number().integer().min(1).max(12).optional()
+});
+
+const targetSetSchema = Joi.object({
+  user_id: Joi.number().integer().positive().required(),
+  year: Joi.number().integer().min(2020).max(2030).required(),
+  month: Joi.number().integer().min(1).max(12).required(),
+  target_amount: Joi.number().precision(2).min(0).default(0)
+});
+
+const targetBatchSetSchema = Joi.object({
+  year: Joi.number().integer().min(2020).max(2030).required(),
+  month: Joi.number().integer().min(1).max(12).required(),
+  targets: Joi.array().items(
+    Joi.object({
+      user_id: Joi.number().integer().positive().required(),
+      target_amount: Joi.number().precision(2).min(0).default(0)
+    })
+  ).min(1).required()
+});
+
+const targetDeleteSchema = Joi.object({
+  id: Joi.number().integer().positive().required()
+});
 
 // 1. 获取销售目标列表（含达成率）
-router.post('/list', authenticateToken, async (req, res) => {
+router.post('/list', authenticateToken, validate(targetListSchema), async (req, res) => {
   try {
     const { year, month } = req.body;
     const now = new Date();
@@ -80,7 +108,7 @@ router.post('/list', authenticateToken, async (req, res) => {
 });
 
 // 2. 设置/更新销售目标
-router.post('/set', authenticateToken, checkPermission('target'), async (req, res) => {
+router.post('/set', authenticateToken, checkPermission('target'), validate(targetSetSchema), async (req, res) => {
   try {
     const { user_id, year, month, target_amount } = req.body;
 
@@ -110,7 +138,7 @@ router.post('/set', authenticateToken, checkPermission('target'), async (req, re
 });
 
 // 3. 批量设置销售目标
-router.post('/batch-set', authenticateToken, checkPermission('target'), async (req, res) => {
+router.post('/batch-set', authenticateToken, checkPermission('target'), validate(targetBatchSetSchema), async (req, res) => {
   const connection = await pool.getConnection();
   try {
     const { year, month, targets } = req.body;
@@ -142,7 +170,7 @@ router.post('/batch-set', authenticateToken, checkPermission('target'), async (r
 });
 
 // 4. 删除销售目标
-router.post('/delete', authenticateToken, checkPermission('target'), async (req, res) => {
+router.post('/delete', authenticateToken, checkPermission('target'), validate(targetDeleteSchema), async (req, res) => {
   try {
     const { id } = req.body;
     if (!id) {

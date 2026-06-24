@@ -186,7 +186,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { ArrowDown } from '@element-plus/icons-vue';
 import request from '@/utils/request';
-import { getPurchaseDetail, updatePurchaseStatus, addReceipt, addPurchasePayment } from '@/api/purchase';
+import { getPurchaseDetail, updatePurchaseStatus, addReceipt, addPurchasePayment } from '@/api/product';
 
 const route = useRoute();
 const router = useRouter();

@@ -524,7 +524,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { getMyReminders, getPaymentOverdue, markAllRead, markNotificationRead } from '@/api/notification'
+import { getMyReminders, getPaymentOverdue, markAllRead, markNotificationRead } from '@/api/tools'
 import AiChat from '@/components/AiChat.vue'
 import RecycleBin from '@/components/RecycleBin.vue'
 import QuickActions from '@/components/QuickActions.vue'

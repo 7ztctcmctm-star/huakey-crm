@@ -47,7 +47,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import request from '@/utils/request'
-import { getInventoryList, getInventoryMovements } from '@/api/inventory'
+import { getInventoryList, getInventoryMovements } from '@/api/product'
 
 const typeName = { in: '入库', out: '出库', adjust: '调整', return: '退货' }
 const typeTag = { in: 'success', out: 'danger', adjust: '', return: 'warning' }

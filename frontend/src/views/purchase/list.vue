@@ -245,9 +245,9 @@ import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, ArrowDown } from '@element-plus/icons-vue';
 import request from '@/utils/request';
-import { getPurchaseList, addPurchase, updatePurchaseStatus, getPurchaseStatistics } from '@/api/purchase';
-import { submitApproval, withdrawApproval } from '@/api/approval';
-import { getSupplierOptions } from '@/api/supplier';
+import { getPurchaseList, addPurchase, updatePurchaseStatus, getPurchaseStatistics } from '@/api/product';
+import { submitApproval, withdrawApproval } from '@/api/tools';
+import { getSupplierOptions } from '@/api/product';
 
 const router = useRouter();
 const loading = ref(false);

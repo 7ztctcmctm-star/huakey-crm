@@ -55,6 +55,7 @@ describe('采购计划模块', () => {
   describe('POST /api/procurement-plan/create', () => {
     it('应该返回400当缺少name', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/procurement-plan/create')
@@ -68,6 +69,7 @@ describe('采购计划模块', () => {
     it('应该返回200当正常创建采购计划', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ cnt: 0 }]]); // generatePlanNo count
 
       mockConnection.query
@@ -91,6 +93,7 @@ describe('采购计划模块', () => {
     it('应该返回计划列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 2 }]]) // count
         .mockResolvedValueOnce([[ // list
           { id: 1, plan_no: 'PP-20260701-001', name: '7月采购计划', status: 'draft' },
@@ -113,6 +116,7 @@ describe('采购计划模块', () => {
     it('应该返回200当正常提交审批', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ status: 'draft' }]]) // plan check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update status
 
@@ -130,6 +134,7 @@ describe('采购计划模块', () => {
     it('应该返回200当正常删除计划', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ status: 'draft' }]]) // plan check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 

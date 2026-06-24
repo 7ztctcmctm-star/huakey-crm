@@ -3,6 +3,7 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
+const ROLES = require('../config/roles');
 
 const router = express.Router();
 
@@ -208,7 +209,7 @@ router.post('/cancel', authenticateToken, validate(cancelPlanSchema), async (req
     }
 
     // 权限检查：创建人或管理员可取消
-    if (!manageAll && roleId !== 1 && roleId !== 2 && plan.create_by !== userId) {
+    if (!manageAll && ![ROLES.ADMIN, ROLES.MANAGER].includes(roleId) && plan.create_by !== userId) {
       return res.status(403).json({ code: 403, message: '无权取消该计划', data: null });
     }
 

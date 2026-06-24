@@ -1,5 +1,23 @@
 const pool = require('../config/database');
 
+// 表名白名单，防止 SQL 注入
+const ALLOWED_TABLES = [
+  'crm_customer',
+  'crm_opportunity',
+  'crm_contract',
+  'crm_quote',
+  'crm_supplier',
+  'crm_purchase_order',
+  'crm_service_order',
+  'crm_product'
+];
+
+function validateTable(tableName) {
+  if (!ALLOWED_TABLES.includes(tableName)) {
+    throw new Error('Invalid table');
+  }
+}
+
 /**
  * 软删除记录
  * @param {string} tableName - 表名
@@ -7,6 +25,7 @@ const pool = require('../config/database');
  * @returns {boolean} 是否删除成功
  */
 async function softDelete(tableName, id) {
+  validateTable(tableName);
   const [result] = await pool.query(
     `UPDATE ${tableName} SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL`,
     [id]
@@ -21,6 +40,7 @@ async function softDelete(tableName, id) {
  * @returns {number} 影响行数
  */
 async function softDeleteBatch(tableName, ids) {
+  validateTable(tableName);
   if (!ids || ids.length === 0) return 0;
   const placeholders = ids.map(() => '?').join(',');
   const [result] = await pool.query(
@@ -37,6 +57,7 @@ async function softDeleteBatch(tableName, ids) {
  * @returns {boolean} 是否恢复成功
  */
 async function restore(tableName, id) {
+  validateTable(tableName);
   const [result] = await pool.query(
     `UPDATE ${tableName} SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL`,
     [id]
@@ -51,6 +72,7 @@ async function restore(tableName, id) {
  * @returns {boolean} 是否删除成功
  */
 async function permanentDelete(tableName, id) {
+  validateTable(tableName);
   const [result] = await pool.query(
     `DELETE FROM ${tableName} WHERE id = ?`,
     [id]
@@ -65,6 +87,7 @@ async function permanentDelete(tableName, id) {
  * @returns {object} { list, total }
  */
 async function getDeletedList(tableName, options = {}) {
+  validateTable(tableName);
   const { page = 1, pageSize = 20, keyword, nameColumn = 'name' } = options;
   const offset = (page - 1) * pageSize;
 

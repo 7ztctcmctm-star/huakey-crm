@@ -2,10 +2,19 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/permission');
 const { requireManager } = require('../middleware/admin');
+const { validate, Joi } = require('../middleware/validate');
+
+const tagManageSchema = Joi.object({
+  action: Joi.string().valid('add', 'update', 'delete').required(),
+  id: Joi.number().integer().positive().when('action', { is: Joi.valid('update', 'delete'), then: Joi.required() }),
+  name: Joi.string().max(50).when('action', { is: Joi.valid('add', 'update'), then: Joi.required() }),
+  color: Joi.string().pattern(/^#[0-9a-fA-F]{6}$/).default('#1a56db')
+});
 
 // 获取所有标签
-router.get('/list', authenticateToken, async (req, res) => {
+router.get('/list', authenticateToken, checkPermission('tag'), async (req, res) => {
   try {
     const [tags] = await pool.query('SELECT id, name, color, sort FROM crm_tag WHERE deleted_at IS NULL ORDER BY sort');
     res.json({ code: 200, message: 'success', data: tags });
@@ -16,7 +25,7 @@ router.get('/list', authenticateToken, async (req, res) => {
 });
 
 // 获取客户的标签
-router.get('/customer/:customerId', authenticateToken, async (req, res) => {
+router.get('/customer/:customerId', authenticateToken, checkPermission('tag'), async (req, res) => {
   try {
     const [tags] = await pool.query(
       `SELECT t.id, t.name, t.color FROM crm_tag t
@@ -32,7 +41,7 @@ router.get('/customer/:customerId', authenticateToken, async (req, res) => {
 });
 
 // 设置客户标签（仅管理员/经理）
-router.post('/customer/:customerId', authenticateToken, requireManager, async (req, res) => {
+router.post('/customer/:customerId', authenticateToken, checkPermission('tag'), requireManager, async (req, res) => {
   try {
   const { tag_ids } = req.body;
   const customerId = req.params.customerId;
@@ -75,7 +84,7 @@ router.post('/customer/:customerId', authenticateToken, requireManager, async (r
 });
 
 // 管理标签（仅管理员/经理）
-router.post('/manage', authenticateToken, requireManager, async (req, res) => {
+router.post('/manage', authenticateToken, checkPermission('tag'), requireManager, validate(tagManageSchema), async (req, res) => {
   try {
   const { action, id, name, color } = req.body;
 

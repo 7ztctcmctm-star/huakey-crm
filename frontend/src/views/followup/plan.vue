@@ -110,7 +110,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh } from '@element-plus/icons-vue'
-import { getFollowPlanList, completeFollowPlan, cancelFollowPlan } from '@/api/followUp'
+import { getFollowPlanList, completeFollowPlan, cancelFollowPlan } from '@/api/customer'
 import { formatTime } from '@/composables/useFormat'
 
 const loading = ref(false)

@@ -40,6 +40,7 @@ describe('跟进计划模块', () => {
   describe('POST /api/follow-plan/add', () => {
     it('应该返回400当缺少customer_id', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/follow-plan/add')
@@ -53,6 +54,7 @@ describe('跟进计划模块', () => {
     it('应该返回200当正常创建跟进计划', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1 }]]) // customer lookup
         .mockResolvedValueOnce([{ insertId: 10 }]); // insert plan
 
@@ -71,6 +73,7 @@ describe('跟进计划模块', () => {
     it('应该返回计划列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 2 }]]) // count
         .mockResolvedValueOnce([[ // list
           { id: 1, plan_content: '电话回访', status: 'pending' },
@@ -93,6 +96,7 @@ describe('跟进计划模块', () => {
     it('应该返回200当正常取消跟进计划', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1, create_by: 1, status: 'pending' }]]) // plan lookup
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 

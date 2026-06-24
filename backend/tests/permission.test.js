@@ -47,6 +47,7 @@ describe('权限管理模块', () => {
   describe('POST /api/permission/add', () => {
     it('应该返回400当缺少name字段', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/permission/add')
@@ -59,6 +60,7 @@ describe('权限管理模块', () => {
 
     it('应该返回400当缺少code字段', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/permission/add')
@@ -72,6 +74,7 @@ describe('权限管理模块', () => {
     it('应该返回400当权限编码已存在', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1 }]]); // code exists
 
       const res = await request(app)
@@ -86,6 +89,7 @@ describe('权限管理模块', () => {
     it('应该返回200当正常新增权限', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[]])  // code not exists
         .mockResolvedValueOnce([{ insertId: 10 }]);
 
@@ -103,6 +107,7 @@ describe('权限管理模块', () => {
     it('应该返回200和角色权限列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ permission_id: 1 }, { permission_id: 2 }, { permission_id: 5 }]]);
 
       const res = await request(app)
@@ -118,6 +123,7 @@ describe('权限管理模块', () => {
     it('应该返回空数组当角色无权限', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[]]);
 
       const res = await request(app)
@@ -133,6 +139,7 @@ describe('权限管理模块', () => {
   describe('POST /api/permission/delete-node', () => {
     it('应该返回400当缺少id字段', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/permission/delete-node')
@@ -146,6 +153,7 @@ describe('权限管理模块', () => {
     it('应该返回400当存在子权限时拒绝删除', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 2 }, { id: 3 }]]); // has children
 
       const res = await request(app)

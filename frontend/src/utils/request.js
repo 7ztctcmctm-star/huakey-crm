@@ -2,6 +2,19 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import router from '../router'
 
+// token 续期状态：避免多个 401 请求同时触发续期
+let isRefreshing = false
+let refreshSubscribers = []
+
+function onRefreshed() {
+  refreshSubscribers.forEach((cb) => cb())
+  refreshSubscribers = []
+}
+
+function addSubscriber(cb) {
+  refreshSubscribers.push(cb)
+}
+
 // 创建axios实例
 const request = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
@@ -29,23 +42,58 @@ request.interceptors.response.use(
     // 直接返回响应数据
     return response.data
   },
-  (error) => {
+  async (error) => {
     console.error('响应错误:', error)
-    
+
     if (error.response) {
       const { status, data } = error.response
-      
+      const originalConfig = error.config
+
       switch (status) {
         case 400:
           ElMessage.error(data.message || '请求参数错误')
           break
-        case 401:
-          // 登录页的401是正常的未认证状态，不需要弹窗
-          if (router.currentRoute?.value?.path !== '/login') {
+        case 401: {
+          // 登录页的401是正常的未认证状态，不需要处理
+          if (router.currentRoute?.value?.path === '/login') {
+            break
+          }
+
+          // 避免对续期请求本身重试
+          if (originalConfig.url === '/auth/me') {
             ElMessage.error(data.message || '登录已过期，请重新登录')
             router.push('/login')
+            break
+          }
+
+          if (!isRefreshing) {
+            isRefreshing = true
+            try {
+              // 尝试通过 /auth/me 静默续期（后端会刷新 cookie）
+              const res = await request.get('/auth/me')
+              if (res.code === 200) {
+                // 续期成功，重试所有排队的请求
+                isRefreshing = false
+                onRefreshed()
+                return request(originalConfig)
+              }
+            } catch {
+              // 续期失败，token 确实过期
+              isRefreshing = false
+              refreshSubscribers = []
+            }
+            ElMessage.error(data.message || '登录已过期，请重新登录')
+            router.push('/login')
+          } else {
+            // 已在续期中，将请求排队等待续期完成后重试
+            return new Promise((resolve) => {
+              addSubscriber(() => {
+                resolve(request(originalConfig))
+              })
+            })
           }
           break
+        }
         case 403:
           ElMessage.error(data.message || '没有权限访问')
           break
@@ -68,7 +116,7 @@ request.interceptors.response.use(
       // 请求配置出错
       ElMessage.error('请求配置错误')
     }
-    
+
     return Promise.reject(error)
   }
 )

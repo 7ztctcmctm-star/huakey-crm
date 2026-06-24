@@ -1,8 +1,20 @@
-# Huakey CRM - Current Development Phase
+﻿# Huakey CRM - Current Development Phase
 
 ## 当前阶段
 
 生产级稳定化阶段。
+
+
+## 最近完成（2026-06-24）
+
+### 服务层重构 + 路由优化
+
+- [x] 4 个业务 service + permissionService 创建完成
+- [x] contract 路由拆分子目录（crud/payment/export/approval）
+- [x] report 路由拆分子目录（custom/dashboard/analytics）
+- [x] recordPayment 三表写入包事务
+- [x] /overdue-stats 补 checkPermission('report')
+- [x] 310 测试 mock 链修复全通过
 
 ## 最近完成（2026-06-22）
 

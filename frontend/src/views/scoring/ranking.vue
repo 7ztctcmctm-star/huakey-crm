@@ -46,7 +46,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { getScoringRanking } from '@/api/scoring'
+import { getScoringRanking } from '@/api/system'
 
 const router = useRouter()
 const loading = ref(false)

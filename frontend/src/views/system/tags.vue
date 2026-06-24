@@ -52,7 +52,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete } from '@element-plus/icons-vue'
-import { getTagList, manageTag } from '@/api/tag'
+import { getTagList, manageTag } from '@/api/system'
 
 const presetColors = [
   '#409EFF', '#67C23A', '#E6A23C', '#F56C6C', '#909399',

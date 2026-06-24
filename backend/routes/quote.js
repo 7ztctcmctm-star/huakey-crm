@@ -3,6 +3,7 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
 const { logFieldChanges } = require('../utils/fieldLog');
+const ROLES = require('../config/roles');
 
 const MODULE_NAME = '报价管理';
 
@@ -402,7 +403,7 @@ router.post('/delete', authenticateToken, checkPermission('quotation:delete'), a
 
     // 权限检查：管理员或创建人可删除
     const { manageAll, roleId, userId } = req.user;
-    if (!manageAll && roleId !== 1 && roleId !== 2 && quotes[0].create_by !== userId) {
+    if (!manageAll && ![ROLES.ADMIN, ROLES.MANAGER].includes(roleId) && quotes[0].create_by !== userId) {
       return res.status(403).json({ code: 403, message: '无权删除该报价单', data: null });
     }
 
@@ -470,7 +471,7 @@ router.post('/approve', authenticateToken, async (req, res) => {
   try {
     const { id, approval_status, approval_remark } = req.body;
     // 仅boss/管理员可审批
-    if (!req.user.manageAll && req.user.roleId !== 1 && req.user.roleId !== 2) {
+    if (!req.user.manageAll && ![ROLES.ADMIN, ROLES.MANAGER].includes(req.user.roleId)) {
       return res.status(403).json({ code: 403, message: '无审批权限', data: null });
     }
     if (!id || ![2, 3].includes(approval_status)) {

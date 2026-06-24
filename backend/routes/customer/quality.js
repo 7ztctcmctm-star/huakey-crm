@@ -2,6 +2,15 @@ const express = require('express');
 const pool = require('../../config/database');
 const { authenticateToken } = require('../../middleware/auth');
 const { checkPermission } = require('../../middleware/permission');
+const { validate, Joi } = require('../../middleware/validate');
+
+const qualityCheckSchema = Joi.object({
+  table: Joi.string().valid('crm_customer', 'crm_supplier').default('crm_customer')
+});
+
+const qualityReportSchema = Joi.object({
+  table: Joi.string().valid('crm_customer', 'crm_supplier').default('crm_customer')
+});
 
 const router = express.Router();
 
@@ -10,7 +19,7 @@ const router = express.Router();
  * POST /customer/quality-check
  * 检查指定表的数据质量，返回统计报告
  */
-router.post('/quality-check', authenticateToken, checkPermission('data_quality:check'), async (req, res) => {
+router.post('/quality-check', authenticateToken, checkPermission('data_quality:check'), validate(qualityCheckSchema), async (req, res) => {
   try {
     const { table = 'crm_customer' } = req.body;
 
@@ -112,7 +121,7 @@ router.post('/quality-check', authenticateToken, checkPermission('data_quality:c
  * 获取最近的质量报告
  * POST /customer/quality-report
  */
-router.post('/quality-report', authenticateToken, async (req, res) => {
+router.post('/quality-report', authenticateToken, validate(qualityReportSchema), async (req, res) => {
   try {
     const { table = 'crm_customer' } = req.body;
 

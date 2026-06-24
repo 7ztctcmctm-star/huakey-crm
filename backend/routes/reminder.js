@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/permission');
 const ROLES = require('../config/roles');
 const { getOverdueDays } = require('../utils/config');
 const { validate, Joi } = require('../middleware/validate');
@@ -31,7 +32,7 @@ const notificationDismissByBusinessSchema = Joi.object({
 // ============ 跟进提醒 API ============
 
 // 1. 获取当前用户的未读提醒列表
-router.get('/my-reminders', authenticateToken, async (req, res) => {
+router.get('/my-reminders', authenticateToken, checkPermission('reminder'), async (req, res) => {
   try {
     const userId = req.user.userId;
     const overdueDays = await getOverdueDays();
@@ -151,7 +152,7 @@ router.get('/my-reminders', authenticateToken, async (req, res) => {
 });
 
 // 2. 获取所有逾期客户列表（老板看全局）
-router.post('/overdue-list', authenticateToken, async (req, res) => {
+router.post('/overdue-list', authenticateToken, checkPermission('reminder'), async (req, res) => {
   try {
     const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
     const userId = req.user.userId;
@@ -203,7 +204,7 @@ router.post('/overdue-list', authenticateToken, async (req, res) => {
 });
 
 // 3. 标记提醒为已读
-router.post('/mark-read', authenticateToken, validate(markReadSchema), async (req, res) => {
+router.post('/mark-read', authenticateToken, checkPermission('reminder'), validate(markReadSchema), async (req, res) => {
   try {
     const { reminder_id } = req.body;
     await pool.query(
@@ -218,7 +219,7 @@ router.post('/mark-read', authenticateToken, validate(markReadSchema), async (re
 });
 
 // 4. 一键标记全部已读
-router.post('/mark-all-read', authenticateToken, async (req, res) => {
+router.post('/mark-all-read', authenticateToken, checkPermission('reminder'), async (req, res) => {
   try {
     // 标记跟进提醒全部已读
     await pool.query(
@@ -238,7 +239,7 @@ router.post('/mark-all-read', authenticateToken, async (req, res) => {
 });
 
 // 5. 解除提醒（跟进后自动调用或手动解除）
-router.post('/dismiss', authenticateToken, validate(dismissSchema), async (req, res) => {
+router.post('/dismiss', authenticateToken, checkPermission('reminder'), validate(dismissSchema), async (req, res) => {
   try {
     const { customer_id } = req.body;
     await pool.query(
@@ -253,7 +254,7 @@ router.post('/dismiss', authenticateToken, validate(dismissSchema), async (req, 
 });
 
 // 6. 获取逾期回款计划
-router.get('/payment-overdue', authenticateToken, async (req, res) => {
+router.get('/payment-overdue', authenticateToken, checkPermission('reminder'), async (req, res) => {
   try {
     const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
     const userId = req.user.userId;
@@ -318,7 +319,7 @@ router.get('/payment-overdue', authenticateToken, async (req, res) => {
 });
 
 // 7. 标记通知已读（支持角色级和用户级通知）
-router.post('/notification-read', authenticateToken, validate(notificationReadSchema), async (req, res) => {
+router.post('/notification-read', authenticateToken, checkPermission('reminder'), validate(notificationReadSchema), async (req, res) => {
   try {
     const { notification_id } = req.body;
     await pool.query(
@@ -333,7 +334,7 @@ router.post('/notification-read', authenticateToken, validate(notificationReadSc
 });
 
 // 8. 处理通知（标记为已处理，跳转后调用）
-router.post('/notification-dismiss', authenticateToken, validate(notificationDismissSchema), async (req, res) => {
+router.post('/notification-dismiss', authenticateToken, checkPermission('reminder'), validate(notificationDismissSchema), async (req, res) => {
   try {
     const { notification_id } = req.body;
     await pool.query(
@@ -348,7 +349,7 @@ router.post('/notification-dismiss', authenticateToken, validate(notificationDis
 });
 
 // 9. 按业务ID批量解除通知（审批通过/拒绝时调用）
-router.post('/notification-dismiss-by-business', authenticateToken, validate(notificationDismissByBusinessSchema), async (req, res) => {
+router.post('/notification-dismiss-by-business', authenticateToken, checkPermission('reminder'), validate(notificationDismissByBusinessSchema), async (req, res) => {
   try {
     const { business_type, business_id } = req.body;
     await pool.query(
@@ -363,7 +364,7 @@ router.post('/notification-dismiss-by-business', authenticateToken, validate(not
 });
 
 // 通知列表（分页）
-router.get('/notification-list', authenticateToken, async (req, res) => {
+router.get('/notification-list', authenticateToken, checkPermission('reminder'), async (req, res) => {
   try {
     const { page = 1, pageSize = 20 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(pageSize);
@@ -390,7 +391,7 @@ router.get('/notification-list', authenticateToken, async (req, res) => {
 
 // ============ 通知中心下拉面板 ============
 
-router.get('/center', authenticateToken, async (req, res) => {
+router.get('/center', authenticateToken, checkPermission('reminder'), async (req, res) => {
   try {
     const userId = req.user.userId;
 
@@ -494,7 +495,7 @@ router.get('/center', authenticateToken, async (req, res) => {
 });
 
 // 标记所有系统通知已读
-router.post('/center/mark-all-read', authenticateToken, async (req, res) => {
+router.post('/center/mark-all-read', authenticateToken, checkPermission('reminder'), async (req, res) => {
   try {
     await pool.query(
       'UPDATE crm_notification SET is_read = 1 WHERE to_user_id = ? AND is_read = 0',

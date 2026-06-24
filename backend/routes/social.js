@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/permission');
 
 // 沟通记录列表
-router.get('/records', authenticateToken, async (req, res) => {
+router.get('/records', authenticateToken, checkPermission('social'), async (req, res) => {
   try {
     const { customer_id, contact_id, platform, page = 1, pageSize = 20 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(pageSize);
@@ -32,7 +33,7 @@ router.get('/records', authenticateToken, async (req, res) => {
 });
 
 // 创建沟通记录
-router.post('/records', authenticateToken, async (req, res) => {
+router.post('/records', authenticateToken, checkPermission('social'), async (req, res) => {
   try {
     const { customer_id, contact_id, platform, direction, content, attachment_url, message_time } = req.body;
     if (!platform || !direction) return res.status(400).json({ code: 400, message: '平台和方向必填', data: null });
@@ -48,7 +49,7 @@ router.post('/records', authenticateToken, async (req, res) => {
 });
 
 // 更新记录
-router.put('/records/:id', authenticateToken, async (req, res) => {
+router.put('/records/:id', authenticateToken, checkPermission('social'), async (req, res) => {
   try {
     const { platform, direction, content, attachment_url, message_time } = req.body;
     const fields = [], values = [];
@@ -68,7 +69,7 @@ router.put('/records/:id', authenticateToken, async (req, res) => {
 });
 
 // 删除记录
-router.delete('/records/:id', authenticateToken, async (req, res) => {
+router.delete('/records/:id', authenticateToken, checkPermission('social'), async (req, res) => {
   try {
     // 校验所有权
     const [[record]] = await pool.query('SELECT create_by FROM crm_social_contact WHERE id = ?', [req.params.id]);
@@ -86,7 +87,7 @@ router.delete('/records/:id', authenticateToken, async (req, res) => {
 });
 
 // 社媒统计
-router.get('/stats', authenticateToken, async (req, res) => {
+router.get('/stats', authenticateToken, checkPermission('social'), async (req, res) => {
   try {
     const [[{ total }]] = await pool.query('SELECT COUNT(*) as total FROM crm_social_contact WHERE deleted_at IS NULL');
     const [[{ week_new }]] = await pool.query("SELECT COUNT(*) as week_new FROM crm_social_contact WHERE deleted_at IS NULL AND create_time >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)");
@@ -105,7 +106,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
 });
 
 // 客户社媒时间线
-router.get('/customer/:id/timeline', authenticateToken, async (req, res) => {
+router.get('/customer/:id/timeline', authenticateToken, checkPermission('social'), async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT s.*, ct.name as contact_name, u.real_name as create_by_name

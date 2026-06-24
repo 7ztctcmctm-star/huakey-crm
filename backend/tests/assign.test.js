@@ -56,6 +56,7 @@ describe('客户分配模块', () => {
   describe('POST /api/customer/assign', () => {
     it('应该返回400当缺少customer_id', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/customer/assign')
@@ -69,6 +70,7 @@ describe('客户分配模块', () => {
     it('应该返回200当缺少to_user_id时执行回收', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1, owner_id: 3, company_name: '测试公司' }]]) // customer lookup
         .mockResolvedValueOnce([{ affectedRows: 1 }]) // update owner
         .mockResolvedValueOnce([{ insertId: 1 }]); // assign_log insert
@@ -85,6 +87,7 @@ describe('客户分配模块', () => {
     it('应该返回200当正常分配客户', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1, owner_id: 3, company_name: '测试公司' }]]) // customer lookup
         .mockResolvedValueOnce([{ affectedRows: 1 }]) // update owner
         .mockResolvedValueOnce([{ insertId: 1 }]); // assign_log insert
@@ -102,6 +105,7 @@ describe('客户分配模块', () => {
   describe('POST /api/customer/batch-assign', () => {
     it('应该返回400当缺少customer_ids', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/customer/batch-assign')
@@ -113,6 +117,7 @@ describe('客户分配模块', () => {
 
     it('应该返回200当正常批量分配', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       // connection.query: 2 customers × (select + update + insert) = 6 calls
       mockConnection.query
@@ -138,6 +143,7 @@ describe('客户分配模块', () => {
     it('应该返回分配历史', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[{ id: 1, customer_id: 1, from_user_id: 3, to_user_id: 2 }]]); // list
 

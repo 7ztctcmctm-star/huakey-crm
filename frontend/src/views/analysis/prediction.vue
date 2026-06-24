@@ -67,7 +67,7 @@
 
 <script setup>
 import { ref, onMounted, nextTick, watch } from 'vue'
-import { getPredictionEnhanced } from '@/api/analysis'
+import { getPredictionEnhanced } from '@/api/report'
 import echarts from '@/composables/useECharts'
 
 const loading = ref(false)

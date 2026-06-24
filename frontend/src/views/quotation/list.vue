@@ -200,8 +200,8 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus, View, Edit, Promotion, Delete } from '@element-plus/icons-vue'
 import request from '@/utils/request'
-import { getQuoteList, addQuote, updateQuote, deleteQuote, approveQuote, quoteToContract, getQuoteDetail } from '@/api/quote'
-import { submitApproval, withdrawApproval } from '@/api/approval'
+import { getQuoteList, addQuote, updateQuote, deleteQuote, approveQuote, quoteToContract, getQuoteDetail } from '@/api/contract'
+import { submitApproval, withdrawApproval } from '@/api/tools'
 import { formatTime, formatAmount } from '@/composables/useFormat'
 
 const router = useRouter()

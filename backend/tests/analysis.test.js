@@ -17,7 +17,7 @@ jest.mock('../middleware/logger', () => ({
 }));
 
 jest.mock('../services/permissionService', () => ({
-  getUserPermissions: jest.fn().mockResolvedValue([]),
+  getUserPermissions: jest.fn().mockResolvedValue(["analysis"]),
   getMenuPermissions: jest.fn().mockResolvedValue([]),
   getDataPermissions: jest.fn().mockResolvedValue([])
 }));
@@ -41,6 +41,7 @@ describe('数据分析模块', () => {
     it('应该返回赢单率分析', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // stage counts
           { stage: 1, count: 10 },
           { stage: 3, count: 5 },
@@ -62,6 +63,7 @@ describe('数据分析模块', () => {
     it('应该返回销售漏斗分析', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // funnel data
           { stage: 1, count: 20, amount: '500000' },
           { stage: 2, count: 15, amount: '400000' },
@@ -82,6 +84,7 @@ describe('数据分析模块', () => {
     it('应该返回RFM分析', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // RFM data
           { id: 1, company_name: 'A客户', recency: 5, frequency: 10, monetary: 300000 },
           { id: 2, company_name: 'B客户', recency: 30, frequency: 2, monetary: 50000 }
@@ -102,6 +105,7 @@ describe('数据分析模块', () => {
     it('应该返回流失预警', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[ // list
           { id: 1, company_name: '流失客户', overdue_days: 45, owner_name: '张三' }

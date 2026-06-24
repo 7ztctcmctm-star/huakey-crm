@@ -38,7 +38,7 @@
 import { ref, nextTick, onMounted } from 'vue'
 import { ChatDotSquare, Close } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
-import { getAiStatus, aiQuery, aiChat } from '@/api/ai'
+import { getAiStatus, aiQuery, aiChat } from '@/api/tools'
 
 const route = useRoute()
 const open = ref(false)

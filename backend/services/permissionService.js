@@ -1,4 +1,3 @@
-const pool = require('../config/database');
 const ROLES = require('../config/roles');
 const NodeCache = require('node-cache');
 
@@ -10,7 +9,7 @@ const permissionCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
  * @param {number} userId - 用户ID
  * @param {number} roleId - 角色ID
  */
-async function getUserPermissions(userId, roleId) {
+async function getUserPermissions(pool, userId, roleId) {
   const cacheKey = `permissions:${userId}`;
 
   // 尝试从缓存获取
@@ -41,13 +40,13 @@ async function getUserPermissions(userId, roleId) {
  * @param {number} roleId - 角色ID
  * @param {string} permissionCode - 权限编码
  */
-async function hasPermission(userId, roleId, permissionCode) {
+async function hasPermission(pool, userId, roleId, permissionCode) {
   // 超级管理员拥有所有权限
   if (roleId === ROLES.ADMIN) {
     return true;
   }
 
-  const permissions = await getUserPermissions(userId, roleId);
+  const permissions = await getUserPermissions(pool, userId, roleId);
   return permissions.includes(permissionCode);
 }
 
@@ -70,7 +69,7 @@ function clearAllPermissionCache() {
  * 获取用户菜单权限（树形结构）
  * @param {number} roleId - 角色ID
  */
-async function getMenuPermissions(roleId) {
+async function getMenuPermissions(pool, roleId) {
   const [permissions] = await pool.query(
     `SELECT p.id, p.name, p.code, p.parent_id, p.path, p.icon, p.sort
      FROM sys_role_permission rp
@@ -104,7 +103,7 @@ function buildMenuTree(permissions, parentId = 0) {
  * 获取角色数据权限（带缓存）
  * @param {number} roleId - 角色ID
  */
-async function getDataPermissions(roleId) {
+async function getDataPermissions(pool, roleId) {
   const cacheKey = `data_perms:${roleId}`;
 
   let configs = permissionCache.get(cacheKey);

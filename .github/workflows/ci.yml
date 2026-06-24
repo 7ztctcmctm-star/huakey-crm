@@ -15,6 +15,8 @@ jobs:
         with: { node-version: '22' }
       - run: cd backend && npm ci
       - run: cd backend && npm test
+      - run: cd backend && npm audit --audit-level=high
+      - run: cd backend && npx eslint . --max-warnings=0 || true
 
   frontend-test:
     runs-on: ubuntu-latest
