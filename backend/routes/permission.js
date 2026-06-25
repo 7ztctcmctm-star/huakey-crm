@@ -5,260 +5,81 @@ const { authenticateToken } = require('../middleware/auth');
 
 const requireAdmin = require('../middleware/admin');
 const { requireManager } = require('../middleware/admin');
-const {
-  getUserPermissions,
-  clearPermissionCache,
-  clearAllPermissionCache,
-  getMenuPermissions,
-  getDataPermissions
-} = require('../services/permissionService');
+const permRouteService = require('../services/permissionRouteService');
 
 // 获取当前用户权限
 router.get('/my-permissions', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const roleId = req.user.roleId;
-
-    // 获取功能权限
-    const permissions = await getUserPermissions(pool, userId, roleId);
-
-    // 获取菜单权限
-    const menus = await getMenuPermissions(pool, roleId);
-
-    // 获取数据权限
-    const dataPermissions = await getDataPermissions(pool, roleId);
-
-    res.json({
-      code: 200,
-      message: '查询成功',
-      data: {
-        permissions,
-        menus,
-        dataPermissions
-      }
-    });
+    const data = await permRouteService.getMyPermissions(pool, req.user.userId, req.user.roleId);
+    res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     console.error('[权限] 获取权限错误:', error);
-    res.status(500).json({
-      code: 500,
-      message: '查询失败',
-      data: null
-    });
+    res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
 
 // 获取所有权限列表（树形结构，仅管理员/经理）
 router.get('/list', authenticateToken, requireManager, async (req, res) => {
   try {
-    const [permissions] = await pool.query(
-      'SELECT * FROM sys_permission ORDER BY sort'
-    );
-
-    // 构建树形结构
-    const tree = buildPermissionTree(permissions);
-
-    res.json({
-      code: 200,
-      message: '查询成功',
-      data: tree
-    });
+    const tree = await permRouteService.listPermissions(pool);
+    res.json({ code: 200, message: '查询成功', data: tree });
   } catch (error) {
     console.error('[权限] 获取权限列表错误:', error);
-    res.status(500).json({
-      code: 500,
-      message: '查询失败',
-      data: null
-    });
+    res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
 
 // 获取角色权限（仅管理员/经理）
 router.get('/role/:roleId', authenticateToken, requireManager, async (req, res) => {
   try {
-    const { roleId } = req.params;
-
-    const [permissions] = await pool.query(
-      `SELECT permission_id
-       FROM sys_role_permission
-       WHERE role_id = ?`,
-      [roleId]
-    );
-
-    const permissionIds = permissions.map(p => p.permission_id);
-
-    res.json({
-      code: 200,
-      message: '查询成功',
-      data: permissionIds
-    });
+    const permissionIds = await permRouteService.getRolePermissions(pool, req.params.roleId);
+    res.json({ code: 200, message: '查询成功', data: permissionIds });
   } catch (error) {
     console.error('[权限] 获取角色权限错误:', error);
-    res.status(500).json({
-      code: 500,
-      message: '查询失败',
-      data: null
-    });
+    res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
 
 // 更新角色权限
 router.post('/role/update', authenticateToken, requireAdmin, async (req, res) => {
-  const connection = await pool.getConnection();
-
   try {
     const { role_id, permission_ids } = req.body;
-
-    await connection.beginTransaction();
-
-    // 删除原有权限
-    await connection.query(
-      'DELETE FROM sys_role_permission WHERE role_id = ?',
-      [role_id]
-    );
-
-    // 插入新权限
-    if (permission_ids && permission_ids.length > 0) {
-      const values = permission_ids.map(pid => [role_id, pid]);
-      await connection.query(
-        'INSERT INTO sys_role_permission (role_id, permission_id) VALUES ?',
-        [values]
-      );
-    }
-
-    await connection.commit();
-
-    // 清除该角色所有用户的权限缓存
-    const [users] = await pool.query(
-      'SELECT id FROM sys_user WHERE role_id = ?',
-      [role_id]
-    );
-    users.forEach(u => clearPermissionCache(u.id));
-    clearAllPermissionCache();
-
-    res.json({
-      code: 200,
-      message: '更新成功',
-      data: null
-    });
+    await permRouteService.updateRolePermissions(pool, role_id, permission_ids);
+    res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
-    await connection.rollback();
     console.error('[权限] 更新角色权限错误:', error);
-    res.status(500).json({
-      code: 500,
-      message: '更新失败',
-      data: null
-    });
-  } finally {
-    connection.release();
+    res.status(500).json({ code: 500, message: '更新失败', data: null });
   }
 });
 
 // 获取数据权限配置（仅管理员/经理）
 router.get('/data-scope/:roleId', authenticateToken, requireManager, async (req, res) => {
   try {
-    const { roleId } = req.params;
-
-    const [configs] = await pool.query(
-      `SELECT module, data_scope, custom_dept_ids
-       FROM sys_data_permission
-       WHERE role_id = ?`,
-      [roleId]
-    );
-
-    res.json({
-      code: 200,
-      message: '查询成功',
-      data: configs
-    });
+    const configs = await permRouteService.getDataScope(pool, req.params.roleId);
+    res.json({ code: 200, message: '查询成功', data: configs });
   } catch (error) {
     console.error('[权限] 获取数据权限错误:', error);
-    res.status(500).json({
-      code: 500,
-      message: '查询失败',
-      data: null
-    });
+    res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
 
 // 更新数据权限配置
 router.post('/data-scope/update', authenticateToken, requireAdmin, async (req, res) => {
-  const connection = await pool.getConnection();
-
   try {
     const { role_id, configs } = req.body;
-
-    await connection.beginTransaction();
-
-    // 删除原有配置
-    await connection.query(
-      'DELETE FROM sys_data_permission WHERE role_id = ?',
-      [role_id]
-    );
-
-    // 插入新配置
-    if (configs && configs.length > 0) {
-      for (const config of configs) {
-        await connection.query(
-          `INSERT INTO sys_data_permission (role_id, module, data_scope, custom_dept_ids)
-           VALUES (?, ?, ?, ?)`,
-          [role_id, config.module, config.data_scope, config.custom_dept_ids || null]
-        );
-      }
-    }
-
-    await connection.commit();
-
-    // 清除该角色所有用户的权限缓存
-    const [users] = await pool.query(
-      'SELECT id FROM sys_user WHERE role_id = ?',
-      [role_id]
-    );
-    users.forEach(u => clearPermissionCache(u.id));
-    clearAllPermissionCache();
-
-    res.json({
-      code: 200,
-      message: '更新成功',
-      data: null
-    });
+    await permRouteService.updateDataScope(pool, role_id, configs);
+    res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
-    await connection.rollback();
     console.error('[权限] 更新数据权限错误:', error);
-    res.status(500).json({
-      code: 500,
-      message: '更新失败',
-      data: null
-    });
-  } finally {
-    connection.release();
+    res.status(500).json({ code: 500, message: '更新失败', data: null });
   }
 });
-
-function buildPermissionTree(permissions, parentId = 0) {
-  return permissions
-    .filter(p => p.parent_id === parentId)
-    .map(p => ({
-      ...p,
-      children: buildPermissionTree(permissions, p.id)
-    }));
-}
 
 // 新增权限节点
 router.post('/add', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { name, code, type, parent_id, path, icon, sort } = req.body;
-    if (!name || !code || !type) {
-      return res.status(400).json({ code: 400, message: '名称、编码、类型不能为空', data: null });
-    }
-    const [existing] = await pool.query('SELECT id FROM sys_permission WHERE code = ?', [code]);
-    if (existing.length > 0) {
-      return res.status(400).json({ code: 400, message: '权限编码已存在', data: null });
-    }
-    await pool.query(
-      'INSERT INTO sys_permission (name, code, type, parent_id, path, icon, sort) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [name, code, type, parent_id || 0, path || null, icon || null, sort || 0]
-    );
-    clearAllPermissionCache();
+    const result = await permRouteService.addPermission(pool, req.body);
+    if (result.error) return res.status(400).json({ code: 400, message: result.error, data: null });
     res.json({ code: 200, message: '新增成功', data: null });
   } catch (error) {
     console.error('[权限] 添加权限错误:', error);
@@ -269,15 +90,8 @@ router.post('/add', authenticateToken, requireAdmin, async (req, res) => {
 // 编辑权限节点
 router.post('/update-node', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { id, name, code, type, parent_id, path, icon, sort } = req.body;
-    if (!id) {
-      return res.status(400).json({ code: 400, message: 'ID不能为空', data: null });
-    }
-    await pool.query(
-      'UPDATE sys_permission SET name=?, code=?, type=?, parent_id=?, path=?, icon=?, sort=? WHERE id=?',
-      [name, code, type, parent_id || 0, path || null, icon || null, sort || 0, id]
-    );
-    clearAllPermissionCache();
+    const result = await permRouteService.updatePermission(pool, req.body);
+    if (result.error) return res.status(400).json({ code: 400, message: result.error, data: null });
     res.json({ code: 200, message: '修改成功', data: null });
   } catch (error) {
     console.error('[权限] 更新权限错误:', error);
@@ -287,29 +101,13 @@ router.post('/update-node', authenticateToken, requireAdmin, async (req, res) =>
 
 // 删除权限节点
 router.post('/delete-node', authenticateToken, requireAdmin, async (req, res) => {
-  const connection = await pool.getConnection();
   try {
-    const { id } = req.body;
-    if (!id) {
-      return res.status(400).json({ code: 400, message: 'ID不能为空', data: null });
-    }
-    // 检查是否有子权限
-    const [children] = await pool.query('SELECT id FROM sys_permission WHERE parent_id = ?', [id]);
-    if (children.length > 0) {
-      return res.status(400).json({ code: 400, message: '存在子权限，请先删除子权限', data: null });
-    }
-    await connection.beginTransaction();
-    await connection.query('DELETE FROM sys_role_permission WHERE permission_id = ?', [id]);
-    await connection.query('DELETE FROM sys_permission WHERE id = ?', [id]);
-    await connection.commit();
-    clearAllPermissionCache();
+    const result = await permRouteService.deletePermission(pool, req.body.id);
+    if (result.error) return res.status(400).json({ code: 400, message: result.error, data: null });
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
-    await connection.rollback();
     console.error('[权限] 删除权限错误:', error);
     res.status(500).json({ code: 500, message: '删除失败', data: null });
-  } finally {
-    connection.release();
   }
 });
 

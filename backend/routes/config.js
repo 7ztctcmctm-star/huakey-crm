@@ -3,9 +3,8 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const { requireManager } = require('../middleware/admin');
-const { clearConfigCache, getOverdueDays } = require('../utils/config');
-const notification = require('../utils/notification');
 const { validate, Joi } = require('../middleware/validate');
+const configRouteService = require('../services/configRouteService');
 
 const configUpdateSchema = Joi.object({
   configs: Joi.array().items(
@@ -21,8 +20,8 @@ const router = express.Router();
 // 获取逾期天数（所有登录用户可用）
 router.get('/overdue-days', authenticateToken, checkPermission('system'), async (req, res) => {
   try {
-    const days = await getOverdueDays();
-    res.json({ code: 200, message: '查询成功', data: { overdue_days: days } });
+    const data = await configRouteService.fetchOverdueDays();
+    res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     console.error('[配置] 获取逾期天数失败:', error);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
@@ -32,7 +31,7 @@ router.get('/overdue-days', authenticateToken, checkPermission('system'), async 
 // 获取所有配置（仅管理员/经理）
 router.get('/list', authenticateToken, checkPermission('system'), requireManager, async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT config_key, config_value, description FROM sys_config ORDER BY id');
+    const rows = await configRouteService.listConfigs(pool);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
     console.error('[配置] 获取配置错误:', error);
@@ -43,22 +42,12 @@ router.get('/list', authenticateToken, checkPermission('system'), requireManager
 // 更新配置（仅管理员/经理）
 router.post('/update', authenticateToken, checkPermission('system'), requireManager, validate(configUpdateSchema), async (req, res) => {
   try {
-    const { configs } = req.body;
-    if (!configs || !Array.isArray(configs) || configs.length === 0) {
-      return res.status(400).json({ code: 400, message: '配置数据不能为空', data: null });
-    }
-
-    for (const item of configs) {
-      if (!item.config_key || item.config_value === undefined) continue;
-      await pool.query(
-        'UPDATE sys_config SET config_value = ? WHERE config_key = ?',
-        [String(item.config_value), item.config_key]
-      );
-    }
-
-    clearConfigCache();
+    await configRouteService.updateConfigs(pool, req.body.configs);
     res.json({ code: 200, message: '配置更新成功', data: null });
   } catch (error) {
+    if (error.statusCode === 400) {
+      return res.status(400).json({ code: 400, message: error.message, data: null });
+    }
     console.error('[配置] 更新配置错误:', error);
     res.status(500).json({ code: 500, message: '更新配置失败', data: null });
   }
@@ -67,7 +56,7 @@ router.post('/update', authenticateToken, checkPermission('system'), requireMana
 // 测试企业微信通知
 router.post('/test-notification', authenticateToken, checkPermission('system'), async (req, res) => {
   try {
-    await notification.sendText('🔔 CRM 通知测试\n\n如果您收到这条消息，说明企业微信通知配置成功！');
+    await configRouteService.testNotification();
     res.json({ code: 200, message: '测试消息已发送', data: null });
   } catch (error) {
     console.error('[配置] 测试通知失败:', error);

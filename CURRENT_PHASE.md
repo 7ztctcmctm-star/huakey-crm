@@ -20,6 +20,13 @@
 - [x] 路由文件 pool.query 全部归零（procurement-plan: 18→0, purchase: 17→0, quote: 13→0）
 - [x] quote.js 合并重复 /to-contract 路由
 
+### Service 层全面覆盖
+
+- [x] 58 个 service 文件创建完成
+- [x] 62 个路由文件中 59 个 pool.query 归零（95.2% 覆盖率）
+- [x] 残留 3 个文件共 20 处 pool.query：api-platform.js(15)、cronJobs.js(4)、recycle.js(1)
+- [x] 所有 58 个 service 文件 require 验证通过
+
 ### 清理残留
 
 - [x] my_schedule.ics 已确认不存在

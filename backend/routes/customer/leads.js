@@ -2,9 +2,7 @@ const express = require('express');
 const pool = require('../../config/database');
 const { authenticateToken } = require('../../middleware/auth');
 const { checkPermission } = require('../../middleware/permission');
-const ROLES = require('../../config/roles');
 const { SOURCE_PARENT_MAP } = require('./detail');
-const { CUSTOMER_STATUS } = require('../../constants/customer');
 const { validate, Joi } = require('../../middleware/validate');
 
 const MODULE_NAME = '客户管理';
@@ -12,6 +10,7 @@ const MODULE_NAME = '客户管理';
 const { createRouteLogger } = require('../../middleware/logger');
 const logAction = createRouteLogger(MODULE_NAME);
 
+const leadsService = require('../../services/leadsService');
 
 const router = express.Router();
 
@@ -28,85 +27,24 @@ const markLostSchema = Joi.object({
   id: Joi.number().integer().positive().required()
 });
 
-// 线索数据权限子句构建（独立逻辑，不走通用 checkDataPermission）
-async function buildLeadsPermissionClause(user) {
-  if (user.roleId === ROLES.SALES) {
-    const [users] = await pool.query(
-      'SELECT dept_id FROM sys_user WHERE id = ?', [user.userId]
-    );
-    const deptId = users.length > 0 ? users[0].dept_id : null;
-    if (deptId) {
-      const [deptUserIds] = await pool.query(
-        'SELECT id FROM sys_user WHERE dept_id = ?', [deptId]
-      );
-      const userIds = deptUserIds.map(u => u.id);
-      return {
-        clause: `(c.owner_id IS NULL OR c.owner_id = ? OR c.owner_id IN (${userIds.map(() => '?').join(',')}))`,
-        params: [user.userId, ...userIds]
-      };
-    }
-    return { clause: '(c.owner_id IS NULL OR c.owner_id = ?)', params: [user.userId] };
-  }
-  if (user.roleId === ROLES.ADMIN || user.roleId === ROLES.MANAGER || user.manageAll) {
-    return { clause: '1=1', params: [] };
-  }
-  return { clause: '(c.owner_id IS NULL OR c.owner_id = ?)', params: [user.userId] };
-}
+const importLeadsSchema = Joi.object({
+  leads: Joi.array().items(Joi.object({
+    company_name: Joi.string().required(),
+    contact_name: Joi.string().allow('', null),
+    phone: Joi.string().allow('', null),
+    source: Joi.string().allow('', null)
+  })).min(1).required()
+});
+
+const batchConvertSchema = Joi.object({
+  ids: Joi.array().items(Joi.number().integer().positive()).min(1).required()
+});
 
 // 线索列表
 router.post('/list', authenticateToken, checkPermission('leads'), async (req, res) => {
   try {
-    const { page = 1, pageSize = 10, company_name, contact_name, phone, source, lead_level, follow_status } = req.body;
-    const offset = (page - 1) * pageSize;
-    const params = [];
-
-    // 线索管理独立权限逻辑
-    const { clause: permissionClause, params: permParams } = await buildLeadsPermissionClause(req.user);
-    params.push(...permParams);
-
-    // 线索池准入：status=5（线索状态）
-    let whereClause;
-    if (req.body.owner_id) {
-      whereClause = `WHERE ${permissionClause} AND c.status = ${CUSTOMER_STATUS.LEAD} AND c.owner_id = ?`;
-      params.push(req.body.owner_id);
-    } else {
-      whereClause = `WHERE ${permissionClause} AND c.status = ${CUSTOMER_STATUS.LEAD}`;
-    }
-
-    if (company_name) { whereClause += ' AND c.company_name LIKE ?'; params.push(`%${company_name}%`); }
-    if (contact_name) { whereClause += ' AND c.contact_name LIKE ?'; params.push(`%${contact_name}%`); }
-    if (phone) { whereClause += ' AND c.phone LIKE ?'; params.push(`%${phone}%`); }
-    if (source) {
-      if (SOURCE_PARENT_MAP[source]) {
-        const children = SOURCE_PARENT_MAP[source];
-        whereClause += ` AND c.source IN (${children.map(() => '?').join(',')})`;
-        params.push(...children);
-      } else {
-        whereClause += ' AND c.source = ?'; params.push(source);
-      }
-    }
-    if (lead_level) { whereClause += ' AND c.lead_level = ?'; params.push(lead_level); }
-    if (follow_status) { whereClause += ' AND c.follow_status = ?'; params.push(follow_status); }
-
-    const [countResult] = await pool.query(
-      `SELECT COUNT(*) as total FROM crm_customer c ${whereClause}`, params
-    );
-    const total = countResult[0].total;
-
-    const [list] = await pool.query(
-      `SELECT c.id, c.company_name, c.contact_name, c.phone, c.source, c.level,
-        c.lead_level, c.follow_status, c.owner_id, c.status,
-        c.last_follow_time, c.create_time,
-        u.real_name as owner_name
-      FROM crm_customer c
-      LEFT JOIN sys_user u ON c.owner_id = u.id
-      ${whereClause}
-      ORDER BY c.create_time DESC
-      LIMIT ? OFFSET ?`,
-      [...params, parseInt(pageSize), parseInt(offset)]
-    );
-
-    res.json({ code: 200, message: '获取线索列表成功', data: { list, total, page: parseInt(page), pageSize: parseInt(pageSize) } });
+    const result = await leadsService.getLeadsList(pool, req.body, req.user, SOURCE_PARENT_MAP);
+    res.json({ code: 200, message: '获取线索列表成功', data: result });
   } catch (error) {
     console.error('获取线索列表错误:', error);
     res.status(500).json({ code: 500, message: '获取线索列表失败', data: null });
@@ -115,129 +53,70 @@ router.post('/list', authenticateToken, checkPermission('leads'), async (req, re
 
 // 线索转化：将线索转为潜客（status 5→1）
 router.post('/convert', authenticateToken, checkPermission('leads'), validate(convertSchema), async (req, res) => {
-  const connection = await pool.getConnection();
   try {
-    await connection.beginTransaction();
-
-    const { id } = req.body;
-
-    const [rows] = await connection.query(
-      `SELECT id, company_name, owner_id FROM crm_customer WHERE id = ? AND status = ${CUSTOMER_STATUS.LEAD}`,
-      [id]
-    );
-    if (rows.length === 0) return res.status(404).json({ code: 404, message: '线索不存在或已转化', data: null });
-
-    const lead = rows[0];
-    // 线索→潜客（status 5→1）
-    await connection.query(
-      `UPDATE crm_customer
-       SET status = ${CUSTOMER_STATUS.PROSPECT},
-           customer_type = 'prospect',
-           lifecycle_status = 'nurturing',
-           converted_at = COALESCE(converted_at, NOW()),
-           lead_level = NULL
-       WHERE id = ?`,
-      [id]
-    );
-
-    await connection.commit();
-
-    await logAction(req, 'convert', `线索转化: ${lead.company_name} → 潜客`);
-
-    res.json({ code: 200, message: '转化成功，已转为潜客', data: { id, company_name: lead.company_name } });
+    const result = await leadsService.convertLead(pool, req.body.id);
+    await logAction(req, 'convert', `线索转化: ${result.company_name} → 潜客`);
+    res.json({ code: 200, message: '转化成功，已转为潜客', data: result });
   } catch (error) {
-    await connection.rollback();
     console.error('线索转化错误:', error);
-    res.status(500).json({ code: 500, message: '转化失败', data: null });
-  } finally {
-    connection.release();
+    res.status(error.code || 500).json({ code: error.code || 500, message: error.message || '转化失败', data: null });
+  }
+});
+
+// 批量转化线索
+router.post('/batch-convert', authenticateToken, checkPermission('leads'), validate(batchConvertSchema), async (req, res) => {
+  try {
+    const result = await leadsService.batchConvert(pool, req.body.ids);
+    await logAction(req, 'batch-convert', `批量转化线索: ${result.converted}条成功`);
+    res.json({ code: 200, message: '批量转化完成', data: result });
+  } catch (error) {
+    console.error('批量转化错误:', error);
+    res.status(500).json({ code: 500, message: '批量转化失败', data: null });
+  }
+});
+
+// 导入线索
+router.post('/import', authenticateToken, checkPermission('leads'), validate(importLeadsSchema), async (req, res) => {
+  try {
+    const result = await leadsService.importLeads(pool, req.body.leads, req.user.userId);
+    await logAction(req, 'import', `导入线索: ${result.imported}条成功`);
+    res.json({ code: 200, message: '导入完成', data: result });
+  } catch (error) {
+    console.error('导入线索错误:', error);
+    res.status(500).json({ code: 500, message: '导入失败', data: null });
   }
 });
 
 // 销售领取线索
 router.post('/claim', authenticateToken, checkPermission('leads'), validate(claimSchema), async (req, res) => {
   try {
-    const { id } = req.body;
-
-    const [rows] = await pool.query(
-      `SELECT id, company_name FROM crm_customer WHERE id = ? AND status = ${CUSTOMER_STATUS.LEAD} AND (owner_id IS NULL OR owner_id = 1)`,
-      [id]
-    );
-    if (rows.length === 0) return res.status(404).json({ code: 404, message: '线索不存在或已被领取', data: null });
-
-    // 认领线索时，同时更新dept_id为认领者所在部门
-    const [userInfo] = await pool.query(
-      'SELECT dept_id FROM sys_user WHERE id = ?',
-      [req.user.userId]
-    );
-    const deptId = userInfo.length > 0 ? userInfo[0].dept_id : null;
-
-    await pool.query(
-      'UPDATE crm_customer SET owner_id = ?, dept_id = ?, follow_status = ? WHERE id = ?',
-      [req.user.userId, deptId, '初次联系', id]
-    );
-
-    await logAction(req, 'claim-lead', `领取线索: ${rows[0].company_name}`);
-
-    res.json({ code: 200, message: '领取成功，该线索已归您跟进', data: { id, company_name: rows[0].company_name } });
+    const result = await leadsService.claimLead(pool, req.body.id, req.user.userId);
+    await logAction(req, 'claim-lead', `领取线索: ${result.company_name}`);
+    res.json({ code: 200, message: '领取成功，该线索已归您跟进', data: result });
   } catch (error) {
     console.error('领取线索错误:', error);
-    res.status(500).json({ code: 500, message: '领取失败', data: null });
+    res.status(error.code || 500).json({ code: error.code || 500, message: error.message || '领取失败', data: null });
   }
 });
 
 // 销售标记线索为已流失
 router.post('/mark-lost', authenticateToken, checkPermission('leads'), validate(markLostSchema), async (req, res) => {
   try {
-    const { id } = req.body;
-
-    const [rows] = await pool.query(
-      `SELECT id FROM crm_customer WHERE id = ? AND status = ${CUSTOMER_STATUS.LEAD} AND owner_id = ?`,
-      [id, req.user.userId]
-    );
-    if (rows.length === 0) return res.status(404).json({ code: 404, message: '线索不存在或无权操作', data: null });
-
-    await pool.query(
-      `UPDATE crm_customer
-       SET status = ${CUSTOMER_STATUS.LOST},
-           customer_type = 'customer',
-           lifecycle_status = 'lost',
-           follow_status = '已流失'
-       WHERE id = ?`,
-      [id]
-    );
-
-    res.json({ code: 200, message: '已标记为流失', data: { id } });
+    await leadsService.markLeadLost(pool, req.body.id, req.user.userId);
+    res.json({ code: 200, message: '已标记为流失', data: { id: req.body.id } });
   } catch (error) {
-    res.status(500).json({ code: 500, message: '操作失败', data: null });
+    console.error('标记流失错误:', error);
+    res.status(error.code || 500).json({ code: error.code || 500, message: error.message || '操作失败', data: null });
   }
 });
 
 // 线索统计
 router.get('/stats', authenticateToken, checkPermission('leads'), async (req, res) => {
   try {
-    // 线索管理独立权限逻辑
-    const { clause: permissionClause, params: permParams } = await buildLeadsPermissionClause(req.user);
-
-    const [total] = await pool.query(
-      `SELECT COUNT(*) as cnt FROM crm_customer c WHERE ${permissionClause} AND status = ${CUSTOMER_STATUS.LEAD}`,
-      permParams
-    );
-    const [month] = await pool.query(
-      `SELECT COUNT(*) as cnt FROM crm_customer c WHERE ${permissionClause} AND status = ${CUSTOMER_STATUS.LEAD} AND YEAR(create_time) = YEAR(NOW()) AND WEEK(create_time, 1) = WEEK(NOW(), 1)`,
-      permParams
-    );
-    const [converted] = await pool.query(
-      `SELECT COUNT(*) as cnt FROM crm_customer c WHERE ${permissionClause} AND status = ${CUSTOMER_STATUS.PROSPECT} AND converted_at >= NOW() - INTERVAL 30 DAY`,
-      permParams
-    );
-
-    res.json({ code: 200, message: '查询成功', data: {
-      total: total[0].cnt,
-      week_new: month[0].cnt,
-      month_converted: converted[0].cnt
-    }});
+    const result = await leadsService.getLeadsStats(pool, req.user);
+    res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
+    console.error('线索统计错误:', error);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });

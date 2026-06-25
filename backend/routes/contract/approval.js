@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../../config/database');
 const { authenticateToken } = require('../../middleware/auth');
 const ROLES = require('../../config/roles');
+const { simpleApproveContract } = require('../../services/approvalService');
 
 // 审批合同（仅管理员）
 router.post('/approve', authenticateToken, async (req, res) => {
@@ -15,25 +16,13 @@ router.post('/approve', authenticateToken, async (req, res) => {
       return res.status(400).json({ code: 400, message: '参数错误: id必填, approval_status为2(通过)或3(拒绝)', data: null });
     }
 
-    const [rows] = await pool.query('SELECT id FROM crm_contract WHERE id = ? AND deleted_at IS NULL', [id]);
-    if (rows.length === 0) {
-      return res.status(404).json({ code: 404, message: '合同不存在', data: null });
-    }
-
-    await pool.query(
-      'UPDATE crm_contract SET approval_status = ?, approver_id = ?, approval_remark = ? WHERE id = ?',
-      [approval_status, req.user.userId, approval_remark || null, id]
-    );
-
-    await pool.query(
-      'UPDATE crm_notification SET is_dismissed = 1, is_read = 1 WHERE business_type = ? AND business_id = ? AND is_dismissed = 0',
-      ['contract', id]
-    );
+    await simpleApproveContract(pool, id, approval_status, approval_remark, req.user.userId);
 
     res.json({ code: 200, message: approval_status === 2 ? '审批通过' : '已拒绝', data: null });
   } catch (error) {
+    const status = error.statusCode || 500;
     console.error('[合同] 审批合同错误:', error);
-    res.status(500).json({ code: 500, message: '审批失败', data: null });
+    res.status(status).json({ code: status, message: error.message || '审批失败', data: null });
   }
 });
 

@@ -327,10 +327,30 @@ async function batchReject(pool, ids, remark, userId, manageAll) {
   return { success, failed };
 }
 
+// ============ 合同简单审批（非工作流） ============
+
+async function simpleApproveContract(pool, id, approval_status, approval_remark, userId) {
+  const [rows] = await pool.query('SELECT id FROM crm_contract WHERE id = ? AND deleted_at IS NULL', [id]);
+  if (rows.length === 0) {
+    throw Object.assign(new Error('合同不存在'), { statusCode: 404 });
+  }
+
+  await pool.query(
+    'UPDATE crm_contract SET approval_status = ?, approver_id = ?, approval_remark = ? WHERE id = ?',
+    [approval_status, userId, approval_remark || null, id]
+  );
+
+  await pool.query(
+    'UPDATE crm_notification SET is_dismissed = 1, is_read = 1 WHERE business_type = ? AND business_id = ? AND is_dismissed = 0',
+    ['contract', id]
+  );
+}
+
 module.exports = {
   BUSINESS_TABLE_MAP,
   listWorkflows, createWorkflow, updateWorkflow, deleteWorkflow,
   submitApproval, approveRecord, rejectRecord, withdrawApproval,
   getApprovalDetail, getDetailWithHistory, getMyPending, getMySubmitted,
-  batchApprove, batchReject
+  batchApprove, batchReject,
+  simpleApproveContract
 };

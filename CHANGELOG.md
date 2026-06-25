@@ -2,6 +2,19 @@
 
 ---
 
+# 2026-06-25
+
+## Service 层全面覆盖
+
+- 58 个 service 文件覆盖所有业务模块
+- 62 个路由文件中 59 个 pool.query 归零（95.2% 覆盖率）
+- 残留 3 个文件共 20 处 pool.query：api-platform.js(15)、cronJobs.js(4)、recycle.js(1)
+- 路由层只保留中间件链（authenticateToken/checkPermission/validate）和响应构造
+- 所有 service 函数第一参数为 pool，不依赖全局 require
+- 所有 service 文件 require 语法验证通过
+
+---
+
 # 2026-06-22
 
 ## 前端API层抽取

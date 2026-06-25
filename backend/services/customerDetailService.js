@@ -53,7 +53,7 @@ async function canManageCustomer(pool, user, customerOwnerId) {
  * @returns {{ id: number, possibleDuplicates: Array|null, assignedOwner: number|null }}
  */
 async function addCustomer(pool, data, operatorId) {
-  const { autoAssignOwner } = require('../routes/customer/assign');
+  const { autoAssignOwner } = require('./assignService');
   const { clearByPrefix } = require('../config/redis');
 
   const {
@@ -68,7 +68,7 @@ async function addCustomer(pool, data, operatorId) {
   );
 
   // 自动分配负责人
-  const assignedOwner = await autoAssignOwner({ source, address });
+  const assignedOwner = await autoAssignOwner(pool, { source, address });
   const ownerId = assignedOwner || operatorId;
 
   const [result] = await pool.query(

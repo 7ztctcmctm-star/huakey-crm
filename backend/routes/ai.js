@@ -5,6 +5,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const pool = require('../config/database');
 const { chatCompletion, getProviderStatus } = require('../utils/llmClient');
+const aiService = require('../services/aiRouteService');
 
 // AI查询使用独立只读连接池（未配 DB_RO_* 时降级用主库）
 const readOnlyPool = process.env.DB_RO_HOST
@@ -58,7 +59,7 @@ router.post('/chat', authenticateToken, checkPermission('ai'), async (req, res) 
 
 router.get('/status', authenticateToken, checkPermission('ai'), async (req, res) => {
   try {
-    const status = await getProviderStatus();
+    const status = await aiService.getAiStatus(pool);
     res.json({ code: 200, data: status });
   } catch (error) {
     console.error('[AI助手] 获取状态失败:', error.message);
@@ -170,55 +171,11 @@ router.post('/query', authenticateToken, checkPermission('ai'), async (req, res)
   }
 });
 
-// 更新 DB_SCHEMA 加入新表
-const DB_SCHEMA_EXTENDED = DB_SCHEMA + `
-- crm_ai_suggestion(AI建议): id, type(customer/opportunity/pricing/follow_up), ref_id, suggestion, confidence, is_accepted(0/1), feedback, create_by, create_time
-- sys_email_log(邮件日志): id, to_email, subject, body, type, status(sent/failed), error_msg, ref_type, ref_id, send_by, create_time
-`;
-
 // AI建议列表
 router.get('/suggestions', authenticateToken, checkPermission('ai'), async (req, res) => {
   try {
-    const { type, page = 1, pageSize = 20 } = req.query;
-    const offset = (page - 1) * pageSize;
-
-    let whereClause = '1=1';
-    const params = [];
-    if (type) {
-      whereClause += ' AND s.type = ?';
-      params.push(type);
-    }
-
-    const [countResult] = await pool.query(
-      `SELECT COUNT(*) as total FROM crm_ai_suggestion s WHERE ${whereClause}`, params
-    );
-
-    const [list] = await pool.query(
-      `SELECT s.*, u.real_name as creator_name
-       FROM crm_ai_suggestion s
-       LEFT JOIN sys_user u ON s.create_by = u.id
-       WHERE ${whereClause}
-       ORDER BY s.create_time DESC
-       LIMIT ? OFFSET ?`,
-      [...params, parseInt(pageSize), parseInt(offset)]
-    );
-
-    // 补充关联数据
-    for (const item of list) {
-      if (item.type === 'follow_up' || item.type === 'customer') {
-        const [customer] = await pool.query('SELECT company_name FROM crm_customer WHERE id = ?', [item.ref_id]);
-        item.ref_name = customer[0]?.company_name || '未知客户';
-      } else if (item.type === 'opportunity' || item.type === 'pricing') {
-        const [opp] = await pool.query('SELECT name, expected_amount, customer_id FROM crm_opportunity WHERE id = ?', [item.ref_id]);
-        item.ref_name = opp[0]?.name || '未知商机';
-        item.expected_amount = opp[0]?.expected_amount;
-      }
-    }
-
-    res.json({
-      code: 200, message: '查询成功',
-      data: { list, total: countResult[0].total }
-    });
+    const result = await aiService.getAiSuggestions(pool, req.query);
+    res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
     console.error('[AI助手] AI建议查询错误:', error);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
@@ -231,14 +188,8 @@ router.post('/suggestion/feedback', authenticateToken, checkPermission('ai'), as
     const { id, is_accepted, feedback } = req.body;
     if (!id) return res.status(400).json({ code: 400, message: '建议ID不能为空', data: null });
 
-    const fields = [];
-    const params = [];
-    if (is_accepted !== undefined) { fields.push('is_accepted = ?'); params.push(is_accepted); }
-    if (feedback !== undefined) { fields.push('feedback = ?'); params.push(feedback); }
-    if (fields.length === 0) return res.status(400).json({ code: 400, message: '没有要更新的字段', data: null });
-
-    params.push(id);
-    await pool.query(`UPDATE crm_ai_suggestion SET ${fields.join(', ')} WHERE id = ?`, params);
+    const result = await aiService.submitFeedback(pool, id, is_accepted, feedback);
+    if (result.error) return res.status(result.code).json({ code: result.code, message: result.error, data: null });
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
     console.error('[AI助手] AI建议反馈错误:', error);
@@ -249,84 +200,8 @@ router.post('/suggestion/feedback', authenticateToken, checkPermission('ai'), as
 // 生成AI建议
 router.post('/generate-suggestions', authenticateToken, checkPermission('ai'), async (req, res) => {
   try {
-    const userId = req.user.userId;
-    let created = 0;
-
-    // 1. 客户跟进超期建议
-    const [overdueCustomers] = await pool.query(`
-      SELECT c.id, c.company_name, c.last_follow_time,
-             DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days
-      FROM crm_customer c
-      WHERE c.status != 0 AND c.owner_id IS NOT NULL
-        AND (c.last_follow_time IS NULL OR c.last_follow_time < NOW() - INTERVAL 30 DAY)
-      LIMIT 20
-    `);
-
-    for (const c of overdueCustomers) {
-      const [exists] = await pool.query(
-        "SELECT id FROM crm_ai_suggestion WHERE type = 'follow_up' AND ref_id = ? AND create_time >= NOW() - INTERVAL 24 HOUR",
-        [c.id]
-      );
-      if (exists.length === 0) {
-        await pool.query(
-          `INSERT INTO crm_ai_suggestion (type, ref_id, suggestion, confidence, create_by)
-           VALUES ('follow_up', ?, ?, ?, ?)`,
-          [c.id, `客户"${c.company_name}"已${c.overdue_days}天未跟进，建议立即安排回访或联系沟通。`, 0.85, userId]
-        );
-        created++;
-      }
-    }
-
-    // 2. 商机停滞建议
-    const [staleOpps] = await pool.query(`
-      SELECT o.id, o.name, o.expected_amount, o.stage, o.update_time,
-             DATEDIFF(NOW(), o.update_time) as stale_days, c.company_name
-      FROM crm_opportunity o
-      LEFT JOIN crm_customer c ON o.customer_id = c.id
-      WHERE o.stage NOT IN (5, 6) AND o.update_time < NOW() - INTERVAL 14 DAY
-      LIMIT 20
-    `);
-
-    for (const o of staleOpps) {
-      const [exists] = await pool.query(
-        "SELECT id FROM crm_ai_suggestion WHERE type = 'opportunity' AND ref_id = ? AND create_time >= NOW() - INTERVAL 24 HOUR",
-        [o.id]
-      );
-      if (exists.length === 0) {
-        await pool.query(
-          `INSERT INTO crm_ai_suggestion (type, ref_id, suggestion, confidence, create_by)
-           VALUES ('opportunity', ?, ?, ?, ?)`,
-          [o.id, `商机"${o.name}"（${o.company_name}）在当前阶段已停滞${o.stale_days}天，建议推进或重新评估。`, 0.75, userId]
-        );
-        created++;
-      }
-    }
-
-    // 3. 高金额低赢率商机建议
-    const [lowWinOpps] = await pool.query(`
-      SELECT o.id, o.name, o.expected_amount, o.win_rate, c.company_name
-      FROM crm_opportunity o
-      LEFT JOIN crm_customer c ON o.customer_id = c.id
-      WHERE o.stage NOT IN (5, 6) AND o.expected_amount >= 100000 AND (o.win_rate IS NULL OR o.win_rate < 30)
-      LIMIT 10
-    `);
-
-    for (const o of lowWinOpps) {
-      const [exists] = await pool.query(
-        "SELECT id FROM crm_ai_suggestion WHERE type = 'pricing' AND ref_id = ? AND create_time >= NOW() - INTERVAL 24 HOUR",
-        [o.id]
-      );
-      if (exists.length === 0) {
-        await pool.query(
-          `INSERT INTO crm_ai_suggestion (type, ref_id, suggestion, confidence, create_by)
-           VALUES ('pricing', ?, ?, ?, ?)`,
-          [o.id, `商机"${o.name}"（${o.company_name}）预期金额¥${Number(o.expected_amount).toLocaleString()}但赢率仅${o.win_rate || 0}%，建议重新评估定价策略或加强需求沟通。`, 0.70, userId]
-        );
-        created++;
-      }
-    }
-
-    res.json({ code: 200, message: `生成完成，新增${created}条建议`, data: { created } });
+    const result = await aiService.generateSuggestions(pool, req.user.userId);
+    res.json({ code: 200, message: `生成完成，新增${result.created}条建议`, data: result });
   } catch (error) {
     console.error('生成AI建议错误:', error);
     res.status(500).json({ code: 500, message: '生成建议失败', data: null });

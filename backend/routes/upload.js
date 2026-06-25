@@ -5,14 +5,7 @@ const path = require('path');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const pool = require('../config/database');
-const { getSupabaseStorage } = require('../utils/supabaseStorage');
-
-// Supabase Storage 客户端（懒加载，未配置则回退本地存储）
-let supabaseStorage = null;
-const getStorage = async () => {
-  if (!supabaseStorage) supabaseStorage = await getSupabaseStorage();
-  return supabaseStorage;
-};
+const uploadRouteService = require('../services/uploadRouteService');
 
 // 使用内存存储（兼容 Vercel Serverless，无本地磁盘）
 const storage = multer.memoryStorage();
@@ -50,47 +43,17 @@ const upload = multer({
 // 上传文件
 router.post('/file', authenticateToken, upload.single('file'), async (req, res) => {
   try {
-    const { business_type, business_id } = req.body;
-    if (!req.file) {
-      return res.status(400).json({ code: 400, message: '请选择文件', data: null });
-    }
-
-    const file = req.file;
-    const ext = path.extname(file.originalname);
-    const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
-
-    let filePath;
-    const storage = await getStorage();
-
-    if (storage) {
-      // 上传到 Supabase Storage
-      const { data, error } = await storage.upload(filename, file.buffer, {
-        contentType: file.mimetype,
-        cacheControl: '3600'
-      });
-      if (error) throw new Error(`Supabase Storage 上传失败: ${error.message}`);
-      const { data: urlData } = storage.getPublicUrl(filename);
-      filePath = urlData.publicUrl;
-    } else {
-      // 回退：本地文件存储
-      const fs = require('fs');
-      const uploadDir = path.join(__dirname, '../uploads/attachments');
-      if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-      fs.writeFileSync(path.join(uploadDir, filename), file.buffer);
-      filePath = `/uploads/attachments/${filename}`;
-    }
-
-    const [result] = await pool.query(
-      `INSERT INTO crm_attachment (business_type, business_id, file_name, file_path, file_size, file_type, create_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [business_type || null, business_id || null, file.originalname, filePath, file.size, file.mimetype, req.user.userId]
-    );
-
-    res.json({
-      code: 200, message: '上传成功',
-      data: [{ id: result.insertId || (result.rows && result.rows[0]?.id), file_name: file.originalname, file_path: filePath, file_size: file.size, file_type: file.mimetype }]
+    const result = await uploadRouteService.uploadFile(pool, {
+      file: req.file,
+      business_type: req.body.business_type,
+      business_id: req.body.business_id,
+      userId: req.user.userId
     });
+    res.json({ code: 200, message: '上传成功', data: [result] });
   } catch (error) {
+    if (error.statusCode === 400) {
+      return res.status(400).json({ code: 400, message: error.message, data: null });
+    }
     console.error('文件上传错误:', error);
     res.status(500).json({ code: 500, message: '文件上传失败', data: null });
   }
@@ -99,16 +62,12 @@ router.post('/file', authenticateToken, upload.single('file'), async (req, res) 
 // 查询附件列表
 router.get('/list', authenticateToken, checkPermission('file'), async (req, res) => {
   try {
-    const { business_type, business_id } = req.query;
-    if (!business_type || !business_id) {
-      return res.status(400).json({ code: 400, message: '参数不完整', data: null });
-    }
-    const [list] = await pool.query(
-      'SELECT * FROM crm_attachment WHERE business_type = ? AND business_id = ? AND deleted_at IS NULL ORDER BY create_time DESC',
-      [business_type, business_id]
-    );
+    const list = await uploadRouteService.listAttachments(pool, req.query);
     res.json({ code: 200, message: '查询成功', data: list });
   } catch (error) {
+    if (error.statusCode === 400) {
+      return res.status(400).json({ code: 400, message: error.message, data: null });
+    }
     console.error('查询附件错误:', error);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
@@ -117,34 +76,15 @@ router.get('/list', authenticateToken, checkPermission('file'), async (req, res)
 // 删除附件
 router.post('/delete', authenticateToken, checkPermission('file'), async (req, res) => {
   try {
-    const { id } = req.body;
-    if (!id) return res.status(400).json({ code: 400, message: '附件ID不能为空', data: null });
-
-    const [rows] = await pool.query('SELECT * FROM crm_attachment WHERE id = ? AND deleted_at IS NULL', [id]);
-    if (rows.length === 0) return res.status(404).json({ code: 404, message: '附件不存在', data: null });
-
-    const attachment = rows[0];
-
-    // Supabase Storage 删除（如果是 Supabase URL）
-    const storage = await getStorage();
-    if (storage && attachment.file_path && !attachment.file_path.startsWith('/uploads/')) {
-      const urlParts = attachment.file_path.split('/');
-      const remoteFilename = urlParts[urlParts.length - 1];
-      await storage.remove([remoteFilename]).catch(e => console.warn('Supabase 文件删除失败（可能已不存在）:', e.message));
-    } else {
-      // 本地文件删除
-      const fs = require('fs');
-      const uploadsDir = path.resolve(__dirname, '..', 'uploads');
-      const fullPath = path.resolve(__dirname, '..', attachment.file_path.replace(/^\//, ''));
-      if (!fullPath.startsWith(uploadsDir)) {
-        return res.status(400).json({ code: 400, message: '非法文件路径', data: null });
-      }
-      if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
-    }
-
-    await pool.query('UPDATE crm_attachment SET deleted_at = NOW() WHERE id = ?', [id]);
+    await uploadRouteService.deleteAttachment(pool, req.body.id);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
+    if (error.statusCode === 400) {
+      return res.status(400).json({ code: 400, message: error.message, data: null });
+    }
+    if (error.statusCode === 404) {
+      return res.status(404).json({ code: 404, message: error.message, data: null });
+    }
     console.error('删除附件错误:', error);
     res.status(500).json({ code: 500, message: '删除失败', data: null });
   }
