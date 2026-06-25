@@ -4,6 +4,8 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
+const { createRouteLogger } = require('../middleware/logger');
+const purchaseService = require('../services/purchaseService');
 
 const MODULE_NAME = '采购管理';
 
@@ -52,45 +54,13 @@ const addReceiptSchema = Joi.object({
   remark: Joi.string().max(500).allow('', null)
 });
 
-const { createRouteLogger } = require('../middleware/logger');
 const logAction = createRouteLogger(MODULE_NAME);
 
 router.post('/list', authenticateToken, checkPermission('purchase'), checkDataPermission('purchase', 'owner_id'), validate(listSchema), async (req, res) => {
-  const { page = 1, pageSize = 10, keyword = '', status = '', type = '', supplier_id } = req.body;
-  const offset = (page - 1) * pageSize;
-
   try {
-    const { clause: permissionClause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'po');
-
-    let sql = `SELECT po.*, s.name as supplier_name, u.real_name as owner_name
-      FROM crm_purchase_order po
-      LEFT JOIN crm_supplier s ON po.supplier_id = s.id
-      LEFT JOIN sys_user u ON po.owner_id = u.id
-      WHERE ${permissionClause}`;
-    const params = [...permParams];
-
-    if (keyword) {
-      sql += ' AND (po.order_no LIKE ? OR po.title LIKE ? OR s.name LIKE ?)';
-      params.push(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`);
-    }
-    if (status) { sql += ' AND po.status = ?'; params.push(status); }
-    if (type) { sql += ' AND po.type = ?'; params.push(type); }
-    if (supplier_id) { sql += ' AND po.supplier_id = ?'; params.push(supplier_id); }
-
-    sql += ' ORDER BY po.create_time DESC LIMIT ?, ?';
-    params.push(offset, pageSize);
-    const [rows] = await pool.query(sql, params);
-
-    let countSql = `SELECT COUNT(*) as total FROM crm_purchase_order po LEFT JOIN crm_supplier s ON po.supplier_id = s.id WHERE ${permissionClause}`;
-    const countParams = [...permParams];
-    if (keyword) { countSql += ' AND (po.order_no LIKE ? OR po.title LIKE ? OR s.name LIKE ?)'; countParams.push(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`); }
-    if (status) { countSql += ' AND po.status = ?'; countParams.push(status); }
-    if (type) { countSql += ' AND po.type = ?'; countParams.push(type); }
-    if (supplier_id) { countSql += ' AND po.supplier_id = ?'; countParams.push(supplier_id); }
-
-    const [countResult] = await pool.query(countSql, countParams);
-
-    res.json({ code: 200, message: '查询成功', data: { list: rows, total: countResult[0].total } });
+    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'po');
+    const result = await purchaseService.listPurchases(pool, req.body, { clause, params: permParams });
+    res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
     console.error('[采购] 采购列表错误:', error.message);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
@@ -98,44 +68,11 @@ router.post('/list', authenticateToken, checkPermission('purchase'), checkDataPe
 });
 
 router.get('/detail/:id', authenticateToken, checkDataPermission('purchase', 'owner_id'), async (req, res) => {
-  const { id } = req.params;
   try {
-    const { clause: permissionClause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'po');
-
-    const [orders] = await pool.query(`
-      SELECT po.*, s.name as supplier_name, s.contact_person, s.contact_phone,
-             u.real_name as owner_name, ub.real_name as create_by_name
-      FROM crm_purchase_order po
-      LEFT JOIN crm_supplier s ON po.supplier_id = s.id
-      LEFT JOIN sys_user u ON po.owner_id = u.id
-      LEFT JOIN sys_user ub ON po.create_by = ub.id
-      WHERE po.id = ? AND ${permissionClause}
-    `, [id, ...permParams]);
-
-    if (!orders.length) return res.status(404).json({ code: 404, message: '采购单不存在', data: null });
-
-    const [items] = await pool.query(
-      'SELECT id, order_id, product_name, product_spec, unit, quantity, unit_price, discount_rate, discount_amount, amount, received_qty, quality_status, remark FROM crm_purchase_item WHERE order_id = ?',
-      [id]
-    );
-
-    const [receipts] = await pool.query(`
-      SELECT pr.*, u.real_name as operator_name
-      FROM crm_purchase_receipt pr
-      LEFT JOIN sys_user u ON pr.operator_id = u.id
-      WHERE pr.order_id = ?
-      ORDER BY pr.receive_time DESC
-    `, [id]);
-
-    const [payments] = await pool.query(`
-      SELECT pp.*, u.real_name as payer_name
-      FROM crm_purchase_payment pp
-      LEFT JOIN sys_user u ON pp.payer_id = u.id
-      WHERE pp.order_id = ?
-      ORDER BY pp.create_time DESC
-    `, [id]);
-
-    res.json({ code: 200, message: '查询成功', data: { ...orders[0], items, receipts, payments } });
+    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'po');
+    const data = await purchaseService.getPurchase(pool, req.params.id, { clause, params: permParams });
+    if (!data) return res.status(404).json({ code: 404, message: '采购单不存在', data: null });
+    res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     console.error('[采购] 采购详情错误:', error.message);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
@@ -143,84 +80,20 @@ router.get('/detail/:id', authenticateToken, checkDataPermission('purchase', 'ow
 });
 
 router.post('/add', authenticateToken, checkPermission('purchase:add'), validate(addOrderSchema), async (req, res) => {
-  const connection = await pool.getConnection();
   try {
-    await connection.beginTransaction();
-
-    const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
-    const [count] = await connection.query(
-      "SELECT COUNT(*) as cnt FROM crm_purchase_order WHERE order_no LIKE ? FOR UPDATE",
-      [`PO-${dateStr}-%`]
-    );
-    const seq = String(count[0].cnt + 1).padStart(3, '0');
-    const orderNo = `PO-${dateStr}-${seq}`;
-
-    let totalAmount = 0;
-    const itemValues = [];
-
-    for (const item of req.body.items) {
-      const discountAmount = (item.unit_price * item.quantity * (item.discount_rate || 0)) / 100;
-      const amount = Number((item.unit_price * item.quantity - discountAmount).toFixed(2));
-      totalAmount += amount;
-
-      itemValues.push([
-        null, item.product_name, item.product_spec || null,
-        item.unit || '个', item.quantity, item.unit_price,
-        item.discount_rate || 0, discountAmount, amount, 0, '待检', item.remark || null
-      ]);
-    }
-
-    const taxRate = req.body.tax_rate !== undefined ? parseFloat(req.body.tax_rate) : 13;
-    const taxAmount = Number((totalAmount * taxRate / 100).toFixed(2));
-    const totalWithTax = Number((totalAmount + taxAmount).toFixed(2));
-
-    const [result] = await connection.query(
-      `INSERT INTO crm_purchase_order (order_no, supplier_id, title, type, expected_date, payment_terms, delivery_address, remark, total_amount, tax_rate, tax_amount, total_with_tax, owner_id, create_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [orderNo, req.body.supplier_id, req.body.title, req.body.type,
-       req.body.expected_date || null, req.body.payment_terms || null,
-       req.body.delivery_address || null, req.body.remark || null,
-       totalAmount, taxRate, taxAmount, totalWithTax,
-       req.user.userId, req.user.userId]
-    );
-
-    const orderId = result.insertId;
-
-    if (itemValues.length > 0) {
-      for (let i = 0; i < itemValues.length; i++) {
-        itemValues[i][0] = orderId;
-      }
-      await connection.query(
-        `INSERT INTO crm_purchase_item (order_id, product_name, product_spec, unit, quantity, unit_price, discount_rate, discount_amount, amount, received_qty, quality_status, remark)
-         VALUES ${itemValues.map(() => '(?,?,?,?,?,?,?,?,?,?,?,?)').join(',')}`,
-        itemValues.flat()
-      );
-    }
-
-    await connection.commit();
-    await logAction(req, 'add', `创建采购单: ${orderNo} - ${req.body.title}`);
-
-    res.json({ code: 200, message: '创建采购单成功', data: { id: orderId, order_no: orderNo, total_amount: totalAmount } });
+    const result = await purchaseService.createPurchase(pool, req.body, req.user.userId);
+    await logAction(req, 'add', `创建采购单: ${result.order_no} - ${req.body.title}`);
+    res.json({ code: 200, message: '创建采购单成功', data: result });
   } catch (error) {
-    await connection.rollback();
     console.error('[采购] 添加采购单错误:', error.message);
     res.status(500).json({ code: 500, message: '创建采购单失败', data: null });
-  } finally {
-    connection.release();
   }
 });
 
 router.post('/update-status', authenticateToken, checkPermission('purchase:add'), validate(updateOrderStatusSchema), async (req, res) => {
-  const { id, status, approveRemark } = req.body;
   try {
-    if (status === '已确认') {
-      await pool.query(
-        'UPDATE crm_purchase_order SET status = ?, approve_time = NOW(), approveRemark = ? WHERE id = ?',
-        [status, approveRemark || null, id]
-      );
-    } else {
-      await pool.query('UPDATE crm_purchase_order SET status = ? WHERE id = ?', [status, id]);
-    }
+    const { id, status, approveRemark } = req.body;
+    await purchaseService.updateStatus(pool, id, status, approveRemark);
     await logAction(req, 'update-status', `更新采购单状态: ID=${id} → ${status}`);
     res.json({ code: 200, message: '状态更新成功', data: null });
   } catch (error) {
@@ -230,118 +103,35 @@ router.post('/update-status', authenticateToken, checkPermission('purchase:add')
 });
 
 router.post('/receipt/add', authenticateToken, checkPermission('purchase:add'), validate(addReceiptSchema), async (req, res) => {
-  const connection = await pool.getConnection();
   try {
-    await connection.beginTransaction();
-
-    const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
-    const [count] = await connection.query(
-      "SELECT COUNT(*) as cnt FROM crm_purchase_receipt WHERE receipt_no LIKE ? FOR UPDATE",
-      [`RCV-${dateStr}-%`]
-    );
-    const receiptNo = `RCV-${dateStr}-${String(count[0].cnt + 1).padStart(3, '0')}`;
-
-    const [result] = await connection.query(
-      `INSERT INTO crm_purchase_receipt (order_id, item_id, receipt_no, quantity, quality_check, quality_result, defect_desc, warehouse, remark, operator_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [req.body.order_id, req.body.item_id, receiptNo, req.body.quantity,
-       req.body.quality_check, req.body.quality_result, req.body.defect_desc || null,
-       req.body.warehouse || null, req.body.remark || null, req.user.userId]
-    );
-
-    await connection.query(
-      'UPDATE crm_purchase_item SET received_qty = received_qty + ?, quality_status = ? WHERE id = ?',
-      [req.body.quantity, req.body.quality_result === '合格' ? '合格' : req.body.quality_result, req.body.item_id]
-    );
-
-    const [[item]] = await connection.query('SELECT received_qty, quantity FROM crm_purchase_item WHERE id = ?', [req.body.item_id]);
-    if (item && item.received_qty >= item.quantity) {
-      // 检查该采购单下所有项是否都已收货完成
-      const [[orderCheck]] = await connection.query(
-        'SELECT SUM(received_qty >= quantity) as done_count, COUNT(*) as total_count FROM crm_purchase_item WHERE order_id = ?',
-        [req.body.order_id]
-      );
-      const newStatus = (orderCheck.done_count >= orderCheck.total_count) ? '已完成' : '部分收货';
-      await connection.query(
-        'UPDATE crm_purchase_order SET actual_date = CURRENT_DATE, status = ? WHERE id = ?',
-        [newStatus, req.body.order_id]
-      );
-    } else {
-      await connection.query("UPDATE crm_purchase_order SET status = '部分收货' WHERE id = ?", [req.body.order_id]);
-    }
-
-    await connection.commit();
-    await logAction(req, 'receipt', `入库记录: ${receiptNo}, 数量=${req.body.quantity}`);
-
-    res.json({ code: 200, message: '入库记录成功', data: { id: result.insertId, receipt_no: receiptNo } });
+    const result = await purchaseService.addReceipt(pool, req.body, req.user.userId);
+    await logAction(req, 'receipt', `入库记录: ${result.receipt_no}, 数量=${req.body.quantity}`);
+    res.json({ code: 200, message: '入库记录成功', data: result });
   } catch (error) {
-    await connection.rollback();
     console.error('[采购] 添加收货错误:', error.message);
     res.status(500).json({ code: 500, message: '入库记录失败', data: null });
-  } finally {
-    connection.release();
   }
 });
 
 router.get('/statistics', authenticateToken, async (req, res) => {
   try {
-    const [[totalOrders]] = await pool.query('SELECT COUNT(*) as cnt FROM crm_purchase_order WHERE status != "已取消"');
-    const [[pendingApprove]] = await pool.query("SELECT COUNT(*) as cnt FROM crm_purchase_order WHERE status = '待审核'");
-    const [[pendingReceive]] = await pool.query("SELECT COUNT(*) as cnt FROM crm_purchase_order WHERE status IN ('已确认', '部分收货')");
-    const [[completedThisMonth]] = await pool.query(`SELECT COUNT(*) as cnt FROM crm_purchase_order WHERE status = '已完成' AND MONTH(create_time) = MONTH(NOW())`);
-    const [[totalAmount]] = await pool.query('SELECT COALESCE(SUM(total_with_tax), 0) as sum FROM crm_purchase_order WHERE status != "已取消"');
-
-    const [[topSuppliers]] = await pool.query(`
-      SELECT s.name, COUNT(po.id) as order_count, SUM(po.total_with_tax) as total_spent
-      FROM crm_purchase_order po
-      JOIN crm_supplier s ON po.supplier_id = s.id
-      WHERE po.status != '已取消'
-      GROUP BY s.name
-      ORDER BY total_spent DESC
-      LIMIT 5
-    `);
-
-    res.json({
-      code: 200,
-      message: '查询成功',
-      data: {
-        summary: {
-          totalOrders: totalOrders.cnt,
-          pendingApprove: pendingApprove.cnt,
-          pendingReceive: pendingReceive.cnt,
-          completedThisMonth: completedThisMonth.cnt,
-          totalAmount: totalAmount.sum
-        },
-        topSuppliers
-      }
-    });
+    const data = await purchaseService.getStatistics(pool);
+    res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     console.error('[采购] 统计错误:', error.message);
     res.status(500).json({ code: 500, message: '获取统计失败', data: null });
   }
 });
 
-// 采购付款登记
 router.post('/payment/add', authenticateToken, checkPermission('purchase:add'), async (req, res) => {
   try {
-    const { order_id, amount, pay_method, pay_date, remark } = req.body;
-
+    const { order_id, amount } = req.body;
     if (!order_id || !amount) {
       return res.status(400).json({ code: 400, message: '订单ID和金额不能为空', data: null });
     }
-
-    const [orders] = await pool.query('SELECT id FROM crm_purchase_order WHERE id = ? AND deleted_at IS NULL', [order_id]);
-    if (orders.length === 0) {
-      return res.status(404).json({ code: 404, message: '采购单不存在', data: null });
-    }
-
-    const [result] = await pool.query(
-      `INSERT INTO crm_purchase_payment (order_id, amount, pay_method, pay_date, remark, payer_id)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [order_id, amount, pay_method || null, pay_date || null, remark || null, req.user.userId]
-    );
-
-    res.json({ code: 200, message: '付款登记成功', data: { id: result.insertId } });
+    const result = await purchaseService.addPayment(pool, req.body, req.user.userId);
+    if (result.error) return res.status(result.code).json({ code: result.code, message: result.error, data: null });
+    res.json({ code: 200, message: '付款登记成功', data: result });
   } catch (error) {
     console.error('[采购] 添加付款错误:', error.message);
     res.status(500).json({ code: 500, message: '付款登记失败', data: null });

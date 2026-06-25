@@ -1,0 +1,15 @@
+import request from '@/utils/request'
+
+export const getMyPending = () => request.get('/approval/my-pending')
+export const getMySubmitted = () => request.get('/approval/my-submitted')
+export const getApprovalDetail = (type, id) => request.get(`/approval/detail-with-history/${type}/${id}`)
+export const approveRequest = (id, remark) => request.post('/approval/approve', { id, remark })
+export const rejectRequest = (id, remark) => request.post('/approval/reject', { id, remark })
+export const batchApprove = (ids) => request.post('/approval/batch-approve', { ids, remark: '批量通过' })
+export const batchReject = (ids, remark) => request.post('/approval/batch-reject', { ids, remark })
+export const withdrawApproval = (type, id) => request.delete(`/approval/withdraw/${type}/${id}`)
+export const submitApproval = (data) => request.post('/approval/submit', data)
+export const getApprovalWorkflows = () => request.get('/approval/workflows')
+export const updateApprovalWorkflow = (data) => request.post('/approval/workflows/update', data)
+export const saveApprovalWorkflow = (data) => request.post('/approval/workflows', data)
+export const deleteApprovalWorkflow = (id) => request.delete(`/approval/workflows/${id}`)

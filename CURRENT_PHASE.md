@@ -5,6 +5,26 @@
 生产级稳定化阶段。
 
 
+## 最近完成（2026-06-25）
+
+### 前端 API 模块拆分
+
+- [x] tools.js（114行）拆分为 10 个独立模块文件
+- [x] knowledge.js / ai.js / calendar.js / reminder.js / search.js / recycle.js / survey.js / social.js / competitor.js / automation.js
+- [x] tools.js 仅保留重导出语句（13行），37 个引用文件无需改动
+
+### Service 层提取（第二批）
+
+- [x] purchaseService.js：从 procurement-plan.js + purchase.js 提取 17 个函数
+- [x] quoteService.js：从 quote.js 提取 7 个函数
+- [x] 路由文件 pool.query 全部归零（procurement-plan: 18→0, purchase: 17→0, quote: 13→0）
+- [x] quote.js 合并重复 /to-contract 路由
+
+### 清理残留
+
+- [x] my_schedule.ics 已确认不存在
+- [x] CURRENT_PHASE.md 更新
+
 ## 最近完成（2026-06-24）
 
 ### 服务层重构 + 路由优化

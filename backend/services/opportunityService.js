@@ -283,12 +283,149 @@ async function getStageStats(pool, opportunityId) {
   return { stages, total_hours: totalHours };
 }
 
+/**
+ * 创建商机
+ * @param {object} pool
+ * @param {object} data - { customer_id, name, expected_amount, expected_date, stage, win_rate, remark, owner_id }
+ * @param {number} userId
+ * @returns {{ id: number }}
+ */
+async function createOpportunity(pool, data, userId) {
+  const [customers] = await pool.query('SELECT id, status FROM crm_customer WHERE id = ? AND status != 0', [data.customer_id]);
+  if (customers.length === 0) {
+    const err = new Error('客户不存在');
+    err.code = 404;
+    throw err;
+  }
+  if (customers[0].status !== 2) {
+    const err = new Error('只能为正式客户创建商机，请先将客户转化为正式客户');
+    err.code = 400;
+    throw err;
+  }
+
+  const finalOwnerId = data.owner_id || userId;
+  const [result] = await pool.query(
+    `INSERT INTO crm_opportunity (customer_id, name, expected_amount, expected_date, stage, win_rate, remark, owner_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [data.customer_id, data.name, data.expected_amount || 0, data.expected_date || null, data.stage || 1, data.win_rate !== undefined ? data.win_rate : 10, data.remark || null, finalOwnerId]
+  );
+  return { id: result.insertId };
+}
+
+/**
+ * 更新商机
+ * @param {object} pool
+ * @param {number} id
+ * @param {object} data - 可更新字段
+ * @returns {object} 旧数据（用于日志）
+ */
+async function updateOpportunity(pool, id, data) {
+  const [rows] = await pool.query(
+    'SELECT id, customer_id, name, expected_amount, expected_date, stage, win_rate, remark, owner_id FROM crm_opportunity WHERE id = ? AND deleted_at IS NULL',
+    [id]
+  );
+  if (rows.length === 0) {
+    const err = new Error('商机不存在或无权修改');
+    err.code = 403;
+    throw err;
+  }
+  const oldData = rows[0];
+
+  const updates = [];
+  const params = [];
+  const fields = ['customer_id', 'name', 'expected_amount', 'expected_date', 'stage', 'win_rate', 'remark', 'owner_id'];
+  for (const field of fields) {
+    if (data[field] !== undefined) {
+      updates.push(`${field} = ?`);
+      params.push(data[field]);
+    }
+  }
+  if (updates.length === 0) return oldData;
+  params.push(id);
+  await pool.query(`UPDATE crm_opportunity SET ${updates.join(', ')} WHERE id = ?`, params);
+  return oldData;
+}
+
+/**
+ * 删除商机（软删除）
+ * @param {object} pool
+ * @param {number} id
+ */
+async function deleteOpportunity(pool, id) {
+  await pool.query('UPDATE crm_opportunity SET deleted_at = NOW() WHERE id = ?', [id]);
+}
+
+/**
+ * 获取商机（用于权限校验，返回 owner_id）
+ * @param {object} pool
+ * @param {number} id
+ * @returns {object|null}
+ */
+async function getOpportunityForPermission(pool, id) {
+  const [rows] = await pool.query('SELECT id, owner_id FROM crm_opportunity WHERE id = ? AND deleted_at IS NULL', [id]);
+  return rows.length > 0 ? rows[0] : null;
+}
+
+/**
+ * 获取商机详情（带数据权限校验）
+ * @param {object} pool
+ * @param {number} id
+ * @param {object} [permission] - { clause, params }
+ * @returns {object|null}
+ */
+async function getOpportunityWithPermission(pool, id, permission = null) {
+  let permissionWhere = '1=1';
+  let permParams = [];
+  if (permission && permission.clause) {
+    permissionWhere = permission.clause;
+    permParams = permission.params || [];
+  }
+
+  const [rows] = await pool.query(
+    `SELECT o.id, o.customer_id, o.name, o.expected_amount, o.expected_date, o.stage, o.win_rate, o.remark, o.owner_id, o.create_time, o.update_time,
+      c.company_name as customer_name, u.real_name as owner_name
+     FROM crm_opportunity o
+     LEFT JOIN crm_customer c ON o.customer_id = c.id
+     LEFT JOIN sys_user u ON o.owner_id = u.id
+     WHERE o.id = ? AND o.deleted_at IS NULL AND ${permissionWhere}`,
+    [id, ...permParams]
+  );
+  return rows.length > 0 ? rows[0] : null;
+}
+
+/**
+ * 获取阶段日志
+ * @param {object} pool
+ * @param {number} opportunityId
+ * @returns {Array}
+ */
+async function getStageLog(pool, opportunityId) {
+  const [logs] = await pool.query(
+    `SELECT l.id, l.from_stage, l.to_stage, l.change_reason, l.changed_at, l.create_time,
+      u.real_name as changed_by_name,
+      TIMESTAMPDIFF(HOUR, l.changed_at,
+        COALESCE(
+          (SELECT MIN(changed_at) FROM crm_opportunity_stage_log WHERE opportunity_id = l.opportunity_id AND changed_at > l.changed_at),
+          NOW()
+        )
+      ) as hours_in_stage
+     FROM crm_opportunity_stage_log l LEFT JOIN sys_user u ON l.changed_by = u.id
+     WHERE l.opportunity_id = ? ORDER BY l.changed_at DESC`, [opportunityId]);
+  return logs;
+}
+
 module.exports = {
   STAGE_MAP,
   DEFAULT_STAGE_PROBABILITY,
   listOpportunities,
   getOpportunity,
+  getOpportunityWithPermission,
+  getOpportunityForPermission,
+  createOpportunity,
+  updateOpportunity,
+  deleteOpportunity,
   advanceStage,
   getFunnelStats,
-  getStageStats
+  getStageStats,
+  getStageLog
 };
