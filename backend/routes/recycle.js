@@ -5,6 +5,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const { restore, permanentDelete, getDeletedList } = require('../utils/softDelete');
 const { validate, Joi } = require('../middleware/validate');
+const recycleService = require('../services/recycleService');
 
 const recycleListSchema = Joi.object({
   module: Joi.string().valid('customer', 'opportunity', 'contract', 'quote', 'supplier', 'purchase', 'service', 'product').allow('', null),
@@ -39,13 +40,7 @@ router.post('/list', authenticateToken, checkPermission('recycle_bin:view'), val
   if (!module || !TABLE_CONFIG[module]) {
     // 返回所有模块的已删除统计
     try {
-      const stats = [];
-      for (const [key, config] of Object.entries(TABLE_CONFIG)) {
-        const [result] = await pool.query(
-          `SELECT COUNT(*) as cnt FROM ${config.table} WHERE deleted_at IS NOT NULL`
-        );
-        stats.push({ module: key, label: config.label, count: result[0].cnt });
-      }
+      const stats = await recycleService.getDeletedStats(pool, TABLE_CONFIG);
       res.json({ code: 200, message: '查询成功', data: { stats } });
     } catch (error) {
       console.error('查询回收站统计失败:', error);

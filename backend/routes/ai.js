@@ -141,7 +141,7 @@ router.post('/query', authenticateToken, checkPermission('ai'), async (req, res)
       // 安全处理 LIMIT：如果SQL已有LIMIT则不追加，否则用子查询包裹
       const hasLimit = /\bLIMIT\s+\d+/i.test(sql);
       const safeSql = hasLimit ? sql : `SELECT * FROM (${sql}) AS _ai_query LIMIT 50`;
-      [rows] = await readOnlyPool.query(safeSql);
+      rows = await aiService.executeReadOnlyQuery(readOnlyPool, safeSql);
     } catch (dbError) {
       console.error('[AI查询] SQL执行失败:', sql, dbError.message);
       return res.json({ code: 200, data: { sql, answer: '生成的SQL有误，请换个问法。', rows: [] } });

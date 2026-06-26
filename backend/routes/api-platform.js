@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const crypto = require('crypto');
+const svc = require('../services/apiPlatformService');
 
 const requireAdmin = require('../middleware/admin');
 
@@ -15,7 +16,7 @@ const generateKey = (prefix = '', length = 32) => {
 
 router.get('/keys', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT id, name, api_key, permissions, rate_limit, status, last_used_at, expires_at, create_time FROM crm_api_key WHERE deleted_at IS NULL ORDER BY create_time DESC');
+    const rows = await svc.listKeys(pool);
     // 遮蔽api_key，只显示后4位
     const maskedKeys = rows.map(k => ({
       ...k,
@@ -35,11 +36,10 @@ router.post('/keys', authenticateToken, requireAdmin, async (req, res) => {
     const apiKey = generateKey('crm_', 32);
     const apiSecret = generateKey('', 48);
     const permsStr = Array.isArray(permissions) ? JSON.stringify(permissions) : (permissions || '["customer:read"]');
-    const [result] = await pool.query(
-      'INSERT INTO crm_api_key (name, api_key, api_secret, permissions, rate_limit, expires_at, create_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [name, apiKey, apiSecret, permsStr, rate_limit || 100, expires_at || null, req.user.userId]
-    );
-    res.json({ code: 200, message: '创建成功，请妥善保存密钥', data: { id: result.insertId, api_key: apiKey, api_secret: apiSecret } });
+    const result = await svc.createKey(pool, {
+      name, api_key: apiKey, api_secret: apiSecret, permissions: permsStr, rate_limit, expires_at, create_by: req.user.userId
+    });
+    res.json({ code: 200, message: '创建成功，请妥善保存密钥', data: { id: result.id, api_key: apiKey, api_secret: apiSecret } });
   } catch (error) {
     console.error('[API平台] 创建密钥失败:', error);
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
@@ -56,8 +56,7 @@ router.put('/keys/:id', authenticateToken, requireAdmin, async (req, res) => {
     if (status !== undefined) { fields.push('status = ?'); values.push(parseInt(status)); }
     if (expires_at !== undefined) { fields.push('expires_at = ?'); values.push(expires_at); }
     if (fields.length === 0) return res.status(400).json({ code: 400, message: '没有要更新的字段', data: null });
-    values.push(req.params.id);
-    await pool.query(`UPDATE crm_api_key SET ${fields.join(', ')} WHERE id = ? AND deleted_at IS NULL`, values);
+    await svc.updateKey(pool, req.params.id, fields, values);
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
     console.error('[API平台] 更新密钥失败:', error);
@@ -67,7 +66,7 @@ router.put('/keys/:id', authenticateToken, requireAdmin, async (req, res) => {
 
 router.delete('/keys/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    await pool.query('UPDATE crm_api_key SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
+    await svc.deleteKey(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     console.error('[API平台] 删除密钥失败:', error);
@@ -79,7 +78,7 @@ router.post('/keys/:id/regenerate', authenticateToken, requireAdmin, async (req,
   try {
     const newKey = generateKey('crm_', 32);
     const newSecret = generateKey('', 48);
-    await pool.query('UPDATE crm_api_key SET api_key = ?, api_secret = ? WHERE id = ? AND deleted_at IS NULL', [newKey, newSecret, req.params.id]);
+    await svc.regenerateKey(pool, req.params.id, newKey, newSecret);
     res.json({ code: 200, message: '重新生成成功，请妥善保存', data: { api_key: newKey, api_secret: newSecret } });
   } catch (error) {
     console.error('[API平台] 重新生成密钥失败:', error);
@@ -91,7 +90,7 @@ router.post('/keys/:id/regenerate', authenticateToken, requireAdmin, async (req,
 
 router.get('/webhooks', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM crm_webhook WHERE deleted_at IS NULL ORDER BY create_time DESC');
+    const rows = await svc.listWebhooks(pool);
     // 遮蔽secret字段
     const maskedWebhooks = rows.map(w => ({
       ...w,
@@ -109,11 +108,10 @@ router.post('/webhooks', authenticateToken, requireAdmin, async (req, res) => {
     const { name, url, events, secret } = req.body;
     if (!name || !url || !events) return res.status(400).json({ code: 400, message: '参数不完整', data: null });
     const eventsStr = Array.isArray(events) ? JSON.stringify(events) : events;
-    const [result] = await pool.query(
-      'INSERT INTO crm_webhook (name, url, events, secret, create_by) VALUES (?, ?, ?, ?, ?)',
-      [name, url, eventsStr, secret || generateKey('wh_', 32), req.user.userId]
-    );
-    res.json({ code: 200, message: '创建成功', data: { id: result.insertId } });
+    const result = await svc.createWebhook(pool, {
+      name, url, events: eventsStr, secret: secret || generateKey('wh_', 32), create_by: req.user.userId
+    });
+    res.json({ code: 200, message: '创建成功', data: { id: result.id } });
   } catch (error) {
     console.error('[API平台] 创建Webhook失败:', error);
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
@@ -129,8 +127,7 @@ router.put('/webhooks/:id', authenticateToken, requireAdmin, async (req, res) =>
     if (events !== undefined) { fields.push('events = ?'); values.push(Array.isArray(events) ? JSON.stringify(events) : events); }
     if (status !== undefined) { fields.push('status = ?'); values.push(parseInt(status)); }
     if (fields.length === 0) return res.status(400).json({ code: 400, message: '没有要更新的字段', data: null });
-    values.push(req.params.id);
-    await pool.query(`UPDATE crm_webhook SET ${fields.join(', ')} WHERE id = ? AND deleted_at IS NULL`, values);
+    await svc.updateWebhook(pool, req.params.id, fields, values);
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
     console.error('[API平台] 更新Webhook失败:', error);
@@ -140,7 +137,7 @@ router.put('/webhooks/:id', authenticateToken, requireAdmin, async (req, res) =>
 
 router.delete('/webhooks/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    await pool.query('UPDATE crm_webhook SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
+    await svc.deleteWebhook(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     console.error('[API平台] 删除Webhook失败:', error);
@@ -151,7 +148,7 @@ router.delete('/webhooks/:id', authenticateToken, requireAdmin, async (req, res)
 // 测试Webhook
 router.post('/webhooks/:id/test', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const [[webhook]] = await pool.query('SELECT * FROM crm_webhook WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+    const webhook = await svc.getWebhookById(pool, req.params.id);
     if (!webhook) return res.status(404).json({ code: 404, message: 'Webhook不存在', data: null });
 
     const payload = { event: 'test', timestamp: new Date().toISOString(), data: { message: '这是一条测试消息' } };
@@ -168,19 +165,18 @@ router.post('/webhooks/:id/test', authenticateToken, requireAdmin, async (req, r
       clearTimeout(timeout);
 
       const responseBody = await response.text().catch(() => '');
-      await pool.query(
-        'INSERT INTO crm_webhook_log (webhook_id, event_type, payload, response_status, response_body, status) VALUES (?, ?, ?, ?, ?, ?)',
-        [webhook.id, 'test', JSON.stringify(payload), response.status, responseBody.slice(0, 1000), response.ok ? 'success' : 'failed']
-      );
+      await svc.insertWebhookLog(pool, {
+        webhook_id: webhook.id, event_type: 'test', payload: JSON.stringify(payload),
+        response_status: response.status, response_body: responseBody.slice(0, 1000), status: response.ok ? 'success' : 'failed'
+      });
 
-      await pool.query('UPDATE crm_webhook SET last_triggered_at = NOW(), fail_count = 0 WHERE id = ?', [webhook.id]);
+      await svc.updateWebhookTrigger(pool, webhook.id, true);
       res.json({ code: 200, message: '测试发送成功', data: { status: response.status, ok: response.ok } });
     } catch (fetchError) {
-      await pool.query(
-        'INSERT INTO crm_webhook_log (webhook_id, event_type, payload, status) VALUES (?, ?, ?, ?)',
-        [webhook.id, 'test', JSON.stringify(payload), 'failed']
-      );
-      await pool.query('UPDATE crm_webhook SET fail_count = fail_count + 1 WHERE id = ?', [webhook.id]);
+      await svc.insertWebhookLog(pool, {
+        webhook_id: webhook.id, event_type: 'test', payload: JSON.stringify(payload), status: 'failed'
+      });
+      await svc.updateWebhookTrigger(pool, webhook.id, false);
       res.json({ code: 200, message: '测试发送失败', data: { error: fetchError.message } });
     }
   } catch (error) {
@@ -192,10 +188,7 @@ router.post('/webhooks/:id/test', authenticateToken, requireAdmin, async (req, r
 // Webhook日志
 router.get('/webhooks/:id/logs', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      'SELECT * FROM crm_webhook_log WHERE webhook_id = ? ORDER BY create_time DESC LIMIT 50',
-      [req.params.id]
-    );
+    const rows = await svc.getWebhookLogs(pool, req.params.id);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
     console.error('[API平台] Webhook日志查询失败:', error);

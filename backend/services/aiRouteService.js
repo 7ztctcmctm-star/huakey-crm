@@ -140,4 +140,15 @@ async function generateSuggestions(pool, userId) {
   return { created };
 }
 
-module.exports = { getAiStatus, getAiSuggestions, submitFeedback, generateSuggestions };
+/**
+ * 执行只读查询（Text-to-SQL 专用）
+ * @param {object} pool - 数据库连接池（readOnlyPool）
+ * @param {string} sql  - 已校验的 SELECT 语句
+ * @returns {Promise<Array>} 查询结果行
+ */
+async function executeReadOnlyQuery(pool, sql) {
+  const [rows] = await pool.query(sql);
+  return rows;
+}
+
+module.exports = { getAiStatus, getAiSuggestions, submitFeedback, generateSuggestions, executeReadOnlyQuery };
