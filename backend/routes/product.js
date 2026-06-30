@@ -82,8 +82,8 @@ router.post('/list', authenticateToken, cache(120), checkPermission('product'), 
     const result = await productService.listProducts(pool, req.body);
 
     // 非管理员不返回成本价字段
-    const { manageAll, roleId } = req.user;
-    const isAdmin = manageAll || ADMIN_ROLE_CODES.has(req.user.roleCode);
+    const { manageAll } = req.user;
+    const isAdmin = manageAll || ROLES.ADMIN_ROLE_CODES.has(req.user.roleCode);
     if (!isAdmin) {
       result.list.forEach(item => { delete item.cost_price; });
     }

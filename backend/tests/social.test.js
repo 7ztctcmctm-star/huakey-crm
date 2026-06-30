@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -26,7 +26,7 @@ const app = express();
 app.use(express.json());
 
 const socialRoutes = require('../routes/social');
-app.use('/api/social', socialRoutes);
+app.use('/api/v1/social', socialRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -37,13 +37,13 @@ describe('社交记录模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('POST /api/social/records', () => {
+  describe('POST /api/v1/social/records', () => {
     it('应该返回400当缺少platform', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/social/records')
+        .post('/api/v1/social/records')
         .set('Authorization', `Bearer ${token}`)
         .send({ direction: 'outbound', content: '测试消息' });
 
@@ -58,7 +58,7 @@ describe('社交记录模块', () => {
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
-        .post('/api/social/records')
+        .post('/api/v1/social/records')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: 1, platform: 'wechat', direction: 'outbound', content: '你好，请问报价单收到了吗？' });
 
@@ -68,7 +68,7 @@ describe('社交记录模块', () => {
     });
   });
 
-  describe('GET /api/social/records', () => {
+  describe('GET /api/v1/social/records', () => {
     it('应该返回沟通记录列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -80,7 +80,7 @@ describe('社交记录模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/social/records')
+        .get('/api/v1/social/records')
         .set('Authorization', `Bearer ${token}`)
         .query({ page: 1, pageSize: 20 });
 
@@ -91,7 +91,7 @@ describe('社交记录模块', () => {
     });
   });
 
-  describe('DELETE /api/social/records/:id', () => {
+  describe('DELETE /api/v1/social/records/:id', () => {
     it('应该返回200当正常删除记录', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -100,7 +100,7 @@ describe('社交记录模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 
       const res = await request(app)
-        .delete('/api/social/records/1')
+        .delete('/api/v1/social/records/1')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -111,9 +111,10 @@ describe('社交记录模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .get('/api/social/records');
+        .get('/api/v1/social/records');
 
       expect(res.status).toBe(401);
     });
   });
 });
+

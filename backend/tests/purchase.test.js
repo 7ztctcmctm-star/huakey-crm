@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -35,7 +35,7 @@ const app = express();
 app.use(express.json());
 
 const purchaseRoutes = require('../routes/purchase');
-app.use('/api/purchase', purchaseRoutes);
+app.use('/api/v1/purchase', purchaseRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -53,13 +53,13 @@ describe('采购管理模块', () => {
     mockConnection.rollback.mockClear();
   });
 
-  describe('POST /api/purchase/add', () => {
+  describe('POST /api/v1/purchase/add', () => {
     it('应该返回400当缺少supplier_id', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/purchase/add')
+        .post('/api/v1/purchase/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ title: '采购单', items: [{ product_name: '螺丝', quantity: 100, unit_price: 0.5 }] });
 
@@ -77,7 +77,7 @@ describe('采购管理模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // insert items
 
       const res = await request(app)
-        .post('/api/purchase/add')
+        .post('/api/v1/purchase/add')
         .set('Authorization', `Bearer ${token}`)
         .send({
           supplier_id: 1,
@@ -97,7 +97,7 @@ describe('采购管理模块', () => {
     });
   });
 
-  describe('POST /api/purchase/list', () => {
+  describe('POST /api/v1/purchase/list', () => {
     it('应该返回采购列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -109,7 +109,7 @@ describe('采购管理模块', () => {
         .mockResolvedValueOnce([[{ total: 2 }]]); // count
 
       const res = await request(app)
-        .post('/api/purchase/list')
+        .post('/api/v1/purchase/list')
         .set('Authorization', `Bearer ${token}`)
         .send({ page: 1, pageSize: 10 });
 
@@ -120,7 +120,7 @@ describe('采购管理模块', () => {
     });
   });
 
-  describe('POST /api/purchase/update-status', () => {
+  describe('POST /api/v1/purchase/update-status', () => {
     it('应该返回200当正常更新采购单状态', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -128,7 +128,7 @@ describe('采购管理模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update status
 
       const res = await request(app)
-        .post('/api/purchase/update-status')
+        .post('/api/v1/purchase/update-status')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1, status: '已确认' });
 
@@ -137,7 +137,7 @@ describe('采购管理模块', () => {
     });
   });
 
-  describe('POST /api/purchase/receipt/add', () => {
+  describe('POST /api/v1/purchase/receipt/add', () => {
     it('应该返回200当正常到货验收', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
@@ -150,7 +150,7 @@ describe('采购管理模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update order status
 
       const res = await request(app)
-        .post('/api/purchase/receipt/add')
+        .post('/api/v1/purchase/receipt/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ order_id: 1, item_id: 1, quantity: 50, quality_result: '合格' });
 
@@ -162,13 +162,13 @@ describe('采购管理模块', () => {
     });
   });
 
-  describe('POST /api/purchase/receipt/add 缺少必填字段', () => {
+  describe('POST /api/v1/purchase/receipt/add 缺少必填字段', () => {
     it('应该返回400当缺少order_id', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/purchase/receipt/add')
+        .post('/api/v1/purchase/receipt/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ item_id: 1, quantity: 50 });
 
@@ -180,10 +180,11 @@ describe('采购管理模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .post('/api/purchase/list')
+        .post('/api/v1/purchase/list')
         .send({ page: 1 });
 
       expect(res.status).toBe(401);
     });
   });
 });
+

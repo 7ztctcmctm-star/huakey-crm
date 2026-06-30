@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -21,7 +21,7 @@ const app = express();
 app.use(express.json());
 
 const serviceRoutes = require('../routes/service');
-app.use('/api/service', serviceRoutes);
+app.use('/api/v1/service', serviceRoutes);
 
 const generateToken = () => {
   return jwt.sign(
@@ -36,10 +36,10 @@ describe('售后模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('GET /api/service/types', () => {
+  describe('GET /api/v1/service/types', () => {
     it('应该返回200和服务类型列表', async () => {
       const res = await request(app)
-        .get('/api/service/types')
+        .get('/api/v1/service/types')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -49,7 +49,7 @@ describe('售后模块', () => {
     });
   });
 
-  describe('POST /api/service/list', () => {
+  describe('POST /api/v1/service/list', () => {
     it('应该返回200和工单列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]])  // blacklist check
@@ -58,7 +58,7 @@ describe('售后模块', () => {
         .mockResolvedValueOnce([[{ id: 1, order_no: 'SO-001', title: '测试工单', status: 1 }]]);
 
       const res = await request(app)
-        .post('/api/service/list')
+        .post('/api/v1/service/list')
         .set('Authorization', `Bearer ${token}`)
         .send({ page: 1, pageSize: 20 });
 
@@ -68,3 +68,4 @@ describe('售后模块', () => {
     });
   });
 });
+

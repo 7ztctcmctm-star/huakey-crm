@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -47,7 +47,7 @@ const app = express();
 app.use(express.json());
 
 const inventoryRoutes = require('../routes/inventory');
-app.use('/api/inventory', inventoryRoutes);
+app.use('/api/v1/inventory', inventoryRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -65,10 +65,10 @@ describe('\u5e93\u5b58\u7ba1\u7406\u6a21\u5757', () => {
     mockConnection.rollback.mockClear();
   });
 
-  describe('POST /api/inventory/in \u7f3a\u5c11\u5fc5\u586b\u5b57\u6bb5', () => {
+  describe('POST /api/v1/inventory/in \u7f3a\u5c11\u5fc5\u586b\u5b57\u6bb5', () => {
     it('\u5e94\u8be5\u8fd4\u56de400\u5f53\u7f3a\u5c11product_id', async () => {
       const res = await request(app)
-        .post('/api/inventory/in')
+        .post('/api/v1/inventory/in')
         .set('Authorization', `Bearer ${token}`)
         .send({ quantity: 100 });
 
@@ -77,7 +77,7 @@ describe('\u5e93\u5b58\u7ba1\u7406\u6a21\u5757', () => {
     });
   });
 
-  describe('POST /api/inventory/in', () => {
+  describe('POST /api/v1/inventory/in', () => {
     it('\u5e94\u8be5\u8fd4\u56de200\u5f53\u6b63\u5e38\u5165\u5e93', async () => {
       mockConnection.query
         .mockResolvedValueOnce([[{ id: 1, stock: 50 }]]) // SELECT FOR UPDATE
@@ -85,7 +85,7 @@ describe('\u5e93\u5b58\u7ba1\u7406\u6a21\u5757', () => {
         .mockResolvedValueOnce([{ insertId: 1 }]); // INSERT movement
 
       const res = await request(app)
-        .post('/api/inventory/in')
+        .post('/api/v1/inventory/in')
         .set('Authorization', `Bearer ${token}`)
         .send({ product_id: 1, quantity: 50, remark: '\u624b\u52a8\u5165\u5e93' });
 
@@ -97,7 +97,7 @@ describe('\u5e93\u5b58\u7ba1\u7406\u6a21\u5757', () => {
     });
   });
 
-  describe('GET /api/inventory/list', () => {
+  describe('GET /api/v1/inventory/list', () => {
     it('\u5e94\u8be5\u8fd4\u56de\u5e93\u5b58\u5217\u8868', async () => {
       mockPool.query
         .mockResolvedValueOnce([[{ total: 2 }]]) // count
@@ -107,7 +107,7 @@ describe('\u5e93\u5b58\u7ba1\u7406\u6a21\u5757', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/inventory/list')
+        .get('/api/v1/inventory/list')
         .set('Authorization', `Bearer ${token}`)
         .query({ page: 1, pageSize: 20 });
 
@@ -118,7 +118,7 @@ describe('\u5e93\u5b58\u7ba1\u7406\u6a21\u5757', () => {
     });
   });
 
-  describe('POST /api/inventory/out', () => {
+  describe('POST /api/v1/inventory/out', () => {
     it('\u5e94\u8be5\u8fd4\u56de200\u5f53\u6b63\u5e38\u51fa\u5e93', async () => {
       mockConnection.query
         .mockResolvedValueOnce([[{ id: 1, stock: 100 }]]) // SELECT FOR UPDATE
@@ -126,7 +126,7 @@ describe('\u5e93\u5b58\u7ba1\u7406\u6a21\u5757', () => {
         .mockResolvedValueOnce([{ insertId: 1 }]); // INSERT movement
 
       const res = await request(app)
-        .post('/api/inventory/out')
+        .post('/api/v1/inventory/out')
         .set('Authorization', `Bearer ${token}`)
         .send({ product_id: 1, quantity: 30, remark: '\u624b\u52a8\u51fa\u5e93' });
 
@@ -138,13 +138,13 @@ describe('\u5e93\u5b58\u7ba1\u7406\u6a21\u5757', () => {
     });
   });
 
-  describe('POST /api/inventory/in \u4ea7\u54c1\u4e0d\u5b58\u5728', () => {
+  describe('POST /api/v1/inventory/in \u4ea7\u54c1\u4e0d\u5b58\u5728', () => {
     it('\u5e94\u8be5\u8fd4\u56de404\u5f53\u4ea7\u54c1\u4e0d\u5b58\u5728', async () => {
       mockConnection.query
         .mockResolvedValueOnce([[undefined]]); // SELECT FOR UPDATE -> product not found
 
       const res = await request(app)
-        .post('/api/inventory/in')
+        .post('/api/v1/inventory/in')
         .set('Authorization', `Bearer ${token}`)
         .send({ product_id: 999, quantity: 10 });
 
@@ -154,3 +154,4 @@ describe('\u5e93\u5b58\u7ba1\u7406\u6a21\u5757', () => {
     });
   });
 });
+

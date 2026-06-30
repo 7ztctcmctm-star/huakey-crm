@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -26,7 +26,7 @@ const app = express();
 app.use(express.json());
 
 const deptRoutes = require('../routes/dept');
-app.use('/api/dept', deptRoutes);
+app.use('/api/v1/dept', deptRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -37,13 +37,13 @@ describe('部门管理模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('POST /api/dept/add', () => {
+  describe('POST /api/v1/dept/add', () => {
     it('应该返回400当缺少name字段', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/dept/add')
+        .post('/api/v1/dept/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ parent_id: 0 });
 
@@ -58,7 +58,7 @@ describe('部门管理模块', () => {
         .mockResolvedValueOnce([{ insertId: 10 }]);
 
       const res = await request(app)
-        .post('/api/dept/add')
+        .post('/api/v1/dept/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '新部门', parent_id: 0, sort: 1 });
 
@@ -72,7 +72,7 @@ describe('部门管理模块', () => {
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/dept/add')
+        .post('/api/v1/dept/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '' });
 
@@ -80,13 +80,13 @@ describe('部门管理模块', () => {
     });
   });
 
-  describe('POST /api/dept/update', () => {
+  describe('POST /api/v1/dept/update', () => {
     it('应该返回400当缺少id字段', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/dept/update')
+        .post('/api/v1/dept/update')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '修改名称' });
 
@@ -101,7 +101,7 @@ describe('部门管理模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]);
 
       const res = await request(app)
-        .post('/api/dept/update')
+        .post('/api/v1/dept/update')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1, name: '修改后的部门' });
 
@@ -110,13 +110,13 @@ describe('部门管理模块', () => {
     });
   });
 
-  describe('POST /api/dept/delete', () => {
+  describe('POST /api/v1/dept/delete', () => {
     it('应该返回400当缺少id字段', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/dept/delete')
+        .post('/api/v1/dept/delete')
         .set('Authorization', `Bearer ${token}`)
         .send({});
 
@@ -131,7 +131,7 @@ describe('部门管理模块', () => {
         .mockResolvedValueOnce([[{ cnt: 3 }]]); // children check
 
       const res = await request(app)
-        .post('/api/dept/delete')
+        .post('/api/v1/dept/delete')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1 });
 
@@ -147,7 +147,7 @@ describe('部门管理模块', () => {
         .mockResolvedValueOnce([[{ cnt: 5 }]]); // has users
 
       const res = await request(app)
-        .post('/api/dept/delete')
+        .post('/api/v1/dept/delete')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1 });
 
@@ -164,7 +164,7 @@ describe('部门管理模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]);
 
       const res = await request(app)
-        .post('/api/dept/delete')
+        .post('/api/v1/dept/delete')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1 });
 
@@ -173,3 +173,4 @@ describe('部门管理模块', () => {
     });
   });
 });
+

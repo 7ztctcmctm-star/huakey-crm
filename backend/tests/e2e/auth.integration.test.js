@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 认证流程集成测试
  * 真实数据库，覆盖登录/me/登出/token黑名单
  */
@@ -20,7 +20,7 @@ const ADMIN = {
 let adminToken;
 let adminUserId;
 
-describe('认证流程 /api/auth', () => {
+describe('认证流程 /api/v1/auth', () => {
   beforeAll(async () => {
     // 插入 ADMIN 角色（如不存在）
     await pool.query(
@@ -48,7 +48,7 @@ describe('认证流程 /api/auth', () => {
 
   test('正确密码登录 → 200 + token', async () => {
     const res = await request(app)
-      .post('/api/auth/login')
+      .post('/api/v1/auth/login')
       .send({ username: ADMIN.username, password: ADMIN.password })
       .expect(200);
 
@@ -61,7 +61,7 @@ describe('认证流程 /api/auth', () => {
 
   test('GET /me 带 token → 200 + 用户信息', async () => {
     const res = await request(app)
-      .get('/api/auth/me')
+      .get('/api/v1/auth/me')
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
 
@@ -71,13 +71,13 @@ describe('认证流程 /api/auth', () => {
 
   test('GET /me 无 token → 401', async () => {
     await request(app)
-      .get('/api/auth/me')
+      .get('/api/v1/auth/me')
       .expect(401);
   });
 
   test('错误密码登录 → 401', async () => {
     const res = await request(app)
-      .post('/api/auth/login')
+      .post('/api/v1/auth/login')
       .send({ username: ADMIN.username, password: 'WrongPassword1' })
       .expect(401);
 
@@ -87,13 +87,13 @@ describe('认证流程 /api/auth', () => {
   test('登出后 token 失效 → 401', async () => {
     // 登出
     await request(app)
-      .post('/api/auth/logout')
+      .post('/api/v1/auth/logout')
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
 
     // 用同一 token 访问 → 应被黑名单拦截
     await request(app)
-      .get('/api/auth/me')
+      .get('/api/v1/auth/me')
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(401);
   });
@@ -106,8 +106,9 @@ describe('认证流程 /api/auth', () => {
     );
 
     await request(app)
-      .get('/api/auth/me')
+      .get('/api/v1/auth/me')
       .set('Authorization', `Bearer ${expiredToken}`)
       .expect(401);
   });
 });
+

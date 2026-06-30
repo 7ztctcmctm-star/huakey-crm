@@ -294,9 +294,8 @@ router.post('/convert', authenticateToken, async (req, res) => {
   try {
     const { customer_id, action } = req.body;
     const userId = req.user.userId;
-    const roleId = req.user.roleId;
 
-    if (!ADMIN_ROLE_CODES.has(req.user.roleCode)) {
+    if (!ROLES.ADMIN_ROLE_CODES.has(req.user.roleCode)) {
       return res.status(403).json({ code: 403, message: '仅管理者可执行转化操作', data: null });
     }
 

@@ -710,6 +710,143 @@ async function getBusinessDashboard(pool) {
   };
 }
 
+/**
+ * 采购成本分析
+ * 按月份、产品分类统计采购金额
+ * @param {object} pool
+ * @param {object} params - { start_date, end_date }
+ * @returns {object} { summary, by_category, monthly }
+ */
+async function getPurchaseCost(pool, params = {}) {
+  const { start_date, end_date } = params;
+  let dateFilter = '';
+  const queryParams = [];
+
+  if (start_date && end_date) {
+    dateFilter = 'AND po.create_time BETWEEN ? AND ?';
+    queryParams.push(start_date, end_date + ' 23:59:59');
+  }
+
+  const [[totalRow]] = await pool.query(`
+    SELECT COALESCE(SUM(po.total_with_tax), 0) as total,
+           COUNT(DISTINCT DATE_FORMAT(po.create_time, '%Y-%m')) as month_count
+    FROM crm_purchase_order po
+    WHERE po.status != '已取消' AND po.deleted_at IS NULL ${dateFilter}
+  `, queryParams);
+
+  const total = parseFloat(totalRow.total) || 0;
+  const monthCount = parseInt(totalRow.month_count) || 1;
+
+  const [categoryRows] = await pool.query(`
+    SELECT
+      COALESCE(p.category, '未分类') as category,
+      COALESCE(SUM(pi.amount), 0) as amount
+    FROM crm_purchase_order po
+    JOIN crm_purchase_item pi ON pi.order_id = po.id AND pi.deleted_at IS NULL
+    LEFT JOIN crm_product p ON p.name = pi.product_name AND p.deleted_at IS NULL
+    WHERE po.status != '已取消' AND po.deleted_at IS NULL ${dateFilter}
+    GROUP BY COALESCE(p.category, '未分类')
+    ORDER BY amount DESC
+  `, [...queryParams]);
+
+  const [monthlyRows] = await pool.query(`
+    SELECT
+      DATE_FORMAT(po.create_time, '%Y-%m') as month,
+      COALESCE(SUM(po.total_with_tax), 0) as amount
+    FROM crm_purchase_order po
+    WHERE po.status != '已取消' AND po.deleted_at IS NULL ${dateFilter}
+    GROUP BY DATE_FORMAT(po.create_time, '%Y-%m')
+    ORDER BY month
+  `, queryParams);
+
+  return {
+    summary: {
+      total,
+      avg_monthly: Math.round(total / monthCount)
+    },
+    by_category: categoryRows.map(r => ({ category: r.category, amount: parseFloat(r.amount) || 0 })),
+    monthly: monthlyRows.map(r => ({ month: r.month, amount: parseFloat(r.amount) || 0 }))
+  };
+}
+
+/**
+ * 供应商绩效分析
+ * 统计供应商采购金额、准时交付率、质量评分
+ * @param {object} pool
+ * @param {object} params - { start_date, end_date, supplier_id }
+ * @returns {object} { top_suppliers }
+ */
+async function getSupplierPerformance(pool, params = {}) {
+  const { start_date, end_date, supplier_id } = params;
+  let dateFilter = '';
+  let supplierFilter = '';
+  const queryParams = [];
+
+  if (start_date && end_date) {
+    dateFilter = 'AND po.create_time BETWEEN ? AND ?';
+    queryParams.push(start_date, end_date + ' 23:59:59');
+  }
+
+  if (supplier_id) {
+    supplierFilter = 'AND s.id = ?';
+    queryParams.push(supplier_id);
+  }
+
+  const [amountRows] = await pool.query(`
+    SELECT
+      s.id,
+      s.name,
+      COALESCE(SUM(po.total_with_tax), 0) as amount,
+      COUNT(po.id) as order_count
+    FROM crm_supplier s
+    JOIN crm_purchase_order po ON po.supplier_id = s.id
+    WHERE po.status != '已取消' AND po.deleted_at IS NULL ${dateFilter} ${supplierFilter}
+    GROUP BY s.id, s.name
+    ORDER BY amount DESC
+  `, queryParams);
+
+  if (amountRows.length === 0) {
+    return { top_suppliers: [] };
+  }
+
+  const supplierIds = amountRows.map(r => r.id);
+  const placeholders = supplierIds.map(() => '?').join(',');
+
+  const [ratingRows] = await pool.query(`
+    SELECT
+      r.supplier_id,
+      AVG(r.quality_score) as avg_quality,
+      AVG(r.delivery_rate) as on_time_rate
+    FROM crm_supplier_rating r
+    WHERE r.supplier_id IN (${placeholders})
+      AND r.deleted_at IS NULL
+      AND r.rating_period = (
+        SELECT r2.rating_period
+        FROM crm_supplier_rating r2
+        WHERE r2.supplier_id = r.supplier_id AND r2.deleted_at IS NULL
+        ORDER BY r2.rating_period DESC, r2.create_time DESC
+        LIMIT 1
+      )
+    GROUP BY r.supplier_id
+  `, supplierIds);
+
+  const ratingMap = new Map(ratingRows.map(r => [r.supplier_id, r]));
+
+  return {
+    top_suppliers: amountRows.map(r => {
+      const rating = ratingMap.get(r.id) || {};
+      return {
+        id: r.id,
+        name: r.name,
+        amount: parseFloat(r.amount) || 0,
+        order_count: r.order_count,
+        on_time_rate: rating.on_time_rate ? parseFloat(rating.on_time_rate) / 100 : null,
+        avg_quality: rating.avg_quality ? parseFloat(rating.avg_quality) : null
+      };
+    })
+  };
+}
+
 module.exports = {
   getSalesFunnel,
   getPerformance,
@@ -722,5 +859,7 @@ module.exports = {
   exportReport,
   getFinanceReport,
   exportFinance,
-  getBusinessDashboard
+  getBusinessDashboard,
+  getPurchaseCost,
+  getSupplierPerformance
 };

@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -27,7 +27,7 @@ const app = express();
 app.use(express.json());
 
 const quoteRoutes = require('../routes/quote');
-app.use('/api/quote', quoteRoutes);
+app.use('/api/v1/quote', quoteRoutes);
 
 const generateToken = () => {
   return jwt.sign(
@@ -42,10 +42,10 @@ describe('报价模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('POST /api/quote/add', () => {
+  describe('POST /api/v1/quote/add', () => {
     it('应该返回400当缺少customer_id', async () => {
       const res = await request(app)
-        .post('/api/quote/add')
+        .post('/api/v1/quote/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ items: [{ product_id: 1, quantity: 1, unit_price: 100 }] });
 
@@ -55,7 +55,7 @@ describe('报价模块', () => {
 
     it('应该返回400当缺少报价项', async () => {
       const res = await request(app)
-        .post('/api/quote/add')
+        .post('/api/v1/quote/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: 1, items: [] });
 
@@ -64,3 +64,4 @@ describe('报价模块', () => {
     });
   });
 });
+

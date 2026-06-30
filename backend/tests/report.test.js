@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -35,7 +35,7 @@ const app = express();
 app.use(express.json());
 
 const reportRoutes = require('../routes/report');
-app.use('/api/report', reportRoutes);
+app.use('/api/v1/report', reportRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -46,7 +46,7 @@ describe('报表中心模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('GET /api/report/overview', () => {
+  describe('GET /api/v1/report/overview', () => {
     it('应该返回概览数据', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -61,7 +61,7 @@ describe('报表中心模块', () => {
         .mockResolvedValueOnce([[{ count: 3 }]]); // monthConverted
 
       const res = await request(app)
-        .get('/api/report/overview')
+        .get('/api/v1/report/overview')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -72,7 +72,7 @@ describe('报表中心模块', () => {
     });
   });
 
-  describe('GET /api/report/sales-funnel', () => {
+  describe('GET /api/v1/report/sales-funnel', () => {
     it('应该返回销售漏斗', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -84,7 +84,7 @@ describe('报表中心模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/report/sales-funnel')
+        .get('/api/v1/report/sales-funnel')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -94,7 +94,7 @@ describe('报表中心模块', () => {
     });
   });
 
-  describe('GET /api/report/customer', () => {
+  describe('GET /api/v1/report/customer', () => {
     it('应该返回客户报表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -115,7 +115,7 @@ describe('报表中心模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/report/customer')
+        .get('/api/v1/report/customer')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -126,7 +126,7 @@ describe('报表中心模块', () => {
     });
   });
 
-  describe('GET /api/report/today-tasks', () => {
+  describe('GET /api/v1/report/today-tasks', () => {
     it('应该返回今日任务', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -141,7 +141,7 @@ describe('报表中心模块', () => {
         .mockResolvedValueOnce([[{ total: 1 }]]); // service total
 
       const res = await request(app)
-        .get('/api/report/today-tasks')
+        .get('/api/v1/report/today-tasks')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -151,7 +151,7 @@ describe('报表中心模块', () => {
     });
   });
 
-  describe('POST /api/report/export', () => {
+  describe('POST /api/v1/report/export', () => {
     it('应该返回200当正常导出报表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -162,7 +162,7 @@ describe('报表中心模块', () => {
         .mockResolvedValueOnce([[{ '供应商': '供应商A', '采购单数': 3, '采购总额': 150000 }]]); // purchaseRows
 
       const res = await request(app)
-        .post('/api/report/export')
+        .post('/api/v1/report/export')
         .set('Authorization', `Bearer ${token}`)
         .send({});
 
@@ -174,9 +174,10 @@ describe('报表中心模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .get('/api/report/overview');
+        .get('/api/v1/report/overview');
 
       expect(res.status).toBe(401);
     });
   });
 });
+

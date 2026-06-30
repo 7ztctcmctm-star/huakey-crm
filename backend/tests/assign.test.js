@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -35,7 +35,7 @@ const app = express();
 app.use(express.json());
 
 const assignRoutes = require('../routes/customer/assign');
-app.use('/api/customer', assignRoutes);
+app.use('/api/v1/customer', assignRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -53,13 +53,13 @@ describe('客户分配模块', () => {
     mockConnection.rollback.mockClear();
   });
 
-  describe('POST /api/customer/assign', () => {
+  describe('POST /api/v1/customer/assign', () => {
     it('应该返回400当缺少customer_id', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/customer/assign')
+        .post('/api/v1/customer/assign')
         .set('Authorization', `Bearer ${token}`)
         .send({ to_user_id: 2 });
 
@@ -76,7 +76,7 @@ describe('客户分配模块', () => {
         .mockResolvedValueOnce([{ insertId: 1 }]); // assign_log insert
 
       const res = await request(app)
-        .post('/api/customer/assign')
+        .post('/api/v1/customer/assign')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: 1 });
 
@@ -93,7 +93,7 @@ describe('客户分配模块', () => {
         .mockResolvedValueOnce([{ insertId: 1 }]); // assign_log insert
 
       const res = await request(app)
-        .post('/api/customer/assign')
+        .post('/api/v1/customer/assign')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: 1, to_user_id: 2 });
 
@@ -102,13 +102,13 @@ describe('客户分配模块', () => {
     });
   });
 
-  describe('POST /api/customer/batch-assign', () => {
+  describe('POST /api/v1/customer/batch-assign', () => {
     it('应该返回400当缺少customer_ids', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/customer/batch-assign')
+        .post('/api/v1/customer/batch-assign')
         .set('Authorization', `Bearer ${token}`)
         .send({ to_user_id: 2 });
 
@@ -129,7 +129,7 @@ describe('客户分配模块', () => {
         .mockResolvedValueOnce([{ insertId: 2 }]);
 
       const res = await request(app)
-        .post('/api/customer/batch-assign')
+        .post('/api/v1/customer/batch-assign')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_ids: [1, 2], to_user_id: 5 });
 
@@ -139,7 +139,7 @@ describe('客户分配模块', () => {
     });
   });
 
-  describe('POST /api/customer/assign-log', () => {
+  describe('POST /api/v1/customer/assign-log', () => {
     it('应该返回分配历史', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -148,7 +148,7 @@ describe('客户分配模块', () => {
         .mockResolvedValueOnce([[{ id: 1, customer_id: 1, from_user_id: 3, to_user_id: 2 }]]); // list
 
       const res = await request(app)
-        .post('/api/customer/assign-log')
+        .post('/api/v1/customer/assign-log')
         .set('Authorization', `Bearer ${token}`)
         .send({ page: 1, pageSize: 20 });
 
@@ -161,10 +161,11 @@ describe('客户分配模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .post('/api/customer/assign')
+        .post('/api/v1/customer/assign')
         .send({ customer_id: 1, to_user_id: 2 });
 
       expect(res.status).toBe(401);
     });
   });
 });
+

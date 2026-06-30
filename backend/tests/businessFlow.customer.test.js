@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -83,12 +83,12 @@ jest.mock('../utils/fieldLog', () => ({
 const app = express();
 app.use(express.json());
 
-app.use('/api/customer', require('../routes/customer'));
-app.use('/api/follow-up', require('../routes/followUp'));
-app.use('/api/opportunity', require('../routes/opportunity'));
-app.use('/api/quote', require('../routes/quote'));
-app.use('/api/contract', require('../routes/contract'));
-app.use('/api/recycle', require('../routes/recycle'));
+app.use('/api/v1/customer', require('../routes/customer'));
+app.use('/api/v1/follow-up', require('../routes/followUp'));
+app.use('/api/v1/opportunity', require('../routes/opportunity'));
+app.use('/api/v1/quote', require('../routes/quote'));
+app.use('/api/v1/contract', require('../routes/contract'));
+app.use('/api/v1/recycle', require('../routes/recycle'));
 
 const generateToken = () => {
   return jwt.sign(
@@ -112,14 +112,14 @@ describe('客户全生命周期 - 端到端流程', () => {
   });
 
   // Step 1: 创建客户
-  it('Step 1: POST /api/customer/add — 创建客户', async () => {
+  it('Step 1: POST /api/v1/customer/add — 创建客户', async () => {
     // customerDetailService.addCustomer: 2 次 pool.query
     mockPool.query
       .mockResolvedValueOnce([[]])                      // 检查重复（无重复）
       .mockResolvedValueOnce([{ insertId: 100 }]);      // INSERT
 
     const res = await request(app)
-      .post('/api/customer/add')
+      .post('/api/v1/customer/add')
       .set('Authorization', `Bearer ${token}`)
       .send({ company_name: '测试客户公司', contact_name: '张三', phone: '13800138000' });
 
@@ -130,7 +130,7 @@ describe('客户全生命周期 - 端到端流程', () => {
   });
 
   // Step 2: 添加跟进记录
-  it('Step 2: POST /api/follow-up/add — 添加跟进记录', async () => {
+  it('Step 2: POST /api/v1/follow-up/add — 添加跟进记录', async () => {
     // followUpService.addFollowUp: 3 次 pool.query
     mockPool.query
       .mockResolvedValueOnce([[{ id: 100, owner_id: 1, status: 1 }]])  // 客户存在检查
@@ -138,7 +138,7 @@ describe('客户全生命周期 - 端到端流程', () => {
       .mockResolvedValueOnce([{ affectedRows: 1 }]);                    // UPDATE last_follow_time
 
     const res = await request(app)
-      .post('/api/follow-up/add')
+      .post('/api/v1/follow-up/add')
       .set('Authorization', `Bearer ${token}`)
       .send({ customer_id: 100, content: '电话沟通需求', follow_type: '电话' });
 
@@ -147,14 +147,14 @@ describe('客户全生命周期 - 端到端流程', () => {
   });
 
   // Step 3: 创建商机
-  it('Step 3: POST /api/opportunity/add — 创建商机', async () => {
+  it('Step 3: POST /api/v1/opportunity/add — 创建商机', async () => {
     // opportunityService.createOpportunity: 2 次 pool.query
     mockPool.query
       .mockResolvedValueOnce([[{ id: 100, status: 2 }]])   // 客户校验（status=2 正式客户）
       .mockResolvedValueOnce([{ insertId: 300 }]);          // INSERT
 
     const res = await request(app)
-      .post('/api/opportunity/add')
+      .post('/api/v1/opportunity/add')
       .set('Authorization', `Bearer ${token}`)
       .send({ customer_id: 100, name: '测试商机', expected_amount: 50000 });
 
@@ -164,7 +164,7 @@ describe('客户全生命周期 - 端到端流程', () => {
   });
 
   // Step 4: 创建报价（使用 conn.query）
-  it('Step 4: POST /api/quote/add — 创建报价', async () => {
+  it('Step 4: POST /api/v1/quote/add — 创建报价', async () => {
     mockConn.beginTransaction.mockResolvedValue(undefined);
     mockConn.commit.mockResolvedValue(undefined);
     mockConn.release.mockResolvedValue(undefined);
@@ -176,7 +176,7 @@ describe('客户全生命周期 - 端到端流程', () => {
       .mockResolvedValueOnce([{ affectedRows: 1 }]);                                   // INSERT 报价明细
 
     const res = await request(app)
-      .post('/api/quote/add')
+      .post('/api/v1/quote/add')
       .set('Authorization', `Bearer ${token}`)
       .send({
         customer_id: 100,
@@ -190,7 +190,7 @@ describe('客户全生命周期 - 端到端流程', () => {
   });
 
   // Step 5: 创建合同（使用 conn.query）
-  it('Step 5: POST /api/contract/add — 创建合同', async () => {
+  it('Step 5: POST /api/v1/contract/add — 创建合同', async () => {
     mockConn.beginTransaction.mockResolvedValue(undefined);
     mockConn.commit.mockResolvedValue(undefined);
     mockConn.release.mockResolvedValue(undefined);
@@ -201,7 +201,7 @@ describe('客户全生命周期 - 端到端流程', () => {
       .mockResolvedValueOnce([{ affectedRows: 1 }]);                                   // INSERT 回款计划
 
     const res = await request(app)
-      .post('/api/contract/add')
+      .post('/api/v1/contract/add')
       .set('Authorization', `Bearer ${token}`)
       .send({
         customer_id: 100,
@@ -214,7 +214,7 @@ describe('客户全生命周期 - 端到端流程', () => {
   });
 
   // Step 6: 推进商机到成交
-  it('Step 6: POST /api/opportunity/update-stage — 标记成交', async () => {
+  it('Step 6: POST /api/v1/opportunity/update-stage — 标记成交', async () => {
     // getOpportunityWithPermission + advanceStage: 4 次 pool.query
     mockPool.query
       .mockResolvedValueOnce([[{ id: 300, stage: 4, owner_id: 1 }]])  // getOpportunityWithPermission
@@ -223,7 +223,7 @@ describe('客户全生命周期 - 端到端流程', () => {
       .mockResolvedValueOnce([{ insertId: 600 }]);                     // INSERT stage log
 
     const res = await request(app)
-      .post('/api/opportunity/update-stage')
+      .post('/api/v1/opportunity/update-stage')
       .set('Authorization', `Bearer ${token}`)
       .send({ id: 300, stage: 5 });
 
@@ -232,14 +232,14 @@ describe('客户全生命周期 - 端到端流程', () => {
   });
 
   // Step 7: 删除客户（移入回收站）
-  it('Step 7: POST /api/customer/delete — 移入回收站', async () => {
+  it('Step 7: POST /api/v1/customer/delete — 移入回收站', async () => {
     // deleteCustomer: 2 次 pool.query
     mockPool.query
       .mockResolvedValueOnce([[{ id: 100, owner_id: 1 }]])  // SELECT 客户
       .mockResolvedValueOnce([{ affectedRows: 1 }]);          // UPDATE deleted_at
 
     const res = await request(app)
-      .post('/api/customer/delete')
+      .post('/api/v1/customer/delete')
       .set('Authorization', `Bearer ${token}`)
       .send({ id: 100 });
 
@@ -248,16 +248,17 @@ describe('客户全生命周期 - 端到端流程', () => {
   });
 
   // Step 8: 从回收站恢复
-  it('Step 8: POST /api/recycle/restore — 恢复客户', async () => {
+  it('Step 8: POST /api/v1/recycle/restore — 恢复客户', async () => {
     mockPool.query
       .mockResolvedValueOnce([[{ id: 100, deleted_at: '2026-06-25' }]])  // 查询已删除记录
       .mockResolvedValueOnce([{ affectedRows: 1 }]);                      // UPDATE deleted_at = NULL
 
     const res = await request(app)
-      .post('/api/recycle/restore')
+      .post('/api/v1/recycle/restore')
       .set('Authorization', `Bearer ${token}`)
       .send({ table: 'crm_customer', id: 100 });
 
     expect([200, 400, 404]).toContain(res.status);
   });
 });
+

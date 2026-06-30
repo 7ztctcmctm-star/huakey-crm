@@ -22,6 +22,22 @@ const router = express.Router();
  *     responses:
  *       200:
  *         description: 当月/季度/年度销售额、回款、新增客户等概览数据
+ *
+ * /api/report/purchase-cost:
+ *   get:
+ *     summary: 采购成本分析
+ *     tags: [数据报表]
+ *     responses:
+ *       200:
+ *         description: 按月份、产品分类统计采购金额
+ *
+ * /api/report/supplier-performance:
+ *   get:
+ *     summary: 供应商绩效分析
+ *     tags: [数据报表]
+ *     responses:
+ *       200:
+ *         description: 供应商采购金额、准时交付率、质量评分
  */
 const pool = require('../../config/database');
 const { authenticateToken } = require('../../middleware/auth');
@@ -48,6 +64,17 @@ const financeExportQuerySchema = Joi.object({
   type: Joi.string().valid('receivable', 'income', 'purchase').default('receivable'),
   start_date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null),
   end_date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null)
+});
+
+const purchaseCostQuerySchema = Joi.object({
+  start_date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null),
+  end_date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null)
+});
+
+const supplierPerformanceQuerySchema = Joi.object({
+  start_date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null),
+  end_date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null),
+  supplier_id: Joi.number().integer().min(1).allow('', null)
 });
 
 const overdueSchema = Joi.object({
@@ -146,6 +173,28 @@ router.get('/purchase-by-supplier', authenticateToken, queryValidate(dateRangeQu
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     console.error(error);
+    res.status(500).json({ code: 500, message: '查询失败', data: null });
+  }
+});
+
+// 采购成本分析
+router.get('/purchase-cost', authenticateToken, queryValidate(purchaseCostQuerySchema), async (req, res) => {
+  try {
+    const data = await reportAnalyticsService.getPurchaseCost(pool, req.query);
+    res.json({ code: 200, message: '查询成功', data });
+  } catch (error) {
+    console.error('[报表] 采购成本分析错误:', error);
+    res.status(500).json({ code: 500, message: '查询失败', data: null });
+  }
+});
+
+// 供应商绩效分析
+router.get('/supplier-performance', authenticateToken, queryValidate(supplierPerformanceQuerySchema), async (req, res) => {
+  try {
+    const data = await reportAnalyticsService.getSupplierPerformance(pool, req.query);
+    res.json({ code: 200, message: '查询成功', data });
+  } catch (error) {
+    console.error('[报表] 供应商绩效分析错误:', error);
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });

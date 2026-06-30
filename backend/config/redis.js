@@ -52,7 +52,7 @@ module.exports = {
     if (!redis) return;
     try {
       await redis.set(key, JSON.stringify(value), 'EX', ttl);
-    } catch {}
+    } catch { /* ok */ }
   },
   // 批量清除缓存（按前缀）
   async clearByPrefix(prefix) {
@@ -60,7 +60,7 @@ module.exports = {
     try {
       const keys = await redis.keys(`${prefix}*`);
       if (keys.length > 0) await redis.del(keys);
-    } catch {}
+    } catch { /* ok */ }
   },
   // 按模式清除缓存（支持通配符）
   async delCacheByPattern(pattern) {
@@ -68,6 +68,6 @@ module.exports = {
     try {
       const keys = await redis.keys(pattern);
       if (keys.length > 0) await redis.del(...keys);
-    } catch {}
+    } catch { /* ok */ }
   }
 };

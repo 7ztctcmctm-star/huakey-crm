@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -32,7 +32,7 @@ jest.mock('../middleware/permission', () => {
 
 const app = express();
 app.use(express.json());
-app.use('/api/search', require('../routes/search'));
+app.use('/api/v1/search', require('../routes/search'));
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -43,13 +43,13 @@ describe('全局搜索模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('GET /api/search/global', () => {
+  describe('GET /api/v1/search/global', () => {
     it('应该返回400当keyword为空', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .get('/api/search/global')
+        .get('/api/v1/search/global')
         .set('Authorization', `Bearer ${token}`)
         .query({ keyword: '' });
 
@@ -61,7 +61,7 @@ describe('全局搜索模块', () => {
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .get('/api/search/global')
+        .get('/api/v1/search/global')
         .set('Authorization', `Bearer ${token}`)
         .query({ keyword: 'a' });
 
@@ -73,7 +73,7 @@ describe('全局搜索模块', () => {
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .get('/api/search/global')
+        .get('/api/v1/search/global')
         .set('Authorization', `Bearer ${token}`)
         .query({ keyword: 'a'.repeat(101) });
 
@@ -90,7 +90,7 @@ describe('全局搜索模块', () => {
         .mockResolvedValueOnce([[]]); // quotes
 
       const res = await request(app)
-        .get('/api/search/global')
+        .get('/api/v1/search/global')
         .set('Authorization', `Bearer ${token}`)
         .query({ keyword: '测试' });
 
@@ -110,7 +110,7 @@ describe('全局搜索模块', () => {
         .mockResolvedValueOnce([[]]); // quotes
 
       const res = await request(app)
-        .get('/api/search/global')
+        .get('/api/v1/search/global')
         .set('Authorization', `Bearer ${token}`)
         .query({ keyword: '不存在的关键词' });
 
@@ -124,10 +124,11 @@ describe('全局搜索模块', () => {
 
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .get('/api/search/global')
+        .get('/api/v1/search/global')
         .query({ keyword: '测试' });
 
       expect(res.status).toBe(401);
     });
   });
 });
+

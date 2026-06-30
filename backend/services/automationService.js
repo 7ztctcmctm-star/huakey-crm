@@ -3,6 +3,8 @@
  * 从 routes/automation.js 提取的业务逻辑：工作流、智能提醒、分配规则
  */
 
+const sseManager = require('../utils/sseManager');
+
 // ============ 工作流 ============
 
 /**
@@ -85,6 +87,9 @@ async function executeActions(pool, ruleId, targetType, targetId, actions) {
             'INSERT INTO crm_notification (type, title, content, to_user_id, business_type, business_id) VALUES (?, ?, ?, ?, ?, ?)',
             ['workflow', action.params.title || '工作流通知', action.params.content || '', action.params.user_id || null, targetType, targetId]
           );
+          if (action.params.user_id) {
+            sseManager.send(action.params.user_id, { type: 'notification', action: 'refresh' });
+          }
           detail = `发送通知: ${action.params.title}`;
           break;
         case 'tag':
@@ -403,6 +408,7 @@ async function runSmartReminder(pool) {
             'INSERT INTO crm_notification (type, title, content, to_user_id) VALUES (?, ?, ?, ?)',
             ['smart_reminder', title, content, userId]
           );
+          sseManager.send(userId, { type: 'notification', action: 'refresh' });
           totalFound++;
         }
       } catch { /* 重复提醒忽略 */ }

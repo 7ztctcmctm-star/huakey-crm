@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -35,7 +35,7 @@ const app = express();
 app.use(express.json());
 
 const emailRoutes = require('../routes/email');
-app.use('/api/email', emailRoutes);
+app.use('/api/v1/email', emailRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -46,13 +46,13 @@ describe('邮件模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('POST /api/email/account', () => {
+  describe('POST /api/v1/email/account', () => {
     it('应该返回400当缺少email', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/email/account')
+        .post('/api/v1/email/account')
         .set('Authorization', `Bearer ${token}`)
         .send({ password: 'testpass' });
 
@@ -67,7 +67,7 @@ describe('邮件模块', () => {
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
-        .post('/api/email/account')
+        .post('/api/v1/email/account')
         .set('Authorization', `Bearer ${token}`)
         .send({ email: 'test@qq.com', password: 'testpass', display_name: '测试邮箱' });
 
@@ -77,7 +77,7 @@ describe('邮件模块', () => {
     });
   });
 
-  describe('GET /api/email/accounts', () => {
+  describe('GET /api/v1/email/accounts', () => {
     it('应该返回邮件账号列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -87,7 +87,7 @@ describe('邮件模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/email/accounts')
+        .get('/api/v1/email/accounts')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -96,7 +96,7 @@ describe('邮件模块', () => {
     });
   });
 
-  describe('GET /api/email/list', () => {
+  describe('GET /api/v1/email/list', () => {
     it('应该返回邮件列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -107,7 +107,7 @@ describe('邮件模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/email/list')
+        .get('/api/v1/email/list')
         .set('Authorization', `Bearer ${token}`)
         .query({ folder: 'inbox', page: 1, pageSize: 20 });
 
@@ -117,7 +117,7 @@ describe('邮件模块', () => {
     });
   });
 
-  describe('DELETE /api/email/account/:id', () => {
+  describe('DELETE /api/v1/email/account/:id', () => {
     it('应该返回200当正常删除邮件账号', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -126,7 +126,7 @@ describe('邮件模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 
       const res = await request(app)
-        .delete('/api/email/account/1')
+        .delete('/api/v1/email/account/1')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -137,9 +137,10 @@ describe('邮件模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .get('/api/email/accounts');
+        .get('/api/v1/email/accounts');
 
       expect(res.status).toBe(401);
     });
   });
 });
+

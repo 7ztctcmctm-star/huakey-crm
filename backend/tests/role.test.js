@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -28,7 +28,7 @@ const app = express();
 app.use(express.json());
 
 const roleRoutes = require('../routes/role');
-app.use('/api/role', roleRoutes);
+app.use('/api/v1/role', roleRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -39,13 +39,13 @@ describe('角色管理模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('POST /api/role/add', () => {
+  describe('POST /api/v1/role/add', () => {
     it('应该返回400当缺少name字段', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/role/add')
+        .post('/api/v1/role/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ code: 'test_role' });
 
@@ -58,7 +58,7 @@ describe('角色管理模块', () => {
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/role/add')
+        .post('/api/v1/role/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '测试角色' });
 
@@ -73,7 +73,7 @@ describe('角色管理模块', () => {
         .mockResolvedValueOnce([{ insertId: 5 }]);
 
       const res = await request(app)
-        .post('/api/role/add')
+        .post('/api/v1/role/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '新角色', code: 'new_role', description: '测试角色' });
 
@@ -83,13 +83,13 @@ describe('角色管理模块', () => {
     });
   });
 
-  describe('POST /api/role/update', () => {
+  describe('POST /api/v1/role/update', () => {
     it('应该返回400当缺少id字段', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/role/update')
+        .post('/api/v1/role/update')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '修改名称' });
 
@@ -105,7 +105,7 @@ describe('角色管理模块', () => {
         .mockResolvedValueOnce([[{ id: 1 }, { id: 2 }]]); // users with this role
 
       const res = await request(app)
-        .post('/api/role/update')
+        .post('/api/v1/role/update')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1, name: '修改后的角色' });
 
@@ -114,13 +114,13 @@ describe('角色管理模块', () => {
     });
   });
 
-  describe('POST /api/role/delete', () => {
+  describe('POST /api/v1/role/delete', () => {
     it('应该返回400当缺少id字段', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/role/delete')
+        .post('/api/v1/role/delete')
         .set('Authorization', `Bearer ${token}`)
         .send({});
 
@@ -135,7 +135,7 @@ describe('角色管理模块', () => {
         .mockResolvedValueOnce([[{ cnt: 3 }]]); // users check
 
       const res = await request(app)
-        .post('/api/role/delete')
+        .post('/api/v1/role/delete')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1 });
 
@@ -152,7 +152,7 @@ describe('角色管理模块', () => {
         .mockResolvedValueOnce([[]]); // users with deleted role (for cache invalidation)
 
       const res = await request(app)
-        .post('/api/role/delete')
+        .post('/api/v1/role/delete')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1 });
 
@@ -161,3 +161,4 @@ describe('角色管理模块', () => {
     });
   });
 });
+

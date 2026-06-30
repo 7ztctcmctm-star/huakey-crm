@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -26,7 +26,7 @@ const app = express();
 app.use(express.json());
 
 const financeRoutes = require('../routes/finance-enhanced');
-app.use('/api/finance', financeRoutes);
+app.use('/api/v1/finance', financeRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -37,7 +37,7 @@ describe('财务增强模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('GET /api/finance/reconciliation/customer', () => {
+  describe('GET /api/v1/finance/reconciliation/customer', () => {
     it('应该返回客户对账数据', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -51,7 +51,7 @@ describe('财务增强模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/finance/reconciliation/customer')
+        .get('/api/v1/finance/reconciliation/customer')
         .set('Authorization', `Bearer ${token}`)
         .query({ customer_id: 1 });
 
@@ -65,7 +65,7 @@ describe('财务增强模块', () => {
     });
   });
 
-  describe('GET /api/finance/reconciliation/list', () => {
+  describe('GET /api/v1/finance/reconciliation/list', () => {
     it('应该返回对账单列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -76,7 +76,7 @@ describe('财务增强模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/finance/reconciliation/list')
+        .get('/api/v1/finance/reconciliation/list')
         .set('Authorization', `Bearer ${token}`)
         .query({ page: 1, pageSize: 20 });
 
@@ -87,7 +87,7 @@ describe('财务增强模块', () => {
     });
   });
 
-  describe('GET /api/finance/analysis', () => {
+  describe('GET /api/v1/finance/analysis', () => {
     it('应该返回财务分析数据', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -113,7 +113,7 @@ describe('财务增强模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/finance/analysis')
+        .get('/api/v1/finance/analysis')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -124,7 +124,7 @@ describe('财务增强模块', () => {
     });
   });
 
-  describe('GET /api/finance/reminders/summary', () => {
+  describe('GET /api/v1/finance/reminders/summary', () => {
     it('应该返回回款提醒汇总', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -135,7 +135,7 @@ describe('财务增强模块', () => {
         .mockResolvedValueOnce([[{ overdue_amount: 80000 }]]); // overdue amount
 
       const res = await request(app)
-        .get('/api/finance/reminders/summary')
+        .get('/api/v1/finance/reminders/summary')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -148,9 +148,10 @@ describe('财务增强模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .get('/api/finance/analysis');
+        .get('/api/v1/finance/analysis');
 
       expect(res.status).toBe(401);
     });
   });
 });
+

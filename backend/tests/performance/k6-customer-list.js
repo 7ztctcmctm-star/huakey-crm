@@ -1,4 +1,4 @@
-/**
+﻿/**
  * k6 客户列表性能基线测试
  *
  * 运行方式：
@@ -25,7 +25,7 @@ const BASE_URL = __ENV.BASE_URL || 'http://localhost:5000';
 const TOKEN = __ENV.TOKEN;
 
 export default function () {
-  const res = http.post(`${BASE_URL}/api/customer/list`,
+  const res = http.post(`${BASE_URL}/api/v1/customer/list`,
     JSON.stringify({ page: 1, pageSize: 20 }),
     {
       headers: {
@@ -40,3 +40,4 @@ export default function () {
   });
   sleep(1);
 }
+

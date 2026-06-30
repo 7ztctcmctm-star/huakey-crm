@@ -144,23 +144,127 @@ import {
   TrendCharts, Plus, Document, Service, ArrowDown, Star,
   Histogram, List, PieChart, Search, Trophy, Setting
 } from '@element-plus/icons-vue'
+import { ref, onMounted, onActivated } from 'vue'
 import { formatAmount } from '@/composables/useFormat'
+import { useChart } from '@/composables/useChart'
+import { PARENT_SOURCE_COLORS } from '@/constants/source'
+import {
+  getReportPerformance,
+  getReportSalesTrend,
+  getReportCustomerAnalysis,
+  getReportSalesFunnel
+} from '@/api/report'
 
-defineProps({
-  performanceRank: { type: Array, default: () => [] },
-  rankLoading: { type: Boolean, default: false }
-})
+const emit = defineEmits(['quick-action'])
 
-defineEmits(['quick-action'])
+const performanceRank = ref([])
+const rankLoading = ref(false)
 
-// 暴露图表ref给父组件
-import { ref } from 'vue'
-const trendChartRef = ref(null)
+const { refs, echarts, initChart } = useChart('trendChartRef', 'sourceChartRef', 'funnelChartRef')
+const trendChartRef = refs.trendChartRef
 const trendChartRef2 = ref(null)
-const sourceChartRef = ref(null)
-const funnelChartRef = ref(null)
+const sourceChartRef = refs.sourceChartRef
+const funnelChartRef = refs.funnelChartRef
 
-defineExpose({ trendChartRef, trendChartRef2, sourceChartRef, funnelChartRef })
+const fetchPerformanceRank = async () => {
+  rankLoading.value = true
+  try {
+    const res = await getReportPerformance()
+    if (res.code === 200) performanceRank.value = res.data.filter(item => item.contract_amount > 0).slice(0, 5)
+  } catch (error) { console.error('获取业绩排行失败:', error) }
+  finally { rankLoading.value = false }
+}
+
+const fetchSalesTrend = async () => {
+  try {
+    const res = await getReportSalesTrend()
+    if (res.code === 200) renderTrendChart(res.data)
+  } catch (error) { console.error('获取销售趋势失败:', error) }
+}
+
+const renderTrendChart = (data) => {
+  const months = data.map(item => item.month)
+  const amounts = data.map(item => parseFloat(item.amount))
+  initChart('trendChartRef', {
+    tooltip: { trigger: 'axis' },
+    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+    xAxis: { type: 'category', data: months, axisLabel: { rotate: 30 } },
+    yAxis: { type: 'value', axisLabel: { formatter: '¥{value}' } },
+    series: [{
+      name: '销售额', type: 'line', smooth: true, data: amounts,
+      areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+        { offset: 0, color: 'rgba(26, 86, 219, 0.15)' },
+        { offset: 1, color: 'rgba(26, 86, 219, 0.03)' }
+      ])},
+      lineStyle: { color: '#1a56db', width: 2 },
+      itemStyle: { color: '#1a56db' }
+    }]
+  })
+}
+
+const fetchCustomerSource = async () => {
+  try {
+    const res = await getReportCustomerAnalysis()
+    if (res.code === 200) renderSourceChart(res.data.source_dist)
+  } catch (error) { console.error('获取客户来源失败:', error) }
+}
+
+const renderSourceChart = (data) => {
+  initChart('sourceChartRef', {
+    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+    legend: { orient: 'vertical', left: 'left', top: 'center' },
+    series: [{
+      type: 'pie', radius: ['40%', '70%'], center: ['60%', '50%'], avoidLabelOverlap: false,
+      itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
+      label: { show: false, position: 'center' },
+      emphasis: { label: { show: true, fontSize: 16, fontWeight: 'bold' } },
+      labelLine: { show: false },
+      data: data.map((item) => ({
+        value: item.count, name: item.source || '未知',
+        itemStyle: { color: PARENT_SOURCE_COLORS[item.source] || 'var(--color-text-tertiary)' }
+      }))
+    }]
+  })
+}
+
+const fetchSalesFunnel = async () => {
+  try {
+    const res = await getReportSalesFunnel()
+    if (res.code === 200) renderFunnelChart(res.data)
+  } catch (error) { console.error('获取销售漏斗失败:', error) }
+}
+
+const renderFunnelChart = (data) => {
+  initChart('funnelChartRef', {
+    tooltip: { trigger: 'item', formatter: '{b}: {c}个商机' },
+    legend: { data: data.map(item => item.stage), bottom: 10 },
+    series: [{
+      name: '销售漏斗', type: 'funnel', left: '10%', top: '10%', bottom: '20%', width: '80%',
+      min: 0, max: data[0]?.count || 10, minSize: '0%', maxSize: '100%', sort: 'descending', gap: 2,
+      label: { show: true, position: 'inside' },
+      labelLine: { length: 10, lineStyle: { width: 1, type: 'solid' } },
+      itemStyle: { borderColor: '#fff', borderWidth: 1 },
+      emphasis: { label: { fontSize: 14 } },
+      data: data.map((item, index) => ({
+        value: item.count, name: item.stage,
+        itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+          { offset: 0, color: ['#1a56db', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#94a3b8'][index] },
+          { offset: 1, color: ['#dbeafe', '#bfdbfe', '#93c5fd', '#60a5fa', '#e2e8f0', '#cbd5e1'][index] }
+        ])}
+      }))
+    }]
+  })
+}
+
+const loadCharts = () => {
+  fetchPerformanceRank()
+  fetchSalesTrend()
+  fetchCustomerSource()
+  fetchSalesFunnel()
+}
+
+onMounted(() => { loadCharts() })
+onActivated(() => { loadCharts() })
 </script>
 
 <style scoped>

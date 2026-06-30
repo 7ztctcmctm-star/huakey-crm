@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -33,7 +33,7 @@ const app = express();
 app.use(express.json());
 
 const permissionRoutes = require('../routes/permission');
-app.use('/api/permission', permissionRoutes);
+app.use('/api/v1/permission', permissionRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -44,13 +44,13 @@ describe('权限管理模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('POST /api/permission/add', () => {
+  describe('POST /api/v1/permission/add', () => {
     it('应该返回400当缺少name字段', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/permission/add')
+        .post('/api/v1/permission/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ code: 'test:perm', type: 'menu' });
 
@@ -63,7 +63,7 @@ describe('权限管理模块', () => {
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/permission/add')
+        .post('/api/v1/permission/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '测试权限', type: 'menu' });
 
@@ -78,7 +78,7 @@ describe('权限管理模块', () => {
         .mockResolvedValueOnce([[{ id: 1 }]]); // code exists
 
       const res = await request(app)
-        .post('/api/permission/add')
+        .post('/api/v1/permission/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '测试权限', code: 'existing:code', type: 'menu' });
 
@@ -94,7 +94,7 @@ describe('权限管理模块', () => {
         .mockResolvedValueOnce([{ insertId: 10 }]);
 
       const res = await request(app)
-        .post('/api/permission/add')
+        .post('/api/v1/permission/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '新权限', code: 'new:perm', type: 'menu' });
 
@@ -103,7 +103,7 @@ describe('权限管理模块', () => {
     });
   });
 
-  describe('GET /api/permission/role/:roleId', () => {
+  describe('GET /api/v1/permission/role/:roleId', () => {
     it('应该返回200和角色权限列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -111,7 +111,7 @@ describe('权限管理模块', () => {
         .mockResolvedValueOnce([[{ permission_id: 1 }, { permission_id: 2 }, { permission_id: 5 }]]);
 
       const res = await request(app)
-        .get('/api/permission/role/1')
+        .get('/api/v1/permission/role/1')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -127,7 +127,7 @@ describe('权限管理模块', () => {
         .mockResolvedValueOnce([[]]);
 
       const res = await request(app)
-        .get('/api/permission/role/999')
+        .get('/api/v1/permission/role/999')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -136,13 +136,13 @@ describe('权限管理模块', () => {
     });
   });
 
-  describe('POST /api/permission/delete-node', () => {
+  describe('POST /api/v1/permission/delete-node', () => {
     it('应该返回400当缺少id字段', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/permission/delete-node')
+        .post('/api/v1/permission/delete-node')
         .set('Authorization', `Bearer ${token}`)
         .send({});
 
@@ -157,7 +157,7 @@ describe('权限管理模块', () => {
         .mockResolvedValueOnce([[{ id: 2 }, { id: 3 }]]); // has children
 
       const res = await request(app)
-        .post('/api/permission/delete-node')
+        .post('/api/v1/permission/delete-node')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1 });
 
@@ -166,3 +166,4 @@ describe('权限管理模块', () => {
     });
   });
 });
+

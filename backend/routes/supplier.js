@@ -4,7 +4,7 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
-const { maskSensitiveData } = require('../utils/mask');
+
 const { logFieldChanges } = require('../utils/fieldLog');
 const ROLES = require('../config/roles');
 const supplierService = require('../services/supplierService');
@@ -163,8 +163,8 @@ router.post('/update', authenticateToken, checkPermission('supplier:edit'), vali
   try {
     const oldData = await supplierService.getSupplierForEdit(pool, id);
     if (!oldData) return res.status(404).json({ code: 404, message: '供应商不存在', data: null });
-    const { manageAll, roleId, userId } = req.user;
-    if (!manageAll && !ADMIN_ROLE_CODES.has(req.user.roleCode) && oldData.owner_id !== userId && oldData.create_by !== userId) {
+    const { manageAll, userId } = req.user;
+    if (!manageAll && !ROLES.ADMIN_ROLE_CODES.has(req.user.roleCode) && oldData.owner_id !== userId && oldData.create_by !== userId) {
       return res.status(403).json({ code: 403, message: '无权限修改该供应商', data: null });
     }
     await supplierService.updateSupplier(pool, id, updateFields);
@@ -182,8 +182,8 @@ router.post('/delete', authenticateToken, checkPermission('supplier:delete'), va
   try {
     const supplier = await supplierService.getSupplierForEdit(pool, id);
     if (!supplier) return res.status(404).json({ code: 404, message: '供应商不存在', data: null });
-    const { manageAll, roleId, userId } = req.user;
-    if (!manageAll && !ADMIN_ROLE_CODES.has(req.user.roleCode) && supplier.owner_id !== userId && supplier.create_by !== userId) {
+    const { manageAll, userId } = req.user;
+    if (!manageAll && !ROLES.ADMIN_ROLE_CODES.has(req.user.roleCode) && supplier.owner_id !== userId && supplier.create_by !== userId) {
       return res.status(403).json({ code: 403, message: '无权限删除该供应商', data: null });
     }
     await supplierService.deleteSupplier(pool, id);

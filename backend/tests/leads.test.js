@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -35,7 +35,7 @@ const app = express();
 app.use(express.json());
 
 const leadsRoutes = require('../routes/customer/leads');
-app.use('/api/customer/leads', leadsRoutes);
+app.use('/api/v1/customer/leads', leadsRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -53,7 +53,7 @@ describe('线索管理模块', () => {
     mockConnection.rollback.mockClear();
   });
 
-  describe('POST /api/customer/leads/list', () => {
+  describe('POST /api/v1/customer/leads/list', () => {
     it('应该返回线索列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -62,7 +62,7 @@ describe('线索管理模块', () => {
         .mockResolvedValueOnce([[{ id: 1, company_name: '线索公司A', status: 5 }, { id: 2, company_name: '线索公司B', status: 5 }]]); // list
 
       const res = await request(app)
-        .post('/api/customer/leads/list')
+        .post('/api/v1/customer/leads/list')
         .set('Authorization', `Bearer ${token}`)
         .send({ page: 1, pageSize: 10 });
 
@@ -73,13 +73,13 @@ describe('线索管理模块', () => {
     });
   });
 
-  describe('POST /api/customer/leads/claim', () => {
+  describe('POST /api/v1/customer/leads/claim', () => {
     it('应该返回400当缺少id', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/customer/leads/claim')
+        .post('/api/v1/customer/leads/claim')
         .set('Authorization', `Bearer ${token}`)
         .send({});
 
@@ -95,7 +95,7 @@ describe('线索管理模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
 
       const res = await request(app)
-        .post('/api/customer/leads/claim')
+        .post('/api/v1/customer/leads/claim')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1 });
 
@@ -104,13 +104,13 @@ describe('线索管理模块', () => {
     });
   });
 
-  describe('POST /api/customer/leads/convert', () => {
+  describe('POST /api/v1/customer/leads/convert', () => {
     it('应该返回400当缺少id', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/customer/leads/convert')
+        .post('/api/v1/customer/leads/convert')
         .set('Authorization', `Bearer ${token}`)
         .send({});
 
@@ -126,7 +126,7 @@ describe('线索管理模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // UPDATE status
 
       const res = await request(app)
-        .post('/api/customer/leads/convert')
+        .post('/api/v1/customer/leads/convert')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1 });
 
@@ -136,3 +136,4 @@ describe('线索管理模块', () => {
     });
   });
 });
+

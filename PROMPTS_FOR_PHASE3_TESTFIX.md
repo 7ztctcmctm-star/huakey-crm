@@ -125,7 +125,7 @@
 
 ---
 
-## 任务 C: 全量测试回归验证 + git commit (预计 5 分钟)
+## 任务 C: 全量测试回归验证  (预计 5 分钟)
 
 ### 背景
 任务 A 和 B 完成后，预期 65/65 suites 全部通过，491/491 tests 全部通过。
@@ -143,7 +143,7 @@
    Test Suites: 65 passed, 65 total
    Tests:       491 passed, 491 total
    ```
-
+ git commit
 3. git commit 固化昨天和今天的所有修改:
    ```bash
    cd C:\huakey-crm

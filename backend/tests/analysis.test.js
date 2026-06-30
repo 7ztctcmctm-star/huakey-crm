@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -26,7 +26,7 @@ const app = express();
 app.use(express.json());
 
 const analysisRoutes = require('../routes/analysis');
-app.use('/api/analysis', analysisRoutes);
+app.use('/api/v1/analysis', analysisRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -37,7 +37,7 @@ describe('数据分析模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('GET /api/analysis/win-rate', () => {
+  describe('GET /api/v1/analysis/win-rate', () => {
     it('应该返回赢单率分析', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -49,7 +49,7 @@ describe('数据分析模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/analysis/win-rate')
+        .get('/api/v1/analysis/win-rate')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -59,7 +59,7 @@ describe('数据分析模块', () => {
     });
   });
 
-  describe('GET /api/analysis/funnel', () => {
+  describe('GET /api/v1/analysis/funnel', () => {
     it('应该返回销售漏斗分析', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -71,7 +71,7 @@ describe('数据分析模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/analysis/funnel')
+        .get('/api/v1/analysis/funnel')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -80,7 +80,7 @@ describe('数据分析模块', () => {
     });
   });
 
-  describe('GET /api/analysis/rfm', () => {
+  describe('GET /api/v1/analysis/rfm', () => {
     it('应该返回RFM分析', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -91,7 +91,7 @@ describe('数据分析模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/analysis/rfm')
+        .get('/api/v1/analysis/rfm')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -101,7 +101,7 @@ describe('数据分析模块', () => {
     });
   });
 
-  describe('GET /api/analysis/churn-alert', () => {
+  describe('GET /api/v1/analysis/churn-alert', () => {
     it('应该返回流失预警', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -112,7 +112,7 @@ describe('数据分析模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/analysis/churn-alert')
+        .get('/api/v1/analysis/churn-alert')
         .set('Authorization', `Bearer ${token}`)
         .query({ page: 1, pageSize: 20 });
 
@@ -126,9 +126,10 @@ describe('数据分析模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .get('/api/analysis/win-rate');
+        .get('/api/v1/analysis/win-rate');
 
       expect(res.status).toBe(401);
     });
   });
 });
+

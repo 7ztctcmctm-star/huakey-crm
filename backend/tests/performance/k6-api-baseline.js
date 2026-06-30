@@ -1,4 +1,4 @@
-/**
+﻿/**
  * k6 API 性能基线测试
  * 覆盖 6 个核心 API，验证 P95 延迟在阈值内。
  *
@@ -42,7 +42,7 @@ function getToken() {
   const existingToken = __ENV.TEST_TOKEN;
   if (existingToken) return existingToken;
 
-  const loginRes = http.post(`${BASE_URL}/api/auth/login`, JSON.stringify({
+  const loginRes = http.post(`${BASE_URL}/api/v1/auth/login`, JSON.stringify({
     username: 'admin',
     password: 'huakey123',
     captcha: 'dev1',
@@ -67,7 +67,7 @@ export default function () {
 
   // 1. 登录（每 VU 执行一次，验证认证链路）
   group('login', () => {
-    const res = http.post(`${BASE_URL}/api/auth/login`, JSON.stringify({
+    const res = http.post(`${BASE_URL}/api/v1/auth/login`, JSON.stringify({
       username: 'admin',
       password: 'huakey123',
       captcha: 'dev1',
@@ -85,7 +85,7 @@ export default function () {
 
   // 2. 健康检查
   group('health', () => {
-    const res = http.get(`${BASE_URL}/api/health`);
+    const res = http.get(`${BASE_URL}/api/v1/health`);
     healthDuration.add(res.timings.duration);
     check(res, {
       'health status 200': (r) => r.status === 200,
@@ -96,7 +96,7 @@ export default function () {
 
   // 3. 客户列表
   group('customer_list', () => {
-    const res = http.get(`${BASE_URL}/api/customer?page=1&pageSize=20`, { headers: authHeaders });
+    const res = http.get(`${BASE_URL}/api/v1/customer?page=1&pageSize=20`, { headers: authHeaders });
     customerListDuration.add(res.timings.duration);
     check(res, {
       'customer list status 200': (r) => r.status === 200,
@@ -107,7 +107,7 @@ export default function () {
 
   // 4. 商机列表
   group('opportunity_list', () => {
-    const res = http.get(`${BASE_URL}/api/opportunity?page=1&pageSize=20`, { headers: authHeaders });
+    const res = http.get(`${BASE_URL}/api/v1/opportunity?page=1&pageSize=20`, { headers: authHeaders });
     opportunityListDuration.add(res.timings.duration);
     check(res, {
       'opportunity list status 200': (r) => r.status === 200,
@@ -118,7 +118,7 @@ export default function () {
 
   // 5. 产品列表
   group('product_list', () => {
-    const res = http.get(`${BASE_URL}/api/product?page=1&pageSize=20`, { headers: authHeaders });
+    const res = http.get(`${BASE_URL}/api/v1/product?page=1&pageSize=20`, { headers: authHeaders });
     productListDuration.add(res.timings.duration);
     check(res, {
       'product list status 200': (r) => r.status === 200,
@@ -129,7 +129,7 @@ export default function () {
 
   // 6. 销售漏斗
   group('sales_funnel', () => {
-    const res = http.get(`${BASE_URL}/api/report/sales-funnel`, { headers: authHeaders });
+    const res = http.get(`${BASE_URL}/api/v1/report/sales-funnel`, { headers: authHeaders });
     salesFunnelDuration.add(res.timings.duration);
     check(res, {
       'sales funnel status 200': (r) => r.status === 200,

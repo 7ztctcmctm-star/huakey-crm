@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -43,7 +43,7 @@ const app = express();
 app.use(express.json());
 
 const detailRoutes = require('../routes/customer/detail');
-app.use('/api/customer', detailRoutes);
+app.use('/api/v1/customer', detailRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -54,7 +54,7 @@ describe('客户详情模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('GET /api/customer/detail/:id', () => {
+  describe('GET /api/v1/customer/detail/:id', () => {
     it('应该返回客户详情', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -69,7 +69,7 @@ describe('客户详情模块', () => {
         .mockResolvedValueOnce([[]]); // follow attachments
 
       const res = await request(app)
-        .get('/api/customer/detail/1')
+        .get('/api/v1/customer/detail/1')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -86,7 +86,7 @@ describe('客户详情模块', () => {
         .mockResolvedValueOnce([[]]); // customer not found
 
       const res = await request(app)
-        .get('/api/customer/detail/999')
+        .get('/api/v1/customer/detail/999')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(404);
@@ -94,7 +94,7 @@ describe('客户详情模块', () => {
     });
   });
 
-  describe('GET /api/customer/:id/360', () => {
+  describe('GET /api/v1/customer/:id/360', () => {
     it('应该返回客户360视图', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -111,7 +111,7 @@ describe('客户详情模块', () => {
         .mockResolvedValueOnce([[]]); // score logs
 
       const res = await request(app)
-        .get('/api/customer/1/360')
+        .get('/api/v1/customer/1/360')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -121,7 +121,7 @@ describe('客户详情模块', () => {
     });
   });
 
-  describe('POST /api/customer/export', () => {
+  describe('POST /api/v1/customer/export', () => {
     it('应该返回200当正常导出客户', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -131,7 +131,7 @@ describe('客户详情模块', () => {
         ]]);
 
       const res = await request(app)
-        .post('/api/customer/export')
+        .post('/api/v1/customer/export')
         .set('Authorization', `Bearer ${token}`)
         .send({});
 
@@ -143,9 +143,10 @@ describe('客户详情模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .get('/api/customer/detail/1');
+        .get('/api/v1/customer/detail/1');
 
       expect(res.status).toBe(401);
     });
   });
 });
+

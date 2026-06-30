@@ -10,8 +10,11 @@ services:
     image: mysql:8.0
     container_name: huakey-mysql
     restart: unless-stopped
-    mem_limit: 512m
-    cpus: '1.0'
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '1.0'
     logging:
       driver: "json-file"
       options:
@@ -32,12 +35,47 @@ services:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
       - --default-authentication-plugin=mysql_native_password
+      - --innodb_buffer_pool_size=128M
+      - --max_connections=50
+      - --slow_query_log=ON
+      - --long_query_time=2
+      - --innodb_log_file_size=128M
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 30s
+
+  # ---- 缓存 ----
+  redis:
+    image: redis:7-alpine
+    container_name: huakey-redis
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.5'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    command:
+      - redis-server
+      - --maxmemory
+      - 100mb
+      - --maxmemory-policy
+      - allkeys-lru
+      - --save
+      - ""
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
 
   # ---- 应用（前端 + 后端一体化） ----
   app:
@@ -46,8 +84,11 @@ services:
       dockerfile: Dockerfile.synology
     container_name: huakey-app
     restart: unless-stopped
-    mem_limit: 512m
-    cpus: '1.0'
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+          cpus: '1.0'
     logging:
       driver: "json-file"
       options:
@@ -63,14 +104,25 @@ services:
       DB_NAME: huakey_crm
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: 7d
+      REDIS_ENABLED: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     ports:
       - "6789:5000"
     depends_on:
       mysql:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - app-uploads:/app/uploads
       - ./database/migrations:/app/database/migrations:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
 volumes:
   mysql-data:

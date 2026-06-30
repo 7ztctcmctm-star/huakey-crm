@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 真实数据库权限链路测试（不 mock permissionService）
  *
  * 前置：插入 3 个用户（admin/manager/sales）+ 角色权限数据
@@ -144,9 +144,9 @@ describe('权限链路测试（真实数据库）', () => {
 
   // ─── 功能权限测试 ───
 
-  test('1. admin 访问 POST /api/user/add → 200（管理员绕过权限检查）', async () => {
+  test('1. admin 访问 POST /api/v1/user/add → 200（管理员绕过权限检查）', async () => {
     const res = await request(app)
-      .post('/api/user/add')
+      .post('/api/v1/user/add')
       .set('Authorization', `Bearer ${tokens.admin}`)
       .send({
         username: 'testperm_temp_user',
@@ -162,9 +162,9 @@ describe('权限链路测试（真实数据库）', () => {
     await pool.query('DELETE FROM sys_user WHERE username = ?', ['testperm_temp_user']);
   });
 
-  test('2. manager 访问 POST /api/user/add → 403（无 system:user:add 权限）', async () => {
+  test('2. manager 访问 POST /api/v1/user/add → 403（无 system:user:add 权限）', async () => {
     const res = await request(app)
-      .post('/api/user/add')
+      .post('/api/v1/user/add')
       .set('Authorization', `Bearer ${tokens.manager}`)
       .send({
         username: 'testperm_temp_user2',
@@ -177,9 +177,9 @@ describe('权限链路测试（真实数据库）', () => {
     expect(res.body.code).toBe(403);
   });
 
-  test('3. sales 访问 POST /api/user/add → 403（无 system:user:add 权限）', async () => {
+  test('3. sales 访问 POST /api/v1/user/add → 403（无 system:user:add 权限）', async () => {
     const res = await request(app)
-      .post('/api/user/add')
+      .post('/api/v1/user/add')
       .set('Authorization', `Bearer ${tokens.sales_a}`)
       .send({
         username: 'testperm_temp_user3',
@@ -192,9 +192,9 @@ describe('权限链路测试（真实数据库）', () => {
     expect(res.body.code).toBe(403);
   });
 
-  test('4. manager 访问 POST /api/customer/add → 200（有 customer:add 权限）', async () => {
+  test('4. manager 访问 POST /api/v1/customer/add → 200（有 customer:add 权限）', async () => {
     const res = await request(app)
-      .post('/api/customer/add')
+      .post('/api/v1/customer/add')
       .set('Authorization', `Bearer ${tokens.manager}`)
       .send({
         company_name: '权限测试_经理创建公司',
@@ -211,9 +211,9 @@ describe('权限链路测试（真实数据库）', () => {
     }
   });
 
-  test('5. sales 访问 POST /api/customer/add → 200（有 customer:add 权限）', async () => {
+  test('5. sales 访问 POST /api/v1/customer/add → 200（有 customer:add 权限）', async () => {
     const res = await request(app)
-      .post('/api/customer/add')
+      .post('/api/v1/customer/add')
       .set('Authorization', `Bearer ${tokens.sales_a}`)
       .send({
         company_name: '权限测试_销售A创建公司',
@@ -225,9 +225,9 @@ describe('权限链路测试（真实数据库）', () => {
     expect(res.body.code).toBe(200);
   });
 
-  test('6. sales 访问 POST /api/approval/approve/1 → 403（无 approval 权限）', async () => {
+  test('6. sales 访问 POST /api/v1/approval/approve/1 → 403（无 approval 权限）', async () => {
     const res = await request(app)
-      .post('/api/approval/approve/1')
+      .post('/api/v1/approval/approve/1')
       .set('Authorization', `Bearer ${tokens.sales_a}`)
       .send({ remark: '测试审批' });
 
@@ -240,7 +240,7 @@ describe('权限链路测试（真实数据库）', () => {
   test('7. 数据权限 self 模式：sales_a 创建的客户，sales_b 看不到', async () => {
     // sales_a 创建一个客户
     const createRes = await request(app)
-      .post('/api/customer/add')
+      .post('/api/v1/customer/add')
       .set('Authorization', `Bearer ${tokens.sales_a}`)
       .send({
         company_name: '数据权限隔离测试公司',
@@ -253,7 +253,7 @@ describe('权限链路测试（真实数据库）', () => {
     try {
       // sales_b 查询客户列表 — 应看不到 sales_a 创建的客户
       const listRes = await request(app)
-        .post('/api/customer/list')
+        .post('/api/v1/customer/list')
         .set('Authorization', `Bearer ${tokens.sales_b}`)
         .send({ page: 1, pageSize: 100 });
 
@@ -264,7 +264,7 @@ describe('权限链路测试（真实数据库）', () => {
 
       // sales_a 查询客户列表 — 应能看到自己创建的客户
       const listResA = await request(app)
-        .post('/api/customer/list')
+        .post('/api/v1/customer/list')
         .set('Authorization', `Bearer ${tokens.sales_a}`)
         .send({ page: 1, pageSize: 100 });
 
@@ -278,3 +278,4 @@ describe('权限链路测试（真实数据库）', () => {
     }
   });
 });
+

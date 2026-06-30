@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -27,7 +27,7 @@ const app = express();
 app.use(express.json());
 
 const authRoutes = require('../routes/auth');
-app.use('/api/auth', authRoutes);
+app.use('/api/v1/auth', authRoutes);
 
 const generateToken = (user = { userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }) => {
   return jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -36,10 +36,10 @@ const generateToken = (user = { userId: 1, username: 'admin', roleId: 1, roleCod
 describe('认证模块', () => {
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('POST /api/auth/login', () => {
+  describe('POST /api/v1/auth/login', () => {
     it('应该返回400当缺少必填字段', async () => {
       const res = await request(app)
-        .post('/api/auth/login')
+        .post('/api/v1/auth/login')
         .send({ username: 'test' });
 
       expect(res.status).toBe(400);
@@ -48,7 +48,7 @@ describe('认证模块', () => {
 
     it('应该返回400当验证码过期', async () => {
       const res = await request(app)
-        .post('/api/auth/login')
+        .post('/api/v1/auth/login')
         .send({ username: 'admin', password: 'Pass123', captcha: 'abcd', captchaKey: 'expired_key' });
 
       expect(res.status).toBe(400);
@@ -56,7 +56,7 @@ describe('认证模块', () => {
     });
   });
 
-  describe('GET /api/auth/me', () => {
+  describe('GET /api/v1/auth/me', () => {
     it('应该返回200和用户信息当token有效', async () => {
       const token = generateToken();
       mockPool.query.mockResolvedValue([[
@@ -64,7 +64,7 @@ describe('认证模块', () => {
       ]]);
 
       const res = await request(app)
-        .get('/api/auth/me')
+        .get('/api/v1/auth/me')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -74,19 +74,19 @@ describe('认证模块', () => {
     });
 
     it('应该返回401当无token', async () => {
-      const res = await request(app).get('/api/auth/me');
+      const res = await request(app).get('/api/v1/auth/me');
       expect(res.status).toBe(401);
     });
   });
 
-  describe('POST /api/auth/change-password', () => {
+  describe('POST /api/v1/auth/change-password', () => {
     it('应该返回400当旧密码错误', async () => {
       const token = generateToken();
       const hashedPassword = await bcrypt.hash('CorrectOldPass1', 10);
       mockPool.query.mockResolvedValue([[{ password: hashedPassword }]]);
 
       const res = await request(app)
-        .post('/api/auth/change-password')
+        .post('/api/v1/auth/change-password')
         .set('Authorization', `Bearer ${token}`)
         .send({ old_password: 'WrongOldPass1', new_password: 'NewSecurePass1' });
 
@@ -98,7 +98,7 @@ describe('认证模块', () => {
       const token = generateToken();
 
       const res = await request(app)
-        .post('/api/auth/change-password')
+        .post('/api/v1/auth/change-password')
         .set('Authorization', `Bearer ${token}`)
         .send({ old_password: 'test' });
 
@@ -115,7 +115,7 @@ describe('认证模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]);  // update password
 
       const res = await request(app)
-        .post('/api/auth/change-password')
+        .post('/api/v1/auth/change-password')
         .set('Authorization', `Bearer ${token}`)
         .send({ old_password: 'CorrectOldPass1', new_password: 'NewSecurePass1' });
 
@@ -124,10 +124,10 @@ describe('认证模块', () => {
     });
   });
 
-  describe('POST /api/auth/logout', () => {
+  describe('POST /api/v1/auth/logout', () => {
     it('应该返回200成功登出', async () => {
       const res = await request(app)
-        .post('/api/auth/logout')
+        .post('/api/v1/auth/logout')
         .set('Authorization', 'Bearer valid_token');
 
       expect(res.status).toBe(200);
@@ -135,3 +135,4 @@ describe('认证模块', () => {
     });
   });
 });
+

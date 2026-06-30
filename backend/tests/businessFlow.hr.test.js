@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -64,11 +64,11 @@ jest.mock('../config/redis', () => ({
 const app = express();
 app.use(express.json());
 
-app.use('/api/dept', require('../routes/dept'));
-app.use('/api/hr', require('../routes/hr'));
-app.use('/api/calendar', require('../routes/calendar'));
-app.use('/api/approval', require('../routes/approval'));
-app.use('/api/user', require('../routes/user'));
+app.use('/api/v1/dept', require('../routes/dept'));
+app.use('/api/v1/hr', require('../routes/hr'));
+app.use('/api/v1/calendar', require('../routes/calendar'));
+app.use('/api/v1/approval', require('../routes/approval'));
+app.use('/api/v1/user', require('../routes/user'));
 
 const generateToken = () => {
   return jwt.sign(
@@ -92,13 +92,13 @@ describe('人事全流程 - 端到端流程', () => {
   });
 
   // Step 1: 创建部门
-  it('Step 1: POST /api/dept/add — 创建部门', async () => {
+  it('Step 1: POST /api/v1/dept/add — 创建部门', async () => {
     // deptRouteService.addDept: 1 次 pool.query INSERT
     mockPool.query
       .mockResolvedValueOnce([{ insertId: 10 }]);
 
     const res = await request(app)
-      .post('/api/dept/add')
+      .post('/api/v1/dept/add')
       .set('Authorization', `Bearer ${token}`)
       .send({ name: '销售一部', parent_id: 1, sort_order: 1 });
 
@@ -108,14 +108,14 @@ describe('人事全流程 - 端到端流程', () => {
   });
 
   // Step 2: 创建员工（通过用户添加接口）
-  it('Step 2: POST /api/user/add — 创建员工账号', async () => {
+  it('Step 2: POST /api/v1/user/add — 创建员工账号', async () => {
     // userRouteService.addUser: 2 次 pool.query（检查用户名 + INSERT）
     mockPool.query
       .mockResolvedValueOnce([[]])                    // 检查用户名重复（无重复）
       .mockResolvedValueOnce([{ insertId: 20 }]);     // INSERT 用户
 
     const res = await request(app)
-      .post('/api/user/add')
+      .post('/api/v1/user/add')
       .set('Authorization', `Bearer ${token}`)
       .send({
         username: 'sales_user_01',
@@ -128,13 +128,13 @@ describe('人事全流程 - 端到端流程', () => {
   });
 
   // Step 3: 排班（创建日历事件）
-  it('Step 3: POST /api/calendar/events — 创建排班事件', async () => {
+  it('Step 3: POST /api/v1/calendar/events — 创建排班事件', async () => {
     // calendarService: 1 次 pool.query INSERT
     mockPool.query
       .mockResolvedValueOnce([{ insertId: 30 }]);
 
     const res = await request(app)
-      .post('/api/calendar/events')
+      .post('/api/v1/calendar/events')
       .set('Authorization', `Bearer ${token}`)
       .send({
         title: '王五 - 排班',
@@ -149,7 +149,7 @@ describe('人事全流程 - 端到端流程', () => {
   });
 
   // Step 4: 考勤记录查询
-  it('Step 4: GET /api/hr/employees/:id — 查看员工信息（含考勤）', async () => {
+  it('Step 4: GET /api/v1/hr/employees/:id — 查看员工信息（含考勤）', async () => {
     mockPool.query
       .mockResolvedValueOnce([[{
         id: employeeId,
@@ -160,7 +160,7 @@ describe('人事全流程 - 端到端流程', () => {
       }]]);
 
     const res = await request(app)
-      .get(`/api/hr/employees/${employeeId}`)
+      .get(`/api/v1/hr/employees/${employeeId}`)
       .set('Authorization', `Bearer ${token}`);
 
     expect([200, 404]).toContain(res.status);
@@ -171,7 +171,7 @@ describe('人事全流程 - 端到端流程', () => {
   });
 
   // Step 5: 提交请假审批
-  it('Step 5: POST /api/approval/submit — 提交请假审批', async () => {
+  it('Step 5: POST /api/v1/approval/submit — 提交请假审批', async () => {
     // 审批提交流程：6 次 pool.query
     mockPool.query
       .mockResolvedValueOnce([[{ id: 1, approval_status: 0 }]])                        // 业务记录验证
@@ -182,7 +182,7 @@ describe('人事全流程 - 端到端流程', () => {
       .mockResolvedValueOnce([{ affectedRows: 1 }]);                                     // UPDATE approval_status
 
     const res = await request(app)
-      .post('/api/approval/submit')
+      .post('/api/v1/approval/submit')
       .set('Authorization', `Bearer ${token}`)
       .send({ business_type: 'leave', business_id: 1 });
 
@@ -192,7 +192,7 @@ describe('人事全流程 - 端到端流程', () => {
   });
 
   // Step 6: 审批通过请假
-  it('Step 6: POST /api/approval/approve/:id — 审批通过请假', async () => {
+  it('Step 6: POST /api/v1/approval/approve/:id — 审批通过请假', async () => {
     // 审批通过：4 次 pool.query
     mockPool.query
       .mockResolvedValueOnce([[{ id: 40, status: 'pending', approver_id: 1, workflow_id: 2, step_order: 1, business_type: 'leave', business_id: 1 }]]) // 查询审批记录
@@ -201,7 +201,7 @@ describe('人事全流程 - 端到端流程', () => {
       .mockResolvedValueOnce([{ affectedRows: 1 }]);    // UPDATE 业务表
 
     const res = await request(app)
-      .post(`/api/approval/approve/${approvalRecordId}`)
+      .post(`/api/v1/approval/approve/${approvalRecordId}`)
       .set('Authorization', `Bearer ${token}`)
       .send({ remark: '同意请假' });
 
@@ -209,7 +209,7 @@ describe('人事全流程 - 端到端流程', () => {
   });
 
   // Step 7: 查看组织架构树
-  it('Step 7: GET /api/hr/org-tree — 查看组织架构', async () => {
+  it('Step 7: GET /api/v1/hr/org-tree — 查看组织架构', async () => {
     // getOrgTree: 3 次 pool.query（部门列表 + COUNT 部门 + COUNT 员工）
     mockPool.query
       .mockResolvedValueOnce([[{ id: 1, name: '总公司', parent_id: 0, sort: 1 }, { id: 10, name: '销售一部', parent_id: 1, sort: 2 }]]) // 部门列表
@@ -217,7 +217,7 @@ describe('人事全流程 - 端到端流程', () => {
       .mockResolvedValueOnce([[{ cnt: 5 }]]);  // COUNT 员工
 
     const res = await request(app)
-      .get('/api/hr/org-tree')
+      .get('/api/v1/hr/org-tree')
       .set('Authorization', `Bearer ${token}`);
 
     expect([200, 403]).toContain(res.status);
@@ -226,3 +226,4 @@ describe('人事全流程 - 端到端流程', () => {
     }
   });
 });
+

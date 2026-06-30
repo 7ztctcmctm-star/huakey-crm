@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 
 process.env.JWT_SECRET = 'test_secret_key_for_unit_tests';
@@ -28,17 +28,17 @@ const app = express();
 app.use(express.json());
 
 const cronRoutes = require('../routes/cronJobs');
-app.use('/api/cron', cronRoutes);
+app.use('/api/v1/cron', cronRoutes);
 
 const cronAuth = `Bearer ${process.env.CRON_SECRET}`;
 
 describe('定时任务模块', () => {
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('GET /api/cron/daily-scoring', () => {
+  describe('GET /api/v1/cron/daily-scoring', () => {
     it('应该返回200当正常执行每日评分', async () => {
       const res = await request(app)
-        .get('/api/cron/daily-scoring')
+        .get('/api/v1/cron/daily-scoring')
         .set('Authorization', cronAuth);
 
       expect(res.status).toBe(200);
@@ -46,13 +46,13 @@ describe('定时任务模块', () => {
     });
   });
 
-  describe('GET /api/cron/auto-release', () => {
+  describe('GET /api/v1/cron/auto-release', () => {
     it('应该返回200当正常执行公海回收', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]); // customers to release (empty)
 
       const res = await request(app)
-        .get('/api/cron/auto-release')
+        .get('/api/v1/cron/auto-release')
         .set('Authorization', cronAuth);
 
       expect(res.status).toBe(200);
@@ -60,10 +60,10 @@ describe('定时任务模块', () => {
     });
   });
 
-  describe('GET /api/cron/generate-reminders', () => {
+  describe('GET /api/v1/cron/generate-reminders', () => {
     it('应该返回200当正常生成提醒', async () => {
       const res = await request(app)
-        .get('/api/cron/generate-reminders')
+        .get('/api/v1/cron/generate-reminders')
         .set('Authorization', cronAuth);
 
       expect(res.status).toBe(200);
@@ -74,9 +74,10 @@ describe('定时任务模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .get('/api/cron/daily-scoring');
+        .get('/api/v1/cron/daily-scoring');
 
       expect(res.status).toBe(401);
     });
   });
 });
+

@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -39,7 +39,7 @@ const app = express();
 app.use(express.json());
 
 const invoiceRoutes = require('../routes/invoice');
-app.use('/api/invoice', invoiceRoutes);
+app.use('/api/v1/invoice', invoiceRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -57,13 +57,13 @@ describe('发票管理模块', () => {
     mockConnection.rollback.mockClear();
   });
 
-  describe('POST /api/invoice/add', () => {
+  describe('POST /api/v1/invoice/add', () => {
     it('应该返回400当缺少必填字段', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/invoice/add')
+        .post('/api/v1/invoice/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ invoice_no: 'INV-2026-001' });
 
@@ -80,7 +80,7 @@ describe('发票管理模块', () => {
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
-        .post('/api/invoice/add')
+        .post('/api/v1/invoice/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ contract_id: 1, customer_id: 1, type: 1, amount: 10000 });
 
@@ -92,7 +92,7 @@ describe('发票管理模块', () => {
     });
   });
 
-  describe('POST /api/invoice/list', () => {
+  describe('POST /api/v1/invoice/list', () => {
     it('应该返回发票列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -104,7 +104,7 @@ describe('发票管理模块', () => {
         ]]);
 
       const res = await request(app)
-        .post('/api/invoice/list')
+        .post('/api/v1/invoice/list')
         .set('Authorization', `Bearer ${token}`)
         .send({ page: 1, pageSize: 10 });
 
@@ -115,7 +115,7 @@ describe('发票管理模块', () => {
     });
   });
 
-  describe('POST /api/invoice/update', () => {
+  describe('POST /api/v1/invoice/update', () => {
     it('应该返回200当正常更新发票', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -124,7 +124,7 @@ describe('发票管理模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
 
       const res = await request(app)
-        .post('/api/invoice/update')
+        .post('/api/v1/invoice/update')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1, contract_id: 1, customer_id: 1, type: 1, amount: 15000 });
 
@@ -133,7 +133,7 @@ describe('发票管理模块', () => {
     });
   });
 
-  describe('POST /api/invoice/delete', () => {
+  describe('POST /api/v1/invoice/delete', () => {
     it('应该返回200当正常删除发票', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -142,7 +142,7 @@ describe('发票管理模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 
       const res = await request(app)
-        .post('/api/invoice/delete')
+        .post('/api/v1/invoice/delete')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1 });
 
@@ -154,10 +154,11 @@ describe('发票管理模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .post('/api/invoice/list')
+        .post('/api/v1/invoice/list')
         .send({ page: 1 });
 
       expect(res.status).toBe(401);
     });
   });
 });
+

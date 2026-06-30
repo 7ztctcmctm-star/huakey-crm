@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -24,7 +24,7 @@ jest.mock('../services/permissionService', () => ({
 
 const app = express();
 app.use(express.json());
-app.use('/api/competitor', require('../routes/competitor'));
+app.use('/api/v1/competitor', require('../routes/competitor'));
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -35,13 +35,13 @@ describe('竞争对手模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('POST /api/competitor/add', () => {
+  describe('POST /api/v1/competitor/add', () => {
     it('应该返回400当缺少name', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/competitor/add')
+        .post('/api/v1/competitor/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ industry: 'IT' });
 
@@ -57,7 +57,7 @@ describe('竞争对手模块', () => {
         .mockResolvedValueOnce([{ insertId: 1 }]);
 
       const res = await request(app)
-        .post('/api/competitor/add')
+        .post('/api/v1/competitor/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '竞品A', industry: 'IT', scale: 'large' });
 
@@ -67,7 +67,7 @@ describe('竞争对手模块', () => {
     });
   });
 
-  describe('GET /api/competitor/list', () => {
+  describe('GET /api/v1/competitor/list', () => {
     it('应该返回200和竞争对手列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -79,7 +79,7 @@ describe('竞争对手模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/competitor/list')
+        .get('/api/v1/competitor/list')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -89,13 +89,13 @@ describe('竞争对手模块', () => {
     });
   });
 
-  describe('POST /api/competitor/intel/add', () => {
+  describe('POST /api/v1/competitor/intel/add', () => {
     it('应该返回400当参数不完整', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/competitor/intel/add')
+        .post('/api/v1/competitor/intel/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ competitor_id: 1 });
 
@@ -110,7 +110,7 @@ describe('竞争对手模块', () => {
         .mockResolvedValueOnce([{ insertId: 10 }]);
 
       const res = await request(app)
-        .post('/api/competitor/intel/add')
+        .post('/api/v1/competitor/intel/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ competitor_id: 1, intel_type: 'product', title: '新产品发布', content: '竞品发布了新产品' });
 
@@ -120,7 +120,7 @@ describe('竞争对手模块', () => {
     });
   });
 
-  describe('POST /api/competitor/encounters/add', () => {
+  describe('POST /api/v1/competitor/encounters/add', () => {
     it('应该返回200当正常添加交锋记录', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -128,7 +128,7 @@ describe('竞争对手模块', () => {
         .mockResolvedValueOnce([{ insertId: 20 }]);
 
       const res = await request(app)
-        .post('/api/competitor/encounters/add')
+        .post('/api/v1/competitor/encounters/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ competitor_id: 1, encounter_type: 'won', our_price: 10000, their_price: 12000 });
 
@@ -138,7 +138,7 @@ describe('竞争对手模块', () => {
     });
   });
 
-  describe('DELETE /api/competitor/:id', () => {
+  describe('DELETE /api/v1/competitor/:id', () => {
     it('应该返回200当正常删除竞争对手', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -146,7 +146,7 @@ describe('竞争对手模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]);
 
       const res = await request(app)
-        .delete('/api/competitor/1')
+        .delete('/api/v1/competitor/1')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -154,3 +154,4 @@ describe('竞争对手模块', () => {
     });
   });
 });
+

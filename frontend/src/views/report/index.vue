@@ -16,7 +16,9 @@
       </div>
     </div>
 
-    <!-- 统计卡片 -->
+    <el-tabs v-model="activeTab" class="report-tabs" @tab-change="handleTabChange">
+      <el-tab-pane label="综合概览" name="overview">
+        <!-- 统计卡片 -->
     <el-row :gutter="24">
       <el-col :span="6">
         <el-card class="stat-card">
@@ -154,6 +156,78 @@
         </el-col>
       </el-row>
     </el-card>
+      </el-tab-pane>
+
+      <el-tab-pane label="采购成本分析" name="purchase-cost">
+        <el-row :gutter="24">
+          <el-col :span="8">
+            <el-card class="stat-card">
+              <div class="stat-content">
+                <div class="stat-value">¥{{ formatAmount(purchaseCost.summary.total) }}</div>
+                <div class="stat-label">采购总额</div>
+              </div>
+            </el-card>
+          </el-col>
+          <el-col :span="8">
+            <el-card class="stat-card">
+              <div class="stat-content">
+                <div class="stat-value">¥{{ formatAmount(purchaseCost.summary.avg_monthly) }}</div>
+                <div class="stat-label">月均采购额</div>
+              </div>
+            </el-card>
+          </el-col>
+          <el-col :span="8">
+            <el-card class="stat-card">
+              <div class="stat-content">
+                <div class="stat-value">{{ purchaseCost.by_category.length }}</div>
+                <div class="stat-label">产品分类数</div>
+              </div>
+            </el-card>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="24" style="margin-top: 24px">
+          <el-col :span="12">
+            <el-card shadow="never">
+              <template #header><span class="section-title">产品分类采购占比</span></template>
+              <div ref="costCategoryChartRef" class="chart-container" />
+            </el-card>
+          </el-col>
+          <el-col :span="12">
+            <el-card shadow="never">
+              <template #header><span class="section-title">月度采购趋势</span></template>
+              <div ref="costMonthlyChartRef" class="chart-container" />
+            </el-card>
+          </el-col>
+        </el-row>
+      </el-tab-pane>
+
+      <el-tab-pane label="供应商绩效" name="supplier-performance">
+        <el-card shadow="never">
+          <template #header><span class="section-title">供应商绩效排行</span></template>
+          <el-table :data="supplierPerformance" stripe v-loading="supplierLoading" style="width: 100%">
+            <el-table-column type="index" label="排名" width="60" />
+            <el-table-column prop="name" label="供应商名称" min-width="180" />
+            <el-table-column prop="amount" label="采购金额" width="160" align="right">
+              <template #default="{ row }">
+                <span>¥{{ formatAmount(row.amount) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="order_count" label="订单数" width="100" align="center" />
+            <el-table-column prop="on_time_rate" label="准时交付率" width="130" align="center">
+              <template #default="{ row }">
+                <span>{{ row.on_time_rate != null ? (row.on_time_rate * 100).toFixed(0) + '%' : '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="avg_quality" label="平均质量分" width="120" align="center">
+              <template #default="{ row }">
+                <span>{{ row.avg_quality != null ? row.avg_quality.toFixed(1) : '-' }}</span>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+      </el-tab-pane>
+    </el-tabs>
   </div>
 </template>
 
@@ -162,7 +236,11 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Download } from '@element-plus/icons-vue'
 import request from '@/utils/request'
-import { getReportPayment, getReportPerformance, getReportSalesFunnel, getReportSalesTrend, getReportPurchaseTrend, getReportPurchaseBySupplier, getReportCustomer, exportReport } from '@/api/report'
+import {
+  getReportPayment, getReportPerformance, getReportSalesFunnel, getReportSalesTrend,
+  getReportPurchaseTrend, getReportPurchaseBySupplier, getReportPurchaseCost,
+  getReportSupplierPerformance, getReportCustomer, exportReport
+} from '@/api/report'
 import { formatAmount } from '@/composables/useFormat'
 import { useChart } from '@/composables/useChart'
 import { PARENT_SOURCE_COLORS } from '@/constants/source'
@@ -174,6 +252,7 @@ const moreEntries = [
 ]
 
 const dateRange = ref([])
+const activeTab = ref('overview')
 const paymentData = reactive({
   plan_amount: '0',
   pay_amount: '0',
@@ -187,20 +266,50 @@ const customerData = reactive({
 const performanceList = ref([])
 const performanceLoading = ref(false)
 const exportLoading = ref(false)
+const purchaseCost = reactive({
+  summary: { total: 0, avg_monthly: 0 },
+  by_category: [],
+  monthly: []
+})
+const supplierPerformance = ref([])
+const supplierLoading = ref(false)
 
-const { refs: { funnelChartRef, sourceChartRef, trendChartRef, levelChartRef, purchaseTrendChartRef, purchaseSupplierChartRef }, echarts, initChart } = useChart('funnelChartRef', 'sourceChartRef', 'trendChartRef', 'levelChartRef', 'purchaseTrendChartRef', 'purchaseSupplierChartRef')
+const { refs: { funnelChartRef, sourceChartRef, trendChartRef, levelChartRef, purchaseTrendChartRef, purchaseSupplierChartRef, costCategoryChartRef, costMonthlyChartRef }, echarts, initChart } = useChart('funnelChartRef', 'sourceChartRef', 'trendChartRef', 'levelChartRef', 'purchaseTrendChartRef', 'purchaseSupplierChartRef', 'costCategoryChartRef', 'costMonthlyChartRef')
 
 const handleDateChange = () => {
   fetchData()
 }
 
+const handleTabChange = (tab) => {
+  if (tab === 'purchase-cost') {
+    fetchPurchaseCost().then(() => {
+      renderCostCategoryChart(purchaseCost.by_category)
+      renderCostMonthlyChart(purchaseCost.monthly)
+    })
+  } else if (tab === 'supplier-performance') {
+    fetchSupplierPerformance()
+  }
+}
+
 const fetchData = () => {
   Promise.all([fetchPayment(), fetchCustomer(), fetchPerformance()]).then(() => initCharts())
+  if (activeTab.value === 'purchase-cost') {
+    handleTabChange('purchase-cost')
+  } else if (activeTab.value === 'supplier-performance') {
+    handleTabChange('supplier-performance')
+  }
 }
 
 const getDateParams = () => {
   if (dateRange.value && dateRange.value.length === 2) {
     return { startDate: dateRange.value[0], endDate: dateRange.value[1] }
+  }
+  return {}
+}
+
+const getSnakeDateParams = () => {
+  if (dateRange.value && dateRange.value.length === 2) {
+    return { start_date: dateRange.value[0], end_date: dateRange.value[1] }
   }
   return {}
 }
@@ -474,6 +583,73 @@ const renderPurchaseSupplierChart = (data) => {
   })
 }
 
+const fetchPurchaseCost = async () => {
+  try {
+    const res = await getReportPurchaseCost(getSnakeDateParams())
+    if (res.code === 200) {
+      Object.assign(purchaseCost, res.data)
+    }
+  } catch (error) {
+    console.error('获取采购成本分析失败:', error)
+    ElMessage.error('加载采购成本分析失败')
+  }
+}
+
+const renderCostCategoryChart = (data) => {
+  initChart('costCategoryChartRef', {
+    tooltip: { trigger: 'item', formatter: '{b}: ¥{c} ({d}%)' },
+    legend: { orient: 'vertical', left: 'left', top: 'center' },
+    series: [{
+      type: 'pie',
+      radius: ['40%', '70%'],
+      center: ['60%', '50%'],
+      avoidLabelOverlap: false,
+      itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
+      label: { show: false },
+      emphasis: { label: { show: true, fontSize: 16, fontWeight: 'bold' } },
+      data: data.map(item => ({ value: parseFloat(item.amount) || 0, name: item.category || '未分类' }))
+    }]
+  })
+}
+
+const renderCostMonthlyChart = (data) => {
+  const months = data.map(item => item.month)
+  const amounts = data.map(item => parseFloat(item.amount))
+  initChart('costMonthlyChartRef', {
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+    xAxis: { type: 'category', data: months, axisLabel: { rotate: 30 } },
+    yAxis: { type: 'value', name: '采购额', axisLabel: { formatter: '¥{value}' } },
+    series: [{
+      type: 'bar',
+      data: amounts,
+      barWidth: '60%',
+      itemStyle: {
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: '#059669' },
+          { offset: 1, color: '#34d399' }
+        ]),
+        borderRadius: [4, 4, 0, 0]
+      }
+    }]
+  })
+}
+
+const fetchSupplierPerformance = async () => {
+  supplierLoading.value = true
+  try {
+    const res = await getReportSupplierPerformance(getSnakeDateParams())
+    if (res.code === 200) {
+      supplierPerformance.value = res.data.top_suppliers || []
+    }
+  } catch (error) {
+    console.error('获取供应商绩效失败:', error)
+    ElMessage.error('加载供应商绩效失败')
+  } finally {
+    supplierLoading.value = false
+  }
+}
+
 const handleExport = async () => {
   exportLoading.value = true
   try {
@@ -548,6 +724,42 @@ onMounted(() => {
 .stat-label {
   font-size: 14px;
   color: var(--color-text-secondary);
+}
+
+.report-tabs {
+  background: transparent;
+}
+
+.report-tabs :deep(.el-tabs__header) {
+  margin-bottom: var(--space-5);
+  border-bottom: none;
+}
+
+.report-tabs :deep(.el-tabs__nav-wrap::after) {
+  height: 1px;
+  background-color: var(--color-border);
+}
+
+.report-tabs :deep(.el-tabs__item) {
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.report-tabs :deep(.el-tabs__item.is-active) {
+  color: var(--color-accent);
+}
+
+.report-tabs :deep(.el-tabs__active-bar) {
+  background-color: var(--color-accent);
+}
+
+.report-tabs :deep(.el-tab-pane) {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .section-title {

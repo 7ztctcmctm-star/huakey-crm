@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -26,7 +26,7 @@ const app = express();
 app.use(express.json());
 
 const scoringRoutes = require('../routes/scoring');
-app.use('/api/scoring', scoringRoutes);
+app.use('/api/v1/scoring', scoringRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -37,13 +37,13 @@ describe('评分规则模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('POST /api/scoring/rules', () => {
+  describe('POST /api/v1/scoring/rules', () => {
     it('应该返回400当缺少name', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/scoring/rules')
+        .post('/api/v1/scoring/rules')
         .set('Authorization', `Bearer ${token}`)
         .send({ condition_type: 'source', score: 10 });
 
@@ -58,7 +58,7 @@ describe('评分规则模块', () => {
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
-        .post('/api/scoring/rules')
+        .post('/api/v1/scoring/rules')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '官网来源加分', condition_type: 'source', condition_field: 'source', condition_operator: 'eq', condition_value: '官网', score: 10 });
 
@@ -68,7 +68,7 @@ describe('评分规则模块', () => {
     });
   });
 
-  describe('GET /api/scoring/rules', () => {
+  describe('GET /api/v1/scoring/rules', () => {
     it('应该返回规则列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -79,7 +79,7 @@ describe('评分规则模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/scoring/rules')
+        .get('/api/v1/scoring/rules')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -88,7 +88,7 @@ describe('评分规则模块', () => {
     });
   });
 
-  describe('PUT /api/scoring/rules/:id', () => {
+  describe('PUT /api/v1/scoring/rules/:id', () => {
     it('应该返回200当正常更新规则', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -97,7 +97,7 @@ describe('评分规则模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
 
       const res = await request(app)
-        .put('/api/scoring/rules/1')
+        .put('/api/v1/scoring/rules/1')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '官网来源加分(调整)', score: 15 });
 
@@ -106,7 +106,7 @@ describe('评分规则模块', () => {
     });
   });
 
-  describe('DELETE /api/scoring/rules/:id', () => {
+  describe('DELETE /api/v1/scoring/rules/:id', () => {
     it('应该返回200当正常删除规则', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -114,7 +114,7 @@ describe('评分规则模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 
       const res = await request(app)
-        .delete('/api/scoring/rules/1')
+        .delete('/api/v1/scoring/rules/1')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -125,9 +125,10 @@ describe('评分规则模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .get('/api/scoring/rules');
+        .get('/api/v1/scoring/rules');
 
       expect(res.status).toBe(401);
     });
   });
 });
+

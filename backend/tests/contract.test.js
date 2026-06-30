@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -21,7 +21,7 @@ app.use(express.json());
 
 const contractRoutes = require('../routes/contract');
 
-app.use('/api/contract', contractRoutes);
+app.use('/api/v1/contract', contractRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -32,10 +32,10 @@ describe('合同模块 - 参数验证', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('POST /api/contract/add', () => {
+  describe('POST /api/v1/contract/add', () => {
     it('应该返回400当缺少合同标题', async () => {
       const res = await request(app)
-        .post('/api/contract/add')
+        .post('/api/v1/contract/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: 1 });
 
@@ -45,7 +45,7 @@ describe('合同模块 - 参数验证', () => {
 
     it('应该返回400当客户ID不是正整数', async () => {
       const res = await request(app)
-        .post('/api/contract/add')
+        .post('/api/v1/contract/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ title: '测试合同', customer_id: -1 });
 
@@ -53,10 +53,10 @@ describe('合同模块 - 参数验证', () => {
     });
   });
 
-  describe('POST /api/contract/update', () => {
+  describe('POST /api/v1/contract/update', () => {
     it('应该返回400当缺少ID', async () => {
       const res = await request(app)
-        .post('/api/contract/update')
+        .post('/api/v1/contract/update')
         .set('Authorization', `Bearer ${token}`)
         .send({ title: '更新' });
 
@@ -64,10 +64,10 @@ describe('合同模块 - 参数验证', () => {
     });
   });
 
-  describe('POST /api/contract/delete', () => {
+  describe('POST /api/v1/contract/delete', () => {
     it('应该返回400当ID为0或负数', async () => {
       const res = await request(app)
-        .post('/api/contract/delete')
+        .post('/api/v1/contract/delete')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: -5 });
 
@@ -75,10 +75,10 @@ describe('合同模块 - 参数验证', () => {
     });
   });
 
-  describe('POST /api/contract/list', () => {
+  describe('POST /api/v1/contract/list', () => {
     it('应该验证分页参数范围', async () => {
       const res = await request(app)
-        .post('/api/contract/list')
+        .post('/api/v1/contract/list')
         .set('Authorization', `Bearer ${token}`)
         .send({ page: 0, pageSize: 200 });
 
@@ -86,3 +86,4 @@ describe('合同模块 - 参数验证', () => {
     });
   });
 });
+

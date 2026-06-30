@@ -1,23 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const mysql = require('mysql2/promise');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const pool = require('../config/database');
-const { chatCompletion, getProviderStatus } = require('../utils/llmClient');
+const { readOnlyPool } = require('../config/database');
+const { chatCompletion } = require('../utils/llmClient');
 const aiService = require('../services/aiRouteService');
-
-// AI查询使用独立只读连接池（未配 DB_RO_* 时降级用主库）
-const readOnlyPool = process.env.DB_RO_HOST
-  ? mysql.createPool({
-      host: process.env.DB_RO_HOST || process.env.DB_HOST,
-      user: process.env.DB_RO_USER || 'ai_readonly',
-      password: process.env.DB_RO_PASSWORD,
-      database: process.env.DB_RO_NAME || process.env.DB_NAME,
-      waitForConnections: true,
-      connectionLimit: 5
-    })
-  : pool;
 
 if (!process.env.DB_RO_HOST) {
   console.warn('[AI] 未配置DB_RO_*环境变量，AI查询将使用主数据库账号。建议配置只读数据库账号以降低安全风险。');

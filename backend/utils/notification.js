@@ -1,7 +1,16 @@
 const https = require('https');
+const nodemailer = require('nodemailer');
 
 // 企业微信 webhook 地址
 const WEBHOOK_URL = 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=aibIdYapN5AKF0cWuHFfwAQsV0vQN6H-OLJtnN7El3Fqh9HWMVEKAx7H9hXIvaCHo3brkuLHce6068';
+
+// 邮件告警配置
+const SMTP_HOST = process.env.SMTP_HOST;
+const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587');
+const SMTP_USER = process.env.SMTP_USER;
+const SMTP_PASS = process.env.SMTP_PASS;
+const ALERT_EMAIL_TO = process.env.ALERT_EMAIL_TO;
+const emailEnabled = !!(SMTP_HOST && SMTP_USER && SMTP_PASS && ALERT_EMAIL_TO);
 
 /**
  * 发送企业微信文本消息
@@ -79,6 +88,52 @@ async function sendOpportunityReminder(data) {
 }
 
 /**
+ * 发送邮件告警
+ * @param {Object} context
+ * @param {string} context.level - 告警级别
+ * @param {string} context.source - 错误来源
+ * @param {string} context.message - 错误详情
+ * @param {string} [context.traceId] - 追踪 ID
+ * @param {string} [context.timestamp] - 时间戳
+ */
+async function sendEmailAlert(context) {
+  if (!emailEnabled) return;
+
+  const { level = 'error', source, message, traceId = 'N/A', timestamp } = context;
+  const time = timestamp || new Date().toISOString();
+
+  const transporter = nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: SMTP_PORT,
+    secure: SMTP_PORT === 465,
+    auth: {
+      user: SMTP_USER,
+      pass: SMTP_PASS
+    }
+  });
+
+  const subject = `[CRM 告警] ${level === 'critical' ? '[严重]' : '[警告]'} ${source}`;
+  const text = [
+    `时间: ${time}`,
+    `级别: ${level}`,
+    `来源: ${source}`,
+    `TraceID: ${traceId}`,
+    `详情: ${(message || '未知错误').slice(0, 2000)}`
+  ].join('\n');
+
+  try {
+    await transporter.sendMail({
+      from: `"CRM 告警" <${SMTP_USER}>`,
+      to: ALERT_EMAIL_TO,
+      subject,
+      text
+    });
+  } catch (e) {
+    console.error('[邮件告警] 发送失败:', e.message);
+  }
+}
+
+/**
  * 发送 webhook 请求
  * @param {Object} payload - 请求体
  */
@@ -130,6 +185,7 @@ function sendWebhook(payload) {
 module.exports = {
   sendText,
   sendMarkdown,
+  sendEmailAlert,
   sendFollowupReminder,
   sendPaymentOverdue,
   sendOpportunityReminder

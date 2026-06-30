@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -36,7 +36,7 @@ const app = express();
 app.use(express.json());
 
 const knowledgeRoutes = require('../routes/knowledge');
-app.use('/api/knowledge', knowledgeRoutes);
+app.use('/api/v1/knowledge', knowledgeRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -47,7 +47,7 @@ describe('知识库模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('GET /api/knowledge/products', () => {
+  describe('GET /api/v1/knowledge/products', () => {
     it('应该返回产品知识列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -59,7 +59,7 @@ describe('知识库模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/knowledge/products')
+        .get('/api/v1/knowledge/products')
         .set('Authorization', `Bearer ${token}`)
         .query({ page: 1, pageSize: 20 });
 
@@ -70,13 +70,13 @@ describe('知识库模块', () => {
     });
   });
 
-  describe('POST /api/knowledge/products', () => {
+  describe('POST /api/v1/knowledge/products', () => {
     it('应该返回400当缺少name', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/knowledge/products')
+        .post('/api/v1/knowledge/products')
         .set('Authorization', `Bearer ${token}`)
         .send({ category: '电子' });
 
@@ -91,7 +91,7 @@ describe('知识库模块', () => {
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
-        .post('/api/knowledge/products')
+        .post('/api/v1/knowledge/products')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '新产品', category: '电子', model: 'X-001', description: '产品描述' });
 
@@ -101,7 +101,7 @@ describe('知识库模块', () => {
     });
   });
 
-  describe('GET /api/knowledge/faqs', () => {
+  describe('GET /api/v1/knowledge/faqs', () => {
     it('应该返回FAQ列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -112,7 +112,7 @@ describe('知识库模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/knowledge/faqs')
+        .get('/api/v1/knowledge/faqs')
         .set('Authorization', `Bearer ${token}`)
         .query({ page: 1, pageSize: 20 });
 
@@ -122,7 +122,7 @@ describe('知识库模块', () => {
     });
   });
 
-  describe('GET /api/knowledge/products-meta/categories', () => {
+  describe('GET /api/v1/knowledge/products-meta/categories', () => {
     it('应该返回产品分类列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -134,7 +134,7 @@ describe('知识库模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/knowledge/products-meta/categories')
+        .get('/api/v1/knowledge/products-meta/categories')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -147,9 +147,10 @@ describe('知识库模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .get('/api/knowledge/products');
+        .get('/api/v1/knowledge/products');
 
       expect(res.status).toBe(401);
     });
   });
 });
+

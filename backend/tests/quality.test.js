@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -26,7 +26,7 @@ const app = express();
 app.use(express.json());
 
 const qualityRoutes = require('../routes/customer/quality');
-app.use('/api/customer', qualityRoutes);
+app.use('/api/v1/customer', qualityRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -37,7 +37,7 @@ describe('数据质量检查模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('POST /api/customer/quality-check', () => {
+  describe('POST /api/v1/customer/quality-check', () => {
     it('应该返回质量检查结果', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -52,7 +52,7 @@ describe('数据质量检查模块', () => {
         .mockResolvedValueOnce([{ insertId: 1 }]); // save report
 
       const res = await request(app)
-        .post('/api/customer/quality-check')
+        .post('/api/v1/customer/quality-check')
         .set('Authorization', `Bearer ${token}`)
         .send({ table: 'crm_customer' });
 
@@ -65,7 +65,7 @@ describe('数据质量检查模块', () => {
     });
   });
 
-  describe('POST /api/customer/quality-report', () => {
+  describe('POST /api/v1/customer/quality-report', () => {
     it('应该返回质量报告', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -75,7 +75,7 @@ describe('数据质量检查模块', () => {
         ]]);
 
       const res = await request(app)
-        .post('/api/customer/quality-report')
+        .post('/api/v1/customer/quality-report')
         .set('Authorization', `Bearer ${token}`)
         .send({ table: 'crm_customer' });
 
@@ -85,7 +85,7 @@ describe('数据质量检查模块', () => {
     });
   });
 
-  describe('POST /api/customer/quality-report?module=xxx', () => {
+  describe('POST /api/v1/customer/quality-report?module=xxx', () => {
     it('应该按模块筛选返回质量报告', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -95,7 +95,7 @@ describe('数据质量检查模块', () => {
         ]]);
 
       const res = await request(app)
-        .post('/api/customer/quality-report')
+        .post('/api/v1/customer/quality-report')
         .set('Authorization', `Bearer ${token}`)
         .send({ table: 'crm_supplier' });
 
@@ -108,10 +108,11 @@ describe('数据质量检查模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .post('/api/customer/quality-check')
+        .post('/api/v1/customer/quality-check')
         .send({ table: 'crm_customer' });
 
       expect(res.status).toBe(401);
     });
   });
 });
+

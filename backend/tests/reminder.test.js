@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -29,7 +29,7 @@ jest.mock('../utils/config', () => ({
 
 const app = express();
 app.use(express.json());
-app.use('/api/reminder', require('../routes/reminder'));
+app.use('/api/v1/reminder', require('../routes/reminder'));
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, manageAll: true, viewAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -40,7 +40,7 @@ describe('提醒系统模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('GET /api/reminder/my-reminders', () => {
+  describe('GET /api/v1/reminder/my-reminders', () => {
     it('应该返回200和提醒列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -51,7 +51,7 @@ describe('提醒系统模块', () => {
         .mockResolvedValueOnce([[]]); // overdue services
 
       const res = await request(app)
-        .get('/api/reminder/my-reminders')
+        .get('/api/v1/reminder/my-reminders')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -62,7 +62,7 @@ describe('提醒系统模块', () => {
     });
   });
 
-  describe('POST /api/reminder/overdue-list', () => {
+  describe('POST /api/v1/reminder/overdue-list', () => {
     it('应该返回200和逾期列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -71,7 +71,7 @@ describe('提醒系统模块', () => {
         .mockResolvedValueOnce([[{ id: 1, company_name: '测试公司', overdue_days: 10 }]]); // list
 
       const res = await request(app)
-        .post('/api/reminder/overdue-list')
+        .post('/api/v1/reminder/overdue-list')
         .set('Authorization', `Bearer ${token}`)
         .send({ page: 1, pageSize: 20 });
 
@@ -82,13 +82,13 @@ describe('提醒系统模块', () => {
     });
   });
 
-  describe('POST /api/reminder/mark-read', () => {
+  describe('POST /api/v1/reminder/mark-read', () => {
     it('应该返回400当缺少reminder_id', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/reminder/mark-read')
+        .post('/api/v1/reminder/mark-read')
         .set('Authorization', `Bearer ${token}`)
         .send({});
 
@@ -103,7 +103,7 @@ describe('提醒系统模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]);
 
       const res = await request(app)
-        .post('/api/reminder/mark-read')
+        .post('/api/v1/reminder/mark-read')
         .set('Authorization', `Bearer ${token}`)
         .send({ reminder_id: 1 });
 
@@ -112,7 +112,7 @@ describe('提醒系统模块', () => {
     });
   });
 
-  describe('POST /api/reminder/mark-all-read', () => {
+  describe('POST /api/v1/reminder/mark-all-read', () => {
     it('应该返回200当全部标记已读', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -121,7 +121,7 @@ describe('提醒系统模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 5 }]); // notifications
 
       const res = await request(app)
-        .post('/api/reminder/mark-all-read')
+        .post('/api/v1/reminder/mark-all-read')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -129,7 +129,7 @@ describe('提醒系统模块', () => {
     });
   });
 
-  describe('POST /api/reminder/dismiss', () => {
+  describe('POST /api/v1/reminder/dismiss', () => {
     it('应该返回200当正常忽略提醒', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -137,7 +137,7 @@ describe('提醒系统模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]);
 
       const res = await request(app)
-        .post('/api/reminder/dismiss')
+        .post('/api/v1/reminder/dismiss')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: 1 });
 
@@ -146,7 +146,7 @@ describe('提醒系统模块', () => {
     });
   });
 
-  describe('GET /api/reminder/payment-overdue', () => {
+  describe('GET /api/v1/reminder/payment-overdue', () => {
     it('应该返回200和回款逾期列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -155,7 +155,7 @@ describe('提醒系统模块', () => {
         .mockResolvedValueOnce([[{ id: 2, plan_date: '2025-06-25', plan_amount: 8000, paid_amount: 0 }]]); // upcoming
 
       const res = await request(app)
-        .get('/api/reminder/payment-overdue')
+        .get('/api/v1/reminder/payment-overdue')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -165,7 +165,7 @@ describe('提醒系统模块', () => {
     });
   });
 
-  describe('GET /api/reminder/notification-list', () => {
+  describe('GET /api/v1/reminder/notification-list', () => {
     it('应该返回200和通知列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -174,7 +174,7 @@ describe('提醒系统模块', () => {
         .mockResolvedValueOnce([[{ id: 1, title: '测试通知', is_read: 0 }]]); // list
 
       const res = await request(app)
-        .get('/api/reminder/notification-list')
+        .get('/api/v1/reminder/notification-list')
         .set('Authorization', `Bearer ${token}`)
         .query({ page: 1, pageSize: 20 });
 
@@ -185,3 +185,4 @@ describe('提醒系统模块', () => {
     });
   });
 });
+

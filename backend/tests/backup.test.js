@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -48,7 +48,7 @@ const app = express();
 app.use(express.json());
 
 const backupRoutes = require('../routes/backup');
-app.use('/api/backup', backupRoutes);
+app.use('/api/v1/backup', backupRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -59,7 +59,7 @@ describe('数据备份模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('POST /api/backup/list', () => {
+  describe('POST /api/v1/backup/list', () => {
     it('应该返回备份列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -68,7 +68,7 @@ describe('数据备份模块', () => {
         .mockResolvedValueOnce([[{ id: 1, file_name: 'huakey_crm_full_2026-06-23.sql', status: 'success' }]]); // list
 
       const res = await request(app)
-        .post('/api/backup/list')
+        .post('/api/v1/backup/list')
         .set('Authorization', `Bearer ${token}`)
         .send({ page: 1, pageSize: 20 });
 
@@ -79,7 +79,7 @@ describe('数据备份模块', () => {
     });
   });
 
-  describe('POST /api/backup/create', () => {
+  describe('POST /api/v1/backup/create', () => {
     it('应该返回200当正常创建备份', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -87,7 +87,7 @@ describe('数据备份模块', () => {
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert backup record
 
       const res = await request(app)
-        .post('/api/backup/create')
+        .post('/api/v1/backup/create')
         .set('Authorization', `Bearer ${token}`)
         .send();
 
@@ -98,13 +98,13 @@ describe('数据备份模块', () => {
     });
   });
 
-  describe('POST /api/backup/restore', () => {
+  describe('POST /api/v1/backup/restore', () => {
     it('应该返回400当确认码不正确', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/backup/restore')
+        .post('/api/v1/backup/restore')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1, confirm_code: 'WRONG-CODE' });
 
@@ -121,7 +121,7 @@ describe('数据备份模块', () => {
         .mockResolvedValueOnce([[{ id: 1, status: 'success', file_path: '/tmp/test_backup.sql' }]]); // SELECT backup record
 
       const res = await request(app)
-        .post('/api/backup/restore')
+        .post('/api/v1/backup/restore')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1, confirm_code: confirmCode });
 
@@ -130,7 +130,7 @@ describe('数据备份模块', () => {
     });
   });
 
-  describe('POST /api/backup/delete', () => {
+  describe('POST /api/v1/backup/delete', () => {
     it('应该返回200当正常删除备份', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -139,7 +139,7 @@ describe('数据备份模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // DELETE record
 
       const res = await request(app)
-        .post('/api/backup/delete')
+        .post('/api/v1/backup/delete')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1 });
 
@@ -151,10 +151,11 @@ describe('数据备份模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .post('/api/backup/list')
+        .post('/api/v1/backup/list')
         .send({});
 
       expect(res.status).toBe(401);
     });
   });
 });
+

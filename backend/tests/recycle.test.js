@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -34,7 +34,7 @@ const app = express();
 app.use(express.json());
 
 const recycleRoutes = require('../routes/recycle');
-app.use('/api/recycle', recycleRoutes);
+app.use('/api/v1/recycle', recycleRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -47,7 +47,7 @@ describe('回收站模块', () => {
     mockPool.query.mockReset();
   });
 
-  describe('POST /api/recycle/list', () => {
+  describe('POST /api/v1/recycle/list', () => {
     it('应该返回回收站列表', async () => {
       // 8 module stats queries (one per TABLE_CONFIG entry)
       mockPool.query
@@ -63,7 +63,7 @@ describe('回收站模块', () => {
         .mockResolvedValueOnce([[{ cnt: 2 }]]); // product
 
       const res = await request(app)
-        .post('/api/recycle/list')
+        .post('/api/v1/recycle/list')
         .set('Authorization', `Bearer ${token}`)
         .send({});
 
@@ -74,13 +74,13 @@ describe('回收站模块', () => {
     });
   });
 
-  describe('POST /api/recycle/restore', () => {
+  describe('POST /api/v1/recycle/restore', () => {
     it('应该返回200当正常恢复记录', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/recycle/restore')
+        .post('/api/v1/recycle/restore')
         .set('Authorization', `Bearer ${token}`)
         .send({ module: 'customer', id: 1 });
 
@@ -89,13 +89,13 @@ describe('回收站模块', () => {
     });
   });
 
-  describe('POST /api/recycle/permanent-delete', () => {
+  describe('POST /api/v1/recycle/permanent-delete', () => {
     it('应该返回200当正常永久删除', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/recycle/permanent-delete')
+        .post('/api/v1/recycle/permanent-delete')
         .set('Authorization', `Bearer ${token}`)
         .send({ module: 'customer', id: 1 });
 
@@ -107,10 +107,11 @@ describe('回收站模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .post('/api/recycle/list')
+        .post('/api/v1/recycle/list')
         .send({});
 
       expect(res.status).toBe(401);
     });
   });
 });
+

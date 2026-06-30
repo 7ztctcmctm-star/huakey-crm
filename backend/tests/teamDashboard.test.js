@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -31,7 +31,7 @@ const app = express();
 app.use(express.json());
 
 const teamDashboardRoutes = require('../routes/teamDashboard');
-app.use('/api/team-dashboard', teamDashboardRoutes);
+app.use('/api/v1/team-dashboard', teamDashboardRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, manageAll: true, viewAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -42,7 +42,7 @@ describe('团队仪表盘模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('GET /api/team-dashboard/overview', () => {
+  describe('GET /api/v1/team-dashboard/overview', () => {
     it('应该返回概览数据', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -56,7 +56,7 @@ describe('团队仪表盘模块', () => {
         .mockResolvedValueOnce([[{ target_total: '300000' }]]); // targetResult
 
       const res = await request(app)
-        .get('/api/team-dashboard/overview')
+        .get('/api/v1/team-dashboard/overview')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -67,7 +67,7 @@ describe('团队仪表盘模块', () => {
     });
   });
 
-  describe('GET /api/team-dashboard/sales-breakdown', () => {
+  describe('GET /api/v1/team-dashboard/sales-breakdown', () => {
     it('应该返回销售分解数据', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -89,7 +89,7 @@ describe('团队仪表盘模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/team-dashboard/sales-breakdown')
+        .get('/api/v1/team-dashboard/sales-breakdown')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -100,7 +100,7 @@ describe('团队仪表盘模块', () => {
     });
   });
 
-  describe('GET /api/team-dashboard/pending-approvals', () => {
+  describe('GET /api/v1/team-dashboard/pending-approvals', () => {
     it('应该返回待审批列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -113,7 +113,7 @@ describe('团队仪表盘模块', () => {
         .mockResolvedValueOnce([[{ contract_no: 'C-001', amount: 100000 }]]); // contract detail
 
       const res = await request(app)
-        .get('/api/team-dashboard/pending-approvals')
+        .get('/api/v1/team-dashboard/pending-approvals')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -122,7 +122,7 @@ describe('团队仪表盘模块', () => {
     });
   });
 
-  describe('GET /api/team-dashboard/stuck-opportunities', () => {
+  describe('GET /api/v1/team-dashboard/stuck-opportunities', () => {
     it('应该返回卡住商机列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -132,7 +132,7 @@ describe('团队仪表盘模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/team-dashboard/stuck-opportunities')
+        .get('/api/v1/team-dashboard/stuck-opportunities')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -145,9 +145,10 @@ describe('团队仪表盘模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .get('/api/team-dashboard/overview');
+        .get('/api/v1/team-dashboard/overview');
 
       expect(res.status).toBe(401);
     });
   });
 });
+

@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -21,7 +21,7 @@ const app = express();
 app.use(express.json());
 
 const productRoutes = require('../routes/product');
-app.use('/api/product', productRoutes);
+app.use('/api/v1/product', productRoutes);
 
 const generateToken = () => {
   return jwt.sign(
@@ -36,7 +36,7 @@ describe('产品模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('POST /api/product/list', () => {
+  describe('POST /api/v1/product/list', () => {
     it('应该返回200和产品列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]])  // blacklist check
@@ -45,7 +45,7 @@ describe('产品模块', () => {
         .mockResolvedValueOnce([[{ id: 1, name: '测试产品', code: 'P001', price: 100 }]]);
 
       const res = await request(app)
-        .post('/api/product/list')
+        .post('/api/v1/product/list')
         .set('Authorization', `Bearer ${token}`)
         .send({ page: 1, pageSize: 20 });
 
@@ -56,10 +56,10 @@ describe('产品模块', () => {
     });
   });
 
-  describe('POST /api/product/add', () => {
+  describe('POST /api/v1/product/add', () => {
     it('应该返回400当缺少必填字段name', async () => {
       const res = await request(app)
-        .post('/api/product/add')
+        .post('/api/v1/product/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ code: 'P001', price: 100 });
 
@@ -71,7 +71,7 @@ describe('产品模块', () => {
       mockPool.query.mockResolvedValue([{ insertId: 1 }]);
 
       const res = await request(app)
-        .post('/api/product/add')
+        .post('/api/v1/product/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '新产品', price: 200 });
 
@@ -80,3 +80,4 @@ describe('产品模块', () => {
     });
   });
 });
+

@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -21,7 +21,7 @@ app.use(express.json());
 
 const supplierRoutes = require('../routes/supplier');
 
-app.use('/api/supplier', supplierRoutes);
+app.use('/api/v1/supplier', supplierRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -32,10 +32,10 @@ describe('供应商模块 - 参数验证', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('POST /api/supplier/add', () => {
+  describe('POST /api/v1/supplier/add', () => {
     it('应该返回400当缺少供应商名称', async () => {
       const res = await request(app)
-        .post('/api/supplier/add')
+        .post('/api/v1/supplier/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ contact_person: '张三' });
 
@@ -45,7 +45,7 @@ describe('供应商模块 - 参数验证', () => {
 
     it('应该返回400当邮箱格式不正确', async () => {
       const res = await request(app)
-        .post('/api/supplier/add')
+        .post('/api/v1/supplier/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '测试供应商', contact_email: 'invalid-email' });
 
@@ -55,7 +55,7 @@ describe('供应商模块 - 参数验证', () => {
 
     it('应该返回400当类型不在允许范围内', async () => {
       const res = await request(app)
-        .post('/api/supplier/add')
+        .post('/api/v1/supplier/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '测试供应商', type: '未知类型' });
 
@@ -64,7 +64,7 @@ describe('供应商模块 - 参数验证', () => {
 
     it('应该返回400当等级不在允许范围内', async () => {
       const res = await request(app)
-        .post('/api/supplier/add')
+        .post('/api/v1/supplier/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '测试供应商', level: '超级' });
 
@@ -72,10 +72,10 @@ describe('供应商模块 - 参数验证', () => {
     });
   });
 
-  describe('POST /api/supplier/contact/add', () => {
+  describe('POST /api/v1/supplier/contact/add', () => {
     it('应该返回400当缺少联系人姓名', async () => {
       const res = await request(app)
-        .post('/api/supplier/contact/add')
+        .post('/api/v1/supplier/contact/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ supplier_id: 1 });
 
@@ -84,7 +84,7 @@ describe('供应商模块 - 参数验证', () => {
 
     it('应该返回400当手机号格式不正确', async () => {
       const res = await request(app)
-        .post('/api/supplier/contact/add')
+        .post('/api/v1/supplier/contact/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ supplier_id: 1, name: '张三', mobile: '12345' });
 
@@ -92,10 +92,10 @@ describe('供应商模块 - 参数验证', () => {
     });
   });
 
-  describe('POST /api/supplier/delete', () => {
+  describe('POST /api/v1/supplier/delete', () => {
     it('应该返回400当缺少ID', async () => {
       const res = await request(app)
-        .post('/api/supplier/delete')
+        .post('/api/v1/supplier/delete')
         .set('Authorization', `Bearer ${token}`)
         .send({});
 
@@ -103,3 +103,4 @@ describe('供应商模块 - 参数验证', () => {
     });
   });
 });
+

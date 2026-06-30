@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -26,7 +26,7 @@ const app = express();
 app.use(express.json());
 
 const userRoutes = require('../routes/user');
-app.use('/api/user', userRoutes);
+app.use('/api/v1/user', userRoutes);
 
 const generateToken = (userId = 1) => {
   return jwt.sign({ userId, username: 'admin', roleId: 1, manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -35,14 +35,14 @@ const generateToken = (userId = 1) => {
 describe('用户管理模块', () => {
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('POST /api/user/add', () => {
+  describe('POST /api/v1/user/add', () => {
     it('应该返回400当缺少username字段', async () => {
       const token = generateToken();
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/user/add')
+        .post('/api/v1/user/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ password: 'Pass123' });
 
@@ -56,7 +56,7 @@ describe('用户管理模块', () => {
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/user/add')
+        .post('/api/v1/user/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ username: 'testuser' });
 
@@ -72,7 +72,7 @@ describe('用户管理模块', () => {
         .mockResolvedValueOnce([[{ id: 99 }]]); // user exists
 
       const res = await request(app)
-        .post('/api/user/add')
+        .post('/api/v1/user/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ username: 'existing_user', password: 'Pass123' });
 
@@ -89,7 +89,7 @@ describe('用户管理模块', () => {
         .mockResolvedValueOnce([{ insertId: 10 }]);
 
       const res = await request(app)
-        .post('/api/user/add')
+        .post('/api/v1/user/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ username: 'newuser', password: 'Pass123', real_name: '新用户' });
 
@@ -99,14 +99,14 @@ describe('用户管理模块', () => {
     });
   });
 
-  describe('POST /api/user/update', () => {
+  describe('POST /api/v1/user/update', () => {
     it('应该返回400当缺少id字段', async () => {
       const token = generateToken();
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/user/update')
+        .post('/api/v1/user/update')
         .set('Authorization', `Bearer ${token}`)
         .send({ real_name: '修改名称' });
 
@@ -123,7 +123,7 @@ describe('用户管理模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]);
 
       const res = await request(app)
-        .post('/api/user/update')
+        .post('/api/v1/user/update')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 2, real_name: '修改后的名称' });
 
@@ -132,14 +132,14 @@ describe('用户管理模块', () => {
     });
   });
 
-  describe('POST /api/user/delete', () => {
+  describe('POST /api/v1/user/delete', () => {
     it('应该返回400当缺少id字段', async () => {
       const token = generateToken();
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/user/delete')
+        .post('/api/v1/user/delete')
         .set('Authorization', `Bearer ${token}`)
         .send({});
 
@@ -155,7 +155,7 @@ describe('用户管理模块', () => {
         .mockResolvedValueOnce([[{ id: 1 }]]); // user exists
 
       const res = await request(app)
-        .post('/api/user/delete')
+        .post('/api/v1/user/delete')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1 });
 
@@ -172,7 +172,7 @@ describe('用户管理模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]);
 
       const res = await request(app)
-        .post('/api/user/delete')
+        .post('/api/v1/user/delete')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 2 });
 
@@ -181,3 +181,4 @@ describe('用户管理模块', () => {
     });
   });
 });
+

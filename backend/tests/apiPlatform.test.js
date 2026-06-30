@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -31,7 +31,7 @@ const app = express();
 app.use(express.json());
 
 const apiPlatformRoutes = require('../routes/api-platform');
-app.use('/api/platform', apiPlatformRoutes);
+app.use('/api/v1/platform', apiPlatformRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -42,7 +42,7 @@ describe('API平台模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('GET /api/platform/keys', () => {
+  describe('GET /api/v1/platform/keys', () => {
     it('应该返回API Key列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -52,7 +52,7 @@ describe('API平台模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/platform/keys')
+        .get('/api/v1/platform/keys')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -62,7 +62,7 @@ describe('API平台模块', () => {
     });
   });
 
-  describe('POST /api/platform/keys', () => {
+  describe('POST /api/v1/platform/keys', () => {
     it('应该返回200当正常创建Key', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -70,7 +70,7 @@ describe('API平台模块', () => {
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
-        .post('/api/platform/keys')
+        .post('/api/v1/platform/keys')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '新密钥' });
 
@@ -81,7 +81,7 @@ describe('API平台模块', () => {
     });
   });
 
-  describe('POST /api/platform/keys/:id/regenerate', () => {
+  describe('POST /api/v1/platform/keys/:id/regenerate', () => {
     it('应该返回200当重新生成密钥', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -89,7 +89,7 @@ describe('API平台模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
 
       const res = await request(app)
-        .post('/api/platform/keys/1/regenerate')
+        .post('/api/v1/platform/keys/1/regenerate')
         .set('Authorization', `Bearer ${token}`)
         .send();
 
@@ -100,7 +100,7 @@ describe('API平台模块', () => {
     });
   });
 
-  describe('DELETE /api/platform/keys/:id', () => {
+  describe('DELETE /api/v1/platform/keys/:id', () => {
     it('应该返回200当删除Key', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -108,7 +108,7 @@ describe('API平台模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 
       const res = await request(app)
-        .delete('/api/platform/keys/1')
+        .delete('/api/v1/platform/keys/1')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -119,9 +119,10 @@ describe('API平台模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .get('/api/platform/keys');
+        .get('/api/v1/platform/keys');
 
       expect(res.status).toBe(401);
     });
   });
 });
+

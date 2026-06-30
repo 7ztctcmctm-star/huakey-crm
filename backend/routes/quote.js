@@ -110,7 +110,7 @@ router.post('/to-contract', authenticateToken, checkPermission('quotation:edit')
 router.post('/approve', authenticateToken, async (req, res) => {
   try {
     const { id, approval_status, approval_remark } = req.body;
-    if (!req.user.manageAll && !ADMIN_ROLE_CODES.has(req.user.roleCode)) {
+    if (!req.user.manageAll && !ROLES.ADMIN_ROLE_CODES.has(req.user.roleCode)) {
       return res.status(403).json({ code: 403, message: '无审批权限', data: null });
     }
     if (!id || ![2, 3].includes(approval_status)) {

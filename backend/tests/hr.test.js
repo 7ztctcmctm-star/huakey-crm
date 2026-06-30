@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -27,7 +27,7 @@ const app = express();
 app.use(express.json());
 
 const hrRoutes = require('../routes/hr');
-app.use('/api/hr', hrRoutes);
+app.use('/api/v1/hr', hrRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -38,7 +38,7 @@ describe('人力资源模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('GET /api/hr/employees', () => {
+  describe('GET /api/v1/hr/employees', () => {
     it('应该返回员工列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // 1. blacklist check
@@ -51,7 +51,7 @@ describe('人力资源模块', () => {
         .mockResolvedValueOnce([[{ expiring: 1 }]]); // 4. expiring contracts count
 
       const res = await request(app)
-        .get('/api/hr/employees')
+        .get('/api/v1/hr/employees')
         .set('Authorization', `Bearer ${token}`)
         .query({ page: 1, pageSize: 20 });
 
@@ -62,7 +62,7 @@ describe('人力资源模块', () => {
     });
   });
 
-  describe('GET /api/hr/employees/:id', () => {
+  describe('GET /api/v1/hr/employees/:id', () => {
     it('应该返回员工详情', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -70,7 +70,7 @@ describe('人力资源模块', () => {
         .mockResolvedValueOnce([[{ id: 1, real_name: '张三', dept_name: '销售部', hire_date: '2024-01-15', position: '销售经理' }]]); // employee detail
 
       const res = await request(app)
-        .get('/api/hr/employees/1')
+        .get('/api/v1/hr/employees/1')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -79,7 +79,7 @@ describe('人力资源模块', () => {
     });
   });
 
-  describe('POST /api/hr/employees/:id/profile', () => {
+  describe('POST /api/v1/hr/employees/:id/profile', () => {
     it('应该返回400当没有要更新的字段', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -87,7 +87,7 @@ describe('人力资源模块', () => {
         .mockResolvedValueOnce([[{ id: 1 }]]); // user exists check
 
       const res = await request(app)
-        .post('/api/hr/employees/1/profile')
+        .post('/api/v1/hr/employees/1/profile')
         .set('Authorization', `Bearer ${token}`)
         .send({});
 
@@ -103,7 +103,7 @@ describe('人力资源模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // insert/update profile
 
       const res = await request(app)
-        .post('/api/hr/employees/1/profile')
+        .post('/api/v1/hr/employees/1/profile')
         .set('Authorization', `Bearer ${token}`)
         .send({ hire_date: '2024-01-15', position: '销售经理', employment_type: '全职', salary_base: 8000 });
 
@@ -112,7 +112,7 @@ describe('人力资源模块', () => {
     });
   });
 
-  describe('GET /api/hr/org-tree', () => {
+  describe('GET /api/v1/hr/org-tree', () => {
     it('应该返回组织架构树', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -125,7 +125,7 @@ describe('人力资源模块', () => {
         .mockResolvedValueOnce([[{ cnt: 10 }]]); // total employees
 
       const res = await request(app)
-        .get('/api/hr/org-tree')
+        .get('/api/v1/hr/org-tree')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -139,9 +139,10 @@ describe('人力资源模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .get('/api/hr/employees');
+        .get('/api/v1/hr/employees');
 
       expect(res.status).toBe(401);
     });
   });
 });
+

@@ -33,11 +33,17 @@ const testConnection = async () => {
     connection.release();
   } catch (error) {
     console.error('数据库连接失败:', error.message);
-    process.exit(1);
+    // 测试环境由测试自行控制连接，避免阻断测试进程
+    if (process.env.NODE_ENV !== 'test') {
+      process.exit(1);
+    }
   }
 };
 
-testConnection();
+// 测试环境不强制等待连接测试结果，避免阻断单元/集成测试
+if (process.env.NODE_ENV !== 'test') {
+  testConnection();
+}
 
 /**
  * 带 traceId 的数据库查询包装函数
@@ -54,5 +60,27 @@ async function queryWithTrace(traceId, sql, params) {
   return pool.query(tracedSql, params);
 }
 
+/**
+ * 只读连接池（用于报表、AI 查询、搜索等读操作）
+ * 未配置 DB_RO_* 时自动降级使用主库连接池
+ */
+const readOnlyPool = process.env.DB_RO_HOST
+  ? mysql.createPool({
+      host: process.env.DB_RO_HOST || process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_RO_PORT || process.env.DB_PORT) || 3306,
+      user: process.env.DB_RO_USER || process.env.DB_USER || 'crm_user',
+      password: process.env.DB_RO_PASSWORD || process.env.DB_PASSWORD,
+      database: process.env.DB_RO_NAME || process.env.DB_NAME || 'huakey_crm',
+      waitForConnections: true,
+      connectionLimit: 5,
+      queueLimit: 0,
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 10000,
+      multipleStatements: false,
+      charset: 'utf8mb4'
+    })
+  : pool;
+
 module.exports = pool;
+module.exports.readOnlyPool = readOnlyPool;
 module.exports.queryWithTrace = queryWithTrace;

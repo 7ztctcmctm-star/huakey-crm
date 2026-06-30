@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -33,7 +33,7 @@ const app = express();
 app.use(express.json());
 
 const contractTemplateRoutes = require('../routes/contractTemplate');
-app.use('/api/contract-template', contractTemplateRoutes);
+app.use('/api/v1/contract-template', contractTemplateRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -44,7 +44,7 @@ describe('合同模板模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('GET /api/contract-template/list', () => {
+  describe('GET /api/v1/contract-template/list', () => {
     it('应该返回模板列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -55,7 +55,7 @@ describe('合同模板模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/contract-template/list')
+        .get('/api/v1/contract-template/list')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -64,7 +64,7 @@ describe('合同模板模块', () => {
     });
   });
 
-  describe('POST /api/contract-template/manage (add)', () => {
+  describe('POST /api/v1/contract-template/manage (add)', () => {
     it('应该返回200当正常创建模板', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -72,7 +72,7 @@ describe('合同模板模块', () => {
         .mockResolvedValueOnce([{ insertId: 3 }]); // insert
 
       const res = await request(app)
-        .post('/api/contract-template/manage')
+        .post('/api/v1/contract-template/manage')
         .set('Authorization', `Bearer ${token}`)
         .send({ action: 'add', name: '新合同模板', amount: 50000, payment_terms: '验收后付清' });
 
@@ -82,7 +82,7 @@ describe('合同模板模块', () => {
     });
   });
 
-  describe('POST /api/contract-template/manage (delete)', () => {
+  describe('POST /api/v1/contract-template/manage (delete)', () => {
     it('应该返回200当正常删除模板', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -90,7 +90,7 @@ describe('合同模板模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 
       const res = await request(app)
-        .post('/api/contract-template/manage')
+        .post('/api/v1/contract-template/manage')
         .set('Authorization', `Bearer ${token}`)
         .send({ action: 'delete', id: 1 });
 
@@ -102,9 +102,10 @@ describe('合同模板模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .get('/api/contract-template/list');
+        .get('/api/v1/contract-template/list');
 
       expect(res.status).toBe(401);
     });
   });
 });
+

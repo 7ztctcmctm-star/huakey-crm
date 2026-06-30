@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -26,7 +26,7 @@ const app = express();
 app.use(express.json());
 
 const logRoutes = require('../routes/log');
-app.use('/api/log', logRoutes);
+app.use('/api/v1/log', logRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -37,7 +37,7 @@ describe('操作日志模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('POST /api/log/list', () => {
+  describe('POST /api/v1/log/list', () => {
     it('应该返回200和分页日志列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -49,7 +49,7 @@ describe('操作日志模块', () => {
         ]]);
 
       const res = await request(app)
-        .post('/api/log/list')
+        .post('/api/v1/log/list')
         .set('Authorization', `Bearer ${token}`)
         .send({ page: 1, pageSize: 20 });
 
@@ -69,7 +69,7 @@ describe('操作日志模块', () => {
         .mockResolvedValueOnce([[{ id: 1, module: 'auth', action: '登录' }]]);
 
       const res = await request(app)
-        .post('/api/log/list')
+        .post('/api/v1/log/list')
         .set('Authorization', `Bearer ${token}`)
         .send({ page: 1, pageSize: 20, module: 'auth' });
 
@@ -85,7 +85,7 @@ describe('操作日志模块', () => {
         .mockResolvedValueOnce([[{ id: 1, module: 'customer', action: '新增' }]]);
 
       const res = await request(app)
-        .post('/api/log/list')
+        .post('/api/v1/log/list')
         .set('Authorization', `Bearer ${token}`)
         .send({ page: 1, pageSize: 20, startDate: '2025-01-01', endDate: '2025-01-31' });
 
@@ -94,7 +94,7 @@ describe('操作日志模块', () => {
     });
   });
 
-  describe('GET /api/log/detail/:id', () => {
+  describe('GET /api/v1/log/detail/:id', () => {
     it('应该返回404当日志不存在', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -102,7 +102,7 @@ describe('操作日志模块', () => {
         .mockResolvedValueOnce([[]]); // log not found
 
       const res = await request(app)
-        .get('/api/log/detail/999')
+        .get('/api/v1/log/detail/999')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(404);
@@ -114,11 +114,11 @@ describe('操作日志模块', () => {
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[
-          { id: 1, module: 'auth', action: '登录', method: 'POST', url: '/api/auth/login', user_name: '管理员', ip_address: '127.0.0.1', status: 1, create_time: '2025-01-01 10:00:00' }
+          { id: 1, module: 'auth', action: '登录', method: 'POST', url: '/api/v1/auth/login', user_name: '管理员', ip_address: '127.0.0.1', status: 1, create_time: '2025-01-01 10:00:00' }
         ]]);
 
       const res = await request(app)
-        .get('/api/log/detail/1')
+        .get('/api/v1/log/detail/1')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -128,7 +128,7 @@ describe('操作日志模块', () => {
     });
   });
 
-  describe('GET /api/log/modules', () => {
+  describe('GET /api/v1/log/modules', () => {
     it('应该返回200和模块列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -136,7 +136,7 @@ describe('操作日志模块', () => {
         .mockResolvedValueOnce([[{ module: 'auth' }, { module: 'customer' }, { module: 'contract' }]]);
 
       const res = await request(app)
-        .get('/api/log/modules')
+        .get('/api/v1/log/modules')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -147,3 +147,4 @@ describe('操作日志模块', () => {
     });
   });
 });
+

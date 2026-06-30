@@ -32,7 +32,7 @@ const traceIdMiddleware = require('./middleware/traceId');
 app.use(traceIdMiddleware);
 
 // 错误告警
-const { alertError } = require('./utils/alert');
+const { alertError, record500Error } = require('./utils/alert');
 
 // Prometheus 指标中间件（记录每个请求的 Counter + Histogram）
 const { metricsMiddleware, startPoolMetricsCollection } = require('./config/metrics');
@@ -62,17 +62,20 @@ const { apiLimiter, authLimiter } = require('./middleware/rateLimiter');
 // 统一响应格式中间件
 const responseFormat = require('./middleware/responseFormat');
 
+// 模块注册器（试点：customer、product、report）
+const registry = require('./core/ModuleRegistry');
+require('./routes/customer/module');
+require('./routes/product/module');
+require('./routes/report/module');
+
 // 加载路由
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
-const customerRoutes = require('./routes/customer');
 const followUpRoutes = require('./routes/followUp');
 const opportunityRoutes = require('./routes/opportunity');
-const productRoutes = require('./routes/product');
 const quoteRoutes = require('./routes/quote');
 const contractRoutes = require('./routes/contract');
 const serviceRoutes = require('./routes/service');
-const reportRoutes = require('./routes/report');
 const roleRoutes = require('./routes/role');
 const deptRoutes = require('./routes/dept');
 const logRoutes = require('./routes/log');
@@ -99,6 +102,7 @@ const approvalRoutes = require('./routes/approval');
 const knowledgeRoutes = require('./routes/knowledge');
 const surveyRoutes = require('./routes/survey');
 const inventoryRoutes = require('./routes/inventory');
+const sseRoutes = require('./routes/sse');
 const procurementPlanRoutes = require('./routes/procurement-plan');
 const financeEnhancedRoutes = require('./routes/finance-enhanced');
 const hrRoutes = require('./routes/hr');
@@ -124,7 +128,8 @@ apiRouter.use(globalLogMiddleware);
 apiRouter.use(responseFormat);
 
 // 全局错误处理中间件（捕获路由中未处理的错误）
-apiRouter.use((err, req, res, next) => {
+// eslint-disable-next-line no-unused-vars
+apiRouter.use((err, req, res, _next) => {
   const ctx = {
     userId: req.user?.userId || 'anonymous',
     method: req.method,
@@ -175,7 +180,7 @@ apiRouter.get('/health', async (req, res) => {
     const [rows] = await pool.query('SELECT VERSION() AS v');
     dbOk = true;
     if (rows && rows[0]) mysqlVersion = 'MySQL ' + rows[0].v;
-  } catch {}
+  } catch { /* ok */ }
 
   // 检测Redis
   try {
@@ -184,7 +189,7 @@ apiRouter.get('/health', async (req, res) => {
       await redis.ping();
       redisOk = true;
     }
-  } catch {}
+  } catch { /* ok */ }
 
   res.json({
     code: 200,
@@ -208,13 +213,15 @@ apiRouter.use('/auth', authLimiter, authRoutes);
 // 用户管理路由
 apiRouter.use('/user', userRoutes);
 
-// 客户管理路由
-apiRouter.use('/customer', customerRoutes);
+// 试点模块：通过 ModuleRegistry 自动挂载
+for (const { prefix, router } of registry.getAllRoutes()) {
+  apiRouter.use(prefix, router);
+}
 
 // 跟进记录路由
 apiRouter.use('/follow-up', followUpRoutes);
 apiRouter.use('/opportunity', opportunityRoutes);
-apiRouter.use('/product', productRoutes);
+// product 已通过 registry 挂载
 apiRouter.use('/quote', quoteRoutes);
 apiRouter.use('/contract', contractRoutes);
 apiRouter.use('/service', serviceRoutes);
@@ -222,7 +229,7 @@ apiRouter.use('/supplier', supplierRoutes);
 apiRouter.use('/purchase', purchaseRoutes);
 apiRouter.use('/role', roleRoutes);
 apiRouter.use('/dept', deptRoutes);
-apiRouter.use('/report', reportRoutes);
+// report 已通过 registry 挂载
 apiRouter.use('/log', logRoutes);
 apiRouter.use('/team-dashboard', teamDashboardRoutes);
 apiRouter.use('/reminder', reminderRoutes);
@@ -244,6 +251,7 @@ apiRouter.use('/scoring', scoringRoutes);
 apiRouter.use('/approval', approvalRoutes);
 apiRouter.use('/knowledge', knowledgeRoutes);
 apiRouter.use('/inventory', inventoryRoutes);
+apiRouter.use('/sse', sseRoutes);
 apiRouter.use('/procurement-plan', procurementPlanRoutes);
 apiRouter.use('/finance', financeEnhancedRoutes);
 apiRouter.use('/hr', hrRoutes);
@@ -342,11 +350,18 @@ apiRouter.get('/metrics', authenticateToken, async (req, res) => {
 // 客户端性能指标（无需认证）
 apiRouter.use('/metrics', require('./routes/metrics'));
 
-// 使用 /api 前缀
-app.use('/api', apiRouter);
+// 使用 /api/v1 前缀
+app.use('/api/v1', apiRouter);
 
 // 调查模块单独注册（公开回复接口不需要token）
-app.use('/api/survey', responseFormat, surveyRoutes);
+app.use('/api/v1/survey', responseFormat, surveyRoutes);
+
+// 旧 /api 前缀重定向到 /api/v1（兼容期至 2026-08-01）
+app.use('/api', (req, res) => {
+  res.set('Deprecation', 'true');
+  res.set('Sunset', 'Sat, 01 Aug 2026 00:00:00 GMT');
+  res.redirect(307, '/api/v1' + req.originalUrl.replace(/^\/api/, ''));
+});
 
 // 生产环境：直接托管前端静态文件
 const path = require('path');
@@ -378,7 +393,8 @@ app.use((req, res) => {
 });
 
 // 全局错误处理中间件
-app.use((err, req, res, next) => {
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, _next) => {
   const statusCode = err.statusCode || err.status || 500;
   const ctx = {
     userId: req.user?.userId || 'anonymous',
@@ -388,8 +404,12 @@ app.use((err, req, res, next) => {
   };
   logger.error('[AppErrorHandler]', { ...ctx, error: err.stack || err.message, traceId: req.traceId });
 
+  if (statusCode >= 500) {
+    record500Error();
+  }
+
   alertError({
-    level: 'error',
+    level: statusCode >= 500 ? 'critical' : 'error',
     source: 'AppErrorHandler',
     message: err.stack || err.message,
     traceId: req.traceId
@@ -415,7 +435,7 @@ if (!process.env.VERCEL) {
   startPoolMetricsCollection(pool);
 
   // 全局未捕获Promise拒绝处理器
-  process.on('unhandledRejection', (reason, promise) => {
+  process.on('unhandledRejection', (reason) => {
     logger.error('[UnhandledRejection]', {
       message: reason?.message || reason,
       stack: reason?.stack?.substring(0, 500)

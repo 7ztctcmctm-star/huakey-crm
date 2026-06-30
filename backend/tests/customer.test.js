@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -16,7 +16,7 @@ app.use(express.json());
 
 const customerRoutes = require('../routes/customer');
 
-app.use('/api/customer', customerRoutes);
+app.use('/api/v1/customer', customerRoutes);
 
 const generateToken = () => {
   return jwt.sign(
@@ -33,10 +33,10 @@ describe('客户模块 - 参数验证', () => {
     mockPool.query.mockReset();
   });
 
-  describe('POST /api/customer/add', () => {
+  describe('POST /api/v1/customer/add', () => {
     it('应该返回400当缺少公司名称', async () => {
       const res = await request(app)
-        .post('/api/customer/add')
+        .post('/api/v1/customer/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ contact_name: '张三' });
 
@@ -47,7 +47,7 @@ describe('客户模块 - 参数验证', () => {
 
     it('应该返回400当手机号格式不正确', async () => {
       const res = await request(app)
-        .post('/api/customer/add')
+        .post('/api/v1/customer/add')
         .set('Authorization', `Bearer ${token}`)
         .send({
           company_name: '测试公司',
@@ -59,3 +59,4 @@ describe('客户模块 - 参数验证', () => {
     });
   });
 });
+

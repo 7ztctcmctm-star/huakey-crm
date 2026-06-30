@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -26,7 +26,7 @@ const app = express();
 app.use(express.json());
 
 const targetRoutes = require('../routes/target');
-app.use('/api/target', targetRoutes);
+app.use('/api/v1/target', targetRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -37,13 +37,13 @@ describe('销售目标模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('POST /api/target/set', () => {
+  describe('POST /api/v1/target/set', () => {
     it('应该返回400当缺少user_id', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/target/set')
+        .post('/api/v1/target/set')
         .set('Authorization', `Bearer ${token}`)
         .send({ year: 2026, month: 7, target_amount: 100000 });
 
@@ -59,7 +59,7 @@ describe('销售目标模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // INSERT ON DUPLICATE KEY UPDATE
 
       const res = await request(app)
-        .post('/api/target/set')
+        .post('/api/v1/target/set')
         .set('Authorization', `Bearer ${token}`)
         .send({ user_id: 2, year: 2026, month: 7, target_amount: 100000 });
 
@@ -68,7 +68,7 @@ describe('销售目标模块', () => {
     });
   });
 
-  describe('POST /api/target/list', () => {
+  describe('POST /api/v1/target/list', () => {
     it('应该返回目标列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -89,7 +89,7 @@ describe('销售目标模块', () => {
         ]]);
 
       const res = await request(app)
-        .post('/api/target/list')
+        .post('/api/v1/target/list')
         .set('Authorization', `Bearer ${token}`)
         .send({ year: 2026, month: 6 });
 
@@ -101,7 +101,7 @@ describe('销售目标模块', () => {
     });
   });
 
-  describe('POST /api/target/delete', () => {
+  describe('POST /api/v1/target/delete', () => {
     it('应该返回200当正常删除目标', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -109,7 +109,7 @@ describe('销售目标模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 
       const res = await request(app)
-        .post('/api/target/delete')
+        .post('/api/v1/target/delete')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1 });
 
@@ -121,10 +121,11 @@ describe('销售目标模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .post('/api/target/list')
+        .post('/api/v1/target/list')
         .send({ year: 2026, month: 6 });
 
       expect(res.status).toBe(401);
     });
   });
 });
+

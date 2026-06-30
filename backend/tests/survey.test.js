@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -26,7 +26,7 @@ const app = express();
 app.use(express.json());
 
 const surveyRoutes = require('../routes/survey');
-app.use('/api/survey', surveyRoutes);
+app.use('/api/v1/survey', surveyRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -37,7 +37,7 @@ describe('问卷调查模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('GET /api/survey/templates', () => {
+  describe('GET /api/v1/survey/templates', () => {
     it('应该返回模板列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -49,7 +49,7 @@ describe('问卷调查模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/survey/templates')
+        .get('/api/v1/survey/templates')
         .set('Authorization', `Bearer ${token}`)
         .query({ page: 1, pageSize: 20 });
 
@@ -60,7 +60,7 @@ describe('问卷调查模块', () => {
     });
   });
 
-  describe('POST /api/survey/templates', () => {
+  describe('POST /api/v1/survey/templates', () => {
     it('应该返回200当正常创建模板', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -68,7 +68,7 @@ describe('问卷调查模块', () => {
         .mockResolvedValueOnce([{ insertId: 3 }]); // insert
 
       const res = await request(app)
-        .post('/api/survey/templates')
+        .post('/api/v1/survey/templates')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '新调查模板', description: '测试模板', survey_type: 'csat', questions: [{ type: 'rating', question: '满意度' }] });
 
@@ -78,7 +78,7 @@ describe('问卷调查模块', () => {
     });
   });
 
-  describe('GET /api/survey/campaigns', () => {
+  describe('GET /api/v1/survey/campaigns', () => {
     it('应该返回活动列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -89,7 +89,7 @@ describe('问卷调查模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/survey/campaigns')
+        .get('/api/v1/survey/campaigns')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -98,7 +98,7 @@ describe('问卷调查模块', () => {
     });
   });
 
-  describe('POST /api/survey/campaigns', () => {
+  describe('POST /api/v1/survey/campaigns', () => {
     it('应该返回200当正常创建活动', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -106,7 +106,7 @@ describe('问卷调查模块', () => {
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
-        .post('/api/survey/campaigns')
+        .post('/api/v1/survey/campaigns')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '7月客户满意度调查', template_id: 1, target_type: 'all', send_method: 'email' });
 
@@ -116,7 +116,7 @@ describe('问卷调查模块', () => {
     });
   });
 
-  describe('POST /api/survey/campaigns/:id/start', () => {
+  describe('POST /api/v1/survey/campaigns/:id/start', () => {
     it('应该返回200当启动活动', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -127,7 +127,7 @@ describe('问卷调查模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update status
 
       const res = await request(app)
-        .post('/api/survey/campaigns/1/start')
+        .post('/api/v1/survey/campaigns/1/start')
         .set('Authorization', `Bearer ${token}`)
         .send();
 
@@ -140,9 +140,10 @@ describe('问卷调查模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .get('/api/survey/templates');
+        .get('/api/v1/survey/templates');
 
       expect(res.status).toBe(401);
     });
   });
 });
+

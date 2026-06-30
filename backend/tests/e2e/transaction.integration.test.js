@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 事务 rollback 集成测试
  * 验证 quote 和 contract 的事务在失败时正确回滚
  */
@@ -38,7 +38,7 @@ describe('事务回滚', () => {
 
     // 登录
     const res = await request(app)
-      .post('/api/auth/login')
+      .post('/api/v1/auth/login')
       .send({ username: ADMIN.username, password: ADMIN.password });
     token = res.body.data.token;
 
@@ -73,7 +73,7 @@ describe('事务回滚', () => {
       const [before] = await pool.query('SELECT COUNT(*) as cnt FROM crm_quote');
 
       const res = await request(app)
-        .post('/api/quote/add')
+        .post('/api/v1/quote/add')
         .set('Authorization', `Bearer ${token}`)
         .send({
           customer_id: customerId,
@@ -100,7 +100,7 @@ describe('事务回滚', () => {
       const [beforeItem] = await pool.query('SELECT COUNT(*) as cnt FROM crm_quote_item');
 
       const res = await request(app)
-        .post('/api/quote/add')
+        .post('/api/v1/quote/add')
         .set('Authorization', `Bearer ${token}`)
         .send({
           customer_id: customerId,
@@ -125,7 +125,7 @@ describe('事务回滚', () => {
       const [before] = await pool.query('SELECT COUNT(*) as cnt FROM crm_contract');
 
       const res = await request(app)
-        .post('/api/contract/add')
+        .post('/api/v1/contract/add')
         .set('Authorization', `Bearer ${token}`)
         .send({
           customer_id: 999999, // 不存在的客户
@@ -139,3 +139,4 @@ describe('事务回滚', () => {
     });
   });
 });
+

@@ -5,6 +5,7 @@
  */
 
 const ROLES = require('../config/roles');
+const sseManager = require('../utils/sseManager');
 
 /**
  * 构建售后工单数据权限SQL
@@ -330,6 +331,7 @@ async function assignServiceOrder(pool, id, assigneeId, user) {
      VALUES ('service_assigned', '新工单分配', ?, 'service_order', ?, ?, ?)`,
     [`新工单 #${orderInfo[0]?.order_no} "${orderInfo[0]?.title}" 已分配给您，请及时处理`, id, user.userId, assigneeId]
   );
+  sseManager.send(assigneeId, { type: 'notification', action: 'refresh' });
 }
 
 /**
@@ -358,6 +360,7 @@ async function batchAssignServiceOrders(pool, ids, assigneeId, userId) {
      VALUES ('service_assigned', '新工单分配', ?, 'service_order', ?, ?, ?)`,
     [`${ids.length}个工单 ${summary} 已批量分配给您，请及时处理`, ids[0], userId, assigneeId]
   );
+  sseManager.send(assigneeId, { type: 'notification', action: 'refresh' });
 
   return { count: ids.length };
 }

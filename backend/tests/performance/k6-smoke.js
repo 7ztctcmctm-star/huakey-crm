@@ -1,4 +1,4 @@
-/**
+﻿/**
  * k6 冒烟测试 — 健康检查端点
  *
  * 不阻断 CI，仅手动或 Release 触发：
@@ -16,7 +16,7 @@ export const options = {
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:5000';
 
 export default function () {
-  const healthRes = http.get(`${BASE_URL}/api/health`);
+  const healthRes = http.get(`${BASE_URL}/api/v1/health`);
   check(healthRes, {
     'health status 200': (r) => r.status === 200,
     'health data.status ok': (r) => JSON.parse(r.body).data.status === 'ok',
@@ -24,3 +24,4 @@ export default function () {
   });
   sleep(1);
 }
+

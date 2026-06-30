@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -26,7 +26,7 @@ const app = express();
 app.use(express.json());
 
 const followPlanRoutes = require('../routes/followPlan');
-app.use('/api/follow-plan', followPlanRoutes);
+app.use('/api/v1/follow-plan', followPlanRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -37,13 +37,13 @@ describe('跟进计划模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('POST /api/follow-plan/add', () => {
+  describe('POST /api/v1/follow-plan/add', () => {
     it('应该返回400当缺少customer_id', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/follow-plan/add')
+        .post('/api/v1/follow-plan/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ plan_time: '2026-07-01T10:00:00.000Z', plan_content: '电话回访客户' });
 
@@ -59,7 +59,7 @@ describe('跟进计划模块', () => {
         .mockResolvedValueOnce([{ insertId: 10 }]); // insert plan
 
       const res = await request(app)
-        .post('/api/follow-plan/add')
+        .post('/api/v1/follow-plan/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: 1, plan_time: '2026-07-01T10:00:00.000Z', plan_content: '电话回访客户', follow_type: '电话' });
 
@@ -69,7 +69,7 @@ describe('跟进计划模块', () => {
     });
   });
 
-  describe('POST /api/follow-plan/list', () => {
+  describe('POST /api/v1/follow-plan/list', () => {
     it('应该返回计划列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -81,7 +81,7 @@ describe('跟进计划模块', () => {
         ]]);
 
       const res = await request(app)
-        .post('/api/follow-plan/list')
+        .post('/api/v1/follow-plan/list')
         .set('Authorization', `Bearer ${token}`)
         .send({ page: 1, pageSize: 10 });
 
@@ -92,7 +92,7 @@ describe('跟进计划模块', () => {
     });
   });
 
-  describe('POST /api/follow-plan/cancel', () => {
+  describe('POST /api/v1/follow-plan/cancel', () => {
     it('应该返回200当正常取消跟进计划', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -101,7 +101,7 @@ describe('跟进计划模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 
       const res = await request(app)
-        .post('/api/follow-plan/cancel')
+        .post('/api/v1/follow-plan/cancel')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1 });
 
@@ -113,10 +113,11 @@ describe('跟进计划模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .post('/api/follow-plan/list')
+        .post('/api/v1/follow-plan/list')
         .send({ page: 1 });
 
       expect(res.status).toBe(401);
     });
   });
 });
+

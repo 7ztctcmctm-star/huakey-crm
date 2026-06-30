@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -21,7 +21,7 @@ const app = express();
 app.use(express.json());
 
 const followUpRoutes = require('../routes/followUp');
-app.use('/api/follow-up', followUpRoutes);
+app.use('/api/v1/follow-up', followUpRoutes);
 
 const generateToken = () => {
   return jwt.sign(
@@ -36,10 +36,10 @@ describe('跟进模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('POST /api/follow-up/add', () => {
+  describe('POST /api/v1/follow-up/add', () => {
     it('应该返回400当缺少customer_id', async () => {
       const res = await request(app)
-        .post('/api/follow-up/add')
+        .post('/api/v1/follow-up/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ content: '测试跟进内容' });
 
@@ -49,7 +49,7 @@ describe('跟进模块', () => {
 
     it('应该返回400当缺少content', async () => {
       const res = await request(app)
-        .post('/api/follow-up/add')
+        .post('/api/v1/follow-up/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: 1 });
 
@@ -65,7 +65,7 @@ describe('跟进模块', () => {
         .mockResolvedValueOnce([{ insertId: 1 }]);
 
       const res = await request(app)
-        .post('/api/follow-up/add')
+        .post('/api/v1/follow-up/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: 1, content: '电话跟进客户' });
 
@@ -74,3 +74,4 @@ describe('跟进模块', () => {
     });
   });
 });
+

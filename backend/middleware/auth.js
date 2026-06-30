@@ -1,21 +1,20 @@
-﻿const jwt = require('jsonwebtoken');
+const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const pool = require('../config/database');
 const ROLES = require('../config/roles');
-const { ROLE_CODES, ADMIN_ROLE_CODES } = ROLES;
+const { ADMIN_ROLE_CODES } = ROLES;
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   console.error('错误: JWT_SECRET 环境变量未设置，请在 .env 文件中配置');
   process.exit(1);
 }
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
-
-// 从请求中获取token（优先Cookie > Authorization header）
+// 从请求中获取token（优先Cookie > Authorization header > query token，SSE 场景）
 const getTokenFromRequest = (req) => {
   if (req.cookies && req.cookies.token) return req.cookies.token;
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) return authHeader.split(' ')[1];
+  if (req.query && req.query.token) return req.query.token;
   return null;
 };
 

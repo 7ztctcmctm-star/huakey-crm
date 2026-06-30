@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -34,7 +34,7 @@ const app = express();
 app.use(express.json());
 
 const approvalRoutes = require('../routes/approval');
-app.use('/api/approval', approvalRoutes);
+app.use('/api/v1/approval', approvalRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -52,7 +52,7 @@ describe('审批流程模块', () => {
     mockConnection.rollback.mockClear();
   });
 
-  describe('GET /api/approval/my-pending', () => {
+  describe('GET /api/v1/approval/my-pending', () => {
     it('应该返回待审批列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -60,7 +60,7 @@ describe('审批流程模块', () => {
         .mockResolvedValueOnce([[]]); // pending list (empty)
 
       const res = await request(app)
-        .get('/api/approval/my-pending')
+        .get('/api/v1/approval/my-pending')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -69,7 +69,7 @@ describe('审批流程模块', () => {
     });
   });
 
-  describe('GET /api/approval/my-submitted', () => {
+  describe('GET /api/v1/approval/my-submitted', () => {
     it('应该返回已提交列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -81,7 +81,7 @@ describe('审批流程模块', () => {
         .mockResolvedValueOnce([[]]); // purchases
 
       const res = await request(app)
-        .get('/api/approval/my-submitted')
+        .get('/api/v1/approval/my-submitted')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -90,7 +90,7 @@ describe('审批流程模块', () => {
     });
   });
 
-  describe('POST /api/approval/submit', () => {
+  describe('POST /api/v1/approval/submit', () => {
     it('应该返回200当正常提交审批', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -105,7 +105,7 @@ describe('审批流程模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update business status
 
       const res = await request(app)
-        .post('/api/approval/submit')
+        .post('/api/v1/approval/submit')
         .set('Authorization', `Bearer ${token}`)
         .send({ business_type: 'quote', business_id: 1 });
 
@@ -115,7 +115,7 @@ describe('审批流程模块', () => {
     });
   });
 
-  describe('POST /api/approval/approve/:id', () => {
+  describe('POST /api/v1/approval/approve/:id', () => {
     it('应该返回200当正常通过审批', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -128,7 +128,7 @@ describe('审批流程模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update business status
 
       const res = await request(app)
-        .post('/api/approval/approve/1')
+        .post('/api/v1/approval/approve/1')
         .set('Authorization', `Bearer ${token}`)
         .send({ remark: '同意' });
 
@@ -139,7 +139,7 @@ describe('审批流程模块', () => {
     });
   });
 
-  describe('POST /api/approval/reject/:id', () => {
+  describe('POST /api/v1/approval/reject/:id', () => {
     it('应该返回200当正常驳回审批', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -152,7 +152,7 @@ describe('审批流程模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update business status
 
       const res = await request(app)
-        .post('/api/approval/reject/1')
+        .post('/api/v1/approval/reject/1')
         .set('Authorization', `Bearer ${token}`)
         .send({ remark: '价格不合理' });
 
@@ -165,9 +165,10 @@ describe('审批流程模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .get('/api/approval/my-pending');
+        .get('/api/v1/approval/my-pending');
 
       expect(res.status).toBe(401);
     });
   });
 });
+

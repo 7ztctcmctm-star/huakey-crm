@@ -182,8 +182,8 @@ router.post('/delete', authenticateToken, checkPermission('opportunity:delete'),
     const opp = await opportunityService.getOpportunityForPermission(pool, id);
     if (!opp) return res.status(404).json({ code: 404, message: '商机不存在', data: null });
 
-    const { manageAll, roleId, userId } = req.user;
-    if (!manageAll && !ADMIN_ROLE_CODES.has(req.user.roleCode) && opp.owner_id !== userId) {
+    const { manageAll, userId } = req.user;
+    if (!manageAll && !ROLES.ADMIN_ROLE_CODES.has(req.user.roleCode) && opp.owner_id !== userId) {
       return res.status(403).json({ code: 403, message: '无权删除该商机', data: null });
     }
 

@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -26,7 +26,7 @@ const app = express();
 app.use(express.json());
 
 const currencyRoutes = require('../routes/currency');
-app.use('/api/currency', currencyRoutes);
+app.use('/api/v1/currency', currencyRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -37,7 +37,7 @@ describe('币种管理模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('GET /api/currency/list', () => {
+  describe('GET /api/v1/currency/list', () => {
     it('应该返回币种列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -48,7 +48,7 @@ describe('币种管理模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/currency/list')
+        .get('/api/v1/currency/list')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -57,13 +57,13 @@ describe('币种管理模块', () => {
     });
   });
 
-  describe('PUT /api/currency/:id', () => {
+  describe('PUT /api/v1/currency/:id', () => {
     it('应该返回400当没有要更新的字段', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .put('/api/currency/1')
+        .put('/api/v1/currency/1')
         .set('Authorization', `Bearer ${token}`)
         .send({});
 
@@ -78,7 +78,7 @@ describe('币种管理模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
 
       const res = await request(app)
-        .put('/api/currency/2')
+        .put('/api/v1/currency/2')
         .set('Authorization', `Bearer ${token}`)
         .send({ exchange_rate: 7.5 });
 
@@ -87,7 +87,7 @@ describe('币种管理模块', () => {
     });
   });
 
-  describe('DELETE /api/currency/:id', () => {
+  describe('DELETE /api/v1/currency/:id', () => {
     it('应该返回200当正常删除币种', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -95,7 +95,7 @@ describe('币种管理模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 
       const res = await request(app)
-        .delete('/api/currency/2')
+        .delete('/api/v1/currency/2')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -106,9 +106,10 @@ describe('币种管理模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .get('/api/currency/list');
+        .get('/api/v1/currency/list');
 
       expect(res.status).toBe(401);
     });
   });
 });
+

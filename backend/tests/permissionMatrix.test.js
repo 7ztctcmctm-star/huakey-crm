@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 权限矩阵测试
  *
  * 验证各角色对关键接口的访问权限是否符合预期。
@@ -97,10 +97,10 @@ const customerRoutes = require('../routes/customer');
 const approvalRoutes = require('../routes/approval');
 const logRoutes = require('../routes/log');
 
-app.use('/api/user', userRoutes);
-app.use('/api/customer', customerRoutes);
-app.use('/api/approval', approvalRoutes);
-app.use('/api/log', logRoutes);
+app.use('/api/v1/user', userRoutes);
+app.use('/api/v1/customer', customerRoutes);
+app.use('/api/v1/approval', approvalRoutes);
+app.use('/api/v1/log', logRoutes);
 
 // Mock 路由（接口在代码库中不存在，但测试矩阵要求覆盖）
 // 模拟相同的中间件链：authenticateToken → checkPermission → handler
@@ -111,13 +111,13 @@ const hrAttendanceRouter = express.Router();
 hrAttendanceRouter.post('/attendance', authenticateToken, checkPermission('hr'), (req, res) => {
   res.json({ code: 200, message: '考勤打卡成功', data: null });
 });
-app.use('/api/hr', hrAttendanceRouter);
+app.use('/api/v1/hr', hrAttendanceRouter);
 
 const customerDeleteRouter = express.Router();
 customerDeleteRouter.delete('/:id', authenticateToken, checkPermission('customer:delete'), (req, res) => {
   res.json({ code: 200, message: '删除客户成功', data: null });
 });
-app.use('/api/customer-del', customerDeleteRouter);
+app.use('/api/v1/customer-del', customerDeleteRouter);
 
 // ============ 辅助函数 ============
 
@@ -201,9 +201,9 @@ describe('权限矩阵测试', () => {
   // 矩阵：每个接口 × 每个角色
   // ─────────────────────────────────────────
 
-  describe('POST /api/user/add — 仅 ADMIN 可访问', () => {
+  describe('POST /api/v1/user/add — 仅 ADMIN 可访问', () => {
     const endpoint = (app) => request(app)
-      .post('/api/user/add')
+      .post('/api/v1/user/add')
       .send({ username: 'testuser', password: 'Pass123' });
 
     it('ADMIN → 200', async () => {
@@ -237,9 +237,9 @@ describe('权限矩阵测试', () => {
     });
   });
 
-  describe('POST /api/customer/add — ADMIN / MANAGER / SALES 可访问', () => {
+  describe('POST /api/v1/customer/add — ADMIN / MANAGER / SALES 可访问', () => {
     const endpoint = (app) => request(app)
-      .post('/api/customer/add')
+      .post('/api/v1/customer/add')
       .send({ company_name: '测试公司', contact_name: '张三', phone: '13800138000' });
 
     it('ADMIN → 200', async () => {
@@ -273,9 +273,9 @@ describe('权限矩阵测试', () => {
     });
   });
 
-  describe('POST /api/hr/attendance — ADMIN / MANAGER / HR 可访问', () => {
+  describe('POST /api/v1/hr/attendance — ADMIN / MANAGER / HR 可访问', () => {
     const endpoint = (app) => request(app)
-      .post('/api/hr/attendance')
+      .post('/api/v1/hr/attendance')
       .send({});
 
     it('ADMIN → 200', async () => {
@@ -309,9 +309,9 @@ describe('权限矩阵测试', () => {
     });
   });
 
-  describe('POST /api/approval/approve/:id — ADMIN / MANAGER 可访问', () => {
+  describe('POST /api/v1/approval/approve/:id — ADMIN / MANAGER 可访问', () => {
     const endpoint = (app) => request(app)
-      .post('/api/approval/approve/1')
+      .post('/api/v1/approval/approve/1')
       .send({ remark: '同意' });
 
     it('ADMIN → 200', async () => {
@@ -345,9 +345,9 @@ describe('权限矩阵测试', () => {
     });
   });
 
-  describe('DELETE /api/customer-del/:id — ADMIN / MANAGER 可访问', () => {
+  describe('DELETE /api/v1/customer-del/:id — ADMIN / MANAGER 可访问', () => {
     const endpoint = (app) => request(app)
-      .delete('/api/customer-del/1');
+      .delete('/api/v1/customer-del/1');
 
     it('ADMIN → 200', async () => {
       setupAdminMocks();
@@ -380,9 +380,9 @@ describe('权限矩阵测试', () => {
     });
   });
 
-  describe('POST /api/log/list — 仅 ADMIN 可访问', () => {
+  describe('POST /api/v1/log/list — 仅 ADMIN 可访问', () => {
     const endpoint = (app) => request(app)
-      .post('/api/log/list')
+      .post('/api/v1/log/list')
       .send({ page: 1, pageSize: 10 });
 
     it('ADMIN → 200', async () => {
@@ -422,7 +422,7 @@ describe('权限矩阵测试', () => {
 
   describe('Token 安全', () => {
     it('无 token 请求返回 401', async () => {
-      const res = await request(app).post('/api/user/list').send({});
+      const res = await request(app).post('/api/v1/user/list').send({});
       expect(res.status).toBe(401);
       expect(res.body.message).toContain('未提供访问令牌');
     });
@@ -430,7 +430,7 @@ describe('权限矩阵测试', () => {
     it('过期 token 返回 401', async () => {
       const expiredToken = generateExpiredToken();
       const res = await request(app)
-        .post('/api/user/list')
+        .post('/api/v1/user/list')
         .set('Authorization', `Bearer ${expiredToken}`);
       expect(res.status).toBe(401);
       expect(res.body.message).toContain('过期');
@@ -442,7 +442,7 @@ describe('权限矩阵测试', () => {
       mockPool.query.mockResolvedValueOnce([[{ blacklisted: 1 }]]);
 
       const res = await request(app)
-        .post('/api/user/list')
+        .post('/api/v1/user/list')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(401);
@@ -450,3 +450,4 @@ describe('权限矩阵测试', () => {
     });
   });
 });
+

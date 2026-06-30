@@ -79,10 +79,11 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Bell } from '@element-plus/icons-vue'
 import { markAllRead, getReminderCenter } from '@/api/tools'
+import { connectSSE, disconnectSSE } from '@/utils/sse'
 
 const router = useRouter()
 
@@ -116,6 +117,23 @@ const handleNotifyClick = (item) => {
   if (!item.is_read) item.is_read = 1
   if (item.link) router.push(item.link)
 }
+
+const handleSseMessage = (payload) => {
+  if (payload.type === 'notification') {
+    fetchNotificationCenter()
+  }
+}
+
+onMounted(() => {
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token')
+  if (token) {
+    connectSSE({ onMessage: handleSseMessage })
+  }
+})
+
+onUnmounted(() => {
+  disconnectSSE()
+})
 </script>
 
 <style scoped>

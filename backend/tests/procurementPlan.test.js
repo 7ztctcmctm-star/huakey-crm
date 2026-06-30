@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -34,7 +34,7 @@ const app = express();
 app.use(express.json());
 
 const procurementPlanRoutes = require('../routes/procurement-plan');
-app.use('/api/procurement-plan', procurementPlanRoutes);
+app.use('/api/v1/procurement-plan', procurementPlanRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -52,13 +52,13 @@ describe('采购计划模块', () => {
     mockConnection.rollback.mockClear();
   });
 
-  describe('POST /api/procurement-plan/create', () => {
+  describe('POST /api/v1/procurement-plan/create', () => {
     it('应该返回400当缺少name', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/procurement-plan/create')
+        .post('/api/v1/procurement-plan/create')
         .set('Authorization', `Bearer ${token}`)
         .send({ items: [{ product_id: 1, quantity: 10, unit_price: 100 }] });
 
@@ -77,7 +77,7 @@ describe('采购计划模块', () => {
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert item
 
       const res = await request(app)
-        .post('/api/procurement-plan/create')
+        .post('/api/v1/procurement-plan/create')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '7月采购计划', remark: '补货计划', items: [{ product_id: 1, quantity: 100, unit_price: 5.5 }] });
 
@@ -89,7 +89,7 @@ describe('采购计划模块', () => {
     });
   });
 
-  describe('GET /api/procurement-plan/list', () => {
+  describe('GET /api/v1/procurement-plan/list', () => {
     it('应该返回计划列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -101,7 +101,7 @@ describe('采购计划模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/procurement-plan/list')
+        .get('/api/v1/procurement-plan/list')
         .set('Authorization', `Bearer ${token}`)
         .query({ page: 1, pageSize: 20 });
 
@@ -112,7 +112,7 @@ describe('采购计划模块', () => {
     });
   });
 
-  describe('POST /api/procurement-plan/:id/submit', () => {
+  describe('POST /api/v1/procurement-plan/:id/submit', () => {
     it('应该返回200当正常提交审批', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -121,7 +121,7 @@ describe('采购计划模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update status
 
       const res = await request(app)
-        .post('/api/procurement-plan/1/submit')
+        .post('/api/v1/procurement-plan/1/submit')
         .set('Authorization', `Bearer ${token}`)
         .send();
 
@@ -130,7 +130,7 @@ describe('采购计划模块', () => {
     });
   });
 
-  describe('DELETE /api/procurement-plan/:id', () => {
+  describe('DELETE /api/v1/procurement-plan/:id', () => {
     it('应该返回200当正常删除计划', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -139,7 +139,7 @@ describe('采购计划模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 
       const res = await request(app)
-        .delete('/api/procurement-plan/1')
+        .delete('/api/v1/procurement-plan/1')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -150,9 +150,10 @@ describe('采购计划模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .get('/api/procurement-plan/list');
+        .get('/api/v1/procurement-plan/list');
 
       expect(res.status).toBe(401);
     });
   });
 });
+

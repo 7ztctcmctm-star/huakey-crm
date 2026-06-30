@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -27,7 +27,7 @@ const app = express();
 app.use(express.json());
 
 const poolRoutes = require('../routes/customer/pool');
-app.use('/api/customer', poolRoutes);
+app.use('/api/v1/customer', poolRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -38,7 +38,7 @@ describe('客户池模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('POST /api/customer/pool', () => {
+  describe('POST /api/v1/customer/pool', () => {
     it('应该返回公海客户列表（分页）', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -47,7 +47,7 @@ describe('客户池模块', () => {
         .mockResolvedValueOnce([[{ id: 1, company_name: '公海客户A' }, { id: 2, company_name: '公海客户B' }]]); // list
 
       const res = await request(app)
-        .post('/api/customer/pool')
+        .post('/api/v1/customer/pool')
         .set('Authorization', `Bearer ${token}`)
         .send({ page: 1, pageSize: 10 });
 
@@ -58,23 +58,23 @@ describe('客户池模块', () => {
     });
   });
 
-  describe('POST /api/customer/pool 无token', () => {
+  describe('POST /api/v1/customer/pool 无token', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .post('/api/customer/pool')
+        .post('/api/v1/customer/pool')
         .send({ page: 1 });
 
       expect(res.status).toBe(401);
     });
   });
 
-  describe('POST /api/customer/claim', () => {
+  describe('POST /api/v1/customer/claim', () => {
     it('应该返回400当缺少customer_id', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/customer/claim')
+        .post('/api/v1/customer/claim')
         .set('Authorization', `Bearer ${token}`)
         .send({});
 
@@ -90,7 +90,7 @@ describe('客户池模块', () => {
         .mockResolvedValueOnce([{ insertId: 1 }]); // pool_log insert
 
       const res = await request(app)
-        .post('/api/customer/claim')
+        .post('/api/v1/customer/claim')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: 1 });
 
@@ -100,13 +100,13 @@ describe('客户池模块', () => {
     });
   });
 
-  describe('POST /api/customer/release', () => {
+  describe('POST /api/v1/customer/release', () => {
     it('应该返回400当缺少customer_id', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/customer/release')
+        .post('/api/v1/customer/release')
         .set('Authorization', `Bearer ${token}`)
         .send({});
 
@@ -123,7 +123,7 @@ describe('客户池模块', () => {
         .mockResolvedValueOnce(undefined); // logAction
 
       const res = await request(app)
-        .post('/api/customer/release')
+        .post('/api/v1/customer/release')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: 1 });
 
@@ -132,3 +132,4 @@ describe('客户池模块', () => {
     });
   });
 });
+

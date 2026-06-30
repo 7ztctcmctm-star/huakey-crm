@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -114,10 +114,10 @@ const opportunityRoutes = require('../routes/opportunity');
 const contractRoutes = require('../routes/contract');
 const productRoutes = require('../routes/product');
 
-app.use('/api/customer', customerRoutes);
-app.use('/api/opportunity', opportunityRoutes);
-app.use('/api/contract', contractRoutes);
-app.use('/api/product', productRoutes);
+app.use('/api/v1/customer', customerRoutes);
+app.use('/api/v1/opportunity', opportunityRoutes);
+app.use('/api/v1/contract', contractRoutes);
+app.use('/api/v1/product', productRoutes);
 
 const generateToken = () => {
   return jwt.sign(
@@ -152,7 +152,7 @@ describe('边界测试 - 空数据场景', () => {
       customerService.listCustomers.mockResolvedValue({ list: [], total: 0 });
 
       const res = await request(app)
-        .post('/api/customer/list')
+        .post('/api/v1/customer/list')
         .set('Authorization', `Bearer ${token}`)
         .send({});
 
@@ -168,7 +168,7 @@ describe('边界测试 - 空数据场景', () => {
       svc.listOpportunities.mockResolvedValue({ list: [], total: 0 });
 
       const res = await request(app)
-        .post('/api/opportunity/list')
+        .post('/api/v1/opportunity/list')
         .set('Authorization', `Bearer ${token}`)
         .send({});
 
@@ -183,7 +183,7 @@ describe('边界测试 - 空数据场景', () => {
       svc.listContracts.mockResolvedValue({ list: [], total: 0 });
 
       const res = await request(app)
-        .post('/api/contract/list')
+        .post('/api/v1/contract/list')
         .set('Authorization', `Bearer ${token}`)
         .send({});
 
@@ -198,7 +198,7 @@ describe('边界测试 - 空数据场景', () => {
       svc.listProducts.mockResolvedValue({ list: [], total: 0 });
 
       const res = await request(app)
-        .post('/api/product/list')
+        .post('/api/v1/product/list')
         .set('Authorization', `Bearer ${token}`)
         .send({});
 
@@ -213,7 +213,7 @@ describe('边界测试 - 空数据场景', () => {
       svc.getCustomerDetail.mockRejectedValue({ code: 404, message: '客户不存在' });
 
       const res = await request(app)
-        .get('/api/customer/detail/99999')
+        .get('/api/v1/customer/detail/99999')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(404);
@@ -224,7 +224,7 @@ describe('边界测试 - 空数据场景', () => {
       svc.getOpportunityWithPermission.mockResolvedValue(null);
 
       const res = await request(app)
-        .get('/api/opportunity/detail/99999')
+        .get('/api/v1/opportunity/detail/99999')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(404);
@@ -235,7 +235,7 @@ describe('边界测试 - 空数据场景', () => {
       svc.getContractDetail.mockResolvedValue(null);
 
       const res = await request(app)
-        .get('/api/contract/detail/99999')
+        .get('/api/v1/contract/detail/99999')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(404);
@@ -246,7 +246,7 @@ describe('边界测试 - 空数据场景', () => {
       svc.getProduct.mockResolvedValue(null);
 
       const res = await request(app)
-        .get('/api/product/detail/99999')
+        .get('/api/v1/product/detail/99999')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(404);
@@ -265,7 +265,7 @@ describe('边界测试 - 极大值场景', () => {
   describe('pageSize 超大值', () => {
     it('customer/list pageSize=99999 应被 Joi 拒绝 (max=200)', async () => {
       const res = await request(app)
-        .post('/api/customer/list')
+        .post('/api/v1/customer/list')
         .set('Authorization', `Bearer ${token}`)
         .send({ pageSize: 99999 });
 
@@ -275,7 +275,7 @@ describe('边界测试 - 极大值场景', () => {
 
     it('opportunity/list pageSize=99999 应被 Joi 拒绝 (max=200)', async () => {
       const res = await request(app)
-        .post('/api/opportunity/list')
+        .post('/api/v1/opportunity/list')
         .set('Authorization', `Bearer ${token}`)
         .send({ pageSize: 99999 });
 
@@ -284,7 +284,7 @@ describe('边界测试 - 极大值场景', () => {
 
     it('contract/list pageSize=99999 应被 Joi 拒绝 (max=200)', async () => {
       const res = await request(app)
-        .post('/api/contract/list')
+        .post('/api/v1/contract/list')
         .set('Authorization', `Bearer ${token}`)
         .send({ pageSize: 99999 });
 
@@ -293,7 +293,7 @@ describe('边界测试 - 极大值场景', () => {
 
     it('product/list pageSize=99999 应被 Joi 拒绝 (max=200)', async () => {
       const res = await request(app)
-        .post('/api/product/list')
+        .post('/api/v1/product/list')
         .set('Authorization', `Bearer ${token}`)
         .send({ pageSize: 99999 });
 
@@ -304,7 +304,7 @@ describe('边界测试 - 极大值场景', () => {
   describe('字符串字段超长', () => {
     it('customer/add company_name=10000字符 应被 Joi 拒绝 (max=200)', async () => {
       const res = await request(app)
-        .post('/api/customer/add')
+        .post('/api/v1/customer/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ company_name: LONG_STRING_10000 });
 
@@ -316,7 +316,7 @@ describe('边界测试 - 极大值场景', () => {
       svc.addCustomer.mockResolvedValue({ id: 1 });
 
       const res = await request(app)
-        .post('/api/customer/add')
+        .post('/api/v1/customer/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ company_name: '测试', remark: LONG_STRING_2000 });
 
@@ -325,7 +325,7 @@ describe('边界测试 - 极大值场景', () => {
 
     it('customer/add remark=2001字符 应被 Joi 拒绝', async () => {
       const res = await request(app)
-        .post('/api/customer/add')
+        .post('/api/v1/customer/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ company_name: '测试', remark: 'A'.repeat(2001) });
 
@@ -334,7 +334,7 @@ describe('边界测试 - 极大值场景', () => {
 
     it('product/add name=10000字符 应被 Joi 拒绝 (max=200)', async () => {
       const res = await request(app)
-        .post('/api/product/add')
+        .post('/api/v1/product/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: LONG_STRING_10000 });
 
@@ -346,7 +346,7 @@ describe('边界测试 - 极大值场景', () => {
       svc.createContract.mockResolvedValue({ id: 1, contract_no: 'HT-001' });
 
       const res = await request(app)
-        .post('/api/contract/add')
+        .post('/api/v1/contract/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: 1, amount: 100, payment_terms: LONG_STRING_500 });
 
@@ -360,7 +360,7 @@ describe('边界测试 - 极大值场景', () => {
       svc.createContract.mockResolvedValue({ id: 1, contract_no: 'HT-002' });
 
       const res = await request(app)
-        .post('/api/contract/add')
+        .post('/api/v1/contract/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: 1, amount: MAX_SAFE_INT });
 
@@ -372,7 +372,7 @@ describe('边界测试 - 极大值场景', () => {
       svc.createOpportunity.mockResolvedValue({ id: 1 });
 
       const res = await request(app)
-        .post('/api/opportunity/add')
+        .post('/api/v1/opportunity/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '测试商机', customer_id: 1, expected_amount: MAX_SAFE_INT });
 
@@ -384,7 +384,7 @@ describe('边界测试 - 极大值场景', () => {
       svc.createProduct.mockResolvedValue({ id: 1 });
 
       const res = await request(app)
-        .post('/api/product/add')
+        .post('/api/v1/product/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '测试产品', price: MAX_SAFE_INT });
 
@@ -396,7 +396,7 @@ describe('边界测试 - 极大值场景', () => {
       svc.createProduct.mockResolvedValue({ id: 1 });
 
       const res = await request(app)
-        .post('/api/product/add')
+        .post('/api/v1/product/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '测试产品', stock: MAX_SAFE_INT });
 
@@ -417,7 +417,7 @@ describe('边界测试 - 特殊字符场景', () => {
       svc.addCustomer.mockResolvedValue({ id: 1 });
 
       const res = await request(app)
-        .post('/api/customer/add')
+        .post('/api/v1/customer/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ company_name: SQL_INJECTION });
 
@@ -435,7 +435,7 @@ describe('边界测试 - 特殊字符场景', () => {
       svc.createOpportunity.mockResolvedValue({ id: 1 });
 
       const res = await request(app)
-        .post('/api/opportunity/add')
+        .post('/api/v1/opportunity/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '商机', customer_id: 1, remark: SQL_INJECTION });
 
@@ -447,7 +447,7 @@ describe('边界测试 - 特殊字符场景', () => {
       svc.createContract.mockResolvedValue({ id: 1, contract_no: 'HT-003' });
 
       const res = await request(app)
-        .post('/api/contract/add')
+        .post('/api/v1/contract/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: 1, amount: 100, payment_terms: SQL_INJECTION });
 
@@ -459,7 +459,7 @@ describe('边界测试 - 特殊字符场景', () => {
       svc.createProduct.mockResolvedValue({ id: 1 });
 
       const res = await request(app)
-        .post('/api/product/add')
+        .post('/api/v1/product/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '产品', description: SQL_INJECTION });
 
@@ -473,7 +473,7 @@ describe('边界测试 - 特殊字符场景', () => {
       svc.addCustomer.mockResolvedValue({ id: 2 });
 
       const res = await request(app)
-        .post('/api/customer/add')
+        .post('/api/v1/customer/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ company_name: XSS_PAYLOAD });
 
@@ -485,7 +485,7 @@ describe('边界测试 - 特殊字符场景', () => {
       svc.createOpportunity.mockResolvedValue({ id: 2 });
 
       const res = await request(app)
-        .post('/api/opportunity/add')
+        .post('/api/v1/opportunity/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: XSS_PAYLOAD, customer_id: 1 });
 
@@ -497,7 +497,7 @@ describe('边界测试 - 特殊字符场景', () => {
       svc.createProduct.mockResolvedValue({ id: 2 });
 
       const res = await request(app)
-        .post('/api/product/add')
+        .post('/api/v1/product/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: XSS_PAYLOAD });
 
@@ -511,7 +511,7 @@ describe('边界测试 - 特殊字符场景', () => {
       svc.addCustomer.mockResolvedValue({ id: 3 });
 
       const res = await request(app)
-        .post('/api/customer/add')
+        .post('/api/v1/customer/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ company_name: EMOJI_STR });
 
@@ -523,7 +523,7 @@ describe('边界测试 - 特殊字符场景', () => {
       svc.createOpportunity.mockResolvedValue({ id: 3 });
 
       const res = await request(app)
-        .post('/api/opportunity/add')
+        .post('/api/v1/opportunity/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '商机', customer_id: 1, remark: EMOJI_STR });
 
@@ -537,7 +537,7 @@ describe('边界测试 - 特殊字符场景', () => {
       svc.addCustomer.mockResolvedValue({ id: 4 });
 
       const res = await request(app)
-        .post('/api/customer/add')
+        .post('/api/v1/customer/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ company_name: '换行测试', address: NEWLINE_STR });
 
@@ -549,7 +549,7 @@ describe('边界测试 - 特殊字符场景', () => {
       svc.createContract.mockResolvedValue({ id: 4, contract_no: 'HT-004' });
 
       const res = await request(app)
-        .post('/api/contract/add')
+        .post('/api/v1/contract/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: 1, amount: 100, remark: NEWLINE_STR });
 
@@ -570,7 +570,7 @@ describe('边界测试 - 并发模拟 (10个同时请求)', () => {
 
     const requests = Array.from({ length: 10 }, () =>
       request(app)
-        .post('/api/customer/list')
+        .post('/api/v1/customer/list')
         .set('Authorization', `Bearer ${token}`)
         .send({})
     );
@@ -589,7 +589,7 @@ describe('边界测试 - 并发模拟 (10个同时请求)', () => {
 
     const requests = Array.from({ length: 10 }, (_, i) =>
       request(app)
-        .post('/api/opportunity/add')
+        .post('/api/v1/opportunity/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: `并发商机${i}`, customer_id: 1 })
     );
@@ -607,7 +607,7 @@ describe('边界测试 - 并发模拟 (10个同时请求)', () => {
 
     const requests = Array.from({ length: 10 }, (_, i) =>
       request(app)
-        .post('/api/contract/add')
+        .post('/api/v1/contract/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: 1, amount: 100 + i })
     );
@@ -625,7 +625,7 @@ describe('边界测试 - 并发模拟 (10个同时请求)', () => {
 
     const requests = Array.from({ length: 10 }, (_, i) =>
       request(app)
-        .post('/api/product/add')
+        .post('/api/v1/product/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: `并发产品${i}` })
     );
@@ -646,16 +646,16 @@ describe('边界测试 - 并发模拟 (10个同时请求)', () => {
     prodSvc.listProducts.mockResolvedValue({ list: [], total: 0 });
 
     const requests = [
-      request(app).post('/api/customer/list').set('Authorization', `Bearer ${token}`).send({}),
-      request(app).post('/api/opportunity/list').set('Authorization', `Bearer ${token}`).send({}),
-      request(app).post('/api/product/list').set('Authorization', `Bearer ${token}`).send({}),
-      request(app).post('/api/customer/list').set('Authorization', `Bearer ${token}`).send({}),
-      request(app).post('/api/opportunity/list').set('Authorization', `Bearer ${token}`).send({}),
-      request(app).post('/api/product/list').set('Authorization', `Bearer ${token}`).send({}),
-      request(app).post('/api/customer/list').set('Authorization', `Bearer ${token}`).send({}),
-      request(app).post('/api/opportunity/list').set('Authorization', `Bearer ${token}`).send({}),
-      request(app).post('/api/product/list').set('Authorization', `Bearer ${token}`).send({}),
-      request(app).post('/api/customer/list').set('Authorization', `Bearer ${token}`).send({})
+      request(app).post('/api/v1/customer/list').set('Authorization', `Bearer ${token}`).send({}),
+      request(app).post('/api/v1/opportunity/list').set('Authorization', `Bearer ${token}`).send({}),
+      request(app).post('/api/v1/product/list').set('Authorization', `Bearer ${token}`).send({}),
+      request(app).post('/api/v1/customer/list').set('Authorization', `Bearer ${token}`).send({}),
+      request(app).post('/api/v1/opportunity/list').set('Authorization', `Bearer ${token}`).send({}),
+      request(app).post('/api/v1/product/list').set('Authorization', `Bearer ${token}`).send({}),
+      request(app).post('/api/v1/customer/list').set('Authorization', `Bearer ${token}`).send({}),
+      request(app).post('/api/v1/opportunity/list').set('Authorization', `Bearer ${token}`).send({}),
+      request(app).post('/api/v1/product/list').set('Authorization', `Bearer ${token}`).send({}),
+      request(app).post('/api/v1/customer/list').set('Authorization', `Bearer ${token}`).send({})
     ];
 
     const results = await Promise.all(requests);
@@ -674,7 +674,7 @@ describe('边界测试 - 类型错误场景', () => {
   describe('数值字段传字符串', () => {
     it('customer/add phone 传纯字母 应被 Joi 拒绝', async () => {
       const res = await request(app)
-        .post('/api/customer/add')
+        .post('/api/v1/customer/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ company_name: '测试', phone: 'abcdefgh' });
 
@@ -683,7 +683,7 @@ describe('边界测试 - 类型错误场景', () => {
 
     it('opportunity/add customer_id 传字符串 应被 Joi 拒绝', async () => {
       const res = await request(app)
-        .post('/api/opportunity/add')
+        .post('/api/v1/opportunity/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '商机', customer_id: 'not_a_number' });
 
@@ -692,7 +692,7 @@ describe('边界测试 - 类型错误场景', () => {
 
     it('opportunity/add expected_amount 传字符串 应被 Joi 拒绝', async () => {
       const res = await request(app)
-        .post('/api/opportunity/add')
+        .post('/api/v1/opportunity/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '商机', customer_id: 1, expected_amount: 'abc' });
 
@@ -701,7 +701,7 @@ describe('边界测试 - 类型错误场景', () => {
 
     it('contract/add amount 传字符串 应被 Joi 拒绝', async () => {
       const res = await request(app)
-        .post('/api/contract/add')
+        .post('/api/v1/contract/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: 1, amount: 'not_money' });
 
@@ -710,7 +710,7 @@ describe('边界测试 - 类型错误场景', () => {
 
     it('product/add price 传字符串 应被 Joi 拒绝', async () => {
       const res = await request(app)
-        .post('/api/product/add')
+        .post('/api/v1/product/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '产品', price: 'free' });
 
@@ -719,7 +719,7 @@ describe('边界测试 - 类型错误场景', () => {
 
     it('product/add stock 传字符串 应被 Joi 拒绝', async () => {
       const res = await request(app)
-        .post('/api/product/add')
+        .post('/api/v1/product/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '产品', stock: 'many' });
 
@@ -730,7 +730,7 @@ describe('边界测试 - 类型错误场景', () => {
   describe('必填字段传 null / undefined / 空字符串', () => {
     it('customer/add company_name=null 应被 Joi 拒绝', async () => {
       const res = await request(app)
-        .post('/api/customer/add')
+        .post('/api/v1/customer/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ company_name: null });
 
@@ -739,7 +739,7 @@ describe('边界测试 - 类型错误场景', () => {
 
     it('customer/add company_name=空字符串 应被 Joi 拒绝 (不允许空)', async () => {
       const res = await request(app)
-        .post('/api/customer/add')
+        .post('/api/v1/customer/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ company_name: '' });
 
@@ -749,7 +749,7 @@ describe('边界测试 - 类型错误场景', () => {
 
     it('customer/add 不传 company_name 应被 Joi 拒绝', async () => {
       const res = await request(app)
-        .post('/api/customer/add')
+        .post('/api/v1/customer/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ contact_name: '张三' });
 
@@ -758,7 +758,7 @@ describe('边界测试 - 类型错误场景', () => {
 
     it('opportunity/add name=null 应被 Joi 拒绝', async () => {
       const res = await request(app)
-        .post('/api/opportunity/add')
+        .post('/api/v1/opportunity/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: null, customer_id: 1 });
 
@@ -767,7 +767,7 @@ describe('边界测试 - 类型错误场景', () => {
 
     it('opportunity/add customer_id=null 应被 Joi 拒绝', async () => {
       const res = await request(app)
-        .post('/api/opportunity/add')
+        .post('/api/v1/opportunity/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '商机', customer_id: null });
 
@@ -776,7 +776,7 @@ describe('边界测试 - 类型错误场景', () => {
 
     it('opportunity/add 不传 name 和 customer_id 应被 Joi 拒绝', async () => {
       const res = await request(app)
-        .post('/api/opportunity/add')
+        .post('/api/v1/opportunity/add')
         .set('Authorization', `Bearer ${token}`)
         .send({});
 
@@ -785,7 +785,7 @@ describe('边界测试 - 类型错误场景', () => {
 
     it('contract/add customer_id=null 应被 Joi 拒绝', async () => {
       const res = await request(app)
-        .post('/api/contract/add')
+        .post('/api/v1/contract/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: null, amount: 100 });
 
@@ -794,7 +794,7 @@ describe('边界测试 - 类型错误场景', () => {
 
     it('contract/add amount=null 应被 Joi 拒绝', async () => {
       const res = await request(app)
-        .post('/api/contract/add')
+        .post('/api/v1/contract/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: 1, amount: null });
 
@@ -803,7 +803,7 @@ describe('边界测试 - 类型错误场景', () => {
 
     it('contract/add 空 body 应被 Joi 拒绝', async () => {
       const res = await request(app)
-        .post('/api/contract/add')
+        .post('/api/v1/contract/add')
         .set('Authorization', `Bearer ${token}`)
         .send({});
 
@@ -812,7 +812,7 @@ describe('边界测试 - 类型错误场景', () => {
 
     it('product/add name=null 应被 Joi 拒绝', async () => {
       const res = await request(app)
-        .post('/api/product/add')
+        .post('/api/v1/product/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: null });
 
@@ -821,7 +821,7 @@ describe('边界测试 - 类型错误场景', () => {
 
     it('product/add 不传 name 应被 Joi 拒绝', async () => {
       const res = await request(app)
-        .post('/api/product/add')
+        .post('/api/v1/product/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ price: 100 });
 
@@ -832,7 +832,7 @@ describe('边界测试 - 类型错误场景', () => {
   describe('日期字段传非法格式', () => {
     it('opportunity/add expected_date 传非法日期 应被 Joi 拒绝', async () => {
       const res = await request(app)
-        .post('/api/opportunity/add')
+        .post('/api/v1/opportunity/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '商机', customer_id: 1, expected_date: 'not-a-date' });
 
@@ -841,7 +841,7 @@ describe('边界测试 - 类型错误场景', () => {
 
     it('opportunity/add expected_date 传中文日期 应被 Joi 拒绝', async () => {
       const res = await request(app)
-        .post('/api/opportunity/add')
+        .post('/api/v1/opportunity/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '商机', customer_id: 1, expected_date: '2026年6月25日' });
 
@@ -850,7 +850,7 @@ describe('边界测试 - 类型错误场景', () => {
 
     it('contract/add sign_date 传非法日期 应被 Joi 拒绝', async () => {
       const res = await request(app)
-        .post('/api/contract/add')
+        .post('/api/v1/contract/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: 1, amount: 100, sign_date: '25/06/2026' });
 
@@ -859,7 +859,7 @@ describe('边界测试 - 类型错误场景', () => {
 
     it('contract/add delivery_date 传非法日期 应被 Joi 拒绝', async () => {
       const res = await request(app)
-        .post('/api/contract/add')
+        .post('/api/v1/contract/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: 1, amount: 100, delivery_date: 'abc' });
 
@@ -868,7 +868,7 @@ describe('边界测试 - 类型错误场景', () => {
 
     it('customer/add start_date 传非法日期 应被 Joi 拒绝', async () => {
       const res = await request(app)
-        .post('/api/customer/list')
+        .post('/api/v1/customer/list')
         .set('Authorization', `Bearer ${token}`)
         .send({ start_date: '2026-13-45' });
 
@@ -879,7 +879,7 @@ describe('边界测试 - 类型错误场景', () => {
   describe('enum 字段传无效值', () => {
     it('customer/add level 传 Z 应被 Joi 拒绝 (仅允许 A/B/C)', async () => {
       const res = await request(app)
-        .post('/api/customer/add')
+        .post('/api/v1/customer/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ company_name: '测试', level: 'Z' });
 
@@ -888,7 +888,7 @@ describe('边界测试 - 类型错误场景', () => {
 
     it('opportunity/add stage 传 99 应被 Joi 拒绝 (仅允许 1-6)', async () => {
       const res = await request(app)
-        .post('/api/opportunity/add')
+        .post('/api/v1/opportunity/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '商机', customer_id: 1, stage: 99 });
 
@@ -899,7 +899,7 @@ describe('边界测试 - 类型错误场景', () => {
       // add 没有 status 字段，但 Joi stripUnknown 会忽略
       // 用 update 来测 enum 更合适
       const res = await request(app)
-        .post('/api/contract/update')
+        .post('/api/v1/contract/update')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1, customer_id: 1, amount: 100, status: 99 });
 
@@ -908,7 +908,7 @@ describe('边界测试 - 类型错误场景', () => {
 
     it('product/add category 传超长分类名 应被 Joi 拒绝 (max=100)', async () => {
       const res = await request(app)
-        .post('/api/product/add')
+        .post('/api/v1/product/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '产品', category: 'A'.repeat(101) });
 
@@ -919,7 +919,7 @@ describe('边界测试 - 类型错误场景', () => {
   describe('负数字段', () => {
     it('contract/add amount 传负数 应被 Joi 拒绝 (min=0)', async () => {
       const res = await request(app)
-        .post('/api/contract/add')
+        .post('/api/v1/contract/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: 1, amount: -100 });
 
@@ -928,7 +928,7 @@ describe('边界测试 - 类型错误场景', () => {
 
     it('opportunity/add win_rate 传负数 应被 Joi 拒绝 (min=0)', async () => {
       const res = await request(app)
-        .post('/api/opportunity/add')
+        .post('/api/v1/opportunity/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '商机', customer_id: 1, win_rate: -10 });
 
@@ -937,7 +937,7 @@ describe('边界测试 - 类型错误场景', () => {
 
     it('opportunity/add win_rate 传超过 100 应被 Joi 拒绝 (max=100)', async () => {
       const res = await request(app)
-        .post('/api/opportunity/add')
+        .post('/api/v1/opportunity/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '商机', customer_id: 1, win_rate: 101 });
 
@@ -946,7 +946,7 @@ describe('边界测试 - 类型错误场景', () => {
 
     it('product/add price 传负数 应被 Joi 拒绝 (min=0)', async () => {
       const res = await request(app)
-        .post('/api/product/add')
+        .post('/api/v1/product/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '产品', price: -0.01 });
 
@@ -955,7 +955,7 @@ describe('边界测试 - 类型错误场景', () => {
 
     it('product/add stock 传负数 应被 Joi 拒绝 (min=0)', async () => {
       const res = await request(app)
-        .post('/api/product/add')
+        .post('/api/v1/product/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '产品', stock: -1 });
 
@@ -963,3 +963,4 @@ describe('边界测试 - 类型错误场景', () => {
     });
   });
 });
+

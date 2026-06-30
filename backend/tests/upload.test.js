@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -30,7 +30,7 @@ const app = express();
 app.use(express.json());
 
 const uploadRoutes = require('../routes/upload');
-app.use('/api/upload', uploadRoutes);
+app.use('/api/v1/upload', uploadRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -41,7 +41,7 @@ describe('文件上传模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('GET /api/upload/list', () => {
+  describe('GET /api/v1/upload/list', () => {
     it('应该返回文件列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -52,7 +52,7 @@ describe('文件上传模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/upload/list')
+        .get('/api/v1/upload/list')
         .set('Authorization', `Bearer ${token}`)
         .query({ business_type: 'contract', business_id: 1 });
 
@@ -62,7 +62,7 @@ describe('文件上传模块', () => {
     });
   });
 
-  describe('POST /api/upload/delete', () => {
+  describe('POST /api/v1/upload/delete', () => {
     it('应该返回200当正常删除附件', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -71,7 +71,7 @@ describe('文件上传模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 
       const res = await request(app)
-        .post('/api/upload/delete')
+        .post('/api/v1/upload/delete')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1 });
 
@@ -80,13 +80,13 @@ describe('文件上传模块', () => {
     });
   });
 
-  describe('POST /api/upload/file', () => {
+  describe('POST /api/v1/upload/file', () => {
     it('应该返回400当没有选择文件', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/upload/file')
+        .post('/api/v1/upload/file')
         .set('Authorization', `Bearer ${token}`)
         .field('business_type', 'contract')
         .field('business_id', '1');
@@ -99,10 +99,11 @@ describe('文件上传模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .get('/api/upload/list')
+        .get('/api/v1/upload/list')
         .query({ business_type: 'contract', business_id: 1 });
 
       expect(res.status).toBe(401);
     });
   });
 });
+

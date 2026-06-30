@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -26,7 +26,7 @@ const app = express();
 app.use(express.json());
 
 const followupTemplateRoutes = require('../routes/followupTemplate');
-app.use('/api/followup-templates', followupTemplateRoutes);
+app.use('/api/v1/followup-templates', followupTemplateRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -37,13 +37,13 @@ describe('跟进模板模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('POST /api/followup-templates/', () => {
+  describe('POST /api/v1/followup-templates/', () => {
     it('应该返回400当缺少content', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/followup-templates/')
+        .post('/api/v1/followup-templates/')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '首次跟进模板' });
 
@@ -58,7 +58,7 @@ describe('跟进模板模块', () => {
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
-        .post('/api/followup-templates/')
+        .post('/api/v1/followup-templates/')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '首次跟进模板', type: 'first', content: '您好，感谢您的关注，这是我们公司的介绍...' });
 
@@ -68,7 +68,7 @@ describe('跟进模板模块', () => {
     });
   });
 
-  describe('GET /api/followup-templates/', () => {
+  describe('GET /api/v1/followup-templates/', () => {
     it('应该返回模板列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -79,7 +79,7 @@ describe('跟进模板模块', () => {
         ]]);
 
       const res = await request(app)
-        .get('/api/followup-templates/')
+        .get('/api/v1/followup-templates/')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -88,7 +88,7 @@ describe('跟进模板模块', () => {
     });
   });
 
-  describe('DELETE /api/followup-templates/:id', () => {
+  describe('DELETE /api/v1/followup-templates/:id', () => {
     it('应该返回200当正常删除模板', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -97,7 +97,7 @@ describe('跟进模板模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 
       const res = await request(app)
-        .delete('/api/followup-templates/1')
+        .delete('/api/v1/followup-templates/1')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -108,9 +108,10 @@ describe('跟进模板模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .get('/api/followup-templates/');
+        .get('/api/v1/followup-templates/');
 
       expect(res.status).toBe(401);
     });
   });
 });
+

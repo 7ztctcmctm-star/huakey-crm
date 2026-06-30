@@ -37,7 +37,7 @@ router.get('/my-reminders', authenticateToken, checkPermission('reminder'), asyn
   try {
     const userId = req.user.userId;
     const overdueDays = await getOverdueDays();
-    const isBoss = req.user.viewAll || ADMIN_ROLE_CODES.has(req.user.roleCode);
+    const isBoss = req.user.viewAll || ROLES.ADMIN_ROLE_CODES.has(req.user.roleCode);
 
     const data = await reminderService.getMyReminders(pool, userId, req.user.roleId, {
       overdueDays, viewAll: req.user.viewAll, isBoss

@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -31,7 +31,7 @@ const app = express();
 app.use(express.json());
 
 const aiRoutes = require('../routes/ai');
-app.use('/api/ai', aiRoutes);
+app.use('/api/v1/ai', aiRoutes);
 
 const { chatCompletion } = require('../utils/llmClient');
 
@@ -47,13 +47,13 @@ describe('AI模块', () => {
     chatCompletion.mockReset();
   });
 
-  describe('POST /api/ai/query', () => {
+  describe('POST /api/v1/ai/query', () => {
     it('应该返回400当缺少question', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/ai/query')
+        .post('/api/v1/ai/query')
         .set('Authorization', `Bearer ${token}`)
         .send({});
 
@@ -73,7 +73,7 @@ describe('AI模块', () => {
         .mockResolvedValueOnce([[{ 'COUNT(*)': 100 }]]); // SQL execution
 
       const res = await request(app)
-        .post('/api/ai/query')
+        .post('/api/v1/ai/query')
         .set('Authorization', `Bearer ${token}`)
         .send({ question: '客户总数是多少' });
 
@@ -84,7 +84,7 @@ describe('AI模块', () => {
     });
   });
 
-  describe('GET /api/ai/suggestions', () => {
+  describe('GET /api/v1/ai/suggestions', () => {
     it('应该返回建议列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
@@ -96,7 +96,7 @@ describe('AI模块', () => {
         .mockResolvedValueOnce([[{ company_name: '测试公司' }]]); // customer ref lookup
 
       const res = await request(app)
-        .get('/api/ai/suggestions')
+        .get('/api/v1/ai/suggestions')
         .set('Authorization', `Bearer ${token}`)
         .query({ page: 1, pageSize: 20 });
 
@@ -106,13 +106,13 @@ describe('AI模块', () => {
     });
   });
 
-  describe('GET /api/ai/status', () => {
+  describe('GET /api/v1/ai/status', () => {
     it('应该返回AI状态', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .get('/api/ai/status')
+        .get('/api/v1/ai/status')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -124,9 +124,10 @@ describe('AI模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .get('/api/ai/status');
+        .get('/api/v1/ai/status');
 
       expect(res.status).toBe(401);
     });
   });
 });
+
