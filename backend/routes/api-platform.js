@@ -7,6 +7,8 @@ const svc = require('../services/apiPlatformService');
 
 const requireAdmin = require('../middleware/admin');
 
+// [认证说明] 本模块所有端点均使用 authenticateToken + requireAdmin，无需额外 checkPermission
+
 // 生成随机密钥
 const generateKey = (prefix = '', length = 32) => {
   return prefix + crypto.randomBytes(length).toString('hex').slice(0, length);

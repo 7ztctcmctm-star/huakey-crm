@@ -36,7 +36,7 @@ app.use(express.json());
 app.use('/api/config', require('../routes/config'));
 
 const generateToken = () => {
-  return jwt.sign({ userId: 1, username: 'admin', roleId: 1, manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
 describe('系统配置模块', () => {

@@ -29,7 +29,7 @@ const qualityRoutes = require('../routes/customer/quality');
 app.use('/api/customer', qualityRoutes);
 
 const generateToken = () => {
-  return jwt.sign({ userId: 1, username: 'admin', roleId: 1, manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
 describe('数据质量检查模块', () => {

@@ -14,6 +14,7 @@ const jwt = require('jsonwebtoken');
 process.env.JWT_SECRET = 'test_secret_key_for_unit_tests';
 
 const ROLES = require('../config/roles');
+const { ROLE_CODES } = ROLES;
 
 // ============ Mock 数据库 ============
 const mockPool = {
@@ -123,9 +124,25 @@ app.use('/api/customer-del', customerDeleteRouter);
 /**
  * 生成指定角色的 JWT token
  */
+const roleCodeMap = {
+  [ROLES.ADMIN]: ROLE_CODES.SUPER_ADMIN,
+  [ROLES.MANAGER]: ROLE_CODES.ADMIN,
+  [ROLES.SALES]: ROLE_CODES.SALES,
+  [ROLES.HR]: ROLE_CODES.HR,
+  [ROLES.PURCHASE]: ROLE_CODES.PURCHASE,
+  [ROLES.FINANCE]: ROLE_CODES.FINANCE,
+  [ROLES.ENGINEER]: ROLE_CODES.ENGINEER
+};
+
 const generateToken = (roleId, overrides = {}) => {
   return jwt.sign(
-    { userId: 100 + roleId, username: `user_${roleId}`, roleId, ...overrides },
+    {
+      userId: 100 + roleId,
+      username: `user_${roleId}`,
+      roleId,
+      roleCode: roleCodeMap[roleId] || 'unknown',
+      ...overrides
+    },
     process.env.JWT_SECRET,
     { expiresIn: '1h' }
   );

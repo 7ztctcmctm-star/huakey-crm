@@ -37,7 +37,7 @@ const approvalRoutes = require('../routes/approval');
 app.use('/api/approval', approvalRoutes);
 
 const generateToken = () => {
-  return jwt.sign({ userId: 1, username: 'admin', roleId: 1, manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
 describe('审批流程模块', () => {

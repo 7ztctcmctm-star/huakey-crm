@@ -8,6 +8,74 @@ const authService = require('../services/authService');
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * tags:
+ *   - name: 认证管理
+ *     description: 登录、登出、用户信息、密码管理
+ *
+ * /api/auth/captcha:
+ *   get:
+ *     summary: 获取验证码
+ *     tags: [认证管理]
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: 返回 SVG 验证码和 key
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     key: { type: string, description: 验证码 key }
+ *                     svg: { type: string, description: SVG 验证码 }
+ *
+ * /api/auth/login:
+ *   post:
+ *     summary: 用户登录
+ *     tags: [认证管理]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [username, password, captcha, captchaKey]
+ *             properties:
+ *               username: { type: string, example: admin }
+ *               password: { type: string, example: huakey123 }
+ *               captcha: { type: string, example: '0000' }
+ *               captchaKey: { type: string }
+ *     responses:
+ *       200:
+ *         description: 登录成功，返回 token 和 userInfo
+ *       400:
+ *         description: 验证码或用户名密码错误
+ *
+ * /api/auth/logout:
+ *   post:
+ *     summary: 用户登出
+ *     tags: [认证管理]
+ *     responses:
+ *       200:
+ *         description: 登出成功
+ *
+ * /api/auth/me:
+ *   get:
+ *     summary: 获取当前用户信息（验证登录状态）
+ *     tags: [认证管理]
+ *     responses:
+ *       200:
+ *         description: 返回当前用户信息
+ *       401:
+ *         description: 未登录或 token 过期
+ */
+
 const isProduction = process.env.NODE_ENV === 'production';
 
 // --- Joi schemas ---
@@ -147,6 +215,7 @@ router.post('/logout', validate(logoutSchema), async (req, res) => {
 });
 
 // 3. 获取当前用户信息（用于前端验证登录状态）
+// [权限说明] 个人登录态接口，仅需认证，无需业务权限码
 router.get('/me', authenticateToken, async (req, res) => {
   try {
     const data = await authService.getMe(pool, req.user.userId);
@@ -177,6 +246,7 @@ router.get('/me', authenticateToken, async (req, res) => {
 });
 
 // 4. 注册接口（仅管理员可用，禁止公开注册）
+// [权限说明] 使用自定义管理员角色校验，无需 checkPermission
 router.post('/register', authenticateToken, validate(registerSchema), async (req, res) => {
   try {
     if (!(req.user.manageAll || req.user.roleId === ROLES.ADMIN)) {
@@ -192,6 +262,7 @@ router.post('/register', authenticateToken, validate(registerSchema), async (req
 });
 
 // 4. 获取用户信息
+// [权限说明] 个人资料接口，仅需认证，无需业务权限码
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
     const user = await authService.getProfile(pool, req.user.userId);
@@ -207,6 +278,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
 });
 
 // 5. 修改个人信息
+// [权限说明] 个人资料修改接口，仅需认证，无需业务权限码
 router.post('/update-profile', authenticateToken, validate(updateProfileSchema), async (req, res) => {
   try {
     await authService.updateProfile(pool, req.user.userId, req.body);
@@ -218,6 +290,7 @@ router.post('/update-profile', authenticateToken, validate(updateProfileSchema),
 });
 
 // 6. 修改密码
+// [权限说明] 个人密码修改接口，仅需认证，无需业务权限码
 router.post('/change-password', authenticateToken, validate(changePasswordSchema), async (req, res) => {
   try {
     const { old_password, new_password } = req.body;

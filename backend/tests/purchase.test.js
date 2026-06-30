@@ -38,7 +38,7 @@ const purchaseRoutes = require('../routes/purchase');
 app.use('/api/purchase', purchaseRoutes);
 
 const generateToken = () => {
-  return jwt.sign({ userId: 1, username: 'admin', roleId: 1, manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
 describe('采购管理模块', () => {

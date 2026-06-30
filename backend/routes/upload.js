@@ -41,6 +41,7 @@ const upload = multer({
 });
 
 // 上传文件
+// [权限说明] 当前仅做认证，未绑定业务权限码；如需细控可补充 checkPermission('file:upload')
 router.post('/file', authenticateToken, upload.single('file'), async (req, res) => {
   try {
     const result = await uploadRouteService.uploadFile(pool, {

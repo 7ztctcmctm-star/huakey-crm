@@ -1,5 +1,28 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: 数据报表
+ *     description: 销售漏斗、业绩概览、客户分析
+ *
+ * /api/report/sales-funnel:
+ *   get:
+ *     summary: 销售漏斗分析
+ *     tags: [数据报表]
+ *     responses:
+ *       200:
+ *         description: 各阶段商机数量和金额统计
+ *
+ * /api/report/overview:
+ *   get:
+ *     summary: 销售业绩概览
+ *     tags: [数据报表]
+ *     responses:
+ *       200:
+ *         description: 当月/季度/年度销售额、回款、新增客户等概览数据
+ */
 const pool = require('../../config/database');
 const { authenticateToken } = require('../../middleware/auth');
 const { checkPermission } = require('../../middleware/permission');

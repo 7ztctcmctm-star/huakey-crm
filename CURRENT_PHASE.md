@@ -7,6 +7,80 @@
 
 ## 最近完成（2026-06-25）
 
+
+## 最近完成（2026-06-26）
+
+### 自动化验证链路建设
+
+#### 后端 CI 门禁硬化（Prompt P1）✅
+- [x] 创建 backend/jest.config.js：coverage 阈值（branches:30, functions:40, lines:40, statements:40）
+- [x] 重写 .github/workflows/ci.yml：lint 严格阻断（移除 || true）、coverage 门禁、npm audit 阻断、GitHub Actions 缓存、CodeQL 安全扫描
+- [x] backend/package.json test script 加 --coverage --coverageReporters=text-summary
+- [x] 新增 test:unit 和 test:integration 脚本
+
+#### 后端集成测试基础设施（Prompt P2）✅
+- [x] 创建 docker-compose.ci.yml：CI 专用 MySQL 8.0 + Redis 7（端口 3307/6380）
+- [x] 创建 backend/tests/setup-integration.js：真实 DB 测试 setup/teardown
+- [x] 创建 backend/tests/e2e/customer-lifecycle.integration.test.js：客户全生命周期端到端测试
+- [x] 创建 backend/tests/e2e/auth.integration.test.js：认证链路测试（登录/token/黑名单/过期）
+- [x] 创建 backend/tests/e2e/transaction.integration.test.js：事务 rollback 验证
+- [x] 创建 backend/tests/e2e/health.integration.test.js：健康检查端点测试
+- [x] 创建 backend/tests/run-integration.js：集成测试 runner
+
+#### 后端安全测试（Prompt P3）✅
+- [x] 创建 backend/tests/security/headers.test.js：Helmet 安全头验证（X-Content-Type-Options/X-Frame-Options/HSTS/CSP）
+- [x] 创建 backend/tests/security/rateLimit.test.js：authLimiter 限流验证（15分钟10次→429）
+- [x] 创建 backend/tests/security/cors.test.js：CORS 白名单验证（localhost:5173 允许，evil.com 拒绝）
+- [x] 创建 backend/tests/security/upload.test.js：文件上传安全（认证要求）
+
+#### 灰度发布 + 部署验证（Prompt P4）✅
+- [x] 创建 deploy/nginx-canary.conf：Nginx 权重分流（90% 旧版本 + 10% canary）
+- [x] 创建 deploy/nginx-stable.conf：稳定版单节点配置
+- [x] 创建 deploy/smoke-test.sh：部署冒烟测试（健康检查→登录→客户列表→前端静态文件）
+- [x] 创建 deploy/canary-deploy.sh：灰度部署脚本（构建→启动→健康检查→切 Nginx→监控→提升/回滚）
+- [x] 创建 deploy/docker-compose.canary.yml：灰度 Docker Compose
+- [x] 修改 deploy/deploy-all.bat：插入冒烟测试步骤
+
+#### 后端补充测试（Prompt P5）✅
+- [x] 创建 backend/tests/e2e/permission-real.integration.test.js：真实 DB 权限链路测试（admin/manager/sales 三角色 + 数据权限 self 隔离，237行）
+- [x] 创建 backend/tests/performance/k6-smoke.js：k6 冒烟测试（10 VUs / 30s / health check）
+- [x] 创建 backend/tests/performance/k6-customer-list.js：客户列表性能基线（20 VUs / 60s / P95 < 1s）
+
+#### 前端组件测试 + MSW（Prompt F1）✅
+- [x] 修改 frontend/vitest.config.js：添加 globals、setupFiles、include/exclude 配置
+- [x] 创建 frontend/src/tests/setup.js：全局测试 setup（mock Element Plus/vue-router/localStorage）
+- [x] 创建 frontend/src/tests/mocks/handlers.js：通用 mock 响应工厂 + 预设数据
+- [x] 创建 frontend/src/tests/unit/composables/useUser.test.js：useUser composable 测试
+- [x] 创建 frontend/src/tests/unit/utils/request.test.js：axios 拦截器测试
+- [x] 创建 frontend/src/tests/unit/views/Login.test.js：登录页组件测试
+- [x] 创建 frontend/src/tests/unit/api/customer.test.js：API 模块调用路径测试
+- [x] 创建 frontend/src/tests/unit/router/guards.test.js：路由守卫测试
+
+#### 前端 E2E 测试（Prompt F2）✅
+- [x] 安装 @playwright/test 依赖
+- [x] 创建 frontend/playwright.config.js：Playwright 配置（chromium, baseURL:5173）
+- [x] 创建 frontend/e2e/fixtures/auth.js：登录 fixture（API 登录 + cookie/localStorage 注入）
+- [x] 创建 frontend/e2e/login.spec.js：登录页 E2E（表单渲染/标题/校验/跳转）
+- [x] 创建 frontend/e2e/navigation.spec.js：导航和权限 E2E（侧边栏/客户列表/商机/产品/404）
+- [x] 创建 frontend/e2e/customer-crud.spec.js：客户 CRUD E2E（新增弹窗/搜索/Tab 切换）
+
+#### 前端打包监控 + 安全检查（Prompt F3）⚠️ 大部分完成（bundle-analysis.test.js 被 .gitignore 的 build/ 规则忽略）
+- [x] 创建 frontend/src/tests/unit/build/bundle-analysis.test.js：打包产物验证（dist 存在/JS+CSS/单 chunk 500KB/sourcemap）
+- [x] 创建 frontend/src/tests/unit/security/xss.test.js：DOMPurify XSS 防护测试
+- [x] 创建 frontend/src/tests/unit/security/sensitive-data.test.js：敏感数据泄露检查
+- [x] 创建 scripts/check-bundle.sh：CI 打包检查脚本（总大小 10MB/单文件 1MB/sourcemap）
+
+#### CI 合并（Prompt F4）✅
+- [x] 在 ci.yml 中新增 frontend-unit-test job
+- [x] 在 ci.yml 中新增 e2e-test job（仅 main push 触发）
+- [x] frontend-build job 追加 check-bundle.sh 步骤
+
+#### P0 补充项
+- [x] Pre-commit hooks（husky + lint-staged）：.husky/pre-commit + .lintstagedrc.json 已创建
+- [x] 分支保护规则（GitHub Settings 配置文档）：docs/branch-protection.md 已创建
+
+
+
 ### 前端 API 模块拆分
 
 - [x] tools.js（114行）拆分为 10 个独立模块文件
@@ -70,28 +144,34 @@
 
 ---
 
+
 ## 当前优先级
 
 ### P0
 
-- 安全修复
-- 权限稳定
-- 登录稳定
-- Docker稳定
-- 文件持久化
+- ~~安全修复~~ ✅
+- ~~权限稳定~~ ✅
+- ~~登录稳定~~ ✅
+- ~~Docker稳定~~ ✅
+- ~~文件持久化~~ ✅
+- 自动化验证链路建设 ✅ 已完成
 
 ### P1
 
-- BUG修复
-- Redis接入
-- API稳定
-- 日志系统
+- ~~BUG修复~~ ✅
+- ~~Redis接入~~ ✅
+- ~~API稳定~~ ✅
+- ~~日志系统~~ ✅
+- - ~~前端自动化链路补齐~~ ✅
+- - ~~后端集成测试补充~~ ✅
 
 ### P2
 
-- 自动化测试
-- 性能优化
-- 权限中心化
+- - ~~Pre-commit hooks~~ ✅\n- ~~分支保护规则~~ ✅
+- Dependabot 依赖自动更新
+- Docker 镜像扫描（Trivy）
+- 跨浏览器/移动端响应式测试
+- 迁移脚本 up/down 测试
 
 ---
 
@@ -126,3 +206,7 @@
 优先：
 
 稳定性 > 安全 > 测试 > 性能 > 新功能
+
+
+
+

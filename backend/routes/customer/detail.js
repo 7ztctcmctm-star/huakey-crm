@@ -67,6 +67,51 @@ const logAction = createRouteLogger(MODULE_NAME);
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * tags:
+ *   - name: 客户管理
+ *     description: 客户 CRUD、详情、联系方式
+ *
+ * /api/customer:
+ *   get:
+ *     summary: 获取客户列表（分页 + 搜索）
+ *     tags: [客户管理]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: pageSize
+ *         schema: { type: integer, default: 20 }
+ *       - in: query
+ *         name: keyword
+ *         schema: { type: string }
+ *         description: 搜索关键词（客户名称/电话/联系人）
+ *     responses:
+ *       200:
+ *         description: 客户列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiResponse'
+ *
+ * /api/customer/{id}:
+ *   get:
+ *     summary: 获取客户详情
+ *     tags: [客户管理]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 客户详情（含联系人、商机、跟进记录）
+ *       404:
+ *         description: 客户不存在
+ */
+
 // 1. 获取客户列表（复用 customerService）
 router.post('/list',
   authenticateToken,
@@ -251,7 +296,7 @@ router.post('/convert', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
     const roleId = req.user.roleId;
 
-    if (roleId !== ROLES.ADMIN && roleId !== ROLES.MANAGER) {
+    if (!ADMIN_ROLE_CODES.has(req.user.roleCode)) {
       return res.status(403).json({ code: 403, message: '仅管理者可执行转化操作', data: null });
     }
 

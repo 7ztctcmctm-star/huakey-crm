@@ -1,0 +1,32 @@
+{
+  "root": true,
+  "globals": {
+    "__ENV": "readonly"
+  },
+  "env": {
+    "node": true,
+    "es2021": true,
+    "jest": true
+  },
+  "parserOptions": {
+    "ecmaVersion": "latest",
+    "sourceType": "module"
+  },
+  "rules": {
+    "no-unused-vars": "warn",
+    "no-undef": "error",
+    "no-empty": "warn",
+    "no-constant-condition": "warn",
+    "no-control-regex": "off",
+    "no-useless-escape": "off",
+    "no-prototype-builtins": "off",
+    "no-async-promise-executor": "off",
+    "handle-callback-err": "off"
+  },
+  "ignorePatterns": [
+    "node_modules/",
+    "dist/",
+    "coverage/",
+    "jest.config.js"
+  ]
+}

@@ -8,6 +8,7 @@ const automationService = require('../services/automationService');
 // ============ 工作流规则 ============
 
 // 规则列表
+// [权限说明] 工作流列表供已登录用户查看；增删改用 requireAdmin 控制
 router.get('/workflows', authenticateToken, async (req, res) => {
   try {
     const rows = await automationService.getWorkflows(pool);
@@ -80,6 +81,7 @@ router.post('/workflows/execute', authenticateToken, requireAdmin, async (req, r
 });
 
 // 触发器入口
+// [权限说明] 工作流触发由业务事件驱动，仅需认证即可调用
 router.post('/workflows/trigger', authenticateToken, async (req, res) => {
   try {
     const { event, target_type, target_id } = req.body;
@@ -93,6 +95,7 @@ router.post('/workflows/trigger', authenticateToken, async (req, res) => {
 });
 
 // 执行日志
+// [权限说明] 执行日志供已登录用户查看，不涉及敏感操作
 router.get('/workflows/logs', authenticateToken, async (req, res) => {
   try {
     const { rule_id, page, pageSize } = req.query;
@@ -106,6 +109,7 @@ router.get('/workflows/logs', authenticateToken, async (req, res) => {
 
 // ============ 自动分配规则 ============
 
+// [权限说明] 分配规则列表供已登录用户查看；增删改用 requireAdmin 控制
 router.get('/assign-rules', authenticateToken, async (req, res) => {
   try {
     const rows = await automationService.getAssignRules(pool);
@@ -165,6 +169,7 @@ router.post('/assign-rules/apply', authenticateToken, requireAdmin, async (req, 
 
 // ============ 智能提醒 ============
 
+// [权限说明] 智能提醒列表供已登录用户查看；增删改用 requireAdmin 控制
 router.get('/smart-reminders', authenticateToken, async (req, res) => {
   try {
     const rows = await automationService.getSmartReminders(pool);
@@ -220,6 +225,7 @@ router.post('/smart-reminders/run', authenticateToken, requireAdmin, async (req,
 });
 
 // 我的待处理提醒
+// [权限说明] 个人待处理提醒，仅需认证
 router.get('/smart-reminders/pending', authenticateToken, async (req, res) => {
   try {
     const rows = await automationService.getPendingReminders(pool, req.user.userId);
@@ -231,6 +237,7 @@ router.get('/smart-reminders/pending', authenticateToken, async (req, res) => {
 });
 
 // 标记已读
+// [权限说明] 个人提醒标记已读，仅需认证
 router.put('/smart-reminders/log/:id/seen', authenticateToken, async (req, res) => {
   try {
     await automationService.markReminderSeen(pool, req.params.id, req.user.userId);

@@ -29,7 +29,7 @@ const followupTemplateRoutes = require('../routes/followupTemplate');
 app.use('/api/followup-templates', followupTemplateRoutes);
 
 const generateToken = () => {
-  return jwt.sign({ userId: 1, username: 'admin', roleId: 1, manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
 describe('跟进模板模块', () => {

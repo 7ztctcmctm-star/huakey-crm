@@ -23,7 +23,7 @@ jest.mock('../config/database', () => mockPool);
 // ============ Mock 中间件（避免 auth/permission/logger 消耗 pool.query mock） ============
 jest.mock('../middleware/auth', () => ({
   authenticateToken: (req, res, next) => {
-    req.user = { userId: 1, username: 'admin', roleId: 1, viewAll: true, manageAll: true };
+    req.user = { userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', viewAll: true, manageAll: true };
     next();
   }
 }));
@@ -92,7 +92,7 @@ app.use('/api/recycle', require('../routes/recycle'));
 
 const generateToken = () => {
   return jwt.sign(
-    { userId: 1, username: 'admin', roleId: 1, manageAll: true },
+    { userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true },
     process.env.JWT_SECRET,
     { expiresIn: '1h' }
   );

@@ -1,0 +1,5 @@
+{
+  "backend/**/*.js": [
+    "node backend/node_modules/eslint/bin/eslint.js --max-warnings=0"
+  ]
+}

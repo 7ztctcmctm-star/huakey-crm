@@ -29,7 +29,7 @@ app.use(express.json());
 const authRoutes = require('../routes/auth');
 app.use('/api/auth', authRoutes);
 
-const generateToken = (user = { userId: 1, username: 'admin', roleId: 1, manageAll: true }) => {
+const generateToken = (user = { userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }) => {
   return jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 

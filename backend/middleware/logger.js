@@ -1,5 +1,6 @@
 const pool = require('../config/database');
 const { maskLogParams } = require('../utils/mask');
+const logger = require('../config/logger');
 
 const LogLevel = {
   SUCCESS: 1,
@@ -52,7 +53,7 @@ async function logAction({ module, action, method, url, params, ipAddress, userI
       [module, action, method || 'POST', url, paramsStr, ipAddress, userId, userName, description, status, errorMsg, changedFieldsStr, oldValueStr, newValueStr]
     );
   } catch (error) {
-    console.error('记录操作日志失败:', error);
+    logger.error('记录操作日志失败', { error: error.stack || error.message });
   }
 }
 
@@ -74,6 +75,7 @@ function extractUserInfo(req) {
 
 function logMiddleware(module) {
   return async (req, res, next) => {
+    const traceId = req.traceId || 'N/A';
     const originalJson = res.json.bind(res);
 
     res.json = function(data) {
@@ -90,10 +92,10 @@ function logMiddleware(module) {
         ipAddress: getIpAddress(req),
         userId,
         userName,
-        description: `${module} - ${req.method} ${req.originalUrl}`,
+        description: `${module} - ${req.method} ${req.originalUrl} [traceId=${traceId}]`,
         status,
         errorMsg: status === LogLevel.FAIL ? (data?.message || JSON.stringify(data)) : null
-      }).catch(err => console.error('日志记录失败:', err));
+      }).catch(err => console.error(`[traceId=${traceId}] 日志记录失败:`, err));
 
       return originalJson(data);
     };
@@ -177,6 +179,18 @@ function getActionFromUrl(url, method) {
 
 // 全局自动日志中间件
 function globalLogMiddleware(req, res, next) {
+  const start = Date.now();
+
+  // 响应完成时记录访问日志
+  res.on('finish', () => {
+    const durationMs = Date.now() - start;
+    logger.http('API request', {
+      req,
+      statusCode: res.statusCode,
+      durationMs
+    });
+  });
+
   // 跳过日志相关请求，避免无限循环
   if (req.originalUrl.startsWith('/api/log')) {
     return next();
@@ -190,6 +204,7 @@ function globalLogMiddleware(req, res, next) {
     return next();
   }
 
+  const traceId = req.traceId || 'N/A';
   const startTime = Date.now();
   const originalJson = res.json.bind(res);
 
@@ -209,10 +224,10 @@ function globalLogMiddleware(req, res, next) {
       ipAddress: getIpAddress(req),
       userId,
       userName,
-      description: `${module} - ${action} [${responseTime}ms]`,
+      description: `${module} - ${action} [${responseTime}ms] [traceId=${traceId}]`,
       status,
       errorMsg: status === 0 ? (data?.message || '操作失败') : null
-    }).catch(err => console.error('日志记录失败:', err));
+    }).catch(err => logger.error(`[traceId=${traceId}] 日志记录失败`, { error: err.stack || err.message }));
 
     return originalJson(data);
   };

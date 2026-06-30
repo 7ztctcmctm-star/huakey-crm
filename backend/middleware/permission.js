@@ -1,5 +1,6 @@
 const pool = require('../config/database');
 const ROLES = require('../config/roles');
+const { ADMIN_ROLE_CODES } = ROLES;
 const { getUserPermissions, getDataPermissions } = require('../services/permissionService');
 
 /**
@@ -16,7 +17,7 @@ const checkPermission = (permissionCodes) => {
       const codes = Array.isArray(permissionCodes) ? permissionCodes : [permissionCodes];
 
       // 超级管理员直接通过（记录审计日志）
-      if (roleId === ROLES.ADMIN) {
+      if (ADMIN_ROLE_CODES.has(req.user.roleCode)) {
         console.log(`[PermissionAudit] ADMIN(userId=${userId}) bypassed permission check for [${codes.join(',')}], ${req.method} ${req.originalUrl}`);
         return next();
       }
@@ -57,7 +58,7 @@ const checkDataPermission = (module, ownerColumn = 'owner_id') => {
       const roleId = req.user.roleId;
 
       // 超级管理员直接通过
-      if (roleId === ROLES.ADMIN || req.user.manageAll) {
+      if (ADMIN_ROLE_CODES.has(req.user.roleCode) || req.user.manageAll) {
         req.dataPermission = { type: 'all', ownerColumn };
         return next();
       }

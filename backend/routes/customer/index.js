@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
+// [认证说明] 本文件为聚合路由，认证由各子路由自行处理
 const detailRoutes = require('./detail');
 const contactRoutes = require('./contact');
 const poolRoutes = require('./pool');

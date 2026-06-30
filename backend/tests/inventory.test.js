@@ -27,7 +27,7 @@ jest.mock('../middleware/logger', () => ({
 // Mock auth middleware - 让 mock 队列完全留给业务逻辑
 jest.mock('../middleware/auth', () => ({
   authenticateToken: (req, res, next) => {
-    req.user = { userId: 1, username: 'admin', roleId: 1, viewAll: true, manageAll: true };
+    req.user = { userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', viewAll: true, manageAll: true };
     next();
   }
 }));
@@ -50,7 +50,7 @@ const inventoryRoutes = require('../routes/inventory');
 app.use('/api/inventory', inventoryRoutes);
 
 const generateToken = () => {
-  return jwt.sign({ userId: 1, username: 'admin', roleId: 1, manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
 describe('\u5e93\u5b58\u7ba1\u7406\u6a21\u5757', () => {

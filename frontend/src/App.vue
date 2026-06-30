@@ -1,6 +1,12 @@
 <template>
-  <router-view />
+  <GlobalErrorBoundary>
+    <router-view />
+  </GlobalErrorBoundary>
 </template>
+
+<script setup>
+import GlobalErrorBoundary from '@/components/common/GlobalErrorBoundary.vue';
+</script>
 
 <style>
 * {

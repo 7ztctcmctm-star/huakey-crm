@@ -1,5 +1,51 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: 合同管理
+ *     description: 合同 CRUD、审批、回款、导出
+ *
+ * /api/contract/list:
+ *   get:
+ *     summary: 获取合同列表
+ *     tags: [合同管理]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: pageSize
+ *         schema: { type: integer, default: 20 }
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, description: '执行中/已完结/已终止' }
+ *     responses:
+ *       200:
+ *         description: 合同列表
+ *
+ * /api/contract:
+ *   post:
+ *     summary: 新建合同
+ *     tags: [合同管理]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [customer_id, name, amount]
+ *             properties:
+ *               customer_id: { type: integer }
+ *               name: { type: string, example: 年度服务合同 }
+ *               amount: { type: number, example: 100000 }
+ *               start_date: { type: string, format: date }
+ *               end_date: { type: string, format: date }
+ *     responses:
+ *       200:
+ *         description: 创建成功
+ */
 const pool = require('../../config/database');
 const { authenticateToken } = require('../../middleware/auth');
 const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../../middleware/permission');

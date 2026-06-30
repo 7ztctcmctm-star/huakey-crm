@@ -11,6 +11,31 @@ const productService = require('../services/productService');
 const MODULE_NAME = '产品管理';
 const router = express.Router();
 
+/**
+ * @swagger
+ * tags:
+ *   - name: 产品管理
+ *     description: 产品 CRUD、分类管理
+ *
+ * /api/product:
+ *   get:
+ *     summary: 获取产品列表
+ *     tags: [产品管理]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: pageSize
+ *         schema: { type: integer, default: 20 }
+ *       - in: query
+ *         name: keyword
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: 产品列表
+ */
+
 const productAddSchema = Joi.object({
   name: Joi.string().required().max(200),
   code: Joi.string().max(100).allow('', null),
@@ -58,7 +83,7 @@ router.post('/list', authenticateToken, cache(120), checkPermission('product'), 
 
     // 非管理员不返回成本价字段
     const { manageAll, roleId } = req.user;
-    const isAdmin = manageAll || roleId === ROLES.ADMIN;
+    const isAdmin = manageAll || ADMIN_ROLE_CODES.has(req.user.roleCode);
     if (!isAdmin) {
       result.list.forEach(item => { delete item.cost_price; });
     }

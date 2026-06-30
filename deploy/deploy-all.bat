@@ -26,6 +26,15 @@ echo [Phase 2] Pushing to production...
 call "%~dp0push-prod.bat"
 
 echo.
+echo [Phase 3] Running smoke tests...
+bash "%~dp0smoke-test.sh" http://192.168.0.200:6789
+if errorlevel 1 (
+    echo [ERROR] Smoke test failed! Manual rollback may be needed.
+    pause
+    exit /b 1
+)
+
+echo.
 echo ============================================
 echo  Full deploy complete!
 echo  Test: http://192.168.0.200:6790

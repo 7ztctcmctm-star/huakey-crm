@@ -1,0 +1,31 @@
+const express = require('express');
+const pool = require('../config/database');
+const router = express.Router();
+
+// 自动建表
+pool.query(`CREATE TABLE IF NOT EXISTS sys_client_perf (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  metric_type VARCHAR(10) NOT NULL,
+  value DOUBLE NOT NULL,
+  rating VARCHAR(30) DEFAULT NULL,
+  page_url VARCHAR(500) DEFAULT NULL,
+  user_agent VARCHAR(500) DEFAULT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_type (metric_type),
+  INDEX idx_time (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`).catch(() => {});
+
+// POST /api/metrics/client — 无需认证
+router.post('/client', async (req, res) => {
+  const { metric_type, value, rating, page_url } = req.body;
+  if (!metric_type || typeof value !== 'number') {
+    return res.status(400).json({ code: 400, message: '参数无效' });
+  }
+  await pool.query(
+    `INSERT INTO sys_client_perf (metric_type, value, rating, page_url, user_agent) VALUES (?,?,?,?,?)`,
+    [metric_type, value, rating || null, page_url || null, req.headers['user-agent'] || null]
+  );
+  res.status(204).end();
+});
+
+module.exports = router;

@@ -6,6 +6,7 @@ const ROLES = require('../../config/roles');
 const { simpleApproveContract } = require('../../services/approvalService');
 
 // 审批合同（仅管理员）
+// [权限说明] 使用自定义 roleId 校验（ADMIN/MANAGER），无需 checkPermission
 router.post('/approve', authenticateToken, async (req, res) => {
   try {
     const { id, approval_status, approval_remark } = req.body;

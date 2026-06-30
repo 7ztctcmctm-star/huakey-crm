@@ -40,25 +40,25 @@ const router = createRouter({
           path: 'followup/plan',
           name: 'FollowupPlan',
           component: () => import('../views/followup/plan.vue'),
-          meta: { title: '跟进计划', permission: 'customer:list' }
+          meta: { title: '跟进计划', permission: 'followup:plan' }
         },
         {
           path: 'followup/template',
           name: 'FollowupTemplate',
           component: () => import('../views/followup/template.vue'),
-          meta: { title: '跟进模板', permission: 'customer:list' }
+          meta: { title: '跟进模板', permission: 'followup:template' }
         },
         {
           path: 'follow-up/today',
           name: 'TodayTasks',
           component: () => import('../views/follow-up/TodayTasks.vue'),
-          meta: { title: '今日待跟进', permission: 'customer:list' }
+          meta: { title: '今日待跟进', permission: 'followup:today' }
         },
         {
           path: 'follow-up/tomorrow',
           name: 'TomorrowTasks',
           component: () => import('../views/follow-up/TomorrowTasks.vue'),
-          meta: { title: '明日计划', permission: 'customer:list' }
+          meta: { title: '明日计划', permission: 'followup:tomorrow' }
         },
         {
           path: 'customer/prospects',
@@ -130,25 +130,25 @@ const router = createRouter({
           path: 'payment',
           name: 'Payment',
           component: () => import('../views/payment/index.vue'),
-          meta: { title: '回款管理', permission: 'contract' }
+          meta: { title: '回款管理', permission: 'payment:view' }
         },
         {
           path: 'payment/reminders',
           name: 'PaymentReminders',
           component: () => import('../views/payment/reminders.vue'),
-          meta: { title: '回款提醒', permission: 'contract' }
+          meta: { title: '回款提醒', permission: 'payment:view' }
         },
         {
           path: 'payment/reconciliation',
           name: 'PaymentReconciliation',
           component: () => import('../views/payment/reconciliation.vue'),
-          meta: { title: '对账管理', permission: 'contract' }
+          meta: { title: '对账管理', permission: 'payment:view' }
         },
         {
           path: 'payment/analysis',
           name: 'PaymentAnalysis',
           component: () => import('../views/payment/analysis.vue'),
-          meta: { title: '财务分析', permission: 'contract', admin: true }
+          meta: { title: '财务分析', permission: 'payment:view', admin: true }
         },
         {
           path: 'notification',
@@ -238,31 +238,31 @@ const router = createRouter({
           path: 'survey',
           name: 'SurveyIndex',
           component: () => import('../views/survey/index.vue'),
-          meta: { title: '调查管理', permission: 'customer:list' }
+          meta: { title: '调查管理', permission: 'survey:view' }
         },
         {
           path: 'survey/templates',
           name: 'SurveyTemplates',
           component: () => import('../views/survey/templates.vue'),
-          meta: { title: '调查模板', permission: 'customer:list' }
+          meta: { title: '调查模板', permission: 'survey:view' }
         },
         {
           path: 'survey/detail/:id',
           name: 'SurveyDetail',
           component: () => import('../views/survey/detail.vue'),
-          meta: { title: '调查详情', permission: 'customer:list' }
+          meta: { title: '调查详情', permission: 'survey:view' }
         },
         {
           path: 'survey/analytics/:id',
           name: 'SurveyAnalytics',
           component: () => import('../views/survey/analytics.vue'),
-          meta: { title: '调查分析', permission: 'customer:list' }
+          meta: { title: '调查分析', permission: 'survey:view' }
         },
         {
           path: 'survey/overview',
           name: 'SurveyOverview',
           component: () => import('../views/survey/overview.vue'),
-          meta: { title: '满意度总览', permission: 'customer:list' }
+          meta: { title: '满意度总览', permission: 'survey:view' }
         },
         {
           path: 'hr/employees',
@@ -304,13 +304,13 @@ const router = createRouter({
           path: 'calendar',
           name: 'Calendar',
           component: () => import('../views/calendar/index.vue'),
-          meta: { title: '日程管理', permission: 'customer:list' }
+          meta: { title: '日程管理', permission: 'schedule:view' }
         },
         {
           path: 'social',
           name: 'Social',
           component: () => import('../views/social/index.vue'),
-          meta: { title: '社媒沟通', permission: 'customer:list' }
+          meta: { title: '社媒沟通', permission: 'social:view' }
         },
         {
           path: 'settings/api-platform',
@@ -322,19 +322,19 @@ const router = createRouter({
           path: 'competitor',
           name: 'Competitor',
           component: () => import('../views/competitor/index.vue'),
-          meta: { title: '竞品分析', permission: 'customer:list' }
+          meta: { title: '竞品分析', permission: 'competitor:view' }
         },
         {
           path: 'competitor/:id',
           name: 'CompetitorDetail',
           component: () => import('../views/competitor/detail.vue'),
-          meta: { title: '竞争对手详情', permission: 'customer:list' }
+          meta: { title: '竞争对手详情', permission: 'competitor:view' }
         },
         {
           path: 'analysis/prediction',
           name: 'AnalysisPrediction',
           component: () => import('../views/analysis/prediction.vue'),
-          meta: { title: '增强预测', permission: 'customer:list' }
+          meta: { title: '增强预测', permission: 'forecast:view' }
         },
         {
           path: 'report',
@@ -382,13 +382,13 @@ const router = createRouter({
           path: 'scoring/rules',
           name: 'ScoringRules',
           component: () => import('../views/scoring/rules.vue'),
-          meta: { title: '评分规则', permission: 'customer:list' }
+          meta: { title: '评分规则', permission: 'scoring:view' }
         },
         {
           path: 'scoring/ranking',
           name: 'ScoringRanking',
           component: () => import('../views/scoring/ranking.vue'),
-          meta: { title: '评分排行', permission: 'customer:list' }
+          meta: { title: '评分排行', permission: 'scoring:view' }
         },
         {
           path: 'ai-suggestions',
@@ -454,19 +454,19 @@ const router = createRouter({
           path: 'approval/workflow',
           name: 'ApprovalWorkflow',
           component: () => import('../views/approval/workflow.vue'),
-          meta: { title: '审批流程', permission: 'customer:list', admin: true }
+          meta: { title: '审批流程', permission: 'approval:view', admin: true }
         },
         {
           path: 'approval/pending',
           name: 'ApprovalPending',
           component: () => import('../views/approval/pending.vue'),
-          meta: { title: '我的待审批', permission: 'customer:list' }
+          meta: { title: '我的待审批', permission: 'approval:view' }
         },
         {
           path: 'approval/submitted',
           name: 'ApprovalSubmitted',
           component: () => import('../views/approval/submitted.vue'),
-          meta: { title: '我的审批', permission: 'customer:list' }
+          meta: { title: '我的审批', permission: 'approval:view' }
         },
         {
           path: 'system/dept',

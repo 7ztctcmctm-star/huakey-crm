@@ -24,7 +24,7 @@ const supplierRoutes = require('../routes/supplier');
 app.use('/api/supplier', supplierRoutes);
 
 const generateToken = () => {
-  return jwt.sign({ userId: 1, username: 'admin', roleId: 1 }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
 describe('供应商模块 - 参数验证', () => {

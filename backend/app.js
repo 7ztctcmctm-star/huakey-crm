@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
@@ -6,6 +6,7 @@ const compression = require('compression');
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 
 const app = express();
+const logger = require('./config/logger');
 
 // [性能优化] 响应压缩（放在最前面）
 app.use(compression({
@@ -22,6 +23,20 @@ if (isProduction || process.env.VERCEL) {
 
 // 启用 helmet 安全头（CSP、HSTS、X-Frame-Options 等）
 app.use(helmet());
+
+// 慢查询日志（拦截 pool.query，必须在路由加载之前执行）
+require('./config/slowQuery');
+
+// 注入 Trace ID（需放在 CORS 之前，确保所有响应都带 X-Trace-Id）
+const traceIdMiddleware = require('./middleware/traceId');
+app.use(traceIdMiddleware);
+
+// 错误告警
+const { alertError } = require('./utils/alert');
+
+// Prometheus 指标中间件（记录每个请求的 Counter + Histogram）
+const { metricsMiddleware, startPoolMetricsCollection } = require('./config/metrics');
+app.use(metricsMiddleware);
 
 // CORS 配置：生产环境使用白名单，开发环境限制为本地前端
 const corsOrigin = isProduction
@@ -43,6 +58,9 @@ const { globalLogMiddleware } = require('./middleware/logger');
 
 // 加载限流中间件
 const { apiLimiter, authLimiter } = require('./middleware/rateLimiter');
+
+// 统一响应格式中间件
+const responseFormat = require('./middleware/responseFormat');
 
 // 加载路由
 const authRoutes = require('./routes/auth');
@@ -102,6 +120,9 @@ apiRouter.use(apiLimiter);
 // 全局操作日志中间件（自动记录所有API请求）
 apiRouter.use(globalLogMiddleware);
 
+// 统一响应格式中间件（确保所有 API 返回 { code, message, data } 三元组）
+apiRouter.use(responseFormat);
+
 // 全局错误处理中间件（捕获路由中未处理的错误）
 apiRouter.use((err, req, res, next) => {
   const ctx = {
@@ -111,7 +132,15 @@ apiRouter.use((err, req, res, next) => {
     ip: req.ip,
     body: req.method !== 'GET' ? JSON.stringify(req.body).substring(0, 500) : undefined
   };
-  console.error('[ErrorHandler]', { ...ctx, error: err.stack || err.message });
+  logger.error('[ErrorHandler]', { ...ctx, error: err.stack || err.message, traceId: req.traceId });
+
+  alertError({
+    level: 'error',
+    source: 'ErrorHandler',
+    message: err.stack || err.message,
+    traceId: req.traceId
+  });
+
   const statusCode = err.status || 500;
   res.status(statusCode).json({
     code: statusCode,
@@ -231,12 +260,20 @@ apiRouter.use('/invoice', invoiceRoutes);
 const cronJobRoutes = require('./routes/cronJobs');
 apiRouter.use('/cron', cronJobRoutes);
 
+// Swagger API 文档（开发/测试环境可用）
+if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_SWAGGER === 'true') {
+  const { swaggerUi, swaggerSpec } = require('./config/swagger');
+  apiRouter.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  logger.info('[Swagger] API 文档已挂载: /api/docs');
+}
+
 // 系统健康检查（管理员）
 const { authenticateToken } = require('./middleware/auth');
 const ROLES = require('./config/roles');
+const { ADMIN_ROLE_CODES } = ROLES;
 apiRouter.get('/system/health', authenticateToken, async (req, res) => {
   try {
-    const isAdmin = req.user.manageAll || req.user.roleId === ROLES.ADMIN;
+    const isAdmin = req.user.manageAll || ADMIN_ROLE_CODES.has(req.user.roleCode);
     if (!isAdmin) {
       return res.status(403).json({ code: 403, message: '仅管理员可查看', data: null });
     }
@@ -285,16 +322,31 @@ apiRouter.get('/system/health', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('[服务器] 健康检查错误:', error);
+    logger.error('[服务器] 健康检查错误:', { error: error.stack || error.message, traceId: req.traceId });
     res.status(500).json({ code: 500, message: '健康检查失败', data: null });
   }
 });
+
+// Prometheus 指标端点（仅管理员）
+const { register: metricsRegister, client: metricsClient } = require('./config/metrics');
+
+apiRouter.get('/metrics', authenticateToken, async (req, res) => {
+  const isAdmin = req.user.manageAll || ADMIN_ROLE_CODES.has(req.user.roleCode);
+  if (!isAdmin) {
+    return res.status(403).json({ code: 403, message: '仅管理员可访问', data: null });
+  }
+  res.set('Content-Type', metricsClient.register.contentType);
+  res.end(await metricsRegister.metrics());
+});
+
+// 客户端性能指标（无需认证）
+apiRouter.use('/metrics', require('./routes/metrics'));
 
 // 使用 /api 前缀
 app.use('/api', apiRouter);
 
 // 调查模块单独注册（公开回复接口不需要token）
-app.use('/api/survey', surveyRoutes);
+app.use('/api/survey', responseFormat, surveyRoutes);
 
 // 生产环境：直接托管前端静态文件
 const path = require('path');
@@ -334,7 +386,14 @@ app.use((err, req, res, next) => {
     path: req.originalUrl,
     ip: req.ip
   };
-  console.error('[AppErrorHandler]', { ...ctx, error: err.stack || err.message });
+  logger.error('[AppErrorHandler]', { ...ctx, error: err.stack || err.message, traceId: req.traceId });
+
+  alertError({
+    level: 'error',
+    source: 'AppErrorHandler',
+    message: err.stack || err.message,
+    traceId: req.traceId
+  });
 
   res.status(statusCode).json({
     code: statusCode,
@@ -352,23 +411,38 @@ if (!process.env.VERCEL) {
   const { startAllCronJobs } = require('./cron/scheduler');
   startAllCronJobs(pool);
 
+  // 启动数据库连接池指标采集（每15秒）
+  startPoolMetricsCollection(pool);
+
   // 全局未捕获Promise拒绝处理器
   process.on('unhandledRejection', (reason, promise) => {
-    console.error('[UnhandledRejection]', {
+    logger.error('[UnhandledRejection]', {
       message: reason?.message || reason,
-      stack: reason?.stack?.substring(0, 500),
-      timestamp: new Date().toISOString()
+      stack: reason?.stack?.substring(0, 500)
     });
+
+    alertError({
+      level: 'critical',
+      source: 'UnhandledRejection',
+      message: reason?.stack || reason?.message || String(reason),
+    });
+
     // 不 exit，只记录。让PM2/Docker重启策略处理
   });
 
   // 全局未捕获异常处理器
   process.on('uncaughtException', (err) => {
-    console.error('[UncaughtException]', {
+    logger.error('[UncaughtException]', {
       message: err.message,
-      stack: err.stack?.substring(0, 500),
-      timestamp: new Date().toISOString()
+      stack: err.stack?.substring(0, 500)
     });
+
+    alertError({
+      level: 'critical',
+      source: 'UncaughtException',
+      message: err.stack || err.message,
+    });
+
     // 给进程1秒写日志后退出，让Docker自动重启
     setTimeout(() => process.exit(1), 1000);
   });
@@ -384,8 +458,8 @@ if (!process.env.VERCEL) {
 
   // 启动服务器
   app.listen(PORT, () => {
-    console.log('[服务器] 启动成功，端口: ' + PORT);
-    console.log('[服务器] API地址: http://localhost:' + PORT + '/api');
+    logger.info('[服务器] 启动成功', { port: PORT });
+    logger.info('[服务器] API地址', { apiUrl: `http://localhost:${PORT}/api` });
   });
 }
 

@@ -31,6 +31,13 @@ jest.mock('fs', () => {
   };
 });
 
+jest.mock('child_process', () => ({
+  execFile: jest.fn((_cmd, _args, _opts, callback) => {
+    if (callback) callback(null, '', '');
+    return { stdin: { end: jest.fn() } };
+  })
+}));
+
 jest.mock('../services/permissionService', () => ({
   getUserPermissions: jest.fn().mockResolvedValue(['backup:create', 'backup:restore']),
   getMenuPermissions: jest.fn().mockResolvedValue([]),
@@ -44,7 +51,7 @@ const backupRoutes = require('../routes/backup');
 app.use('/api/backup', backupRoutes);
 
 const generateToken = () => {
-  return jwt.sign({ userId: 1, username: 'admin', roleId: 1, manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
 describe('数据备份模块', () => {

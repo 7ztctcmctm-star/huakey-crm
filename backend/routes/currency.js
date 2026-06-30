@@ -8,6 +8,7 @@ const { requireManager } = require('../middleware/admin');
 const currencyService = require('../services/currencyService');
 
 // 货币列表
+// [权限说明] 公共查询接口，仅需认证
 router.get('/list', authenticateToken, async (req, res) => {
   try {
     const rows = await currencyService.listCurrencies(pool);
@@ -19,6 +20,7 @@ router.get('/list', authenticateToken, async (req, res) => {
 });
 
 // 获取汇率map（前端用）
+// [权限说明] 公共查询接口，仅需认证
 router.get('/rates', authenticateToken, async (req, res) => {
   try {
     const rates = await currencyService.getRates(pool);

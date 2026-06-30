@@ -9,11 +9,13 @@
  *   - 每天 08:30 → /api/cron/generate-reminders
  *
  * 安全：仅允许 Vercel Cron（通过 CRON_SECRET 验证），拒绝外部请求
+ * [认证说明] Cron 端点使用 CRON_SECRET 进行服务间认证，不使用内部用户 token（authenticateToken）
  */
 
 const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
+const { cleanExpiredLogs, autoReleaseCustomers } = require('../services/cronService');
 const { checkAllSuppliersScores } = require('../utils/scoring');
 const { checkQualificationExpiry, updateQualificationStatus } = require('../utils/qualification-reminder');
 const { generateReminders } = require('../scripts/generate_reminders');
@@ -50,12 +52,10 @@ router.get('/daily-scoring', async (req, res) => {
 // 2. 清理过期日志（保留 90 天）
 router.get('/clean-logs', async (req, res) => {
   try {
-    const [result] = await pool.query(
-      "DELETE FROM sys_log WHERE create_time < NOW() - INTERVAL 90 DAY"
-    );
+    const cleaned = await cleanExpiredLogs(pool);
     res.json({
       code: 200,
-      message: `日志清理完成，已清理 ${result.affectedRows || 0} 条`
+      message: `日志清理完成，已清理 ${cleaned} 条`
     });
   } catch (error) {
     console.error('[Cron] 日志清理失败:', error.message);
@@ -67,27 +67,7 @@ router.get('/clean-logs', async (req, res) => {
 router.get('/auto-release', async (req, res) => {
   const AUTO_RELEASE_DAYS = parseInt(process.env.AUTO_RELEASE_DAYS) || 30;
   try {
-    const [customers] = await pool.query(
-      `SELECT id, company_name, owner_id FROM crm_customer
-       WHERE pool_status = 0 AND deleted_at IS NULL AND owner_id IS NOT NULL
-         AND (last_follow_time IS NULL AND create_time < NOW() - INTERVAL ? DAY
-           OR last_follow_time < NOW() - INTERVAL ? DAY)`,
-      [AUTO_RELEASE_DAYS, AUTO_RELEASE_DAYS]
-    );
-
-    let released = 0;
-    for (const c of customers) {
-      await pool.query(
-        'UPDATE crm_customer SET pool_status = 1, owner_id = NULL, protect_until = NULL WHERE id = ?',
-        [c.id]
-      );
-      await pool.query(
-        "INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id) VALUES (?, 'auto_release', ?, NULL)",
-        [c.id, c.owner_id]
-      );
-      released++;
-    }
-
+    const released = await autoReleaseCustomers(pool, AUTO_RELEASE_DAYS);
     res.json({
       code: 200,
       message: `公海回收完成，已释放 ${released} 个客户（超过 ${AUTO_RELEASE_DAYS} 天未跟进）`

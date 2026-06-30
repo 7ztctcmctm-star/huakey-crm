@@ -8,6 +8,7 @@ const { requireManager } = require('../middleware/admin');
 const permRouteService = require('../services/permissionRouteService');
 
 // 获取当前用户权限
+// [权限说明] 个人权限查询接口，仅需认证
 router.get('/my-permissions', authenticateToken, async (req, res) => {
   try {
     const data = await permRouteService.getMyPermissions(pool, req.user.userId, req.user.roleId);

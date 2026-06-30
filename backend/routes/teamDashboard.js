@@ -11,7 +11,7 @@ const teamDashboardService = require('../services/teamDashboardService');
 // 1. 团队总览卡片数据
 router.get('/overview', authenticateToken, checkPermission('team'), async (req, res) => {
   try {
-    const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
+    const isBoss = req.user.viewAll || ADMIN_ROLE_CODES.has(req.user.roleCode);
     const { startDate, endDate } = req.query;
     const data = await teamDashboardService.getOverview(pool, {
       userId: req.user.userId, isBoss, startDate, endDate

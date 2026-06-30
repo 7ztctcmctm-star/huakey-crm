@@ -1,4 +1,5 @@
 const Redis = require('ioredis');
+const { alertError } = require('../utils/alert');
 
 const REDIS_ENABLED = process.env.REDIS_ENABLED === 'true';
 const REDIS_HOST = process.env.REDIS_HOST || '127.0.0.1';
@@ -22,6 +23,12 @@ if (REDIS_ENABLED) {
 
   redis.on('error', (err) => {
     console.warn('[Redis] 连接错误（已降级为无缓存模式）:', err.message);
+
+    alertError({
+      level: 'error',
+      source: 'Redis',
+      message: err.stack || err.message,
+    });
   });
 
   redis.on('connect', () => {

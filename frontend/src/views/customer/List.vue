@@ -466,12 +466,13 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus, View, Edit, Delete, Upload, Switch, Select, Download, DataAnalysis, ChatLineRound } from '@element-plus/icons-vue'
 import CustomerImport from '@/components/CustomerImport.vue'
 import DataQualityCheck from '@/components/DataQualityCheck.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
 import request, { post, get } from '@/utils/request'
 import { getCustomerList, addCustomer, updateCustomer, deleteCustomer, assignCustomer as assignCustomerApi, batchAssignCustomer, convertCustomer, exportCustomers, getSalesUsers, getMySubordinates } from '@/api/customer'
 import { getTagList } from '@/api/system'
@@ -824,6 +825,19 @@ const handleReset = () => {
   searchForm.page = 1
   fetchList()
 }
+
+// 监听路由路径变化（潜客池⇄正式客户切换），重置筛选条件并刷新列表
+watch(() => route.path, (newPath, oldPath) => {
+  if (newPath === oldPath) return
+  // 只在潜客池和正式客户列表之间切换时才重置
+  if (newPath.includes('prospects') || newPath.includes('customer/list')) {
+    searchForm.status = newPath.includes('prospects') ? 1 : ''
+    searchForm.customer_type = newPath.includes('prospects') ? 'prospect' : ''
+    searchForm.page = 1
+    activeTab.value = newPath.includes('prospects') ? 'prospect' : 'all'
+    fetchList()
+  }
+})
 
 // 快捷Tab切换
 const handleQuickTabChange = (val) => {

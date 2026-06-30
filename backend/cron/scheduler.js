@@ -47,6 +47,13 @@ async function executeWithRetry(fn, jobName, maxRetries = 3) {
     console.error(`[严重] 关键定时任务 ${jobName} 执行失败（已重试${maxRetries}次）`);
     console.error(`[严重] 错误: ${errorMsg}`);
     console.error(`${'='.repeat(60)}\n`);
+
+    const { alertError } = require('../utils/alert');
+    alertError({
+      level: 'critical',
+      source: `CronJob:${jobName}`,
+      message: errorMsg,
+    });
   }
 
   await logCronRun(jobName, startTime, endTime, 'failed', errorMsg);

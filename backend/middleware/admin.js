@@ -7,10 +7,11 @@
  *   const { requireAdmin, requireManager } = require('...');      // 命名导出
  */
 const ROLES = require('../config/roles');
+const { ADMIN_ROLE_CODES } = ROLES;
 
 const requireAdmin = (req, res, next) => {
   const roleId = req.user?.roleId || req.user?.role_id;
-  if (req.user && roleId === ROLES.ADMIN) {
+  if (req.user && (ADMIN_ROLE_CODES.has(req.user.roleCode) || roleId === ROLES.ADMIN)) {
     return next();
   }
   return res.status(403).json({ code: 403, message: '需要管理员权限', data: null });
@@ -21,7 +22,7 @@ const requireAdmin = (req, res, next) => {
  */
 const requireManager = (req, res, next) => {
   const roleId = req.user?.roleId || req.user?.role_id;
-  if (req.user && (req.user.manageAll || roleId === ROLES.ADMIN || roleId === ROLES.MANAGER)) {
+  if (req.user && (req.user.manageAll || ADMIN_ROLE_CODES.has(req.user.roleCode) || roleId === ROLES.ADMIN)) {
     return next();
   }
   return res.status(403).json({ code: 403, message: '需要管理员或经理权限', data: null });

@@ -4,6 +4,7 @@ import '@/styles/apple.css'
 import App from './App.vue'
 import router from '@/router/index.js'
 import { permissionDirective, permissionAllDirective, permissionDisabledDirective } from '@/directives/permission'
+import { initPerfume } from '@/utils/perfume'
 
 // ElMessage/ElMessageBox 样式（按需导入插件无法自动处理JS调用的样式）
 import 'element-plus/theme-chalk/src/message.scss'
@@ -39,5 +40,8 @@ app.config.errorHandler = (err, instance, info) => {
 if (import.meta.env.PROD) {
   app.config.warnHandler = () => {}
 }
+
+// 初始化 Web Vitals 性能指标采集
+initPerfume()
 
 app.mount('#app')

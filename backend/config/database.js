@@ -1,4 +1,5 @@
 const mysql = require('mysql2/promise');
+const { alertError } = require('../utils/alert');
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
@@ -17,6 +18,12 @@ const pool = mysql.createPool({
 
 pool.on('error', (err) => {
   console.error('数据库连接池错误:', err.message);
+
+  alertError({
+    level: 'critical',
+    source: 'Database',
+    message: err.stack || err.message,
+  });
 });
 
 const testConnection = async () => {
@@ -32,4 +39,20 @@ const testConnection = async () => {
 
 testConnection();
 
+/**
+ * 带 traceId 的数据库查询包装函数
+ * 在 SQL 开头注入 traceId 查询注释，便于链路追踪
+ * @param {string} traceId - 请求追踪 ID
+ * @param {string} sql - SQL 语句
+ * @param {Array} params - SQL 参数
+ * @returns {Promise} - pool.query 的结果
+ */
+async function queryWithTrace(traceId, sql, params) {
+  const tracedSql = typeof sql === 'string'
+    ? `/* traceId=${traceId} */ ${sql}`
+    : sql;
+  return pool.query(tracedSql, params);
+}
+
 module.exports = pool;
+module.exports.queryWithTrace = queryWithTrace;

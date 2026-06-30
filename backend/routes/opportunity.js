@@ -10,6 +10,52 @@ const opportunityService = require('../services/opportunityService');
 const MODULE_NAME = '商机管理';
 const router = express.Router();
 
+/**
+ * @swagger
+ * tags:
+ *   - name: 商机管理
+ *     description: 商机 CRUD、阶段管理、成交/丢单
+ *
+ * /api/opportunity/list:
+ *   post:
+ *     summary: 获取商机列表（分页 + 筛选）
+ *     tags: [商机管理]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               page: { type: integer, default: 1 }
+ *               pageSize: { type: integer, default: 10 }
+ *               keyword: { type: string }
+ *               stage: { type: integer, enum: [1, 2, 3, 4, 5, 6], description: '1=初步接洽 2=需求分析 3=方案报价 4=谈判 5=成交 6=丢单' }
+ *     responses:
+ *       200:
+ *         description: 商机列表
+ *
+ * /api/opportunity:
+ *   post:
+ *     summary: 新增商机
+ *     tags: [商机管理]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name, customer_id]
+ *             properties:
+ *               name: { type: string, example: 年度框架合同 }
+ *               customer_id: { type: integer, example: 1 }
+ *               expected_amount: { type: number, example: 50000 }
+ *               expected_date: { type: string, format: date }
+ *               stage: { type: integer, default: 1 }
+ *     responses:
+ *       200:
+ *         description: 创建成功
+ */
+
 const opportunityListSchema = Joi.object({
   page: Joi.number().integer().min(1).optional(),
   pageSize: Joi.number().integer().min(1).max(200).optional(),
@@ -137,7 +183,7 @@ router.post('/delete', authenticateToken, checkPermission('opportunity:delete'),
     if (!opp) return res.status(404).json({ code: 404, message: '商机不存在', data: null });
 
     const { manageAll, roleId, userId } = req.user;
-    if (!manageAll && ![ROLES.ADMIN, ROLES.MANAGER].includes(roleId) && opp.owner_id !== userId) {
+    if (!manageAll && !ADMIN_ROLE_CODES.has(req.user.roleCode) && opp.owner_id !== userId) {
       return res.status(403).json({ code: 403, message: '无权删除该商机', data: null });
     }
 

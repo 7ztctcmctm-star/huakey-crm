@@ -16,7 +16,7 @@ const PASSWORD_MESSAGE = '密码至少8位，需包含大写字母、小写字�
 // 验证码存储（key: captcha_key, value: {code, expires}）
 const captchaStore = new Map();
 
-// 定期清理过期验证码（每5分钟）
+// 定期清洗过期验证码（每5分钟）
 setInterval(() => {
   const now = Date.now();
   for (const [key, val] of captchaStore) {
@@ -83,7 +83,8 @@ async function login(pool, { username, password }) {
     `SELECT u.id, u.username, u.password, u.real_name, u.phone, u.email,
             u.dept_id, u.role_id, u.status,
             COALESCE(r.view_all, 0) as view_all,
-            COALESCE(r.manage_all, 0) as manage_all
+            COALESCE(r.manage_all, 0) as manage_all,
+            r.code as role_code
      FROM sys_user u
      LEFT JOIN sys_role r ON u.role_id = r.id
      WHERE u.username = ? AND u.status = 1`,
@@ -158,7 +159,8 @@ async function getMe(pool, userId) {
     `SELECT u.id, u.username, u.real_name, u.phone, u.email,
             u.dept_id, u.role_id, u.status,
             COALESCE(r.view_all, 0) as view_all,
-            COALESCE(r.manage_all, 0) as manage_all
+            COALESCE(r.manage_all, 0) as manage_all,
+            r.code as role_code
      FROM sys_user u
      LEFT JOIN sys_role r ON u.role_id = r.id
      WHERE u.id = ? AND u.status = 1`,
@@ -183,6 +185,7 @@ async function getMe(pool, userId) {
     email: user.email,
     deptId: user.dept_id,
     roleId: user.role_id,
+    roleCode: user.role_code,
     viewAll: user.view_all === 1,
     manageAll: user.manage_all === 1,
     permissions,
