@@ -17,6 +17,7 @@ const releaseCustomerSchema = Joi.object({
 });
 
 const { createRouteLogger } = require('../../middleware/logger');
+const logger = require('../../config/logger');
 const logAction = createRouteLogger(MODULE_NAME);
 
 const router = express.Router();
@@ -27,7 +28,7 @@ router.post('/pool', authenticateToken, checkPermission('customer:pool'), async 
     const result = await poolService.listPoolCustomers(pool, req.body, SOURCE_PARENT_MAP);
     res.json({ code: 200, message: '获取公海客户列表成功', data: result });
   } catch (error) {
-    console.error('获取公海客户列表错误:', error);
+    logger.error('获取公海客户列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '获取公海客户列表失败', data: null });
   }
 });
@@ -40,7 +41,7 @@ router.post('/claim', authenticateToken, checkPermission('customer:pool'), valid
     await logAction(req, 'claim', `认领客户: ${result.company_name}`);
     res.json({ code: 200, message: '认领客户成功', data: { protect_until: result.protect_until } });
   } catch (error) {
-    console.error('认领客户错误:', error);
+    logger.error('认领客户错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '认领客户失败', data: null });
   }
 });
@@ -54,7 +55,7 @@ router.post('/batch-claim', authenticateToken, checkPermission('customer:pool'),
     const msg = `成功认领 ${result.claimed} 个客户` + (result.skipped.length > 0 ? `，跳过: ${result.skipped.join('; ')}` : '');
     res.json({ code: 200, message: msg, data: { claimed: result.claimed, skipped: result.skipped.length > 0 ? result.skipped : null } });
   } catch (error) {
-    console.error('批量认领错误:', error);
+    logger.error('批量认领错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '批量认领失败', data: null });
   }
 });
@@ -67,7 +68,7 @@ router.post('/release', authenticateToken, checkPermission('customer:pool'), val
     await logAction(req, 'release', `释放客户到公海: ${result.company_name}`);
     res.json({ code: 200, message: '释放客户成功', data: null });
   } catch (error) {
-    console.error('释放客户错误:', error);
+    logger.error('释放客户错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '释放客户失败', data: null });
   }
 });
@@ -80,7 +81,7 @@ router.post('/batch-release', authenticateToken, checkPermission('customer:pool'
     await logAction(req, 'batch-release', `批量释放 ${result.count} 个客户到公海`);
     res.json({ code: 200, message: `成功释放 ${result.count} 个客户`, data: { count: result.count } });
   } catch (error) {
-    console.error('批量释放错误:', error);
+    logger.error('批量释放错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '批量释放失败', data: null });
   }
 });
@@ -91,7 +92,7 @@ router.post('/pool-log', authenticateToken, checkPermission('customer:pool'), as
     const result = await poolService.getPoolLogs(pool, req.body);
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('查询公海日志错误:', error);
+    logger.error('查询公海日志错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });

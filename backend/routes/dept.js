@@ -25,13 +25,14 @@ const deptDeleteSchema = Joi.object({
 });
 
 const requireAdmin = require('../middleware/admin');
+const logger = require('../config/logger');
 
 router.post('/list', authenticateToken, checkPermission('system:dept'), async (req, res) => {
   try {
     const result = await deptService.listDepts(pool);
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('[部门管理] 查询失败:', error);
+    logger.error('[部门管理] 查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -41,7 +42,7 @@ router.post('/add', authenticateToken, requireAdmin, validate(deptAddSchema), as
     const result = await deptService.addDept(pool, req.body);
     res.json({ code: 200, message: '新增部门成功', data: { id: result.id } });
   } catch (error) {
-    console.error('[部门管理] 新增部门失败:', error);
+    logger.error('[部门管理] 新增部门失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '新增部门失败', data: null });
   }
 });
@@ -51,7 +52,7 @@ router.post('/update', authenticateToken, requireAdmin, validate(deptUpdateSchem
     await deptService.updateDept(pool, req.body);
     res.json({ code: 200, message: '修改部门成功', data: null });
   } catch (error) {
-    console.error('[部门管理] 修改部门失败:', error);
+    logger.error('[部门管理] 修改部门失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '修改部门失败', data: null });
   }
 });
@@ -64,7 +65,7 @@ router.post('/delete', authenticateToken, requireAdmin, validate(deptDeleteSchem
     }
     res.json({ code: 200, message: '删除部门成功', data: null });
   } catch (error) {
-    console.error('[部门管理] 删除部门失败:', error);
+    logger.error('[部门管理] 删除部门失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '删除部门失败', data: null });
   }
 });

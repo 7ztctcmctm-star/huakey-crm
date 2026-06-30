@@ -5,6 +5,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const invoiceService = require('../services/invoiceService');
+const logger = require('../config/logger');
 
 // Joi 数据校验规则
 const listSchema = Joi.object({
@@ -52,7 +53,7 @@ router.post('/list', authenticateToken, checkPermission('invoice'), checkDataPer
     const data = await invoiceService.listInvoices(pool, req.body, req.dataPermission);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('发票列表查询失败:', error);
+    logger.error('发票列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -64,7 +65,7 @@ router.get('/detail/:id', authenticateToken, async (req, res) => {
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     const status = error.statusCode || 500;
-    console.error('发票详情查询失败:', error);
+    logger.error('发票详情查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '查询失败', data: null });
   }
 });
@@ -75,7 +76,7 @@ router.post('/add', authenticateToken, checkPermission('invoice:add'), validate(
     const result = await invoiceService.createInvoice(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '创建发票成功', data: result });
   } catch (error) {
-    console.error('新增发票失败:', error);
+    logger.error('新增发票失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '创建发票失败', data: null });
   }
 });
@@ -87,7 +88,7 @@ router.post('/update', authenticateToken, checkPermission('invoice:edit'), valid
     res.json({ code: 200, message: '修改成功', data: null });
   } catch (error) {
     const status = error.statusCode || 500;
-    console.error('修改发票失败:', error);
+    logger.error('修改发票失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '修改失败', data: null });
   }
 });
@@ -99,7 +100,7 @@ router.post('/delete', authenticateToken, checkPermission('invoice:delete'), val
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     const status = error.statusCode || 500;
-    console.error('删除发票失败:', error);
+    logger.error('删除发票失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '删除失败', data: null });
   }
 });
@@ -112,7 +113,7 @@ router.post('/export', authenticateToken, checkPermission('invoice:export'), che
     res.setHeader('Content-Disposition', 'attachment; filename=invoices.xlsx');
     res.send(buf);
   } catch (error) {
-    console.error('导出发票失败:', error);
+    logger.error('导出发票失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '导出失败', data: null });
   }
 });

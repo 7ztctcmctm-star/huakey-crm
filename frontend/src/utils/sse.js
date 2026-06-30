@@ -1,15 +1,16 @@
 /**
  * SSE 实时通知客户端
- * 自动携带 token，支持重连与心跳
+ * 自动携带 token，支持重连与心跳，支持多组件同时监听
  */
 
-let eventSource = null;
-let reconnectTimer = null;
-let reconnectAttempts = 0;
-const MAX_RECONNECT_DELAY = 30000;
+let eventSource = null
+let reconnectTimer = null
+let reconnectAttempts = 0
+const MAX_RECONNECT_DELAY = 30000
+const messageCallbacks = new Set()
 
 function getToken() {
-  return localStorage.getItem('token') || sessionStorage.getItem('token') || '';
+  return localStorage.getItem('token') || sessionStorage.getItem('token') || ''
 }
 
 /**
@@ -20,43 +21,52 @@ function getToken() {
  * @param {Function} [callbacks.onError] - 错误回调
  */
 export function connectSSE(callbacks = {}) {
-  if (eventSource) return;
+  if (callbacks.onMessage) messageCallbacks.add(callbacks.onMessage)
+  if (eventSource) return
 
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1';
-  const url = `${baseUrl}/sse/notifications?token=${encodeURIComponent(getToken())}`;
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+  const url = `${baseUrl}/sse/notifications?token=${encodeURIComponent(getToken())}`
 
-  eventSource = new EventSource(url);
+  eventSource = new EventSource(url)
 
   eventSource.onopen = () => {
-    reconnectAttempts = 0;
-    if (callbacks.onOpen) callbacks.onOpen();
-  };
+    reconnectAttempts = 0
+    if (callbacks.onOpen) callbacks.onOpen()
+  }
 
   eventSource.onmessage = (event) => {
-    if (!event.data || event.data.startsWith(':')) return;
+    if (!event.data || event.data.startsWith(':')) return
     try {
-      const payload = JSON.parse(event.data);
-      if (callbacks.onMessage) callbacks.onMessage(payload);
+      const payload = JSON.parse(event.data)
+      messageCallbacks.forEach(cb => cb(payload))
     } catch (e) {
-      console.error('[SSE] 消息解析失败:', e);
+      console.error('[SSE] 消息解析失败:', e)
     }
-  };
+  }
 
   eventSource.onerror = (err) => {
-    if (callbacks.onError) callbacks.onError(err);
-    disconnectSSE();
-    scheduleReconnect(callbacks);
-  };
+    if (callbacks.onError) callbacks.onError(err)
+    disconnectSSE()
+    scheduleReconnect(callbacks)
+  }
+}
+
+/**
+ * 移除消息监听回调
+ * @param {Function} callback
+ */
+export function offMessage(callback) {
+  if (callback) messageCallbacks.delete(callback)
 }
 
 function scheduleReconnect(callbacks) {
-  if (reconnectTimer) return;
-  reconnectAttempts += 1;
-  const delay = Math.min(1000 * 2 ** reconnectAttempts, MAX_RECONNECT_DELAY);
+  if (reconnectTimer) return
+  reconnectAttempts += 1
+  const delay = Math.min(1000 * 2 ** reconnectAttempts, MAX_RECONNECT_DELAY)
   reconnectTimer = setTimeout(() => {
-    reconnectTimer = null;
-    connectSSE(callbacks);
-  }, delay);
+    reconnectTimer = null
+    connectSSE(callbacks)
+  }, delay)
 }
 
 /**
@@ -64,12 +74,12 @@ function scheduleReconnect(callbacks) {
  */
 export function disconnectSSE() {
   if (reconnectTimer) {
-    clearTimeout(reconnectTimer);
-    reconnectTimer = null;
+    clearTimeout(reconnectTimer)
+    reconnectTimer = null
   }
   if (eventSource) {
-    eventSource.close();
-    eventSource = null;
+    eventSource.close()
+    eventSource = null
   }
 }
 
@@ -77,6 +87,6 @@ export function disconnectSSE() {
  * 重新建立 SSE 连接
  */
 export function reconnectSSE(callbacks = {}) {
-  disconnectSSE();
-  connectSSE(callbacks);
+  disconnectSSE()
+  connectSSE(callbacks)
 }

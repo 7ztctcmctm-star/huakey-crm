@@ -5,6 +5,7 @@ const { checkPermission } = require('../middleware/permission');
 const { requireManager } = require('../middleware/admin');
 const { validate, Joi } = require('../middleware/validate');
 const configRouteService = require('../services/configRouteService');
+const logger = require('../config/logger');
 
 const configUpdateSchema = Joi.object({
   configs: Joi.array().items(
@@ -23,7 +24,7 @@ router.get('/overdue-days', authenticateToken, checkPermission('system'), async 
     const data = await configRouteService.fetchOverdueDays();
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('[配置] 获取逾期天数失败:', error);
+    logger.error('[配置] 获取逾期天数失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -34,7 +35,7 @@ router.get('/list', authenticateToken, checkPermission('system'), requireManager
     const rows = await configRouteService.listConfigs(pool);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
-    console.error('[配置] 获取配置错误:', error);
+    logger.error('[配置] 获取配置错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '获取配置失败', data: null });
   }
 });
@@ -48,7 +49,7 @@ router.post('/update', authenticateToken, checkPermission('system'), requireMana
     if (error.statusCode === 400) {
       return res.status(400).json({ code: 400, message: error.message, data: null });
     }
-    console.error('[配置] 更新配置错误:', error);
+    logger.error('[配置] 更新配置错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '更新配置失败', data: null });
   }
 });
@@ -59,7 +60,7 @@ router.post('/test-notification', authenticateToken, checkPermission('system'), 
     await configRouteService.testNotification();
     res.json({ code: 200, message: '测试消息已发送', data: null });
   } catch (error) {
-    console.error('[配置] 测试通知失败:', error);
+    logger.error('[配置] 测试通知失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '发送失败，请检查配置', data: null });
   }
 });

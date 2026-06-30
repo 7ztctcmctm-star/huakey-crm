@@ -6,6 +6,7 @@ const { checkPermission, checkDataPermission, buildDataPermissionWhere } = requi
 const { logFieldChanges } = require('../utils/fieldLog');
 const ROLES = require('../config/roles');
 const opportunityService = require('../services/opportunityService');
+const logger = require('../config/logger');
 
 const MODULE_NAME = '商机管理';
 const router = express.Router();
@@ -94,7 +95,7 @@ router.post('/list', authenticateToken, checkDataPermission('opportunity', 'owne
     const result = await opportunityService.listOpportunities(pool, req.body, { clause, params: permParams });
     res.json({ code: 200, message: '获取商机列表成功', data: { ...result, page: parseInt(req.body.page) || 1, pageSize: parseInt(req.body.pageSize) || 10 } });
   } catch (error) {
-    console.error('获取商机列表错误:', error);
+    logger.error('获取商机列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '获取商机列表失败', data: null });
   }
 });
@@ -106,7 +107,7 @@ router.post('/add', authenticateToken, checkPermission('opportunity:add'), valid
     res.json({ code: 200, message: '添加商机成功', data: result });
   } catch (error) {
     const status = error.code || 500;
-    console.error('添加商机错误:', error);
+    logger.error('添加商机错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '添加商机失败', data: null });
   }
 });
@@ -127,7 +128,7 @@ router.post('/update', authenticateToken, checkPermission('opportunity:edit'), c
     await logFieldChanges(req, { module: MODULE_NAME, action: '编辑', oldData, newData: req.body, allowedFields: oppFields, description: `修改商机 "${oldData.name}" 字段变更` });
     res.json({ code: 200, message: '修改商机成功', data: null });
   } catch (error) {
-    console.error('修改商机错误:', error);
+    logger.error('修改商机错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '修改商机失败', data: null });
   }
 });
@@ -146,7 +147,7 @@ router.post('/update-stage', authenticateToken, checkPermission('opportunity:edi
     res.json({ code: 200, message: `阶段已从"${opportunityService.STAGE_MAP[result.oldStage]}"推进至"${result.stageName}"`, data: null });
   } catch (error) {
     const status = error.code || 500;
-    console.error('推进阶段错误:', error);
+    logger.error('推进阶段错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '推进阶段失败', data: null });
   }
 });
@@ -157,7 +158,7 @@ router.get('/stage-log/:id', authenticateToken, async (req, res) => {
     const logs = await opportunityService.getStageLog(pool, req.params.id);
     res.json({ code: 200, message: '查询成功', data: logs });
   } catch (error) {
-    console.error('查询阶段日志错误:', error);
+    logger.error('查询阶段日志错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -168,7 +169,7 @@ router.get('/stage-stats/:id', authenticateToken, async (req, res) => {
     const data = await opportunityService.getStageStats(pool, req.params.id);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('阶段统计错误:', error);
+    logger.error('阶段统计错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -190,7 +191,7 @@ router.post('/delete', authenticateToken, checkPermission('opportunity:delete'),
     await opportunityService.deleteOpportunity(pool, id);
     res.json({ code: 200, message: '删除商机成功', data: null });
   } catch (error) {
-    console.error('删除商机错误:', error);
+    logger.error('删除商机错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '删除商机失败', data: null });
   }
 });
@@ -203,7 +204,7 @@ router.get('/detail/:id', authenticateToken, checkDataPermission('opportunity', 
     if (!data) return res.status(404).json({ code: 404, message: '商机不存在', data: null });
     res.json({ code: 200, message: '获取商机详情成功', data });
   } catch (error) {
-    console.error('获取商机详情错误:', error);
+    logger.error('获取商机详情错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '获取商机详情失败', data: null });
   }
 });
@@ -215,7 +216,7 @@ router.get('/funnel', authenticateToken, checkDataPermission('opportunity', 'own
     const data = await opportunityService.getFunnelStats(pool, { clause, params: permParams });
     res.json({ code: 200, message: '获取销售漏斗成功', data });
   } catch (error) {
-    console.error('获取销售漏斗错误:', error);
+    logger.error('获取销售漏斗错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '获取销售漏斗失败', data: null });
   }
 });
@@ -229,7 +230,7 @@ router.get('/stage-log/:id', authenticateToken, checkDataPermission('opportunity
     const logs = await opportunityService.getStageLog(pool, req.params.id);
     res.json({ code: 200, message: '查询成功', data: logs.map(l => ({ ...l, from_stage_name: opportunityService.STAGE_MAP[l.from_stage], to_stage_name: opportunityService.STAGE_MAP[l.to_stage] })) });
   } catch (error) {
-    console.error('获取阶段变更日志错误:', error);
+    logger.error('获取阶段变更日志错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });

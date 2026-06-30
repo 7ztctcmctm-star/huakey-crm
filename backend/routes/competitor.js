@@ -5,6 +5,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const competitorService = require('../services/competitorService');
+const logger = require('../config/logger');
 
 // Joi schemas
 const competitorSchema = Joi.object({
@@ -86,7 +87,7 @@ router.get('/list', authenticateToken, checkPermission('competitor:view'), async
     const data = await competitorService.listCompetitors(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('[竞品] 列表查询失败:', error);
+    logger.error('[竞品] 列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -97,7 +98,7 @@ router.get('/:id', authenticateToken, checkPermission('competitor:view'), async 
     if (!row) return res.status(404).json({ code: 404, message: '竞争对手不存在', data: null });
     res.json({ code: 200, message: '查询成功', data: row });
   } catch (error) {
-    console.error('[竞品] 详情查询失败:', error);
+    logger.error('[竞品] 详情查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -108,7 +109,7 @@ router.post('/add', authenticateToken, checkPermission('competitor:add'), valida
     const result = await competitorService.createCompetitor(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
-    console.error('[竞品] 创建失败:', error);
+    logger.error('[竞品] 创建失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -118,7 +119,7 @@ router.put('/:id', authenticateToken, checkPermission('competitor:edit'), valida
     await competitorService.updateCompetitor(pool, req.params.id, req.body);
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
-    console.error('[竞品] 更新失败:', error);
+    logger.error('[竞品] 更新失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -128,7 +129,7 @@ router.delete('/:id', authenticateToken, checkPermission('competitor:delete'), a
     await competitorService.deleteCompetitor(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
-    console.error('[竞品] 删除失败:', error);
+    logger.error('[竞品] 删除失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -140,7 +141,7 @@ router.get('/:id/encounters', authenticateToken, checkPermission('competitor:vie
     const data = await competitorService.getEncounters(pool, req.params.id);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('[竞品] 交锋记录查询失败:', error);
+    logger.error('[竞品] 交锋记录查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -151,7 +152,7 @@ router.post('/encounters/add', authenticateToken, checkPermission('competitor:ed
     const result = await competitorService.addEncounter(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
-    console.error('[竞品] 创建交锋记录失败:', error);
+    logger.error('[竞品] 创建交锋记录失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -161,7 +162,7 @@ router.put('/encounters/:id', authenticateToken, checkPermission('competitor:edi
     await competitorService.updateEncounter(pool, req.params.id, req.body);
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
-    console.error('[竞品] 更新交锋记录失败:', error);
+    logger.error('[竞品] 更新交锋记录失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -171,7 +172,7 @@ router.delete('/encounters/:id', authenticateToken, checkPermission('competitor:
     await competitorService.deleteEncounter(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
-    console.error('[竞品] 删除交锋记录失败:', error);
+    logger.error('[竞品] 删除交锋记录失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -183,7 +184,7 @@ router.get('/:id/intel', authenticateToken, checkPermission('competitor:view'), 
     const data = await competitorService.getIntel(pool, req.params.id);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('[竞品] 情报查询失败:', error);
+    logger.error('[竞品] 情报查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -194,7 +195,7 @@ router.post('/intel/add', authenticateToken, checkPermission('competitor:edit'),
     const result = await competitorService.addIntel(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
-    console.error('[竞品] 创建情报失败:', error);
+    logger.error('[竞品] 创建情报失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -204,7 +205,7 @@ router.put('/intel/:id', authenticateToken, checkPermission('competitor:edit'), 
     await competitorService.updateIntel(pool, req.params.id, req.body);
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
-    console.error('[竞品] 更新情报失败:', error);
+    logger.error('[竞品] 更新情报失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -214,7 +215,7 @@ router.delete('/intel/:id', authenticateToken, checkPermission('competitor:delet
     await competitorService.deleteIntel(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
-    console.error('[竞品] 删除情报失败:', error);
+    logger.error('[竞品] 删除情报失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -226,7 +227,7 @@ router.get('/analysis/overview', authenticateToken, checkPermission('competitor:
     const data = await competitorService.getAnalysisOverview(pool);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('[竞品] 分析总览查询失败:', error);
+    logger.error('[竞品] 分析总览查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -238,7 +239,7 @@ router.get('/analysis/compare', authenticateToken, checkPermission('competitor:v
     const data = await competitorService.getComparison(pool, ids);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('[竞品] 对比查询失败:', error);
+    logger.error('[竞品] 对比查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });

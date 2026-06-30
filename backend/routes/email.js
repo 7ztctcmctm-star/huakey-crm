@@ -5,6 +5,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const emailService = require('../services/emailService');
+const logger = require('../config/logger');
 
 // Joi schemas
 const accountSchema = Joi.object({
@@ -51,7 +52,7 @@ router.post('/account', authenticateToken, checkPermission('email'), validate(ac
     const result = await emailService.createAccount(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '配置成功', data: result });
   } catch (error) {
-    console.error('[邮件] 配置账号失败:', error);
+    logger.error('[邮件] 配置账号失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -62,7 +63,7 @@ router.get('/accounts', authenticateToken, checkPermission('email'), async (req,
     const rows = await emailService.listAccounts(pool, req.user.userId);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
-    console.error('[邮件] 查询账号失败:', error);
+    logger.error('[邮件] 查询账号失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -73,7 +74,7 @@ router.delete('/account/:id', authenticateToken, checkPermission('email'), async
     await emailService.deleteAccount(pool, req.params.id, req.user.userId);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
-    console.error('[邮件] 删除账号失败:', error);
+    logger.error('[邮件] 删除账号失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     const status = error.code && typeof error.code === 'number' ? error.code : 500;
     res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
   }
@@ -85,7 +86,7 @@ router.post('/account/:id/test', authenticateToken, checkPermission('email'), as
     const results = await emailService.testConnection(pool, req.params.id, req.user.userId);
     res.json({ code: 200, message: results.smtp ? '连接测试成功' : 'SMTP连接失败', data: results });
   } catch (error) {
-    console.error('[邮件] 测试连接失败:', error);
+    logger.error('[邮件] 测试连接失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     const status = error.code && typeof error.code === 'number' ? error.code : 500;
     res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
   }
@@ -97,7 +98,7 @@ router.get('/list', authenticateToken, checkPermission('email'), async (req, res
     const data = await emailService.listEmails(pool, req.query, req.user.userId);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('[邮件] 查询邮件列表失败:', error);
+    logger.error('[邮件] 查询邮件列表失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -109,7 +110,7 @@ router.get('/:id', authenticateToken, checkPermission('email'), async (req, res)
     if (!email) return res.status(404).json({ code: 404, message: '邮件不存在', data: null });
     res.json({ code: 200, message: '查询成功', data: email });
   } catch (error) {
-    console.error('[邮件] 查询邮件详情失败:', error);
+    logger.error('[邮件] 查询邮件详情失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -123,8 +124,8 @@ router.post('/send', authenticateToken, checkPermission('email:send'), validate(
     const result = await emailService.sendEmail(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '发送成功', data: result });
   } catch (error) {
-    console.error('[邮件] 发送失败:', error);
-    console.error('[邮件] 发送失败:', error.message);
+    logger.error('[邮件] 发送失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    logger.error('[邮件] 发送失败:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '发送失败，请检查邮箱配置', data: null });
   }
 });
@@ -149,7 +150,7 @@ router.post('/reply/:id', authenticateToken, checkPermission('email:send'), vali
 
     res.json({ code: 200, message: '回复成功', data: result });
   } catch (error) {
-    console.error('[邮件] 回复失败:', error);
+    logger.error('[邮件] 回复失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -160,7 +161,7 @@ router.put('/:id/read', authenticateToken, checkPermission('email'), async (req,
     await emailService.markAsRead(pool, req.params.id);
     res.json({ code: 200, message: '已标记已读', data: null });
   } catch (error) {
-    console.error('[邮件] 标记已读失败:', error);
+    logger.error('[邮件] 标记已读失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -171,7 +172,7 @@ router.put('/:id/star', authenticateToken, checkPermission('email'), async (req,
     const result = await emailService.toggleStar(pool, req.params.id);
     res.json({ code: 200, message: result.is_starred ? '已星标' : '已取消星标', data: result });
   } catch (error) {
-    console.error('[邮件] 星标操作失败:', error);
+    logger.error('[邮件] 星标操作失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     const status = error.code && typeof error.code === 'number' ? error.code : 500;
     res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
   }
@@ -186,7 +187,7 @@ router.post('/:id/link-customer', authenticateToken, checkPermission('email'), v
     await emailService.linkCustomer(pool, req.params.id, customer_id);
     res.json({ code: 200, message: '关联成功', data: null });
   } catch (error) {
-    console.error('[邮件] 关联客户失败:', error);
+    logger.error('[邮件] 关联客户失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     const status = error.code && typeof error.code === 'number' ? error.code : 500;
     res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
   }
@@ -198,7 +199,7 @@ router.post('/sync/:account_id', authenticateToken, checkPermission('email'), as
     await emailService.syncEmails(pool, req.params.account_id, req.user.userId);
     res.json({ code: 200, message: '同步完成（完整IMAP同步需配置IMAP服务）', data: null });
   } catch (error) {
-    console.error('[邮件] 同步失败:', error);
+    logger.error('[邮件] 同步失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     const status = error.code && typeof error.code === 'number' ? error.code : 500;
     res.status(status).json({ code: status, message: error.message || '同步失败', data: null });
   }
@@ -210,7 +211,7 @@ router.get('/stats/overview', authenticateToken, checkPermission('email'), async
     const data = await emailService.getEmailStats(pool, req.user.userId);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('[邮件] 统计查询失败:', error);
+    logger.error('[邮件] 统计查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });

@@ -4,6 +4,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const followUpService = require('../services/followUpService');
+const logger = require('../config/logger');
 
 const router = express.Router();
 
@@ -45,7 +46,7 @@ router.post('/add', authenticateToken, checkPermission('customer:edit'), validat
     const result = await followUpService.addFollowUp(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '添加跟进记录成功', data: result });
   } catch (error) {
-    console.error('添加跟进记录错误:', error);
+    logger.error('添加跟进记录错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     const status = error.code && typeof error.code === 'number' ? error.code : 500;
     res.status(status).json({ code: status, message: error.message || '添加跟进记录失败', data: null });
   }
@@ -65,7 +66,7 @@ router.post('/batch-add', authenticateToken, checkPermission('customer:edit'), v
     const result = await followUpService.batchAddFollowUp(pool, items, req.user.userId);
     res.json({ code: 200, message: `成功录入 ${result.count} 条跟进记录`, data: result });
   } catch (error) {
-    console.error('批量跟进错误:', error);
+    logger.error('批量跟进错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '批量跟进失败', data: null });
   }
 });
@@ -82,7 +83,7 @@ router.post('/list', authenticateToken, checkPermission('followup:calendar'), ch
     const data = await followUpService.listFollowUps(pool, { customer_id, page, pageSize }, permission);
     res.json({ code: 200, message: '获取跟进记录成功', data });
   } catch (error) {
-    console.error('获取跟进记录错误:', error);
+    logger.error('获取跟进记录错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '获取跟进记录失败', data: null });
   }
 });
@@ -94,7 +95,7 @@ router.get('/remind', authenticateToken, checkPermission('followup:calendar'), c
     const data = await followUpService.getTodayRemind(pool, permission);
     res.json({ code: 200, message: '获取今日待跟进成功', data });
   } catch (error) {
-    console.error('获取今日待跟进错误:', error);
+    logger.error('获取今日待跟进错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '获取今日待跟进失败', data: null });
   }
 });
@@ -106,7 +107,7 @@ router.get('/tomorrow', authenticateToken, checkPermission('followup:calendar'),
     const data = await followUpService.getTomorrowPlan(pool, permission);
     res.json({ code: 200, message: '获取明日计划成功', data });
   } catch (error) {
-    console.error('获取明日计划错误:', error);
+    logger.error('获取明日计划错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '获取明日计划失败', data: null });
   }
 });
@@ -118,7 +119,7 @@ router.get('/overdue', authenticateToken, checkPermission('followup:calendar'), 
     const data = await followUpService.getOverdueList(pool, permission);
     res.json({ code: 200, message: '获取逾期跟进成功', data });
   } catch (error) {
-    console.error('获取逾期跟进错误:', error);
+    logger.error('获取逾期跟进错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '获取逾期跟进失败', data: null });
   }
 });
@@ -129,7 +130,7 @@ router.get('/task-stats', authenticateToken, checkPermission('followup:calendar'
     const data = await followUpService.getTaskStats(pool, req.dataPermission);
     res.json({ code: 200, message: '获取统计成功', data });
   } catch (error) {
-    console.error('获取任务统计错误:', error);
+    logger.error('获取任务统计错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '获取统计失败', data: null });
   }
 });
@@ -140,7 +141,7 @@ router.post('/update', authenticateToken, checkPermission('customer:edit'), vali
     await followUpService.updateFollowUp(pool, req.body, req.user);
     res.json({ code: 200, message: '修改跟进记录成功', data: null });
   } catch (error) {
-    console.error('修改跟进记录错误:', error);
+    logger.error('修改跟进记录错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     const status = error.code && typeof error.code === 'number' ? error.code : 500;
     res.status(status).json({ code: status, message: error.message || '修改跟进记录失败', data: null });
   }
@@ -152,7 +153,7 @@ router.post('/delete', authenticateToken, checkPermission('customer:delete'), va
     await followUpService.deleteFollowUp(pool, req.body.id, req.user);
     res.json({ code: 200, message: '删除跟进记录成功', data: null });
   } catch (error) {
-    console.error('删除跟进记录错误:', error);
+    logger.error('删除跟进记录错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     const status = error.code && typeof error.code === 'number' ? error.code : 500;
     res.status(status).json({ code: status, message: error.message || '删除跟进记录失败', data: null });
   }
@@ -169,7 +170,7 @@ router.post('/calendar', authenticateToken, checkPermission('followup:calendar')
     const data = await followUpService.getCalendar(pool, { year, month }, req.dataPermission);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('跟进日历查询错误:', error);
+    logger.error('跟进日历查询错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });

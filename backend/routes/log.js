@@ -6,6 +6,7 @@ const { checkPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const requireAdmin = require('../middleware/admin');
 const logService = require('../services/logRouteService');
+const logger = require('../config/logger');
 
 // Joi schemas
 const listSchema = Joi.object({
@@ -47,7 +48,7 @@ router.post('/list', authenticateToken, checkPermission('system:log'), validate(
     const result = await logService.listLogs(pool, req.body);
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('查询日志失败:', error);
+    logger.error('查询日志失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -60,7 +61,7 @@ router.get('/detail/:id', authenticateToken, async (req, res) => {
     }
     res.json({ code: 200, message: '查询成功', data: log });
   } catch (error) {
-    console.error('查询日志详情失败:', error);
+    logger.error('查询日志详情失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -70,7 +71,7 @@ router.get('/modules', authenticateToken, async (req, res) => {
     const modules = await logService.getModules(pool);
     res.json({ code: 200, message: '查询成功', data: modules });
   } catch (error) {
-    console.error('查询模块失败:', error);
+    logger.error('查询模块失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -80,7 +81,7 @@ router.post('/delete', authenticateToken, requireAdmin, validate(deleteSchema), 
     const count = await logService.deleteLogs(pool, req.body.ids);
     res.json({ code: 200, message: `成功删除 ${count} 条日志`, data: null });
   } catch (error) {
-    console.error('删除日志失败:', error);
+    logger.error('删除日志失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '删除失败', data: null });
   }
 });
@@ -90,7 +91,7 @@ router.post('/clear', authenticateToken, requireAdmin, validate(clearSchema), as
     const count = await logService.clearLogs(pool, req.body.days);
     res.json({ code: 200, message: `成功清理 ${count} 条过期日志`, data: null });
   } catch (error) {
-    console.error('清理日志失败:', error);
+    logger.error('清理日志失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '清理失败', data: null });
   }
 });
@@ -102,7 +103,7 @@ router.post('/export', authenticateToken, checkPermission('log:export'), require
     res.setHeader('Content-Disposition', 'attachment; filename=operation_logs.xlsx');
     res.send(buf);
   } catch (error) {
-    console.error('导出日志失败:', error);
+    logger.error('导出日志失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '导出失败', data: null });
   }
 });

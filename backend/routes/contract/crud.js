@@ -48,16 +48,20 @@ const router = express.Router();
  */
 const pool = require('../../config/database');
 const { authenticateToken } = require('../../middleware/auth');
-const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../../middleware/permission');
+const { checkPermission, checkDataPermission, buildDataPermissionWhere, checkFieldPermission, stripRestrictedFields } = require('../../middleware/permission');
 const { validate, Joi } = require('../../middleware/validate');
 const { cache, invalidateCache } = require('../../middleware/cache');
 const { createRouteLogger } = require('../../middleware/logger');
 const { logFieldChanges } = require('../../utils/fieldLog');
 const contractService = require('../../services/contractService');
 const contractCrudService = require('../../services/contractCrudService');
+const logger = require('../../config/logger');
 
 const MODULE_NAME = '合同管理';
 const logAction = createRouteLogger(MODULE_NAME);
+
+// 字段级权限：合同金额仅管理员可见
+router.use(checkFieldPermission('contract'));
 
 // --- Joi schemas ---
 
@@ -115,9 +119,10 @@ router.post('/list', authenticateToken, cache(60), checkPermission('contract'), 
   try {
     const { clause: permissionClause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'c');
     const result = await contractCrudService.listContracts(pool, req.body, { clause: permissionClause, params: permParams });
+    result.list = stripRestrictedFields(result.list, req.restrictedFields);
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('[合同] 合同列表错误:', error.message);
+    logger.error('[合同] 合同列表错误:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -131,10 +136,11 @@ router.get('/detail/:id', authenticateToken, checkDataPermission('contract', 'cr
     if (!contract) {
       return res.status(404).json({ code: 404, message: '合同不存在', data: null });
     }
+    stripRestrictedFields(contract, req.restrictedFields);
 
     res.json({ code: 200, message: '查询成功', data: contract });
   } catch (error) {
-    console.error('[合同] 查询合同详情失败:', error);
+    logger.error('[合同] 查询合同详情失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -151,7 +157,7 @@ router.post('/add', authenticateToken, checkPermission('contract:add'), validate
 
     res.json({ code: 200, message: '创建合同成功', data: result });
   } catch (error) {
-    console.error('[合同] 创建合同失败:', error);
+    logger.error('[合同] 创建合同失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     const status = error.code || 500;
     res.status(status).json({ code: status, message: error.message || '创建合同失败', data: null });
   }
@@ -179,7 +185,7 @@ router.post('/update', authenticateToken, checkPermission('contract:edit'), vali
     await invalidateCache(['cache:*:/api/contract/*']);
     res.json({ code: 200, message: '修改合同成功', data: null });
   } catch (error) {
-    console.error('[合同] 修改合同失败:', error);
+    logger.error('[合同] 修改合同失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '修改合同失败', data: null });
   }
 });
@@ -197,7 +203,7 @@ router.post('/delete', authenticateToken, checkPermission('contract:delete'), va
     await invalidateCache(['cache:*:/api/contract/*']);
     res.json({ code: 200, message: result.message, data: null });
   } catch (error) {
-    console.error('[合同] 删除合同失败:', error);
+    logger.error('[合同] 删除合同失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '删除合同失败', data: null });
   }
 });
@@ -208,7 +214,7 @@ router.get('/opportunity-list', authenticateToken, checkDataPermission('opportun
     const rows = await contractCrudService.getOpportunityList(pool, { clause: permissionClause, params: permParams });
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
-    console.error('[合同] 商机列表错误:', error.message);
+    logger.error('[合同] 商机列表错误:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -218,9 +224,10 @@ router.get('/search', authenticateToken, async (req, res) => {
   try {
     const { keyword } = req.query;
     const rows = await contractCrudService.searchContracts(pool, keyword);
+    stripRestrictedFields(rows, req.restrictedFields);
     res.json({ code: 200, data: rows });
   } catch (error) {
-    console.error('[合同] 合同搜索错误:', error);
+    logger.error('[合同] 合同搜索错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '搜索失败', data: null });
   }
 });

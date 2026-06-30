@@ -5,6 +5,7 @@ const { checkPermission } = require('../../middleware/permission');
 const { validate, Joi } = require('../../middleware/validate');
 const { canManageCustomer } = require('./detail');
 const contactService = require('../../services/contactRouteService');
+const logger = require('../../config/logger');
 
 const addContactSchema = Joi.object({
   customer_id: Joi.number().integer().positive().required(),
@@ -46,7 +47,7 @@ router.post('/list', authenticateToken, checkPermission('customer:view'), valida
     const result = await contactService.listContacts(pool, req.body);
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('查询联系人错误:', error);
+    logger.error('查询联系人错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     if (error.message === '客户ID不能为空') {
       return res.status(400).json({ code: 400, message: error.message, data: null });
     }
@@ -60,7 +61,7 @@ router.post('/add', authenticateToken, checkPermission('customer:edit'), validat
     const id = await contactService.addContact(pool, req.body);
     res.json({ code: 200, message: '添加联系人成功', data: { id } });
   } catch (error) {
-    console.error('添加联系人错误:', error);
+    logger.error('添加联系人错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     if (error.message === '客户不存在' || error.message === '客户ID和联系人姓名不能为空') {
       return res.status(400).json({ code: 400, message: error.message, data: null });
     }
@@ -74,7 +75,7 @@ router.post('/update', authenticateToken, checkPermission('customer:edit'), vali
     await contactService.updateContact(pool, req.body);
     res.json({ code: 200, message: '修改联系人成功', data: null });
   } catch (error) {
-    console.error('修改联系人错误:', error);
+    logger.error('修改联系人错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     if (error.message === '联系人ID不能为空') {
       return res.status(400).json({ code: 400, message: error.message, data: null });
     }
@@ -88,7 +89,7 @@ router.post('/delete', authenticateToken, checkPermission('customer:edit'), vali
     await contactService.deleteContact(pool, req.body.id, req.user, canManageCustomer);
     res.json({ code: 200, message: '删除联系人成功', data: null });
   } catch (error) {
-    console.error('删除联系人错误:', error);
+    logger.error('删除联系人错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     if (error.message === '联系人不存在' || error.message === '所属客户不存在') {
       return res.status(404).json({ code: 404, message: error.message, data: null });
     }

@@ -1,4 +1,4 @@
-import { defineConfig, devices } from '@playwright/test'
+﻿import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
@@ -21,6 +21,20 @@ export default defineConfig({
     {
       name: 'Mobile Chrome',
       use: { ...devices['Pixel 5'] },
+    },
+
+    // --- 跨浏览器测试 (Phase 8) ---
+    {
+      name: 'firefox',
+      use: { browserName: 'firefox' },
+    },
+    {
+      name: 'webkit',
+      use: { browserName: 'webkit' },
+    },
+    {
+      name: 'iPhone 12 Pro',
+      use: { ...devices['iPhone 12 Pro'] },
     },
   ]
 })

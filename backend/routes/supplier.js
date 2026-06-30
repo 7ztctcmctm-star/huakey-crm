@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
+const { checkPermission, checkDataPermission, buildDataPermissionWhere, checkFieldPermission, stripRestrictedFields } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 
 const { logFieldChanges } = require('../utils/fieldLog');
@@ -11,6 +11,7 @@ const supplierService = require('../services/supplierService');
 
 const MODULE_NAME = '供应商管理';
 const { createRouteLogger } = require('../middleware/logger');
+const logger = require('../config/logger');
 const logAction = createRouteLogger(MODULE_NAME);
 
 // --- Joi schemas ---
@@ -120,14 +121,18 @@ const updateQualificationSchema = Joi.object({
 
 // --- Routes ---
 
+// 字段级权限：供应商敏感信息仅管理员可见
+router.use(checkFieldPermission('supplier'));
+
 const supplierListHandler = async (req, res) => {
   try {
     const source = req.method === 'GET' ? req.query : req.body;
     const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 's');
     const result = await supplierService.listSuppliers(pool, source, { clause, params: permParams });
+    result.list = stripRestrictedFields(result.list, req.restrictedFields);
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('[供应商] 供应商列表错误:', error.message);
+    logger.error('[供应商] 供应商列表错误:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 };
@@ -140,9 +145,10 @@ router.get('/detail/:id', authenticateToken, checkDataPermission('supplier', 'ow
     const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 's');
     const data = await supplierService.getSupplier(pool, req.params.id, { clause, params: permParams });
     if (!data) return res.status(404).json({ code: 404, message: '供应商不存在', data: null });
+    stripRestrictedFields(data, req.restrictedFields);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('[供应商] 供应商详情错误:', error.message);
+    logger.error('[供应商] 供应商详情错误:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -153,7 +159,7 @@ router.post('/add', authenticateToken, checkPermission('supplier:add'), validate
     await logAction(req, 'add', `新增供应商: ${req.body.name}`);
     res.json({ code: 200, message: '创建供应商成功', data: result });
   } catch (error) {
-    console.error('[供应商] 添加供应商错误:', error.message);
+    logger.error('[供应商] 添加供应商错误:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '创建供应商失败', data: null });
   }
 });
@@ -172,7 +178,7 @@ router.post('/update', authenticateToken, checkPermission('supplier:edit'), vali
     await logFieldChanges(req, { module: MODULE_NAME, action: '编辑供应商', oldData, newData: req.body, allowedFields: ['company_name', 'contact_name', 'phone', 'email', 'address', 'industry', 'level', 'status', 'remark', 'owner_id'], description: `编辑供应商: ${oldData.name || oldData.company_name}` });
     res.json({ code: 200, message: '修改供应商成功', data: null });
   } catch (error) {
-    console.error('[供应商] 更新供应商错误:', error.message);
+    logger.error('[供应商] 更新供应商错误:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '修改供应商失败', data: null });
   }
 });
@@ -190,7 +196,7 @@ router.post('/delete', authenticateToken, checkPermission('supplier:delete'), va
     await logAction(req, 'delete', `删除供应商: ID=${id}`);
     res.json({ code: 200, message: '删除供应商成功', data: null });
   } catch (error) {
-    console.error('[供应商] 删除供应商错误:', error.message);
+    logger.error('[供应商] 删除供应商错误:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '删除供应商失败', data: null });
   }
 });
@@ -200,7 +206,7 @@ router.post('/contact/add', authenticateToken, checkPermission('supplier:edit'),
     const result = await supplierService.addContact(pool, req.body);
     res.json({ code: 200, message: '添加联系人成功', data: result });
   } catch (error) {
-    console.error('[供应商] 添加联系人错误:', error.message);
+    logger.error('[供应商] 添加联系人错误:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '添加联系人失败', data: null });
   }
 });
@@ -210,7 +216,7 @@ router.get('/options', authenticateToken, async (req, res) => {
     const rows = await supplierService.getSupplierOptions(pool);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
-    console.error('[供应商] 查询供应商列表失败:', error);
+    logger.error('[供应商] 查询供应商列表失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -220,7 +226,7 @@ router.post('/rating/add', authenticateToken, checkPermission('supplier:edit'), 
     const result = await supplierService.addRating(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '评分成功', data: result });
   } catch (error) {
-    console.error('[供应商] 添加评分错误:', error.message);
+    logger.error('[供应商] 添加评分错误:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '评分失败', data: null });
   }
 });
@@ -231,7 +237,7 @@ router.post('/contact/update', authenticateToken, checkPermission('supplier:edit
     await supplierService.updateContact(pool, id, fields);
     res.json({ code: 200, message: '修改联系人成功', data: null });
   } catch (error) {
-    console.error('[供应商] 更新联系人错误:', error.message);
+    logger.error('[供应商] 更新联系人错误:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '修改联系人失败', data: null });
   }
 });
@@ -243,7 +249,7 @@ router.post('/contact/delete', authenticateToken, checkPermission('supplier:edit
     await supplierService.deleteContact(pool, id);
     res.json({ code: 200, message: '删除联系人成功', data: null });
   } catch (error) {
-    console.error('[供应商] 删除联系人错误:', error.message);
+    logger.error('[供应商] 删除联系人错误:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '删除联系人失败', data: null });
   }
 });
@@ -253,7 +259,7 @@ router.post('/qualification/add', authenticateToken, checkPermission('supplier:e
     const result = await supplierService.addQualification(pool, req.body);
     res.json({ code: 200, message: '添加资质成功', data: result });
   } catch (error) {
-    console.error('[供应商] 添加资质错误:', error.message);
+    logger.error('[供应商] 添加资质错误:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '添加资质失败', data: null });
   }
 });
@@ -264,7 +270,7 @@ router.post('/qualification/update', authenticateToken, checkPermission('supplie
     await supplierService.updateQualification(pool, id, fields);
     res.json({ code: 200, message: '修改资质成功', data: null });
   } catch (error) {
-    console.error('[供应商] 更新资质错误:', error.message);
+    logger.error('[供应商] 更新资质错误:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '修改资质失败', data: null });
   }
 });
@@ -276,7 +282,7 @@ router.post('/qualification/delete', authenticateToken, checkPermission('supplie
     await supplierService.deleteQualification(pool, id);
     res.json({ code: 200, message: '删除资质成功', data: null });
   } catch (error) {
-    console.error('[供应商] 删除资质错误:', error.message);
+    logger.error('[供应商] 删除资质错误:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '删除资质失败', data: null });
   }
 });
@@ -286,7 +292,7 @@ router.get('/performance/:id', authenticateToken, async (req, res) => {
     const data = await supplierService.getPerformance(pool, req.params.id);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('[供应商] 绩效统计错误:', error.message);
+    logger.error('[供应商] 绩效统计错误:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -295,9 +301,10 @@ router.get('/ranking', authenticateToken, async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 20;
     const rows = await supplierService.getRanking(pool, limit);
+    stripRestrictedFields(rows, req.restrictedFields);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
-    console.error('[供应商] 排行查询失败:', error);
+    logger.error('[供应商] 排行查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -309,7 +316,7 @@ router.get('/compare', authenticateToken, async (req, res) => {
     const result = await supplierService.getComparison(pool, ids);
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('[供应商] 对比查询失败:', error);
+    logger.error('[供应商] 对比查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });

@@ -46,6 +46,7 @@ const { validate, queryValidate, Joi } = require('../../middleware/validate');
 const { cache } = require('../../middleware/cache');
 const { createRouteLogger } = require('../../middleware/logger');
 const reportAnalyticsService = require('../../services/reportAnalyticsService');
+const logger = require('../../config/logger');
 const logAction = createRouteLogger('报表管理');
 
 // --- Joi schemas ---
@@ -95,7 +96,7 @@ router.get('/sales-funnel', authenticateToken, cache(300), queryValidate(dateRan
     const data = await reportAnalyticsService.getSalesFunnel(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error(error);
+    logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -106,7 +107,7 @@ router.get('/performance', authenticateToken, queryValidate(dateRangeQuerySchema
     const data = await reportAnalyticsService.getPerformance(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('[报表] 业绩统计错误:', error);
+    logger.error('[报表] 业绩统计错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -117,7 +118,7 @@ router.get('/customer', authenticateToken, queryValidate(dateRangeQuerySchema), 
     const data = await reportAnalyticsService.getCustomerStats(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error(error);
+    logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -128,7 +129,7 @@ router.get('/payment', authenticateToken, queryValidate(dateRangeQuerySchema), a
     const data = await reportAnalyticsService.getPaymentStats(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error(error);
+    logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -139,7 +140,7 @@ router.get('/sales-trend', authenticateToken, queryValidate(dateRangeQuerySchema
     const data = await reportAnalyticsService.getSalesTrend(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error(error);
+    logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -150,7 +151,7 @@ router.post('/overdue', authenticateToken, checkPermission('report'), validate(o
     const data = await reportAnalyticsService.getOverdueCustomers(pool, req.body, req.user.userId, req.user.roleId);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error(error);
+    logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -161,7 +162,7 @@ router.get('/purchase-trend', authenticateToken, queryValidate(dateRangeQuerySch
     const data = await reportAnalyticsService.getPurchaseTrend(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error(error);
+    logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -172,7 +173,7 @@ router.get('/purchase-by-supplier', authenticateToken, queryValidate(dateRangeQu
     const data = await reportAnalyticsService.getPurchaseBySupplier(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error(error);
+    logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -183,7 +184,7 @@ router.get('/purchase-cost', authenticateToken, queryValidate(purchaseCostQueryS
     const data = await reportAnalyticsService.getPurchaseCost(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('[报表] 采购成本分析错误:', error);
+    logger.error('[报表] 采购成本分析错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -194,7 +195,7 @@ router.get('/supplier-performance', authenticateToken, queryValidate(supplierPer
     const data = await reportAnalyticsService.getSupplierPerformance(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('[报表] 供应商绩效分析错误:', error);
+    logger.error('[报表] 供应商绩效分析错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -211,7 +212,7 @@ router.post('/export', authenticateToken, checkPermission('report'), validate(ex
     const { startDate, endDate } = req.body;
     await logAction(req, 'export', `导出报表${startDate && endDate ? `(${startDate} ~ ${endDate})` : '(本月)'}`);
   } catch (error) {
-    console.error('导出报表错误:', error);
+    logger.error('导出报表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '导出失败', data: null });
   }
 });
@@ -223,7 +224,7 @@ router.get('/finance', authenticateToken, checkPermission('report'), queryValida
     const data = await reportAnalyticsService.getFinanceReport(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('[报表] 财务报表查询失败:', error);
+    logger.error('[报表] 财务报表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -243,7 +244,7 @@ router.get('/finance/export', authenticateToken, checkPermission('report'), quer
     res.setHeader('Content-Disposition', `attachment; filename=${encodeURIComponent(filename)}`);
     res.send('﻿' + csv);
   } catch (error) {
-    console.error('[报表] 财务导出失败:', error);
+    logger.error('[报表] 财务导出失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '导出失败', data: null });
   }
 });
@@ -255,7 +256,7 @@ router.get('/business', authenticateToken, checkPermission('report'), async (req
     const data = await reportAnalyticsService.getBusinessDashboard(pool);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('[报表] 经营分析查询失败:', error);
+    logger.error('[报表] 经营分析查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });

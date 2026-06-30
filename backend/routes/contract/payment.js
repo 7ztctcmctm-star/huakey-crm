@@ -6,6 +6,7 @@ const { checkPermission } = require('../../middleware/permission');
 const { validate, Joi } = require('../../middleware/validate');
 const { createRouteLogger } = require('../../middleware/logger');
 const contractPaymentService = require('../../services/contractPaymentService');
+const logger = require('../../config/logger');
 
 const logAction = createRouteLogger('合同管理');
 
@@ -40,7 +41,7 @@ router.post('/payment/add', authenticateToken, checkPermission('contract'), vali
     await logAction(req, 'add', `登记回款: 合同ID=${req.body.contract_id}, 金额=${req.body.pay_amount}`);
     res.json({ code: 200, message: '登记回款成功', data: null });
   } catch (error) {
-    console.error('[合同] 登记回款失败:', error.message);
+    logger.error('[合同] 登记回款失败:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.status(error.code || 500).json({ code: error.code || 500, message: error.message || '登记回款失败', data: null });
   }
 });
@@ -51,7 +52,7 @@ router.post('/payment/update', authenticateToken, checkPermission('contract'), v
     await logAction(req, 'update', `修改回款记录: ID=${req.body.id}`);
     res.json({ code: 200, message: '修改回款记录成功', data: null });
   } catch (error) {
-    console.error('[合同] 修改回款记录失败:', error);
+    logger.error('[合同] 修改回款记录失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(error.code || 500).json({ code: error.code || 500, message: error.message || '修改回款记录失败', data: null });
   }
 });
@@ -62,7 +63,7 @@ router.post('/payment/delete', authenticateToken, checkPermission('contract'), v
     await logAction(req, 'delete', `删除回款记录: ID=${req.body.id}`);
     res.json({ code: 200, message: '删除回款记录成功', data: null });
   } catch (error) {
-    console.error('[合同] 删除回款记录失败:', error);
+    logger.error('[合同] 删除回款记录失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(error.code || 500).json({ code: error.code || 500, message: error.message || '删除回款记录失败', data: null });
   }
 });
@@ -73,7 +74,7 @@ router.post('/payment/list', authenticateToken, checkPermission('contract'), asy
     const result = await contractPaymentService.listPayments(pool, req.body);
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('[合同] 查询回款列表错误:', error);
+    logger.error('[合同] 查询回款列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -84,7 +85,7 @@ router.post('/payment/merged', authenticateToken, checkPermission('contract'), a
     const result = await contractPaymentService.getMergedPayments(pool, req.body);
     res.json({ code: 200, message: '查询成功', data: { list: result.list, total: result.total } });
   } catch (error) {
-    console.error('[合同] 合并回款视图查询失败:', error);
+    logger.error('[合同] 合并回款视图查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -99,7 +100,7 @@ router.post('/payment/summary', authenticateToken, checkPermission('contract'), 
       data: { list: [], total: 0, page: parseInt(page), pageSize: parseInt(pageSize), summary: result }
     });
   } catch (error) {
-    console.error('[合同] 对账汇总错误:', error);
+    logger.error('[合同] 对账汇总错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -113,7 +114,7 @@ router.post('/payment/statement-export', authenticateToken, checkPermission('con
     res.send(buffer);
     await logAction(req, 'export', '导出对账单');
   } catch (error) {
-    console.error('[合同] 对账单导出错误:', error);
+    logger.error('[合同] 对账单导出错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '导出对账单失败', data: null });
   }
 });

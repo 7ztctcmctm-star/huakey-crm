@@ -4,6 +4,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const userRouteService = require('../services/userRouteService');
+const logger = require('../config/logger');
 
 const router = express.Router();
 
@@ -44,7 +45,7 @@ router.post('/list', authenticateToken, checkPermission('system:user'), validate
     const data = await userRouteService.listUsers(pool, req.body);
     res.json({ code: 200, message: '获取用户列表成功', data });
   } catch (error) {
-    console.error('获取用户列表错误:', error);
+    logger.error('获取用户列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '获取用户列表失败', data: null });
   }
 });
@@ -56,7 +57,7 @@ router.post('/add', authenticateToken, checkPermission('system:user:add'), valid
     res.json({ code: 200, message: '添加用户成功', data: result });
   } catch (error) {
     const status = error.statusCode || 500;
-    console.error('添加用户错误:', error);
+    logger.error('添加用户错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '添加用户失败', data: null });
   }
 });
@@ -68,7 +69,7 @@ router.post('/update', authenticateToken, checkPermission('system:user:edit'), v
     res.json({ code: 200, message: '修改用户成功', data: null });
   } catch (error) {
     const status = error.statusCode || 500;
-    console.error('修改用户错误:', error);
+    logger.error('修改用户错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '修改用户失败', data: null });
   }
 });
@@ -80,7 +81,7 @@ router.post('/delete', authenticateToken, checkPermission('system:user:delete'),
     res.json({ code: 200, message: '删除用户成功', data: null });
   } catch (error) {
     const status = error.statusCode || 500;
-    console.error('删除用户错误:', error);
+    logger.error('删除用户错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '删除用户失败', data: null });
   }
 });
@@ -92,7 +93,7 @@ router.get('/detail/:id', authenticateToken, checkPermission('system:user'), asy
     res.json({ code: 200, message: '获取用户详情成功', data });
   } catch (error) {
     const status = error.statusCode || 500;
-    console.error('获取用户详情错误:', error);
+    logger.error('获取用户详情错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '获取用户详情失败', data: null });
   }
 });

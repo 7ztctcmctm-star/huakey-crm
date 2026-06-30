@@ -5,6 +5,7 @@ const { checkPermission } = require('../../middleware/permission');
 const { cache } = require('../../middleware/cache');
 const dashboardService = require('../../services/dashboardService');
 const pool = require('../../config/database');
+const logger = require('../../config/logger');
 
 // 概览数据（首页仪表盘）
 router.get('/overview', authenticateToken, checkPermission('report'), cache(300), async (req, res) => {
@@ -12,7 +13,7 @@ router.get('/overview', authenticateToken, checkPermission('report'), cache(300)
     const data = await dashboardService.getOverview(pool, req.user.userId, req.user.roleId);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error(error);
+    logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -23,7 +24,7 @@ router.get('/today-tasks', authenticateToken, checkPermission('report'), cache(3
     const data = await dashboardService.getTodayTasks(pool, req.user.userId, req.user.roleId);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error(error);
+    logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -34,7 +35,7 @@ router.get('/quick-stats', authenticateToken, checkPermission('report'), cache(1
     const data = await dashboardService.getQuickStats(pool, req.user.userId, req.user.roleId);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error(error);
+    logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -45,7 +46,7 @@ router.get('/overdue-stats', authenticateToken, checkPermission('report'), async
     const data = await dashboardService.getOverdueStats(pool, req.user.userId, req.user.roleId);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error(error);
+    logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });

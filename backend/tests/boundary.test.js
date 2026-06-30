@@ -1,4 +1,4 @@
-﻿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -15,7 +15,7 @@ jest.mock('../config/database', () => mockPool);
 // ============ Mock services ============
 jest.mock('../services/customerDetailService', () => ({
   VALID_SOURCES: ['website', 'referral', 'exhibition', 'cold_call', 'other'],
-  SOURCE_PARENT_MAP: { website: '线上', referral: '转介绍' },
+  SOURCE_PARENT_MAP: { website: '线上', referral: '转介�? },
   addCustomer: jest.fn(),
   getCustomerDetail: jest.fn(),
   getCustomer360: jest.fn(),
@@ -41,7 +41,7 @@ jest.mock('../services/opportunityService', () => ({
   getStageLog: jest.fn(),
   getStageStats: jest.fn(),
   getFunnelStats: jest.fn(),
-  STAGE_MAP: { 1: '初步接触', 2: '需求确认', 3: '方案报价', 4: '商务谈判', 5: '赢单', 6: '输单' }
+  STAGE_MAP: { 1: '初步接触', 2: '需求确�?, 3: '方案报价', 4: '商务谈判', 5: '赢单', 6: '输单' }
 }));
 
 jest.mock('../services/contractService', () => ({
@@ -73,14 +73,16 @@ jest.mock('../services/productService', () => ({
   getDefaultPrice: jest.fn()
 }));
 
-// Mock permission middleware — 放行所有请求
+// Mock permission middleware �?放行所有请�?
 jest.mock('../middleware/permission', () => ({
   checkPermission: () => (req, res, next) => next(),
   checkDataPermission: () => (req, res, next) => next(),
+  checkFieldPermission: () => (req, res, next) => next(),
+  stripRestrictedFields: (data) => data,
   buildDataPermissionWhere: jest.fn().mockResolvedValue({ clause: '', params: [] })
 }));
 
-// Mock cache middleware — 透传
+// Mock cache middleware �?透传
 jest.mock('../middleware/cache', () => ({
   cache: () => (req, res, next) => next(),
   invalidateCache: jest.fn()
@@ -96,10 +98,10 @@ jest.mock('../utils/fieldLog', () => ({
   logFieldChanges: jest.fn()
 }));
 
-// Mock admin middleware — 兼容默认导出和命名导出
+// Mock admin middleware �?兼容默认导出和命名导�?
 jest.mock('../middleware/admin', () => {
   const pass = (req, res, next) => next();
-  // 兼容 const requireAdmin = require('...')  和 const { requireManager } = require('...')
+  // 兼容 const requireAdmin = require('...')  �?const { requireManager } = require('...')
   pass.requireAdmin = pass;
   pass.requireManager = pass;
   return pass;
@@ -130,7 +132,7 @@ const generateToken = () => {
 const token = generateToken();
 
 // ============ Helpers ============
-const LONG_STRING_200 = 'A'.repeat(200);
+const _LONG_STRING_200 = 'A'.repeat(200);
 const LONG_STRING_500 = 'A'.repeat(500);
 const LONG_STRING_2000 = 'A'.repeat(2000);
 const LONG_STRING_10000 = 'A'.repeat(10000);
@@ -141,12 +143,12 @@ const NEWLINE_STR = "line1\nline2\r\nline3\ttab";
 const MAX_SAFE_INT = Number.MAX_SAFE_INTEGER; // 9007199254740991
 
 // ================================================================
-//  1. 空数据场景
+//  1. 空数据场�?
 // ================================================================
-describe('边界测试 - 空数据场景', () => {
+describe('边界测试 - 空数据场�?, () => {
   beforeEach(() => mockPool.query.mockReset());
 
-  describe('客户 list 返回空数组', () => {
+  describe('客户 list 返回空数�?, () => {
     it('空结果应返回 list=[] total=0', async () => {
       const customerService = require('../services/customerService');
       customerService.listCustomers.mockResolvedValue({ list: [], total: 0 });
@@ -162,7 +164,7 @@ describe('边界测试 - 空数据场景', () => {
     });
   });
 
-  describe('商机 list 返回空数组', () => {
+  describe('商机 list 返回空数�?, () => {
     it('空结果应返回 list=[] total=0', async () => {
       const svc = require('../services/opportunityService');
       svc.listOpportunities.mockResolvedValue({ list: [], total: 0 });
@@ -177,7 +179,7 @@ describe('边界测试 - 空数据场景', () => {
     });
   });
 
-  describe('合同 list 返回空数组', () => {
+  describe('合同 list 返回空数�?, () => {
     it('空结果应返回 list=[] total=0', async () => {
       const svc = require('../services/contractCrudService');
       svc.listContracts.mockResolvedValue({ list: [], total: 0 });
@@ -192,7 +194,7 @@ describe('边界测试 - 空数据场景', () => {
     });
   });
 
-  describe('产品 list 返回空数组', () => {
+  describe('产品 list 返回空数�?, () => {
     it('空结果应返回 list=[] total=0', async () => {
       const svc = require('../services/productService');
       svc.listProducts.mockResolvedValue({ list: [], total: 0 });
@@ -207,10 +209,10 @@ describe('边界测试 - 空数据场景', () => {
     });
   });
 
-  describe('详情接口 id 不存在', () => {
-    it('客户详情 99999 应返回 404', async () => {
+  describe('详情接口 id 不存�?, () => {
+    it('客户详情 99999 应返�?404', async () => {
       const svc = require('../services/customerDetailService');
-      svc.getCustomerDetail.mockRejectedValue({ code: 404, message: '客户不存在' });
+      svc.getCustomerDetail.mockRejectedValue({ code: 404, message: '客户不存�? });
 
       const res = await request(app)
         .get('/api/v1/customer/detail/99999')
@@ -219,7 +221,7 @@ describe('边界测试 - 空数据场景', () => {
       expect(res.status).toBe(404);
     });
 
-    it('商机详情 99999 应返回 404', async () => {
+    it('商机详情 99999 应返�?404', async () => {
       const svc = require('../services/opportunityService');
       svc.getOpportunityWithPermission.mockResolvedValue(null);
 
@@ -230,7 +232,7 @@ describe('边界测试 - 空数据场景', () => {
       expect(res.status).toBe(404);
     });
 
-    it('合同详情 99999 应返回 404', async () => {
+    it('合同详情 99999 应返�?404', async () => {
       const svc = require('../services/contractCrudService');
       svc.getContractDetail.mockResolvedValue(null);
 
@@ -241,7 +243,7 @@ describe('边界测试 - 空数据场景', () => {
       expect(res.status).toBe(404);
     });
 
-    it('产品详情 99999 应返回 404', async () => {
+    it('产品详情 99999 应返�?404', async () => {
       const svc = require('../services/productService');
       svc.getProduct.mockResolvedValue(null);
 
@@ -255,14 +257,14 @@ describe('边界测试 - 空数据场景', () => {
 });
 
 // ================================================================
-//  2. 极大值场景
+//  2. 极大值场�?
 // ================================================================
-describe('边界测试 - 极大值场景', () => {
+describe('边界测试 - 极大值场�?, () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('pageSize 超大值', () => {
+  describe('pageSize 超大�?, () => {
     it('customer/list pageSize=99999 应被 Joi 拒绝 (max=200)', async () => {
       const res = await request(app)
         .post('/api/v1/customer/list')
@@ -301,7 +303,7 @@ describe('边界测试 - 极大值场景', () => {
     });
   });
 
-  describe('字符串字段超长', () => {
+  describe('字符串字段超�?, () => {
     it('customer/add company_name=10000字符 应被 Joi 拒绝 (max=200)', async () => {
       const res = await request(app)
         .post('/api/v1/customer/add')
@@ -354,7 +356,7 @@ describe('边界测试 - 极大值场景', () => {
     });
   });
 
-  describe('数值字段极大值', () => {
+  describe('数值字段极大�?, () => {
     it('contract/add amount=MAX_SAFE_INTEGER 应通过 Joi', async () => {
       const svc = require('../services/contractService');
       svc.createContract.mockResolvedValue({ id: 1, contract_no: 'HT-002' });
@@ -411,8 +413,8 @@ describe('边界测试 - 极大值场景', () => {
 describe('边界测试 - 特殊字符场景', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  describe('SQL 注入字符串', () => {
-    it('customer/add company_name 含 SQL 注入 应通过 Joi（由数据库层防御）', async () => {
+  describe('SQL 注入字符�?, () => {
+    it('customer/add company_name �?SQL 注入 应通过 Joi（由数据库层防御�?, async () => {
       const svc = require('../services/customerDetailService');
       svc.addCustomer.mockResolvedValue({ id: 1 });
 
@@ -422,7 +424,7 @@ describe('边界测试 - 特殊字符场景', () => {
         .send({ company_name: SQL_INJECTION });
 
       expect(res.status).toBe(200);
-      // 验证传给 service 的参数未被篡改
+      // 验证传给 service 的参数未被篡�?
       expect(svc.addCustomer).toHaveBeenCalledWith(
         mockPool,
         expect.objectContaining({ company_name: SQL_INJECTION }),
@@ -430,7 +432,7 @@ describe('边界测试 - 特殊字符场景', () => {
       );
     });
 
-    it('opportunity/add remark 含 SQL 注入 应通过', async () => {
+    it('opportunity/add remark �?SQL 注入 应通过', async () => {
       const svc = require('../services/opportunityService');
       svc.createOpportunity.mockResolvedValue({ id: 1 });
 
@@ -442,7 +444,7 @@ describe('边界测试 - 特殊字符场景', () => {
       expect(res.status).toBe(200);
     });
 
-    it('contract/add payment_terms 含 SQL 注入 应通过', async () => {
+    it('contract/add payment_terms �?SQL 注入 应通过', async () => {
       const svc = require('../services/contractService');
       svc.createContract.mockResolvedValue({ id: 1, contract_no: 'HT-003' });
 
@@ -454,7 +456,7 @@ describe('边界测试 - 特殊字符场景', () => {
       expect(res.status).toBe(200);
     });
 
-    it('product/add description 含 SQL 注入 应通过', async () => {
+    it('product/add description �?SQL 注入 应通过', async () => {
       const svc = require('../services/productService');
       svc.createProduct.mockResolvedValue({ id: 1 });
 
@@ -467,8 +469,8 @@ describe('边界测试 - 特殊字符场景', () => {
     });
   });
 
-  describe('XSS 字符串', () => {
-    it('customer/add company_name 含 XSS 应通过（由前端转义）', async () => {
+  describe('XSS 字符�?, () => {
+    it('customer/add company_name �?XSS 应通过（由前端转义�?, async () => {
       const svc = require('../services/customerDetailService');
       svc.addCustomer.mockResolvedValue({ id: 2 });
 
@@ -480,7 +482,7 @@ describe('边界测试 - 特殊字符场景', () => {
       expect(res.status).toBe(200);
     });
 
-    it('opportunity/add name 含 XSS 应通过', async () => {
+    it('opportunity/add name �?XSS 应通过', async () => {
       const svc = require('../services/opportunityService');
       svc.createOpportunity.mockResolvedValue({ id: 2 });
 
@@ -492,7 +494,7 @@ describe('边界测试 - 特殊字符场景', () => {
       expect(res.status).toBe(200);
     });
 
-    it('product/add name 含 XSS 应通过', async () => {
+    it('product/add name �?XSS 应通过', async () => {
       const svc = require('../services/productService');
       svc.createProduct.mockResolvedValue({ id: 2 });
 
@@ -505,8 +507,8 @@ describe('边界测试 - 特殊字符场景', () => {
     });
   });
 
-  describe('Emoji 字符串', () => {
-    it('customer/add company_name 含 emoji 应通过', async () => {
+  describe('Emoji 字符�?, () => {
+    it('customer/add company_name �?emoji 应通过', async () => {
       const svc = require('../services/customerDetailService');
       svc.addCustomer.mockResolvedValue({ id: 3 });
 
@@ -518,7 +520,7 @@ describe('边界测试 - 特殊字符场景', () => {
       expect(res.status).toBe(200);
     });
 
-    it('opportunity/add remark 含 emoji 应通过', async () => {
+    it('opportunity/add remark �?emoji 应通过', async () => {
       const svc = require('../services/opportunityService');
       svc.createOpportunity.mockResolvedValue({ id: 3 });
 
@@ -531,8 +533,8 @@ describe('边界测试 - 特殊字符场景', () => {
     });
   });
 
-  describe('换行符和制表符', () => {
-    it('customer/add address 含换行/制表符 应通过', async () => {
+  describe('换行符和制表�?, () => {
+    it('customer/add address 含换�?制表�?应通过', async () => {
       const svc = require('../services/customerDetailService');
       svc.addCustomer.mockResolvedValue({ id: 4 });
 
@@ -561,7 +563,7 @@ describe('边界测试 - 特殊字符场景', () => {
 // ================================================================
 //  4. 并发模拟
 // ================================================================
-describe('边界测试 - 并发模拟 (10个同时请求)', () => {
+describe('边界测试 - 并发模拟 (10个同时请�?', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('customer/list 10个并发请求不报错', async () => {
@@ -585,7 +587,7 @@ describe('边界测试 - 并发模拟 (10个同时请求)', () => {
 
   it('opportunity/add 10个并发请求不报错', async () => {
     const svc = require('../services/opportunityService');
-    svc.createOpportunity.mockImplementation(async (pool, body) => ({ id: Math.floor(Math.random() * 1000) }));
+    svc.createOpportunity.mockImplementation(async (_pool, _body) => ({ id: Math.floor(Math.random() * 1000) }));
 
     const requests = Array.from({ length: 10 }, (_, i) =>
       request(app)
@@ -671,7 +673,7 @@ describe('边界测试 - 并发模拟 (10个同时请求)', () => {
 describe('边界测试 - 类型错误场景', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  describe('数值字段传字符串', () => {
+  describe('数值字段传字符�?, () => {
     it('customer/add phone 传纯字母 应被 Joi 拒绝', async () => {
       const res = await request(app)
         .post('/api/v1/customer/add')
@@ -727,7 +729,7 @@ describe('边界测试 - 类型错误场景', () => {
     });
   });
 
-  describe('必填字段传 null / undefined / 空字符串', () => {
+  describe('必填字段�?null / undefined / 空字符串', () => {
     it('customer/add company_name=null 应被 Joi 拒绝', async () => {
       const res = await request(app)
         .post('/api/v1/customer/add')
@@ -743,7 +745,7 @@ describe('边界测试 - 类型错误场景', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({ company_name: '' });
 
-      // Joi required() + empty string → 400
+      // Joi required() + empty string �?400
       expect(res.status).toBe(400);
     });
 
@@ -774,7 +776,7 @@ describe('边界测试 - 类型错误场景', () => {
       expect(res.status).toBe(400);
     });
 
-    it('opportunity/add 不传 name 和 customer_id 应被 Joi 拒绝', async () => {
+    it('opportunity/add 不传 name �?customer_id 应被 Joi 拒绝', async () => {
       const res = await request(app)
         .post('/api/v1/opportunity/add')
         .set('Authorization', `Bearer ${token}`)
@@ -801,7 +803,7 @@ describe('边界测试 - 类型错误场景', () => {
       expect(res.status).toBe(400);
     });
 
-    it('contract/add 空 body 应被 Joi 拒绝', async () => {
+    it('contract/add �?body 应被 Joi 拒绝', async () => {
       const res = await request(app)
         .post('/api/v1/contract/add')
         .set('Authorization', `Bearer ${token}`)
@@ -829,8 +831,8 @@ describe('边界测试 - 类型错误场景', () => {
     });
   });
 
-  describe('日期字段传非法格式', () => {
-    it('opportunity/add expected_date 传非法日期 应被 Joi 拒绝', async () => {
+  describe('日期字段传非法格�?, () => {
+    it('opportunity/add expected_date 传非法日�?应被 Joi 拒绝', async () => {
       const res = await request(app)
         .post('/api/v1/opportunity/add')
         .set('Authorization', `Bearer ${token}`)
@@ -839,16 +841,16 @@ describe('边界测试 - 类型错误场景', () => {
       expect(res.status).toBe(400);
     });
 
-    it('opportunity/add expected_date 传中文日期 应被 Joi 拒绝', async () => {
+    it('opportunity/add expected_date 传中文日�?应被 Joi 拒绝', async () => {
       const res = await request(app)
         .post('/api/v1/opportunity/add')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: '商机', customer_id: 1, expected_date: '2026年6月25日' });
+        .send({ name: '商机', customer_id: 1, expected_date: '2026�?�?5�? });
 
       expect(res.status).toBe(400);
     });
 
-    it('contract/add sign_date 传非法日期 应被 Joi 拒绝', async () => {
+    it('contract/add sign_date 传非法日�?应被 Joi 拒绝', async () => {
       const res = await request(app)
         .post('/api/v1/contract/add')
         .set('Authorization', `Bearer ${token}`)
@@ -857,7 +859,7 @@ describe('边界测试 - 类型错误场景', () => {
       expect(res.status).toBe(400);
     });
 
-    it('contract/add delivery_date 传非法日期 应被 Joi 拒绝', async () => {
+    it('contract/add delivery_date 传非法日�?应被 Joi 拒绝', async () => {
       const res = await request(app)
         .post('/api/v1/contract/add')
         .set('Authorization', `Bearer ${token}`)
@@ -866,7 +868,7 @@ describe('边界测试 - 类型错误场景', () => {
       expect(res.status).toBe(400);
     });
 
-    it('customer/add start_date 传非法日期 应被 Joi 拒绝', async () => {
+    it('customer/add start_date 传非法日�?应被 Joi 拒绝', async () => {
       const res = await request(app)
         .post('/api/v1/customer/list')
         .set('Authorization', `Bearer ${token}`)
@@ -876,8 +878,8 @@ describe('边界测试 - 类型错误场景', () => {
     });
   });
 
-  describe('enum 字段传无效值', () => {
-    it('customer/add level 传 Z 应被 Joi 拒绝 (仅允许 A/B/C)', async () => {
+  describe('enum 字段传无效�?, () => {
+    it('customer/add level �?Z 应被 Joi 拒绝 (仅允�?A/B/C)', async () => {
       const res = await request(app)
         .post('/api/v1/customer/add')
         .set('Authorization', `Bearer ${token}`)
@@ -886,7 +888,7 @@ describe('边界测试 - 类型错误场景', () => {
       expect(res.status).toBe(400);
     });
 
-    it('opportunity/add stage 传 99 应被 Joi 拒绝 (仅允许 1-6)', async () => {
+    it('opportunity/add stage �?99 应被 Joi 拒绝 (仅允�?1-6)', async () => {
       const res = await request(app)
         .post('/api/v1/opportunity/add')
         .set('Authorization', `Bearer ${token}`)
@@ -895,9 +897,9 @@ describe('边界测试 - 类型错误场景', () => {
       expect(res.status).toBe(400);
     });
 
-    it('contract/add status 传 99 应被 Joi 拒绝 (仅允许 1-4)', async () => {
-      // add 没有 status 字段，但 Joi stripUnknown 会忽略
-      // 用 update 来测 enum 更合适
+    it('contract/add status �?99 应被 Joi 拒绝 (仅允�?1-4)', async () => {
+      // add 没有 status 字段，但 Joi stripUnknown 会忽�?
+      // �?update 来测 enum 更合�?
       const res = await request(app)
         .post('/api/v1/contract/update')
         .set('Authorization', `Bearer ${token}`)
@@ -917,7 +919,7 @@ describe('边界测试 - 类型错误场景', () => {
   });
 
   describe('负数字段', () => {
-    it('contract/add amount 传负数 应被 Joi 拒绝 (min=0)', async () => {
+    it('contract/add amount 传负�?应被 Joi 拒绝 (min=0)', async () => {
       const res = await request(app)
         .post('/api/v1/contract/add')
         .set('Authorization', `Bearer ${token}`)
@@ -926,7 +928,7 @@ describe('边界测试 - 类型错误场景', () => {
       expect(res.status).toBe(400);
     });
 
-    it('opportunity/add win_rate 传负数 应被 Joi 拒绝 (min=0)', async () => {
+    it('opportunity/add win_rate 传负�?应被 Joi 拒绝 (min=0)', async () => {
       const res = await request(app)
         .post('/api/v1/opportunity/add')
         .set('Authorization', `Bearer ${token}`)
@@ -935,7 +937,7 @@ describe('边界测试 - 类型错误场景', () => {
       expect(res.status).toBe(400);
     });
 
-    it('opportunity/add win_rate 传超过 100 应被 Joi 拒绝 (max=100)', async () => {
+    it('opportunity/add win_rate 传超�?100 应被 Joi 拒绝 (max=100)', async () => {
       const res = await request(app)
         .post('/api/v1/opportunity/add')
         .set('Authorization', `Bearer ${token}`)
@@ -944,7 +946,7 @@ describe('边界测试 - 类型错误场景', () => {
       expect(res.status).toBe(400);
     });
 
-    it('product/add price 传负数 应被 Joi 拒绝 (min=0)', async () => {
+    it('product/add price 传负�?应被 Joi 拒绝 (min=0)', async () => {
       const res = await request(app)
         .post('/api/v1/product/add')
         .set('Authorization', `Bearer ${token}`)
@@ -953,7 +955,7 @@ describe('边界测试 - 类型错误场景', () => {
       expect(res.status).toBe(400);
     });
 
-    it('product/add stock 传负数 应被 Joi 拒绝 (min=0)', async () => {
+    it('product/add stock 传负�?应被 Joi 拒绝 (min=0)', async () => {
       const res = await request(app)
         .post('/api/v1/product/add')
         .set('Authorization', `Bearer ${token}`)

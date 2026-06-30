@@ -20,6 +20,7 @@ const recycleActionSchema = Joi.object({
 });
 
 const requireAdmin = require('../middleware/admin');
+const logger = require('../config/logger');
 
 // 可回收站管理的表配置
 const TABLE_CONFIG = {
@@ -43,7 +44,7 @@ router.post('/list', authenticateToken, checkPermission('recycle_bin:view'), val
       const stats = await recycleService.getDeletedStats(pool, TABLE_CONFIG);
       res.json({ code: 200, message: '查询成功', data: { stats } });
     } catch (error) {
-      console.error('查询回收站统计失败:', error);
+      logger.error('查询回收站统计失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
       res.status(500).json({ code: 500, message: '查询失败', data: null });
     }
     return;
@@ -64,7 +65,7 @@ router.post('/list', authenticateToken, checkPermission('recycle_bin:view'), val
       data: { ...result, module, label: config.label }
     });
   } catch (error) {
-    console.error('查询回收站列表失败:', error);
+    logger.error('查询回收站列表失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -88,11 +89,11 @@ router.post('/restore', authenticateToken, checkPermission('data:restore'), requ
       res.json({ code: 404, message: '记录不存在或未被删除', data: null });
     }
   } catch (error) {
-    console.error('恢复记录失败:', error);
+    logger.error('恢复记录失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '恢复失败', data: null });
   }
   } catch (error) {
-    console.error('恢复记录失败:', error);
+    logger.error('恢复记录失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '恢复失败', data: null });
   }
 });
@@ -116,11 +117,11 @@ router.post('/permanent-delete', authenticateToken, checkPermission('data:restor
       res.json({ code: 404, message: '记录不存在', data: null });
     }
   } catch (error) {
-    console.error('彻底删除失败:', error);
+    logger.error('彻底删除失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '删除失败', data: null });
   }
   } catch (error) {
-    console.error('彻底删除失败:', error);
+    logger.error('彻底删除失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '删除失败', data: null });
   }
 });

@@ -4,6 +4,7 @@ const pool = require('../../config/database');
 const { authenticateToken } = require('../../middleware/auth');
 const ROLES = require('../../config/roles');
 const { simpleApproveContract } = require('../../services/approvalService');
+const logger = require('../../config/logger');
 
 // 审批合同（仅管理员）
 // [权限说明] 使用自定义 roleId 校验（ADMIN/MANAGER），无需 checkPermission
@@ -22,7 +23,7 @@ router.post('/approve', authenticateToken, async (req, res) => {
     res.json({ code: 200, message: approval_status === 2 ? '审批通过' : '已拒绝', data: null });
   } catch (error) {
     const status = error.statusCode || 500;
-    console.error('[合同] 审批合同错误:', error);
+    logger.error('[合同] 审批合同错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '审批失败', data: null });
   }
 });

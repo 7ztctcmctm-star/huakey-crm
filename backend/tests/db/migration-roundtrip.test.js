@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 迁移回合测试：验证 up + down 脚本的往返正确性。
  *
  * 环境要求：CI MySQL（docker-compose.ci.yml, DB_PORT=3307）
@@ -9,6 +9,7 @@
 const { execSync } = require('child_process');
 const mysql = require('mysql2/promise');
 const path = require('path');
+const fs = require('fs');
 const net = require('net');
 
 const MIGRATIONS_DIR = path.resolve(__dirname, '../../../database/migrations');
@@ -23,6 +24,7 @@ const KEY_TABLES = ['crm_customer', 'crm_opportunity', 'crm_quote', 'crm_contrac
 
 // 有 up+down 配对的迁移版本号（000_template 只有 down 模板，无 up，故不参与）
 const TEST_VERSIONS = ['002', '008', '061'];
+const ROUNDTRIP_VERSIONS = [...TEST_VERSIONS, '066', '067', '068'];
 
 let pool;
 
@@ -102,8 +104,52 @@ async function getTableSchema(tableName) {
   return rows[0]?.['Create Table'] || '';
 }
 
+
+/**
+ * Phase 8 D1: 审计所有迁移的 down 脚本覆盖情况
+ */
+function auditDownScripts() {
+  const files = fs.readdirSync(MIGRATIONS_DIR)
+    .filter(f => f.endsWith('.sql'));
+
+  const upScripts = files
+    .filter(f => !f.includes('_down') && !f.includes('template'))
+    .sort();
+  const downSet = new Set(
+    files
+      .filter(f => f.endsWith('_down.sql'))
+      .map(f => f.replace('_down.sql', '.sql'))
+  );
+
+  const missing = upScripts.filter(f => !downSet.has(f));
+  const withDown = upScripts.filter(f => downSet.has(f));
+
+  return {
+    total: upScripts.length,
+    withDown: withDown.length,
+    missing: missing.length,
+    missingList: missing.map(f => f.replace('.sql', '')),
+  };
+}
+
+describe('Phase 8 D1: 迁移 down 脚本审计', () => {
+  test('审计所有迁移的 down 覆盖情况', () => {
+    const audit = auditDownScripts();
+    console.log('\n=== 迁移 Down 脚本审计结果 ===');
+    console.log('总迁移数:', audit.total);
+    console.log('有 down 脚本:', audit.withDown);
+    console.log('缺失 down 脚本:', audit.missing);
+    if (audit.missingList.length > 0) {
+      console.log('缺失版本:', audit.missingList.join(', '));
+    }
+    console.log('================================\n');
+
+    expect(audit.total).toBeGreaterThan(0);
+    expect(audit.withDown).toBeGreaterThanOrEqual(17);
+  }, 30000);
+});
 describe('数据库迁移 roundtrip 测试', () => {
-  TEST_VERSIONS.forEach(version => {
+  ROUNDTRIP_VERSIONS.forEach(version => {
     test(`版本 ${version}: down → up 往返后关键表结构一致`, async () => {
       if (!pool) {
         console.warn('[migration-roundtrip] 跳过：数据库不可达');
@@ -136,3 +182,4 @@ describe('数据库迁移 roundtrip 测试', () => {
     }, 60000);
   });
 });
+

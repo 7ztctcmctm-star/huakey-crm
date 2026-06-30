@@ -6,6 +6,7 @@ const pool = require('../config/database');
 const { readOnlyPool } = require('../config/database');
 const { chatCompletion } = require('../utils/llmClient');
 const aiService = require('../services/aiRouteService');
+const logger = require('../config/logger');
 
 if (!process.env.DB_RO_HOST) {
   console.warn('[AI] 未配置DB_RO_*环境变量，AI查询将使用主数据库账号。建议配置只读数据库账号以降低安全风险。');
@@ -50,7 +51,7 @@ router.get('/status', authenticateToken, checkPermission('ai'), async (req, res)
     const status = await aiService.getAiStatus(pool);
     res.json({ code: 200, data: status });
   } catch (error) {
-    console.error('[AI助手] 获取状态失败:', error.message);
+    logger.error('[AI助手] 获取状态失败:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.json({ code: 200, data: { online: false, provider: 'unknown', model: '', models: [] } });
   }
 });
@@ -131,7 +132,7 @@ router.post('/query', authenticateToken, checkPermission('ai'), async (req, res)
       const safeSql = hasLimit ? sql : `SELECT * FROM (${sql}) AS _ai_query LIMIT 50`;
       rows = await aiService.executeReadOnlyQuery(readOnlyPool, safeSql);
     } catch (dbError) {
-      console.error('[AI查询] SQL执行失败:', sql, dbError.message);
+      logger.error('[AI查询] SQL执行失败:', { sql: sql, error: dbError.message, traceId: req.traceId || 'N/A' });
       return res.json({ code: 200, data: { sql, answer: '生成的SQL有误，请换个问法。', rows: [] } });
     }
 
@@ -165,7 +166,7 @@ router.get('/suggestions', authenticateToken, checkPermission('ai'), async (req,
     const result = await aiService.getAiSuggestions(pool, req.query);
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('[AI助手] AI建议查询错误:', error);
+    logger.error('[AI助手] AI建议查询错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -180,7 +181,7 @@ router.post('/suggestion/feedback', authenticateToken, checkPermission('ai'), as
     if (result.error) return res.status(result.code).json({ code: result.code, message: result.error, data: null });
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
-    console.error('[AI助手] AI建议反馈错误:', error);
+    logger.error('[AI助手] AI建议反馈错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '更新失败', data: null });
   }
 });
@@ -191,7 +192,7 @@ router.post('/generate-suggestions', authenticateToken, checkPermission('ai'), a
     const result = await aiService.generateSuggestions(pool, req.user.userId);
     res.json({ code: 200, message: `生成完成，新增${result.created}条建议`, data: result });
   } catch (error) {
-    console.error('生成AI建议错误:', error);
+    logger.error('生成AI建议错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '生成建议失败', data: null });
   }
 });

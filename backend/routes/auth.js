@@ -1,10 +1,11 @@
 const express = require('express');
 const pool = require('../config/database');
 const { authenticateToken, generateToken, getTokenFromRequest } = require('../middleware/auth');
-const ROLES = require('../config/roles');
 const { validate, Joi } = require('../middleware/validate');
+const { checkPermission } = require('../middleware/permission');
 const { logAction, getIpAddress } = require('../middleware/logger');
 const authService = require('../services/authService');
+const logger = require('../config/logger');
 
 const router = express.Router();
 
@@ -186,7 +187,7 @@ router.post('/login', validate(loginSchema), async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[认证] 登录错误:', error);
+    logger.error('[认证] 登录错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '登录失败，请稍后重试', data: null });
   }
 });
@@ -240,23 +241,19 @@ router.get('/me', authenticateToken, async (req, res) => {
 
     res.json({ code: 200, message: '获取成功', data });
   } catch (error) {
-    console.error('[认证] 获取用户信息错误:', error);
+    logger.error('[认证] 获取用户信息错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '获取用户信息失败', data: null });
   }
 });
 
 // 4. 注册接口（仅管理员可用，禁止公开注册）
-// [权限说明] 使用自定义管理员角色校验，无需 checkPermission
-router.post('/register', authenticateToken, validate(registerSchema), async (req, res) => {
+// [权限说明] 需要 user:create 权限
+router.post('/register', authenticateToken, checkPermission('user:create'), validate(registerSchema), async (req, res) => {
   try {
-    if (!(req.user.manageAll || req.user.roleId === ROLES.ADMIN)) {
-      return res.status(403).json({ code: 403, message: '仅管理员可创建账号', data: null });
-    }
-
     const result = await authService.register(pool, req.body);
     res.json({ code: 200, message: '用户创建成功', data: result });
   } catch (error) {
-    console.error('[认证] 注册错误:', error);
+    logger.error('[认证] 注册错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(error.code || 500).json({ code: error.code || 500, message: error.message || '注册失败，请稍后重试', data: null });
   }
 });
@@ -272,7 +269,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
 
     res.json({ code: 200, message: '获取用户信息成功', data: user });
   } catch (error) {
-    console.error('[认证] 获取用户信息错误:', error);
+    logger.error('[认证] 获取用户信息错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '获取用户信息失败', data: null });
   }
 });
@@ -284,7 +281,7 @@ router.post('/update-profile', authenticateToken, validate(updateProfileSchema),
     await authService.updateProfile(pool, req.user.userId, req.body);
     res.json({ code: 200, message: '个人信息更新成功', data: null });
   } catch (error) {
-    console.error('[认证] 更新个人信息错误:', error);
+    logger.error('[认证] 更新个人信息错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(error.code || 500).json({ code: error.code || 500, message: error.message || '更新失败', data: null });
   }
 });
@@ -297,7 +294,7 @@ router.post('/change-password', authenticateToken, validate(changePasswordSchema
     await authService.changePassword(pool, req.user.userId, old_password, new_password);
     res.json({ code: 200, message: '密码修改成功，请重新登录', data: null });
   } catch (error) {
-    console.error('[认证] 修改密码错误:', error);
+    logger.error('[认证] 修改密码错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(error.code || 500).json({ code: error.code || 500, message: error.message || '修改密码失败', data: null });
   }
 });

@@ -7,6 +7,7 @@ const { requireManager } = require('../middleware/admin');
 const { success, fail, serverError, notFound } = require('../utils/response');
 const { validate, Joi } = require('../middleware/validate');
 const contractTemplateService = require('../services/contractTemplateService');
+const logger = require('../config/logger');
 
 const templateManageSchema = Joi.object({
   action: Joi.string().valid('add', 'update', 'delete').required(),
@@ -24,7 +25,7 @@ router.get('/list', authenticateToken, checkPermission('contract_template'), asy
     const templates = await contractTemplateService.listTemplates(pool);
     success(res, templates);
   } catch (error) {
-    console.error('获取模板列表错误:', error);
+    logger.error('获取模板列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     serverError(res, '查询失败');
   }
 });
@@ -36,7 +37,7 @@ router.get('/:id', authenticateToken, checkPermission('contract_template'), asyn
     success(res, template);
   } catch (error) {
     if (error.statusCode === 404) return notFound(res, error.message);
-    console.error('获取模板详情错误:', error);
+    logger.error('获取模板详情错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     serverError(res, '查询失败');
   }
 });
@@ -54,7 +55,7 @@ router.post('/manage', authenticateToken, checkPermission('contract_template'), 
     }
   } catch (error) {
     if (error.statusCode === 400) return fail(res, error.message);
-    console.error('管理模板错误:', error);
+    logger.error('管理模板错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     serverError(res, '操作失败');
   }
 });

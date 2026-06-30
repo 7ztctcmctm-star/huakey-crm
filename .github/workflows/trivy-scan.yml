@@ -1,0 +1,66 @@
+﻿name: Trivy Security Scan
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "backend/Dockerfile"
+      - "Dockerfile.synology"
+      - "backend/package*.json"
+      - "frontend/package*.json"
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+
+jobs:
+  scan-images:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dockerfile: ["backend/Dockerfile", "Dockerfile.synology"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image for scanning
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          load: true
+          tags: "crm-scan:${{ matrix.dockerfile }}"
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: "crm-scan:${{ matrix.dockerfile }}"
+          format: "sarif"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+          exit-code: "1"
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: "trivy-results.sarif"
+
+  scan-filesystem:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy on repo filesystem
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          format: "sarif"
+          output: "trivy-fs-results.sarif"
+          severity: "CRITICAL,HIGH"
+          exit-code: "0"
+
+      - name: Upload filesystem scan results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: "trivy-fs-results.sarif"

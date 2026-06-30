@@ -2,10 +2,11 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
+const { checkPermission, checkDataPermission, buildDataPermissionWhere, checkFieldPermission, stripRestrictedFields } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const { createRouteLogger } = require('../middleware/logger');
 const purchaseService = require('../services/purchaseService');
+const logger = require('../config/logger');
 
 const MODULE_NAME = '采购管理';
 
@@ -56,13 +57,17 @@ const addReceiptSchema = Joi.object({
 
 const logAction = createRouteLogger(MODULE_NAME);
 
+// 字段级权限：采购明细单价/金额仅管理员可见
+router.use(checkFieldPermission('purchase_item'));
+
 router.post('/list', authenticateToken, checkPermission('purchase'), checkDataPermission('purchase', 'owner_id'), validate(listSchema), async (req, res) => {
   try {
     const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'po');
     const result = await purchaseService.listPurchases(pool, req.body, { clause, params: permParams });
+    result.list = stripRestrictedFields(result.list, req.restrictedFields);
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('[采购] 采购列表错误:', error.message);
+    logger.error('[采购] 采购列表错误:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -72,9 +77,12 @@ router.get('/detail/:id', authenticateToken, checkDataPermission('purchase', 'ow
     const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'po');
     const data = await purchaseService.getPurchase(pool, req.params.id, { clause, params: permParams });
     if (!data) return res.status(404).json({ code: 404, message: '采购单不存在', data: null });
+    if (data.items) {
+      stripRestrictedFields(data.items, req.restrictedFields);
+    }
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('[采购] 采购详情错误:', error.message);
+    logger.error('[采购] 采购详情错误:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -85,7 +93,7 @@ router.post('/add', authenticateToken, checkPermission('purchase:add'), validate
     await logAction(req, 'add', `创建采购单: ${result.order_no} - ${req.body.title}`);
     res.json({ code: 200, message: '创建采购单成功', data: result });
   } catch (error) {
-    console.error('[采购] 添加采购单错误:', error.message);
+    logger.error('[采购] 添加采购单错误:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '创建采购单失败', data: null });
   }
 });
@@ -97,7 +105,7 @@ router.post('/update-status', authenticateToken, checkPermission('purchase:add')
     await logAction(req, 'update-status', `更新采购单状态: ID=${id} → ${status}`);
     res.json({ code: 200, message: '状态更新成功', data: null });
   } catch (error) {
-    console.error('[采购] 更新状态错误:', error.message);
+    logger.error('[采购] 更新状态错误:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '更新失败', data: null });
   }
 });
@@ -108,7 +116,7 @@ router.post('/receipt/add', authenticateToken, checkPermission('purchase:add'), 
     await logAction(req, 'receipt', `入库记录: ${result.receipt_no}, 数量=${req.body.quantity}`);
     res.json({ code: 200, message: '入库记录成功', data: result });
   } catch (error) {
-    console.error('[采购] 添加收货错误:', error.message);
+    logger.error('[采购] 添加收货错误:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '入库记录失败', data: null });
   }
 });
@@ -118,7 +126,7 @@ router.get('/statistics', authenticateToken, async (req, res) => {
     const data = await purchaseService.getStatistics(pool);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('[采购] 统计错误:', error.message);
+    logger.error('[采购] 统计错误:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '获取统计失败', data: null });
   }
 });
@@ -133,7 +141,7 @@ router.post('/payment/add', authenticateToken, checkPermission('purchase:add'), 
     if (result.error) return res.status(result.code).json({ code: result.code, message: result.error, data: null });
     res.json({ code: 200, message: '付款登记成功', data: result });
   } catch (error) {
-    console.error('[采购] 添加付款错误:', error.message);
+    logger.error('[采购] 添加付款错误:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '付款登记失败', data: null });
   }
 });

@@ -4,6 +4,7 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const requireAdmin = require('../middleware/admin');
 const automationService = require('../services/automationService');
+const logger = require('../config/logger');
 
 // ============ 工作流规则 ============
 
@@ -14,7 +15,7 @@ router.get('/workflows', authenticateToken, async (req, res) => {
     const rows = await automationService.getWorkflows(pool);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
-    console.error('[自动化] 工作流列表查询失败:', error);
+    logger.error('[自动化] 工作流列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -27,7 +28,7 @@ router.post('/workflows', authenticateToken, requireAdmin, async (req, res) => {
     const result = await automationService.createWorkflow(pool, { name, description, trigger_event, conditions, actions }, req.user.userId);
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
-    console.error('[自动化] 创建工作流失败:', error);
+    logger.error('[自动化] 创建工作流失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -39,7 +40,7 @@ router.put('/workflows/:id', authenticateToken, requireAdmin, async (req, res) =
     if (!updated) return res.status(400).json({ code: 400, message: '没有要更新的字段', data: null });
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
-    console.error('[自动化] 更新工作流失败:', error);
+    logger.error('[自动化] 更新工作流失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -50,7 +51,7 @@ router.delete('/workflows/:id', authenticateToken, requireAdmin, async (req, res
     await automationService.deleteWorkflow(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
-    console.error('[自动化] 删除工作流失败:', error);
+    logger.error('[自动化] 删除工作流失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -62,7 +63,7 @@ router.post('/workflows/:id/toggle', authenticateToken, requireAdmin, async (req
     if (!result) return res.status(404).json({ code: 404, message: '规则不存在', data: null });
     res.json({ code: 200, message: result.status ? '已启用' : '已禁用', data: { status: result.status } });
   } catch (error) {
-    console.error('[自动化] 切换状态失败:', error);
+    logger.error('[自动化] 切换状态失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -75,7 +76,7 @@ router.post('/workflows/execute', authenticateToken, requireAdmin, async (req, r
     if (!result) return res.status(404).json({ code: 404, message: '规则不存在', data: null });
     res.json({ code: 200, message: '执行完成', data: result });
   } catch (error) {
-    console.error('[自动化] 执行失败:', error);
+    logger.error('[自动化] 执行失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -89,7 +90,7 @@ router.post('/workflows/trigger', authenticateToken, async (req, res) => {
     const result = await automationService.triggerWorkflow(pool, { event, target_type, target_id });
     res.json({ code: 200, message: '触发完成', data: result });
   } catch (error) {
-    console.error('[自动化] 触发失败:', error);
+    logger.error('[自动化] 触发失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -102,7 +103,7 @@ router.get('/workflows/logs', authenticateToken, async (req, res) => {
     const result = await automationService.getWorkflowLogs(pool, { rule_id, page, pageSize });
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('[自动化] 日志查询失败:', error);
+    logger.error('[自动化] 日志查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -115,7 +116,7 @@ router.get('/assign-rules', authenticateToken, async (req, res) => {
     const rows = await automationService.getAssignRules(pool);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
-    console.error('[自动化] 分配规则查询失败:', error);
+    logger.error('[自动化] 分配规则查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -127,7 +128,7 @@ router.post('/assign-rules', authenticateToken, requireAdmin, async (req, res) =
     const result = await automationService.createAssignRule(pool, req.body);
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
-    console.error('[自动化] 创建分配规则失败:', error);
+    logger.error('[自动化] 创建分配规则失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -138,7 +139,7 @@ router.put('/assign-rules/:id', authenticateToken, requireAdmin, async (req, res
     if (!updated) return res.status(400).json({ code: 400, message: '没有要更新的字段', data: null });
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
-    console.error('[自动化] 更新分配规则失败:', error);
+    logger.error('[自动化] 更新分配规则失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -148,7 +149,7 @@ router.delete('/assign-rules/:id', authenticateToken, requireAdmin, async (req, 
     await automationService.deleteAssignRule(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
-    console.error('[自动化] 删除分配规则失败:', error);
+    logger.error('[自动化] 删除分配规则失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -162,7 +163,7 @@ router.post('/assign-rules/apply', authenticateToken, requireAdmin, async (req, 
     const results = await automationService.applyAssignRule(pool, { customer_id, customer_ids });
     res.json({ code: 200, message: '分配完成', data: results });
   } catch (error) {
-    console.error('[自动化] 自动分配失败:', error);
+    logger.error('[自动化] 自动分配失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -175,7 +176,7 @@ router.get('/smart-reminders', authenticateToken, async (req, res) => {
     const rows = await automationService.getSmartReminders(pool);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
-    console.error('[自动化] 智能提醒列表查询失败:', error);
+    logger.error('[自动化] 智能提醒列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -187,7 +188,7 @@ router.post('/smart-reminders', authenticateToken, requireAdmin, async (req, res
     const result = await automationService.createSmartReminder(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
-    console.error('[自动化] 创建智能提醒失败:', error);
+    logger.error('[自动化] 创建智能提醒失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -198,7 +199,7 @@ router.put('/smart-reminders/:id', authenticateToken, requireAdmin, async (req, 
     if (!updated) return res.status(400).json({ code: 400, message: '没有要更新的字段', data: null });
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
-    console.error('[自动化] 更新智能提醒失败:', error);
+    logger.error('[自动化] 更新智能提醒失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -208,7 +209,7 @@ router.delete('/smart-reminders/:id', authenticateToken, requireAdmin, async (re
     await automationService.deleteSmartReminder(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
-    console.error('[自动化] 删除智能提醒失败:', error);
+    logger.error('[自动化] 删除智能提醒失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -219,7 +220,7 @@ router.post('/smart-reminders/run', authenticateToken, requireAdmin, async (req,
     const totalFound = await automationService.runSmartReminder(pool);
     res.json({ code: 200, message: `扫描完成，发现 ${totalFound} 条新提醒`, data: { found: totalFound } });
   } catch (error) {
-    console.error('[自动化] 智能提醒扫描失败:', error);
+    logger.error('[自动化] 智能提醒扫描失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -231,7 +232,7 @@ router.get('/smart-reminders/pending', authenticateToken, async (req, res) => {
     const rows = await automationService.getPendingReminders(pool, req.user.userId);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
-    console.error('[自动化] 待处理提醒查询失败:', error);
+    logger.error('[自动化] 待处理提醒查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -243,7 +244,7 @@ router.put('/smart-reminders/log/:id/seen', authenticateToken, async (req, res) 
     await automationService.markReminderSeen(pool, req.params.id, req.user.userId);
     res.json({ code: 200, message: '已标记', data: null });
   } catch (error) {
-    console.error('[自动化] 标记已读失败:', error);
+    logger.error('[自动化] 标记已读失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });

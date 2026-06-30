@@ -1,4 +1,4 @@
-﻿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -20,7 +20,7 @@ const mockPool = {
 
 jest.mock('../config/database', () => mockPool);
 
-// ============ Mock 中间件（避免 auth/permission/logger 消耗 pool.query mock） ============
+// ============ Mock 中间件（避免 auth/permission/logger 消�?pool.query mock�?============
 jest.mock('../middleware/auth', () => ({
   authenticateToken: (req, res, next) => {
     req.user = { userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', viewAll: true, manageAll: true };
@@ -31,6 +31,8 @@ jest.mock('../middleware/auth', () => ({
 jest.mock('../middleware/permission', () => ({
   checkPermission: () => (req, res, next) => next(),
   checkDataPermission: () => (req, res, next) => next(),
+  checkFieldPermission: () => (req, res, next) => next(),
+  stripRestrictedFields: (data) => data,
   buildDataPermissionWhere: jest.fn().mockResolvedValue({ clause: '1=1', params: [] })
 }));
 
@@ -79,7 +81,7 @@ jest.mock('../utils/fieldLog', () => ({
   FIELD_LABEL_MAP: {}
 }));
 
-// ============ 挂载路由（mock 必须在 require 之前） ============
+// ============ 挂载路由（mock 必须�?require 之前�?============
 const app = express();
 app.use(express.json());
 
@@ -98,9 +100,9 @@ const generateToken = () => {
   );
 };
 
-describe('客户全生命周期 - 端到端流程', () => {
+describe('客户全生命周�?- 端到端流�?, () => {
   const token = generateToken();
-  let customerId, opportunityId, quoteId, contractId;
+  let _customerId, _opportunityId, _quoteId, _contractId;
 
   beforeEach(() => {
     mockPool.query.mockReset();
@@ -112,8 +114,8 @@ describe('客户全生命周期 - 端到端流程', () => {
   });
 
   // Step 1: 创建客户
-  it('Step 1: POST /api/v1/customer/add — 创建客户', async () => {
-    // customerDetailService.addCustomer: 2 次 pool.query
+  it('Step 1: POST /api/v1/customer/add �?创建客户', async () => {
+    // customerDetailService.addCustomer: 2 �?pool.query
     mockPool.query
       .mockResolvedValueOnce([[]])                      // 检查重复（无重复）
       .mockResolvedValueOnce([{ insertId: 100 }]);      // INSERT
@@ -130,27 +132,27 @@ describe('客户全生命周期 - 端到端流程', () => {
   });
 
   // Step 2: 添加跟进记录
-  it('Step 2: POST /api/v1/follow-up/add — 添加跟进记录', async () => {
-    // followUpService.addFollowUp: 3 次 pool.query
+  it('Step 2: POST /api/v1/follow-up/add �?添加跟进记录', async () => {
+    // followUpService.addFollowUp: 3 �?pool.query
     mockPool.query
-      .mockResolvedValueOnce([[{ id: 100, owner_id: 1, status: 1 }]])  // 客户存在检查
+      .mockResolvedValueOnce([[{ id: 100, owner_id: 1, status: 1 }]])  // 客户存在检�?
       .mockResolvedValueOnce([{ insertId: 200 }])                       // INSERT 跟进
       .mockResolvedValueOnce([{ affectedRows: 1 }]);                    // UPDATE last_follow_time
 
     const res = await request(app)
       .post('/api/v1/follow-up/add')
       .set('Authorization', `Bearer ${token}`)
-      .send({ customer_id: 100, content: '电话沟通需求', follow_type: '电话' });
+      .send({ customer_id: 100, content: '电话沟通需�?, follow_type: '电话' });
 
     expect(res.status).toBe(200);
     expect(res.body.code).toBe(200);
   });
 
   // Step 3: 创建商机
-  it('Step 3: POST /api/v1/opportunity/add — 创建商机', async () => {
-    // opportunityService.createOpportunity: 2 次 pool.query
+  it('Step 3: POST /api/v1/opportunity/add �?创建商机', async () => {
+    // opportunityService.createOpportunity: 2 �?pool.query
     mockPool.query
-      .mockResolvedValueOnce([[{ id: 100, status: 2 }]])   // 客户校验（status=2 正式客户）
+      .mockResolvedValueOnce([[{ id: 100, status: 2 }]])   // 客户校验（status=2 正式客户�?
       .mockResolvedValueOnce([{ insertId: 300 }]);          // INSERT
 
     const res = await request(app)
@@ -163,8 +165,8 @@ describe('客户全生命周期 - 端到端流程', () => {
     opportunityId = res.body.data.id;
   });
 
-  // Step 4: 创建报价（使用 conn.query）
-  it('Step 4: POST /api/v1/quote/add — 创建报价', async () => {
+  // Step 4: 创建报价（使�?conn.query�?
+  it('Step 4: POST /api/v1/quote/add �?创建报价', async () => {
     mockConn.beginTransaction.mockResolvedValue(undefined);
     mockConn.commit.mockResolvedValue(undefined);
     mockConn.release.mockResolvedValue(undefined);
@@ -189,8 +191,8 @@ describe('客户全生命周期 - 端到端流程', () => {
     quoteId = res.body.data.id;
   });
 
-  // Step 5: 创建合同（使用 conn.query）
-  it('Step 5: POST /api/v1/contract/add — 创建合同', async () => {
+  // Step 5: 创建合同（使�?conn.query�?
+  it('Step 5: POST /api/v1/contract/add �?创建合同', async () => {
     mockConn.beginTransaction.mockResolvedValue(undefined);
     mockConn.commit.mockResolvedValue(undefined);
     mockConn.release.mockResolvedValue(undefined);
@@ -213,12 +215,12 @@ describe('客户全生命周期 - 端到端流程', () => {
     contractId = 500;
   });
 
-  // Step 6: 推进商机到成交
-  it('Step 6: POST /api/v1/opportunity/update-stage — 标记成交', async () => {
-    // getOpportunityWithPermission + advanceStage: 4 次 pool.query
+  // Step 6: 推进商机到成�?
+  it('Step 6: POST /api/v1/opportunity/update-stage �?标记成交', async () => {
+    // getOpportunityWithPermission + advanceStage: 4 �?pool.query
     mockPool.query
       .mockResolvedValueOnce([[{ id: 300, stage: 4, owner_id: 1 }]])  // getOpportunityWithPermission
-      .mockResolvedValueOnce([[{ id: 300, stage: 4 }]])                // advanceStage 查当前阶段
+      .mockResolvedValueOnce([[{ id: 300, stage: 4 }]])                // advanceStage 查当前阶�?
       .mockResolvedValueOnce([{ affectedRows: 1 }])                    // UPDATE stage
       .mockResolvedValueOnce([{ insertId: 600 }]);                     // INSERT stage log
 
@@ -231,9 +233,9 @@ describe('客户全生命周期 - 端到端流程', () => {
     expect(res.body.code).toBe(200);
   });
 
-  // Step 7: 删除客户（移入回收站）
-  it('Step 7: POST /api/v1/customer/delete — 移入回收站', async () => {
-    // deleteCustomer: 2 次 pool.query
+  // Step 7: 删除客户（移入回收站�?
+  it('Step 7: POST /api/v1/customer/delete �?移入回收�?, async () => {
+    // deleteCustomer: 2 �?pool.query
     mockPool.query
       .mockResolvedValueOnce([[{ id: 100, owner_id: 1 }]])  // SELECT 客户
       .mockResolvedValueOnce([{ affectedRows: 1 }]);          // UPDATE deleted_at
@@ -248,9 +250,9 @@ describe('客户全生命周期 - 端到端流程', () => {
   });
 
   // Step 8: 从回收站恢复
-  it('Step 8: POST /api/v1/recycle/restore — 恢复客户', async () => {
+  it('Step 8: POST /api/v1/recycle/restore �?恢复客户', async () => {
     mockPool.query
-      .mockResolvedValueOnce([[{ id: 100, deleted_at: '2026-06-25' }]])  // 查询已删除记录
+      .mockResolvedValueOnce([[{ id: 100, deleted_at: '2026-06-25' }]])  // 查询已删除记�?
       .mockResolvedValueOnce([{ affectedRows: 1 }]);                      // UPDATE deleted_at = NULL
 
     const res = await request(app)

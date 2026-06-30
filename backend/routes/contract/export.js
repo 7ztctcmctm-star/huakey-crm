@@ -7,6 +7,7 @@ const { exportContracts, exportPayments, importPayments } = require('../../servi
 const { createRouteLogger } = require('../../middleware/logger');
 const XLSX = require('xlsx');
 const multer = require('multer');
+const logger = require('../../config/logger');
 
 const logAction = createRouteLogger('合同管理');
 
@@ -28,7 +29,7 @@ router.post('/export', authenticateToken, checkPermission('contract'), checkData
     res.send(buf);
     await logAction(req, 'export', '导出合同');
   } catch (error) {
-    console.error('[合同] 导出合同错误:', error);
+    logger.error('[合同] 导出合同错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '导出合同失败', data: null });
   }
 });
@@ -42,7 +43,7 @@ router.post('/payment/export', authenticateToken, checkPermission('contract'), a
     res.send(buf);
     await logAction(req, 'export', '导出回款');
   } catch (error) {
-    console.error('[合同] 导出回款错误:', error);
+    logger.error('[合同] 导出回款错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '导出失败', data: null });
   }
 });
@@ -59,7 +60,7 @@ router.post('/payment/import', authenticateToken, checkPermission('contract'), i
     res.json({ code: 200, message: result.message, data: { success: result.success, failed: result.failed, errors: result.errors } });
   } catch (error) {
     const status = error.statusCode || 500;
-    console.error('[合同] 回款导入错误:', error);
+    logger.error('[合同] 回款导入错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '导入失败', data: null });
   }
 });
@@ -79,7 +80,7 @@ router.get('/payment/import-template', authenticateToken, async (req, res) => {
     res.setHeader('Content-Disposition', 'attachment; filename=payment_import_template.xlsx');
     res.send(buf);
   } catch (error) {
-    console.error('[合同] 导出模板失败:', error);
+    logger.error('[合同] 导出模板失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });

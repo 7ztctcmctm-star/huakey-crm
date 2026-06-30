@@ -4,6 +4,7 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const calendarService = require('../services/calendarRouteService');
+const logger = require('../config/logger');
 
 // 日程列表
 router.get('/events', authenticateToken, checkPermission('calendar'), async (req, res) => {
@@ -11,7 +12,7 @@ router.get('/events', authenticateToken, checkPermission('calendar'), async (req
     const rows = await calendarService.getEvents(pool, req.query);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
-    console.error('[日程] 列表查询失败:', error);
+    logger.error('[日程] 列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -23,7 +24,7 @@ router.get('/events/:id', authenticateToken, checkPermission('calendar'), async 
     if (!row) return res.status(404).json({ code: 404, message: '日程不存在', data: null });
     res.json({ code: 200, message: '查询成功', data: row });
   } catch (error) {
-    console.error('[日程] 详情查询失败:', error);
+    logger.error('[日程] 详情查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -35,7 +36,7 @@ router.post('/events', authenticateToken, checkPermission('calendar'), async (re
     if (result.error) return res.status(400).json({ code: 400, message: result.error, data: null });
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
-    console.error('[日程] 创建失败:', error);
+    logger.error('[日程] 创建失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -47,7 +48,7 @@ router.put('/events/:id', authenticateToken, checkPermission('calendar'), async 
     if (result.error) return res.status(result.status || 500).json({ code: result.status || 500, message: result.error, data: null });
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
-    console.error('[日程] 更新失败:', error);
+    logger.error('[日程] 更新失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -59,7 +60,7 @@ router.delete('/events/:id', authenticateToken, checkPermission('calendar'), asy
     if (result.error) return res.status(result.status || 500).json({ code: result.status || 500, message: result.error, data: null });
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
-    console.error('[日程] 删除失败:', error);
+    logger.error('[日程] 删除失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -70,7 +71,7 @@ router.post('/events/:id/complete', authenticateToken, checkPermission('calendar
     await calendarService.completeEvent(pool, req.params.id);
     res.json({ code: 200, message: '已标记完成', data: null });
   } catch (error) {
-    console.error('[日程] 标记完成失败:', error);
+    logger.error('[日程] 标记完成失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -81,7 +82,7 @@ router.get('/today', authenticateToken, checkPermission('calendar'), async (req,
     const rows = await calendarService.getToday(pool);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
-    console.error('[日程] 今日日程查询失败:', error);
+    logger.error('[日程] 今日日程查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -92,7 +93,7 @@ router.get('/upcoming', authenticateToken, checkPermission('calendar'), async (r
     const rows = await calendarService.getUpcoming(pool);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
-    console.error('[日程] 未来日程查询失败:', error);
+    logger.error('[日程] 未来日程查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });

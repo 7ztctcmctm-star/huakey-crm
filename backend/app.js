@@ -38,10 +38,15 @@ const { alertError, record500Error } = require('./utils/alert');
 const { metricsMiddleware, startPoolMetricsCollection } = require('./config/metrics');
 app.use(metricsMiddleware);
 
-// CORS 配置：生产环境使用白名单，开发环境限制为本地前端
+// CORS 配置：生产环境必须显式设置 CORS_ORIGIN，开发环境限制为本地前端
 const corsOrigin = isProduction
-  ? (process.env.CORS_ORIGIN || 'https://your-domain.com')
+  ? process.env.CORS_ORIGIN
   : 'http://localhost:5173';
+
+if (isProduction && !corsOrigin) {
+  console.error('FATAL: 生产环境必须设置 CORS_ORIGIN 环境变量');
+  process.exit(1);
+}
 
 app.use(cors({
   origin: corsOrigin,
@@ -81,6 +86,7 @@ const deptRoutes = require('./routes/dept');
 const logRoutes = require('./routes/log');
 const teamDashboardRoutes = require('./routes/teamDashboard');
 const reminderRoutes = require('./routes/reminder');
+const notificationRoutes = require('./routes/notification');
 const aiRoutes = require('./routes/ai');
 const supplierRoutes = require('./routes/supplier');
 const purchaseRoutes = require('./routes/purchase');
@@ -227,12 +233,15 @@ apiRouter.use('/contract', contractRoutes);
 apiRouter.use('/service', serviceRoutes);
 apiRouter.use('/supplier', supplierRoutes);
 apiRouter.use('/purchase', purchaseRoutes);
+apiRouter.use('/purchase', require('./routes/purchase/request'));
+apiRouter.use('/purchase', require('./routes/purchase/comparison'));
 apiRouter.use('/role', roleRoutes);
 apiRouter.use('/dept', deptRoutes);
 // report 已通过 registry 挂载
 apiRouter.use('/log', logRoutes);
 apiRouter.use('/team-dashboard', teamDashboardRoutes);
 apiRouter.use('/reminder', reminderRoutes);
+apiRouter.use('/notification', notificationRoutes);
 apiRouter.use('/config', configRoutes);
 apiRouter.use('/target', targetRoutes);
 apiRouter.use('/permission', permissionRoutes);

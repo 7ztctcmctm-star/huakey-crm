@@ -21,6 +21,7 @@ const {
 const MODULE_NAME = '客户管理';
 
 const { createRouteLogger } = require('../../middleware/logger');
+const logger = require('../../config/logger');
 const logAction = createRouteLogger(MODULE_NAME);
 
 const router = express.Router();
@@ -56,7 +57,7 @@ router.post('/assign', authenticateToken, checkPermission('customer:assign'), re
 
     res.json({ code: 200, message: result.message, data: null });
   } catch (error) {
-    console.error('分配客户错误:', error);
+    logger.error('分配客户错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '操作失败', data: null });
   }
 });
@@ -73,7 +74,7 @@ router.post('/batch-assign', authenticateToken, checkPermission('customer:assign
 
     res.json({ code: 200, message: `成功分配 ${result.count} 个客户`, data: { count: result.count } });
   } catch (error) {
-    console.error('批量分配错误:', error);
+    logger.error('批量分配错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '批量分配失败', data: null });
   }
 });
@@ -86,7 +87,7 @@ router.post('/assign-log', authenticateToken, checkPermission('customer:assign')
 
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('查询分配日志错误:', error);
+    logger.error('查询分配日志错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -97,7 +98,7 @@ router.get('/sales-users', authenticateToken, checkPermission('customer:assign')
     const users = await getSalesUsers(pool);
     res.json({ code: 200, message: '查询成功', data: users });
   } catch (error) {
-    console.error('获取销售用户列表错误:', error);
+    logger.error('获取销售用户列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -109,7 +110,7 @@ router.get('/my-subordinates', authenticateToken, async (req, res) => {
     const users = await getMySubordinates(pool, userId);
     res.json({ code: 200, message: '查询成功', data: users });
   } catch (error) {
-    console.error('获取下属列表错误:', error);
+    logger.error('获取下属列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -122,7 +123,7 @@ router.get('/assign-rules', authenticateToken, requireManager, async (req, res) 
     const list = await getAssignRules(pool);
     res.json({ code: 200, message: '查询成功', data: list });
   } catch (error) {
-    console.error('查询分配规则错误:', error);
+    logger.error('查询分配规则错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -148,7 +149,7 @@ router.post('/assign-rules/add', authenticateToken, requireManager, async (req, 
     await logAction(req, 'add-assign-rule', `添加分配规则: ${rule_name}`);
     res.json({ code: 200, message: '添加成功', data: { id } });
   } catch (error) {
-    console.error('添加分配规则错误:', error);
+    logger.error('添加分配规则错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '添加失败', data: null });
   }
 });
@@ -167,7 +168,7 @@ router.post('/assign-rules/update', authenticateToken, requireManager, async (re
     await logAction(req, 'update-assign-rule', `更新分配规则ID: ${id}`);
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
-    console.error('更新分配规则错误:', error);
+    logger.error('更新分配规则错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '更新失败', data: null });
   }
 });
@@ -181,7 +182,7 @@ router.post('/assign-rules/delete', authenticateToken, requireManager, async (re
     await logAction(req, 'delete-assign-rule', `删除分配规则ID: ${id}`);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
-    console.error('删除分配规则错误:', error);
+    logger.error('删除分配规则错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '删除失败', data: null });
   }
 });
@@ -204,7 +205,7 @@ router.post('/auto-assign', authenticateToken, checkPermission('customer:assign'
       data: { count: result.count, sales_count: result.sales_count }
     });
   } catch (error) {
-    console.error('自动分配错误:', error);
+    logger.error('自动分配错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '自动分配失败', data: null });
   }
 });

@@ -6,6 +6,7 @@ const { checkPermission } = require('../middleware/permission');
 const { requireAdmin, requireManager } = require('../middleware/admin');
 const { validate, Joi } = require('../middleware/validate');
 const templateService = require('../services/followupTemplateRouteService');
+const logger = require('../config/logger');
 
 const templateCreateSchema = Joi.object({
   name: Joi.string().required().max(200).trim(),
@@ -25,7 +26,7 @@ router.get('/', authenticateToken, checkPermission('followup_template'), async (
     const rows = await templateService.listTemplates(pool);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
-    console.error('[跟进模板] 获取列表失败:', error);
+    logger.error('[跟进模板] 获取列表失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -36,7 +37,7 @@ router.post('/', authenticateToken, checkPermission('followup_template'), requir
     const id = await templateService.createTemplate(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '创建成功', data: { id } });
   } catch (error) {
-    console.error('[跟进模板] 创建失败:', error);
+    logger.error('[跟进模板] 创建失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     if (error.message === '模板名称不能为空' || error.message === '模板内容不能为空') {
       return res.status(400).json({ code: 400, message: error.message, data: null });
     }
@@ -50,7 +51,7 @@ router.put('/:id', authenticateToken, checkPermission('followup_template'), requ
     await templateService.updateTemplate(pool, req.params.id, req.body, req.user.userId);
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
-    console.error('[跟进模板] 更新失败:', error);
+    logger.error('[跟进模板] 更新失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     if (error.message === '模板不存在') {
       return res.status(404).json({ code: 404, message: error.message, data: null });
     }
@@ -70,7 +71,7 @@ router.delete('/:id', authenticateToken, checkPermission('followup_template'), r
     await templateService.deleteTemplate(pool, req.params.id, req.user.userId);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
-    console.error('[跟进模板] 删除失败:', error);
+    logger.error('[跟进模板] 删除失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     if (error.message === '模板不存在') {
       return res.status(404).json({ code: 404, message: error.message, data: null });
     }

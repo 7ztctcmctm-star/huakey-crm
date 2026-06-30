@@ -9,12 +9,11 @@ if (!JWT_SECRET) {
   console.error('错误: JWT_SECRET 环境变量未设置，请在 .env 文件中配置');
   process.exit(1);
 }
-// 从请求中获取token（优先Cookie > Authorization header > query token，SSE 场景）
+// 从请求中获取 token（仅 Cookie 或 Authorization header，禁止 URL query string）
 const getTokenFromRequest = (req) => {
   if (req.cookies && req.cookies.token) return req.cookies.token;
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) return authHeader.split(' ')[1];
-  if (req.query && req.query.token) return req.query.token;
   return null;
 };
 

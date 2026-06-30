@@ -5,6 +5,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const { queryValidate, Joi } = require('../middleware/validate');
 const searchRouteService = require('../services/searchRouteService');
+const logger = require('../config/logger');
 
 const globalSearchSchema = Joi.object({
   keyword: Joi.string().min(2).max(100).required().messages({
@@ -20,7 +21,7 @@ router.get('/global', authenticateToken, checkPermission('search'), queryValidat
     const data = await searchRouteService.globalSearch(pool, { keyword, user: req.user });
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('全局搜索错误:', error);
+    logger.error('全局搜索错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '搜索失败', data: null });
   }
 });

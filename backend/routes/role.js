@@ -31,19 +31,20 @@ router.post('/list', authenticateToken, checkPermission('system:role'), async (r
     const result = await roleService.listRoles(pool);
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('[角色管理] 查询失败:', error);
+    logger.error('[角色管理] 查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
 
 const requireAdmin = require('../middleware/admin');
+const logger = require('../config/logger');
 
 router.post('/add', authenticateToken, requireAdmin, validate(roleAddSchema), async (req, res) => {
   try {
     const id = await roleService.addRole(pool, req.body);
     res.json({ code: 200, message: '新增角色成功', data: { id } });
   } catch (error) {
-    console.error('[角色管理] 新增角色失败:', error);
+    logger.error('[角色管理] 新增角色失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '新增角色失败', data: null });
   }
 });
@@ -53,7 +54,7 @@ router.post('/update', authenticateToken, requireAdmin, validate(roleUpdateSchem
     await roleService.updateRole(pool, req.body, clearPermissionCache, clearAllPermissionCache);
     res.json({ code: 200, message: '修改角色成功', data: null });
   } catch (error) {
-    console.error('[角色管理] 修改角色失败:', error);
+    logger.error('[角色管理] 修改角色失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '修改角色失败', data: null });
   }
 });
@@ -63,7 +64,7 @@ router.post('/delete', authenticateToken, requireAdmin, validate(roleDeleteSchem
     await roleService.deleteRole(pool, req.body.id, clearPermissionCache, clearAllPermissionCache);
     res.json({ code: 200, message: '删除角色成功', data: null });
   } catch (error) {
-    console.error('[角色管理] 删除角色失败:', error);
+    logger.error('[角色管理] 删除角色失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     if (error.message.includes('无法删除')) {
       return res.status(400).json({ code: 400, message: error.message, data: null });
     }

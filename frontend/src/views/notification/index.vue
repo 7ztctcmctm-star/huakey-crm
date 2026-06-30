@@ -70,7 +70,7 @@
 
       <!-- 系统通知 -->
       <div v-if="activeTab === 'system'">
-        <el-table :data="systemNotifications" stripe border v-loading="loading">
+        <el-table :data="systemNotifications" stripe border v-loading="loading" @row-click="handleSystemClick">
           <el-table-column width="50" align="center">
             <template #default="{ row }">
               <div :class="['unread-dot', { read: row.is_read }]"></div>
@@ -83,8 +83,8 @@
               <el-tag :type="typeTag[row.type] || 'info'" size="small">{{ typeName[row.type] || row.type }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="create_time" label="时间" width="160">
-            <template #default="{ row }">{{ formatTime(row.create_time) }}</template>
+          <el-table-column prop="created_at" label="时间" width="160">
+            <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
           </el-table-column>
           <el-table-column label="操作" width="120">
             <template #default="{ row }">
@@ -103,16 +103,19 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { getNotifications, markNotificationRead, markAllRead as apiMarkAllRead, getMyReminders } from '@/api/tools'
+import { getNotifications, markNotificationRead, markAllRead as apiMarkAllRead } from '@/api/notification'
+import { getMyReminders } from '@/api/reminder'
 import { formatTime } from '@/composables/useFormat'
+import { connectSSE, offMessage } from '@/utils/sse'
 
 const router = useRouter()
 const activeTab = ref('todo')
 const todoTab = ref('approvals')
 const loading = ref(false)
+const unreadCount = ref(0)
 
 const approvals = ref([])
 const urges = ref([])
@@ -149,6 +152,7 @@ const fetchSystemNotifications = async () => {
     if (res.code === 200) {
       systemNotifications.value = res.data.list || []
       systemTotal.value = res.data.total || 0
+      unreadCount.value = res.data.unread_count || 0
     }
   } catch { /* */ }
   finally { loading.value = false }
@@ -162,7 +166,10 @@ const handleTabChange = () => {
 const markRead = async (row) => {
   try {
     await markNotificationRead(row.id)
-    row.is_read = 1
+    if (!row.is_read) {
+      row.is_read = 1
+      unreadCount.value = Math.max(0, unreadCount.value - 1)
+    }
   } catch { /* */ }
 }
 
@@ -170,6 +177,8 @@ const markAllRead = async () => {
   try {
     await apiMarkAllRead()
     ElMessage.success('已全部标记为已读')
+    unreadCount.value = 0
+    systemNotifications.value.forEach(n => { n.is_read = 1 })
     fetchData()
   } catch { /* */ }
 }
@@ -178,7 +187,32 @@ const goToCustomer = (row) => {
   if (row.business_id) router.push(`/customer/detail/${row.business_id}`)
 }
 
-onMounted(() => { fetchData() })
+const handleSystemClick = async (row) => {
+  if (!row.is_read) {
+    try {
+      await markNotificationRead(row.id)
+      row.is_read = 1
+      unreadCount.value = Math.max(0, unreadCount.value - 1)
+    } catch { /* */ }
+  }
+  if (row.link_url) router.push(row.link_url)
+}
+
+const handleSseMessage = (payload) => {
+  if (payload.type === 'notification') {
+    if (activeTab.value === 'system') fetchSystemNotifications()
+  }
+}
+
+onMounted(() => {
+  fetchData()
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token')
+  if (token) connectSSE({ onMessage: handleSseMessage })
+})
+
+onUnmounted(() => {
+  offMessage(handleSseMessage)
+})
 </script>
 
 <style scoped>

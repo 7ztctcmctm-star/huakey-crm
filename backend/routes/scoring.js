@@ -8,6 +8,7 @@ const requireAdmin = require('../middleware/admin');
 const { requireManager } = require('../middleware/admin');
 
 const scoringService = require('../services/scoringRouteService');
+const logger = require('../config/logger');
 
 // 获取所有评分规则
 router.get('/rules', authenticateToken, checkPermission('scoring'), async (req, res) => {
@@ -15,7 +16,7 @@ router.get('/rules', authenticateToken, checkPermission('scoring'), async (req, 
     const rows = await scoringService.getRules(pool);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
-    console.error('[评分] 获取规则失败:', error);
+    logger.error('[评分] 获取规则失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -34,7 +35,7 @@ router.post('/rules', authenticateToken, checkPermission('scoring'), requireAdmi
     const result = await scoringService.createRule(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
-    console.error('[评分] 创建规则失败:', error);
+    logger.error('[评分] 创建规则失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -49,7 +50,7 @@ router.put('/rules/:id', authenticateToken, checkPermission('scoring'), requireA
     if (error.statusCode) {
       return res.status(error.statusCode).json({ code: error.statusCode, message: error.message, data: null });
     }
-    console.error('[评分] 更新规则失败:', error);
+    logger.error('[评分] 更新规则失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -61,7 +62,7 @@ router.delete('/rules/:id', authenticateToken, checkPermission('scoring'), requi
     await scoringService.deleteRule(pool, id);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
-    console.error('[评分] 删除规则失败:', error);
+    logger.error('[评分] 删除规则失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -76,7 +77,7 @@ router.post('/calculate/:customerId', authenticateToken, checkPermission('scorin
     if (error.statusCode) {
       return res.status(error.statusCode).json({ code: error.statusCode, message: error.message, data: null });
     }
-    console.error('[评分] 计算评分失败:', error);
+    logger.error('[评分] 计算评分失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -87,7 +88,7 @@ router.post('/batch-calculate', authenticateToken, checkPermission('scoring'), r
     const result = await scoringService.batchCalculate(pool);
     res.json({ code: 200, message: '批量评分完成', data: result });
   } catch (error) {
-    console.error('[评分] 批量评分失败:', error);
+    logger.error('[评分] 批量评分失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -98,7 +99,7 @@ router.get('/ranking', authenticateToken, checkPermission('scoring'), async (req
     const rows = await scoringService.getRanking(pool);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
-    console.error('[评分] 排行榜查询失败:', error);
+    logger.error('[评分] 排行榜查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -113,7 +114,7 @@ router.get('/customer/:customerId', authenticateToken, checkPermission('scoring'
     if (error.statusCode) {
       return res.status(error.statusCode).json({ code: error.statusCode, message: error.message, data: null });
     }
-    console.error('[评分] 客户评分详情查询失败:', error);
+    logger.error('[评分] 客户评分详情查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });

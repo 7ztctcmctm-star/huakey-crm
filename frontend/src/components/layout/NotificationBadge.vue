@@ -82,15 +82,17 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Bell } from '@element-plus/icons-vue'
-import { markAllRead, getReminderCenter } from '@/api/tools'
-import { connectSSE, disconnectSSE } from '@/utils/sse'
+import { getReminderCenter } from '@/api/tools'
+import { markAllRead as markNotificationAllRead, getUnreadCount } from '@/api/notification'
+import { connectSSE, offMessage } from '@/utils/sse'
 
 const router = useRouter()
 
 const notifyTab = ref('todo')
 const notifyLoading = ref(false)
 const centerData = ref({ todo: { approvals: [], followups: [], stock_alerts: [], payment_overdue: [] }, system: [], unread_count: 0 })
-const centerUnreadCount = computed(() => centerData.value.unread_count || 0)
+const unreadCount = ref(0)
+const centerUnreadCount = computed(() => unreadCount.value || 0)
 const hasTodoItems = computed(() => {
   const t = centerData.value.todo
   return t && (t.approvals?.length || t.followups?.length || t.stock_alerts?.length || t.payment_overdue?.length)
@@ -105,10 +107,17 @@ const fetchNotificationCenter = async () => {
   finally { notifyLoading.value = false }
 }
 
+const fetchUnreadCount = async () => {
+  try {
+    const res = await getUnreadCount()
+    if (res.code === 200) unreadCount.value = res.data.count || 0
+  } catch { /* */ }
+}
+
 const markCenterAllRead = async () => {
   try {
-    await markAllRead()
-    centerData.value.unread_count = 0
+    await markNotificationAllRead()
+    unreadCount.value = 0
     centerData.value.system?.forEach(n => n.is_read = 1)
   } catch { /* */ }
 }
@@ -120,6 +129,7 @@ const handleNotifyClick = (item) => {
 
 const handleSseMessage = (payload) => {
   if (payload.type === 'notification') {
+    fetchUnreadCount()
     fetchNotificationCenter()
   }
 }
@@ -128,11 +138,13 @@ onMounted(() => {
   const token = localStorage.getItem('token') || sessionStorage.getItem('token')
   if (token) {
     connectSSE({ onMessage: handleSseMessage })
+    fetchUnreadCount()
+    fetchNotificationCenter()
   }
 })
 
 onUnmounted(() => {
-  disconnectSSE()
+  offMessage(handleSseMessage)
 })
 </script>
 

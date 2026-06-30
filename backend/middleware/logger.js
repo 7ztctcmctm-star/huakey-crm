@@ -2,6 +2,9 @@ const pool = require('../config/database');
 const { maskLogParams } = require('../utils/mask');
 const logger = require('../config/logger');
 
+// 统一操作日志表，废弃旧操作日志表双写方案
+const LOG_TABLE = 'sys_log';
+
 const LogLevel = {
   SUCCESS: 1,
   FAIL: 0
@@ -48,7 +51,7 @@ async function logAction({ module, action, method, url, params, ipAddress, userI
     const newValueStr = newValue ? JSON.stringify(newValue).substring(0, 2000) : null;
 
     await pool.query(
-      `INSERT INTO sys_log (module, action, method, url, params, ip_address, user_id, user_name, description, status, error_msg, changed_fields, old_value, new_value)
+      `INSERT INTO \`${LOG_TABLE}\` (module, action, method, url, params, ip_address, user_id, user_name, description, status, error_msg, changed_fields, old_value, new_value)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [module, action, method || 'POST', url, paramsStr, ipAddress, userId, userName, description, status, errorMsg, changedFieldsStr, oldValueStr, newValueStr]
     );

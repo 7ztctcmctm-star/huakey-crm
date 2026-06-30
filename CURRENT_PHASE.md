@@ -11,6 +11,32 @@
 ## 最近完成（2026-06-26）
 ## 最近完成（2026-06-30）
 
+## 最近完成（2026-06-30）
+
+### Phase 8: P2 运维/CI 补齐
+
+#### Task A: Dependabot 补齐 GitHub Actions ✅
+- [x] dependabot.yml 新增 github-actions ecosystem（每周一更新，标签 dependencies + ci）
+
+#### Task B: Trivy Docker 镜像扫描 ✅
+- [x] 创建 .github/workflows/trivy-scan.yml
+- [x] scan-images job：扫描 backend/Dockerfile 和 Dockerfile.synology（CRITICAL/HIGH 阻断）
+- [x] scan-filesystem job：扫描仓库文件系统（非阻断，仅报告）
+- [x] SARIF 结果上传到 GitHub Security → Code Scanning
+
+#### Task C: 跨浏览器/移动端响应式测试 ✅
+- [x] playwright.config.js 扩展：新增 firefox / webkit / iPhone 12 Pro 三个 project
+- [x] 创建 frontend/e2e/cross-browser.spec.js：4 个跨浏览器兼容性测试
+- [x] 创建 frontend/e2e/responsive.spec.js：3 个断点 × 3 个测试场景的响应式测试
+- [x] CI ci.yml 新增 cross-browser-test job（schedule + workflow_dispatch 触发，矩阵 4 浏览器）
+
+#### Task D: 迁移脚本 up/down 测试 ✅
+- [x] 新建 9 个核心迁移的 down 脚本：001/003/007/009/013/021/022/023/030
+- [x] 现有 down 脚本总数：8 → 17（覆盖 65 个迁移中的 17 个，26.2%）
+- [x] migration-roundtrip.test.js：新增 auditDownScripts() 审计函数 + D1 审计测试
+- [x] migration-roundtrip.test.js：ROUNDTRIP_VERSIONS 扩展至 002/008/061/066/067/068（6 个）
+- [x] 创建 backend/tests/run-migration-test.js：一键 CI 迁移测试 runner
+
 ### IMPLEMENTATION_PLAN Phase 2+3 全部闭环
 
 #### Phase 2 架构改进
@@ -197,10 +223,10 @@
 ### P2
 
 - - ~~Pre-commit hooks~~ ✅\n- ~~分支保护规则~~ ✅
-- Dependabot 依赖自动更新
-- Docker 镜像扫描（Trivy）
-- 跨浏览器/移动端响应式测试
-- 迁移脚本 up/down 测试
+- ~~Dependabot 依赖自动更新~~ ✅
+- ~~Docker 镜像扫描（Trivy）~~ ✅
+- ~~跨浏览器/移动端响应式测试~~ ✅
+- ~~迁移脚本 up/down 测试~~ ✅
 
 ---
 
@@ -235,6 +261,7 @@
 优先：
 
 稳定性 > 安全 > 测试 > 性能 > 新功能
+
 
 
 

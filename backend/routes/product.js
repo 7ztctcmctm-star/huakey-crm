@@ -1,10 +1,9 @@
 const express = require('express');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { checkPermission } = require('../middleware/permission');
+const { checkPermission, checkFieldPermission, stripRestrictedFields } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const { cache, invalidateCache } = require('../middleware/cache');
-const ROLES = require('../config/roles');
 const { logFieldChanges } = require('../utils/fieldLog');
 const productService = require('../services/productService');
 
@@ -75,22 +74,20 @@ const productListSchema = Joi.object({
 });
 
 const requireAdmin = require('../middleware/admin');
+const logger = require('../config/logger');
+
+// 字段级权限：产品成本价仅管理员可见
+router.use(checkFieldPermission('product'));
 
 // 1. 产品列表
 router.post('/list', authenticateToken, cache(120), checkPermission('product'), validate(productListSchema), async (req, res) => {
   try {
     const result = await productService.listProducts(pool, req.body);
-
-    // 非管理员不返回成本价字段
-    const { manageAll } = req.user;
-    const isAdmin = manageAll || ROLES.ADMIN_ROLE_CODES.has(req.user.roleCode);
-    if (!isAdmin) {
-      result.list.forEach(item => { delete item.cost_price; });
-    }
+    result.list = stripRestrictedFields(result.list, req.restrictedFields);
 
     res.json({ code: 200, message: '获取产品列表成功', data: result });
   } catch (error) {
-    console.error('[产品] 获取产品列表失败:', error);
+    logger.error('[产品] 获取产品列表失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '获取产品列表失败', data: null });
   }
 });
@@ -101,7 +98,7 @@ router.post('/add', authenticateToken, checkPermission('product:add'), requireAd
     const result = await productService.createProduct(pool, req.body);
     res.json({ code: 200, message: '新增产品成功', data: result });
   } catch (error) {
-    console.error('[产品] 操作失败:', error);
+    logger.error('[产品] 操作失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '新增产品失败', data: null });
   }
 });
@@ -127,7 +124,7 @@ router.post('/update', authenticateToken, checkPermission('product:edit'), requi
     await invalidateCache(['cache:*:/api/product/*']);
     res.json({ code: 200, message: '修改产品成功', data: null });
   } catch (error) {
-    console.error('[产品] 操作失败:', error);
+    logger.error('[产品] 操作失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '修改产品失败', data: null });
   }
 });
@@ -139,7 +136,7 @@ router.post('/delete', authenticateToken, checkPermission('product:delete'), req
     await invalidateCache(['cache:*:/api/product/*']);
     res.json({ code: 200, message: '删除产品成功', data: null });
   } catch (error) {
-    console.error('[产品] 操作失败:', error);
+    logger.error('[产品] 操作失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '删除产品失败', data: null });
   }
 });
@@ -151,7 +148,7 @@ router.get('/detail/:id', authenticateToken, checkPermission('product'), async (
     if (!row) return res.status(404).json({ code: 404, message: '产品不存在', data: null });
     res.json({ code: 200, message: '查询成功', data: row });
   } catch (error) {
-    console.error('[产品] 操作失败:', error);
+    logger.error('[产品] 操作失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -162,7 +159,7 @@ router.get('/categories', authenticateToken, checkPermission('product'), async (
     const data = await productService.getCategories(pool);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('[产品] 操作失败:', error);
+    logger.error('[产品] 操作失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -175,7 +172,7 @@ router.get('/:id/prices', authenticateToken, async (req, res) => {
     const data = await productService.getProductPrices(pool, req.params.id);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('[产品] 价格表查询失败:', error);
+    logger.error('[产品] 价格表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -193,7 +190,7 @@ router.post('/:id/prices', authenticateToken, requireAdmin, async (req, res) => 
     const result = await productService.createPrice(pool, { product_id: productId, price_type, customer_level, unit_price, min_quantity, currency, valid_from, valid_to });
     res.json({ code: 200, message: '添加成功', data: result });
   } catch (error) {
-    console.error('[产品] 添加价格失败:', error);
+    logger.error('[产品] 添加价格失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -204,7 +201,7 @@ router.put('/price/:id', authenticateToken, requireAdmin, async (req, res) => {
     await productService.updatePrice(pool, req.params.id, req.body);
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
-    console.error('[产品] 更新价格失败:', error);
+    logger.error('[产品] 更新价格失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -215,7 +212,7 @@ router.delete('/price/:id', authenticateToken, requireAdmin, async (req, res) =>
     await productService.deletePrice(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
-    console.error('[产品] 删除价格失败:', error);
+    logger.error('[产品] 删除价格失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -227,7 +224,7 @@ router.get('/:id/price', authenticateToken, async (req, res) => {
     const price = await productService.getDefaultPrice(pool, req.params.id, customer_level);
     res.json({ code: 200, message: '查询成功', data: price });
   } catch (error) {
-    console.error('[产品] 获取客户价格失败:', error);
+    logger.error('[产品] 获取客户价格失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });

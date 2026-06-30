@@ -7,6 +7,7 @@ const ROLES = require('../config/roles');
 const { getOverdueDays } = require('../utils/config');
 const { validate, Joi } = require('../middleware/validate');
 const reminderService = require('../services/reminderService');
+const logger = require('../config/logger');
 
 // Validation schemas
 const markReadSchema = Joi.object({
@@ -45,7 +46,7 @@ router.get('/my-reminders', authenticateToken, checkPermission('reminder'), asyn
 
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('获取提醒错误:', error);
+    logger.error('获取提醒错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -62,7 +63,7 @@ router.post('/overdue-list', authenticateToken, checkPermission('reminder'), asy
 
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('逾期列表错误:', error);
+    logger.error('逾期列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -74,7 +75,7 @@ router.post('/mark-read', authenticateToken, checkPermission('reminder'), valida
     await reminderService.markAsRead(pool, reminder_id, req.user.userId);
     res.json({ code: 200, message: '已标记为已读', data: null });
   } catch (error) {
-    console.error('标记已读错误:', error);
+    logger.error('标记已读错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '操作失败', data: null });
   }
 });
@@ -85,7 +86,7 @@ router.post('/mark-all-read', authenticateToken, checkPermission('reminder'), as
     await reminderService.markAllAsRead(pool, req.user.userId, req.user.roleId);
     res.json({ code: 200, message: '全部已读', data: null });
   } catch (error) {
-    console.error('全部已读错误:', error);
+    logger.error('全部已读错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '操作失败', data: null });
   }
 });
@@ -97,7 +98,7 @@ router.post('/dismiss', authenticateToken, checkPermission('reminder'), validate
     await reminderService.dismissReminder(pool, customer_id, req.user.userId);
     res.json({ code: 200, message: '提醒已解除', data: null });
   } catch (error) {
-    console.error('解除提醒错误:', error);
+    logger.error('解除提醒错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '操作失败', data: null });
   }
 });
@@ -112,7 +113,7 @@ router.get('/payment-overdue', authenticateToken, checkPermission('reminder'), a
 
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('逾期回款查询错误:', error);
+    logger.error('逾期回款查询错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -124,7 +125,7 @@ router.post('/notification-read', authenticateToken, checkPermission('reminder')
     await reminderService.markNotificationRead(pool, notification_id, req.user.userId, req.user.roleId);
     res.json({ code: 200, message: '已标记为已读', data: null });
   } catch (error) {
-    console.error('[提醒] 标记已读失败:', error);
+    logger.error('[提醒] 标记已读失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '操作失败', data: null });
   }
 });
@@ -136,7 +137,7 @@ router.post('/notification-dismiss', authenticateToken, checkPermission('reminde
     await reminderService.dismissNotification(pool, notification_id, req.user.roleId);
     res.json({ code: 200, message: '已处理', data: null });
   } catch (error) {
-    console.error('[提醒] 处理通知失败:', error);
+    logger.error('[提醒] 处理通知失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '操作失败', data: null });
   }
 });
@@ -148,7 +149,7 @@ router.post('/notification-dismiss-by-business', authenticateToken, checkPermiss
     await reminderService.dismissNotificationByBusiness(pool, business_type, business_id);
     res.json({ code: 200, message: '通知已解除', data: null });
   } catch (error) {
-    console.error('[提醒] 批量解除通知失败:', error);
+    logger.error('[提醒] 批量解除通知失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '操作失败', data: null });
   }
 });
@@ -162,7 +163,7 @@ router.get('/notification-list', authenticateToken, checkPermission('reminder'),
 
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('[提醒] 通知列表查询失败:', error);
+    logger.error('[提醒] 通知列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -211,7 +212,7 @@ router.get('/center', authenticateToken, checkPermission('reminder'), async (req
       }
     });
   } catch (error) {
-    console.error('[提醒] 通知中心查询失败:', error);
+    logger.error('[提醒] 通知中心查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -222,7 +223,7 @@ router.post('/center/mark-all-read', authenticateToken, checkPermission('reminde
     await reminderService.markCenterAllRead(pool, req.user.userId);
     res.json({ code: 200, message: '已全部标记为已读', data: null });
   } catch (error) {
-    console.error('[提醒] 标记已读失败:', error);
+    logger.error('[提醒] 标记已读失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '操作失败', data: null });
   }
 });

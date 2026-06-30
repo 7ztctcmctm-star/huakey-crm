@@ -199,6 +199,36 @@ const router = createRouter({
           meta: { title: '采购详情' }
         },
         {
+          path: 'purchase/requests',
+          name: 'PurchaseRequestList',
+          component: () => import('../views/purchase/RequestList.vue'),
+          meta: { title: '采购申请', permission: 'purchase:request' }
+        },
+        {
+          path: 'purchase/request/create',
+          name: 'PurchaseRequestCreate',
+          component: () => import('../views/purchase/RequestForm.vue'),
+          meta: { title: '新建采购申请', permission: 'purchase:request' }
+        },
+        {
+          path: 'purchase/approvals',
+          name: 'PurchaseApprovalList',
+          component: () => import('../views/purchase/ApprovalList.vue'),
+          meta: { title: '采购审批', permission: 'purchase:approve' }
+        },
+        {
+          path: 'purchase/comparisons',
+          name: 'PurchaseComparisonList',
+          component: () => import('../views/purchase/ComparisonList.vue'),
+          meta: { title: '采购比价', permission: 'purchase:comparison' }
+        },
+        {
+          path: 'purchase/comparison/detail/:id',
+          name: 'PurchaseComparisonDetail',
+          component: () => import('../views/purchase/ComparisonDetail.vue'),
+          meta: { title: '比价详情', permission: 'purchase:comparison' }
+        },
+        {
           path: 'procurement/plan',
           name: 'ProcurementPlan',
           component: () => import('../views/procurement/plan.vue'),

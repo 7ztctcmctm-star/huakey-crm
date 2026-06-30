@@ -5,6 +5,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const afterSalesService = require('../services/afterSalesService');
+const logger = require('../config/logger');
 
 // Joi schemas
 const listSchema = Joi.object({
@@ -71,7 +72,7 @@ router.post('/list', authenticateToken, checkPermission('service'), checkDataPer
     const data = await afterSalesService.listServiceOrders(pool, req.body, permissionClause);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error(error);
+    logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -90,7 +91,7 @@ router.get('/detail/:id', authenticateToken, async (req, res) => {
 
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error(error);
+    logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -101,7 +102,7 @@ router.post('/add', authenticateToken, checkPermission('service:add'), validate(
     const result = await afterSalesService.createServiceOrder(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '创建工单成功', data: result });
   } catch (error) {
-    console.error(error);
+    logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     const status = error.code && typeof error.code === 'number' ? error.code : 500;
     res.status(status).json({ code: status, message: error.message || '创建工单失败', data: null });
   }
@@ -113,7 +114,7 @@ router.post('/update', authenticateToken, checkPermission('service:edit'), valid
     await afterSalesService.updateServiceOrder(pool, req.body, req.user);
     res.json({ code: 200, message: '修改工单成功', data: null });
   } catch (error) {
-    console.error(error);
+    logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     const status = error.code && typeof error.code === 'number' ? error.code : 500;
     res.status(status).json({ code: status, message: error.message || '修改工单失败', data: null });
   }
@@ -125,7 +126,7 @@ router.post('/delete', authenticateToken, checkPermission('service:delete'), val
     await afterSalesService.deleteServiceOrder(pool, req.body.id, req.user);
     res.json({ code: 200, message: '删除工单成功', data: null });
   } catch (error) {
-    console.error(error);
+    logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     const status = error.code && typeof error.code === 'number' ? error.code : 500;
     res.status(status).json({ code: status, message: error.message || '删除工单失败', data: null });
   }
@@ -138,7 +139,7 @@ router.post('/assign', authenticateToken, checkPermission('service:edit'), valid
     await afterSalesService.assignServiceOrder(pool, id, assignee_id, req.user);
     res.json({ code: 200, message: '分配成功', data: null });
   } catch (error) {
-    console.error(error);
+    logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     const status = error.code && typeof error.code === 'number' ? error.code : 500;
     res.status(status).json({ code: status, message: error.message || '分配失败', data: null });
   }
@@ -161,7 +162,7 @@ router.post('/batch-assign', authenticateToken, checkPermission('service:edit'),
     const result = await afterSalesService.batchAssignServiceOrders(pool, ids, assignee_id, req.user.userId);
     res.json({ code: 200, message: `已批量分配 ${result.count} 个工单`, data: result });
   } catch (error) {
-    console.error('批量分配工单错误:', error);
+    logger.error('批量分配工单错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '批量分配失败', data: null });
   }
 });
@@ -172,7 +173,7 @@ router.post('/start', authenticateToken, checkPermission('service:edit'), valida
     await afterSalesService.startServiceOrder(pool, req.body.id, req.user);
     res.json({ code: 200, message: '开始处理', data: null });
   } catch (error) {
-    console.error(error);
+    logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     const status = error.code && typeof error.code === 'number' ? error.code : 500;
     res.status(status).json({ code: status, message: error.message || '操作失败', data: null });
   }
@@ -185,7 +186,7 @@ router.post('/finish', authenticateToken, checkPermission('service:edit'), valid
     await afterSalesService.finishServiceOrder(pool, id, finish_desc, req.user);
     res.json({ code: 200, message: '处理完成，请等待客户确认', data: null });
   } catch (error) {
-    console.error(error);
+    logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     const status = error.code && typeof error.code === 'number' ? error.code : 500;
     res.status(status).json({ code: status, message: error.message || '操作失败', data: null });
   }
@@ -198,7 +199,7 @@ router.post('/confirm', authenticateToken, checkPermission('service:edit'), vali
     await afterSalesService.confirmServiceOrder(pool, id, satisfaction, req.user);
     res.json({ code: 200, message: '确认完成', data: null });
   } catch (error) {
-    console.error(error);
+    logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     const status = error.code && typeof error.code === 'number' ? error.code : 500;
     res.status(status).json({ code: status, message: error.message || '操作失败', data: null });
   }

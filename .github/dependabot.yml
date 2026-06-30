@@ -1,4 +1,4 @@
-version: 2
+﻿version: 2
 updates:
   - package-ecosystem: "npm"
     directory: "/backend"
@@ -34,3 +34,13 @@ updates:
     labels:
       - "dependencies"
       - "docker"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    labels:
+      - "dependencies"
+      - "ci"

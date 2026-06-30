@@ -5,6 +5,7 @@ const { checkPermission, checkDataPermission, buildDataPermissionWhere } = requi
 const { validate, Joi } = require('../middleware/validate');
 const ROLES = require('../config/roles');
 const followPlanService = require('../services/followPlanRouteService');
+const logger = require('../config/logger');
 
 const router = express.Router();
 
@@ -44,7 +45,7 @@ router.post('/add', authenticateToken, checkPermission('customer:edit'), validat
     }
     res.json({ code: 200, message: '创建跟进计划成功', data: { id: result.id } });
   } catch (error) {
-    console.error('创建跟进计划错误:', error);
+    logger.error('创建跟进计划错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '创建跟进计划失败', data: null });
   }
 });
@@ -55,7 +56,7 @@ router.post('/list', authenticateToken, checkPermission('customer:edit'), checkD
     const result = await followPlanService.listPlans(pool, req.body, req.dataPermission, buildDataPermissionWhere);
     res.json({ code: 200, message: '获取跟进计划列表成功', data: result });
   } catch (error) {
-    console.error('获取跟进计划列表错误:', error);
+    logger.error('获取跟进计划列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '获取跟进计划列表失败', data: null });
   }
 });
@@ -69,7 +70,7 @@ router.post('/complete', authenticateToken, checkPermission('customer:edit'), va
     }
     res.json({ code: 200, message: '跟进计划已完成', data: null });
   } catch (error) {
-    console.error('完成跟进计划错误:', error);
+    logger.error('完成跟进计划错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '完成跟进计划失败', data: null });
   }
 });
@@ -85,7 +86,7 @@ router.post('/cancel', authenticateToken, validate(cancelPlanSchema), async (req
     }
     res.json({ code: 200, message: '跟进计划已取消', data: null });
   } catch (error) {
-    console.error('取消跟进计划错误:', error);
+    logger.error('取消跟进计划错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '取消跟进计划失败', data: null });
   }
 });

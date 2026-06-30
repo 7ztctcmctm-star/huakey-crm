@@ -5,6 +5,7 @@ const { authenticateToken } = require('../../middleware/auth');
 const { checkPermission } = require('../../middleware/permission');
 const { validate, Joi } = require('../../middleware/validate');
 const reportService = require('../../services/customReportService');
+const logger = require('../../config/logger');
 
 // --- Joi schemas ---
 
@@ -44,7 +45,7 @@ router.get('/custom', authenticateToken, checkPermission('report'), async (req, 
     const rows = await reportService.listReports(pool, req.user.userId);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
-    console.error('[报表] 自定义报表列表查询失败:', error);
+    logger.error('[报表] 自定义报表列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -56,7 +57,7 @@ router.post('/custom', authenticateToken, checkPermission('report'), validate(cu
     if (result.error) return res.status(400).json({ code: 400, message: result.error, data: null });
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
-    console.error('[报表] 创建自定义报表失败:', error);
+    logger.error('[报表] 创建自定义报表失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -68,7 +69,7 @@ router.put('/custom/:id', authenticateToken, checkPermission('report'), validate
     if (result.error) return res.status(result.status || 500).json({ code: result.status || 500, message: result.error, data: null });
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
-    console.error('[报表] 更新自定义报表失败:', error);
+    logger.error('[报表] 更新自定义报表失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -80,7 +81,7 @@ router.delete('/custom/:id', authenticateToken, checkPermission('report'), async
     if (result.error) return res.status(result.status || 500).json({ code: result.status || 500, message: result.error, data: null });
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
-    console.error('[报表] 删除自定义报表失败:', error);
+    logger.error('[报表] 删除自定义报表失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -92,7 +93,7 @@ router.get('/custom/fields/:source', authenticateToken, checkPermission('report'
     if (result.error) return res.status(400).json({ code: 400, message: result.error, data: null });
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('[报表] 获取字段列表错误:', error);
+    logger.error('[报表] 获取字段列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -104,7 +105,7 @@ router.post('/custom/:id/run', authenticateToken, checkPermission('report'), val
     if (result.error) return res.status(result.status || 500).json({ code: result.status || 500, message: result.error, data: null });
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('[报表] 执行自定义报表失败:', error);
+    logger.error('[报表] 执行自定义报表失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });

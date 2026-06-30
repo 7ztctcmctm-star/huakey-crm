@@ -1,14 +1,18 @@
 const express = require('express');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
+const { checkPermission, checkDataPermission, buildDataPermissionWhere, checkFieldPermission, stripRestrictedFields } = require('../middleware/permission');
 const { logFieldChanges } = require('../utils/fieldLog');
 const ROLES = require('../config/roles');
 const quoteService = require('../services/quoteService');
+const logger = require('../config/logger');
 
 const MODULE_NAME = '报价管理';
 
 const router = express.Router();
+
+// 字段级权限：报价成本价仅管理员可见
+router.use(checkFieldPermission('quote'));
 
 // 1. 创建报价单
 router.post('/add', authenticateToken, checkPermission('quotation:add'), async (req, res) => {
@@ -21,7 +25,7 @@ router.post('/add', authenticateToken, checkPermission('quotation:add'), async (
     if (result.error) return res.status(result.code).json({ code: result.code, message: result.error, data: null });
     res.json({ code: 200, message: '创建报价单成功', data: result });
   } catch (error) {
-    console.error('[报价] 创建报价单错误:', error);
+    logger.error('[报价] 创建报价单错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '创建报价单失败', data: null });
   }
 });
@@ -31,9 +35,10 @@ router.post('/list', authenticateToken, checkPermission('quotation'), checkDataP
   try {
     const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'q');
     const result = await quoteService.listQuotes(pool, req.body, { clause, params: permParams });
+    result.list = stripRestrictedFields(result.list, req.restrictedFields);
     res.json({ code: 200, message: '获取报价单列表成功', data: result });
   } catch (error) {
-    console.error('获取报价单列表错误:', error);
+    logger.error('获取报价单列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '获取报价单列表失败', data: null });
   }
 });
@@ -44,9 +49,10 @@ router.get('/detail/:id', authenticateToken, checkDataPermission('quote', 'creat
     const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'q');
     const data = await quoteService.getQuote(pool, req.params.id, { clause, params: permParams });
     if (!data) return res.status(404).json({ code: 404, message: '报价单不存在', data: null });
+    stripRestrictedFields(data, req.restrictedFields);
     res.json({ code: 200, message: '获取报价单详情成功', data });
   } catch (error) {
-    console.error('获取报价单详情错误:', error);
+    logger.error('获取报价单详情错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '获取报价单详情失败', data: null });
   }
 });
@@ -71,7 +77,7 @@ router.post('/update', authenticateToken, checkPermission('quotation:edit'), asy
 
     res.json({ code: 200, message: '修改报价单成功', data: null });
   } catch (error) {
-    console.error('修改报价单错误:', error);
+    logger.error('修改报价单错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '修改报价单失败', data: null });
   }
 });
@@ -86,7 +92,7 @@ router.post('/delete', authenticateToken, checkPermission('quotation:delete'), a
     if (result.error) return res.status(result.code).json({ code: result.code, message: result.error, data: null });
     res.json({ code: 200, message: '删除报价单成功', data: null });
   } catch (error) {
-    console.error('删除报价单错误:', error);
+    logger.error('删除报价单错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '删除报价单失败', data: null });
   }
 });
@@ -101,7 +107,7 @@ router.post('/to-contract', authenticateToken, checkPermission('quotation:edit')
     if (result.error) return res.status(result.code).json({ code: result.code, message: result.error, data: null });
     res.json({ code: 200, message: '转合同成功', data: result });
   } catch (error) {
-    console.error('报价转合同失败:', error);
+    logger.error('报价转合同失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '转合同失败', data: null });
   }
 });
@@ -121,7 +127,7 @@ router.post('/approve', authenticateToken, async (req, res) => {
     if (result.error) return res.status(result.code).json({ code: result.code, message: result.error, data: null });
     res.json({ code: 200, message: approval_status === 2 ? '审批通过' : '已拒绝', data: null });
   } catch (error) {
-    console.error('审批报价单错误:', error);
+    logger.error('审批报价单错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '审批失败', data: null });
   }
 });

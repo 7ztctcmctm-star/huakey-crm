@@ -5,6 +5,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const targetService = require('../services/targetService');
+const logger = require('../config/logger');
 
 const targetListSchema = Joi.object({
   year: Joi.number().integer().min(2020).max(2030).optional(),
@@ -39,7 +40,7 @@ router.post('/list', authenticateToken, validate(targetListSchema), async (req, 
     const data = await targetService.listTargets(pool, req.body);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('获取销售目标错误:', error);
+    logger.error('获取销售目标错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -51,7 +52,7 @@ router.post('/set', authenticateToken, checkPermission('target'), validate(targe
     res.json({ code: 200, message: '设置目标成功', data: null });
   } catch (error) {
     const status = error.statusCode || 500;
-    console.error('设置销售目标错误:', error);
+    logger.error('设置销售目标错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '设置目标失败', data: null });
   }
 });
@@ -62,7 +63,7 @@ router.post('/batch-set', authenticateToken, checkPermission('target'), validate
     await targetService.batchSetTarget(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '批量设置成功', data: null });
   } catch (error) {
-    console.error('批量设置销售目标错误:', error);
+    logger.error('批量设置销售目标错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '批量设置失败', data: null });
   }
 });
@@ -74,7 +75,7 @@ router.post('/delete', authenticateToken, checkPermission('target'), validate(ta
     res.json({ code: 200, message: '删除目标成功', data: null });
   } catch (error) {
     const status = error.statusCode || 500;
-    console.error('删除销售目标错误:', error);
+    logger.error('删除销售目标错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '删除目标失败', data: null });
   }
 });

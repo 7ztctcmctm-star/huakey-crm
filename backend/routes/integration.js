@@ -5,6 +5,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const integrationService = require('../services/integrationService');
+const logger = require('../config/logger');
 
 const integrationUpdateSchema = Joi.object({
   id: Joi.number().integer().positive().required(),
@@ -17,7 +18,7 @@ router.get('/list', authenticateToken, checkPermission('system'), async (req, re
     const data = await integrationService.listIntegrations(pool);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('集成配置查询错误:', error);
+    logger.error('集成配置查询错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -28,7 +29,7 @@ router.post('/update', authenticateToken, checkPermission('system'), validate(in
     await integrationService.updateIntegration(pool, req.body);
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
-    console.error('集成配置更新错误:', error);
+    logger.error('集成配置更新错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(error.code || 500).json({ code: error.code || 500, message: error.message || '更新失败', data: null });
   }
 });
@@ -39,7 +40,7 @@ router.post('/test', authenticateToken, checkPermission('system'), async (req, r
     const result = await integrationService.testIntegration(pool);
     res.json({ code: 200, message: result.message, data: { success: result.success } });
   } catch (error) {
-    console.error('邮件测试失败:', error.message);
+    logger.error('邮件测试失败:', { error: error.message, traceId: req.traceId || 'N/A' });
     res.json({ code: 200, message: error.message, data: { success: false } });
   }
 });
@@ -50,7 +51,7 @@ router.post('/send-email', authenticateToken, async (req, res) => {
     await integrationService.sendTestEmail(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '邮件发送成功', data: null });
   } catch (error) {
-    console.error('邮件发送错误:', error);
+    logger.error('邮件发送错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(error.code || 500).json({ code: error.code || 500, message: error.message || '邮件发送失败', data: null });
   }
 });
@@ -62,7 +63,7 @@ router.get('/email-log', authenticateToken, async (req, res) => {
     const result = await integrationService.getEmailLog(pool, { page, pageSize });
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('邮件日志查询错误:', error);
+    logger.error('邮件日志查询错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });

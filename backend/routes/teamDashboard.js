@@ -5,6 +5,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const ROLES = require('../config/roles');
 const teamDashboardService = require('../services/teamDashboardService');
+const logger = require('../config/logger');
 
 // 老板团队跟单全景视图 API
 
@@ -18,7 +19,7 @@ router.get('/overview', authenticateToken, checkPermission('team'), async (req, 
     });
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('团队概览错误:', error);
+    logger.error('团队概览错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -32,7 +33,7 @@ router.get('/sales-breakdown', authenticateToken, checkPermission('team'), async
     });
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('销售实况错误:', error);
+    logger.error('销售实况错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -47,7 +48,7 @@ router.post('/sales-overdue-customers', authenticateToken, checkPermission('team
     const data = await teamDashboardService.getSalesOverdueCustomers(pool, { user_id, page, pageSize });
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('逾期客户错误:', error);
+    logger.error('逾期客户错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -62,7 +63,7 @@ router.post('/sales-customers', authenticateToken, checkPermission('team'), asyn
     const data = await teamDashboardService.getSalesCustomers(pool, { user_id, page, pageSize });
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('销售客户错误:', error);
+    logger.error('销售客户错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -93,7 +94,7 @@ router.post('/urge-followup', authenticateToken, checkPermission('team'), async 
 
     res.json({ code: 200, message: '催办成功', data: null });
   } catch (error) {
-    console.error('催办错误:', error);
+    logger.error('催办错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '催办失败', data: null });
   }
 });
@@ -108,7 +109,7 @@ router.get('/pending-approvals', authenticateToken, checkPermission('team'), asy
     const data = await teamDashboardService.getPendingApprovals(pool, { roleId: req.user.roleId });
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('待审批列表错误:', error);
+    logger.error('待审批列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -125,7 +126,7 @@ router.get('/stuck-opportunities', authenticateToken, checkPermission('team'), a
     });
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('卡住商机查询错误:', error);
+    logger.error('卡住商机查询错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });

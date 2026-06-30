@@ -63,6 +63,7 @@ const deleteCustomerSchema = Joi.object({
 
 const { createRouteLogger } = require('../../middleware/logger');
 const { logFieldChanges } = require('../../utils/fieldLog');
+const logger = require('../../config/logger');
 const logAction = createRouteLogger(MODULE_NAME);
 
 const router = express.Router();
@@ -134,7 +135,7 @@ router.post('/list',
       }
     });
   } catch (error) {
-    console.error('获取客户列表错误:', error);
+    logger.error('获取客户列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '获取客户列表失败', data: null });
   }
 });
@@ -164,7 +165,7 @@ router.post('/add', authenticateToken, checkPermission('customer:add'), validate
       data: { id: result.id, possibleDuplicates: result.possibleDuplicates }
     });
   } catch (error) {
-    console.error('添加客户错误:', error);
+    logger.error('添加客户错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     if (error.code === 'ER_DUP_ENTRY') {
       return res.status(409).json({ code: 409, message: '检测到重复客户（相同公司名和电话已存在），请核对后重试', data: null });
     }
@@ -195,7 +196,7 @@ router.post('/update', authenticateToken, checkPermission('customer:edit'), vali
 
     res.json({ code: 200, message: '修改客户成功', data: null });
   } catch (error) {
-    console.error('修改客户错误:', error);
+    logger.error('修改客户错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     if (error.code === 404) {
       return res.status(404).json({ code: 404, message: error.message, data: null });
     }
@@ -230,7 +231,7 @@ router.post('/delete', authenticateToken, checkPermission('customer:delete'), va
 
     res.json({ code: 200, message: '删除客户成功', data: null });
   } catch (error) {
-    console.error('删除客户错误:', error);
+    logger.error('删除客户错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     if (error.code === 404) {
       return res.status(404).json({ code: 404, message: error.message, data: null });
     }
@@ -249,7 +250,7 @@ router.get('/detail/:id', authenticateToken, checkDataPermission('customer', 'ow
 
     res.json({ code: 200, message: '获取客户详情成功', data });
   } catch (error) {
-    console.error('获取客户详情错误:', error);
+    logger.error('获取客户详情错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     if (error.code === 404) {
       return res.status(404).json({ code: 404, message: error.message, data: null });
     }
@@ -264,7 +265,7 @@ router.get('/:id/360', authenticateToken, checkPermission('customer:list'), asyn
 
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    console.error('获取客户360视图错误:', error);
+    logger.error('获取客户360视图错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     if (error.code === 404) {
       return res.status(404).json({ code: 404, message: error.message, data: null });
     }
@@ -284,7 +285,7 @@ router.post('/export', authenticateToken, checkPermission('customer:list'), chec
 
     await logAction(req, 'export', `导出客户列表`);
   } catch (error) {
-    console.error('导出客户错误:', error);
+    logger.error('导出客户错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '导出客户失败', data: null });
   }
 });
@@ -316,7 +317,7 @@ router.post('/convert', authenticateToken, async (req, res) => {
 
     res.json({ code: 200, message: '转化成功', data: result });
   } catch (error) {
-    console.error('客户转化错误:', error);
+    logger.error('客户转化错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     if (error.code) {
       return res.status(error.code).json({ code: error.code, message: error.message, data: null });
     }

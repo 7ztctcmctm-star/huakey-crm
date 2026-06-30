@@ -6,6 +6,7 @@ const { checkPermission } = require('../middleware/permission');
 const { requireManager } = require('../middleware/admin');
 const { validate, Joi } = require('../middleware/validate');
 const tagService = require('../services/tagRouteService');
+const logger = require('../config/logger');
 
 const tagManageSchema = Joi.object({
   action: Joi.string().valid('add', 'update', 'delete').required(),
@@ -20,7 +21,7 @@ router.get('/list', authenticateToken, checkPermission('tag'), async (req, res) 
     const tags = await tagService.listTags(pool);
     res.json({ code: 200, message: 'success', data: tags });
   } catch (error) {
-    console.error('获取标签列表错误:', error);
+    logger.error('获取标签列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -31,7 +32,7 @@ router.get('/customer/:customerId', authenticateToken, checkPermission('tag'), a
     const tags = await tagService.getCustomerTags(pool, req.params.customerId);
     res.json({ code: 200, message: 'success', data: tags });
   } catch (error) {
-    console.error('获取客户标签错误:', error);
+    logger.error('获取客户标签错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
   }
 });
@@ -47,7 +48,7 @@ router.post('/customer/:customerId', authenticateToken, checkPermission('tag'), 
     await tagService.setCustomerTags(pool, { customerId, tag_ids, userId, req }, logAction, getIpAddress);
     res.json({ code: 200, message: '标签设置成功', data: null });
   } catch (error) {
-    console.error('设置客户标签错误:', error);
+    logger.error('设置客户标签错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '设置失败', data: null });
   }
 });
@@ -65,7 +66,7 @@ router.post('/manage', authenticateToken, checkPermission('tag'), requireManager
       res.json({ code: 200, message: req.body.action === 'delete' ? '标签已删除' : '标签已更新', data: null });
     }
   } catch (error) {
-    console.error('管理标签错误:', error);
+    logger.error('管理标签错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '操作失败', data: null });
   }
 });

@@ -5,6 +5,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const { requireManager } = require('../middleware/admin');
 const hrService = require('../services/hrService');
+const logger = require('../config/logger');
 
 // ============ 员工档案 ============
 
@@ -15,7 +16,7 @@ router.get('/employees', authenticateToken, checkPermission('hr'), requireManage
     const result = await hrService.getEmployees(pool, { dept_id, status, keyword, contract_expiring, page, pageSize });
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('[HR] 员工列表查询失败:', error);
+    logger.error('[HR] 员工列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -26,7 +27,7 @@ router.get('/employees/stats', authenticateToken, checkPermission('hr'), require
     const result = await hrService.getEmployeeStats(pool);
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('[HR] 员工统计查询失败:', error);
+    logger.error('[HR] 员工统计查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -38,7 +39,7 @@ router.get('/employees/:id', authenticateToken, checkPermission('hr'), requireMa
     if (!row) return res.status(404).json({ code: 404, message: '员工不存在', data: null });
     res.json({ code: 200, message: '查询成功', data: row });
   } catch (error) {
-    console.error('[HR] 员工详情查询失败:', error);
+    logger.error('[HR] 员工详情查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -49,7 +50,7 @@ router.get('/employees/:id/salary', authenticateToken, checkPermission('hr'), re
     const result = await hrService.getEmployeeSalary(pool, req.params.id);
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('[HR] 员工薪资查询失败:', error);
+    logger.error('[HR] 员工薪资查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -62,7 +63,7 @@ router.post('/employees/:id/profile', authenticateToken, checkPermission('hr'), 
     if (!result) return res.status(400).json({ code: 400, message: '没有要更新的字段', data: null });
     res.json({ code: 200, message: '保存成功', data: null });
   } catch (error) {
-    console.error('[HR] 员工档案保存失败:', error);
+    logger.error('[HR] 员工档案保存失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -73,7 +74,7 @@ router.get('/employees/:id/commission', authenticateToken, checkPermission('hr')
     const result = await hrService.getEmployeeCommission(pool, req.params.id);
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('[HR] 员工佣金查询失败:', error);
+    logger.error('[HR] 员工佣金查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -85,7 +86,7 @@ router.get('/commission/rules', authenticateToken, checkPermission('hr'), requir
     const rows = await hrService.getCommissionRules(pool);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
-    console.error('[HR] 佣金规则查询失败:', error);
+    logger.error('[HR] 佣金规则查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -97,7 +98,7 @@ router.post('/commission/rules', authenticateToken, checkPermission('hr'), requi
     const result = await hrService.createCommissionRule(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
-    console.error('[HR] 创建佣金规则失败:', error);
+    logger.error('[HR] 创建佣金规则失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -108,7 +109,7 @@ router.put('/commission/rules/:id', authenticateToken, checkPermission('hr'), re
     if (!updated) return res.status(400).json({ code: 400, message: '没有要更新的字段', data: null });
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
-    console.error('[HR] 更新佣金规则失败:', error);
+    logger.error('[HR] 更新佣金规则失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -118,7 +119,7 @@ router.delete('/commission/rules/:id', authenticateToken, checkPermission('hr'),
     await hrService.deleteCommissionRule(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
-    console.error('[HR] 删除佣金规则失败:', error);
+    logger.error('[HR] 删除佣金规则失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -131,7 +132,7 @@ router.post('/commission/calculate', authenticateToken, checkPermission('hr'), r
     const result = await hrService.calculateCommission(pool, { period, user_ids });
     res.json({ code: 200, message: '计算完成', data: result });
   } catch (error) {
-    console.error('[HR] 佣金计算失败:', error);
+    logger.error('[HR] 佣金计算失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -143,7 +144,7 @@ router.get('/commission/records', authenticateToken, checkPermission('hr'), requ
     const result = await hrService.getCommissionRecords(pool, { period, user_id, status, page, pageSize });
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('[HR] 佣金记录查询失败:', error);
+    logger.error('[HR] 佣金记录查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -154,7 +155,7 @@ router.get('/commission/stats', authenticateToken, checkPermission('hr'), requir
     const result = await hrService.getCommissionStats(pool);
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('[HR] 佣金统计查询失败:', error);
+    logger.error('[HR] 佣金统计查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -167,7 +168,7 @@ router.post('/commission/records/batch-confirm', authenticateToken, checkPermiss
     await hrService.batchConfirmCommission(pool, ids);
     res.json({ code: 200, message: '确认成功', data: null });
   } catch (error) {
-    console.error('[HR] 批量确认失败:', error);
+    logger.error('[HR] 批量确认失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -180,7 +181,7 @@ router.post('/commission/records/batch-pay', authenticateToken, checkPermission(
     await hrService.batchPayCommission(pool, ids);
     res.json({ code: 200, message: '发放成功', data: null });
   } catch (error) {
-    console.error('[HR] 批量发放失败:', error);
+    logger.error('[HR] 批量发放失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -192,7 +193,7 @@ router.get('/org-tree', authenticateToken, checkPermission('hr'), requireManager
     const result = await hrService.getOrgTree(pool);
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('[HR] 组织架构查询失败:', error);
+    logger.error('[HR] 组织架构查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -203,7 +204,7 @@ router.get('/org-tree/:deptId/employees', authenticateToken, checkPermission('hr
     const rows = await hrService.getDeptEmployees(pool, req.params.deptId);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
-    console.error('[HR] 部门员工查询失败:', error);
+    logger.error('[HR] 部门员工查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });

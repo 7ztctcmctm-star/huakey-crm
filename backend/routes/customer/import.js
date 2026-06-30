@@ -6,6 +6,7 @@ const { importPreview, importCustomers } = require('../../services/importService
 const multer = require('multer');
 const XLSX = require('xlsx');
 const path = require('path');
+const logger = require('../../config/logger');
 
 // [安全修复] 文件上传限制：仅允许Excel/CSV，最大10MB
 const ALLOWED_MIME_TYPES = [
@@ -51,7 +52,7 @@ router.get('/template', authenticateToken, (req, res) => {
     res.setHeader('Content-Disposition', 'attachment; filename=customer_import_template.xlsx');
     res.send(buf);
   } catch (error) {
-    console.error('生成模板错误:', error);
+    logger.error('生成模板错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '生成模板失败', data: null });
   }
 });
@@ -68,7 +69,7 @@ router.post('/import-preview', authenticateToken, checkPermission('customer:impo
     res.json({ code: 200, message: '预览成功', data });
   } catch (error) {
     const status = error.statusCode || 500;
-    console.error('导入预览错误:', error);
+    logger.error('导入预览错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '预览失败', data: null });
   }
 });
@@ -89,7 +90,7 @@ router.post('/import-confirm', authenticateToken, checkPermission('customer:impo
     });
   } catch (error) {
     const status = error.statusCode || 500;
-    console.error('导入错误:', error);
+    logger.error('导入错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '导入失败', data: null });
   }
 });

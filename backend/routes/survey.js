@@ -7,6 +7,7 @@ const { validate, Joi } = require('../middleware/validate');
 const requireAdmin = require('../middleware/admin');
 const { requireManager } = require('../middleware/admin');
 const surveyService = require('../services/surveyService');
+const logger = require('../config/logger');
 
 // ============ 模板管理 ============
 
@@ -17,7 +18,7 @@ router.get('/templates', authenticateToken, checkPermission('survey'), async (re
     const result = await surveyService.getTemplates(pool, { page, pageSize });
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('[调查] 模板列表查询失败:', error);
+    logger.error('[调查] 模板列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -31,7 +32,7 @@ router.post('/templates', authenticateToken, checkPermission('survey'), requireM
     const result = await surveyService.createTemplate(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
-    console.error('[调查] 创建模板失败:', error);
+    logger.error('[调查] 创建模板失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -45,7 +46,7 @@ router.put('/templates/:id', authenticateToken, checkPermission('survey'), requi
     if (result.error === 'no_fields') return res.status(400).json({ code: 400, message: '没有要更新的字段', data: null });
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
-    console.error('[调查] 更新模板失败:', error);
+    logger.error('[调查] 更新模板失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -58,7 +59,7 @@ router.delete('/templates/:id', authenticateToken, checkPermission('survey'), re
     if (result.error === 'system_template') return res.status(403).json({ code: 403, message: '不能删除系统预设模板', data: null });
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
-    console.error('[调查] 删除模板失败:', error);
+    logger.error('[调查] 删除模板失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -70,7 +71,7 @@ router.post('/templates/init', authenticateToken, checkPermission('survey'), req
     if (result.count > 0 && !result.count) return res.json({ code: 200, message: '预设模板已存在', data: { count: result.count } });
     res.json({ code: 200, message: '初始化成功', data: { count: result.count } });
   } catch (error) {
-    console.error('[调查] 初始化预设模板失败:', error);
+    logger.error('[调查] 初始化预设模板失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -84,7 +85,7 @@ router.get('/campaigns', authenticateToken, checkPermission('survey'), async (re
     const rows = await surveyService.getCampaigns(pool, { status });
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
-    console.error('[调查] 活动列表查询失败:', error);
+    logger.error('[调查] 活动列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -96,7 +97,7 @@ router.get('/campaigns/:id', authenticateToken, checkPermission('survey'), async
     if (!row) return res.status(404).json({ code: 404, message: '活动不存在', data: null });
     res.json({ code: 200, message: '查询成功', data: row });
   } catch (error) {
-    console.error('[调查] 活动详情查询失败:', error);
+    logger.error('[调查] 活动详情查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -110,7 +111,7 @@ router.post('/campaigns', authenticateToken, checkPermission('survey'), requireM
     const result = await surveyService.createCampaign(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
-    console.error('[调查] 创建活动失败:', error);
+    logger.error('[调查] 创建活动失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -124,7 +125,7 @@ router.put('/campaigns/:id', authenticateToken, checkPermission('survey'), requi
     if (result.error === 'no_fields') return res.status(400).json({ code: 400, message: '没有要更新的字段', data: null });
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
-    console.error('[调查] 更新活动失败:', error);
+    logger.error('[调查] 更新活动失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -137,7 +138,7 @@ router.post('/campaigns/:id/start', authenticateToken, checkPermission('survey')
     if (result.error === 'not_draft') return res.status(400).json({ code: 400, message: '只有草稿状态的活动可以启动', data: null });
     res.json({ code: 200, message: '活动已启动', data: { total_sent: result.total_sent } });
   } catch (error) {
-    console.error('[调查] 启动活动失败:', error);
+    logger.error('[调查] 启动活动失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -150,7 +151,7 @@ router.post('/campaigns/:id/close', authenticateToken, checkPermission('survey')
     if (result.error === 'not_active') return res.status(400).json({ code: 400, message: '只有进行中的活动可以关闭', data: null });
     res.json({ code: 200, message: '活动已关闭', data: null });
   } catch (error) {
-    console.error('[调查] 关闭活动失败:', error);
+    logger.error('[调查] 关闭活动失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -174,7 +175,7 @@ router.post('/respond/:campaign_id', validate(respondSchema), async (req, res) =
     if (result.error === 'invalid_answers') return res.status(400).json({ code: 400, message: 'answers 格式错误', data: null });
     res.json({ code: 200, message: '感谢您的反馈！', data: null });
   } catch (error) {
-    console.error('[调查] 提交回复失败:', error);
+    logger.error('[调查] 提交回复失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -186,7 +187,7 @@ router.get('/campaigns/:id/responses', authenticateToken, checkPermission('surve
     const result = await surveyService.getCampaignResponses(pool, req.params.id, { page, pageSize });
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('[调查] 回复列表查询失败:', error);
+    logger.error('[调查] 回复列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -199,7 +200,7 @@ router.get('/analytics/overview', authenticateToken, checkPermission('survey'), 
     const result = await surveyService.getAnalyticsOverview(pool);
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('[调查] 满意度概览查询失败:', error);
+    logger.error('[调查] 满意度概览查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
@@ -211,7 +212,7 @@ router.get('/analytics/:campaign_id', authenticateToken, checkPermission('survey
     if (!result) return res.status(404).json({ code: 404, message: '活动不存在', data: null });
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
-    console.error('[调查] 活动分析查询失败:', error);
+    logger.error('[调查] 活动分析查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });
