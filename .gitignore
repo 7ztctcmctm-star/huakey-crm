@@ -38,6 +38,9 @@ docker/data/
 # Backup files
 database/backups/
 
+# Runtime logs
+backend/logs/
+
 # OS files
 Thumbs.db
 ehthumbs.db
