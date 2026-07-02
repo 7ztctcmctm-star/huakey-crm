@@ -106,9 +106,7 @@ import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
 import { getEmailList, getEmailStats, markEmailRead, getEmailDetail, toggleEmailStar, linkCustomerToEmail } from '@/api/tools'
 import { getCustomerList } from '@/api/customer'
-import DOMPurify from 'dompurify'
-
-const sanitize = (html) => DOMPurify.sanitize(html, { ADD_ATTR: ['target'] })
+import { sanitize } from '@/utils/sanitize'
 
 const router = useRouter()
 const loading = ref(false)

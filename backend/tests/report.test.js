@@ -1,4 +1,4 @@
-﻿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -24,7 +24,8 @@ jest.mock('../services/permissionService', () => ({
 }));
 
 jest.mock('../middleware/cache', () => ({
-  cache: () => (req, res, next) => next()
+  cache: () => (req, res, next) => next(),
+  createCache: () => (req, res, next) => next()
 }));
 
 jest.mock('../utils/config', () => ({

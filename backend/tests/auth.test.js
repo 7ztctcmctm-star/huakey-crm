@@ -1,4 +1,4 @@
-﻿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -132,6 +132,91 @@ describe('认证模块', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.message).toBe('登出成功');
+    });
+  });
+
+  describe('POST /api/v1/auth/refresh', () => {
+    it('应该返回200并签发新token当旧token有效', async () => {
+      const token = generateToken();
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ id: 1, username: 'admin', role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // user query
+        .mockResolvedValueOnce([{ affectedRows: 1 }]); // insert blacklist
+
+      const res = await request(app)
+        .post('/api/v1/auth/refresh')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.code).toBe(200);
+      expect(res.body.data).toHaveProperty('token');
+      expect(res.body.message).toBe('Token 已刷新');
+    });
+
+    it('应该返回200并签发新token当旧token已过期但签名有效', async () => {
+      const expiredToken = jwt.sign(
+        { userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', viewAll: true, manageAll: true },
+        process.env.JWT_SECRET,
+        { expiresIn: '-1h' }
+      );
+
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ id: 1, username: 'admin', role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // user query
+        .mockResolvedValueOnce([{ affectedRows: 1 }]); // insert blacklist
+
+      const res = await request(app)
+        .post('/api/v1/auth/refresh')
+        .set('Authorization', `Bearer ${expiredToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.code).toBe(200);
+      expect(res.body.data).toHaveProperty('token');
+    });
+
+    it('应该返回401当旧token已在黑名单', async () => {
+      const token = generateToken();
+      mockPool.query.mockResolvedValueOnce([[{ blacklisted: 1 }]]); // blacklist check
+
+      const res = await request(app)
+        .post('/api/v1/auth/refresh')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(401);
+      expect(res.body.code).toBe(401);
+    });
+
+    it('应该返回401当token签名无效', async () => {
+      const res = await request(app)
+        .post('/api/v1/auth/refresh')
+        .set('Authorization', 'Bearer invalid_token');
+
+      expect(res.status).toBe(401);
+      expect(res.body.code).toBe(401);
+      expect(res.body.message).toBe('无效的访问令牌');
+    });
+
+    it('应该返回401当未提供token', async () => {
+      const res = await request(app).post('/api/v1/auth/refresh');
+
+      expect(res.status).toBe(401);
+      expect(res.body.code).toBe(401);
+      expect(res.body.message).toBe('未提供访问令牌');
+    });
+
+    it('应该返回401当用户已禁用', async () => {
+      const token = generateToken();
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[]]); // user query (empty)
+
+      const res = await request(app)
+        .post('/api/v1/auth/refresh')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(401);
+      expect(res.body.code).toBe(401);
+      expect(res.body.message).toBe('用户不存在或已禁用');
     });
   });
 });

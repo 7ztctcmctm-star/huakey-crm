@@ -4,11 +4,30 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const requireAdmin = require('../middleware/admin');
+const { validate, Joi } = require('../middleware/validate');
 const backupService = require('../services/backupRouteService');
 const logger = require('../config/logger');
 
+// --- Joi schemas ---
+
+const listBackupSchema = Joi.object({
+  page: Joi.number().integer().min(1).optional(),
+  pageSize: Joi.number().integer().min(1).max(1000).optional()
+});
+
+const restoreBackupSchema = Joi.object({
+  id: Joi.number().integer().required(),
+  confirm_code: Joi.string().required().min(1).max(100)
+});
+
+const deleteBackupSchema = Joi.object({
+  id: Joi.number().integer().required()
+});
+
+const emptySchema = Joi.object({});
+
 // 创建备份
-router.post('/create', authenticateToken, checkPermission('backup:create'), requireAdmin, async (req, res) => {
+router.post('/create', authenticateToken, checkPermission('backup:create'), requireAdmin, validate(emptySchema), async (req, res) => {
   try {
     const result = await backupService.createBackup(pool, req.user.userId);
     res.json({ code: 200, message: '备份任务已创建，正在后台执行', data: result });
@@ -19,7 +38,7 @@ router.post('/create', authenticateToken, checkPermission('backup:create'), requ
 });
 
 // 获取备份列表
-router.post('/list', authenticateToken, checkPermission('backup:create'), async (req, res) => {
+router.post('/list', authenticateToken, checkPermission('backup:create'), validate(listBackupSchema), async (req, res) => {
   try {
     const { page = 1, pageSize = 20 } = req.body;
     const result = await backupService.listBackups(pool, { page, pageSize });
@@ -31,7 +50,7 @@ router.post('/list', authenticateToken, checkPermission('backup:create'), async 
 });
 
 // 恢复备份（需确认码）
-router.post('/restore', authenticateToken, checkPermission('backup:restore'), requireAdmin, async (req, res) => {
+router.post('/restore', authenticateToken, checkPermission('backup:restore'), requireAdmin, validate(restoreBackupSchema), async (req, res) => {
   try {
     const { id, confirm_code } = req.body;
     await backupService.restoreBackup(pool, id, confirm_code);
@@ -55,7 +74,7 @@ router.get('/confirm-code/:id', authenticateToken, checkPermission('backup:resto
 });
 
 // 删除备份文件
-router.post('/delete', authenticateToken, checkPermission('backup:create'), requireAdmin, async (req, res) => {
+router.post('/delete', authenticateToken, checkPermission('backup:create'), requireAdmin, validate(deleteBackupSchema), async (req, res) => {
   try {
     const { id } = req.body;
     await backupService.deleteBackup(pool, id);

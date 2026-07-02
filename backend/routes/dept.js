@@ -24,10 +24,12 @@ const deptDeleteSchema = Joi.object({
   id: Joi.number().integer().required()
 });
 
+const deptListSchema = Joi.object({});
+
 const requireAdmin = require('../middleware/admin');
 const logger = require('../config/logger');
 
-router.post('/list', authenticateToken, checkPermission('system:dept'), async (req, res) => {
+router.post('/list', authenticateToken, checkPermission('system:dept'), validate(deptListSchema), async (req, res) => {
   try {
     const result = await deptService.listDepts(pool);
     res.json({ code: 200, message: '查询成功', data: result });

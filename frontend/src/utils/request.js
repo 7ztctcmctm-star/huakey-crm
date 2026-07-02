@@ -15,6 +15,10 @@ function addSubscriber(cb) {
   refreshSubscribers.push(cb)
 }
 
+function getToken() {
+  return localStorage.getItem('token') || ''
+}
+
 // 创建axios实例
 const request = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
@@ -28,6 +32,10 @@ const request = axios.create({
 // 请求拦截器
 request.interceptors.request.use(
   (config) => {
+    const token = getToken()
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
     return config
   },
   (error) => {
@@ -59,8 +67,10 @@ request.interceptors.response.use(
             break
           }
 
-          // 避免对续期请求本身重试
-          if (originalConfig.url === '/auth/me') {
+          // 避免对续期请求本身重试或排队
+          if (originalConfig.url === '/auth/refresh') {
+            localStorage.removeItem('token')
+            localStorage.removeItem('userInfo')
             ElMessage.error(data.message || '登录已过期，请重新登录')
             router.push('/login')
             break
@@ -69,19 +79,28 @@ request.interceptors.response.use(
           if (!isRefreshing) {
             isRefreshing = true
             try {
-              // 尝试通过 /auth/me 静默续期（后端会刷新 cookie）
-              const res = await request.get('/auth/me')
-              if (res.code === 200) {
-                // 续期成功，重试所有排队的请求
-                isRefreshing = false
+              // 调用后端 /auth/refresh 换取新 token（使用原生 axios 避免拦截器递归）
+              const refreshRes = await axios.post('/auth/refresh', {}, {
+                baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
+                timeout: 60000,
+                withCredentials: true,
+                headers: { Authorization: `Bearer ${getToken()}` }
+              })
+              if (refreshRes.data?.code === 200) {
+                const newToken = refreshRes.data.data.token
+                localStorage.setItem('token', newToken)
+                // 重试所有排队的请求
                 onRefreshed()
+                // 重试当前请求（请求拦截器会自动带上新 token）
                 return request(originalConfig)
               }
             } catch {
-              // 续期失败，token 确实过期
-              isRefreshing = false
-              refreshSubscribers = []
+              // 续期失败，token 确实过期或已失效
             }
+            isRefreshing = false
+            refreshSubscribers = []
+            localStorage.removeItem('token')
+            localStorage.removeItem('userInfo')
             ElMessage.error(data.message || '登录已过期，请重新登录')
             router.push('/login')
           } else {

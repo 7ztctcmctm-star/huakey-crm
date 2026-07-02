@@ -20,7 +20,7 @@ const mockPool = {
 
 jest.mock('../config/database', () => mockPool);
 
-// ============ Mock 中间件（避免 auth/permission/logger 消�?pool.query mock�?============
+// ============ Mock 中间件（避免 auth/permission/logger 消耗 pool.query mock）============
 jest.mock('../middleware/auth', () => ({
   authenticateToken: (req, res, next) => {
     req.user = { userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', viewAll: true, manageAll: true };
@@ -51,6 +51,7 @@ jest.mock('../middleware/admin', () => {
 
 jest.mock('../middleware/cache', () => ({
   cache: () => (req, res, next) => next(),
+  createCache: () => (req, res, next) => next(),
   invalidateCache: jest.fn()
 }));
 
@@ -62,7 +63,7 @@ jest.mock('../config/redis', () => ({
   REDIS_ENABLED: false
 }));
 
-// ============ 挂载路由（mock 必须�?require 之前�?============
+// ============ 挂载路由（mock 必须在 require 之前）============
 const app = express();
 app.use(express.json());
 
@@ -80,9 +81,10 @@ const generateToken = () => {
   );
 };
 
-describe('采购全流�?- 端到端流�?, () => {
+describe('采购全流程 - 端到端流程', () => {
   const token = generateToken();
-  let _supplierId, _purchaseId, _approvalRecordId;
+  // eslint-disable-next-line no-unused-vars
+  let supplierId, purchaseId, approvalRecordId;
 
   beforeEach(() => {
     mockPool.query.mockReset();
@@ -93,21 +95,21 @@ describe('采购全流�?- 端到端流�?, () => {
     mockConn.release.mockReset();
   });
 
-  // Step 1: 创建供应商（使用 conn.query�?
-  it('Step 1: POST /api/v1/supplier/add �?创建供应�?, async () => {
+  // Step 1: 创建供应商（使用 conn.query）
+  it('Step 1: POST /api/v1/supplier/add — 创建供应商', async () => {
     mockConn.beginTransaction.mockResolvedValue(undefined);
     mockConn.commit.mockResolvedValue(undefined);
     mockConn.release.mockResolvedValue(undefined);
     mockConn.query
-      .mockResolvedValueOnce([[{ cnt: 0 }]])       // COUNT 供应商编�?
-      .mockResolvedValueOnce([{ insertId: 10 }])   // INSERT 供应�?
-      .mockResolvedValueOnce([{ insertId: 11 }]);  // INSERT 默认联系�?
+      .mockResolvedValueOnce([[{ cnt: 0 }]])       // COUNT 供应商编号
+      .mockResolvedValueOnce([{ insertId: 10 }])   // INSERT 供应商
+      .mockResolvedValueOnce([{ insertId: 11 }]);  // INSERT 默认联系人
 
     const res = await request(app)
       .post('/api/v1/supplier/add')
       .set('Authorization', `Bearer ${token}`)
       .send({
-        name: '测试供应�?,
+        name: '测试供应商',
         type: '生产',
         level: '核心',
         contact_person: '李四',
@@ -120,14 +122,14 @@ describe('采购全流�?- 端到端流�?, () => {
     supplierId = res.body.data.id;
   });
 
-  // Step 2: 创建采购单（使用 conn.query，需�?title 必填字段�?
-  it('Step 2: POST /api/v1/purchase/add �?创建采购�?, async () => {
+  // Step 2: 创建采购单（使用 conn.query，需要 title 必填字段）
+  it('Step 2: POST /api/v1/purchase/add — 创建采购单', async () => {
     mockConn.beginTransaction.mockResolvedValue(undefined);
     mockConn.commit.mockResolvedValue(undefined);
     mockConn.release.mockResolvedValue(undefined);
     mockConn.query
-      .mockResolvedValueOnce([[{ cnt: 0 }]])       // COUNT 采购单编�?
-      .mockResolvedValueOnce([{ insertId: 20 }])   // INSERT 采购�?
+      .mockResolvedValueOnce([[{ cnt: 0 }]])       // COUNT 采购单编号
+      .mockResolvedValueOnce([{ insertId: 20 }])   // INSERT 采购单
       .mockResolvedValueOnce([{ affectedRows: 1 }]); // INSERT 采购明细
 
     const res = await request(app)
@@ -135,7 +137,7 @@ describe('采购全流�?- 端到端流�?, () => {
       .set('Authorization', `Bearer ${token}`)
       .send({
         supplier_id: 10,
-        title: '采购原材料订�?,
+        title: '采购原材料订单',
         type: '常规',
         items: [{ product_name: '原材料A', quantity: 100, unit_price: 1000 }]
       });
@@ -146,12 +148,12 @@ describe('采购全流�?- 端到端流�?, () => {
   });
 
   // Step 3: 提交审批
-  it('Step 3: POST /api/v1/approval/submit �?提交采购审批', async () => {
+  it('Step 3: POST /api/v1/approval/submit — 提交采购审批', async () => {
     mockPool.query
       .mockResolvedValueOnce([[{ id: 20, approval_status: 0 }]])                    // 业务记录验证
-      .mockResolvedValueOnce([[{ id: 1, type: 'purchase', status: 1 }]])             // 查审批流�?
-      .mockResolvedValueOnce([[{ id: 1, step_order: 1, approver_type: 'user', approver_id: 2 }]]) // 第一�?
-      .mockResolvedValueOnce([[{ manager_id: 2 }]])                                   // 查上�?
+      .mockResolvedValueOnce([[{ id: 1, type: 'purchase', status: 1 }]])             // 查审批流程
+      .mockResolvedValueOnce([[{ id: 1, step_order: 1, approver_type: 'user', approver_id: 2 }]]) // 第一步
+      .mockResolvedValueOnce([[{ manager_id: 2 }]])                                   // 查上级
       .mockResolvedValueOnce([{ insertId: 30 }])                                      // INSERT 审批记录
       .mockResolvedValueOnce([{ affectedRows: 1 }]);                                  // UPDATE approval_status
 
@@ -165,12 +167,12 @@ describe('采购全流�?- 端到端流�?, () => {
   });
 
   // Step 4: 审批通过
-  it('Step 4: POST /api/v1/approval/approve/:id �?审批通过', async () => {
+  it('Step 4: POST /api/v1/approval/approve/:id — 审批通过', async () => {
     mockPool.query
       .mockResolvedValueOnce([[{ id: 30, status: 'pending', approver_id: 1, workflow_id: 1, step_order: 1, business_type: 'purchase', business_id: 20 }]]) // 查询审批记录
-      .mockResolvedValueOnce([{ affectedRows: 1 }])  // UPDATE �?approved
-      .mockResolvedValueOnce([[]])                     // 无下一�?
-      .mockResolvedValueOnce([{ affectedRows: 1 }]); // UPDATE 业务�?
+      .mockResolvedValueOnce([{ affectedRows: 1 }])  // UPDATE 为 approved
+      .mockResolvedValueOnce([[]])                     // 无下一步
+      .mockResolvedValueOnce([{ affectedRows: 1 }]); // UPDATE 业务表
 
     const res = await request(app)
       .post(`/api/v1/approval/approve/${approvalRecordId}`)
@@ -180,8 +182,8 @@ describe('采购全流�?- 端到端流�?, () => {
     expect([200, 404]).toContain(res.status);
   });
 
-  // Step 5: 入库（stockIn 使用 conn.query�?
-  it('Step 5: POST /api/v1/inventory/in �?入库', async () => {
+  // Step 5: 入库（stockIn 使用 conn.query）
+  it('Step 5: POST /api/v1/inventory/in — 入库', async () => {
     mockConn.beginTransaction.mockResolvedValue(undefined);
     mockConn.commit.mockResolvedValue(undefined);
     mockConn.release.mockResolvedValue(undefined);
@@ -203,9 +205,9 @@ describe('采购全流�?- 端到端流�?, () => {
   });
 
   // Step 6: 生成发票
-  it('Step 6: POST /api/v1/invoice/add �?生成发票', async () => {
+  it('Step 6: POST /api/v1/invoice/add — 生成发票', async () => {
     mockPool.query
-      .mockResolvedValueOnce([[{ id: 20, supplier_id: 10 }]])  // 验证采购�?
+      .mockResolvedValueOnce([[{ id: 20, supplier_id: 10 }]])  // 验证采购单
       .mockResolvedValueOnce([{ insertId: 50 }]);                // INSERT 发票
 
     const res = await request(app)

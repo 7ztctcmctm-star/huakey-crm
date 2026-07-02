@@ -15,6 +15,10 @@ const tagManageSchema = Joi.object({
   color: Joi.string().pattern(/^#[0-9a-fA-F]{6}$/).default('#1a56db')
 });
 
+const setCustomerTagsSchema = Joi.object({
+  tag_ids: Joi.array().items(Joi.number().integer().positive()).default([])
+});
+
 // 获取所有标签
 router.get('/list', authenticateToken, checkPermission('tag'), async (req, res) => {
   try {
@@ -38,7 +42,7 @@ router.get('/customer/:customerId', authenticateToken, checkPermission('tag'), a
 });
 
 // 设置客户标签（仅管理员/经理）
-router.post('/customer/:customerId', authenticateToken, checkPermission('tag'), requireManager, async (req, res) => {
+router.post('/customer/:customerId', authenticateToken, checkPermission('tag'), requireManager, validate(setCustomerTagsSchema), async (req, res) => {
   try {
     const { tag_ids } = req.body;
     const customerId = req.params.customerId;

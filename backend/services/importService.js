@@ -94,31 +94,27 @@ async function importPreview(pool, fileBuffer) {
 }
 
 /**
- * 导入确认（集成清洗 + 验证 + 去重 + 插入）
+ * 批量导入已解析的客户数据（供异步 Worker 调用）
+ * @param {object} pool
+ * @param {Array} customers - 已解析的客户记录数组
+ * @param {number} userId
  */
-async function importCustomers(pool, fileBuffer, userId) {
-  const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-
-  if (rawRows.length === 0) {
-    throw Object.assign(new Error('Excel文件为空'), { statusCode: 400 });
+async function batchImport(pool, customers, userId) {
+  if (!Array.isArray(customers) || customers.length === 0) {
+    throw Object.assign(new Error('导入数据为空'), { statusCode: 400 });
   }
 
-  // 1. 原始数据映射
-  let data = parseRows(rawRows);
+  // 1. 数据清洗
+  let data = DataCleaner.cleanCustomerData(customers);
 
-  // 2. 数据清洗
-  data = DataCleaner.cleanCustomerData(data);
-
-  // 3. 状态映射
+  // 2. 状态映射
   const statusMap = { '潜在客户': 1, '成交客户': 2, '流失客户': 3, '未合作': 1, '已合作': 2 };
   data = data.map(item => ({
     ...item,
     status: (item.status && isNaN(item.status)) ? (statusMap[item.status] || 1) : (parseInt(item.status) || 1)
   }));
 
-  // 4. 数据验证
+  // 3. 数据验证
   const [rules] = await pool.query(
     'SELECT * FROM sys_validation_rule WHERE table_name = ? AND is_active = 1',
     ['crm_customer']
@@ -126,13 +122,13 @@ async function importCustomers(pool, fileBuffer, userId) {
   const validator = new DataValidator(rules);
   const { validRecords, invalidRecords } = validator.validateBatch(data);
 
-  // 5. 批量去重
+  // 4. 批量去重
   const { newRecords, skippedCount } = await DataCleaner.filterExistingDuplicates(
     validRecords, pool, 'crm_customer',
     [{ column: 'company_name' }, { column: 'phone' }]
   );
 
-  // 6. 批量插入
+  // 5. 批量插入
   const connection = await pool.getConnection();
   try {
     let success = 0;
@@ -179,7 +175,37 @@ async function importCustomers(pool, fileBuffer, userId) {
   }
 }
 
+async function importCustomers(pool, fileBuffer, userId) {
+  const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+  if (rawRows.length === 0) {
+    throw Object.assign(new Error('Excel文件为空'), { statusCode: 400 });
+  }
+
+  // 1. 原始数据映射
+  const data = parseRows(rawRows);
+
+  // 复用异步 Worker 同款批量导入逻辑
+  return batchImport(pool, data, userId);
+}
+
+/**
+ * 从 Excel Buffer 解析为客户记录数组
+ * @param {Buffer} fileBuffer
+ * @returns {Array}
+ */
+function parseRowsFromBuffer(fileBuffer) {
+  const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+  return parseRows(rawRows);
+}
+
 module.exports = {
   importPreview,
-  importCustomers
+  importCustomers,
+  batchImport,
+  parseRowsFromBuffer
 };

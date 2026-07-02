@@ -26,7 +26,9 @@ const roleDeleteSchema = Joi.object({
   id: Joi.number().integer().required()
 });
 
-router.post('/list', authenticateToken, checkPermission('system:role'), async (req, res) => {
+const emptySchema = Joi.object({});
+
+router.post('/list', authenticateToken, checkPermission('system:role'), validate(emptySchema), async (req, res) => {
   try {
     const result = await roleService.listRoles(pool);
     res.json({ code: 200, message: '查询成功', data: result });

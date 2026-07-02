@@ -25,8 +25,8 @@ services:
       MYSQL_DATABASE: huakey_crm
       MYSQL_USER: crm_user
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    ports:
-      - "3307:3306"
+    #ports:
+    #  - "3307:3306"   # 生产环境不暴露；如需调试取消注释
     volumes:
       - mysql-data:/var/lib/mysql
       - ./init-complete.sql:/docker-entrypoint-initdb.d/00_init.sql:ro

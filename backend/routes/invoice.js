@@ -47,6 +47,12 @@ const deleteSchema = Joi.object({
   id: Joi.number().integer().positive().required()
 });
 
+const exportSchema = Joi.object({
+  keyword: Joi.string().max(200).allow('', null),
+  status: Joi.number().integer().valid(1, 2, 3, 4).allow('', null),
+  type: Joi.number().integer().valid(1, 2, 3).allow('', null)
+});
+
 // 列表查询
 router.post('/list', authenticateToken, checkPermission('invoice'), checkDataPermission('invoice', 'create_by'), validate(listSchema), async (req, res) => {
   try {
@@ -106,7 +112,7 @@ router.post('/delete', authenticateToken, checkPermission('invoice:delete'), val
 });
 
 // 导出
-router.post('/export', authenticateToken, checkPermission('invoice:export'), checkDataPermission('invoice', 'create_by'), async (req, res) => {
+router.post('/export', authenticateToken, checkPermission('invoice:export'), checkDataPermission('invoice', 'create_by'), validate(exportSchema), async (req, res) => {
   try {
     const buf = await invoiceService.exportInvoices(pool, req.body, req.dataPermission, req);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

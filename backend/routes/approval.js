@@ -3,8 +3,54 @@ const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
+const { validate, Joi } = require('../middleware/validate');
 const approvalService = require('../services/approvalService');
 const logger = require('../config/logger');
+
+// --- Joi schemas ---
+
+const createWorkflowSchema = Joi.object({
+  name: Joi.string().trim().required().max(100),
+  type: Joi.string().valid('quote', 'contract', 'purchase', 'discount').required(),
+  description: Joi.string().allow('', null).optional().max(500),
+  steps: Joi.array().items(
+    Joi.object({
+      step_name: Joi.string().required().max(100),
+      approver_type: Joi.string().valid('user', 'manager', 'role').required(),
+      approver_id: Joi.number().integer().allow(null).optional(),
+      is_required: Joi.boolean().optional()
+    })
+  ).min(1).required()
+});
+
+const updateWorkflowSchema = Joi.object({
+  name: Joi.string().trim().max(100).optional(),
+  type: Joi.string().valid('quote', 'contract', 'purchase', 'discount').optional(),
+  description: Joi.string().allow('', null).optional().max(500),
+  steps: Joi.array().items(
+    Joi.object({
+      step_name: Joi.string().required().max(100),
+      approver_type: Joi.string().valid('user', 'manager', 'role').required(),
+      approver_id: Joi.number().integer().allow(null).optional(),
+      is_required: Joi.boolean().optional()
+    })
+  ).optional(),
+  status: Joi.number().integer().valid(0, 1).optional()
+});
+
+const submitApprovalSchema = Joi.object({
+  business_type: Joi.string().valid('quote', 'contract', 'purchase', 'discount').required(),
+  business_id: Joi.number().integer().required()
+});
+
+const remarkSchema = Joi.object({
+  remark: Joi.string().allow('', null).optional().max(500)
+});
+
+const batchApprovalSchema = Joi.object({
+  ids: Joi.array().items(Joi.number().integer()).min(1).required(),
+  remark: Joi.string().allow('', null).optional().max(500)
+});
 
 // 获取所有审批流程
 router.get('/workflows', authenticateToken, checkPermission('approval'), async (req, res) => {
@@ -18,7 +64,7 @@ router.get('/workflows', authenticateToken, checkPermission('approval'), async (
 });
 
 // 创建审批流程
-router.post('/workflows', authenticateToken, checkPermission('approval'), async (req, res) => {
+router.post('/workflows', authenticateToken, checkPermission('approval'), validate(createWorkflowSchema), async (req, res) => {
   try {
     const { name, type, description, steps } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ code: 400, message: '流程名称不能为空', data: null });
@@ -36,7 +82,7 @@ router.post('/workflows', authenticateToken, checkPermission('approval'), async 
 });
 
 // 更新审批流程
-router.put('/workflows/:id', authenticateToken, checkPermission('approval'), async (req, res) => {
+router.put('/workflows/:id', authenticateToken, checkPermission('approval'), validate(updateWorkflowSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const { name, type, description, steps, status } = req.body;
@@ -60,7 +106,7 @@ router.delete('/workflows/:id', authenticateToken, checkPermission('approval'), 
 });
 
 // 提交审批
-router.post('/submit', authenticateToken, checkPermission('approval'), async (req, res) => {
+router.post('/submit', authenticateToken, checkPermission('approval'), validate(submitApprovalSchema), async (req, res) => {
   try {
     const { business_type, business_id } = req.body;
     if (!business_type || !business_id) return res.status(400).json({ code: 400, message: '业务类型和ID不能为空', data: null });
@@ -74,7 +120,7 @@ router.post('/submit', authenticateToken, checkPermission('approval'), async (re
 });
 
 // 审批通过
-router.post('/approve/:id', authenticateToken, checkPermission('approval'), async (req, res) => {
+router.post('/approve/:id', authenticateToken, checkPermission('approval'), validate(remarkSchema), async (req, res) => {
   try {
     const result = await approvalService.approveRecord(pool, req.params.id, req.body.remark, req.user.userId, req.user.manageAll);
     res.json({ code: 200, message: '审批通过', data: result });
@@ -86,7 +132,7 @@ router.post('/approve/:id', authenticateToken, checkPermission('approval'), asyn
 });
 
 // 审批驳回
-router.post('/reject/:id', authenticateToken, checkPermission('approval'), async (req, res) => {
+router.post('/reject/:id', authenticateToken, checkPermission('approval'), validate(remarkSchema), async (req, res) => {
   try {
     await approvalService.rejectRecord(pool, req.params.id, req.body.remark, req.user.userId, req.user.manageAll);
     res.json({ code: 200, message: '已驳回', data: null });
@@ -157,7 +203,7 @@ router.get('/my-submitted', authenticateToken, checkPermission('approval'), asyn
 });
 
 // 批量通过
-router.post('/batch-approve', authenticateToken, checkPermission('approval'), async (req, res) => {
+router.post('/batch-approve', authenticateToken, checkPermission('approval'), validate(batchApprovalSchema), async (req, res) => {
   try {
     const { ids, remark } = req.body;
     if (!ids || !Array.isArray(ids) || ids.length === 0) return res.status(400).json({ code: 400, message: '请选择要审批的记录', data: null });
@@ -170,7 +216,7 @@ router.post('/batch-approve', authenticateToken, checkPermission('approval'), as
 });
 
 // 批量驳回
-router.post('/batch-reject', authenticateToken, checkPermission('approval'), async (req, res) => {
+router.post('/batch-reject', authenticateToken, checkPermission('approval'), validate(batchApprovalSchema), async (req, res) => {
   try {
     const { ids, remark } = req.body;
     if (!ids || !Array.isArray(ids) || ids.length === 0) return res.status(400).json({ code: 400, message: '请选择要驳回的记录', data: null });

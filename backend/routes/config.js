@@ -16,6 +16,8 @@ const configUpdateSchema = Joi.object({
   ).min(1).required()
 });
 
+const emptySchema = Joi.object({});
+
 const router = express.Router();
 
 // 获取逾期天数（所有登录用户可用）
@@ -55,7 +57,7 @@ router.post('/update', authenticateToken, checkPermission('system'), requireMana
 });
 
 // 测试企业微信通知
-router.post('/test-notification', authenticateToken, checkPermission('system'), async (req, res) => {
+router.post('/test-notification', authenticateToken, checkPermission('system'), validate(emptySchema), async (req, res) => {
   try {
     await configRouteService.testNotification();
     res.json({ code: 200, message: '测试消息已发送', data: null });

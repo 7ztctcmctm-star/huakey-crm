@@ -31,6 +31,13 @@ const notificationDismissByBusinessSchema = Joi.object({
   business_id: Joi.number().integer().positive().required()
 });
 
+const paginationSchema = Joi.object({
+  page: Joi.number().integer().min(1).optional(),
+  pageSize: Joi.number().integer().min(1).max(200).optional()
+});
+
+const emptySchema = Joi.object({});
+
 // ============ 跟进提醒 API ============
 
 // 1. 获取当前用户的未读提醒列表
@@ -52,7 +59,7 @@ router.get('/my-reminders', authenticateToken, checkPermission('reminder'), asyn
 });
 
 // 2. 获取所有逾期客户列表（老板看全局）
-router.post('/overdue-list', authenticateToken, checkPermission('reminder'), async (req, res) => {
+router.post('/overdue-list', authenticateToken, checkPermission('reminder'), validate(paginationSchema), async (req, res) => {
   try {
     const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
     const userId = req.user.userId;
@@ -81,7 +88,7 @@ router.post('/mark-read', authenticateToken, checkPermission('reminder'), valida
 });
 
 // 4. 一键标记全部已读
-router.post('/mark-all-read', authenticateToken, checkPermission('reminder'), async (req, res) => {
+router.post('/mark-all-read', authenticateToken, checkPermission('reminder'), validate(emptySchema), async (req, res) => {
   try {
     await reminderService.markAllAsRead(pool, req.user.userId, req.user.roleId);
     res.json({ code: 200, message: '全部已读', data: null });
@@ -218,7 +225,7 @@ router.get('/center', authenticateToken, checkPermission('reminder'), async (req
 });
 
 // 标记所有系统通知已读
-router.post('/center/mark-all-read', authenticateToken, checkPermission('reminder'), async (req, res) => {
+router.post('/center/mark-all-read', authenticateToken, checkPermission('reminder'), validate(emptySchema), async (req, res) => {
   try {
     await reminderService.markCenterAllRead(pool, req.user.userId);
     res.json({ code: 200, message: '已全部标记为已读', data: null });

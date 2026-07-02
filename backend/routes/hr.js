@@ -4,8 +4,58 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const { requireManager } = require('../middleware/admin');
+const { validate, Joi } = require('../middleware/validate');
 const hrService = require('../services/hrService');
 const logger = require('../config/logger');
+
+const employeeProfileSchema = Joi.object({
+  gender: Joi.string().max(20).allow('', null),
+  birth_date: Joi.string().max(20).allow('', null),
+  id_card: Joi.string().max(50).allow('', null),
+  hire_date: Joi.string().max(20).allow('', null),
+  leave_date: Joi.string().max(20).allow('', null),
+  position: Joi.string().max(100).allow('', null),
+  employment_type: Joi.string().max(50).allow('', null),
+  contract_start: Joi.string().max(20).allow('', null),
+  contract_end: Joi.string().max(20).allow('', null),
+  salary_base: Joi.number().min(0).allow(null),
+  salary_commission_rate: Joi.number().min(0).allow(null),
+  bank_name: Joi.string().max(100).allow('', null),
+  bank_account: Joi.string().max(100).allow('', null),
+  emergency_contact: Joi.string().max(100).allow('', null),
+  emergency_phone: Joi.string().max(50).allow('', null),
+  address: Joi.string().max(500).allow('', null),
+  education: Joi.string().max(50).allow('', null),
+  university: Joi.string().max(100).allow('', null),
+  major: Joi.string().max(100).allow('', null),
+  remark: Joi.string().max(1000).allow('', null)
+});
+
+const commissionRuleSchema = Joi.object({
+  name: Joi.string().required().max(200),
+  rule_type: Joi.string().required().max(100),
+  apply_to: Joi.string().max(100).allow('', null),
+  config: Joi.alternatives().try(Joi.object(), Joi.string()).required(),
+  remark: Joi.string().max(1000).allow('', null)
+});
+
+const commissionRuleUpdateSchema = Joi.object({
+  name: Joi.string().max(200).allow('', null),
+  rule_type: Joi.string().max(100).allow('', null),
+  apply_to: Joi.string().max(100).allow('', null),
+  config: Joi.alternatives().try(Joi.object(), Joi.string()).allow(null),
+  status: Joi.number().integer().valid(0, 1).allow(null),
+  remark: Joi.string().max(1000).allow('', null)
+});
+
+const commissionCalculateSchema = Joi.object({
+  period: Joi.string().pattern(/^\d{4}-\d{2}$/).required(),
+  user_ids: Joi.array().items(Joi.number().integer().positive()).allow(null)
+});
+
+const batchIdsSchema = Joi.object({
+  ids: Joi.array().items(Joi.number().integer().positive()).min(1).required()
+});
 
 // ============ 员工档案 ============
 
@@ -56,7 +106,7 @@ router.get('/employees/:id/salary', authenticateToken, checkPermission('hr'), re
 });
 
 // 创建/更新员工档案
-router.post('/employees/:id/profile', authenticateToken, checkPermission('hr'), requireManager, async (req, res) => {
+router.post('/employees/:id/profile', authenticateToken, checkPermission('hr'), requireManager, validate(employeeProfileSchema), async (req, res) => {
   try {
     const result = await hrService.saveEmployeeProfile(pool, req.params.id, req.body);
     if (result === null) return res.status(404).json({ code: 404, message: '员工不存在', data: null });
@@ -91,7 +141,7 @@ router.get('/commission/rules', authenticateToken, checkPermission('hr'), requir
   }
 });
 
-router.post('/commission/rules', authenticateToken, checkPermission('hr'), requireManager, async (req, res) => {
+router.post('/commission/rules', authenticateToken, checkPermission('hr'), requireManager, validate(commissionRuleSchema), async (req, res) => {
   try {
     const { name, rule_type, config } = req.body;
     if (!name || !rule_type || !config) return res.status(400).json({ code: 400, message: '参数不完整', data: null });
@@ -103,7 +153,7 @@ router.post('/commission/rules', authenticateToken, checkPermission('hr'), requi
   }
 });
 
-router.put('/commission/rules/:id', authenticateToken, checkPermission('hr'), requireManager, async (req, res) => {
+router.put('/commission/rules/:id', authenticateToken, checkPermission('hr'), requireManager, validate(commissionRuleUpdateSchema), async (req, res) => {
   try {
     const updated = await hrService.updateCommissionRule(pool, req.params.id, req.body);
     if (!updated) return res.status(400).json({ code: 400, message: '没有要更新的字段', data: null });
@@ -125,7 +175,7 @@ router.delete('/commission/rules/:id', authenticateToken, checkPermission('hr'),
 });
 
 // 计算佣金
-router.post('/commission/calculate', authenticateToken, checkPermission('hr'), requireManager, async (req, res) => {
+router.post('/commission/calculate', authenticateToken, checkPermission('hr'), requireManager, validate(commissionCalculateSchema), async (req, res) => {
   try {
     const { period, user_ids } = req.body;
     if (!period) return res.status(400).json({ code: 400, message: '请选择月份', data: null });
@@ -161,7 +211,7 @@ router.get('/commission/stats', authenticateToken, checkPermission('hr'), requir
 });
 
 // 批量确认
-router.post('/commission/records/batch-confirm', authenticateToken, checkPermission('hr'), requireManager, async (req, res) => {
+router.post('/commission/records/batch-confirm', authenticateToken, checkPermission('hr'), requireManager, validate(batchIdsSchema), async (req, res) => {
   try {
     const { ids } = req.body;
     if (!ids || ids.length === 0) return res.status(400).json({ code: 400, message: '请选择记录', data: null });
@@ -174,7 +224,7 @@ router.post('/commission/records/batch-confirm', authenticateToken, checkPermiss
 });
 
 // 批量发放
-router.post('/commission/records/batch-pay', authenticateToken, checkPermission('hr'), requireManager, async (req, res) => {
+router.post('/commission/records/batch-pay', authenticateToken, checkPermission('hr'), requireManager, validate(batchIdsSchema), async (req, res) => {
   try {
     const { ids } = req.body;
     if (!ids || ids.length === 0) return res.status(400).json({ code: 400, message: '请选择记录', data: null });

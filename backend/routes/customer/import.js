@@ -1,12 +1,17 @@
 const express = require('express');
-const pool = require('../../config/database');
 const { authenticateToken } = require('../../middleware/auth');
 const { checkPermission } = require('../../middleware/permission');
-const { importPreview, importCustomers } = require('../../services/importService');
 const multer = require('multer');
 const XLSX = require('xlsx');
 const path = require('path');
+const { validate, Joi } = require('../../middleware/validate');
 const logger = require('../../config/logger');
+const customerController = require('../../controllers/customerController');
+const importService = require('../../services/importService');
+const { enqueue } = require('../../utils/queue');
+
+// 导入接口无额外 body 字段（文件由 multer 处理）
+const importUploadSchema = Joi.object({});
 
 // [安全修复] 文件上传限制：仅允许Excel/CSV，最大10MB
 const ALLOWED_MIME_TYPES = [
@@ -57,43 +62,27 @@ router.get('/template', authenticateToken, (req, res) => {
   }
 });
 
-// Excel导入预览
-router.post('/import-preview', authenticateToken, checkPermission('customer:import'), upload.single('file'), async (req, res) => {
+// Excel异步批量导入（直接入队，返回 202）
+router.post('/import', authenticateToken, checkPermission('customer:import'), upload.single('file'), validate(importUploadSchema), async (req, res, next) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ code: 400, message: '请上传Excel文件', data: null });
-    }
-
-    const data = await importPreview(pool, req.file.buffer);
-
-    res.json({ code: 200, message: '预览成功', data });
-  } catch (error) {
-    const status = error.statusCode || 500;
-    logger.error('导入预览错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(status).json({ code: status, message: error.message || '预览失败', data: null });
-  }
-});
-
-// Excel导入确认（集成清洗 + 验证 + 去重）
-router.post('/import-confirm', authenticateToken, checkPermission('customer:import'), upload.single('file'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ code: 400, message: '请上传Excel文件', data: null });
-    }
-
-    const result = await importCustomers(pool, req.file.buffer, req.user.userId);
-
-    res.json({
-      code: 200,
-      message: `导入完成: 成功 ${result.success} 条, 重复 ${result.duplicates} 条, 验证失败 ${result.invalid} 条`,
-      data: result
+    const customers = importService.parseRowsFromBuffer(req.file.buffer);
+    await enqueue('customer_import', { customers }, req.user.userId);
+    res.status(202).json({
+      code: 202,
+      message: `共 ${customers.length} 条已加入处理队列`,
+      data: { queued: customers.length }
     });
   } catch (error) {
-    const status = error.statusCode || 500;
-    logger.error('导入错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(status).json({ code: status, message: error.message || '导入失败', data: null });
+    logger.error('异步导入入队错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    next(error);
   }
 });
+
+// Excel导入预览
+router.post('/import-preview', authenticateToken, checkPermission('customer:import'), upload.single('file'), validate(importUploadSchema), customerController.importPreview);
+
+// Excel导入确认（集成清洗 + 验证 + 去重）
+router.post('/import-confirm', authenticateToken, checkPermission('customer:import'), upload.single('file'), validate(importUploadSchema), customerController.importConfirm);
 
 // [安全修复] multer错误处理中间件
 router.use((err, req, res, next) => {

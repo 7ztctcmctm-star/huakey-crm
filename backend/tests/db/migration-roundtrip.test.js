@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 迁移回合测试：验证 up + down 脚本的往返正确性。
  *
  * 环境要求：CI MySQL（docker-compose.ci.yml, DB_PORT=3307）
@@ -24,7 +24,14 @@ const KEY_TABLES = ['crm_customer', 'crm_opportunity', 'crm_quote', 'crm_contrac
 
 // 有 up+down 配对的迁移版本号（000_template 只有 down 模板，无 up，故不参与）
 const TEST_VERSIONS = ['002', '008', '061'];
-const ROUNDTRIP_VERSIONS = [...TEST_VERSIONS, '066', '067', '068'];
+// Phase 9R: 新增 down 脚本的版本号全部纳入 roundtrip 验证
+const NEW_DOWN_VERSIONS = [
+  '004', '005', '006', '010', '011', '012', '014', '015', '016', '017', '018', '019', '020',
+  '024', '025', '026', '027', '028', '029', '031', '032', '033', '034', '035', '036', '037',
+  '038', '039', '041', '042', '043', '044', '045', '046', '047', '048', '049', '050', '051',
+  '052', '053', '054', '055', '056', '057', '058', '059', '060', '062'
+];
+const ROUNDTRIP_VERSIONS = [...TEST_VERSIONS, ...NEW_DOWN_VERSIONS, '066', '067', '068'];
 
 let pool;
 

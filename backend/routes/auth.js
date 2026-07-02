@@ -1,4 +1,6 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const pool = require('../config/database');
 const { authenticateToken, generateToken, getTokenFromRequest } = require('../middleware/auth');
 const { validate, Joi } = require('../middleware/validate');
@@ -6,6 +8,8 @@ const { checkPermission } = require('../middleware/permission');
 const { logAction, getIpAddress } = require('../middleware/logger');
 const authService = require('../services/authService');
 const logger = require('../config/logger');
+
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const router = express.Router();
 
@@ -106,6 +110,7 @@ const changePasswordSchema = Joi.object({
 });
 
 const logoutSchema = Joi.object({});
+const refreshSchema = Joi.object({});
 
 // 0. 获取验证码
 router.get('/captcha', (req, res) => {
@@ -296,6 +301,81 @@ router.post('/change-password', authenticateToken, validate(changePasswordSchema
   } catch (error) {
     logger.error('[认证] 修改密码错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(error.code || 500).json({ code: error.code || 500, message: error.message || '修改密码失败', data: null });
+  }
+});
+
+// 7. 刷新 JWT token（接受过期但签名有效的 token，并将其加入黑名单）
+// [权限说明] 个人登录态接口，仅需提供旧 token，无需业务权限码
+router.post('/refresh', validate(refreshSchema), async (req, res) => {
+  try {
+    const oldToken = getTokenFromRequest(req);
+    if (!oldToken) {
+      return res.status(401).json({ code: 401, message: '未提供访问令牌', data: null });
+    }
+
+    // 验证 token 签名，允许已过期
+    let decoded;
+    try {
+      decoded = jwt.verify(oldToken, JWT_SECRET, { ignoreExpiration: true });
+    } catch (err) {
+      return res.status(401).json({ code: 401, message: '无效的访问令牌', data: null });
+    }
+
+    // 检查 token 是否已在黑名单
+    const tokenHash = crypto.createHash('sha256').update(oldToken).digest('hex');
+    const [blacklistRows] = await pool.query(
+      'SELECT 1 as blacklisted FROM sys_token_blacklist WHERE token_hash = ? AND expire_at > NOW() LIMIT 1',
+      [tokenHash]
+    );
+    if (blacklistRows.length > 0) {
+      return res.status(401).json({ code: 401, message: '令牌已失效，请重新登录', data: null });
+    }
+
+    // 查询用户及最新角色权限
+    const [users] = await pool.query(
+      `SELECT u.id, u.username, u.role_id,
+              COALESCE(r.code, '') as role_code,
+              COALESCE(r.view_all, 0) as view_all,
+              COALESCE(r.manage_all, 0) as manage_all
+       FROM sys_user u
+       LEFT JOIN sys_role r ON u.role_id = r.id
+       WHERE u.id = ? AND u.status = 1`,
+      [decoded.userId]
+    );
+
+    if (users.length === 0) {
+      return res.status(401).json({ code: 401, message: '用户不存在或已禁用', data: null });
+    }
+
+    const user = users[0];
+
+    // 将旧 token 加入黑名单
+    await pool.query(
+      `INSERT INTO sys_token_blacklist (token_hash, expire_at)
+       VALUES (?, DATE_ADD(NOW(), INTERVAL 7 DAY))
+       ON DUPLICATE KEY UPDATE expire_at = VALUES(expire_at)`,
+      [tokenHash]
+    );
+
+    // 签发新 token
+    const newToken = generateToken(user);
+
+    // 同步刷新 httpOnly cookie
+    res.cookie('token', newToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
+    res.json({
+      code: 200,
+      message: 'Token 已刷新',
+      data: { token: newToken }
+    });
+  } catch (error) {
+    logger.error('[认证] Token 刷新失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    res.status(500).json({ code: 500, message: 'Token 刷新失败', data: null });
   }
 });
 

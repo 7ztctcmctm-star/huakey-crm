@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { validate, Joi } = require('../middleware/validate');
 const crypto = require('crypto');
 const svc = require('../services/apiPlatformService');
 
@@ -9,6 +10,39 @@ const requireAdmin = require('../middleware/admin');
 const logger = require('../config/logger');
 
 // [认证说明] 本模块所有端点均使用 authenticateToken + requireAdmin，无需额外 checkPermission
+
+// --- Joi schemas ---
+
+const createKeySchema = Joi.object({
+  name: Joi.string().required().max(100),
+  permissions: Joi.alternatives().try(Joi.array().items(Joi.string()), Joi.string()).optional(),
+  rate_limit: Joi.number().integer().min(1).allow(null).optional(),
+  expires_at: Joi.date().iso().allow(null).optional()
+});
+
+const updateKeySchema = Joi.object({
+  name: Joi.string().max(100).optional(),
+  permissions: Joi.alternatives().try(Joi.array().items(Joi.string()), Joi.string()).optional(),
+  rate_limit: Joi.number().integer().min(1).allow(null).optional(),
+  status: Joi.number().integer().valid(0, 1).optional(),
+  expires_at: Joi.date().iso().allow(null).optional()
+});
+
+const createWebhookSchema = Joi.object({
+  name: Joi.string().required().max(100),
+  url: Joi.string().uri().required().max(500),
+  events: Joi.alternatives().try(Joi.array().items(Joi.string()), Joi.string()).required(),
+  secret: Joi.string().allow('', null).optional().max(200)
+});
+
+const updateWebhookSchema = Joi.object({
+  name: Joi.string().max(100).optional(),
+  url: Joi.string().uri().max(500).optional(),
+  events: Joi.alternatives().try(Joi.array().items(Joi.string()), Joi.string()).optional(),
+  status: Joi.number().integer().valid(0, 1).optional()
+});
+
+const emptySchema = Joi.object({});
 
 // 生成随机密钥
 const generateKey = (prefix = '', length = 32) => {
@@ -32,7 +66,7 @@ router.get('/keys', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-router.post('/keys', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/keys', authenticateToken, requireAdmin, validate(createKeySchema), async (req, res) => {
   try {
     const { name, permissions, rate_limit, expires_at } = req.body;
     if (!name) return res.status(400).json({ code: 400, message: '密钥名称不能为空', data: null });
@@ -49,7 +83,7 @@ router.post('/keys', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-router.put('/keys/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/keys/:id', authenticateToken, requireAdmin, validate(updateKeySchema), async (req, res) => {
   try {
     const { name, permissions, rate_limit, status, expires_at } = req.body;
     const fields = [], values = [];
@@ -77,7 +111,7 @@ router.delete('/keys/:id', authenticateToken, requireAdmin, async (req, res) => 
   }
 });
 
-router.post('/keys/:id/regenerate', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/keys/:id/regenerate', authenticateToken, requireAdmin, validate(emptySchema), async (req, res) => {
   try {
     const newKey = generateKey('crm_', 32);
     const newSecret = generateKey('', 48);
@@ -106,7 +140,7 @@ router.get('/webhooks', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-router.post('/webhooks', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/webhooks', authenticateToken, requireAdmin, validate(createWebhookSchema), async (req, res) => {
   try {
     const { name, url, events, secret } = req.body;
     if (!name || !url || !events) return res.status(400).json({ code: 400, message: '参数不完整', data: null });
@@ -121,7 +155,7 @@ router.post('/webhooks', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-router.put('/webhooks/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/webhooks/:id', authenticateToken, requireAdmin, validate(updateWebhookSchema), async (req, res) => {
   try {
     const { name, url, events, status } = req.body;
     const fields = [], values = [];
@@ -149,7 +183,7 @@ router.delete('/webhooks/:id', authenticateToken, requireAdmin, async (req, res)
 });
 
 // 测试Webhook
-router.post('/webhooks/:id/test', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/webhooks/:id/test', authenticateToken, requireAdmin, validate(emptySchema), async (req, res) => {
   try {
     const webhook = await svc.getWebhookById(pool, req.params.id);
     if (!webhook) return res.status(404).json({ code: 404, message: 'Webhook不存在', data: null });

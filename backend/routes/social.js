@@ -5,6 +5,25 @@ const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const socialService = require('../services/socialRouteService');
 const logger = require('../config/logger');
+const { validate, Joi } = require('../middleware/validate');
+
+const socialRecordSchema = Joi.object({
+  customer_id: Joi.number().integer().positive().allow(null),
+  contact_id: Joi.number().integer().positive().allow(null),
+  platform: Joi.string().required().max(50),
+  direction: Joi.string().required().max(50),
+  content: Joi.string().max(4000).allow('', null),
+  attachment_url: Joi.string().max(500).allow('', null),
+  message_time: Joi.date().iso().allow(null)
+});
+
+const socialRecordUpdateSchema = Joi.object({
+  platform: Joi.string().max(50).optional(),
+  direction: Joi.string().max(50).optional(),
+  content: Joi.string().max(4000).allow('', null),
+  attachment_url: Joi.string().max(500).allow('', null),
+  message_time: Joi.date().iso().allow(null)
+});
 
 // 沟通记录列表
 router.get('/records', authenticateToken, checkPermission('social'), async (req, res) => {
@@ -18,7 +37,7 @@ router.get('/records', authenticateToken, checkPermission('social'), async (req,
 });
 
 // 创建沟通记录
-router.post('/records', authenticateToken, checkPermission('social'), async (req, res) => {
+router.post('/records', authenticateToken, checkPermission('social'), validate(socialRecordSchema), async (req, res) => {
   try {
     const result = await socialService.createRecord(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '创建成功', data: result });
@@ -29,7 +48,7 @@ router.post('/records', authenticateToken, checkPermission('social'), async (req
 });
 
 // 更新记录
-router.put('/records/:id', authenticateToken, checkPermission('social'), async (req, res) => {
+router.put('/records/:id', authenticateToken, checkPermission('social'), validate(socialRecordUpdateSchema), async (req, res) => {
   try {
     await socialService.updateRecord(pool, req.params.id, req.body);
     res.json({ code: 200, message: '更新成功', data: null });

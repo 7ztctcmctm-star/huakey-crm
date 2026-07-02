@@ -9,6 +9,43 @@ const { requireManager } = require('../middleware/admin');
 const surveyService = require('../services/surveyService');
 const logger = require('../config/logger');
 
+// Joi schemas
+const templateSchema = Joi.object({
+  name: Joi.string().required().max(100),
+  description: Joi.string().max(500).allow('', null),
+  survey_type: Joi.string().valid('csat', 'nps', 'ces').optional(),
+  questions: Joi.alternatives().try(Joi.array(), Joi.object(), Joi.string()).required()
+});
+
+const templateUpdateSchema = Joi.object({
+  name: Joi.string().max(100).optional(),
+  description: Joi.string().max(500).allow('', null),
+  survey_type: Joi.string().valid('csat', 'nps', 'ces').optional(),
+  questions: Joi.alternatives().try(Joi.array(), Joi.object(), Joi.string()).optional()
+});
+
+const campaignSchema = Joi.object({
+  name: Joi.string().required().max(100),
+  template_id: Joi.number().integer().positive().required(),
+  target_type: Joi.string().valid('all', 'selected').optional(),
+  target_ids: Joi.alternatives().try(Joi.array().items(Joi.number().integer().positive()), Joi.string()).optional(),
+  send_method: Joi.string().valid('link', 'email', 'sms').optional(),
+  start_date: Joi.date().iso().allow(null),
+  end_date: Joi.date().iso().allow(null)
+});
+
+const campaignUpdateSchema = Joi.object({
+  name: Joi.string().max(100).optional(),
+  template_id: Joi.number().integer().positive().optional(),
+  target_type: Joi.string().valid('all', 'selected').optional(),
+  target_ids: Joi.alternatives().try(Joi.array().items(Joi.number().integer().positive()), Joi.string()).optional(),
+  send_method: Joi.string().valid('link', 'email', 'sms').optional(),
+  start_date: Joi.date().iso().allow(null),
+  end_date: Joi.date().iso().allow(null)
+});
+
+const emptySchema = Joi.object({});
+
 // ============ 模板管理 ============
 
 // 模板列表
@@ -24,7 +61,7 @@ router.get('/templates', authenticateToken, checkPermission('survey'), async (re
 });
 
 // 创建模板
-router.post('/templates', authenticateToken, checkPermission('survey'), requireManager, async (req, res) => {
+router.post('/templates', authenticateToken, checkPermission('survey'), requireManager, validate(templateSchema), async (req, res) => {
   try {
     const { name, questions } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ code: 400, message: '模板名称不能为空', data: null });
@@ -38,7 +75,7 @@ router.post('/templates', authenticateToken, checkPermission('survey'), requireM
 });
 
 // 更新模板
-router.put('/templates/:id', authenticateToken, checkPermission('survey'), requireManager, async (req, res) => {
+router.put('/templates/:id', authenticateToken, checkPermission('survey'), requireManager, validate(templateUpdateSchema), async (req, res) => {
   try {
     const result = await surveyService.updateTemplate(pool, req.params.id, req.body);
     if (result.error === 'not_found') return res.status(404).json({ code: 404, message: '模板不存在', data: null });
@@ -65,7 +102,7 @@ router.delete('/templates/:id', authenticateToken, checkPermission('survey'), re
 });
 
 // 初始化系统预设模板
-router.post('/templates/init', authenticateToken, checkPermission('survey'), requireAdmin, async (req, res) => {
+router.post('/templates/init', authenticateToken, checkPermission('survey'), requireAdmin, validate(emptySchema), async (req, res) => {
   try {
     const result = await surveyService.initTemplates(pool);
     if (result.count > 0 && !result.count) return res.json({ code: 200, message: '预设模板已存在', data: { count: result.count } });
@@ -103,7 +140,7 @@ router.get('/campaigns/:id', authenticateToken, checkPermission('survey'), async
 });
 
 // 创建活动
-router.post('/campaigns', authenticateToken, checkPermission('survey'), requireManager, async (req, res) => {
+router.post('/campaigns', authenticateToken, checkPermission('survey'), requireManager, validate(campaignSchema), async (req, res) => {
   try {
     const { name, template_id } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ code: 400, message: '活动名称不能为空', data: null });
@@ -117,7 +154,7 @@ router.post('/campaigns', authenticateToken, checkPermission('survey'), requireM
 });
 
 // 更新活动
-router.put('/campaigns/:id', authenticateToken, checkPermission('survey'), requireManager, async (req, res) => {
+router.put('/campaigns/:id', authenticateToken, checkPermission('survey'), requireManager, validate(campaignUpdateSchema), async (req, res) => {
   try {
     const result = await surveyService.updateCampaign(pool, req.params.id, req.body);
     if (result.error === 'not_found') return res.status(404).json({ code: 404, message: '活动不存在', data: null });
@@ -131,7 +168,7 @@ router.put('/campaigns/:id', authenticateToken, checkPermission('survey'), requi
 });
 
 // 启动活动
-router.post('/campaigns/:id/start', authenticateToken, checkPermission('survey'), requireManager, async (req, res) => {
+router.post('/campaigns/:id/start', authenticateToken, checkPermission('survey'), requireManager, validate(emptySchema), async (req, res) => {
   try {
     const result = await surveyService.startCampaign(pool, req.params.id);
     if (result.error === 'not_found') return res.status(404).json({ code: 404, message: '活动不存在', data: null });
@@ -144,7 +181,7 @@ router.post('/campaigns/:id/start', authenticateToken, checkPermission('survey')
 });
 
 // 关闭活动
-router.post('/campaigns/:id/close', authenticateToken, checkPermission('survey'), requireManager, async (req, res) => {
+router.post('/campaigns/:id/close', authenticateToken, checkPermission('survey'), requireManager, validate(emptySchema), async (req, res) => {
   try {
     const result = await surveyService.closeCampaign(pool, req.params.id);
     if (result.error === 'not_found') return res.status(404).json({ code: 404, message: '活动不存在', data: null });

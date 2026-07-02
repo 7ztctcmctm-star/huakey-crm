@@ -1,135 +1,81 @@
 const express = require('express');
-const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { checkPermission, checkDataPermission, buildDataPermissionWhere, checkFieldPermission, stripRestrictedFields } = require('../middleware/permission');
-const { logFieldChanges } = require('../utils/fieldLog');
-const ROLES = require('../config/roles');
-const quoteService = require('../services/quoteService');
-const logger = require('../config/logger');
-
-const MODULE_NAME = '报价管理';
+const { checkPermission, checkDataPermission, checkFieldPermission } = require('../middleware/permission');
+const quoteController = require('../controllers/quoteController');
+const { validate, Joi } = require('../middleware/validate');
 
 const router = express.Router();
+
+// Joi schemas
+const quoteItemSchema = Joi.object({
+  product_id: Joi.number().integer().positive().required(),
+  quantity: Joi.number().integer().min(1).optional(),
+  unit_price: Joi.number().min(0).optional(),
+  remark: Joi.string().max(500).allow('', null)
+});
+
+const addQuoteSchema = Joi.object({
+  customer_id: Joi.number().integer().positive().optional(),
+  opportunity_id: Joi.number().integer().positive().allow(null),
+  items: Joi.array().items(quoteItemSchema).optional(),
+  discount: Joi.number().min(0).max(1).optional(),
+  valid_days: Joi.number().integer().min(1).optional(),
+  remark: Joi.string().max(2000).allow('', null),
+  currency: Joi.string().max(10).optional(),
+  exchange_rate: Joi.number().min(0).optional()
+});
+
+const listQuoteSchema = Joi.object({
+  page: Joi.number().integer().min(1).optional(),
+  pageSize: Joi.number().integer().min(1).optional(),
+  quote_no: Joi.string().max(100).allow('', null),
+  customer_name: Joi.string().max(200).allow('', null),
+  status: Joi.number().integer().valid(1, 2, 3, 4).allow('', null),
+  approval_status: Joi.number().integer().valid(1, 2, 3).allow('', null)
+});
+
+const updateQuoteSchema = Joi.object({
+  id: Joi.number().integer().positive().required(),
+  customer_id: Joi.number().integer().positive().optional(),
+  items: Joi.array().items(quoteItemSchema).min(1).optional(),
+  discount: Joi.number().min(0).max(1).optional(),
+  valid_days: Joi.number().integer().min(1).optional(),
+  remark: Joi.string().max(2000).allow('', null),
+  status: Joi.number().integer().valid(1, 2, 3, 4).optional()
+});
+
+const idOnlySchema = Joi.object({
+  id: Joi.number().integer().positive().required()
+});
+
+const approveQuoteSchema = Joi.object({
+  id: Joi.number().integer().positive().required(),
+  approval_status: Joi.number().integer().valid(2, 3).required(),
+  approval_remark: Joi.string().max(1000).allow('', null)
+});
 
 // 字段级权限：报价成本价仅管理员可见
 router.use(checkFieldPermission('quote'));
 
 // 1. 创建报价单
-router.post('/add', authenticateToken, checkPermission('quotation:add'), async (req, res) => {
-  try {
-    const { customer_id, items } = req.body;
-    if (!customer_id) return res.status(400).json({ code: 400, message: '客户ID不能为空', data: null });
-    if (!items || items.length === 0) return res.status(400).json({ code: 400, message: '报价项不能为空', data: null });
-
-    const result = await quoteService.createQuote(pool, req.body, req.user.userId);
-    if (result.error) return res.status(result.code).json({ code: result.code, message: result.error, data: null });
-    res.json({ code: 200, message: '创建报价单成功', data: result });
-  } catch (error) {
-    logger.error('[报价] 创建报价单错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '创建报价单失败', data: null });
-  }
-});
+router.post('/add', authenticateToken, checkPermission('quotation:add'), validate(addQuoteSchema), quoteController.add);
 
 // 2. 报价单列表
-router.post('/list', authenticateToken, checkPermission('quotation'), checkDataPermission('quote', 'create_by'), async (req, res) => {
-  try {
-    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'q');
-    const result = await quoteService.listQuotes(pool, req.body, { clause, params: permParams });
-    result.list = stripRestrictedFields(result.list, req.restrictedFields);
-    res.json({ code: 200, message: '获取报价单列表成功', data: result });
-  } catch (error) {
-    logger.error('获取报价单列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '获取报价单列表失败', data: null });
-  }
-});
+router.post('/list', authenticateToken, checkPermission('quotation'), checkDataPermission('quote', 'create_by'), validate(listQuoteSchema), quoteController.list);
 
 // 3. 报价单详情
-router.get('/detail/:id', authenticateToken, checkDataPermission('quote', 'create_by'), async (req, res) => {
-  try {
-    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'q');
-    const data = await quoteService.getQuote(pool, req.params.id, { clause, params: permParams });
-    if (!data) return res.status(404).json({ code: 404, message: '报价单不存在', data: null });
-    stripRestrictedFields(data, req.restrictedFields);
-    res.json({ code: 200, message: '获取报价单详情成功', data });
-  } catch (error) {
-    logger.error('获取报价单详情错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '获取报价单详情失败', data: null });
-  }
-});
+router.get('/detail/:id', authenticateToken, checkDataPermission('quote', 'create_by'), quoteController.detail);
 
 // 4. 修改报价单
-router.post('/update', authenticateToken, checkPermission('quotation:edit'), async (req, res) => {
-  try {
-    const { id } = req.body;
-    if (!id) return res.status(400).json({ code: 400, message: '报价单ID不能为空', data: null });
-
-    const result = await quoteService.updateQuote(pool, req.body);
-    if (result.error) return res.status(result.code).json({ code: result.code, message: result.error, data: null });
-
-    await logFieldChanges(req, {
-      module: MODULE_NAME,
-      action: '编辑报价单',
-      oldData: result.existingQuote,
-      newData: req.body,
-      allowedFields: ['quote_no', 'customer_id', 'status', 'approval_status', 'total_amount', 'remark', 'delivery_date'],
-      description: `编辑报价单: ${result.existingQuote.quote_no || id}`
-    });
-
-    res.json({ code: 200, message: '修改报价单成功', data: null });
-  } catch (error) {
-    logger.error('修改报价单错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '修改报价单失败', data: null });
-  }
-});
+router.post('/update', authenticateToken, checkPermission('quotation:edit'), validate(updateQuoteSchema), quoteController.update);
 
 // 5. 删除报价单
-router.post('/delete', authenticateToken, checkPermission('quotation:delete'), async (req, res) => {
-  try {
-    const { id } = req.body;
-    if (!id) return res.status(400).json({ code: 400, message: '报价单ID不能为空', data: null });
-
-    const result = await quoteService.deleteQuote(pool, id, req.user);
-    if (result.error) return res.status(result.code).json({ code: result.code, message: result.error, data: null });
-    res.json({ code: 200, message: '删除报价单成功', data: null });
-  } catch (error) {
-    logger.error('删除报价单错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '删除报价单失败', data: null });
-  }
-});
+router.post('/delete', authenticateToken, checkPermission('quotation:delete'), validate(idOnlySchema), quoteController.remove);
 
 // 6. 报价转合同
-router.post('/to-contract', authenticateToken, checkPermission('quotation:edit'), async (req, res) => {
-  try {
-    const { id } = req.body;
-    if (!id) return res.status(400).json({ code: 400, message: '报价单ID不能为空', data: null });
-
-    const result = await quoteService.convertToContract(pool, id, req.user.userId);
-    if (result.error) return res.status(result.code).json({ code: result.code, message: result.error, data: null });
-    res.json({ code: 200, message: '转合同成功', data: result });
-  } catch (error) {
-    logger.error('报价转合同失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '转合同失败', data: null });
-  }
-});
+router.post('/to-contract', authenticateToken, checkPermission('quotation:edit'), validate(idOnlySchema), quoteController.toContract);
 
 // 审批报价单（仅管理员）
-router.post('/approve', authenticateToken, async (req, res) => {
-  try {
-    const { id, approval_status, approval_remark } = req.body;
-    if (!req.user.manageAll && !ROLES.ADMIN_ROLE_CODES.has(req.user.roleCode)) {
-      return res.status(403).json({ code: 403, message: '无审批权限', data: null });
-    }
-    if (!id || ![2, 3].includes(approval_status)) {
-      return res.status(400).json({ code: 400, message: '参数错误: id必填, approval_status为2(通过)或3(拒绝)', data: null });
-    }
-
-    const result = await quoteService.approveQuote(pool, id, approval_status, approval_remark, req.user.userId);
-    if (result.error) return res.status(result.code).json({ code: result.code, message: result.error, data: null });
-    res.json({ code: 200, message: approval_status === 2 ? '审批通过' : '已拒绝', data: null });
-  } catch (error) {
-    logger.error('审批报价单错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '审批失败', data: null });
-  }
-});
+router.post('/approve', authenticateToken, validate(approveQuoteSchema), quoteController.approve);
 
 module.exports = router;

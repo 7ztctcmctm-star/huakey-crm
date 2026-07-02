@@ -2,8 +2,11 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { validate, Joi } = require('../middleware/validate');
 const notificationService = require('../services/notificationService');
 const logger = require('../config/logger');
+
+const emptySchema = Joi.object({});
 
 // 获取通知列表
 router.get('/list', authenticateToken, async (req, res) => {
@@ -23,7 +26,7 @@ router.get('/list', authenticateToken, async (req, res) => {
 });
 
 // 标记单条已读
-router.post('/read/:id', authenticateToken, async (req, res) => {
+router.post('/read/:id', authenticateToken, validate(emptySchema), async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (!id) {
@@ -38,7 +41,7 @@ router.post('/read/:id', authenticateToken, async (req, res) => {
 });
 
 // 全部已读
-router.post('/read-all', authenticateToken, async (req, res) => {
+router.post('/read-all', authenticateToken, validate(emptySchema), async (req, res) => {
   try {
     const { affectedRows } = await notificationService.markAllAsRead(pool, req.user.userId);
     res.json({ code: 200, message: '全部已读', data: { affectedRows } });

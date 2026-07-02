@@ -31,6 +31,8 @@ const productUpdateSchema = Joi.object({
   status: Joi.number().integer().valid(0, 1).allow(null)
 });
 
+const emptySchema = Joi.object({});
+
 const scriptSchema = Joi.object({
   title: Joi.string().required().max(200).trim(),
   scene: Joi.string().max(100).allow('', null),
@@ -142,7 +144,7 @@ router.delete('/products/:id', authenticateToken, requireAdmin, async (req, res)
   }
 });
 
-router.post('/products/:id/images', authenticateToken, requireAdmin, upload.array('images', 9), async (req, res) => {
+router.post('/products/:id/images', authenticateToken, requireAdmin, upload.array('images', 9), validate(emptySchema), async (req, res) => {
   try {
     const filePaths = req.files.map(f => `/uploads/knowledge/${f.filename}`);
     const allImages = await knowledgeService.addProductImages(pool, req.params.id, filePaths);

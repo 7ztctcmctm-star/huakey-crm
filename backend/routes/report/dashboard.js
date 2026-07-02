@@ -2,13 +2,13 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../../middleware/auth');
 const { checkPermission } = require('../../middleware/permission');
-const { cache } = require('../../middleware/cache');
+const { cache, createCache } = require('../../middleware/cache');
 const dashboardService = require('../../services/dashboardService');
 const pool = require('../../config/database');
 const logger = require('../../config/logger');
 
 // 概览数据（首页仪表盘）
-router.get('/overview', authenticateToken, checkPermission('report'), cache(300), async (req, res) => {
+router.get('/overview', authenticateToken, checkPermission('report'), createCache(600, (req) => `report:overview:${req.user.userId}`), async (req, res) => {
   try {
     const data = await dashboardService.getOverview(pool, req.user.userId, req.user.roleId);
     res.json({ code: 200, message: '查询成功', data });

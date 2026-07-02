@@ -32,7 +32,7 @@ function getCaptcha() {
   const captcha = svgCaptcha.create({
     size: 4,
     ignoreChars: '0o1il',
-    noise: 2,
+    noise: 4,          // 增加干扰线，提高识别难度
     color: true,
     background: '#f5f5f7'
   });

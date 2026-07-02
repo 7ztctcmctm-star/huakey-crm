@@ -43,6 +43,8 @@ const linkCustomerSchema = Joi.object({
   customer_id: Joi.number().integer().positive().required()
 });
 
+const emptySchema = Joi.object({});
+
 // 1. 配置邮件账号
 router.post('/account', authenticateToken, checkPermission('email'), validate(accountSchema), async (req, res) => {
   try {
@@ -81,7 +83,7 @@ router.delete('/account/:id', authenticateToken, checkPermission('email'), async
 });
 
 // 4. 测试连接
-router.post('/account/:id/test', authenticateToken, checkPermission('email'), async (req, res) => {
+router.post('/account/:id/test', authenticateToken, checkPermission('email'), validate(emptySchema), async (req, res) => {
   try {
     const results = await emailService.testConnection(pool, req.params.id, req.user.userId);
     res.json({ code: 200, message: results.smtp ? '连接测试成功' : 'SMTP连接失败', data: results });
@@ -156,7 +158,7 @@ router.post('/reply/:id', authenticateToken, checkPermission('email:send'), vali
 });
 
 // 9. 标记已读
-router.put('/:id/read', authenticateToken, checkPermission('email'), async (req, res) => {
+router.put('/:id/read', authenticateToken, checkPermission('email'), validate(emptySchema), async (req, res) => {
   try {
     await emailService.markAsRead(pool, req.params.id);
     res.json({ code: 200, message: '已标记已读', data: null });
@@ -167,7 +169,7 @@ router.put('/:id/read', authenticateToken, checkPermission('email'), async (req,
 });
 
 // 10. 标记星标
-router.put('/:id/star', authenticateToken, checkPermission('email'), async (req, res) => {
+router.put('/:id/star', authenticateToken, checkPermission('email'), validate(emptySchema), async (req, res) => {
   try {
     const result = await emailService.toggleStar(pool, req.params.id);
     res.json({ code: 200, message: result.is_starred ? '已星标' : '已取消星标', data: result });
@@ -194,7 +196,7 @@ router.post('/:id/link-customer', authenticateToken, checkPermission('email'), v
 });
 
 // 12. 手动同步邮件
-router.post('/sync/:account_id', authenticateToken, checkPermission('email'), async (req, res) => {
+router.post('/sync/:account_id', authenticateToken, checkPermission('email'), validate(emptySchema), async (req, res) => {
   try {
     await emailService.syncEmails(pool, req.params.account_id, req.user.userId);
     res.json({ code: 200, message: '同步完成（完整IMAP同步需配置IMAP服务）', data: null });

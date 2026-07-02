@@ -30,6 +30,33 @@ function cache(ttl = 300) {
   };
 }
 
+// 创建可自定义缓存 key 的中间件
+// 用法: router.get('/xxx', authenticateToken, createCache(300, (req) => `foo:${req.user.userId}`), handler)
+function createCache(ttlSeconds, keyBuilder) {
+  return async (req, res, next) => {
+    if (!REDIS_ENABLED) return next();
+
+    const cacheKey = keyBuilder
+      ? keyBuilder(req)
+      : `cache:${req.user?.userId || 'anon'}:${req.originalUrl}`;
+
+    const cached = await getCache(cacheKey);
+    if (cached) {
+      return res.json({ code: 200, message: '查询成功(cached)', data: cached });
+    }
+
+    // 劫持 res.json 以捕获响应数据
+    const originalJson = res.json.bind(res);
+    res.json = function (data) {
+      if (data && data.code === 200 && data.data) {
+        setCache(cacheKey, data.data, ttlSeconds);
+      }
+      return originalJson(data);
+    };
+    next();
+  };
+}
+
 // 清除匹配模式的缓存（写操作后调用）
 async function invalidateCache(patterns) {
   if (!REDIS_ENABLED) return;
@@ -38,4 +65,4 @@ async function invalidateCache(patterns) {
   }
 }
 
-module.exports = { cache, invalidateCache };
+module.exports = { cache, createCache, invalidateCache };

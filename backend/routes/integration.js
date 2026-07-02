@@ -12,6 +12,16 @@ const integrationUpdateSchema = Joi.object({
   config: Joi.object().required().unknown(true)
 });
 
+const emptySchema = Joi.object({});
+
+const sendTestEmailSchema = Joi.object({
+  to: Joi.string().email().required().max(200),
+  subject: Joi.string().required().max(500),
+  body: Joi.string().required().max(50000),
+  ref_type: Joi.string().max(50).allow('', null),
+  ref_id: Joi.number().integer().positive().allow(null)
+});
+
 // 获取集成配置列表
 router.get('/list', authenticateToken, checkPermission('system'), async (req, res) => {
   try {
@@ -35,7 +45,7 @@ router.post('/update', authenticateToken, checkPermission('system'), validate(in
 });
 
 // 测试邮件连接
-router.post('/test', authenticateToken, checkPermission('system'), async (req, res) => {
+router.post('/test', authenticateToken, checkPermission('system'), validate(emptySchema), async (req, res) => {
   try {
     const result = await integrationService.testIntegration(pool);
     res.json({ code: 200, message: result.message, data: { success: result.success } });
@@ -46,7 +56,7 @@ router.post('/test', authenticateToken, checkPermission('system'), async (req, r
 });
 
 // 发送邮件
-router.post('/send-email', authenticateToken, async (req, res) => {
+router.post('/send-email', authenticateToken, validate(sendTestEmailSchema), async (req, res) => {
   try {
     await integrationService.sendTestEmail(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '邮件发送成功', data: null });

@@ -1,33 +1,38 @@
-const ROLES = require('../config/roles');
-const NodeCache = require('node-cache');
+﻿const ROLES = require("../config/roles");
+const NodeCache = require("node-cache");
+const logger = require("../config/logger");
 
-// 权限缓存，TTL 5分钟
+// 权限缓存，TL 5分钟
 const permissionCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
 
 /**
- * 获取用户权限列表
+ * 获取用户权限列表（合并角色权限 + 用户直接权限）
  * @param {number} userId - 用户ID
  * @param {number} roleId - 角色ID
  */
 async function getUserPermissions(pool, userId, roleId) {
   const cacheKey = `permissions:${userId}`;
 
-  // 尝试从缓存获取
   let permissions = permissionCache.get(cacheKey);
 
   if (!permissions) {
-    // 从数据库查询
+    // 合并角色权限（sys_role_permission）和用户直接权限（crm_user_permission）
     const [rows] = await pool.query(
-      `SELECT DISTINCT p.code, p.name, p.type
-       FROM sys_role_permission rp
-       JOIN sys_permission p ON rp.permission_id = p.id
-       WHERE rp.role_id = ?`,
-      [roleId]
+      `SELECT DISTINCT p.code
+       FROM (
+         SELECT rp.permission_id
+         FROM sys_role_permission rp
+         WHERE rp.role_id = ?
+         UNION
+         SELECT up.permission_id
+         FROM crm_user_permission up
+         WHERE up.user_id = ?
+       ) combined
+       JOIN sys_permission p ON combined.permission_id = p.id`,
+      [roleId, userId]
     );
 
     permissions = rows.map(r => r.code);
-
-    // 存入缓存
     permissionCache.set(cacheKey, permissions);
   }
 
@@ -41,7 +46,6 @@ async function getUserPermissions(pool, userId, roleId) {
  * @param {string} permissionCode - 权限编码
  */
 async function hasPermission(pool, userId, roleId, permissionCode) {
-  // 超级管理员拥有所有权限
   if (roleId === ROLES.ADMIN) {
     return true;
   }
@@ -74,7 +78,7 @@ async function getMenuPermissions(pool, roleId) {
     `SELECT p.id, p.name, p.code, p.parent_id, p.path, p.icon, p.sort
      FROM sys_role_permission rp
      JOIN sys_permission p ON rp.permission_id = p.id
-     WHERE rp.role_id = ? AND p.type = 'menu' AND p.is_visible = true
+     WHERE rp.role_id = ? AND p.type = "menu" AND p.is_visible = true
      ORDER BY p.sort`,
     [roleId]
   );
@@ -123,11 +127,101 @@ async function getDataPermissions(pool, roleId) {
   return configs;
 }
 
+// ==================== crm_user_permission 用户直接权限管理 ====================
+
+/**
+ * 获取用户直接分配的权限列表（不含角色继承权限）
+ * @param {object} pool - 数据库连接池
+ * @param {number} userId - 用户ID
+ */
+async function getUserDirectPermissions(pool, userId) {
+  const [rows] = await pool.query(
+    `SELECT p.id, p.code, p.name, p.type
+     FROM crm_user_permission up
+     JOIN sys_permission p ON up.permission_id = p.id
+     WHERE up.user_id = ?`,
+    [userId]
+  );
+  return rows;
+}
+
+/**
+ * 为用户直接分配权限
+ * @param {object} pool - 数据库连接池
+ * @param {number} userId - 用户ID
+ * @param {number} permissionId - 权限ID
+ */
+async function addUserPermission(pool, userId, permissionId) {
+  try {
+    await pool.query(
+      `INSERT IGNORE INTO crm_user_permission (user_id, permission_id) VALUES (?, ?)`,
+      [userId, permissionId]
+    );
+    clearPermissionCache(userId);
+    return true;
+  } catch (error) {
+    logger.error("添加用户权限失败:", { userId, permissionId, error: error.message });
+    throw error;
+  }
+}
+
+/**
+ * 移除用户的直接权限
+ * @param {object} pool - 数据库连接池
+ * @param {number} userId - 用户ID
+ * @param {number} permissionId - 权限ID
+ */
+async function removeUserPermission(pool, userId, permissionId) {
+  try {
+    await pool.query(
+      `DELETE FROM crm_user_permission WHERE user_id = ? AND permission_id = ?`,
+      [userId, permissionId]
+    );
+    clearPermissionCache(userId);
+    return true;
+  } catch (error) {
+    logger.error("移除用户权限失败:", { userId, permissionId, error: error.message });
+    throw error;
+  }
+}
+
+/**
+ * 批量设置用户直接权限（替换现有权限）
+ * @param {object} pool - 数据库连接池
+ * @param {number} userId - 用户ID
+ * @param {number[]} permissionIds - 权限ID列表
+ */
+async function setUserPermissions(pool, userId, permissionIds) {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    await conn.query(`DELETE FROM crm_user_permission WHERE user_id = ?`, [userId]);
+    if (permissionIds.length > 0) {
+      const values = permissionIds.map(id => [userId, id]);
+      await conn.query(`INSERT INTO crm_user_permission (user_id, permission_id) VALUES ?`, [values]);
+    }
+    await conn.commit();
+    clearPermissionCache(userId);
+    return true;
+  } catch (error) {
+    await conn.rollback();
+    logger.error("批量设置用户权限失败:", { userId, error: error.message });
+    throw error;
+  } finally {
+    conn.release();
+  }
+}
+
 module.exports = {
   getUserPermissions,
   hasPermission,
   clearPermissionCache,
   clearAllPermissionCache,
   getMenuPermissions,
-  getDataPermissions
+  getDataPermissions,
+  getUserDirectPermissions,
+  addUserPermission,
+  removeUserPermission,
+  setUserPermissions
 };
+

@@ -1,6 +1,14 @@
 const express = require('express');
 const pool = require('../config/database');
+const { validate, Joi } = require('../middleware/validate');
 const router = express.Router();
+
+const clientMetricSchema = Joi.object({
+  metric_type: Joi.string().required().max(10),
+  value: Joi.number().required(),
+  rating: Joi.string().max(30).allow('', null),
+  page_url: Joi.string().max(500).allow('', null)
+});
 
 // 自动建表
 pool.query(`CREATE TABLE IF NOT EXISTS sys_client_perf (
@@ -16,7 +24,7 @@ pool.query(`CREATE TABLE IF NOT EXISTS sys_client_perf (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`).catch(() => {});
 
 // POST /api/metrics/client — 无需认证
-router.post('/client', async (req, res) => {
+router.post('/client', validate(clientMetricSchema), async (req, res) => {
   const { metric_type, value, rating, page_url } = req.body;
   if (!metric_type || typeof value !== 'number') {
     return res.status(400).json({ code: 400, message: '参数无效' });

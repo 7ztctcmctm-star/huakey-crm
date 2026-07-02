@@ -73,6 +73,27 @@ const productListSchema = Joi.object({
   status: Joi.number().integer().valid(0, 1).allow('', null).optional()
 });
 
+const productPriceSchema = Joi.object({
+  price_type: Joi.string().valid('retail', 'wholesale', 'vip', 'custom').required(),
+  customer_level: Joi.string().valid('A', 'B', 'C', '').allow(null),
+  unit_price: Joi.number().precision(4).min(0).required(),
+  min_quantity: Joi.number().integer().min(1).default(1),
+  currency: Joi.string().max(10).default('CNY'),
+  valid_from: Joi.date().iso().allow(null),
+  valid_to: Joi.date().iso().allow(null)
+});
+
+const productPriceUpdateSchema = Joi.object({
+  price_type: Joi.string().valid('retail', 'wholesale', 'vip', 'custom'),
+  customer_level: Joi.string().valid('A', 'B', 'C', '').allow(null),
+  unit_price: Joi.number().precision(4).min(0),
+  min_quantity: Joi.number().integer().min(1),
+  currency: Joi.string().max(10),
+  valid_from: Joi.date().iso().allow(null),
+  valid_to: Joi.date().iso().allow(null),
+  status: Joi.number().integer().valid(0, 1)
+});
+
 const requireAdmin = require('../middleware/admin');
 const logger = require('../config/logger');
 
@@ -178,7 +199,7 @@ router.get('/:id/prices', authenticateToken, async (req, res) => {
 });
 
 // 8. 添加产品价格
-router.post('/:id/prices', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/:id/prices', authenticateToken, requireAdmin, validate(productPriceSchema), async (req, res) => {
   try {
     const productId = req.params.id;
     const { price_type, customer_level, unit_price, min_quantity, currency, valid_from, valid_to } = req.body;
@@ -196,7 +217,7 @@ router.post('/:id/prices', authenticateToken, requireAdmin, async (req, res) => 
 });
 
 // 9. 更新产品价格
-router.put('/price/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/price/:id', authenticateToken, requireAdmin, validate(productPriceUpdateSchema), async (req, res) => {
   try {
     await productService.updatePrice(pool, req.params.id, req.body);
     res.json({ code: 200, message: '更新成功', data: null });

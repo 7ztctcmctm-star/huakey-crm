@@ -42,6 +42,12 @@ const stockAdjustSchema = Joi.object({
   remark: Joi.string().max(500).allow('', null)
 });
 
+const alertConfigSchema = Joi.object({
+  min_qty: Joi.number().integer().min(0).allow(null),
+  max_qty: Joi.number().integer().min(0).allow(null),
+  alert_enabled: Joi.number().integer().valid(0, 1).allow(null)
+});
+
 // 库存列表
 router.get('/list', authenticateToken, queryValidate(inventoryListSchema), async (req, res) => {
   try {
@@ -112,7 +118,7 @@ router.get('/alerts', authenticateToken, async (req, res) => {
 });
 
 // 配置预警阈值
-router.put('/alert-config/:product_id', authenticateToken, async (req, res) => {
+router.put('/alert-config/:product_id', authenticateToken, validate(alertConfigSchema), async (req, res) => {
   try {
     const result = await inventoryService.updateAlertConfig(pool, req.params.product_id, req.body);
     if (result.error) return res.status(result.status).json({ code: result.status, message: result.message, data: null });

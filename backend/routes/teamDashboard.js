@@ -6,6 +6,18 @@ const { checkPermission } = require('../middleware/permission');
 const ROLES = require('../config/roles');
 const teamDashboardService = require('../services/teamDashboardService');
 const logger = require('../config/logger');
+const { validate, Joi } = require('../middleware/validate');
+
+const salesDrilldownSchema = Joi.object({
+  user_id: Joi.number().integer().positive().required(),
+  page: Joi.number().integer().min(1).optional(),
+  pageSize: Joi.number().integer().min(1).max(200).optional()
+});
+
+const urgeFollowupSchema = Joi.object({
+  customer_id: Joi.number().integer().positive().required(),
+  user_id: Joi.number().integer().positive().required()
+});
 
 // 老板团队跟单全景视图 API
 
@@ -39,7 +51,7 @@ router.get('/sales-breakdown', authenticateToken, checkPermission('team'), async
 });
 
 // 3. 下钻：某个销售的逾期未跟进客户明细
-router.post('/sales-overdue-customers', authenticateToken, checkPermission('team'), async (req, res) => {
+router.post('/sales-overdue-customers', authenticateToken, checkPermission('team'), validate(salesDrilldownSchema), async (req, res) => {
   try {
     const { user_id, page = 1, pageSize = 20 } = req.body;
     if (!user_id) {
@@ -54,7 +66,7 @@ router.post('/sales-overdue-customers', authenticateToken, checkPermission('team
 });
 
 // 4. 下钻：某个销售的所有客户列表
-router.post('/sales-customers', authenticateToken, checkPermission('team'), async (req, res) => {
+router.post('/sales-customers', authenticateToken, checkPermission('team'), validate(salesDrilldownSchema), async (req, res) => {
   try {
     const { user_id, page = 1, pageSize = 20 } = req.body;
     if (!user_id) {
@@ -69,7 +81,7 @@ router.post('/sales-customers', authenticateToken, checkPermission('team'), asyn
 });
 
 // 5. 催办：主管对销售员的逾期客户发起跟进催促
-router.post('/urge-followup', authenticateToken, checkPermission('team'), async (req, res) => {
+router.post('/urge-followup', authenticateToken, checkPermission('team'), validate(urgeFollowupSchema), async (req, res) => {
   try {
     const { customer_id, user_id } = req.body;
     const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;

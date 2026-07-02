@@ -119,6 +119,14 @@ const updateQualificationSchema = Joi.object({
   remark: Joi.string().max(500).allow('', null)
 });
 
+const contactDeleteSchema = Joi.object({
+  id: Joi.number().integer().positive().required()
+});
+
+const qualificationDeleteSchema = Joi.object({
+  id: Joi.number().integer().positive().required()
+});
+
 // --- Routes ---
 
 // 字段级权限：供应商敏感信息仅管理员可见
@@ -242,7 +250,7 @@ router.post('/contact/update', authenticateToken, checkPermission('supplier:edit
   }
 });
 
-router.post('/contact/delete', authenticateToken, checkPermission('supplier:edit'), async (req, res) => {
+router.post('/contact/delete', authenticateToken, checkPermission('supplier:edit'), validate(contactDeleteSchema), async (req, res) => {
   try {
     const { id } = req.body;
     if (!id) return res.status(400).json({ code: 400, message: '联系人ID不能为空', data: null });
@@ -275,7 +283,7 @@ router.post('/qualification/update', authenticateToken, checkPermission('supplie
   }
 });
 
-router.post('/qualification/delete', authenticateToken, checkPermission('supplier:edit'), async (req, res) => {
+router.post('/qualification/delete', authenticateToken, checkPermission('supplier:edit'), validate(qualificationDeleteSchema), async (req, res) => {
   try {
     const { id } = req.body;
     if (!id) return res.status(400).json({ code: 400, message: '资质ID不能为空', data: null });

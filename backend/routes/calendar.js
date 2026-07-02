@@ -3,8 +3,48 @@ const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
+const { validate, Joi } = require('../middleware/validate');
 const calendarService = require('../services/calendarRouteService');
 const logger = require('../config/logger');
+
+// --- Joi schemas ---
+
+const createEventSchema = Joi.object({
+  title: Joi.string().required().max(200),
+  event_type: Joi.string().valid('meeting', 'task', 'reminder', 'other').optional(),
+  description: Joi.string().allow('', null).optional().max(1000),
+  start_time: Joi.date().iso().required(),
+  end_time: Joi.date().iso().allow(null).optional(),
+  all_day: Joi.boolean().optional(),
+  location: Joi.string().allow('', null).optional().max(200),
+  customer_id: Joi.number().integer().allow(null).optional(),
+  contact_id: Joi.number().integer().allow(null).optional(),
+  related_type: Joi.string().optional().max(50),
+  related_id: Joi.number().integer().allow(null).optional(),
+  attendees: Joi.alternatives().try(Joi.array().items(Joi.string()), Joi.string()).optional(),
+  reminder_minutes: Joi.number().integer().optional(),
+  color: Joi.string().optional().max(50)
+});
+
+const updateEventSchema = Joi.object({
+  title: Joi.string().max(200).optional(),
+  event_type: Joi.string().valid('meeting', 'task', 'reminder', 'other').optional(),
+  description: Joi.string().allow('', null).optional().max(1000),
+  start_time: Joi.date().iso().optional(),
+  end_time: Joi.date().iso().allow(null).optional(),
+  all_day: Joi.boolean().optional(),
+  location: Joi.string().allow('', null).optional().max(200),
+  customer_id: Joi.number().integer().allow(null).optional(),
+  contact_id: Joi.number().integer().allow(null).optional(),
+  related_type: Joi.string().optional().max(50),
+  related_id: Joi.number().integer().allow(null).optional(),
+  attendees: Joi.alternatives().try(Joi.array().items(Joi.string()), Joi.string()).optional(),
+  reminder_minutes: Joi.number().integer().optional(),
+  status: Joi.string().optional().max(50),
+  color: Joi.string().optional().max(50)
+});
+
+const emptySchema = Joi.object({});
 
 // 日程列表
 router.get('/events', authenticateToken, checkPermission('calendar'), async (req, res) => {
@@ -30,7 +70,7 @@ router.get('/events/:id', authenticateToken, checkPermission('calendar'), async 
 });
 
 // 创建日程
-router.post('/events', authenticateToken, checkPermission('calendar'), async (req, res) => {
+router.post('/events', authenticateToken, checkPermission('calendar'), validate(createEventSchema), async (req, res) => {
   try {
     const result = await calendarService.createEvent(pool, req.body, req.user.userId);
     if (result.error) return res.status(400).json({ code: 400, message: result.error, data: null });
@@ -42,7 +82,7 @@ router.post('/events', authenticateToken, checkPermission('calendar'), async (re
 });
 
 // 更新日程
-router.put('/events/:id', authenticateToken, checkPermission('calendar'), async (req, res) => {
+router.put('/events/:id', authenticateToken, checkPermission('calendar'), validate(updateEventSchema), async (req, res) => {
   try {
     const result = await calendarService.updateEvent(pool, req.params.id, req.body, req.user.userId, req.user.manageAll);
     if (result.error) return res.status(result.status || 500).json({ code: result.status || 500, message: result.error, data: null });
@@ -66,7 +106,7 @@ router.delete('/events/:id', authenticateToken, checkPermission('calendar'), asy
 });
 
 // 标记完成
-router.post('/events/:id/complete', authenticateToken, checkPermission('calendar'), async (req, res) => {
+router.post('/events/:id/complete', authenticateToken, checkPermission('calendar'), validate(emptySchema), async (req, res) => {
   try {
     await calendarService.completeEvent(pool, req.params.id);
     res.json({ code: 200, message: '已标记完成', data: null });

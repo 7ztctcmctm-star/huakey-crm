@@ -4,6 +4,7 @@ import '@/styles/apple.css'
 import App from './App.vue'
 import router from '@/router/index.js'
 import { permissionDirective, permissionAllDirective, permissionDisabledDirective } from '@/directives/permission'
+import { vSafeHtml } from '@/directives/sanitize'
 import { initPerfume } from '@/utils/perfume'
 
 // ElMessage/ElMessageBox 样式（按需导入插件无法自动处理JS调用的样式）
@@ -19,6 +20,7 @@ app.use(router)
 app.directive('permission', permissionDirective)
 app.directive('permission-all', permissionAllDirective)
 app.directive('permission-disabled', permissionDisabledDirective)
+app.directive('safe-html', vSafeHtml)
 
 // Vue全局错误处理
 app.config.errorHandler = (err, instance, info) => {

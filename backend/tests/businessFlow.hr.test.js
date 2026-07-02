@@ -1,4 +1,4 @@
-﻿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -49,6 +49,7 @@ jest.mock('../middleware/admin', () => {
 
 jest.mock('../middleware/cache', () => ({
   cache: () => (req, res, next) => next(),
+  createCache: () => (req, res, next) => next(),
   invalidateCache: jest.fn()
 }));
 
@@ -80,6 +81,7 @@ const generateToken = () => {
 
 describe('人事全流程 - 端到端流程', () => {
   const token = generateToken();
+  // eslint-disable-next-line no-unused-vars
   let deptId, employeeId, calendarEventId, approvalRecordId;
 
   beforeEach(() => {

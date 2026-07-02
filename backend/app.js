@@ -7,6 +7,7 @@ require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') }
 
 const app = express();
 const logger = require('./config/logger');
+const { appErrorHandler, globalErrorHandler } = require('./middleware/errorHandler');
 
 // [性能优化] 响应压缩（放在最前面）
 app.use(compression({
@@ -32,7 +33,7 @@ const traceIdMiddleware = require('./middleware/traceId');
 app.use(traceIdMiddleware);
 
 // 错误告警
-const { alertError, record500Error } = require('./utils/alert');
+const { alertError } = require('./utils/alert');
 
 // Prometheus 指标中间件（记录每个请求的 Counter + Histogram）
 const { metricsMiddleware, startPoolMetricsCollection } = require('./config/metrics');
@@ -133,32 +134,11 @@ apiRouter.use(globalLogMiddleware);
 // 统一响应格式中间件（确保所有 API 返回 { code, message, data } 三元组）
 apiRouter.use(responseFormat);
 
+// 统一业务错误处理（AppError + Joi 校验错误）
+apiRouter.use(appErrorHandler);
+
 // 全局错误处理中间件（捕获路由中未处理的错误）
-// eslint-disable-next-line no-unused-vars
-apiRouter.use((err, req, res, _next) => {
-  const ctx = {
-    userId: req.user?.userId || 'anonymous',
-    method: req.method,
-    path: req.originalUrl,
-    ip: req.ip,
-    body: req.method !== 'GET' ? JSON.stringify(req.body).substring(0, 500) : undefined
-  };
-  logger.error('[ErrorHandler]', { ...ctx, error: err.stack || err.message, traceId: req.traceId });
-
-  alertError({
-    level: 'error',
-    source: 'ErrorHandler',
-    message: err.stack || err.message,
-    traceId: req.traceId
-  });
-
-  const statusCode = err.status || 500;
-  res.status(statusCode).json({
-    code: statusCode,
-    message: statusCode === 500 ? '服务器内部错误' : (err.message || '请求失败'),
-    data: null
-  });
-});
+apiRouter.use(globalErrorHandler);
 
 // 测试路由
 apiRouter.get('/', (req, res) => {
@@ -402,34 +382,7 @@ app.use((req, res) => {
 });
 
 // 全局错误处理中间件
-// eslint-disable-next-line no-unused-vars
-app.use((err, req, res, _next) => {
-  const statusCode = err.statusCode || err.status || 500;
-  const ctx = {
-    userId: req.user?.userId || 'anonymous',
-    method: req.method,
-    path: req.originalUrl,
-    ip: req.ip
-  };
-  logger.error('[AppErrorHandler]', { ...ctx, error: err.stack || err.message, traceId: req.traceId });
-
-  if (statusCode >= 500) {
-    record500Error();
-  }
-
-  alertError({
-    level: statusCode >= 500 ? 'critical' : 'error',
-    source: 'AppErrorHandler',
-    message: err.stack || err.message,
-    traceId: req.traceId
-  });
-
-  res.status(statusCode).json({
-    code: statusCode,
-    message: statusCode === 500 ? '服务器内部错误，请稍后重试' : (err.message || '操作失败'),
-    data: null
-  });
-});
+app.use(globalErrorHandler);
 
 // 数据库连接池
 const pool = require('./config/database');

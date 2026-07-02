@@ -7,6 +7,13 @@ const requireAdmin = require('../middleware/admin');
 const { requireManager } = require('../middleware/admin');
 const currencyService = require('../services/currencyService');
 const logger = require('../config/logger');
+const { validate, Joi } = require('../middleware/validate');
+
+const updateCurrencySchema = Joi.object({
+  exchange_rate: Joi.number().positive().allow(null),
+  is_default: Joi.boolean(),
+  status: Joi.number().integer().valid(0, 1)
+});
 
 // 货币列表
 // [权限说明] 公共查询接口，仅需认证
@@ -33,7 +40,7 @@ router.get('/rates', authenticateToken, async (req, res) => {
 });
 
 // 更新汇率（管理员）
-router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/:id', authenticateToken, requireAdmin, validate(updateCurrencySchema), async (req, res) => {
   try {
     await currencyService.updateCurrency(pool, req.params.id, req.body);
     res.json({ code: 200, message: '更新成功', data: null });

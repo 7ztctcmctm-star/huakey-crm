@@ -43,7 +43,7 @@ const pool = require('../../config/database');
 const { authenticateToken } = require('../../middleware/auth');
 const { checkPermission } = require('../../middleware/permission');
 const { validate, queryValidate, Joi } = require('../../middleware/validate');
-const { cache } = require('../../middleware/cache');
+const { createCache } = require('../../middleware/cache');
 const { createRouteLogger } = require('../../middleware/logger');
 const reportAnalyticsService = require('../../services/reportAnalyticsService');
 const logger = require('../../config/logger');
@@ -91,7 +91,7 @@ const exportSchema = Joi.object({
 // --- Routes ---
 
 // 销售漏斗统计
-router.get('/sales-funnel', authenticateToken, cache(300), queryValidate(dateRangeQuerySchema), async (req, res) => {
+router.get('/sales-funnel', authenticateToken, checkPermission('report'), createCache(600, (req) => `report:sales-funnel:${req.user.userId}:${JSON.stringify(req.query)}`), queryValidate(dateRangeQuerySchema), async (req, res) => {
   try {
     const data = await reportAnalyticsService.getSalesFunnel(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });

@@ -8,6 +8,16 @@ const { checkPermission } = require('../middleware/permission');
 const pool = require('../config/database');
 const uploadRouteService = require('../services/uploadRouteService');
 const logger = require('../config/logger');
+const { validate, Joi } = require('../middleware/validate');
+
+const uploadFileSchema = Joi.object({
+  business_type: Joi.string().max(50).allow('', null),
+  business_id: Joi.number().integer().positive().allow(null)
+});
+
+const deleteAttachmentSchema = Joi.object({
+  id: Joi.number().integer().positive().required()
+});
 
 // 使用内存存储（兼容 Vercel Serverless，无本地磁盘）
 const storage = multer.memoryStorage();
@@ -75,7 +85,7 @@ const validateFileMagic = async (req, res, next) => {
 
 // 上传文件
 // [权限说明] 当前仅做认证，未绑定业务权限码；如需细控可补充 checkPermission('file:upload')
-router.post('/file', authenticateToken, upload.single('file'), validateFileMagic, async (req, res) => {
+router.post('/file', authenticateToken, upload.single('file'), validateFileMagic, validate(uploadFileSchema), async (req, res) => {
   try {
     const result = await uploadRouteService.uploadFile(pool, {
       file: req.file,
@@ -108,7 +118,7 @@ router.get('/list', authenticateToken, checkPermission('file'), async (req, res)
 });
 
 // 删除附件
-router.post('/delete', authenticateToken, checkPermission('file'), async (req, res) => {
+router.post('/delete', authenticateToken, checkPermission('file'), validate(deleteAttachmentSchema), async (req, res) => {
   try {
     await uploadRouteService.deleteAttachment(pool, req.body.id);
     res.json({ code: 200, message: '删除成功', data: null });

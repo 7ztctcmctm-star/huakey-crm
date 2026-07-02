@@ -55,6 +55,14 @@ const addReceiptSchema = Joi.object({
   remark: Joi.string().max(500).allow('', null)
 });
 
+const addPaymentSchema = Joi.object({
+  order_id: Joi.number().integer().positive().required(),
+  amount: Joi.number().precision(2).min(0.01).required(),
+  pay_method: Joi.string().max(50).allow('', null),
+  pay_date: Joi.date().iso().allow(null),
+  remark: Joi.string().max(500).allow('', null)
+});
+
 const logAction = createRouteLogger(MODULE_NAME);
 
 // 字段级权限：采购明细单价/金额仅管理员可见
@@ -131,7 +139,7 @@ router.get('/statistics', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/payment/add', authenticateToken, checkPermission('purchase:add'), async (req, res) => {
+router.post('/payment/add', authenticateToken, checkPermission('purchase:add'), validate(addPaymentSchema), async (req, res) => {
   try {
     const { order_id, amount } = req.body;
     if (!order_id || !amount) {

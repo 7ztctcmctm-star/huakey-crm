@@ -8,7 +8,7 @@ const pool = mysql.createPool({
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'huakey_crm',
   waitForConnections: true,
-  connectionLimit: 20,
+  connectionLimit: process.env.NODE_ENV === 'production' ? 50 : 20,
   queueLimit: 50,
   enableKeepAlive: true,
   keepAliveInitialDelay: 10000,

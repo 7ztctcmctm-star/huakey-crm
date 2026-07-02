@@ -4,7 +4,15 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const financeService = require('../services/financeService');
+const { validate, Joi } = require('../middleware/validate');
 const logger = require('../config/logger');
+
+const emptySchema = Joi.object({});
+
+const reconciliationSaveSchema = Joi.object({
+  recon_type: Joi.string().valid('customer', 'supplier').required(),
+  target_id: Joi.number().integer().positive().required()
+});
 
 // ============ 回款提醒 ============
 
@@ -21,7 +29,7 @@ router.get('/reminders', authenticateToken, checkPermission('finance'), async (r
 });
 
 // 生成回款提醒
-router.post('/reminders/generate', authenticateToken, checkPermission('finance'), async (req, res) => {
+router.post('/reminders/generate', authenticateToken, checkPermission('finance'), validate(emptySchema), async (req, res) => {
   try {
     const { created } = await financeService.generateReminders(pool);
     res.json({ code: 200, message: `生成完成，新增 ${created} 条提醒`, data: { created } });
@@ -32,7 +40,7 @@ router.post('/reminders/generate', authenticateToken, checkPermission('finance')
 });
 
 // 确认提醒
-router.put('/reminders/:id/acknowledge', authenticateToken, checkPermission('finance'), async (req, res) => {
+router.put('/reminders/:id/acknowledge', authenticateToken, checkPermission('finance'), validate(emptySchema), async (req, res) => {
   try {
     await financeService.acknowledgeReminder(pool, req.params.id);
     res.json({ code: 200, message: '已确认', data: null });
@@ -84,7 +92,7 @@ router.get('/reconciliation/supplier', authenticateToken, checkPermission('finan
 });
 
 // 保存对账单
-router.post('/reconciliation/save', authenticateToken, checkPermission('finance'), async (req, res) => {
+router.post('/reconciliation/save', authenticateToken, checkPermission('finance'), validate(reconciliationSaveSchema), async (req, res) => {
   try {
     const { recon_type, target_id } = req.body;
     if (!recon_type || !target_id) return res.status(400).json({ code: 400, message: '参数不完整', data: null });

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
+const { validate, Joi } = require('../middleware/validate');
 const pool = require('../config/database');
 const { readOnlyPool } = require('../config/database');
 const { chatCompletion } = require('../utils/llmClient');
@@ -12,7 +13,31 @@ if (!process.env.DB_RO_HOST) {
   console.warn('[AI] 未配置DB_RO_*环境变量，AI查询将使用主数据库账号。建议配置只读数据库账号以降低安全风险。');
 }
 
-router.post('/chat', authenticateToken, checkPermission('ai'), async (req, res) => {
+// --- Joi schemas ---
+
+const chatSchema = Joi.object({
+  messages: Joi.array().items(
+    Joi.object({
+      role: Joi.string().valid('user', 'assistant').required(),
+      content: Joi.string().allow('').required()
+    })
+  ).default([]),
+  context: Joi.string().allow('', null).optional()
+});
+
+const querySchema = Joi.object({
+  question: Joi.string().trim().min(1).max(500).required()
+});
+
+const suggestionFeedbackSchema = Joi.object({
+  id: Joi.number().integer().required(),
+  is_accepted: Joi.boolean().optional(),
+  feedback: Joi.string().allow('', null).optional().max(1000)
+});
+
+const emptySchema = Joi.object({});
+
+router.post('/chat', authenticateToken, checkPermission('ai'), validate(chatSchema), async (req, res) => {
   try {
     const { messages, context } = req.body;
 
@@ -73,7 +98,7 @@ const DB_SCHEMA = `
 - sys_email_log(邮件日志): id, to_email, subject, status(sent/failed), create_time
 `.trim();
 
-router.post('/query', authenticateToken, checkPermission('ai'), async (req, res) => {
+router.post('/query', authenticateToken, checkPermission('ai'), validate(querySchema), async (req, res) => {
   try {
     const { question } = req.body;
     if (!question) return res.status(400).json({ code: 400, message: '请输入问题', data: null });
@@ -172,7 +197,7 @@ router.get('/suggestions', authenticateToken, checkPermission('ai'), async (req,
 });
 
 // 标记建议采纳/反馈
-router.post('/suggestion/feedback', authenticateToken, checkPermission('ai'), async (req, res) => {
+router.post('/suggestion/feedback', authenticateToken, checkPermission('ai'), validate(suggestionFeedbackSchema), async (req, res) => {
   try {
     const { id, is_accepted, feedback } = req.body;
     if (!id) return res.status(400).json({ code: 400, message: '建议ID不能为空', data: null });
@@ -187,7 +212,7 @@ router.post('/suggestion/feedback', authenticateToken, checkPermission('ai'), as
 });
 
 // 生成AI建议
-router.post('/generate-suggestions', authenticateToken, checkPermission('ai'), async (req, res) => {
+router.post('/generate-suggestions', authenticateToken, checkPermission('ai'), validate(emptySchema), async (req, res) => {
   try {
     const result = await aiService.generateSuggestions(pool, req.user.userId);
     res.json({ code: 200, message: `生成完成，新增${result.created}条建议`, data: result });

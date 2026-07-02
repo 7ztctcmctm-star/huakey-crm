@@ -40,6 +40,17 @@ const followUpDeleteSchema = Joi.object({
   id: Joi.number().integer().positive().required()
 });
 
+const followUpListSchema = Joi.object({
+  customer_id: Joi.number().integer().positive().required(),
+  page: Joi.number().integer().min(1).optional(),
+  pageSize: Joi.number().integer().min(1).max(200).optional()
+});
+
+const followUpCalendarSchema = Joi.object({
+  year: Joi.number().integer().min(1900).max(2100).required(),
+  month: Joi.number().integer().min(1).max(12).required()
+});
+
 // 1. 添加跟进记录
 router.post('/add', authenticateToken, checkPermission('customer:edit'), validate(followUpAddSchema), async (req, res) => {
   try {
@@ -72,7 +83,7 @@ router.post('/batch-add', authenticateToken, checkPermission('customer:edit'), v
 });
 
 // 2. 获取客户的跟进记录列表
-router.post('/list', authenticateToken, checkPermission('followup:calendar'), checkDataPermission('followup', 'create_by'), async (req, res) => {
+router.post('/list', authenticateToken, checkPermission('followup:calendar'), checkDataPermission('followup', 'create_by'), validate(followUpListSchema), async (req, res) => {
   try {
     const { customer_id, page = 1, pageSize = 20 } = req.body;
     if (!customer_id) {
@@ -160,7 +171,7 @@ router.post('/delete', authenticateToken, checkPermission('customer:delete'), va
 });
 
 // 6. 跟进日历：获取某月的跟进记录（含下次跟进时间）
-router.post('/calendar', authenticateToken, checkPermission('followup:calendar'), checkDataPermission('followup', 'create_by'), async (req, res) => {
+router.post('/calendar', authenticateToken, checkPermission('followup:calendar'), checkDataPermission('followup', 'create_by'), validate(followUpCalendarSchema), async (req, res) => {
   try {
     const { year, month } = req.body;
     if (!year || !month) {

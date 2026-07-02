@@ -9,6 +9,28 @@ const { requireManager } = require('../middleware/admin');
 
 const scoringService = require('../services/scoringRouteService');
 const logger = require('../config/logger');
+const { validate, Joi } = require('../middleware/validate');
+
+const ruleSchema = Joi.object({
+  name: Joi.string().required().max(100),
+  condition_type: Joi.string().valid('source', 'action', 'interaction').optional(),
+  condition_field: Joi.string().max(50).allow('', null),
+  condition_operator: Joi.string().valid('eq', 'gt', 'lt', 'contains').optional(),
+  condition_value: Joi.string().max(200).allow('', null),
+  score: Joi.number().integer().required()
+});
+
+const ruleUpdateSchema = Joi.object({
+  name: Joi.string().max(100).optional(),
+  condition_type: Joi.string().valid('source', 'action', 'interaction').optional(),
+  condition_field: Joi.string().max(50).allow('', null),
+  condition_operator: Joi.string().valid('eq', 'gt', 'lt', 'contains').optional(),
+  condition_value: Joi.string().max(200).allow('', null),
+  score: Joi.number().integer().optional(),
+  status: Joi.number().integer().valid(0, 1).optional()
+});
+
+const emptySchema = Joi.object({});
 
 // 获取所有评分规则
 router.get('/rules', authenticateToken, checkPermission('scoring'), async (req, res) => {
@@ -22,7 +44,7 @@ router.get('/rules', authenticateToken, checkPermission('scoring'), async (req, 
 });
 
 // 创建评分规则
-router.post('/rules', authenticateToken, checkPermission('scoring'), requireAdmin, async (req, res) => {
+router.post('/rules', authenticateToken, checkPermission('scoring'), requireAdmin, validate(ruleSchema), async (req, res) => {
   try {
     const { name, score } = req.body;
     if (!name || !name.trim()) {
@@ -41,7 +63,7 @@ router.post('/rules', authenticateToken, checkPermission('scoring'), requireAdmi
 });
 
 // 更新评分规则
-router.put('/rules/:id', authenticateToken, checkPermission('scoring'), requireAdmin, async (req, res) => {
+router.put('/rules/:id', authenticateToken, checkPermission('scoring'), requireAdmin, validate(ruleUpdateSchema), async (req, res) => {
   try {
     const { id } = req.params;
     await scoringService.updateRule(pool, id, req.body);
@@ -68,7 +90,7 @@ router.delete('/rules/:id', authenticateToken, checkPermission('scoring'), requi
 });
 
 // 计算单个客户评分
-router.post('/calculate/:customerId', authenticateToken, checkPermission('scoring'), requireManager, async (req, res) => {
+router.post('/calculate/:customerId', authenticateToken, checkPermission('scoring'), requireManager, validate(emptySchema), async (req, res) => {
   try {
     const { customerId } = req.params;
     const data = await scoringService.calculateScore(pool, customerId);
@@ -83,7 +105,7 @@ router.post('/calculate/:customerId', authenticateToken, checkPermission('scorin
 });
 
 // 批量计算所有客户评分
-router.post('/batch-calculate', authenticateToken, checkPermission('scoring'), requireAdmin, async (req, res) => {
+router.post('/batch-calculate', authenticateToken, checkPermission('scoring'), requireAdmin, validate(emptySchema), async (req, res) => {
   try {
     const result = await scoringService.batchCalculate(pool);
     res.json({ code: 200, message: '批量评分完成', data: result });

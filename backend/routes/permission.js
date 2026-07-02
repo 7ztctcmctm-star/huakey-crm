@@ -2,11 +2,51 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { validate, Joi } = require('../middleware/validate');
 
 const requireAdmin = require('../middleware/admin');
 const { requireManager } = require('../middleware/admin');
 const permRouteService = require('../services/permissionRouteService');
 const logger = require('../config/logger');
+
+const rolePermissionUpdateSchema = Joi.object({
+  role_id: Joi.number().integer().positive().required(),
+  permission_ids: Joi.array().items(Joi.number().integer().positive()).default([])
+});
+
+const dataScopeUpdateSchema = Joi.object({
+  role_id: Joi.number().integer().positive().required(),
+  configs: Joi.array().items(Joi.object({
+    module: Joi.string().required().max(50),
+    data_scope: Joi.string().required().max(30),
+    custom_dept_ids: Joi.string().max(500).allow('', null)
+  })).default([])
+});
+
+const addPermissionSchema = Joi.object({
+  name: Joi.string().required().max(100).trim(),
+  code: Joi.string().required().max(100).trim(),
+  type: Joi.string().valid('menu', 'button', 'api').required(),
+  parent_id: Joi.number().integer().min(0).default(0),
+  path: Joi.string().max(200).allow('', null),
+  icon: Joi.string().max(100).allow('', null),
+  sort: Joi.number().integer().min(0).default(0)
+});
+
+const updatePermissionSchema = Joi.object({
+  id: Joi.number().integer().positive().required(),
+  name: Joi.string().max(100).trim(),
+  code: Joi.string().max(100).trim(),
+  type: Joi.string().valid('menu', 'button', 'api'),
+  parent_id: Joi.number().integer().min(0),
+  path: Joi.string().max(200).allow('', null),
+  icon: Joi.string().max(100).allow('', null),
+  sort: Joi.number().integer().min(0)
+});
+
+const deletePermissionSchema = Joi.object({
+  id: Joi.number().integer().positive().required()
+});
 
 // 获取当前用户权限
 // [权限说明] 个人权限查询接口，仅需认证
@@ -43,7 +83,7 @@ router.get('/role/:roleId', authenticateToken, requireManager, async (req, res) 
 });
 
 // 更新角色权限
-router.post('/role/update', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/role/update', authenticateToken, requireAdmin, validate(rolePermissionUpdateSchema), async (req, res) => {
   try {
     const { role_id, permission_ids } = req.body;
     await permRouteService.updateRolePermissions(pool, role_id, permission_ids);
@@ -66,7 +106,7 @@ router.get('/data-scope/:roleId', authenticateToken, requireManager, async (req,
 });
 
 // 更新数据权限配置
-router.post('/data-scope/update', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/data-scope/update', authenticateToken, requireAdmin, validate(dataScopeUpdateSchema), async (req, res) => {
   try {
     const { role_id, configs } = req.body;
     await permRouteService.updateDataScope(pool, role_id, configs);
@@ -78,7 +118,7 @@ router.post('/data-scope/update', authenticateToken, requireAdmin, async (req, r
 });
 
 // 新增权限节点
-router.post('/add', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/add', authenticateToken, requireAdmin, validate(addPermissionSchema), async (req, res) => {
   try {
     const result = await permRouteService.addPermission(pool, req.body);
     if (result.error) return res.status(400).json({ code: 400, message: result.error, data: null });
@@ -90,7 +130,7 @@ router.post('/add', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // 编辑权限节点
-router.post('/update-node', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/update-node', authenticateToken, requireAdmin, validate(updatePermissionSchema), async (req, res) => {
   try {
     const result = await permRouteService.updatePermission(pool, req.body);
     if (result.error) return res.status(400).json({ code: 400, message: result.error, data: null });
@@ -102,7 +142,7 @@ router.post('/update-node', authenticateToken, requireAdmin, async (req, res) =>
 });
 
 // 删除权限节点
-router.post('/delete-node', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/delete-node', authenticateToken, requireAdmin, validate(deletePermissionSchema), async (req, res) => {
   try {
     const result = await permRouteService.deletePermission(pool, req.body.id);
     if (result.error) return res.status(400).json({ code: 400, message: result.error, data: null });
