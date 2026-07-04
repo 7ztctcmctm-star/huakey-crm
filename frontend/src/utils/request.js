@@ -67,6 +67,13 @@ request.interceptors.response.use(
             break
           }
 
+          // /auth/me 失败时交给路由守卫处理，避免和守卫 next('/login') 冲突导致无限重定向
+          if (originalConfig.url === '/auth/me') {
+            localStorage.removeItem('token')
+            localStorage.removeItem('userInfo')
+            break
+          }
+
           // 避免对续期请求本身重试或排队
           if (originalConfig.url === '/auth/refresh') {
             localStorage.removeItem('token')

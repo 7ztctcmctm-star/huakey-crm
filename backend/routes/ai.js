@@ -74,10 +74,10 @@ router.post('/chat', authenticateToken, checkPermission('ai'), validate(chatSche
 router.get('/status', authenticateToken, checkPermission('ai'), async (req, res) => {
   try {
     const status = await aiService.getAiStatus(pool);
-    res.json({ code: 200, data: status });
+    res.json({ code: 200, message: 'success', data: status });
   } catch (error) {
     logger.error('[AI助手] 获取状态失败:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.json({ code: 200, data: { online: false, provider: 'unknown', model: '', models: [] } });
+    res.json({ code: 200, message: 'success', data: { online: false, provider: 'unknown', model: '', models: [] } });
   }
 });
 
@@ -123,7 +123,7 @@ router.post('/query', authenticateToken, checkPermission('ai'), validate(querySc
 
     // 白名单安全校验：禁止多条语句（分号分隔）
     if ((sql.match(/;/g) || []).length > 0) {
-      return res.json({ code: 200, data: { sql: '', answer: '不支持多条语句。', rows: [] } });
+      return res.json({ code: 200, message: 'success', data: { sql: '', answer: '不支持多条语句。', rows: [] } });
     }
     // 现在去掉分号
     sql = sql.replace(/;/g, '').trim();
@@ -134,19 +134,19 @@ router.post('/query', authenticateToken, checkPermission('ai'), validate(querySc
       sql = match ? match[0] : '';
     }
     if (!sql || !sql.toUpperCase().startsWith('SELECT')) {
-      return res.json({ code: 200, data: { sql: '', answer: '抱歉，无法理解该问题，请换个问法。', rows: [] } });
+      return res.json({ code: 200, message: 'success', data: { sql: '', answer: '抱歉，无法理解该问题，请换个问法。', rows: [] } });
     }
 
     // 禁止危险操作和信息泄露
     const blocked = /\b(UNION|INTO\s+(OUTFILE|DUMPFILE)|LOAD\s+DATA|INFORMATION_SCHEMA|SLEEP|BENCHMARK|WAITFOR\s+DELAY|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE)\b/i;
     if (blocked.test(sql)) {
-      return res.json({ code: 200, data: { sql: '', answer: '此操作不被允许（仅支持查询）。', rows: [] } });
+      return res.json({ code: 200, message: 'success', data: { sql: '', answer: '此操作不被允许（仅支持查询）。', rows: [] } });
     }
 
     // 禁止查询系统敏感表
     const sensitiveTables = /\b(sys_user|sys_role|sys_permission|sys_config|sys_backup_record)\b/i;
     if (sensitiveTables.test(sql)) {
-      return res.json({ code: 200, data: { sql: '', answer: '不允许查询系统表。', rows: [] } });
+      return res.json({ code: 200, message: 'success', data: { sql: '', answer: '不允许查询系统表。', rows: [] } });
     }
 
     // 第二步：执行 SQL（使用只读连接池）
@@ -158,11 +158,11 @@ router.post('/query', authenticateToken, checkPermission('ai'), validate(querySc
       rows = await aiService.executeReadOnlyQuery(readOnlyPool, safeSql);
     } catch (dbError) {
       logger.error('[AI查询] SQL执行失败:', { sql: sql, error: dbError.message, traceId: req.traceId || 'N/A' });
-      return res.json({ code: 200, data: { sql, answer: '生成的SQL有误，请换个问法。', rows: [] } });
+      return res.json({ code: 200, message: 'success', data: { sql, answer: '生成的SQL有误，请换个问法。', rows: [] } });
     }
 
     if (!rows || rows.length === 0) {
-      return res.json({ code: 200, data: { sql, answer: '查询结果为空。', rows: [] } });
+      return res.json({ code: 200, message: 'success', data: { sql, answer: '查询结果为空。', rows: [] } });
     }
 
     // 第三步：AI 格式化结果
@@ -178,7 +178,7 @@ router.post('/query', authenticateToken, checkPermission('ai'), validate(querySc
       system: '将以下查询结果用简洁中文总结，不超过200字。'
     })) || '查询完成';
 
-    res.json({ code: 200, data: { sql, answer, rows: rows.slice(0, 20), total: rows.length } });
+    res.json({ code: 200, message: 'success', data: { sql, answer, rows: rows.slice(0, 20), total: rows.length } });
   } catch (error) {
     const msg = error.name === 'TimeoutError' ? '查询超时' : 'AI调用失败';
     res.status(503).json({ code: 503, message: msg, data: null });

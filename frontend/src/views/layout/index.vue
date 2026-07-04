@@ -3,7 +3,7 @@
     <!-- 左侧边栏 -->
     <Sidebar :is-collapse="isCollapse" :user-info="userInfo" />
 
-    <el-container>
+    <el-container direction="vertical">
       <!-- 顶部栏 -->
       <HeaderBar
         :is-collapse="isCollapse"

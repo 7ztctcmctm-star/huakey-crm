@@ -115,7 +115,7 @@ const refreshSchema = Joi.object({});
 // 0. 获取验证码
 router.get('/captcha', (req, res) => {
   const { key, svg } = authService.getCaptcha();
-  res.json({ code: 200, data: { key, svg } });
+  res.json({ code: 200, message: 'success', data: { key, svg } });
 });
 
 // 本地开发环境跳过验证码（前置中间件，必须在JOI校验之前）
@@ -199,16 +199,22 @@ router.post('/login', validate(loginSchema), async (req, res) => {
 
 // 2. 登出接口
 router.post('/logout', validate(logoutSchema), async (req, res) => {
-  const ip = getIpAddress(req);
-  const token = getTokenFromRequest(req);
+  try {
+    const ip = getIpAddress(req);
+    const token = getTokenFromRequest(req);
 
-  const { userId, username } = await authService.logout(pool, token);
-  if (userId) {
-    logAction({
-      module: '系统管理', action: '登出', method: 'POST', url: '/api/auth/logout',
-      params: null, ipAddress: ip, userId, userName: username,
-      description: `${username} 登出成功`, status: 1
-    });
+    const { userId, username } = await authService.logout(pool, token);
+    if (userId) {
+      logAction({
+        module: '系统管理', action: '登出', method: 'POST', url: '/api/auth/logout',
+        params: null, ipAddress: ip, userId, userName: username,
+        description: `${username} 登出成功`, status: 1
+      });
+    }
+  } catch (error) {
+    // logout 的数据库操作失败不影响清除 cookie 和返回成功
+    // 用户端应始终能正常登出
+    logger.error('[认证] 登出记录失败（已忽略）:', { error: error.message, traceId: req.traceId || 'N/A' });
   }
 
   res.clearCookie('token', {
