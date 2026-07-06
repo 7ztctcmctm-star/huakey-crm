@@ -7,6 +7,211 @@ const { validate, Joi } = require('../middleware/validate');
 const approvalService = require('../services/approvalService');
 const logger = require('../config/logger');
 
+/**
+ * @swagger
+ * tags:
+ *   - name: 审批管理
+ *     description: 审批提交、通过、驳回、撤回、详情、待办与已提交列表
+ *
+ * /api/approval/submit:
+ *   post:
+ *     summary: 提交审批
+ *     tags: [审批管理]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [business_type, business_id]
+ *             properties:
+ *               business_type: { type: string, enum: [quote, contract, purchase, discount] }
+ *               business_id: { type: integer, example: 1 }
+ *     responses:
+ *       200:
+ *         description: 已提交审批
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误或业务类型和ID不能为空 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/approval/approve/{id}:
+ *   post:
+ *     summary: 审批通过
+ *     tags: [审批管理]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               remark: { type: string, maxLength: 500 }
+ *     responses:
+ *       200:
+ *         description: 审批通过
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限审批 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/approval/reject/{id}:
+ *   post:
+ *     summary: 审批驳回
+ *     tags: [审批管理]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               remark: { type: string, maxLength: 500 }
+ *     responses:
+ *       200:
+ *         description: 已驳回
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限审批 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/approval/withdraw/{business_type}/{business_id}:
+ *   delete:
+ *     summary: 撤回审批
+ *     tags: [审批管理]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: business_type
+ *         required: true
+ *         schema: { type: string, enum: [quote, contract, purchase, discount] }
+ *       - in: path
+ *         name: business_id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 审批已撤回
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限撤回 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/approval/detail/{business_type}/{business_id}:
+ *   get:
+ *     summary: 获取审批详情
+ *     tags: [审批管理]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: business_type
+ *         required: true
+ *         schema: { type: string, enum: [quote, contract, purchase, discount] }
+ *       - in: path
+ *         name: business_id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 审批详情
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/approval/my-pending:
+ *   get:
+ *     summary: 我的待审批列表
+ *     tags: [审批管理]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: 待审批列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: array, items: { type: object } }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/approval/my-submitted:
+ *   get:
+ *     summary: 我提交的审批列表
+ *     tags: [审批管理]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: 已提交审批列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: array, items: { type: object } }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ */
+
 // --- Joi schemas ---
 
 const createWorkflowSchema = Joi.object({

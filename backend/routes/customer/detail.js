@@ -85,33 +85,90 @@ const router = express.Router();
  *   - name: 客户管理
  *     description: 客户 CRUD、详情、联系方式
  *
- * /api/customer:
- *   get:
+ * /api/customer/list:
+ *   post:
  *     summary: 获取客户列表（分页 + 搜索）
  *     tags: [客户管理]
- *     parameters:
- *       - in: query
- *         name: page
- *         schema: { type: integer, default: 1 }
- *       - in: query
- *         name: pageSize
- *         schema: { type: integer, default: 20 }
- *       - in: query
- *         name: keyword
- *         schema: { type: string }
- *         description: 搜索关键词（客户名称/电话/联系人）
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               page: { type: integer, example: 1 }
+ *               pageSize: { type: integer, example: 20 }
+ *               company_name: { type: string }
+ *               contact_name: { type: string }
+ *               phone: { type: string }
+ *               source: { type: string }
+ *               level: { type: string, enum: [A, B, C] }
+ *               status: { type: integer, enum: [0, 1, 2, 3, 5] }
+ *               customer_type: { type: string, enum: [prospect, customer] }
+ *               owner_id: { type: integer }
  *     responses:
  *       200:
  *         description: 客户列表
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/ApiResponse'
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     list: { type: array, items: { type: object } }
+ *                     total: { type: integer }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
  *
- * /api/customer/{id}:
+ * /api/customer/add:
+ *   post:
+ *     summary: 新增客户
+ *     tags: [客户管理]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [company_name]
+ *             properties:
+ *               company_name: { type: string, example: 铧旗科技 }
+ *               contact_name: { type: string }
+ *               phone: { type: string }
+ *               email: { type: string }
+ *               address: { type: string }
+ *               industry: { type: string }
+ *               source: { type: string }
+ *               level: { type: string, enum: [A, B, C], default: C }
+ *               remark: { type: string }
+ *     responses:
+ *       200:
+ *         description: 创建成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/customer/detail/{id}:
  *   get:
  *     summary: 获取客户详情
  *     tags: [客户管理]
+ *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: path
  *         name: id
@@ -120,8 +177,10 @@ const router = express.Router();
  *     responses:
  *       200:
  *         description: 客户详情（含联系人、商机、跟进记录）
- *       404:
- *         description: 客户不存在
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       404: { description: 客户不存在 }
+ *       500: { description: 服务器内部错误 }
  */
 
 // 1. 获取客户列表（复用 customerService）

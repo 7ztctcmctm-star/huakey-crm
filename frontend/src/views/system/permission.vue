@@ -73,7 +73,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import request from '@/utils/request'
-import { getPermissionList, deletePermissionNode, savePermission } from '@/api/system'
+import { getPermissionList, deletePermissionNode, savePermission, updatePermission } from '@/api/system'
 
 const loading = ref(false)
 const treeData = ref([])
@@ -138,9 +138,8 @@ const handleSubmit = async () => {
     if (!valid) return
     submitLoading.value = true
     try {
-      const url = isEdit.value ? '/permission/update-node' : '/permission/add'
       const payload = isEdit.value ? { id: editId.value, ...form } : { ...form }
-      const res = await savePermission(payload)
+      const res = isEdit.value ? await updatePermission(payload) : await savePermission(payload)
       if (res.code === 200) {
         ElMessage.success(isEdit.value ? '修改成功' : '新增成功')
         dialogVisible.value = false

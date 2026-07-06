@@ -8,6 +8,181 @@ const { validate, Joi } = require('../middleware/validate');
 const hrService = require('../services/hrService');
 const logger = require('../config/logger');
 
+/**
+ * @swagger
+ * tags:
+ *   - name: 员工管理
+ *     description: 员工列表、详情、档案维护（创建/更新）、薪资、统计
+ *
+ * /api/hr/employees:
+ *   get:
+ *     summary: 获取员工列表（需管理者权限）
+ *     tags: [员工管理]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: dept_id
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: status
+ *         schema: { type: string }
+ *       - in: query
+ *         name: keyword
+ *         schema: { type: string }
+ *       - in: query
+ *         name: contract_expiring
+ *         schema: { type: string }
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: pageSize
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 员工列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     list: { type: array, items: { type: object } }
+ *                     total: { type: integer }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问（需管理者） }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/hr/employees/{id}:
+ *   get:
+ *     summary: 获取员工详情
+ *     tags: [员工管理]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 员工详情
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问（需管理者） }
+ *       404: { description: 员工不存在 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/hr/employees/{id}/profile:
+ *   post:
+ *     summary: 创建/更新员工档案
+ *     tags: [员工管理]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               gender: { type: string }
+ *               birth_date: { type: string }
+ *               id_card: { type: string }
+ *               hire_date: { type: string }
+ *               leave_date: { type: string }
+ *               position: { type: string }
+ *               employment_type: { type: string }
+ *               contract_start: { type: string }
+ *               contract_end: { type: string }
+ *               salary_base: { type: number, minimum: 0 }
+ *               salary_commission_rate: { type: number, minimum: 0 }
+ *               bank_name: { type: string }
+ *               bank_account: { type: string }
+ *               emergency_contact: { type: string }
+ *               emergency_phone: { type: string }
+ *               address: { type: string }
+ *               education: { type: string }
+ *               university: { type: string }
+ *               major: { type: string }
+ *               remark: { type: string }
+ *     responses:
+ *       200:
+ *         description: 保存成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误或没有要更新的字段 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问（需管理者） }
+ *       404: { description: 员工不存在 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/hr/employees/stats:
+ *   get:
+ *     summary: 员工统计
+ *     tags: [员工管理]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: 员工统计数据
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问（需管理者） }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/hr/employees/{id}/salary:
+ *   get:
+ *     summary: 获取员工薪资信息（仅管理员）
+ *     tags: [员工管理]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 员工薪资信息
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问（需管理者） }
+ *       500: { description: 服务器内部错误 }
+ */
+
 const employeeProfileSchema = Joi.object({
   gender: Joi.string().max(20).allow('', null),
   birth_date: Joi.string().max(20).allow('', null),

@@ -3,6 +3,7 @@
  * 记录每个 cron 任务的执行情况到 sys_cron_log 表
  */
 
+const logger = require('../config/logger');
 const pool = require('../config/database');
 
 /**
@@ -25,7 +26,7 @@ async function createSysCronLogTable() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='定时任务执行日志'
     `);
   } catch (error) {
-    console.error('[CronLogger] 创建 sys_cron_log 表失败:', error.message);
+    logger.error('[CronLogger] 创建 sys_cron_log 表失败:', error.message);
   }
 }
 
@@ -45,7 +46,7 @@ async function logCronRun(jobName, startTime, endTime, status, errorMsg = null) 
       [jobName, startTime, endTime, status, errorMsg ? errorMsg.substring(0, 2000) : null]
     );
   } catch (error) {
-    console.error(`[CronLogger] 记录任务 ${jobName} 失败:`, error.message);
+    logger.error(`[CronLogger] 记录任务 ${jobName} 失败:`, error.message);
   }
 }
 

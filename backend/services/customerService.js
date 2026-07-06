@@ -3,6 +3,7 @@
  * 从 routes/customer/ 提取的业务逻辑，供路由层复用
  */
 const { CUSTOMER_STATUS } = require('../constants/customer');
+const { paginatedQuery } = require('../utils/pagination');
 
 // 客户来源白名单
 const VALID_SOURCES = [
@@ -80,7 +81,6 @@ async function listCustomers(pool, params = {}, permission = null) {
     sort
   } = params;
 
-  const offset = (page - 1) * pageSize;
   const queryParams = [];
 
   // 数据权限
@@ -165,19 +165,12 @@ async function listCustomers(pool, params = {}, permission = null) {
     queryParams.push(tag_id);
   }
 
-  // 计数
-  const [countResult] = await pool.query(
-    `SELECT COUNT(*) as total FROM crm_customer c ${whereClause}`,
-    queryParams
-  );
-  const total = countResult[0].total;
-
   // 排序
   const orderBy = SORT_MAP[sort] || 'c.create_time DESC';
 
-  // 查询
-  const [list] = await pool.query(
-    `SELECT
+  // 分页查询
+  const { list, total } = await paginatedQuery(pool, {
+    baseQuery: `SELECT
       c.id, c.company_name, c.contact_name, c.phone, c.email,
       c.address, c.industry, c.source, c.level,
       c.owner_id, c.status, c.customer_type, c.lifecycle_status, c.remark, c.create_time, c.update_time,
@@ -186,11 +179,13 @@ async function listCustomers(pool, params = {}, permission = null) {
       u.real_name as owner_name
     FROM crm_customer c
     LEFT JOIN sys_user u ON c.owner_id = u.id
-    ${whereClause}
-    ORDER BY ${orderBy}
-    LIMIT ? OFFSET ?`,
-    [...queryParams, parseInt(pageSize), parseInt(offset)]
-  );
+    ${whereClause}`,
+    countQuery: `SELECT COUNT(*) as total FROM crm_customer c ${whereClause}`,
+    params: queryParams,
+    page,
+    pageSize,
+    orderBy
+  });
 
   // 批量获取标签
   const customerIds = list.map(c => c.id);

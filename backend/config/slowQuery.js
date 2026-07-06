@@ -11,46 +11,61 @@
  */
 
 const pool = require('./database');
+const { readOnlyPool } = require('./database');
 const logger = require('./logger');
 
 const SLOW_QUERY_THRESHOLD = parseInt(process.env.SLOW_QUERY_THRESHOLD_MS, 10) || 1000;
 
-// 保存原始 query 方法（bind 到 pool 上保持 this 正确）
-const _originalQuery = pool.query.bind(pool);
-
 /**
- * 替换 pool.query，自动记录耗时并标记慢查询
- * @param {string|object} sql - SQL 语句
- * @param {Array} [params] - SQL 参数
- * @returns {Promise} 与原始 pool.query 一致
+ * 替换目标连接池的 query 方法，自动记录耗时并标记慢查询
+ * @param {object} targetPool - mysql2/promise 连接池实例
+ * @param {string} poolName - 连接池名称，用于日志区分
  */
-pool.query = async function (sql, params) {
-  const start = Date.now();
-  try {
-    const result = await _originalQuery(sql, params);
-    const duration = Date.now() - start;
-    if (duration >= SLOW_QUERY_THRESHOLD) {
-      logger.warn('Slow query detected', {
-        sql: typeof sql === 'string' ? sql.slice(0, 200) : JSON.stringify(sql).slice(0, 200),
-        params: JSON.stringify(params).slice(0, 200),
-        durationMs: duration,
-        thresholdMs: SLOW_QUERY_THRESHOLD
-      });
+function interceptSlowQuery(targetPool, poolName) {
+  // 保存原始 query 方法（bind 到 pool 上保持 this 正确）
+  const _originalQuery = targetPool.query.bind(targetPool);
+
+  /**
+   * 替换 targetPool.query，自动记录耗时并标记慢查询
+   * @param {string|object} sql - SQL 语句
+   * @param {Array} [params] - SQL 参数
+   * @returns {Promise} 与原始 query 一致
+   */
+  targetPool.query = async function (sql, params) {
+    const start = Date.now();
+    try {
+      const result = await _originalQuery(sql, params);
+      const duration = Date.now() - start;
+      if (duration >= SLOW_QUERY_THRESHOLD) {
+        logger.warn('Slow query detected', {
+          pool: poolName,
+          sql: typeof sql === 'string' ? sql.slice(0, 200) : JSON.stringify(sql).slice(0, 200),
+          params: JSON.stringify(params).slice(0, 200),
+          durationMs: duration,
+          thresholdMs: SLOW_QUERY_THRESHOLD
+        });
+      }
+      return result;
+    } catch (err) {
+      const duration = Date.now() - start;
+      // 失败也记录慢查询（排除快速失败的情况）
+      if (duration >= SLOW_QUERY_THRESHOLD) {
+        logger.warn('Slow query failed', {
+          pool: poolName,
+          sql: typeof sql === 'string' ? sql.slice(0, 200) : JSON.stringify(sql).slice(0, 200),
+          params: JSON.stringify(params).slice(0, 200),
+          durationMs: duration,
+          error: err.message
+        });
+      }
+      throw err;
     }
-    return result;
-  } catch (err) {
-    const duration = Date.now() - start;
-    // 失败也记录慢查询（排除快速失败的情况）
-    if (duration >= SLOW_QUERY_THRESHOLD) {
-      logger.warn('Slow query failed', {
-        sql: typeof sql === 'string' ? sql.slice(0, 200) : JSON.stringify(sql).slice(0, 200),
-        params: JSON.stringify(params).slice(0, 200),
-        durationMs: duration,
-        error: err.message
-      });
-    }
-    throw err;
-  }
-};
+  };
+}
+
+interceptSlowQuery(pool, 'pool');
+if (readOnlyPool && readOnlyPool !== pool) {
+  interceptSlowQuery(readOnlyPool, 'readOnlyPool');
+}
 
 module.exports = { enableSlowQueryLog: () => {} }; // 无操作占位，保持接口一致

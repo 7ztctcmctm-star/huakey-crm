@@ -8,43 +8,86 @@ const router = express.Router();
  *     description: 合同 CRUD、审批、回款、导出
  *
  * /api/contract/list:
- *   get:
- *     summary: 获取合同列表
- *     tags: [合同管理]
- *     parameters:
- *       - in: query
- *         name: page
- *         schema: { type: integer, default: 1 }
- *       - in: query
- *         name: pageSize
- *         schema: { type: integer, default: 20 }
- *       - in: query
- *         name: status
- *         schema: { type: string, description: '执行中/已完结/已终止' }
- *     responses:
- *       200:
- *         description: 合同列表
- *
- * /api/contract:
  *   post:
- *     summary: 新建合同
+ *     summary: 获取合同列表（分页 + 筛选）
  *     tags: [合同管理]
+ *     security: [{ bearerAuth: [] }]
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required: [customer_id, name, amount]
  *             properties:
+ *               page: { type: integer, example: 1 }
+ *               pageSize: { type: integer, example: 20 }
+ *               keyword: { type: string }
+ *               status: { type: integer, enum: [1, 2, 3, 4], description: '1=执行中 2=已完结 3=已终止 4=待审批' }
  *               customer_id: { type: integer }
- *               name: { type: string, example: 年度服务合同 }
+ *               approval_status: { type: integer, enum: [1, 2, 3] }
+ *               payment_status: { type: string, enum: [overdue, partial, completed, pending] }
+ *     responses:
+ *       200:
+ *         description: 合同列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     list: { type: array, items: { type: object } }
+ *                     total: { type: integer }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/contract/add:
+ *   post:
+ *     summary: 新建合同
+ *     tags: [合同管理]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [customer_id, amount]
+ *             properties:
+ *               customer_id: { type: integer, example: 1 }
+ *               opportunity_id: { type: integer }
  *               amount: { type: number, example: 100000 }
- *               start_date: { type: string, format: date }
- *               end_date: { type: string, format: date }
+ *               sign_date: { type: string, format: date }
+ *               delivery_date: { type: string, format: date }
+ *               payment_terms: { type: string }
+ *               remark: { type: string }
+ *               plans:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     plan_date: { type: string, format: date }
+ *                     plan_amount: { type: number }
+ *                     remark: { type: string }
  *     responses:
  *       200:
  *         description: 创建成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
  */
 const { authenticateToken } = require('../../middleware/auth');
 const { checkPermission, checkDataPermission, checkFieldPermission } = require('../../middleware/permission');

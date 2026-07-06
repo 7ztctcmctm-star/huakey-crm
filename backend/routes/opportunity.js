@@ -16,24 +16,43 @@ const router = express.Router();
  *   post:
  *     summary: 获取商机列表（分页 + 筛选）
  *     tags: [商机管理]
+ *     security: [{ bearerAuth: [] }]
  *     requestBody:
+ *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
  *             properties:
- *               page: { type: integer, default: 1 }
- *               pageSize: { type: integer, default: 10 }
+ *               page: { type: integer, example: 1 }
+ *               pageSize: { type: integer, example: 20 }
  *               keyword: { type: string }
  *               stage: { type: integer, enum: [1, 2, 3, 4, 5, 6], description: '1=初步接洽 2=需求分析 3=方案报价 4=谈判 5=成交 6=丢单' }
+ *               customer_id: { type: integer }
  *     responses:
  *       200:
  *         description: 商机列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     list: { type: array, items: { type: object } }
+ *                     total: { type: integer }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
  *
- * /api/opportunity:
+ * /api/opportunity/add:
  *   post:
  *     summary: 新增商机
  *     tags: [商机管理]
+ *     security: [{ bearerAuth: [] }]
  *     requestBody:
  *       required: true
  *       content:
@@ -46,10 +65,25 @@ const router = express.Router();
  *               customer_id: { type: integer, example: 1 }
  *               expected_amount: { type: number, example: 50000 }
  *               expected_date: { type: string, format: date }
- *               stage: { type: integer, default: 1 }
+ *               stage: { type: integer, enum: [1, 2, 3, 4, 5, 6], default: 1 }
+ *               win_rate: { type: integer, minimum: 0, maximum: 100 }
+ *               remark: { type: string }
+ *               owner_id: { type: integer }
  *     responses:
  *       200:
  *         description: 创建成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
  */
 
 const opportunityListSchema = Joi.object({

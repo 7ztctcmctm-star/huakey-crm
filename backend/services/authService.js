@@ -16,13 +16,15 @@ const PASSWORD_MESSAGE = '密码至少8位，需包含大写字母、小写字�
 // 验证码存储（key: captcha_key, value: {code, expires}）
 const captchaStore = new Map();
 
-// 定期清洗过期验证码（每5分钟）
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, val] of captchaStore) {
-    if (val.expires < now) captchaStore.delete(key);
-  }
-}, 5 * 60 * 1000);
+// 定期清洗过期验证码（每5分钟）；测试环境不启动，避免 Jest worker 无法优雅退出
+if (!process.env.JEST_WORKER_ID) {
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, val] of captchaStore) {
+      if (val.expires < now) captchaStore.delete(key);
+    }
+  }, 5 * 60 * 1000);
+}
 
 /**
  * 生成验证码

@@ -34,35 +34,40 @@ async function getOverview(pool, userId, roleId) {
     pool.query(`
       SELECT COALESCE(SUM(amount), 0) as amount
       FROM crm_contract
-      WHERE sign_date >= DATE_FORMAT(NOW(), '%Y-%m-01') AND sign_date < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH ${contractFilter}
+      WHERE deleted_at IS NULL
+        AND sign_date >= DATE_FORMAT(NOW(), '%Y-%m-01') AND sign_date < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH ${contractFilter}
     `, params),
     pool.query(`
       SELECT COUNT(*) as count
       FROM crm_customer
-      WHERE create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH ${customerFilter}
+      WHERE deleted_at IS NULL
+        AND create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH ${customerFilter}
     `, params),
     pool.query(`
       SELECT COUNT(*) as count
       FROM crm_contract
-      WHERE create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH ${contractFilter}
+      WHERE deleted_at IS NULL
+        AND create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH ${contractFilter}
     `, params),
     pool.query(`
       SELECT COALESCE(SUM(p.pay_amount), 0) as amount
       FROM crm_payment p
-      LEFT JOIN crm_contract c ON p.contract_id = c.id
-      WHERE p.pay_date >= DATE_FORMAT(NOW(), '%Y-%m-01') AND p.pay_date < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH ${isAdmin ? '' : ' AND c.create_by = ?'}
+      LEFT JOIN crm_contract c ON p.contract_id = c.id AND c.deleted_at IS NULL
+      WHERE p.deleted_at IS NULL
+        AND p.pay_date >= DATE_FORMAT(NOW(), '%Y-%m-01') AND p.pay_date < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH ${isAdmin ? '' : ' AND c.create_by = ?'}
     `, isAdmin ? [] : [userId]),
     pool.query(`
       SELECT COALESCE(SUM(expected_amount), 0) as amount
       FROM crm_opportunity
-      WHERE stage NOT IN (5, 6) ${isAdmin ? '' : ' AND owner_id = ?'}
+      WHERE deleted_at IS NULL
+        AND stage NOT IN (5, 6) ${isAdmin ? '' : ' AND owner_id = ?'}
     `, isAdmin ? [] : [userId]),
     pool.query(
-      `SELECT COUNT(*) as count FROM crm_customer WHERE create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH AND status = 1 ${customerFilter}`,
+      `SELECT COUNT(*) as count FROM crm_customer WHERE deleted_at IS NULL AND create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH AND status = 1 ${customerFilter}`,
       params
     ),
     pool.query(
-      `SELECT COUNT(*) as count FROM crm_customer WHERE converted_at >= NOW() - INTERVAL 30 DAY ${customerFilter}`,
+      `SELECT COUNT(*) as count FROM crm_customer WHERE deleted_at IS NULL AND converted_at >= NOW() - INTERVAL 30 DAY ${customerFilter}`,
       isAdmin ? [] : [userId]
     )
   ]);
@@ -95,7 +100,8 @@ async function getTodayTasks(pool, userId, roleId) {
            cu.company_name
     FROM crm_follow_up f
     LEFT JOIN crm_customer cu ON f.customer_id = cu.id AND cu.deleted_at IS NULL
-    WHERE ${followFilter}
+    WHERE f.deleted_at IS NULL
+      AND ${followFilter}
       AND f.next_time IS NOT NULL
       AND DATE(f.next_time) = CURRENT_DATE
     ORDER BY f.next_time ASC
@@ -105,7 +111,8 @@ async function getTodayTasks(pool, userId, roleId) {
   const [followTotal] = await pool.query(`
     SELECT COUNT(*) as total
     FROM crm_follow_up f
-    WHERE ${followFilter}
+    WHERE f.deleted_at IS NULL
+      AND ${followFilter}
       AND f.next_time IS NOT NULL
       AND DATE(f.next_time) = CURRENT_DATE
   `, followParams);
@@ -151,7 +158,7 @@ async function getQuickStats(pool, userId, roleId) {
   `, isAdmin ? [] : [userId]);
 
   const [pendingContract] = await pool.query(`
-    SELECT COUNT(*) as count FROM crm_contract WHERE status = 1 ${isAdmin ? '' : ' AND create_by = ?'}
+    SELECT COUNT(*) as count FROM crm_contract WHERE deleted_at IS NULL AND status = 1 ${isAdmin ? '' : ' AND create_by = ?'}
   `, isAdmin ? [] : [userId]);
 
   const [pendingPayment] = await pool.query(`

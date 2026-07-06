@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const { fileTypeFromBuffer } = require('file-type');
+const { fromBuffer } = require('file-type');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const pool = require('../config/database');
@@ -69,7 +69,7 @@ const validateFileMagic = async (req, res, next) => {
   const allowedMimes = ALLOWED_MIME_TYPES[ext];
 
   try {
-    const type = await fileTypeFromBuffer(file.buffer.slice(0, 4100));
+    const type = await fromBuffer(file.buffer.slice(0, 4100));
     if (!type) {
       return res.status(400).json({ code: 400, message: '无法识别文件类型', data: null });
     }

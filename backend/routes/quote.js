@@ -6,6 +6,256 @@ const { validate, Joi } = require('../middleware/validate');
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * tags:
+ *   - name: 报价管理
+ *     description: 报价单列表、创建、修改、删除、详情、转合同、审批
+ *
+ * /api/quote/list:
+ *   post:
+ *     summary: 获取报价单列表
+ *     tags: [报价管理]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               page: { type: integer, example: 1 }
+ *               pageSize: { type: integer, example: 20 }
+ *               quote_no: { type: string }
+ *               customer_name: { type: string }
+ *               status: { type: integer, enum: [1, 2, 3, 4] }
+ *               approval_status: { type: integer, enum: [1, 2, 3] }
+ *     responses:
+ *       200:
+ *         description: 报价单列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     list: { type: array, items: { type: object } }
+ *                     total: { type: integer }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/quote/add:
+ *   post:
+ *     summary: 创建报价单
+ *     tags: [报价管理]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               customer_id: { type: integer }
+ *               opportunity_id: { type: integer }
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     product_id: { type: integer }
+ *                     quantity: { type: integer, minimum: 1 }
+ *                     unit_price: { type: number, minimum: 0 }
+ *                     remark: { type: string }
+ *               discount: { type: number, minimum: 0, maximum: 1 }
+ *               valid_days: { type: integer, minimum: 1 }
+ *               remark: { type: string }
+ *               currency: { type: string }
+ *               exchange_rate: { type: number, minimum: 0 }
+ *     responses:
+ *       200:
+ *         description: 创建成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/quote/detail/{id}:
+ *   get:
+ *     summary: 获取报价单详情
+ *     tags: [报价管理]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 报价单详情
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       404: { description: 报价单不存在 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/quote/update:
+ *   post:
+ *     summary: 修改报价单
+ *     tags: [报价管理]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [id]
+ *             properties:
+ *               id: { type: integer, example: 1 }
+ *               customer_id: { type: integer }
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     product_id: { type: integer }
+ *                     quantity: { type: integer, minimum: 1 }
+ *                     unit_price: { type: number, minimum: 0 }
+ *                     remark: { type: string }
+ *               discount: { type: number, minimum: 0, maximum: 1 }
+ *               valid_days: { type: integer, minimum: 1 }
+ *               remark: { type: string }
+ *               status: { type: integer, enum: [1, 2, 3, 4] }
+ *     responses:
+ *       200:
+ *         description: 修改成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/quote/delete:
+ *   post:
+ *     summary: 删除报价单
+ *     tags: [报价管理]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [id]
+ *             properties:
+ *               id: { type: integer, example: 1 }
+ *     responses:
+ *       200:
+ *         description: 删除成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/quote/to-contract:
+ *   post:
+ *     summary: 报价单转合同
+ *     tags: [报价管理]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [id]
+ *             properties:
+ *               id: { type: integer, example: 1 }
+ *     responses:
+ *       200:
+ *         description: 转合同成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误或报价单状态不允许转换 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/quote/approve:
+ *   post:
+ *     summary: 审批报价单（仅管理员）
+ *     tags: [报价管理]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [id, approval_status]
+ *             properties:
+ *               id: { type: integer, example: 1 }
+ *               approval_status: { type: integer, enum: [2, 3], description: '2=通过,3=驳回' }
+ *               approval_remark: { type: string }
+ *     responses:
+ *       200:
+ *         description: 审批完成
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限审批 }
+ *       500: { description: 服务器内部错误 }
+ */
+
 // Joi schemas
 const quoteItemSchema = Joi.object({
   product_id: Joi.number().integer().positive().required(),

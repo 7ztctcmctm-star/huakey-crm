@@ -172,44 +172,46 @@ describe('人事全流程 - 端到端流程', () => {
     }
   });
 
-  // Step 5: 提交请假审批
-  it('Step 5: POST /api/v1/approval/submit — 提交请假审批', async () => {
-    // 审批提交流程：6 次 pool.query
+  // Step 5: 提交报价审批
+  it('Step 5: POST /api/v1/approval/submit — 提交报价审批', async () => {
+    // submitApproval 调用链：4 pool.query + 2 conn.query
     mockPool.query
-      .mockResolvedValueOnce([[{ id: 1, approval_status: 0 }]])                        // 业务记录验证
-      .mockResolvedValueOnce([[{ id: 2, type: 'leave', status: 1 }]])                   // 查审批流程
-      .mockResolvedValueOnce([[{ id: 2, step_order: 1, approver_type: 'manager', approver_id: null }]]) // 第一步
-      .mockResolvedValueOnce([[{ manager_id: 1 }]])                                      // 查上级
-      .mockResolvedValueOnce([{ insertId: 40 }])                                         // INSERT 审批记录
-      .mockResolvedValueOnce([{ affectedRows: 1 }]);                                     // UPDATE approval_status
+      .mockResolvedValueOnce([[{ id: 1, approval_status: 0 }]])                         // pool[0]: 业务记录
+      .mockResolvedValueOnce([[{ discount: null }]])                                     // pool[1]: discount 查询（null → 不走 discount 类型）
+      .mockResolvedValueOnce([[{ id: 2, type: 'quote', status: 1 }]])                   // pool[2]: 审批流程
+      .mockResolvedValueOnce([[{ id: 3, step_order: 1, approver_type: 'user', approver_id: 1 }]]); // pool[3]: 第一步
+
+    mockConn.query
+      .mockResolvedValueOnce([{ insertId: 40 }])                                         // conn[0]: INSERT 审批记录
+      .mockResolvedValueOnce([{ affectedRows: 1 }]);                                     // conn[1]: UPDATE crm_quote
 
     const res = await request(app)
       .post('/api/v1/approval/submit')
       .set('Authorization', `Bearer ${token}`)
-      .send({ business_type: 'leave', business_id: 1 });
+      .send({ business_type: 'quote', business_id: 1 });
 
-    // 请假类型可能不在 BUSINESS_TABLE_MAP 中，预期 200 或 400
-    expect([200, 400]).toContain(res.status);
+    expect(res.status).toBe(200);
+    expect(res.body.code).toBe(200);
     approvalRecordId = 40;
   });
-
-  // Step 6: 审批通过请假
-  it('Step 6: POST /api/v1/approval/approve/:id — 审批通过请假', async () => {
-    // 审批通过：4 次 pool.query
-    mockPool.query
-      .mockResolvedValueOnce([[{ id: 40, status: 'pending', approver_id: 1, workflow_id: 2, step_order: 1, business_type: 'leave', business_id: 1 }]]) // 查询审批记录
-      .mockResolvedValueOnce([{ affectedRows: 1 }])     // UPDATE 为 approved
-      .mockResolvedValueOnce([[]])                       // 无下一步
-      .mockResolvedValueOnce([{ affectedRows: 1 }]);    // UPDATE 业务表
+  // Step 6: 审批通过报价
+  it('Step 6: POST /api/v1/approval/approve/:id — 审批通过报价', async () => {
+    // approveRecord 调用链（TOCTOU 修复后）：全部走 conn，SELECT FOR UPDATE + UPDATE + SELECT next + UPDATE quote
+    mockConn.query
+      .mockResolvedValueOnce([[{ id: 40, status: 'pending', approver_id: 1, workflow_id: 2, step_order: 1, business_type: 'quote', business_id: 1 }]]) // conn[0]: SELECT FOR UPDATE
+      .mockResolvedValueOnce([{ affectedRows: 1 }])             // conn[1]: UPDATE 审批记录 approved
+      .mockResolvedValueOnce([[]])                              // conn[2]: SELECT next steps（无下一步，最终审批）
+      .mockResolvedValueOnce([{ affectedRows: 1 }]);            // conn[3]: UPDATE crm_quote approval_status = 2
 
     const res = await request(app)
       .post(`/api/v1/approval/approve/${approvalRecordId}`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ remark: '同意请假' });
+      .send({ remark: '同意报价审批' });
 
-    expect([200, 404]).toContain(res.status);
+    expect(res.status).toBe(200);
+    expect(res.body.code).toBe(200);
+    expect(res.body.data.is_final).toBe(true);
   });
-
   // Step 7: 查看组织架构树
   it('Step 7: GET /api/v1/hr/org-tree — 查看组织架构', async () => {
     // getOrgTree: 3 次 pool.query（部门列表 + COUNT 部门 + COUNT 员工）

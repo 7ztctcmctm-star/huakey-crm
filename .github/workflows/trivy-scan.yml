@@ -1,4 +1,4 @@
-﻿name: Trivy Security Scan
+name: Trivy Security Scan
 
 on:
   push:
@@ -23,18 +23,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Generate image tag
+        id: vars
+        run: |
+          TAG=$(echo "${{ matrix.dockerfile }}" | sed 's/\//-/g')
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
       - name: Build image for scanning
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ${{ matrix.dockerfile }}
           load: true
-          tags: "crm-scan:${{ matrix.dockerfile }}"
+          tags: "crm-scan:${{ steps.vars.outputs.tag }}"
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.24.0
         with:
-          image-ref: "crm-scan:${{ matrix.dockerfile }}"
+          image-ref: "crm-scan:${{ steps.vars.outputs.tag }}"
           format: "sarif"
           output: "trivy-results.sarif"
           severity: "CRITICAL,HIGH"

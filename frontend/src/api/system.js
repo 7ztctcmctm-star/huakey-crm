@@ -2,7 +2,7 @@ import request from '@/utils/request'
 
 // ============ 用户管理 ============
 export const getUserList = (params) => request.post('/user/list', params)
-export const saveUser = (data, id) => id ? request.put('/user/update', data) : request.post('/user/add', data)
+export const saveUser = (data, id) => id ? request.post('/user/update', data) : request.post('/user/add', data)
 export const deleteUser = (id) => request.post('/user/delete', { id })
 
 // ============ 角色管理 ============
@@ -19,7 +19,8 @@ export const deleteDept = (id) => request.post('/dept/delete', { id })
 export const getPermissionList = () => request.get('/permission/list')
 export const updateRolePermission = (data) => request.post('/permission/role/update', data)
 export const getRolePermissions = (id) => request.get(`/permission/role/${id}`)
-export const savePermission = (data) => request.post('/permission/save', data)
+export const savePermission = (data) => request.post('/permission/add', data)
+export const updatePermission = (data) => request.post('/permission/update-node', data)
 export const deletePermissionNode = (id) => request.post('/permission/delete-node', { id })
 
 // ============ 操作日志 ============

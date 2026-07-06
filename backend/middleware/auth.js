@@ -1,12 +1,13 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const pool = require('../config/database');
+const logger = require('../config/logger');
 const ROLES = require('../config/roles');
 const { ADMIN_ROLE_CODES } = ROLES;
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
-  console.error('错误: JWT_SECRET 环境变量未设置，请在 .env 文件中配置');
+  logger.error('错误: JWT_SECRET 环境变量未设置，请在 .env 文件中配置');
   process.exit(1);
 }
 // 从请求中获取 token（仅 Cookie 或 Authorization header，禁止 URL query string）
@@ -94,7 +95,7 @@ const authenticateToken = (req, res, next) => {
         manageAll: freshRole.manage_all === 1 || ADMIN_ROLE_CODES.has(roleCode)
       };
     } catch (dbErr) {
-      console.error('[Auth] 数据库查询失败', dbErr);
+      logger.error('[Auth] 数据库查询失败', dbErr);
       return res.status(500).json({
         code: 500,
         message: '令牌验证失败，请稍后重试',

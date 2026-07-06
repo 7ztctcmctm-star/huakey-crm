@@ -4,6 +4,7 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
+const { cache, invalidateCache } = require('../middleware/cache');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -90,9 +91,570 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage, limits: { fileSize: 20 * 1024 * 1024 } });
 
+/**
+ * @swagger
+ * tags:
+ *   - name: 知识库-产品
+ *     description: 产品知识库 CRUD
+ *   - name: 知识库-话术
+ *     description: 销售话术 CRUD
+ *   - name: 知识库-FAQ
+ *     description: 常见问题 CRUD
+ *   - name: 知识库-文档
+ *     description: 文档管理 CRUD
+ *
+ * /api/knowledge/products:
+ *   get:
+ *     summary: 获取产品知识列表
+ *     tags: [知识库-产品]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: 产品知识列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: array, items: { type: object } }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *   post:
+ *     summary: 新增产品知识（仅管理员）
+ *     tags: [知识库-产品]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name]
+ *             properties:
+ *               name: { type: string, example: 示例产品 }
+ *               category: { type: string }
+ *               model: { type: string }
+ *               description: { type: string }
+ *               specs: { type: string }
+ *               price: { type: number, minimum: 0 }
+ *               images: { type: string }
+ *     responses:
+ *       200:
+ *         description: 创建成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/knowledge/products/{id}:
+ *   get:
+ *     summary: 获取产品知识详情
+ *     tags: [知识库-产品]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 产品知识详情
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       404: { description: 产品不存在 }
+ *       500: { description: 服务器内部错误 }
+ *   put:
+ *     summary: 修改产品知识（仅管理员）
+ *     tags: [知识库-产品]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name: { type: string }
+ *               category: { type: string }
+ *               model: { type: string }
+ *               description: { type: string }
+ *               specs: { type: string }
+ *               price: { type: number, minimum: 0 }
+ *               images: { type: string }
+ *               status: { type: integer, enum: [0, 1] }
+ *     responses:
+ *       200:
+ *         description: 更新成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *   delete:
+ *     summary: 删除产品知识（仅管理员）
+ *     tags: [知识库-产品]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 删除成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/knowledge/scripts:
+ *   get:
+ *     summary: 获取销售话术列表
+ *     tags: [知识库-话术]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: 话术列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: array, items: { type: object } }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *   post:
+ *     summary: 新增销售话术
+ *     tags: [知识库-话术]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [title, content]
+ *             properties:
+ *               title: { type: string, example: 示例话术 }
+ *               scene: { type: string }
+ *               content: { type: string }
+ *               sort_order: { type: integer, minimum: 0 }
+ *     responses:
+ *       200:
+ *         description: 创建成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/knowledge/scripts/{id}:
+ *   get:
+ *     summary: 获取话术详情
+ *     tags: [知识库-话术]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 话术详情
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       404: { description: 话术不存在 }
+ *       500: { description: 服务器内部错误 }
+ *   put:
+ *     summary: 修改话术
+ *     tags: [知识库-话术]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title: { type: string }
+ *               scene: { type: string }
+ *               content: { type: string }
+ *               sort_order: { type: integer, minimum: 0 }
+ *     responses:
+ *       200:
+ *         description: 更新成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *   delete:
+ *     summary: 删除话术
+ *     tags: [知识库-话术]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 删除成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/knowledge/faqs:
+ *   get:
+ *     summary: 获取 FAQ 列表
+ *     tags: [知识库-FAQ]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: FAQ 列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: array, items: { type: object } }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *   post:
+ *     summary: 新增 FAQ
+ *     tags: [知识库-FAQ]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [question, answer]
+ *             properties:
+ *               question: { type: string, example: 示例问题 }
+ *               answer: { type: string }
+ *               category: { type: string }
+ *               sort_order: { type: integer, minimum: 0 }
+ *     responses:
+ *       200:
+ *         description: 创建成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/knowledge/faqs/{id}:
+ *   get:
+ *     summary: 获取 FAQ 详情
+ *     tags: [知识库-FAQ]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: FAQ 详情
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       404: { description: FAQ不存在 }
+ *       500: { description: 服务器内部错误 }
+ *   put:
+ *     summary: 修改 FAQ
+ *     tags: [知识库-FAQ]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               question: { type: string }
+ *               answer: { type: string }
+ *               category: { type: string }
+ *               sort_order: { type: integer, minimum: 0 }
+ *     responses:
+ *       200:
+ *         description: 更新成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *   delete:
+ *     summary: 删除 FAQ
+ *     tags: [知识库-FAQ]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 删除成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/knowledge/documents:
+ *   get:
+ *     summary: 获取文档列表
+ *     tags: [知识库-文档]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: 文档列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: array, items: { type: object } }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *   post:
+ *     summary: 上传文档（multipart/form-data）
+ *     tags: [知识库-文档]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [name, type]
+ *             properties:
+ *               name: { type: string, example: 示例文档 }
+ *               type: { type: string, example: pdf }
+ *               description: { type: string }
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: 创建成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/knowledge/documents/{id}:
+ *   get:
+ *     summary: 获取文档详情
+ *     tags: [知识库-文档]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 文档详情
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       404: { description: 文档不存在 }
+ *       500: { description: 服务器内部错误 }
+ *   put:
+ *     summary: 修改文档信息
+ *     tags: [知识库-文档]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name: { type: string }
+ *               type: { type: string }
+ *               description: { type: string }
+ *     responses:
+ *       200:
+ *         description: 更新成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *   delete:
+ *     summary: 删除文档（同时删除文件）
+ *     tags: [知识库-文档]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 删除成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ */
+
 // ============ 产品知识库 ============
 
-router.get('/products', authenticateToken, checkPermission('knowledge'), async (req, res) => {
+router.get('/products', authenticateToken, checkPermission('knowledge'), cache(300), async (req, res) => {
   try {
     const data = await knowledgeService.listProducts(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
@@ -117,6 +679,7 @@ router.post('/products', authenticateToken, requireAdmin, validate(productSchema
   try {
     if (!req.body.name || !req.body.name.trim()) return res.status(400).json({ code: 400, message: '产品名称不能为空', data: null });
     const result = await knowledgeService.createProduct(pool, req.body, req.user.userId);
+    await invalidateCache(['cache:*:/api/knowledge/*']);
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
     logger.error('[知识库] 创建产品失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -137,6 +700,7 @@ router.put('/products/:id', authenticateToken, requireAdmin, validate(productUpd
 router.delete('/products/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     await knowledgeService.deleteProduct(pool, req.params.id);
+    await invalidateCache(['cache:*:/api/knowledge/*']);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     logger.error('[知识库] 删除产品失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -167,7 +731,7 @@ router.get('/products-meta/categories', authenticateToken, checkPermission('know
 
 // ============ 销售话术 ============
 
-router.get('/scripts', authenticateToken, checkPermission('knowledge'), async (req, res) => {
+router.get('/scripts', authenticateToken, checkPermission('knowledge'), cache(300), async (req, res) => {
   try {
     const data = await knowledgeService.listScripts(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
@@ -193,6 +757,7 @@ router.post('/scripts', authenticateToken, validate(scriptSchema), async (req, r
     if (!req.body.title || !req.body.title.trim()) return res.status(400).json({ code: 400, message: '话术标题不能为空', data: null });
     if (!req.body.content || !req.body.content.trim()) return res.status(400).json({ code: 400, message: '话术内容不能为空', data: null });
     const result = await knowledgeService.createScript(pool, req.body, req.user.userId);
+    await invalidateCache(['cache:*:/api/knowledge/*']);
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
     logger.error('[知识库] 创建话术失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -203,6 +768,7 @@ router.post('/scripts', authenticateToken, validate(scriptSchema), async (req, r
 router.put('/scripts/:id', authenticateToken, validate(scriptUpdateSchema), async (req, res) => {
   try {
     await knowledgeService.updateScript(pool, req.params.id, req.body);
+    await invalidateCache(['cache:*:/api/knowledge/*']);
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
     logger.error('[知识库] 更新话术失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -213,6 +779,7 @@ router.put('/scripts/:id', authenticateToken, validate(scriptUpdateSchema), asyn
 router.delete('/scripts/:id', authenticateToken, async (req, res) => {
   try {
     await knowledgeService.deleteScript(pool, req.params.id);
+    await invalidateCache(['cache:*:/api/knowledge/*']);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     logger.error('[知识库] 删除话术失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -258,6 +825,7 @@ router.post('/faqs', authenticateToken, validate(faqSchema), async (req, res) =>
     if (!req.body.question || !req.body.question.trim()) return res.status(400).json({ code: 400, message: '问题不能为空', data: null });
     if (!req.body.answer || !req.body.answer.trim()) return res.status(400).json({ code: 400, message: '答案不能为空', data: null });
     const result = await knowledgeService.createFaq(pool, req.body, req.user.userId);
+    await invalidateCache(['cache:*:/api/knowledge/*']);
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
     logger.error('[知识库] 创建FAQ失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -268,6 +836,7 @@ router.post('/faqs', authenticateToken, validate(faqSchema), async (req, res) =>
 router.put('/faqs/:id', authenticateToken, validate(faqUpdateSchema), async (req, res) => {
   try {
     await knowledgeService.updateFaq(pool, req.params.id, req.body);
+    await invalidateCache(['cache:*:/api/knowledge/*']);
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
     logger.error('[知识库] 更新FAQ失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -278,6 +847,7 @@ router.put('/faqs/:id', authenticateToken, validate(faqUpdateSchema), async (req
 router.delete('/faqs/:id', authenticateToken, async (req, res) => {
   try {
     await knowledgeService.deleteFaq(pool, req.params.id);
+    await invalidateCache(['cache:*:/api/knowledge/*']);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     logger.error('[知识库] 删除FAQ失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -297,7 +867,7 @@ router.get('/faqs-meta/categories', authenticateToken, checkPermission('knowledg
 
 // ============ 文档管理 ============
 
-router.get('/documents', authenticateToken, checkPermission('knowledge'), async (req, res) => {
+router.get('/documents', authenticateToken, checkPermission('knowledge'), cache(300), async (req, res) => {
   try {
     const data = await knowledgeService.listDocuments(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
@@ -332,6 +902,7 @@ router.post('/documents', authenticateToken, upload.single('file'), validate(doc
     }
 
     const result = await knowledgeService.createDocument(pool, { name, type, description, filePath, fileSize, fileType }, req.user.userId);
+    await invalidateCache(['cache:*:/api/knowledge/*']);
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
     logger.error('[知识库] 创建文档失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -342,6 +913,7 @@ router.post('/documents', authenticateToken, upload.single('file'), validate(doc
 router.put('/documents/:id', authenticateToken, validate(documentUpdateSchema), async (req, res) => {
   try {
     await knowledgeService.updateDocument(pool, req.params.id, req.body);
+    await invalidateCache(['cache:*:/api/knowledge/*']);
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
     logger.error('[知识库] 更新文档失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -358,6 +930,7 @@ router.delete('/documents/:id', authenticateToken, async (req, res) => {
       if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
     }
     await knowledgeService.deleteDocument(pool, req.params.id);
+    await invalidateCache(['cache:*:/api/knowledge/*']);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     logger.error('[知识库] 删除文档失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });

@@ -113,9 +113,10 @@ async function createQuote(pool, data, userId) {
   } finally { connection.release(); }
 }
 
+const { paginatedQuery } = require('../utils/pagination');
+
 async function listQuotes(pool, params = {}, permission = null) {
   const { page = 1, pageSize = 10, quote_no, customer_name, status, approval_status } = params;
-  const offset = (page - 1) * pageSize;
   const queryParams = [];
 
   let permissionClause = '1=1';
@@ -145,14 +146,8 @@ async function listQuotes(pool, params = {}, permission = null) {
     queryParams.push(parseInt(approval_status));
   }
 
-  const [countResult] = await pool.query(
-    `SELECT COUNT(*) as total FROM crm_quote q LEFT JOIN crm_customer c ON q.customer_id = c.id ${whereClause}`,
-    queryParams
-  );
-  const total = countResult[0].total;
-
-  const [list] = await pool.query(
-    `SELECT
+  const result = await paginatedQuery(pool, {
+    baseQuery: `SELECT
       q.id, q.quote_no, q.customer_id, q.amount, q.discount, q.final_amount,
       q.valid_days, q.remark, q.status, q.create_by, q.create_time,
       q.currency, q.exchange_rate,
@@ -163,11 +158,13 @@ async function listQuotes(pool, params = {}, permission = null) {
     LEFT JOIN crm_customer c ON q.customer_id = c.id
     LEFT JOIN sys_user u ON q.create_by = u.id
     LEFT JOIN crm_currency cur ON q.currency = cur.code COLLATE utf8mb4_unicode_ci
-    ${whereClause}
-    ORDER BY q.create_time DESC
-    LIMIT ? OFFSET ?`,
-    [...queryParams, parseInt(pageSize), parseInt(offset)]
-  );
+    ${whereClause}`,
+    countQuery: `SELECT COUNT(*) as total FROM crm_quote q LEFT JOIN crm_customer c ON q.customer_id = c.id ${whereClause}`,
+    params: queryParams,
+    page,
+    pageSize,
+    orderBy: 'q.create_time DESC'
+  });
 
   const [[expiring]] = await pool.query(
     `SELECT COUNT(*) as cnt FROM crm_quote
@@ -175,7 +172,7 @@ async function listQuotes(pool, params = {}, permission = null) {
        AND DATE_ADD(create_time, INTERVAL valid_days DAY) BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)`
   );
 
-  return { list, total, page: parseInt(page), pageSize: parseInt(pageSize), expiring_count: expiring.cnt };
+  return { ...result, expiring_count: expiring.cnt };
 }
 
 async function getQuote(pool, id, permission = null) {

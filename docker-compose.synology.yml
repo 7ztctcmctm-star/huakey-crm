@@ -29,7 +29,7 @@ services:
     #  - "3307:3306"   # 生产环境不暴露；如需调试取消注释
     volumes:
       - mysql-data:/var/lib/mysql
-      - ./init-complete.sql:/docker-entrypoint-initdb.d/00_init.sql:ro
+      - ./deploy/init-complete.sql:/docker-entrypoint-initdb.d/00_init.sql:ro
       - ./database/backups:/backups
     command:
       - --character-set-server=utf8mb4
@@ -122,7 +122,7 @@ services:
       - app-uploads:/app/uploads
       - ./database/migrations:/app/database/migrations:ro
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:5000/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -154,6 +154,34 @@ services:
         max-file: "3"
     networks:
       - crm-network
+
+  # ---- 数据库自动备份（每日凌晨 2:00）----
+  backup:
+    image: mysql:8.0
+    container_name: huakey-backup
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "0 2 * * * /backup.sh >> /var/log/backup.log 2>&1" > /etc/crontabs/root
+        crond -f -l 2
+    volumes:
+      - ./database/backup.sh:/backup.sh:ro
+      - ./database/backups:/backups
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    networks:
+      - crm-network
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.25'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
 
 volumes:
   mysql-data:

@@ -30,20 +30,24 @@ async function autoReleaseCustomers(pool, releaseDays = 30) {
     [releaseDays, releaseDays]
   );
 
-  let released = 0;
-  for (const c of customers) {
-    await pool.query(
-      'UPDATE crm_customer SET pool_status = 1, owner_id = NULL, protect_until = NULL WHERE id = ?',
-      [c.id]
-    );
-    await pool.query(
-      "INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id) VALUES (?, 'auto_release', ?, NULL)",
-      [c.id, c.owner_id]
-    );
-    released++;
+  if (!customers || customers.length === 0) {
+    return 0;
   }
 
-  return released;
+  const ids = customers.map(c => c.id);
+  const logValues = customers.map(c => [c.id, 'auto_release', c.owner_id, null]);
+
+  await pool.query(
+    'UPDATE crm_customer SET pool_status = 1, owner_id = NULL, protect_until = NULL WHERE id IN (?)',
+    [ids]
+  );
+
+  await pool.query(
+    'INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id) VALUES ?',
+    [logValues]
+  );
+
+  return ids.length;
 }
 
 module.exports = {

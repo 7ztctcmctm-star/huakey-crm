@@ -258,6 +258,15 @@ const cronJobRoutes = require('./routes/cronJobs');
 apiRouter.use('/cron', cronJobRoutes);
 
 // Swagger API 文档（开发/测试环境可用）
+const { authenticateToken } = require('./middleware/auth');
+const ROLES = require('./config/roles');
+const { ADMIN_ROLE_CODES } = ROLES;
+
+
+
+
+
+
 if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_SWAGGER === 'true') {
   const { swaggerUi, swaggerSpec } = require('./config/swagger');
   apiRouter.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
@@ -265,9 +274,9 @@ if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_SWAGGER === 'tru
 }
 
 // 系统健康检查（管理员）
-const { authenticateToken } = require('./middleware/auth');
-const ROLES = require('./config/roles');
-const { ADMIN_ROLE_CODES } = ROLES;
+
+
+
 apiRouter.get('/system/health', authenticateToken, async (req, res) => {
   try {
     const isAdmin = req.user.manageAll || ADMIN_ROLE_CODES.has(req.user.roleCode);

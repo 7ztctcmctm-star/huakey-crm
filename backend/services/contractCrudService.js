@@ -5,6 +5,7 @@
 
 const ROLES = require('../config/roles');
 const contractService = require('./contractService');
+const { paginatedQuery } = require('../utils/pagination');
 
 // 回款状态子查询条件
 const PAYMENT_STATUS_CLAUSE = {
@@ -26,7 +27,6 @@ async function listContracts(pool, params = {}, permission = null) {
     page = 1, pageSize = 10, keyword = '', status = '',
     customer_id = '', approval_status = '', payment_status = ''
   } = params;
-  const offset = (page - 1) * pageSize;
 
   let permissionClause = '1=1';
   let permParams = [];
@@ -35,7 +35,31 @@ async function listContracts(pool, params = {}, permission = null) {
     permParams = permission.params || [];
   }
 
-  let sql = `SELECT c.*, cu.company_name as customer_name, u.real_name as create_by_name,
+  let whereClause = `WHERE c.deleted_at IS NULL AND ${permissionClause}`;
+  const queryParams = [...permParams];
+
+  if (keyword) {
+    whereClause += ' AND (c.contract_no LIKE ? OR cu.company_name LIKE ?)';
+    queryParams.push(`%${keyword}%`, `%${keyword}%`);
+  }
+  if (status) {
+    whereClause += ' AND c.status = ?';
+    queryParams.push(status);
+  }
+  if (customer_id) {
+    whereClause += ' AND c.customer_id = ?';
+    queryParams.push(customer_id);
+  }
+  if (approval_status) {
+    whereClause += ' AND c.approval_status = ?';
+    queryParams.push(approval_status);
+  }
+  if (payment_status && PAYMENT_STATUS_CLAUSE[payment_status]) {
+    whereClause += ` AND ${PAYMENT_STATUS_CLAUSE[payment_status]}`;
+  }
+
+  return paginatedQuery(pool, {
+    baseQuery: `SELECT c.*, cu.company_name as customer_name, u.real_name as create_by_name,
     (SELECT COALESCE(SUM(p.pay_amount), 0) FROM crm_payment p WHERE p.contract_id = c.id AND p.deleted_at IS NULL) as paid_amount,
     (SELECT COALESCE(SUM(pp.plan_amount), 0) FROM crm_payment_plan pp WHERE pp.contract_id = c.id) as plan_total,
     cur.symbol as currency_symbol
@@ -43,62 +67,15 @@ async function listContracts(pool, params = {}, permission = null) {
     LEFT JOIN crm_customer cu ON c.customer_id = cu.id
     LEFT JOIN sys_user u ON c.create_by = u.id
     LEFT JOIN crm_currency cur ON c.currency = cur.code COLLATE utf8mb4_unicode_ci
-    WHERE c.deleted_at IS NULL AND ${permissionClause}`;
-
-  const queryParams = [...permParams];
-
-  if (keyword) {
-    sql += ' AND (c.contract_no LIKE ? OR cu.company_name LIKE ?)';
-    queryParams.push(`%${keyword}%`, `%${keyword}%`);
-  }
-  if (status) {
-    sql += ' AND c.status = ?';
-    queryParams.push(status);
-  }
-  if (customer_id) {
-    sql += ' AND c.customer_id = ?';
-    queryParams.push(customer_id);
-  }
-  if (approval_status) {
-    sql += ' AND c.approval_status = ?';
-    queryParams.push(approval_status);
-  }
-  if (payment_status && PAYMENT_STATUS_CLAUSE[payment_status]) {
-    sql += ` AND ${PAYMENT_STATUS_CLAUSE[payment_status]}`;
-  }
-
-  sql += ' ORDER BY c.create_time DESC LIMIT ?, ?';
-  queryParams.push(offset, pageSize);
-  const [rows] = await pool.query(sql, queryParams);
-
-  let countSql = `SELECT COUNT(*) as total FROM crm_contract c
+    ${whereClause}`,
+    countQuery: `SELECT COUNT(*) as total FROM crm_contract c
     LEFT JOIN crm_customer cu ON c.customer_id = cu.id
-    WHERE c.deleted_at IS NULL AND ${permissionClause}`;
-  const countParams = [...permParams];
-
-  if (keyword) {
-    countSql += ' AND (c.contract_no LIKE ? OR cu.company_name LIKE ?)';
-    countParams.push(`%${keyword}%`, `%${keyword}%`);
-  }
-  if (status) {
-    countSql += ' AND c.status = ?';
-    countParams.push(status);
-  }
-  if (customer_id) {
-    countSql += ' AND c.customer_id = ?';
-    countParams.push(customer_id);
-  }
-  if (approval_status) {
-    countSql += ' AND c.approval_status = ?';
-    countParams.push(approval_status);
-  }
-  if (payment_status && PAYMENT_STATUS_CLAUSE[payment_status]) {
-    countSql += ` AND ${PAYMENT_STATUS_CLAUSE[payment_status]}`;
-  }
-
-  const [countResult] = await pool.query(countSql, countParams);
-
-  return { list: rows, total: countResult[0].total };
+    ${whereClause}`,
+    params: queryParams,
+    page,
+    pageSize,
+    orderBy: 'c.create_time DESC'
+  });
 }
 
 /**

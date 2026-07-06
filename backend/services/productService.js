@@ -3,11 +3,12 @@
  * 从 routes/product.js 提取的业务逻辑
  */
 
+const { paginatedQuery } = require('../utils/pagination');
+
 // ============ 产品 CRUD ============
 
 async function listProducts(pool, params = {}) {
   const { page = 1, pageSize = 20, keyword, name, code, category, status } = params;
-  const offset = (page - 1) * pageSize;
   const queryParams = [];
 
   let whereClause;
@@ -21,17 +22,15 @@ async function listProducts(pool, params = {}) {
   if (code) { whereClause += ' AND code LIKE ?'; queryParams.push(`%${code}%`); }
   if (category) { whereClause += ' AND category = ?'; queryParams.push(category); }
 
-  const [countResult] = await pool.query(`SELECT COUNT(*) as total FROM crm_product ${whereClause}`, queryParams);
-  const total = countResult[0].total;
-
-  const [list] = await pool.query(
-    `SELECT id, name, code, category, unit, price, cost_price, stock, status, description, create_time
-     FROM crm_product ${whereClause}
-     ORDER BY create_time DESC LIMIT ? OFFSET ?`,
-    [...queryParams, parseInt(pageSize), parseInt(offset)]
-  );
-
-  return { list, total, page: parseInt(page), pageSize: parseInt(pageSize) };
+  return paginatedQuery(pool, {
+    baseQuery: `SELECT id, name, code, category, unit, price, cost_price, stock, status, description, create_time
+     FROM crm_product ${whereClause}`,
+    countQuery: `SELECT COUNT(*) as total FROM crm_product ${whereClause}`,
+    params: queryParams,
+    page,
+    pageSize,
+    orderBy: 'create_time DESC'
+  });
 }
 
 async function getProduct(pool, id) {

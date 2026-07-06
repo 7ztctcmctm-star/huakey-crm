@@ -4,6 +4,7 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission, buildDataPermissionWhere, checkFieldPermission, stripRestrictedFields } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
+const { cache, invalidateCache } = require('../middleware/cache');
 
 const { logFieldChanges } = require('../utils/fieldLog');
 const ROLES = require('../config/roles');
@@ -13,6 +14,243 @@ const MODULE_NAME = '供应商管理';
 const { createRouteLogger } = require('../middleware/logger');
 const logger = require('../config/logger');
 const logAction = createRouteLogger(MODULE_NAME);
+
+/**
+ * @swagger
+ * tags:
+ *   - name: 供应商管理
+ *     description: 供应商列表、新增、修改、删除、评分
+ *
+ * /api/supplier/list:
+ *   get:
+ *     summary: 获取供应商列表（GET 方式）
+ *     tags: [供应商管理]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: pageSize
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: keyword
+ *         schema: { type: string }
+ *       - in: query
+ *         name: type
+ *         schema: { type: string, enum: [生产, 贸易, 服务] }
+ *       - in: query
+ *         name: level
+ *         schema: { type: string, enum: [核心, 重点, 普通, 备用] }
+ *       - in: query
+ *         name: status
+ *         schema: { type: integer, enum: [1, 2, 3] }
+ *     responses:
+ *       200:
+ *         description: 供应商列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     list: { type: array, items: { type: object } }
+ *                     total: { type: integer }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *   post:
+ *     summary: 获取供应商列表（POST 方式，支持分页和筛选）
+ *     tags: [供应商管理]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               page: { type: integer, example: 1 }
+ *               pageSize: { type: integer, example: 20 }
+ *               keyword: { type: string }
+ *               type: { type: string, enum: [生产, 贸易, 服务] }
+ *               level: { type: string, enum: [核心, 重点, 普通, 备用] }
+ *               status: { type: integer, enum: [1, 2, 3] }
+ *     responses:
+ *       200:
+ *         description: 供应商列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     list: { type: array, items: { type: object } }
+ *                     total: { type: integer }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/supplier/add:
+ *   post:
+ *     summary: 新增供应商
+ *     tags: [供应商管理]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name]
+ *             properties:
+ *               name: { type: string, example: 示例供应商 }
+ *               short_name: { type: string }
+ *               type: { type: string, enum: [生产, 贸易, 服务] }
+ *               industry: { type: string }
+ *               level: { type: string, enum: [核心, 重点, 普通, 备用] }
+ *               contact_person: { type: string }
+ *               contact_phone: { type: string }
+ *               contact_email: { type: string, format: email }
+ *               address: { type: string }
+ *               payment_terms: { type: string }
+ *               delivery_days: { type: integer, minimum: 1, maximum: 365 }
+ *               remark: { type: string }
+ *     responses:
+ *       200:
+ *         description: 创建成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/supplier/update:
+ *   post:
+ *     summary: 修改供应商
+ *     tags: [供应商管理]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [id]
+ *             properties:
+ *               id: { type: integer, example: 1 }
+ *               name: { type: string }
+ *               short_name: { type: string }
+ *               type: { type: string, enum: [生产, 贸易, 服务] }
+ *               industry: { type: string }
+ *               level: { type: string, enum: [核心, 重点, 普通, 备用] }
+ *               status: { type: integer, enum: [1, 2, 3] }
+ *               contact_person: { type: string }
+ *               contact_phone: { type: string }
+ *               contact_email: { type: string, format: email }
+ *               address: { type: string }
+ *               payment_terms: { type: string }
+ *               delivery_days: { type: integer, minimum: 1, maximum: 365 }
+ *               remark: { type: string }
+ *     responses:
+ *       200:
+ *         description: 修改成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限修改该供应商 }
+ *       404: { description: 供应商不存在 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/supplier/delete:
+ *   post:
+ *     summary: 删除供应商
+ *     tags: [供应商管理]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [id]
+ *             properties:
+ *               id: { type: integer, example: 1 }
+ *     responses:
+ *       200:
+ *         description: 删除成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限删除该供应商 }
+ *       404: { description: 供应商不存在 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/supplier/rating/add:
+ *   post:
+ *     summary: 供应商评分（质量/交期/服务/价格）
+ *     tags: [供应商管理]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [supplier_id, quality_score, delivery_score, service_score, price_score, rating_period]
+ *             properties:
+ *               supplier_id: { type: integer, example: 1 }
+ *               quality_score: { type: number, minimum: 0, maximum: 5, example: 4.5 }
+ *               delivery_score: { type: number, minimum: 0, maximum: 5, example: 4.0 }
+ *               service_score: { type: number, minimum: 0, maximum: 5, example: 4.2 }
+ *               price_score: { type: number, minimum: 0, maximum: 5, example: 4.8 }
+ *               rating_period: { type: string, example: '2026-Q2' }
+ *               remark: { type: string }
+ *     responses:
+ *       200:
+ *         description: 评分成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ */
 
 // --- Joi schemas ---
 
@@ -145,8 +383,8 @@ const supplierListHandler = async (req, res) => {
   }
 };
 
-router.get('/list', authenticateToken, checkPermission('supplier'), checkDataPermission('supplier', 'owner_id'), supplierListHandler);
-router.post('/list', authenticateToken, checkPermission('supplier'), checkDataPermission('supplier', 'owner_id'), validate(listSchema), supplierListHandler);
+router.get('/list', authenticateToken, checkPermission('supplier'), checkDataPermission('supplier', 'owner_id'), cache(300), supplierListHandler);
+router.post('/list', authenticateToken, checkPermission('supplier'), checkDataPermission('supplier', 'owner_id'), cache(300), validate(listSchema), supplierListHandler);
 
 router.get('/detail/:id', authenticateToken, checkDataPermission('supplier', 'owner_id'), async (req, res) => {
   try {
@@ -165,6 +403,7 @@ router.post('/add', authenticateToken, checkPermission('supplier:add'), validate
   try {
     const result = await supplierService.createSupplier(pool, req.body, req.user.userId);
     await logAction(req, 'add', `新增供应商: ${req.body.name}`);
+    await invalidateCache(['cache:*:/api/supplier/*']);
     res.json({ code: 200, message: '创建供应商成功', data: result });
   } catch (error) {
     logger.error('[供应商] 添加供应商错误:', { error: error.message, traceId: req.traceId || 'N/A' });
@@ -184,6 +423,7 @@ router.post('/update', authenticateToken, checkPermission('supplier:edit'), vali
     await supplierService.updateSupplier(pool, id, updateFields);
     await logAction(req, 'update', `修改供应商: ID=${id}`);
     await logFieldChanges(req, { module: MODULE_NAME, action: '编辑供应商', oldData, newData: req.body, allowedFields: ['company_name', 'contact_name', 'phone', 'email', 'address', 'industry', 'level', 'status', 'remark', 'owner_id'], description: `编辑供应商: ${oldData.name || oldData.company_name}` });
+    await invalidateCache(['cache:*:/api/supplier/*']);
     res.json({ code: 200, message: '修改供应商成功', data: null });
   } catch (error) {
     logger.error('[供应商] 更新供应商错误:', { error: error.message, traceId: req.traceId || 'N/A' });
@@ -202,6 +442,7 @@ router.post('/delete', authenticateToken, checkPermission('supplier:delete'), va
     }
     await supplierService.deleteSupplier(pool, id);
     await logAction(req, 'delete', `删除供应商: ID=${id}`);
+    await invalidateCache(['cache:*:/api/supplier/*']);
     res.json({ code: 200, message: '删除供应商成功', data: null });
   } catch (error) {
     logger.error('[供应商] 删除供应商错误:', { error: error.message, traceId: req.traceId || 'N/A' });

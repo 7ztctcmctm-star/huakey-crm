@@ -65,6 +65,247 @@ const addPaymentSchema = Joi.object({
 
 const logAction = createRouteLogger(MODULE_NAME);
 
+/**
+ * @swagger
+ * tags:
+ *   - name: 采购管理
+ *     description: 采购单列表、创建、详情、状态更新、收货、付款、统计
+ *
+ * /api/purchase/list:
+ *   post:
+ *     summary: 获取采购单列表
+ *     tags: [采购管理]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               page: { type: integer, example: 1 }
+ *               pageSize: { type: integer, example: 20 }
+ *               keyword: { type: string }
+ *               status: { type: string, enum: [草稿, 待审核, 已确认, 部分收货, 已完成, 已取消] }
+ *               type: { type: string, enum: [常规, 紧急, 样品, 返修] }
+ *               supplier_id: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 采购单列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     list: { type: array, items: { type: object } }
+ *                     total: { type: integer }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/purchase/add:
+ *   post:
+ *     summary: 创建采购单
+ *     tags: [采购管理]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [supplier_id, title, items]
+ *             properties:
+ *               supplier_id: { type: integer, example: 1 }
+ *               title: { type: string, example: 示例采购单 }
+ *               type: { type: string, enum: [常规, 紧急, 样品, 返修] }
+ *               expected_date: { type: string, format: date }
+ *               payment_terms: { type: string }
+ *               delivery_address: { type: string }
+ *               remark: { type: string }
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     product_name: { type: string }
+ *                     product_spec: { type: string }
+ *                     unit: { type: string }
+ *                     quantity: { type: number, minimum: 0.001 }
+ *                     unit_price: { type: number, minimum: 0 }
+ *                     discount_rate: { type: number }
+ *                     remark: { type: string }
+ *     responses:
+ *       200:
+ *         description: 创建成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/purchase/detail/{id}:
+ *   get:
+ *     summary: 获取采购单详情
+ *     tags: [采购管理]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 采购单详情
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       404: { description: 采购单不存在 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/purchase/update-status:
+ *   post:
+ *     summary: 更新采购单状态
+ *     tags: [采购管理]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [id, status]
+ *             properties:
+ *               id: { type: integer, example: 1 }
+ *               status: { type: string, enum: [待审核, 已确认, 部分收货, 已完成, 已取消] }
+ *               approveRemark: { type: string }
+ *     responses:
+ *       200:
+ *         description: 状态更新成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/purchase/receipt/add:
+ *   post:
+ *     summary: 添加收货/入库记录
+ *     tags: [采购管理]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [order_id, item_id, quantity]
+ *             properties:
+ *               order_id: { type: integer, example: 1 }
+ *               item_id: { type: integer, example: 1 }
+ *               quantity: { type: number, minimum: 0.001, example: 100 }
+ *               quality_check: { type: integer, enum: [0, 1] }
+ *               quality_result: { type: string, enum: [合格, 不合格, 待检] }
+ *               defect_desc: { type: string }
+ *               warehouse: { type: string }
+ *               remark: { type: string }
+ *     responses:
+ *       200:
+ *         description: 入库记录成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/purchase/payment/add:
+ *   post:
+ *     summary: 添加付款记录
+ *     tags: [采购管理]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [order_id, amount]
+ *             properties:
+ *               order_id: { type: integer, example: 1 }
+ *               amount: { type: number, minimum: 0.01, example: 10000.00 }
+ *               pay_method: { type: string }
+ *               pay_date: { type: string, format: date }
+ *               remark: { type: string }
+ *     responses:
+ *       200:
+ *         description: 付款登记成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       400: { description: 参数错误或订单ID和金额不能为空 }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ *
+ * /api/purchase/statistics:
+ *   get:
+ *     summary: 采购统计
+ *     tags: [采购管理]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: 采购统计数据
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: integer, example: 200 }
+ *                 message: { type: string }
+ *                 data: { type: object }
+ *       401: { description: 未登录或 token 过期 }
+ *       403: { description: 无权限访问 }
+ *       500: { description: 服务器内部错误 }
+ */
+
 // 字段级权限：采购明细单价/金额仅管理员可见
 router.use(checkFieldPermission('purchase_item'));
 

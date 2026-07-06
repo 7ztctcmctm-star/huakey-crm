@@ -1,0 +1,1058 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - img "Huakey" [ref=e6]
+        - generic [ref=e7]: 铧旗CRM系统
+      - menubar [ref=e8]:
+        - menuitem "首页" [ref=e9] [cursor=pointer]:
+          - img [ref=e11]
+          - text: 首页
+        - menuitem "客户管理" [expanded] [ref=e13]:
+          - generic [ref=e14] [cursor=pointer]:
+            - img [ref=e16]
+            - generic [ref=e18]: 客户管理
+            - img [ref=e20]
+          - menu [ref=e488]:
+            - menuitem "线索管理" [ref=e489] [cursor=pointer]
+            - menuitem "潜客池" [ref=e490] [cursor=pointer]
+            - menuitem "正式客户" [ref=e491] [cursor=pointer]
+            - menuitem "公海池" [ref=e492] [cursor=pointer]
+            - menuitem "跟进日历" [ref=e493] [cursor=pointer]
+            - menuitem "跟进模板" [ref=e494] [cursor=pointer]
+        - menuitem "邮件" [ref=e22] [cursor=pointer]:
+          - img [ref=e24]
+          - text: 邮件
+        - menuitem "商机管理" [ref=e27] [cursor=pointer]:
+          - img [ref=e29]
+          - text: 商机管理
+        - menuitem "产品管理" [ref=e31] [cursor=pointer]:
+          - img [ref=e33]
+          - text: 产品管理
+        - menuitem "报价管理" [ref=e36] [cursor=pointer]:
+          - img [ref=e38]
+          - text: 报价管理
+        - menuitem "合同管理" [ref=e40] [cursor=pointer]:
+          - img [ref=e42]
+          - text: 合同管理
+        - menuitem "日程管理" [ref=e44] [cursor=pointer]:
+          - img [ref=e46]
+          - text: 日程管理
+        - menuitem "社媒沟通" [ref=e48] [cursor=pointer]:
+          - img [ref=e50]
+          - text: 社媒沟通
+        - menuitem "回款管理" [ref=e53]:
+          - generic [ref=e54] [cursor=pointer]:
+            - img [ref=e56]
+            - generic [ref=e60]: 回款管理
+            - img [ref=e62]
+        - menuitem "供应商管理" [ref=e64]:
+          - generic [ref=e65] [cursor=pointer]:
+            - img [ref=e67]
+            - generic [ref=e71]: 供应商管理
+            - img [ref=e73]
+        - menuitem "采购管理" [ref=e75]:
+          - generic [ref=e76] [cursor=pointer]:
+            - img [ref=e78]
+            - generic [ref=e80]: 采购管理
+            - img [ref=e82]
+        - menuitem "售后服务" [ref=e84] [cursor=pointer]:
+          - img [ref=e86]
+          - text: 售后服务
+        - menuitem "客户满意度" [ref=e88]:
+          - generic [ref=e89] [cursor=pointer]:
+            - img [ref=e91]
+            - generic [ref=e93]: 客户满意度
+            - img [ref=e95]
+        - menuitem "人力资源" [ref=e97]:
+          - generic [ref=e98] [cursor=pointer]:
+            - img [ref=e100]
+            - generic [ref=e102]: 人力资源
+            - img [ref=e104]
+        - menuitem "自动化" [ref=e106]:
+          - generic [ref=e107] [cursor=pointer]:
+            - img [ref=e109]
+            - generic [ref=e111]: 自动化
+            - img [ref=e113]
+        - menuitem "数据报表" [ref=e115]:
+          - generic [ref=e116] [cursor=pointer]:
+            - img [ref=e118]
+            - generic [ref=e120]: 数据报表
+            - img [ref=e122]
+        - menuitem "分析工具" [ref=e124]:
+          - generic [ref=e125] [cursor=pointer]:
+            - img [ref=e127]
+            - generic [ref=e129]: 分析工具
+            - img [ref=e131]
+        - menuitem "评分规则" [ref=e133] [cursor=pointer]:
+          - img [ref=e135]
+          - text: 评分规则
+        - menuitem "评分排行" [ref=e137] [cursor=pointer]:
+          - img [ref=e139]
+          - text: 评分排行
+        - menuitem "AI助手" [ref=e141] [cursor=pointer]:
+          - img [ref=e143]
+          - text: AI助手
+        - menuitem "待审批" [ref=e146] [cursor=pointer]:
+          - img [ref=e148]
+          - text: 待审批
+        - menuitem "我的审批" [ref=e150] [cursor=pointer]:
+          - img [ref=e152]
+          - text: 我的审批
+        - menuitem "知识库" [ref=e154]:
+          - generic [ref=e155] [cursor=pointer]:
+            - img [ref=e157]
+            - generic [ref=e160]: 知识库
+            - img [ref=e162]
+        - menuitem "销售目标" [ref=e164] [cursor=pointer]:
+          - img [ref=e166]
+          - text: 销售目标
+        - menuitem "系统管理" [ref=e170]:
+          - generic [ref=e171] [cursor=pointer]:
+            - img [ref=e173]
+            - generic [ref=e175]: 系统管理
+            - img [ref=e177]
+    - generic [ref=e179]:
+      - generic [ref=e180]:
+        - generic [ref=e181]:
+          - button [ref=e182] [cursor=pointer]:
+            - img [ref=e185]
+          - navigation "Breadcrumb" [ref=e187]:
+            - generic [ref=e188]:
+              - link "首页" [ref=e189]
+              - text: /
+            - link "正式客户" [ref=e496]
+          - generic [ref=e191]:
+            - img [ref=e194]
+            - textbox "搜索客户、合同、商机..." [ref=e196]
+            - generic [ref=e198]: Ctrl+K
+          - button "最近访问" [ref=e199] [cursor=pointer]:
+            - img [ref=e202]
+        - generic [ref=e206]:
+          - button "快速创建 (Ctrl+N)" [ref=e207] [cursor=pointer]:
+            - img [ref=e210]
+          - button [ref=e213] [cursor=pointer]:
+            - img [ref=e216]
+          - button [ref=e220] [cursor=pointer]:
+            - img [ref=e223]
+          - button "团队看板" [ref=e225] [cursor=pointer]:
+            - generic [ref=e226]:
+              - img [ref=e228]
+              - generic [ref=e232]: 团队看板
+          - button "系统管理员" [expanded] [active] [ref=e234] [cursor=pointer]:
+            - img [ref=e236]
+            - text: 系统管理员
+            - img [ref=e239]
+      - main [ref=e241]:
+        - generic:
+          - radiogroup "radio-group" [ref=e499]:
+            - generic [ref=e500]:
+              - radio "我的客户" [checked] [ref=e501]
+              - generic [ref=e502] [cursor=pointer]: 我的客户
+            - generic [ref=e503]:
+              - radio "全部客户" [ref=e504]
+              - generic [ref=e505] [cursor=pointer]: 全部客户
+            - generic [ref=e506]:
+              - radio "待分配" [ref=e507]
+              - generic [ref=e508] [cursor=pointer]: 待分配
+            - generic [ref=e509]:
+              - radio "久未跟进" [ref=e510]
+              - generic [ref=e511] [cursor=pointer]: 久未跟进
+          - generic [ref=e513]:
+            - generic:
+              - generic [ref=e514]:
+                - generic [ref=e515]: 公司名称
+                - generic [ref=e518]:
+                  - textbox "公司名称":
+                    - /placeholder: 请输入公司名称
+              - generic [ref=e520]:
+                - generic [ref=e521]: 联系人
+                - generic [ref=e524]:
+                  - textbox "联系人":
+                    - /placeholder: 请输入联系人
+              - generic [ref=e526]:
+                - generic [ref=e527]: 电话
+                - generic [ref=e530]:
+                  - textbox "电话":
+                    - /placeholder: 请输入电话
+              - generic [ref=e532]:
+                - generic [ref=e533]: 客户来源
+                - generic [ref=e536] [cursor=pointer]:
+                  - generic:
+                    - combobox "客户来源" [ref=e538]
+                    - generic [ref=e539]: 全部来源
+                  - img [ref=e542]
+              - generic [ref=e544]:
+                - generic [ref=e545]: 客户等级
+                - generic [ref=e548] [cursor=pointer]:
+                  - generic:
+                    - combobox "客户等级" [ref=e550]
+                    - generic: 请选择等级
+                  - img [ref=e553]
+              - generic [ref=e555]:
+                - generic [ref=e556]: 状态
+                - generic [ref=e559] [cursor=pointer]:
+                  - generic:
+                    - combobox "状态" [ref=e561]
+                    - generic: 请选择状态
+                  - img [ref=e564]
+              - generic [ref=e566]:
+                - generic [ref=e567]: 客户类型
+                - generic [ref=e570] [cursor=pointer]:
+                  - generic:
+                    - combobox "客户类型" [ref=e572]
+                    - generic: 全部类型
+                  - img [ref=e575]
+              - generic [ref=e577]:
+                - generic [ref=e578]: 生命周期
+                - generic [ref=e581] [cursor=pointer]:
+                  - generic:
+                    - combobox "生命周期" [ref=e583]
+                    - generic: 全部阶段
+                  - img [ref=e586]
+              - generic [ref=e588]:
+                - generic [ref=e589]: 标签
+                - generic [ref=e592] [cursor=pointer]:
+                  - generic:
+                    - combobox "标签" [ref=e594]
+                    - generic [ref=e595]: 全部标签
+                  - img [ref=e598]
+              - generic [ref=e600]:
+                - generic [ref=e601]: 创建时间
+                - generic [ref=e603]:
+                  - img [ref=e605]
+                  - combobox "创建时间" [ref=e607]
+                  - generic [ref=e608]: "-"
+                  - combobox "结束日期" [ref=e609]
+              - generic [ref=e610]:
+                - generic [ref=e611]: 排序
+                - generic [ref=e614] [cursor=pointer]:
+                  - generic:
+                    - combobox "排序" [ref=e616]
+                    - generic [ref=e617]: 默认排序
+                  - img [ref=e620]
+              - generic [ref=e623]:
+                - button "搜索" [ref=e624] [cursor=pointer]:
+                  - img [ref=e626]
+                  - generic [ref=e628]: 搜索
+                - button "重置" [ref=e629] [cursor=pointer]:
+                  - img [ref=e631]
+                  - generic [ref=e633]: 重置
+          - generic [ref=e635]:
+            - generic:
+              - generic [ref=e636]:
+                - img [ref=e639]
+                - img [ref=e643] [cursor=pointer]
+                - tablist [ref=e645]:
+                  - tab "全部" [ref=e647]
+                  - tab "线索" [ref=e648]
+                  - tab "潜客" [selected] [ref=e649]
+                  - tab "正式客户" [ref=e650]
+                  - tab "流失客户" [ref=e651]
+              - generic:
+                - tabpanel "潜客"
+          - generic [ref=e653]:
+            - generic:
+              - button "新增客户" [ref=e654] [cursor=pointer]:
+                - img [ref=e656]
+                - generic [ref=e658]: 新增客户
+              - button "导入Excel" [ref=e659] [cursor=pointer]:
+                - img [ref=e661]
+                - generic [ref=e663]: 导入Excel
+              - button "导出Excel" [ref=e664] [cursor=pointer]:
+                - img [ref=e666]
+                - generic [ref=e668]: 导出Excel
+              - button "质量检查" [ref=e669] [cursor=pointer]:
+                - img [ref=e671]
+                - generic [ref=e673]: 质量检查
+              - button "批量跟进 (0)" [disabled] [ref=e674]:
+                - img [ref=e676]
+                - generic [ref=e679]: 批量跟进 (0)
+              - separator [ref=e680]
+              - radiogroup "radio-group" [ref=e681]:
+                - generic [ref=e682]:
+                  - radio "全部客户" [checked] [ref=e683]
+                  - generic [ref=e684] [cursor=pointer]: 全部客户
+                - generic [ref=e685]:
+                  - radio "我的客户" [ref=e686]
+                  - generic [ref=e687] [cursor=pointer]: 我的客户
+                - generic [ref=e688]:
+                  - radio "职员客户" [ref=e689]
+                  - generic [ref=e690] [cursor=pointer]: 职员客户
+              - separator [ref=e691]
+              - generic [ref=e693] [cursor=pointer]:
+                - generic:
+                  - combobox [ref=e695]
+                  - generic: 批量更换负责人
+                - img [ref=e698]
+              - button "批量更换负责人 (0)" [disabled] [ref=e700]:
+                - generic [ref=e701]: 批量更换负责人 (0)
+            - generic:
+              - generic:
+                - table [ref=e702]:
+                  - rowgroup [ref=e716]:
+                    - row "Select all rows 公司名称 负责人 联系人 电话 客户来源 客户等级 状态 标签 最后跟进 创建时间 操作" [ref=e717]:
+                      - columnheader "Select all rows" [ref=e718]:
+                        - generic "Select all rows" [ref=e720] [cursor=pointer]:
+                          - generic [ref=e721]:
+                            - checkbox "Select all rows"
+                      - columnheader "公司名称" [ref=e723]:
+                        - generic [ref=e724]: 公司名称
+                      - columnheader "负责人" [ref=e725]:
+                        - generic [ref=e726]: 负责人
+                      - columnheader "联系人" [ref=e727]:
+                        - generic [ref=e728]: 联系人
+                      - columnheader "电话" [ref=e729]:
+                        - generic [ref=e730]: 电话
+                      - columnheader "客户来源" [ref=e731]:
+                        - generic [ref=e732]: 客户来源
+                      - columnheader "客户等级" [ref=e733]:
+                        - generic [ref=e734]: 客户等级
+                      - columnheader "状态" [ref=e735]:
+                        - generic [ref=e736]: 状态
+                      - columnheader "标签" [ref=e737]:
+                        - generic [ref=e738]: 标签
+                      - columnheader "最后跟进" [ref=e739]:
+                        - generic [ref=e740]: 最后跟进
+                      - columnheader "创建时间" [ref=e741]:
+                        - generic [ref=e742]: 创建时间
+                      - columnheader "操作" [ref=e743]:
+                        - generic [ref=e744]: 操作
+                - table [ref=e746]:
+                  - rowgroup [ref=e760]:
+                    - row "Select this row ���Թ�˾-�Զ������� 系统管理员 ������ 13900009999 C级-潜在 潜客 - 6月22日 6月22日 跟进 分配 更多" [ref=e761]:
+                      - cell "Select this row" [ref=e762]:
+                        - generic "Select this row" [ref=e764] [cursor=pointer]:
+                          - generic [ref=e765]:
+                            - checkbox "Select this row"
+                      - cell "���Թ�˾-�Զ�������" [ref=e767]:
+                        - generic [ref=e768]: ���Թ�˾-�Զ�������
+                      - cell "系统管理员" [ref=e769]:
+                        - generic [ref=e772]: 系统管理员
+                      - cell "������" [ref=e773]:
+                        - generic [ref=e774]: ������
+                      - cell "13900009999" [ref=e775]:
+                        - link "13900009999" [ref=e777] [cursor=pointer]:
+                          - /url: tel:13900009999
+                      - cell [ref=e778]
+                      - cell "C级-潜在" [ref=e779]:
+                        - generic [ref=e782]: C级-潜在
+                      - cell "潜客" [ref=e783]:
+                        - generic [ref=e786]: 潜客
+                      - cell "-" [ref=e787]:
+                        - generic [ref=e788]: "-"
+                      - cell "6月22日" [ref=e789]:
+                        - generic [ref=e790]: 6月22日
+                      - cell "6月22日" [ref=e791]:
+                        - generic [ref=e792]: 6月22日
+                      - cell "跟进 分配 更多" [ref=e793]:
+                        - generic [ref=e794]:
+                          - button "跟进" [ref=e795] [cursor=pointer]:
+                            - img [ref=e797]
+                            - generic [ref=e800]: 跟进
+                          - button "分配" [ref=e801] [cursor=pointer]:
+                            - generic [ref=e802]: 分配
+                          - button "更多" [ref=e804] [cursor=pointer]:
+                            - generic [ref=e805]: 更多
+                    - row "Select this row 赵销售客户-1号公司 赵销售 联系1 13830000001 Facebook C级-潜在 潜客 - 6月21日 6月11日 跟进 分配 更多" [ref=e806]:
+                      - cell "Select this row" [ref=e807]:
+                        - generic "Select this row" [ref=e809] [cursor=pointer]:
+                          - generic [ref=e810]:
+                            - checkbox "Select this row"
+                      - cell "赵销售客户-1号公司" [ref=e812]:
+                        - generic [ref=e813]: 赵销售客户-1号公司
+                      - cell "赵销售" [ref=e814]:
+                        - generic [ref=e817]: 赵销售
+                      - cell "联系1" [ref=e818]:
+                        - generic [ref=e819]: 联系1
+                      - cell "13830000001" [ref=e820]:
+                        - link "13830000001" [ref=e822] [cursor=pointer]:
+                          - /url: tel:13830000001
+                      - cell "Facebook" [ref=e823]:
+                        - generic [ref=e826]: Facebook
+                      - cell "C级-潜在" [ref=e827]:
+                        - generic [ref=e830]: C级-潜在
+                      - cell "潜客" [ref=e831]:
+                        - generic [ref=e834]: 潜客
+                      - cell "-" [ref=e835]:
+                        - generic [ref=e836]: "-"
+                      - cell "6月21日" [ref=e837]:
+                        - generic [ref=e838]: 6月21日
+                      - cell "6月11日" [ref=e839]:
+                        - generic [ref=e840]: 6月11日
+                      - cell "跟进 分配 更多" [ref=e841]:
+                        - generic [ref=e842]:
+                          - button "跟进" [ref=e843] [cursor=pointer]:
+                            - img [ref=e845]
+                            - generic [ref=e848]: 跟进
+                          - button "分配" [ref=e849] [cursor=pointer]:
+                            - generic [ref=e850]: 分配
+                          - button "更多" [ref=e852] [cursor=pointer]:
+                            - generic [ref=e853]: 更多
+                    - row "Select this row 赵销售客户-2号公司 赵销售 联系2 13830000002 LinkedIn C级-潜在 潜客 - 6月20日 6月10日 跟进 分配 更多" [ref=e854]:
+                      - cell "Select this row" [ref=e855]:
+                        - generic "Select this row" [ref=e857] [cursor=pointer]:
+                          - generic [ref=e858]:
+                            - checkbox "Select this row"
+                      - cell "赵销售客户-2号公司" [ref=e860]:
+                        - generic [ref=e861]: 赵销售客户-2号公司
+                      - cell "赵销售" [ref=e862]:
+                        - generic [ref=e865]: 赵销售
+                      - cell "联系2" [ref=e866]:
+                        - generic [ref=e867]: 联系2
+                      - cell "13830000002" [ref=e868]:
+                        - link "13830000002" [ref=e870] [cursor=pointer]:
+                          - /url: tel:13830000002
+                      - cell "LinkedIn" [ref=e871]:
+                        - generic [ref=e874]: LinkedIn
+                      - cell "C级-潜在" [ref=e875]:
+                        - generic [ref=e878]: C级-潜在
+                      - cell "潜客" [ref=e879]:
+                        - generic [ref=e882]: 潜客
+                      - cell "-" [ref=e883]:
+                        - generic [ref=e884]: "-"
+                      - cell "6月20日" [ref=e885]:
+                        - generic [ref=e886]: 6月20日
+                      - cell "6月10日" [ref=e887]:
+                        - generic [ref=e888]: 6月10日
+                      - cell "跟进 分配 更多" [ref=e889]:
+                        - generic [ref=e890]:
+                          - button "跟进" [ref=e891] [cursor=pointer]:
+                            - img [ref=e893]
+                            - generic [ref=e896]: 跟进
+                          - button "分配" [ref=e897] [cursor=pointer]:
+                            - generic [ref=e898]: 分配
+                          - button "更多" [ref=e900] [cursor=pointer]:
+                            - generic [ref=e901]: 更多
+                    - row "Select this row 赵销售客户-3号公司 赵销售 联系3 13830000003 电话 D级-冷淡 潜客 - 6月19日 6月9日 跟进 分配 更多" [ref=e902]:
+                      - cell "Select this row" [ref=e903]:
+                        - generic "Select this row" [ref=e905] [cursor=pointer]:
+                          - generic [ref=e906]:
+                            - checkbox "Select this row"
+                      - cell "赵销售客户-3号公司" [ref=e908]:
+                        - generic [ref=e909]: 赵销售客户-3号公司
+                      - cell "赵销售" [ref=e910]:
+                        - generic [ref=e913]: 赵销售
+                      - cell "联系3" [ref=e914]:
+                        - generic [ref=e915]: 联系3
+                      - cell "13830000003" [ref=e916]:
+                        - link "13830000003" [ref=e918] [cursor=pointer]:
+                          - /url: tel:13830000003
+                      - cell "电话" [ref=e919]:
+                        - generic [ref=e922]: 电话
+                      - cell "D级-冷淡" [ref=e923]:
+                        - generic [ref=e926]: D级-冷淡
+                      - cell "潜客" [ref=e927]:
+                        - generic [ref=e930]: 潜客
+                      - cell "-" [ref=e931]:
+                        - generic [ref=e932]: "-"
+                      - cell "6月19日" [ref=e933]:
+                        - generic [ref=e934]: 6月19日
+                      - cell "6月9日" [ref=e935]:
+                        - generic [ref=e936]: 6月9日
+                      - cell "跟进 分配 更多" [ref=e937]:
+                        - generic [ref=e938]:
+                          - button "跟进" [ref=e939] [cursor=pointer]:
+                            - img [ref=e941]
+                            - generic [ref=e944]: 跟进
+                          - button "分配" [ref=e945] [cursor=pointer]:
+                            - generic [ref=e946]: 分配
+                          - button "更多" [ref=e948] [cursor=pointer]:
+                            - generic [ref=e949]: 更多
+                    - row "Select this row 赵销售客户-4号公司 赵销售 联系4 13830000004 其他 B级-意向 潜客 - 6月18日 6月8日 跟进 分配 更多" [ref=e950]:
+                      - cell "Select this row" [ref=e951]:
+                        - generic "Select this row" [ref=e953] [cursor=pointer]:
+                          - generic [ref=e954]:
+                            - checkbox "Select this row"
+                      - cell "赵销售客户-4号公司" [ref=e956]:
+                        - generic [ref=e957]: 赵销售客户-4号公司
+                      - cell "赵销售" [ref=e958]:
+                        - generic [ref=e961]: 赵销售
+                      - cell "联系4" [ref=e962]:
+                        - generic [ref=e963]: 联系4
+                      - cell "13830000004" [ref=e964]:
+                        - link "13830000004" [ref=e966] [cursor=pointer]:
+                          - /url: tel:13830000004
+                      - cell "其他" [ref=e967]:
+                        - generic [ref=e970]: 其他
+                      - cell "B级-意向" [ref=e971]:
+                        - generic [ref=e974]: B级-意向
+                      - cell "潜客" [ref=e975]:
+                        - generic [ref=e978]: 潜客
+                      - cell "-" [ref=e979]:
+                        - generic [ref=e980]: "-"
+                      - cell "6月18日" [ref=e981]:
+                        - generic [ref=e982]: 6月18日
+                      - cell "6月8日" [ref=e983]:
+                        - generic [ref=e984]: 6月8日
+                      - cell "跟进 分配 更多" [ref=e985]:
+                        - generic [ref=e986]:
+                          - button "跟进" [ref=e987] [cursor=pointer]:
+                            - img [ref=e989]
+                            - generic [ref=e992]: 跟进
+                          - button "分配" [ref=e993] [cursor=pointer]:
+                            - generic [ref=e994]: 分配
+                          - button "更多" [ref=e996] [cursor=pointer]:
+                            - generic [ref=e997]: 更多
+                    - row "Select this row 赵销售客户-5号公司 赵销售 联系5 13830000005 展会 C级-潜在 潜客 - 6月17日 6月7日 跟进 分配 更多" [ref=e998]:
+                      - cell "Select this row" [ref=e999]:
+                        - generic "Select this row" [ref=e1001] [cursor=pointer]:
+                          - generic [ref=e1002]:
+                            - checkbox "Select this row"
+                      - cell "赵销售客户-5号公司" [ref=e1004]:
+                        - generic [ref=e1005]: 赵销售客户-5号公司
+                      - cell "赵销售" [ref=e1006]:
+                        - generic [ref=e1009]: 赵销售
+                      - cell "联系5" [ref=e1010]:
+                        - generic [ref=e1011]: 联系5
+                      - cell "13830000005" [ref=e1012]:
+                        - link "13830000005" [ref=e1014] [cursor=pointer]:
+                          - /url: tel:13830000005
+                      - cell "展会" [ref=e1015]:
+                        - generic [ref=e1018]: 展会
+                      - cell "C级-潜在" [ref=e1019]:
+                        - generic [ref=e1022]: C级-潜在
+                      - cell "潜客" [ref=e1023]:
+                        - generic [ref=e1026]: 潜客
+                      - cell "-" [ref=e1027]:
+                        - generic [ref=e1028]: "-"
+                      - cell "6月17日" [ref=e1029]:
+                        - generic [ref=e1030]: 6月17日
+                      - cell "6月7日" [ref=e1031]:
+                        - generic [ref=e1032]: 6月7日
+                      - cell "跟进 分配 更多" [ref=e1033]:
+                        - generic [ref=e1034]:
+                          - button "跟进" [ref=e1035] [cursor=pointer]:
+                            - img [ref=e1037]
+                            - generic [ref=e1040]: 跟进
+                          - button "分配" [ref=e1041] [cursor=pointer]:
+                            - generic [ref=e1042]: 分配
+                          - button "更多" [ref=e1044] [cursor=pointer]:
+                            - generic [ref=e1045]: 更多
+                    - row "Select this row 赵销售客户-6号公司 赵销售 联系6 13830000006 Facebook C级-潜在 潜客 - 6月16日 6月6日 跟进 分配 更多" [ref=e1046]:
+                      - cell "Select this row" [ref=e1047]:
+                        - generic "Select this row" [ref=e1049] [cursor=pointer]:
+                          - generic [ref=e1050]:
+                            - checkbox "Select this row"
+                      - cell "赵销售客户-6号公司" [ref=e1052]:
+                        - generic [ref=e1053]: 赵销售客户-6号公司
+                      - cell "赵销售" [ref=e1054]:
+                        - generic [ref=e1057]: 赵销售
+                      - cell "联系6" [ref=e1058]:
+                        - generic [ref=e1059]: 联系6
+                      - cell "13830000006" [ref=e1060]:
+                        - link "13830000006" [ref=e1062] [cursor=pointer]:
+                          - /url: tel:13830000006
+                      - cell "Facebook" [ref=e1063]:
+                        - generic [ref=e1066]: Facebook
+                      - cell "C级-潜在" [ref=e1067]:
+                        - generic [ref=e1070]: C级-潜在
+                      - cell "潜客" [ref=e1071]:
+                        - generic [ref=e1074]: 潜客
+                      - cell "-" [ref=e1075]:
+                        - generic [ref=e1076]: "-"
+                      - cell "6月16日" [ref=e1077]:
+                        - generic [ref=e1078]: 6月16日
+                      - cell "6月6日" [ref=e1079]:
+                        - generic [ref=e1080]: 6月6日
+                      - cell "跟进 分配 更多" [ref=e1081]:
+                        - generic [ref=e1082]:
+                          - button "跟进" [ref=e1083] [cursor=pointer]:
+                            - img [ref=e1085]
+                            - generic [ref=e1088]: 跟进
+                          - button "分配" [ref=e1089] [cursor=pointer]:
+                            - generic [ref=e1090]: 分配
+                          - button "更多" [ref=e1092] [cursor=pointer]:
+                            - generic [ref=e1093]: 更多
+                    - row "Select this row 赵销售客户-7号公司 赵销售 联系7 13830000007 LinkedIn D级-冷淡 潜客 - 6月15日 6月5日 跟进 分配 更多" [ref=e1094]:
+                      - cell "Select this row" [ref=e1095]:
+                        - generic "Select this row" [ref=e1097] [cursor=pointer]:
+                          - generic [ref=e1098]:
+                            - checkbox "Select this row"
+                      - cell "赵销售客户-7号公司" [ref=e1100]:
+                        - generic [ref=e1101]: 赵销售客户-7号公司
+                      - cell "赵销售" [ref=e1102]:
+                        - generic [ref=e1105]: 赵销售
+                      - cell "联系7" [ref=e1106]:
+                        - generic [ref=e1107]: 联系7
+                      - cell "13830000007" [ref=e1108]:
+                        - link "13830000007" [ref=e1110] [cursor=pointer]:
+                          - /url: tel:13830000007
+                      - cell "LinkedIn" [ref=e1111]:
+                        - generic [ref=e1114]: LinkedIn
+                      - cell "D级-冷淡" [ref=e1115]:
+                        - generic [ref=e1118]: D级-冷淡
+                      - cell "潜客" [ref=e1119]:
+                        - generic [ref=e1122]: 潜客
+                      - cell "-" [ref=e1123]:
+                        - generic [ref=e1124]: "-"
+                      - cell "6月15日" [ref=e1125]:
+                        - generic [ref=e1126]: 6月15日
+                      - cell "6月5日" [ref=e1127]:
+                        - generic [ref=e1128]: 6月5日
+                      - cell "跟进 分配 更多" [ref=e1129]:
+                        - generic [ref=e1130]:
+                          - button "跟进" [ref=e1131] [cursor=pointer]:
+                            - img [ref=e1133]
+                            - generic [ref=e1136]: 跟进
+                          - button "分配" [ref=e1137] [cursor=pointer]:
+                            - generic [ref=e1138]: 分配
+                          - button "更多" [ref=e1140] [cursor=pointer]:
+                            - generic [ref=e1141]: 更多
+                    - row "Select this row 赵销售客户-8号公司 赵销售 联系8 13830000008 电话 B级-意向 潜客 - 6月14日 6月4日 跟进 分配 更多" [ref=e1142]:
+                      - cell "Select this row" [ref=e1143]:
+                        - generic "Select this row" [ref=e1145] [cursor=pointer]:
+                          - generic [ref=e1146]:
+                            - checkbox "Select this row"
+                      - cell "赵销售客户-8号公司" [ref=e1148]:
+                        - generic [ref=e1149]: 赵销售客户-8号公司
+                      - cell "赵销售" [ref=e1150]:
+                        - generic [ref=e1153]: 赵销售
+                      - cell "联系8" [ref=e1154]:
+                        - generic [ref=e1155]: 联系8
+                      - cell "13830000008" [ref=e1156]:
+                        - link "13830000008" [ref=e1158] [cursor=pointer]:
+                          - /url: tel:13830000008
+                      - cell "电话" [ref=e1159]:
+                        - generic [ref=e1162]: 电话
+                      - cell "B级-意向" [ref=e1163]:
+                        - generic [ref=e1166]: B级-意向
+                      - cell "潜客" [ref=e1167]:
+                        - generic [ref=e1170]: 潜客
+                      - cell "-" [ref=e1171]:
+                        - generic [ref=e1172]: "-"
+                      - cell "6月14日" [ref=e1173]:
+                        - generic [ref=e1174]: 6月14日
+                      - cell "6月4日" [ref=e1175]:
+                        - generic [ref=e1176]: 6月4日
+                      - cell "跟进 分配 更多" [ref=e1177]:
+                        - generic [ref=e1178]:
+                          - button "跟进" [ref=e1179] [cursor=pointer]:
+                            - img [ref=e1181]
+                            - generic [ref=e1184]: 跟进
+                          - button "分配" [ref=e1185] [cursor=pointer]:
+                            - generic [ref=e1186]: 分配
+                          - button "更多" [ref=e1188] [cursor=pointer]:
+                            - generic [ref=e1189]: 更多
+                    - row "Select this row 赵销售客户-9号公司 赵销售 联系9 13830000009 其他 C级-潜在 潜客 - 6月13日 6月3日 跟进 分配 更多" [ref=e1190]:
+                      - cell "Select this row" [ref=e1191]:
+                        - generic "Select this row" [ref=e1193] [cursor=pointer]:
+                          - generic [ref=e1194]:
+                            - checkbox "Select this row"
+                      - cell "赵销售客户-9号公司" [ref=e1196]:
+                        - generic [ref=e1197]: 赵销售客户-9号公司
+                      - cell "赵销售" [ref=e1198]:
+                        - generic [ref=e1201]: 赵销售
+                      - cell "联系9" [ref=e1202]:
+                        - generic [ref=e1203]: 联系9
+                      - cell "13830000009" [ref=e1204]:
+                        - link "13830000009" [ref=e1206] [cursor=pointer]:
+                          - /url: tel:13830000009
+                      - cell "其他" [ref=e1207]:
+                        - generic [ref=e1210]: 其他
+                      - cell "C级-潜在" [ref=e1211]:
+                        - generic [ref=e1214]: C级-潜在
+                      - cell "潜客" [ref=e1215]:
+                        - generic [ref=e1218]: 潜客
+                      - cell "-" [ref=e1219]:
+                        - generic [ref=e1220]: "-"
+                      - cell "6月13日" [ref=e1221]:
+                        - generic [ref=e1222]: 6月13日
+                      - cell "6月3日" [ref=e1223]:
+                        - generic [ref=e1224]: 6月3日
+                      - cell "跟进 分配 更多" [ref=e1225]:
+                        - generic [ref=e1226]:
+                          - button "跟进" [ref=e1227] [cursor=pointer]:
+                            - img [ref=e1229]
+                            - generic [ref=e1232]: 跟进
+                          - button "分配" [ref=e1233] [cursor=pointer]:
+                            - generic [ref=e1234]: 分配
+                          - button "更多" [ref=e1236] [cursor=pointer]:
+                            - generic [ref=e1237]: 更多
+                    - row "Select this row 赵销售客户-10号公司 赵销售 联系10 13830000010 展会 C级-潜在 潜客 - 6月22日 6月2日 跟进 分配 更多" [ref=e1238]:
+                      - cell "Select this row" [ref=e1239]:
+                        - generic "Select this row" [ref=e1241] [cursor=pointer]:
+                          - generic [ref=e1242]:
+                            - checkbox "Select this row"
+                      - cell "赵销售客户-10号公司" [ref=e1244]:
+                        - generic [ref=e1245]: 赵销售客户-10号公司
+                      - cell "赵销售" [ref=e1246]:
+                        - generic [ref=e1249]: 赵销售
+                      - cell "联系10" [ref=e1250]:
+                        - generic [ref=e1251]: 联系10
+                      - cell "13830000010" [ref=e1252]:
+                        - link "13830000010" [ref=e1254] [cursor=pointer]:
+                          - /url: tel:13830000010
+                      - cell "展会" [ref=e1255]:
+                        - generic [ref=e1258]: 展会
+                      - cell "C级-潜在" [ref=e1259]:
+                        - generic [ref=e1262]: C级-潜在
+                      - cell "潜客" [ref=e1263]:
+                        - generic [ref=e1266]: 潜客
+                      - cell "-" [ref=e1267]:
+                        - generic [ref=e1268]: "-"
+                      - cell "6月22日" [ref=e1269]:
+                        - generic [ref=e1270]: 6月22日
+                      - cell "6月2日" [ref=e1271]:
+                        - generic [ref=e1272]: 6月2日
+                      - cell "跟进 分配 更多" [ref=e1273]:
+                        - generic [ref=e1274]:
+                          - button "跟进" [ref=e1275] [cursor=pointer]:
+                            - img [ref=e1277]
+                            - generic [ref=e1280]: 跟进
+                          - button "分配" [ref=e1281] [cursor=pointer]:
+                            - generic [ref=e1282]: 分配
+                          - button "更多" [ref=e1284] [cursor=pointer]:
+                            - generic [ref=e1285]: 更多
+                    - row "Select this row 南京雨花台区大数据公司 赵销售 曹总 13800138050 展会 A级-重点 潜客 - 6月19日 6月2日 跟进 分配 更多" [ref=e1286]:
+                      - cell "Select this row" [ref=e1287]:
+                        - generic "Select this row" [ref=e1289] [cursor=pointer]:
+                          - generic [ref=e1290]:
+                            - checkbox "Select this row"
+                      - cell "南京雨花台区大数据公司" [ref=e1292]:
+                        - generic [ref=e1293]: 南京雨花台区大数据公司
+                      - cell "赵销售" [ref=e1294]:
+                        - generic [ref=e1297]: 赵销售
+                      - cell "曹总" [ref=e1298]:
+                        - generic [ref=e1299]: 曹总
+                      - cell "13800138050" [ref=e1300]:
+                        - link "13800138050" [ref=e1302] [cursor=pointer]:
+                          - /url: tel:13800138050
+                      - cell "展会" [ref=e1303]:
+                        - generic [ref=e1306]: 展会
+                      - cell "A级-重点" [ref=e1307]:
+                        - generic [ref=e1310]: A级-重点
+                      - cell "潜客" [ref=e1311]:
+                        - generic [ref=e1314]: 潜客
+                      - cell "-" [ref=e1315]:
+                        - generic [ref=e1316]: "-"
+                      - cell "6月19日" [ref=e1317]:
+                        - generic [ref=e1318]: 6月19日
+                      - cell "6月2日" [ref=e1319]:
+                        - generic [ref=e1320]: 6月2日
+                      - cell "跟进 分配 更多" [ref=e1321]:
+                        - generic [ref=e1322]:
+                          - button "跟进" [ref=e1323] [cursor=pointer]:
+                            - img [ref=e1325]
+                            - generic [ref=e1328]: 跟进
+                          - button "分配" [ref=e1329] [cursor=pointer]:
+                            - generic [ref=e1330]: 分配
+                          - button "更多" [ref=e1332] [cursor=pointer]:
+                            - generic [ref=e1333]: 更多
+                    - row "Select this row 赵销售客户-11号公司 赵销售 联系11 13830000011 Facebook D级-冷淡 潜客 - 6月21日 6月1日 跟进 分配 更多" [ref=e1334]:
+                      - cell "Select this row" [ref=e1335]:
+                        - generic "Select this row" [ref=e1337] [cursor=pointer]:
+                          - generic [ref=e1338]:
+                            - checkbox "Select this row"
+                      - cell "赵销售客户-11号公司" [ref=e1340]:
+                        - generic [ref=e1341]: 赵销售客户-11号公司
+                      - cell "赵销售" [ref=e1342]:
+                        - generic [ref=e1345]: 赵销售
+                      - cell "联系11" [ref=e1346]:
+                        - generic [ref=e1347]: 联系11
+                      - cell "13830000011" [ref=e1348]:
+                        - link "13830000011" [ref=e1350] [cursor=pointer]:
+                          - /url: tel:13830000011
+                      - cell "Facebook" [ref=e1351]:
+                        - generic [ref=e1354]: Facebook
+                      - cell "D级-冷淡" [ref=e1355]:
+                        - generic [ref=e1358]: D级-冷淡
+                      - cell "潜客" [ref=e1359]:
+                        - generic [ref=e1362]: 潜客
+                      - cell "-" [ref=e1363]:
+                        - generic [ref=e1364]: "-"
+                      - cell "6月21日" [ref=e1365]:
+                        - generic [ref=e1366]: 6月21日
+                      - cell "6月1日" [ref=e1367]:
+                        - generic [ref=e1368]: 6月1日
+                      - cell "跟进 分配 更多" [ref=e1369]:
+                        - generic [ref=e1370]:
+                          - button "跟进" [ref=e1371] [cursor=pointer]:
+                            - img [ref=e1373]
+                            - generic [ref=e1376]: 跟进
+                          - button "分配" [ref=e1377] [cursor=pointer]:
+                            - generic [ref=e1378]: 分配
+                          - button "更多" [ref=e1380] [cursor=pointer]:
+                            - generic [ref=e1381]: 更多
+                    - row "Select this row 西安高新区半导体公司 赵销售 华工 13800138052 LinkedIn A级-重点 潜客 - 从未跟进 5月31日 跟进 分配 更多" [ref=e1382]:
+                      - cell "Select this row" [ref=e1383]:
+                        - generic "Select this row" [ref=e1385] [cursor=pointer]:
+                          - generic [ref=e1386]:
+                            - checkbox "Select this row"
+                      - cell "西安高新区半导体公司" [ref=e1388]:
+                        - generic [ref=e1389]: 西安高新区半导体公司
+                      - cell "赵销售" [ref=e1390]:
+                        - generic [ref=e1393]: 赵销售
+                      - cell "华工" [ref=e1394]:
+                        - generic [ref=e1395]: 华工
+                      - cell "13800138052" [ref=e1396]:
+                        - link "13800138052" [ref=e1398] [cursor=pointer]:
+                          - /url: tel:13800138052
+                      - cell "LinkedIn" [ref=e1399]:
+                        - generic [ref=e1402]: LinkedIn
+                      - cell "A级-重点" [ref=e1403]:
+                        - generic [ref=e1406]: A级-重点
+                      - cell "潜客" [ref=e1407]:
+                        - generic [ref=e1410]: 潜客
+                      - cell "-" [ref=e1411]:
+                        - generic [ref=e1412]: "-"
+                      - cell "从未跟进" [ref=e1413]:
+                        - generic [ref=e1416]: 从未跟进
+                      - cell "5月31日" [ref=e1417]:
+                        - generic [ref=e1418]: 5月31日
+                      - cell "跟进 分配 更多" [ref=e1419]:
+                        - generic [ref=e1420]:
+                          - button "跟进" [ref=e1421] [cursor=pointer]:
+                            - img [ref=e1423]
+                            - generic [ref=e1426]: 跟进
+                          - button "分配" [ref=e1427] [cursor=pointer]:
+                            - generic [ref=e1428]: 分配
+                          - button "更多" [ref=e1430] [cursor=pointer]:
+                            - generic [ref=e1431]: 更多
+                    - row "Select this row 赵销售客户-12号公司 赵销售 联系12 13830000012 LinkedIn B级-意向 潜客 - 6月20日 5月31日 跟进 分配 更多" [ref=e1432]:
+                      - cell "Select this row" [ref=e1433]:
+                        - generic "Select this row" [ref=e1435] [cursor=pointer]:
+                          - generic [ref=e1436]:
+                            - checkbox "Select this row"
+                      - cell "赵销售客户-12号公司" [ref=e1438]:
+                        - generic [ref=e1439]: 赵销售客户-12号公司
+                      - cell "赵销售" [ref=e1440]:
+                        - generic [ref=e1443]: 赵销售
+                      - cell "联系12" [ref=e1444]:
+                        - generic [ref=e1445]: 联系12
+                      - cell "13830000012" [ref=e1446]:
+                        - link "13830000012" [ref=e1448] [cursor=pointer]:
+                          - /url: tel:13830000012
+                      - cell "LinkedIn" [ref=e1449]:
+                        - generic [ref=e1452]: LinkedIn
+                      - cell "B级-意向" [ref=e1453]:
+                        - generic [ref=e1456]: B级-意向
+                      - cell "潜客" [ref=e1457]:
+                        - generic [ref=e1460]: 潜客
+                      - cell "-" [ref=e1461]:
+                        - generic [ref=e1462]: "-"
+                      - cell "6月20日" [ref=e1463]:
+                        - generic [ref=e1464]: 6月20日
+                      - cell "5月31日" [ref=e1465]:
+                        - generic [ref=e1466]: 5月31日
+                      - cell "跟进 分配 更多" [ref=e1467]:
+                        - generic [ref=e1468]:
+                          - button "跟进" [ref=e1469] [cursor=pointer]:
+                            - img [ref=e1471]
+                            - generic [ref=e1474]: 跟进
+                          - button "分配" [ref=e1475] [cursor=pointer]:
+                            - generic [ref=e1476]: 分配
+                          - button "更多" [ref=e1478] [cursor=pointer]:
+                            - generic [ref=e1479]: 更多
+                    - row "Select this row 赵销售客户-13号公司 赵销售 联系13 13830000013 电话 C级-潜在 潜客 - 6月19日 5月30日 跟进 分配 更多" [ref=e1480]:
+                      - cell "Select this row" [ref=e1481]:
+                        - generic "Select this row" [ref=e1483] [cursor=pointer]:
+                          - generic [ref=e1484]:
+                            - checkbox "Select this row"
+                      - cell "赵销售客户-13号公司" [ref=e1486]:
+                        - generic [ref=e1487]: 赵销售客户-13号公司
+                      - cell "赵销售" [ref=e1488]:
+                        - generic [ref=e1491]: 赵销售
+                      - cell "联系13" [ref=e1492]:
+                        - generic [ref=e1493]: 联系13
+                      - cell "13830000013" [ref=e1494]:
+                        - link "13830000013" [ref=e1496] [cursor=pointer]:
+                          - /url: tel:13830000013
+                      - cell "电话" [ref=e1497]:
+                        - generic [ref=e1500]: 电话
+                      - cell "C级-潜在" [ref=e1501]:
+                        - generic [ref=e1504]: C级-潜在
+                      - cell "潜客" [ref=e1505]:
+                        - generic [ref=e1508]: 潜客
+                      - cell "-" [ref=e1509]:
+                        - generic [ref=e1510]: "-"
+                      - cell "6月19日" [ref=e1511]:
+                        - generic [ref=e1512]: 6月19日
+                      - cell "5月30日" [ref=e1513]:
+                        - generic [ref=e1514]: 5月30日
+                      - cell "跟进 分配 更多" [ref=e1515]:
+                        - generic [ref=e1516]:
+                          - button "跟进" [ref=e1517] [cursor=pointer]:
+                            - img [ref=e1519]
+                            - generic [ref=e1522]: 跟进
+                          - button "分配" [ref=e1523] [cursor=pointer]:
+                            - generic [ref=e1524]: 分配
+                          - button "更多" [ref=e1526] [cursor=pointer]:
+                            - generic [ref=e1527]: 更多
+                    - row "Select this row 赵销售客户-14号公司 赵销售 联系14 13830000014 其他 C级-潜在 潜客 - 6月18日 5月29日 跟进 分配 更多" [ref=e1528]:
+                      - cell "Select this row" [ref=e1529]:
+                        - generic "Select this row" [ref=e1531] [cursor=pointer]:
+                          - generic [ref=e1532]:
+                            - checkbox "Select this row"
+                      - cell "赵销售客户-14号公司" [ref=e1534]:
+                        - generic [ref=e1535]: 赵销售客户-14号公司
+                      - cell "赵销售" [ref=e1536]:
+                        - generic [ref=e1539]: 赵销售
+                      - cell "联系14" [ref=e1540]:
+                        - generic [ref=e1541]: 联系14
+                      - cell "13830000014" [ref=e1542]:
+                        - link "13830000014" [ref=e1544] [cursor=pointer]:
+                          - /url: tel:13830000014
+                      - cell "其他" [ref=e1545]:
+                        - generic [ref=e1548]: 其他
+                      - cell "C级-潜在" [ref=e1549]:
+                        - generic [ref=e1552]: C级-潜在
+                      - cell "潜客" [ref=e1553]:
+                        - generic [ref=e1556]: 潜客
+                      - cell "-" [ref=e1557]:
+                        - generic [ref=e1558]: "-"
+                      - cell "6月18日" [ref=e1559]:
+                        - generic [ref=e1560]: 6月18日
+                      - cell "5月29日" [ref=e1561]:
+                        - generic [ref=e1562]: 5月29日
+                      - cell "跟进 分配 更多" [ref=e1563]:
+                        - generic [ref=e1564]:
+                          - button "跟进" [ref=e1565] [cursor=pointer]:
+                            - img [ref=e1567]
+                            - generic [ref=e1570]: 跟进
+                          - button "分配" [ref=e1571] [cursor=pointer]:
+                            - generic [ref=e1572]: 分配
+                          - button "更多" [ref=e1574] [cursor=pointer]:
+                            - generic [ref=e1575]: 更多
+                    - row "Select this row 武汉光谷通信技术公司 赵销售 严经理 13800138051 Facebook B级-意向 潜客 - 5月28日 5月28日 跟进 分配 更多" [ref=e1576]:
+                      - cell "Select this row" [ref=e1577]:
+                        - generic "Select this row" [ref=e1579] [cursor=pointer]:
+                          - generic [ref=e1580]:
+                            - checkbox "Select this row"
+                      - cell "武汉光谷通信技术公司" [ref=e1582]:
+                        - generic [ref=e1583]: 武汉光谷通信技术公司
+                      - cell "赵销售" [ref=e1584]:
+                        - generic [ref=e1587]: 赵销售
+                      - cell "严经理" [ref=e1588]:
+                        - generic [ref=e1589]: 严经理
+                      - cell "13800138051" [ref=e1590]:
+                        - link "13800138051" [ref=e1592] [cursor=pointer]:
+                          - /url: tel:13800138051
+                      - cell "Facebook" [ref=e1593]:
+                        - generic [ref=e1596]: Facebook
+                      - cell "B级-意向" [ref=e1597]:
+                        - generic [ref=e1600]: B级-意向
+                      - cell "潜客" [ref=e1601]:
+                        - generic [ref=e1604]: 潜客
+                      - cell "-" [ref=e1605]:
+                        - generic [ref=e1606]: "-"
+                      - cell "5月28日" [ref=e1607]:
+                        - generic [ref=e1608]: 5月28日
+                      - cell "5月28日" [ref=e1609]:
+                        - generic [ref=e1610]: 5月28日
+                      - cell "跟进 分配 更多" [ref=e1611]:
+                        - generic [ref=e1612]:
+                          - button "跟进" [ref=e1613] [cursor=pointer]:
+                            - img [ref=e1615]
+                            - generic [ref=e1618]: 跟进
+                          - button "分配" [ref=e1619] [cursor=pointer]:
+                            - generic [ref=e1620]: 分配
+                          - button "更多" [ref=e1622] [cursor=pointer]:
+                            - generic [ref=e1623]: 更多
+                    - row "Select this row 赵销售客户-15号公司 赵销售 联系15 13830000015 展会 D级-冷淡 潜客 - 6月17日 5月28日 跟进 分配 更多" [ref=e1624]:
+                      - cell "Select this row" [ref=e1625]:
+                        - generic "Select this row" [ref=e1627] [cursor=pointer]:
+                          - generic [ref=e1628]:
+                            - checkbox "Select this row"
+                      - cell "赵销售客户-15号公司" [ref=e1630]:
+                        - generic [ref=e1631]: 赵销售客户-15号公司
+                      - cell "赵销售" [ref=e1632]:
+                        - generic [ref=e1635]: 赵销售
+                      - cell "联系15" [ref=e1636]:
+                        - generic [ref=e1637]: 联系15
+                      - cell "13830000015" [ref=e1638]:
+                        - link "13830000015" [ref=e1640] [cursor=pointer]:
+                          - /url: tel:13830000015
+                      - cell "展会" [ref=e1641]:
+                        - generic [ref=e1644]: 展会
+                      - cell "D级-冷淡" [ref=e1645]:
+                        - generic [ref=e1648]: D级-冷淡
+                      - cell "潜客" [ref=e1649]:
+                        - generic [ref=e1652]: 潜客
+                      - cell "-" [ref=e1653]:
+                        - generic [ref=e1654]: "-"
+                      - cell "6月17日" [ref=e1655]:
+                        - generic [ref=e1656]: 6月17日
+                      - cell "5月28日" [ref=e1657]:
+                        - generic [ref=e1658]: 5月28日
+                      - cell "跟进 分配 更多" [ref=e1659]:
+                        - generic [ref=e1660]:
+                          - button "跟进" [ref=e1661] [cursor=pointer]:
+                            - img [ref=e1663]
+                            - generic [ref=e1666]: 跟进
+                          - button "分配" [ref=e1667] [cursor=pointer]:
+                            - generic [ref=e1668]: 分配
+                          - button "更多" [ref=e1670] [cursor=pointer]:
+                            - generic [ref=e1671]: 更多
+                    - row "Select this row 赵销售客户-16号公司 赵销售 联系16 13830000016 Facebook B级-意向 潜客 - 6月16日 5月27日 跟进 分配 更多" [ref=e1672]:
+                      - cell "Select this row" [ref=e1673]:
+                        - generic "Select this row" [ref=e1675] [cursor=pointer]:
+                          - generic [ref=e1676]:
+                            - checkbox "Select this row"
+                      - cell "赵销售客户-16号公司" [ref=e1678]:
+                        - generic [ref=e1679]: 赵销售客户-16号公司
+                      - cell "赵销售" [ref=e1680]:
+                        - generic [ref=e1683]: 赵销售
+                      - cell "联系16" [ref=e1684]:
+                        - generic [ref=e1685]: 联系16
+                      - cell "13830000016" [ref=e1686]:
+                        - link "13830000016" [ref=e1688] [cursor=pointer]:
+                          - /url: tel:13830000016
+                      - cell "Facebook" [ref=e1689]:
+                        - generic [ref=e1692]: Facebook
+                      - cell "B级-意向" [ref=e1693]:
+                        - generic [ref=e1696]: B级-意向
+                      - cell "潜客" [ref=e1697]:
+                        - generic [ref=e1700]: 潜客
+                      - cell "-" [ref=e1701]:
+                        - generic [ref=e1702]: "-"
+                      - cell "6月16日" [ref=e1703]:
+                        - generic [ref=e1704]: 6月16日
+                      - cell "5月27日" [ref=e1705]:
+                        - generic [ref=e1706]: 5月27日
+                      - cell "跟进 分配 更多" [ref=e1707]:
+                        - generic [ref=e1708]:
+                          - button "跟进" [ref=e1709] [cursor=pointer]:
+                            - img [ref=e1711]
+                            - generic [ref=e1714]: 跟进
+                          - button "分配" [ref=e1715] [cursor=pointer]:
+                            - generic [ref=e1716]: 分配
+                          - button "更多" [ref=e1718] [cursor=pointer]:
+                            - generic [ref=e1719]: 更多
+          - generic [ref=e1721]:
+            - generic [ref=e1722]: Total 130
+            - generic [ref=e1725] [cursor=pointer]:
+              - generic:
+                - combobox [ref=e1727]
+                - generic [ref=e1728]: 10/page
+              - img [ref=e1731]
+            - button "Go to previous page" [disabled] [ref=e1733]:
+              - generic:
+                - img
+            - list [ref=e1734]:
+              - listitem "page 1" [ref=e1735]: "1"
+              - listitem "page 2" [ref=e1736] [cursor=pointer]: "2"
+              - listitem "page 3" [ref=e1737] [cursor=pointer]: "3"
+              - listitem "page 4" [ref=e1738] [cursor=pointer]: "4"
+              - listitem "page 5" [ref=e1739] [cursor=pointer]: "5"
+              - listitem "page 6" [ref=e1740] [cursor=pointer]: "6"
+              - listitem "Next 5 pages" [ref=e1741] [cursor=pointer]:
+                - img
+              - listitem "page 13" [ref=e1742] [cursor=pointer]: "13"
+            - button "Go to next page" [ref=e1743] [cursor=pointer]:
+              - generic:
+                - img
+            - generic [ref=e1744]:
+              - generic [ref=e1745]: Go to
+              - spinbutton "Page" [ref=e1748]: "1"
+    - img [ref=e485] [cursor=pointer]
+  - generic:
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - menu "系统管理员":
+              - menuitem "个人中心"
+              - menuitem "系统设置"
+              - separator
+              - menuitem "退出登录"

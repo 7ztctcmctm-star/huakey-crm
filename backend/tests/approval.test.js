@@ -1,4 +1,4 @@
-﻿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -119,12 +119,12 @@ describe('审批流程模块', () => {
     it('应该返回200当正常通过审批', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ id: 1, workflow_id: 1, business_type: 'quote', business_id: 1, step_id: 1, step_order: 1, approver_id: 1, status: 'pending' }]]) // record lookup
-        .mockResolvedValueOnce([[]]); // no next step (final step)
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       mockConnection.query
+        .mockResolvedValueOnce([[{ id: 1, workflow_id: 1, business_type: 'quote', business_id: 1, step_id: 1, step_order: 1, approver_id: 1, status: 'pending' }]]) // SELECT FOR UPDATE
         .mockResolvedValueOnce([{ affectedRows: 1 }]) // update record status
+        .mockResolvedValueOnce([[]]) // no next step (final step)
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update business status
 
       const res = await request(app)
@@ -137,17 +137,34 @@ describe('审批流程模块', () => {
       expect(res.body.data.is_final).toBe(true);
       expect(mockConnection.commit).toHaveBeenCalled();
     });
+
+    it('应该返回404当审批记录已被处理（TOCTOU并发竞态）', async () => {
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+
+      mockConnection.query
+        .mockResolvedValueOnce([[]]); // SELECT FOR UPDATE 返回空（已被其他请求处理）
+
+      const res = await request(app)
+        .post('/api/v1/approval/approve/1')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ remark: '同意' });
+
+      expect(res.status).toBe(404);
+      expect(res.body.code).toBe(404);
+      expect(mockConnection.rollback).toHaveBeenCalled();
+    });
   });
 
   describe('POST /api/v1/approval/reject/:id', () => {
     it('应该返回200当正常驳回审批', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ id: 1, workflow_id: 1, business_type: 'quote', business_id: 1, step_id: 1, step_order: 1, approver_id: 1, status: 'pending' }]]) // record lookup
-        .mockResolvedValueOnce([[{ id: 1, approval_status: 1 }]]); // business record check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       mockConnection.query
+        .mockResolvedValueOnce([[{ id: 1, workflow_id: 1, business_type: 'quote', business_id: 1, step_id: 1, step_order: 1, approver_id: 1, status: 'pending' }]]) // SELECT FOR UPDATE
         .mockResolvedValueOnce([{ affectedRows: 1 }]) // update record status
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update business status
 

@@ -3,6 +3,7 @@
  * 从 routes/upload.js 提取的业务逻辑
  */
 const path = require('path');
+const crypto = require('crypto');
 const { getSupabaseStorage } = require('../utils/supabaseStorage');
 
 // Supabase Storage 客户端（懒加载）
@@ -23,14 +24,14 @@ async function uploadFile(pool, { file, business_type, business_id, userId }) {
   }
 
   const ext = path.extname(file.originalname);
-  const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+  const filename = `${crypto.randomUUID()}${ext}`;
 
   let filePath;
   const storage = await getStorage();
 
   if (storage) {
     // 上传到 Supabase Storage
-    const { data, error } = await storage.upload(filename, file.buffer, {
+    const { error } = await storage.upload(filename, file.buffer, {
       contentType: file.mimetype,
       cacheControl: '3600'
     });

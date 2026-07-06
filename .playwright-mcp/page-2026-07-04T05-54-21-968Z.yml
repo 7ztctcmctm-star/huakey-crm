@@ -1,0 +1,391 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - img "Huakey" [ref=e6]
+      - generic [ref=e7]: 铧旗CRM系统
+    - menubar [ref=e8]:
+      - menuitem "首页" [ref=e9] [cursor=pointer]:
+        - img [ref=e11]
+        - text: 首页
+      - menuitem "客户管理" [ref=e13]:
+        - generic [ref=e14] [cursor=pointer]:
+          - img [ref=e16]
+          - generic [ref=e18]: 客户管理
+          - img [ref=e20]
+      - menuitem "邮件" [ref=e22] [cursor=pointer]:
+        - img [ref=e24]
+        - text: 邮件
+      - menuitem "商机管理" [ref=e27] [cursor=pointer]:
+        - img [ref=e29]
+        - text: 商机管理
+      - menuitem "产品管理" [ref=e31] [cursor=pointer]:
+        - img [ref=e33]
+        - text: 产品管理
+      - menuitem "报价管理" [ref=e36] [cursor=pointer]:
+        - img [ref=e38]
+        - text: 报价管理
+      - menuitem "合同管理" [ref=e40] [cursor=pointer]:
+        - img [ref=e42]
+        - text: 合同管理
+      - menuitem "日程管理" [ref=e44] [cursor=pointer]:
+        - img [ref=e46]
+        - text: 日程管理
+      - menuitem "社媒沟通" [ref=e48] [cursor=pointer]:
+        - img [ref=e50]
+        - text: 社媒沟通
+      - menuitem "回款管理" [ref=e53]:
+        - generic [ref=e54] [cursor=pointer]:
+          - img [ref=e56]
+          - generic [ref=e60]: 回款管理
+          - img [ref=e62]
+      - menuitem "供应商管理" [ref=e64]:
+        - generic [ref=e65] [cursor=pointer]:
+          - img [ref=e67]
+          - generic [ref=e71]: 供应商管理
+          - img [ref=e73]
+      - menuitem "采购管理" [ref=e75]:
+        - generic [ref=e76] [cursor=pointer]:
+          - img [ref=e78]
+          - generic [ref=e80]: 采购管理
+          - img [ref=e82]
+      - menuitem "售后服务" [ref=e84] [cursor=pointer]:
+        - img [ref=e86]
+        - text: 售后服务
+      - menuitem "客户满意度" [ref=e88]:
+        - generic [ref=e89] [cursor=pointer]:
+          - img [ref=e91]
+          - generic [ref=e93]: 客户满意度
+          - img [ref=e95]
+      - menuitem "人力资源" [ref=e97]:
+        - generic [ref=e98] [cursor=pointer]:
+          - img [ref=e100]
+          - generic [ref=e102]: 人力资源
+          - img [ref=e104]
+      - menuitem "自动化" [ref=e106]:
+        - generic [ref=e107] [cursor=pointer]:
+          - img [ref=e109]
+          - generic [ref=e111]: 自动化
+          - img [ref=e113]
+      - menuitem "数据报表" [ref=e115]:
+        - generic [ref=e116] [cursor=pointer]:
+          - img [ref=e118]
+          - generic [ref=e120]: 数据报表
+          - img [ref=e122]
+      - menuitem "分析工具" [ref=e124]:
+        - generic [ref=e125] [cursor=pointer]:
+          - img [ref=e127]
+          - generic [ref=e129]: 分析工具
+          - img [ref=e131]
+      - menuitem "评分规则" [ref=e133] [cursor=pointer]:
+        - img [ref=e135]
+        - text: 评分规则
+      - menuitem "评分排行" [ref=e137] [cursor=pointer]:
+        - img [ref=e139]
+        - text: 评分排行
+      - menuitem "AI助手" [ref=e141] [cursor=pointer]:
+        - img [ref=e143]
+        - text: AI助手
+      - menuitem "待审批" [ref=e146] [cursor=pointer]:
+        - img [ref=e148]
+        - text: 待审批
+      - menuitem "我的审批" [ref=e150] [cursor=pointer]:
+        - img [ref=e152]
+        - text: 我的审批
+      - menuitem "知识库" [ref=e154]:
+        - generic [ref=e155] [cursor=pointer]:
+          - img [ref=e157]
+          - generic [ref=e160]: 知识库
+          - img [ref=e162]
+      - menuitem "销售目标" [ref=e164] [cursor=pointer]:
+        - img [ref=e166]
+        - text: 销售目标
+      - menuitem "系统管理" [ref=e170]:
+        - generic [ref=e171] [cursor=pointer]:
+          - img [ref=e173]
+          - generic [ref=e175]: 系统管理
+          - img [ref=e177]
+  - generic [ref=e179]:
+    - generic [ref=e180]:
+      - generic [ref=e181]:
+        - button [ref=e182] [cursor=pointer]:
+          - img [ref=e185]
+        - navigation "Breadcrumb" [ref=e187]:
+          - link "首页" [ref=e189]
+        - generic [ref=e191]:
+          - img [ref=e194]
+          - textbox "搜索客户、合同、商机..." [ref=e196]
+          - generic [ref=e198]: Ctrl+K
+        - button "最近访问" [ref=e199] [cursor=pointer]:
+          - img [ref=e202]
+      - generic [ref=e206]:
+        - button "快速创建 (Ctrl+N)" [ref=e207] [cursor=pointer]:
+          - img [ref=e210]
+        - button [ref=e213] [cursor=pointer]:
+          - img [ref=e216]
+        - button [ref=e220] [cursor=pointer]:
+          - img [ref=e223]
+        - button "团队看板" [ref=e225] [cursor=pointer]:
+          - generic [ref=e226]:
+            - img [ref=e228]
+            - generic [ref=e232]: 团队看板
+        - button "系统管理员" [ref=e234] [cursor=pointer]:
+          - img [ref=e236]
+          - text: 系统管理员
+          - img [ref=e239]
+    - main [ref=e241]:
+      - generic:
+        - generic:
+          - generic [ref=e242]:
+            - generic [ref=e245] [cursor=pointer]:
+              - generic:
+                - generic:
+                  - generic: ¥0.00
+                  - generic: 本月销售额
+            - generic [ref=e248] [cursor=pointer]:
+              - generic:
+                - generic:
+                  - generic: "0"
+                  - generic: 本月新增客户
+            - generic [ref=e251] [cursor=pointer]:
+              - generic:
+                - generic:
+                  - generic: "0"
+                  - generic: 本月合同数
+            - generic [ref=e254] [cursor=pointer]:
+              - generic:
+                - generic:
+                  - generic: ¥0.00
+                  - generic: 本月回款
+          - generic [ref=e255]:
+            - generic [ref=e258] [cursor=pointer]:
+              - generic:
+                - generic:
+                  - generic: ¥6,480,000.00
+                  - generic: 进行中商机
+            - generic [ref=e261] [cursor=pointer]:
+              - generic:
+                - generic:
+                  - generic: "0"
+                  - generic: 待回款计划
+            - generic [ref=e264] [cursor=pointer]:
+              - generic:
+                - generic:
+                  - generic: "90"
+                  - generic: 逾期跟进 (>15天)
+            - generic [ref=e267] [cursor=pointer]:
+              - generic:
+                - generic:
+                  - generic: "0"
+                  - generic: 待执行合同
+          - generic [ref=e268]:
+            - generic [ref=e271] [cursor=pointer]:
+              - generic:
+                - generic:
+                  - generic: "0"
+                  - generic: 今日待跟进
+            - generic [ref=e274] [cursor=pointer]:
+              - generic:
+                - generic:
+                  - generic: "0"
+                  - generic: 明日计划
+            - generic [ref=e277] [cursor=pointer]:
+              - generic:
+                - generic:
+                  - generic: "7"
+                  - generic: 逾期未跟进
+          - generic [ref=e280]:
+            - generic [ref=e282]:
+              - img [ref=e284]
+              - text: 团队业绩排行
+            - generic [ref=e286]:
+              - generic:
+                - generic:
+                  - table [ref=e287]:
+                    - rowgroup [ref=e296]:
+                      - row "排名 销售 部门 客户数 本月合同额 本月回款 目标达成" [ref=e297]:
+                        - columnheader "排名" [ref=e298]:
+                          - generic [ref=e299]: 排名
+                        - columnheader "销售" [ref=e300]:
+                          - generic [ref=e301]: 销售
+                        - columnheader "部门" [ref=e302]:
+                          - generic [ref=e303]: 部门
+                        - columnheader "客户数" [ref=e304]:
+                          - generic [ref=e305]: 客户数
+                        - columnheader "本月合同额" [ref=e306]:
+                          - generic [ref=e307]: 本月合同额
+                        - columnheader "本月回款" [ref=e308]:
+                          - generic [ref=e309]: 本月回款
+                        - columnheader "目标达成" [ref=e310]:
+                          - generic [ref=e311]: 目标达成
+                  - table [ref=e313]:
+                    - rowgroup [ref=e322]:
+                      - row "1 李销售 人力资源部 42 ¥0.00 ¥0.00 0%" [ref=e323]:
+                        - cell "1" [ref=e324]:
+                          - generic [ref=e326]: "1"
+                        - cell "李销售" [ref=e327]:
+                          - generic [ref=e328]: 李销售
+                        - cell "人力资源部" [ref=e329]:
+                          - generic [ref=e330]: 人力资源部
+                        - cell "42" [ref=e331]:
+                          - generic [ref=e332]: "42"
+                        - cell "¥0.00" [ref=e333]:
+                          - generic [ref=e334]: ¥0.00
+                        - cell "¥0.00" [ref=e335]:
+                          - generic [ref=e336]: ¥0.00
+                        - cell "0%" [ref=e337]:
+                          - generic [ref=e338]: 0%
+                      - row "2 王销售 人力资源部 56 ¥0.00 ¥0.00 0%" [ref=e339]:
+                        - cell "2" [ref=e340]:
+                          - generic [ref=e342]: "2"
+                        - cell "王销售" [ref=e343]:
+                          - generic [ref=e344]: 王销售
+                        - cell "人力资源部" [ref=e345]:
+                          - generic [ref=e346]: 人力资源部
+                        - cell "56" [ref=e347]:
+                          - generic [ref=e348]: "56"
+                        - cell "¥0.00" [ref=e349]:
+                          - generic [ref=e350]: ¥0.00
+                        - cell "¥0.00" [ref=e351]:
+                          - generic [ref=e352]: ¥0.00
+                        - cell "0%" [ref=e353]:
+                          - generic [ref=e354]: 0%
+                      - row "3 赵销售 人力资源部 28 ¥0.00 ¥0.00 0%" [ref=e355]:
+                        - cell "3" [ref=e356]:
+                          - generic [ref=e358]: "3"
+                        - cell "赵销售" [ref=e359]:
+                          - generic [ref=e360]: 赵销售
+                        - cell "人力资源部" [ref=e361]:
+                          - generic [ref=e362]: 人力资源部
+                        - cell "28" [ref=e363]:
+                          - generic [ref=e364]: "28"
+                        - cell "¥0.00" [ref=e365]:
+                          - generic [ref=e366]: ¥0.00
+                        - cell "¥0.00" [ref=e367]:
+                          - generic [ref=e368]: ¥0.00
+                        - cell "0%" [ref=e369]:
+                          - generic [ref=e370]: 0%
+                      - row "4 陈销售 人力资源部 16 ¥0.00 ¥0.00 0%" [ref=e371]:
+                        - cell "4" [ref=e372]:
+                          - generic [ref=e374]: "4"
+                        - cell "陈销售" [ref=e375]:
+                          - generic [ref=e376]: 陈销售
+                        - cell "人力资源部" [ref=e377]:
+                          - generic [ref=e378]: 人力资源部
+                        - cell "16" [ref=e379]:
+                          - generic [ref=e380]: "16"
+                        - cell "¥0.00" [ref=e381]:
+                          - generic [ref=e382]: ¥0.00
+                        - cell "¥0.00" [ref=e383]:
+                          - generic [ref=e384]: ¥0.00
+                        - cell "0%" [ref=e385]:
+                          - generic [ref=e386]: 0%
+                      - row "5 梁海林 总经办 0 ¥0.00 ¥0.00 0%" [ref=e387]:
+                        - cell "5" [ref=e388]:
+                          - generic [ref=e390]: "5"
+                        - cell "梁海林" [ref=e391]:
+                          - generic [ref=e392]: 梁海林
+                        - cell "总经办" [ref=e393]:
+                          - generic [ref=e394]: 总经办
+                        - cell "0" [ref=e395]:
+                          - generic [ref=e396]: "0"
+                        - cell "¥0.00" [ref=e397]:
+                          - generic [ref=e398]: ¥0.00
+                        - cell "¥0.00" [ref=e399]:
+                          - generic [ref=e400]: ¥0.00
+                        - cell "0%" [ref=e401]:
+                          - generic [ref=e402]: 0%
+                      - row "6 贺承启 总经办 0 ¥0.00 ¥0.00 0%" [ref=e403]:
+                        - cell "6" [ref=e404]:
+                          - generic [ref=e406]: "6"
+                        - cell "贺承启" [ref=e407]:
+                          - generic [ref=e408]: 贺承启
+                        - cell "总经办" [ref=e409]:
+                          - generic [ref=e410]: 总经办
+                        - cell "0" [ref=e411]:
+                          - generic [ref=e412]: "0"
+                        - cell "¥0.00" [ref=e413]:
+                          - generic [ref=e414]: ¥0.00
+                        - cell "¥0.00" [ref=e415]:
+                          - generic [ref=e416]: ¥0.00
+                        - cell "0%" [ref=e417]:
+                          - generic [ref=e418]: 0%
+                      - row "7 黄至正 总经办 0 ¥0.00 ¥0.00 0%" [ref=e419]:
+                        - cell "7" [ref=e420]:
+                          - generic [ref=e422]: "7"
+                        - cell "黄至正" [ref=e423]:
+                          - generic [ref=e424]: 黄至正
+                        - cell "总经办" [ref=e425]:
+                          - generic [ref=e426]: 总经办
+                        - cell "0" [ref=e427]:
+                          - generic [ref=e428]: "0"
+                        - cell "¥0.00" [ref=e429]:
+                          - generic [ref=e430]: ¥0.00
+                        - cell "¥0.00" [ref=e431]:
+                          - generic [ref=e432]: ¥0.00
+                        - cell "0%" [ref=e433]:
+                          - generic [ref=e434]: 0%
+                      - row "8 Vivian 模具销售 0 ¥0.00 ¥0.00 0%" [ref=e435]:
+                        - cell "8" [ref=e436]:
+                          - generic [ref=e438]: "8"
+                        - cell "Vivian" [ref=e439]:
+                          - generic [ref=e440]: Vivian
+                        - cell "模具销售" [ref=e441]:
+                          - generic [ref=e442]: 模具销售
+                        - cell "0" [ref=e443]:
+                          - generic [ref=e444]: "0"
+                        - cell "¥0.00" [ref=e445]:
+                          - generic [ref=e446]: ¥0.00
+                        - cell "¥0.00" [ref=e447]:
+                          - generic [ref=e448]: ¥0.00
+                        - cell "0%" [ref=e449]:
+                          - generic [ref=e450]: 0%
+                      - row "9 Lselie 设备销售 0 ¥0.00 ¥0.00 0%" [ref=e451]:
+                        - cell "9" [ref=e452]:
+                          - generic [ref=e454]: "9"
+                        - cell "Lselie" [ref=e455]:
+                          - generic [ref=e456]: Lselie
+                        - cell "设备销售" [ref=e457]:
+                          - generic [ref=e458]: 设备销售
+                        - cell "0" [ref=e459]:
+                          - generic [ref=e460]: "0"
+                        - cell "¥0.00" [ref=e461]:
+                          - generic [ref=e462]: ¥0.00
+                        - cell "¥0.00" [ref=e463]:
+                          - generic [ref=e464]: ¥0.00
+                        - cell "0%" [ref=e465]:
+                          - generic [ref=e466]: 0%
+                      - row "10 梁礼康 设备销售 0 ¥0.00 ¥0.00 0%" [ref=e467]:
+                        - cell "10" [ref=e468]:
+                          - generic [ref=e470]: "10"
+                        - cell "梁礼康" [ref=e471]:
+                          - generic [ref=e472]: 梁礼康
+                        - cell "设备销售" [ref=e473]:
+                          - generic [ref=e474]: 设备销售
+                        - cell "0" [ref=e475]:
+                          - generic [ref=e476]: "0"
+                        - cell "¥0.00" [ref=e477]:
+                          - generic [ref=e478]: ¥0.00
+                        - cell "¥0.00" [ref=e479]:
+                          - generic [ref=e480]: ¥0.00
+                        - cell "0%" [ref=e481]:
+                          - generic [ref=e482]: 0%
+  - generic:
+    - generic:
+      - generic:
+        - img
+    - generic [ref=e483]:
+      - generic [ref=e484]:
+        - generic [ref=e485]: AI 助手 · ollama/qwen2.5:3b
+        - generic [ref=e486]:
+          - text: 在线
+          - button [ref=e487] [cursor=pointer]:
+            - img [ref=e490]
+      - generic [ref=e493]:
+        - img [ref=e495]
+        - paragraph [ref=e498]: 我可以帮你分析CRM数据
+        - generic [ref=e499]:
+          - generic [ref=e500] [cursor=pointer]: 最近7天新增了多少线索
+          - generic [ref=e501] [cursor=pointer]: 各等级的客户数量
+          - generic [ref=e502] [cursor=pointer]: 本月成交合同总额
+          - generic [ref=e503] [cursor=pointer]: 如何跟进逾期客户
+      - textbox "输入问题，回车发送" [ref=e507]

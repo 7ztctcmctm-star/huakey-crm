@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
@@ -86,7 +86,7 @@ const emptySchema = Joi.object({});
 
 // 规则列表
 // [权限说明] 工作流列表供已登录用户查看；增删改用 requireAdmin 控制
-router.get('/workflows', authenticateToken, async (req, res) => {
+router.get('/workflows', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const rows = await automationService.getWorkflows(pool);
     res.json({ code: 200, message: '查询成功', data: rows });
@@ -173,7 +173,7 @@ router.post('/workflows/trigger', authenticateToken, validate(triggerWorkflowSch
 
 // 执行日志
 // [权限说明] 执行日志供已登录用户查看，不涉及敏感操作
-router.get('/workflows/logs', authenticateToken, async (req, res) => {
+router.get('/workflows/logs', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { rule_id, page, pageSize } = req.query;
     const result = await automationService.getWorkflowLogs(pool, { rule_id, page, pageSize });
@@ -187,7 +187,7 @@ router.get('/workflows/logs', authenticateToken, async (req, res) => {
 // ============ 自动分配规则 ============
 
 // [权限说明] 分配规则列表供已登录用户查看；增删改用 requireAdmin 控制
-router.get('/assign-rules', authenticateToken, async (req, res) => {
+router.get('/assign-rules', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const rows = await automationService.getAssignRules(pool);
     res.json({ code: 200, message: '查询成功', data: rows });
@@ -247,7 +247,7 @@ router.post('/assign-rules/apply', authenticateToken, requireAdmin, validate(app
 // ============ 智能提醒 ============
 
 // [权限说明] 智能提醒列表供已登录用户查看；增删改用 requireAdmin 控制
-router.get('/smart-reminders', authenticateToken, async (req, res) => {
+router.get('/smart-reminders', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const rows = await automationService.getSmartReminders(pool);
     res.json({ code: 200, message: '查询成功', data: rows });

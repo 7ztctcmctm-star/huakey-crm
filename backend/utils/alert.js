@@ -45,14 +45,16 @@ function record500Error() {
   }
 }
 
-// 当 500 错误频率下降后，重置告警状态，允许再次触发
-setInterval(() => {
-  const now = Date.now();
-  error500Window = error500Window.filter(t => now - t <= ERROR_WINDOW_MS);
-  if (error500AlertSent && error500Window.length < ERROR_500_THRESHOLD) {
-    error500AlertSent = false;
-  }
-}, ERROR_WINDOW_MS);
+// 当 500 错误频率下降后，重置告警状态，允许再次触发；测试环境不启动，避免 Jest worker 无法优雅退出
+if (!process.env.JEST_WORKER_ID) {
+  setInterval(() => {
+    const now = Date.now();
+    error500Window = error500Window.filter(t => now - t <= ERROR_WINDOW_MS);
+    if (error500AlertSent && error500Window.length < ERROR_500_THRESHOLD) {
+      error500AlertSent = false;
+    }
+  }, ERROR_WINDOW_MS);
+}
 
 /**
  * 发送错误告警到企业微信和邮件。

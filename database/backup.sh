@@ -1,8 +1,12 @@
 #!/bin/bash
 set -e
 
-# 默认值：可在 docker-compose 环境变量或宿主机环境变量中覆盖
-MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD:-huakey123}"
+# 必填校验：防止未设置密码时回退到弱密码
+if [ -z "$MYSQL_ROOT_PASSWORD" ]; then
+  echo "FATAL: MYSQL_ROOT_PASSWORD 未设置" >&2
+  exit 1
+fi
+
 BACKUP_DIR="${BACKUP_DIR:-/backups}"
 DATABASE="${DATABASE:-huakey_crm}"
 KEEP_DAYS="${KEEP_DAYS:-30}"
