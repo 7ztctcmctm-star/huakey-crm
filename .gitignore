@@ -74,3 +74,5 @@ sftp-*.txt
 
 # Accidental node_modules in subdirectories
 database/migrations/node_modules/
+
+.env.vercel
