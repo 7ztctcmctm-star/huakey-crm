@@ -1,4 +1,4 @@
-SET @db_name = 'huakey_crm_test';
+SET @db_name = DATABASE();
 SET @fk_exists = (SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA=@db_name AND TABLE_NAME='crm_customer' AND CONSTRAINT_NAME='fk_customer_owner' AND CONSTRAINT_TYPE='FOREIGN KEY');
 SET @is_nullable = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@db_name AND TABLE_NAME='crm_customer' AND COLUMN_NAME='owner_id' AND IS_NULLABLE='YES');
 SET @sql = IF(@fk_exists = 0, IF(@is_nullable > 0, 'ALTER TABLE crm_customer ADD CONSTRAINT fk_customer_owner FOREIGN KEY (owner_id) REFERENCES sys_user(id) ON DELETE SET NULL', 'ALTER TABLE crm_customer ADD CONSTRAINT fk_customer_owner FOREIGN KEY (owner_id) REFERENCES sys_user(id) ON DELETE CASCADE'), 'SELECT "fk_customer_owner exists" AS msg');

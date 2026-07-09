@@ -186,6 +186,7 @@ const router = express.Router();
 // 1. 获取客户列表（复用 customerService）
 router.post('/list',
   authenticateToken,
+  checkPermission('customer:list'),
   createCache(300, (req) => `customer:list:${req.user.userId}:${JSON.stringify(req.body)}`),
   checkDataPermission('customer', 'owner_id'),
   validate(customerListSchema),
@@ -211,7 +212,7 @@ router.get('/:id/360', authenticateToken, checkPermission('customer:list'), cust
 router.post('/export', authenticateToken, checkPermission('customer:list'), checkDataPermission('customer', 'owner_id'), validate(exportCustomersSchema), customerController.exportCustomers);
 
 // 客户状态转化（复用 customerService）
-router.post('/convert', authenticateToken, validate(convertCustomerSchema), customerController.convert);
+router.post('/convert', authenticateToken, checkPermission('customer:edit'), validate(convertCustomerSchema), customerController.convert);
 
 module.exports = router;
 module.exports.VALID_SOURCES = customerDetailService.VALID_SOURCES;

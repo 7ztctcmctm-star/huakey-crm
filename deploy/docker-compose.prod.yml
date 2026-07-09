@@ -20,8 +20,10 @@ services:
       MYSQL_DATABASE: huakey_crm
       MYSQL_USER: crm_user
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    ports:
-      - "3307:3306"
+    # MySQL 端口仅容器内网访问，不暴露到宿主机
+    # 如需本地直连调试，取消下行注释:
+    # ports:
+    #   - "3307:3306"
     volumes:
       - prod-mysql-data:/var/lib/mysql
     command:
@@ -67,6 +69,12 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "http://localhost:5000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     volumes:
       - /volume1/docker/huakey-crm-deploy/prod/backend:/app
       - /volume1/docker/huakey-crm-deploy/prod/frontend/dist:/app/frontend/dist

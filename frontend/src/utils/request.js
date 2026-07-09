@@ -7,12 +7,17 @@ let isRefreshing = false
 let refreshSubscribers = []
 
 function onRefreshed() {
-  refreshSubscribers.forEach((cb) => cb())
+  refreshSubscribers.forEach(sub => sub.resolve())
   refreshSubscribers = []
 }
 
-function addSubscriber(cb) {
-  refreshSubscribers.push(cb)
+function onRefreshFailed(error) {
+  refreshSubscribers.forEach(sub => sub.reject(error))
+  refreshSubscribers = []
+}
+
+function addSubscriber(resolve, reject) {
+  refreshSubscribers.push({ resolve, reject })
 }
 
 function getToken() {
@@ -101,21 +106,22 @@ request.interceptors.response.use(
                 // 重试当前请求（请求拦截器会自动带上新 token）
                 return request(originalConfig)
               }
-            } catch {
-              // 续期失败，token 确实过期或已失效
+            } catch (refreshError) {
+              // 续期失败，通知所有排队请求
+              onRefreshFailed(refreshError)
             }
             isRefreshing = false
-            refreshSubscribers = []
             localStorage.removeItem('token')
             localStorage.removeItem('userInfo')
             ElMessage.error(data.message || '登录已过期，请重新登录')
             router.push('/login')
           } else {
             // 已在续期中，将请求排队等待续期完成后重试
-            return new Promise((resolve) => {
-              addSubscriber(() => {
-                resolve(request(originalConfig))
-              })
+            return new Promise((resolve, reject) => {
+              addSubscriber(
+                () => resolve(request(originalConfig)),
+                (err) => reject(err)
+              )
             })
           }
           break

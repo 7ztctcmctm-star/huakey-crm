@@ -25,12 +25,16 @@ COPY backend/ .
 # 复制构建好的前端到 backend 同级的 frontend/dist
 COPY --from=frontend-build /build/dist /app/frontend/dist
 
-# 创建上传目录
-RUN mkdir -p /app/uploads
+# 创建非 root 用户
+RUN addgroup -S nodejs && adduser -S nodejs -G nodejs
+
+# 创建上传目录并设置权限
+RUN mkdir -p /app/uploads && chown -R nodejs:nodejs /app
+USER nodejs
 
 # 复制数据库迁移文件
-COPY database/migrations /app/database/migrations
-COPY database/migrate.js /app/database/migrate.js
+COPY --chown=nodejs:nodejs database/migrations /app/database/migrations
+COPY --chown=nodejs:nodejs database/migrate.js /app/database/migrate.js
 
 EXPOSE 5000
 

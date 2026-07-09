@@ -159,7 +159,7 @@ router.post('/workflows/execute', authenticateToken, requireAdmin, validate(exec
 
 // 触发器入口
 // [权限说明] 工作流触发由业务事件驱动，仅需认证即可调用
-router.post('/workflows/trigger', authenticateToken, validate(triggerWorkflowSchema), async (req, res) => {
+router.post('/workflows/trigger', authenticateToken, requireAdmin, validate(triggerWorkflowSchema), async (req, res) => {
   try {
     const { event, target_type, target_id } = req.body;
     if (!event) return res.status(400).json({ code: 400, message: '事件不能为空', data: null });
@@ -303,7 +303,7 @@ router.post('/smart-reminders/run', authenticateToken, requireAdmin, validate(em
 
 // 我的待处理提醒
 // [权限说明] 个人待处理提醒，仅需认证
-router.get('/smart-reminders/pending', authenticateToken, async (req, res) => {
+router.get('/smart-reminders/pending', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const rows = await automationService.getPendingReminders(pool, req.user.userId);
     res.json({ code: 200, message: '查询成功', data: rows });
@@ -315,7 +315,7 @@ router.get('/smart-reminders/pending', authenticateToken, async (req, res) => {
 
 // 标记已读
 // [权限说明] 个人提醒标记已读，仅需认证
-router.put('/smart-reminders/log/:id/seen', authenticateToken, validate(emptySchema), async (req, res) => {
+router.put('/smart-reminders/log/:id/seen', authenticateToken, requireAdmin, validate(emptySchema), async (req, res) => {
   try {
     await automationService.markReminderSeen(pool, req.params.id, req.user.userId);
     res.json({ code: 200, message: '已标记', data: null });
