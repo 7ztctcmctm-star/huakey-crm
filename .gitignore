@@ -57,3 +57,17 @@ coverage/
 
 .vercel
 backend/backups/
+
+# Playwright
+.playwright-mcp/
+frontend/test-results/
+
+# Debug artifacts
+*.har
+captcha.*
+metrics_payload.json
+
+# Transfer files
+*.tar.gz
+*.tar.gz.b64
+sftp-*.txt
