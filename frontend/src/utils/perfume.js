@@ -1,16 +1,17 @@
 import { onFCP, onLCP, onCLS, onINP, onTTFB } from 'web-vitals';
 
 const isProd = import.meta.env.PROD;
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 function sendMetric(name, value, rating) {
   if (isProd) {
-    navigator.sendBeacon('/api/metrics/client', JSON.stringify({
+    navigator.sendBeacon(`${apiBaseUrl}/metrics/client`, new Blob([JSON.stringify({
       metric_type: name,
       value,
       rating,
       page_url: location.pathname,
       timestamp: new Date().toISOString()
-    }));
+    })], { type: 'application/json' }));
   } else if (rating !== 'good') {
     console.warn(`[Perf] ${name}: ${value} (${rating})`);
   }

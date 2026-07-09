@@ -5,12 +5,15 @@
 
 const https = require('https');
 
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://rahquvfdusppmwubflvp.supabase.co';
+const SUPABASE_URL = process.env.SUPABASE_URL;
+if (!SUPABASE_URL) {
+  throw new Error('SUPABASE_URL environment variable is required when using Supabase API driver');
+}
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // 解析 Supabase URL
 const urlMatch = SUPABASE_URL.match(/https:\/\/([^.]+)\.supabase\.co/);
-const PROJECT_REF = urlMatch ? urlMatch[1] : 'rahquvfdusppmwubflvp';
+const PROJECT_REF = urlMatch ? urlMatch[1] : null;
 
 function queryViaRestAPI(sql, params) {
   return new Promise((resolve, reject) => {

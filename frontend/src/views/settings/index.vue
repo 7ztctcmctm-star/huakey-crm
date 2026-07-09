@@ -12,7 +12,7 @@
           <template #header><span class="card-title">系统信息</span></template>
           <el-descriptions :column="1" border>
             <el-descriptions-item label="系统名称">铧旗CRM系统</el-descriptions-item>
-            <el-descriptions-item label="版本号">v1.0.0</el-descriptions-item>
+            <el-descriptions-item label="版本号">v{{ appVersion }}</el-descriptions-item>
             <el-descriptions-item label="前端框架">Vue 3 + Element Plus + Vite</el-descriptions-item>
             <el-descriptions-item label="后端框架">Node.js + Express {{ health.expressVersion || '4.x' }}</el-descriptions-item>
             <el-descriptions-item label="数据库">{{ health.mysqlVersion || 'MySQL' }}</el-descriptions-item>
@@ -140,6 +140,7 @@ import { getCustomerList } from '@/api/customer'
 import { getOpportunityList } from '@/api/customer'
 import { getContractList } from '@/api/contract'
 import { getServiceList } from '@/api/system'
+import { version as appVersion } from '../../../package.json'
 
 const health = reactive({ api: false, db: false, redis: false, timestamp: '', nodeEnv: '', expressVersion: '', mysqlVersion: '' })
 const stats = reactive({ userCount: 0, customerCount: 0, opportunityCount: 0, contractCount: 0, serviceCount: 0 })

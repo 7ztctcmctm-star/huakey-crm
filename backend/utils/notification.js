@@ -1,8 +1,9 @@
 const https = require('https');
 const nodemailer = require('nodemailer');
+const logger = require('../config/logger');
 
 // 企业微信 webhook 地址
-const WEBHOOK_URL = 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=aibIdYapN5AKF0cWuHFfwAQsV0vQN6H-OLJtnN7El3Fqh9HWMVEKAx7H9hXIvaCHo3brkuLHce6068';
+const WEBHOOK_URL = process.env.WECHAT_WEBHOOK_URL || '';
 
 // 邮件告警配置
 const SMTP_HOST = process.env.SMTP_HOST;
@@ -129,7 +130,7 @@ async function sendEmailAlert(context) {
       text
     });
   } catch (e) {
-    console.error('[邮件告警] 发送失败:', e.message);
+    logger.error('[邮件告警] 发送失败:', e.message);
   }
 }
 
@@ -160,10 +161,10 @@ function sendWebhook(payload) {
         try {
           const result = JSON.parse(body);
           if (result.errcode === 0) {
-            console.log('[企业微信] 消息发送成功');
+            logger.info('[企业微信] 消息发送成功');
             resolve(result);
           } else {
-            console.error('[企业微信] 发送失败:', result.errmsg);
+            logger.error('[企业微信] 发送失败:', result.errmsg);
             reject(new Error(result.errmsg));
           }
         } catch (e) {
@@ -173,7 +174,7 @@ function sendWebhook(payload) {
     });
 
     req.on('error', (e) => {
-      console.error('[企业微信] 请求失败:', e.message);
+      logger.error('[企业微信] 请求失败:', e.message);
       reject(e);
     });
 

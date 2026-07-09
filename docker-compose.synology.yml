@@ -1,6 +1,7 @@
 # ============================================
-# 铧旗CRM — 群晖NAS 专用部署配置
-# 使用方法：在群晖 Container Manager 的"项目"中导入此文件
+# 铧旗CRM — 群晖NAS 稳定版部署配置
+# 使用路径：/volume1/docker/crm-stack
+# 使用方法：docker compose -f docker-compose.synology.yml up -d --build
 # ============================================
 
 services:
@@ -10,11 +11,12 @@ services:
     image: mysql:8.0
     container_name: huakey-mysql
     restart: unless-stopped
+    init: true
     deploy:
       resources:
         limits:
-          memory: 256M
-          cpus: '1.0'
+          memory: 512M
+          cpus: '1.5'
     logging:
       driver: "json-file"
       options:
@@ -22,11 +24,12 @@ services:
         max-file: "3"
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: huakey_crm
-      MYSQL_USER: crm_user
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    #ports:
-    #  - "3307:3306"   # 生产环境不暴露；如需调试取消注释
+      MYSQL_DATABASE: ${DB_NAME:-huakey_crm}
+      MYSQL_USER: ${DB_USER:-crm_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    # 生产环境不暴露 MySQL 端口；如需外部调试，取消下行注释
+    # ports:
+    #   - "3307:3306"
     volumes:
       - mysql-data:/var/lib/mysql
       - ./deploy/init-complete.sql:/docker-entrypoint-initdb.d/00_init.sql:ro
@@ -35,17 +38,20 @@ services:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
       - --default-authentication-plugin=mysql_native_password
-      - --innodb_buffer_pool_size=128M
-      - --max_connections=50
+      - --innodb_buffer_pool_size=256M
+      - --innodb_log_file_size=128M
+      - --max_connections=100
+      - --skip-host-cache
+      - --skip-name-resolve
+      - --explicit_defaults_for_timestamp=1
       - --slow_query_log=ON
       - --long_query_time=2
-      - --innodb_log_file_size=128M
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      test: ["CMD-SHELL", "mysql -h localhost -u root -p$$MYSQL_ROOT_PASSWORD -e 'SELECT 1' > /dev/null 2>&1 || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 30s
+      retries: 12
+      start_period: 60s
     networks:
       - crm-network
 
@@ -54,6 +60,7 @@ services:
     image: redis:7-alpine
     container_name: huakey-redis
     restart: unless-stopped
+    init: true
     deploy:
       resources:
         limits:
@@ -88,11 +95,12 @@ services:
       dockerfile: Dockerfile.synology
     container_name: huakey-app
     restart: unless-stopped
+    init: true
     deploy:
       resources:
         limits:
-          memory: 384M
-          cpus: '1.0'
+          memory: 512M
+          cpus: '1.5'
     logging:
       driver: "json-file"
       options:
@@ -103,14 +111,18 @@ services:
       PORT: 5000
       DB_HOST: mysql
       DB_PORT: 3306
-      DB_USER: crm_user
-      DB_PASSWORD: ${MYSQL_PASSWORD}
-      DB_NAME: huakey_crm
+      DB_USER: ${DB_USER:-crm_user}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-huakey_crm}
       JWT_SECRET: ${JWT_SECRET}
-      JWT_EXPIRES_IN: 7d
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       REDIS_ENABLED: "true"
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      AUTO_RELEASE_DAYS: ${AUTO_RELEASE_DAYS:-30}
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+      SKIP_CAPTCHA: ${SKIP_CAPTCHA:-false}
     ports:
       - "6789:5000"
     depends_on:
@@ -121,19 +133,22 @@ services:
     volumes:
       - app-uploads:/app/uploads
       - ./database/migrations:/app/database/migrations:ro
+      - ./logs:/app/logs
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:5000/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 30s
+      start_period: 60s
     networks:
       - crm-network
 
   # ---- Nginx 反向代理 ----
   nginx:
     image: nginx:alpine
-    container_name: crm-nginx
+    container_name: huakey-nginx
+    restart: unless-stopped
+    init: true
     ports:
       - "80:80"
     volumes:
@@ -141,7 +156,6 @@ services:
     depends_on:
       app:
         condition: service_healthy
-    restart: unless-stopped
     deploy:
       resources:
         limits:
@@ -155,33 +169,8 @@ services:
     networks:
       - crm-network
 
-  # ---- 数据库自动备份（每日凌晨 2:00）----
-  backup:
-    image: mysql:8.0
-    container_name: huakey-backup
-    restart: unless-stopped
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        echo "0 2 * * * /backup.sh >> /var/log/backup.log 2>&1" > /etc/crontabs/root
-        crond -f -l 2
-    volumes:
-      - ./database/backup.sh:/backup.sh:ro
-      - ./database/backups:/backups
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-    networks:
-      - crm-network
-    deploy:
-      resources:
-        limits:
-          memory: 64M
-          cpus: '0.25'
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "5m"
-        max-file: "3"
+  # 注意：数据库自动备份建议通过 DSM 任务计划器或宿主机 cron 执行，
+  # 参考 database/backup.sh。容器内不常驻 cron，避免基础镜像差异导致失败。
 
 volumes:
   mysql-data:
@@ -191,4 +180,5 @@ volumes:
 
 networks:
   crm-network:
+    name: crm-network
     driver: bridge

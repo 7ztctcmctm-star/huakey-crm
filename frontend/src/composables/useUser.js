@@ -13,6 +13,10 @@ function loadUser() {
 
 // 验证cookie登录状态（仅首次调用时请求后端）
 async function verifyAuth() {
+  // 如果已检查过但 userInfo 为空（例如登录页未 setUser），重置以允许重新请求 /auth/me
+  if (authChecked && !userInfo.value) {
+    authChecked = false
+  }
   if (authChecked) return !!userInfo.value
   authChecked = true
   try {

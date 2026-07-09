@@ -164,8 +164,10 @@ const handleDelete = (row) => {
   }).catch(() => {})
 }
 
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+
 const handleDownload = (row) => {
-  window.open(`/api/knowledge/documents/${row.id}/download`, '_blank')
+  window.open(`${apiBaseUrl}/knowledge/documents/${row.id}/download`, '_blank')
 }
 
 onMounted(() => { fetchList() })

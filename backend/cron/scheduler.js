@@ -9,6 +9,9 @@ const logger = require('../config/logger');
 const { alertError } = require('../utils/alert');
 const { autoReleaseCustomers } = require('../services/cronService');
 
+// 存储所有定时任务引用，允�?stopAllCronJobs 停止
+const _cronTasks = [];
+
 // 关键任务列表 — 失败时 logger.error 醒目输出
 const CRITICAL_JOBS = ['supplier-scoring', 'auto-release'];
 
@@ -77,7 +80,7 @@ function startAllCronJobs(pool) {
   const AUTO_RELEASE_DAYS = parseInt(process.env.AUTO_RELEASE_DAYS) || 30;
 
   // 1. 每日 02:00 — 供应商评分 + 资质检查
-  cron.schedule('0 2 * * *', () => {
+  _cronTasks.push(cron.schedule('0 2 * * *', () => {
     logger.info('[定时任务] 开始执行供应商评分');
     executeWithRetry(async () => {
       await checkAllSuppliersScores();
@@ -85,10 +88,10 @@ function startAllCronJobs(pool) {
       await checkQualificationExpiry();
       logger.info('[定时任务] 供应商评分完成');
     }, 'supplier-scoring');
-  }, { timezone: 'Asia/Shanghai' });
+  }, { timezone: 'Asia/Shanghai' }));
 
   // 2. 每日 03:00 — 清理过期日志（保留90天）
-  cron.schedule('0 3 * * *', () => {
+  _cronTasks.push(cron.schedule('0 3 * * *', () => {
     executeWithRetry(async () => {
       const [result] = await pool.query(
         'DELETE FROM sys_log WHERE create_time < NOW() - INTERVAL 90 DAY'
@@ -97,10 +100,10 @@ function startAllCronJobs(pool) {
         logger.info(`[日志清理] 已清理 ${result.affectedRows} 条过期日志`);
       }
     }, 'log-cleanup');
-  }, { timezone: 'Asia/Shanghai' });
+  }, { timezone: 'Asia/Shanghai' }));
 
   // 3. 每日 03:30 — 清理过期 token 黑名单
-  cron.schedule('30 3 * * *', () => {
+  _cronTasks.push(cron.schedule('30 3 * * *', () => {
     executeWithRetry(async () => {
       const [result] = await pool.query(
         'DELETE FROM sys_token_blacklist WHERE expire_at < NOW()'
@@ -109,10 +112,10 @@ function startAllCronJobs(pool) {
         logger.info(`[黑名单清理] 已清理 ${result.affectedRows} 条过期记录`);
       }
     }, 'token-blacklist-cleanup');
-  }, { timezone: 'Asia/Shanghai' });
+  }, { timezone: 'Asia/Shanghai' }));
 
   // 4. 每日 01:00 — 公海池自动回收
-  cron.schedule('0 1 * * *', () => {
+  _cronTasks.push(cron.schedule('0 1 * * *', () => {
     logger.info('[公海回收] 开始检查超期未跟进客户...');
     executeWithRetry(async () => {
       const released = await autoReleaseCustomers(pool, AUTO_RELEASE_DAYS);
@@ -122,18 +125,28 @@ function startAllCronJobs(pool) {
         logger.info(`[公海回收] 已释放 ${released} 个客户（超过${AUTO_RELEASE_DAYS}天未跟进）`);
       }
     }, 'auto-release');
-  }, { timezone: 'Asia/Shanghai' });
+  }, { timezone: 'Asia/Shanghai' }));
 
   // 5. 每日 08:30 — 跟进提醒生成
-  cron.schedule('30 8 * * *', () => {
+  _cronTasks.push(cron.schedule('30 8 * * *', () => {
     logger.info('[提醒生成] 开始执行...');
     executeWithRetry(async () => {
       await generateReminders(pool);
       logger.info('[提醒生成] 执行完成');
     }, 'reminder-generation');
-  }, { timezone: 'Asia/Shanghai' });
+  }, { timezone: 'Asia/Shanghai' }));
 
   logger.info('[定时任务] 全部定时任务已启动');
 }
 
-module.exports = { startAllCronJobs, executeWithRetry };
+function stopAllCronJobs() {
+  if (_cronTasks.length === 0) {
+    return;
+  }
+  logger.info(`[定时任务] 停止 ${_cronTasks.length} 个定时任务...`);
+  _cronTasks.forEach(task => task.stop());
+  _cronTasks.length = 0;
+  logger.info('[定时任务] 全部定时任务已停止');
+}
+
+module.exports = { startAllCronJobs, stopAllCronJobs, executeWithRetry };

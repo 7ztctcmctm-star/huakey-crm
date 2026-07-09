@@ -71,3 +71,6 @@ metrics_payload.json
 *.tar.gz
 *.tar.gz.b64
 sftp-*.txt
+
+# Accidental node_modules in subdirectories
+database/migrations/node_modules/

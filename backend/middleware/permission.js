@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const logger = require('../config/logger');
 const ROLES = require('../config/roles');
 const { ADMIN_ROLE_CODES } = ROLES;
 const { getUserPermissions, getDataPermissions } = require('../services/permissionService');
@@ -18,7 +19,7 @@ const checkPermission = (permissionCodes) => {
 
       // 超级管理员 / manageAll 角色直接通过（记录审计日志）
       if (ADMIN_ROLE_CODES.has(req.user.roleCode) || req.user.manageAll) {
-        console.log(`[PermissionAudit] ADMIN(userId=${userId}) bypassed permission check for [${codes.join(',')}], ${req.method} ${req.originalUrl}`);
+        logger.info(`[PermissionAudit] ADMIN(userId=${userId}) bypassed permission check for [${codes.join(',')}], ${req.method} ${req.originalUrl}`);
         return next();
       }
 
@@ -36,7 +37,7 @@ const checkPermission = (permissionCodes) => {
 
       next();
     } catch (error) {
-      console.error('Permission check error:', error);
+      logger.error('Permission check error:', { error: error.message, traceId: req.traceId });
       return res.status(500).json({
         code: 500,
         message: '权限校验异常',
@@ -81,7 +82,7 @@ const checkDataPermission = (module, ownerColumn = 'owner_id') => {
 
       next();
     } catch (error) {
-      console.error('Data permission check error:', error);
+      logger.error('Data permission check error:', { error: error.message, traceId: req.traceId });
       return res.status(500).json({
         code: 500,
         message: '数据权限校验异常',

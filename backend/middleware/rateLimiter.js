@@ -48,10 +48,10 @@ const createRateLimiter = (options = {}) => {
     },
     standardHeaders: true,
     legacyHeaders: false,
-    // 修复 Vercel Serverless 环境中的 X-Forwarded-For 问题
+    // X-Forwarded-For: 仅当 TRUST_PROXY=true 时信任代理 IP
     validate: {
-      xForwardedForHeader: false,
-      forwardedHeader: false,
+      xForwardedForHeader: process.env.TRUST_PROXY === 'true',
+      forwardedHeader: process.env.TRUST_PROXY === 'true',
     },
     // eslint-disable-next-line no-unused-vars
     keyGenerator: (req, res) => {
@@ -59,6 +59,7 @@ const createRateLimiter = (options = {}) => {
       const endpoint = req.path || req.route?.path || 'unknown';
       return `${ip}:${endpoint}`;
     },
+    skip: options.skip || (() => false),
     handler: (req, res) => {
       res.status(429).json({
         code: 429,
@@ -80,13 +81,14 @@ const createRateLimiter = (options = {}) => {
 
 const apiLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
-  max: 1000
+  max: 1000,
+  skip: (req) => req.path === '/health'
 });
 
-// [安全修复] 登录限流收紧：15分钟内最多10次尝试，防止暴力破解
+// [安全修复] 登录限流：生产环境15分钟内30次，开发环境1000次
 const authLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: isProduction ? 30 : 1000,
   message: {
     code: 429,
     message: '登录尝试次数过多，请15分钟后再试',

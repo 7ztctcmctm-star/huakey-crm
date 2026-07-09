@@ -10,6 +10,9 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: process.env.NODE_ENV === 'production' ? 50 : 20,
   queueLimit: 50,
+  // [性能优化] 避免请求在连接池耗尽时无限挂起
+  acquireTimeout: 5000,
+  connectTimeout: 5000,
   enableKeepAlive: true,
   keepAliveInitialDelay: 10000,
   multipleStatements: false,

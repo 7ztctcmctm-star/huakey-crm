@@ -8,29 +8,69 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const svgCaptcha = require('svg-captcha');
 const { getUserPermissions, getMenuPermissions, getDataPermissions } = require('./permissionService');
+const { getCache, setCache, delCache, REDIS_ENABLED } = require('../config/redis');
 
 // [安全修复] 密码正则：至少8位，含大小写字母和数字
 const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 const PASSWORD_MESSAGE = '密码至少8位，需包含大写字母、小写字母和数字';
 
-// 验证码存储（key: captcha_key, value: {code, expires}）
+// 验证码 Redis 配置
+const CAPTCHA_TTL_SECONDS = 300;
+const CAPTCHA_REDIS_PREFIX = 'captcha:';
+
+// 验证码内存存储（dev/test 模式及 Redis 故障降级使用）
+// 保留导出以兼容 routes/auth.js 的 SKIP_CAPTCHA 开发跳过逻辑
 const captchaStore = new Map();
 
-// 定期清洗过期验证码（每5分钟）；测试环境不启动，避免 Jest worker 无法优雅退出
-if (!process.env.JEST_WORKER_ID) {
-  setInterval(() => {
-    const now = Date.now();
-    for (const [key, val] of captchaStore) {
-      if (val.expires < now) captchaStore.delete(key);
-    }
-  }, 5 * 60 * 1000);
+function getCaptchaRedisKey(key) {
+  return `${CAPTCHA_REDIS_PREFIX}${key}`;
+}
+
+function isMemoryCaptchaMode() {
+  return !REDIS_ENABLED || process.env.NODE_ENV !== 'production' || !!process.env.JEST_WORKER_ID;
+}
+
+async function saveCaptcha(key, code) {
+  if (isMemoryCaptchaMode()) {
+    captchaStore.set(key, { code, expires: Date.now() + CAPTCHA_TTL_SECONDS * 1000 });
+    return;
+  }
+  try {
+    await setCache(getCaptchaRedisKey(key), code, CAPTCHA_TTL_SECONDS);
+  } catch {
+    // Redis 写入失败降级到内存，避免登录完全中断
+    captchaStore.set(key, { code, expires: Date.now() + CAPTCHA_TTL_SECONDS * 1000 });
+  }
+}
+
+async function loadCaptcha(key) {
+  // 优先检查内存（兼容 dev/SKIP_CAPTCHA 及 Redis 故障降级）
+  const mem = captchaStore.get(key);
+  if (mem) {
+    if (mem.expires > Date.now()) return mem.code;
+    captchaStore.delete(key);
+  }
+  if (isMemoryCaptchaMode()) return null;
+  try {
+    return await getCache(getCaptchaRedisKey(key));
+  } catch {
+    return null;
+  }
+}
+
+async function removeCaptcha(key) {
+  captchaStore.delete(key);
+  if (isMemoryCaptchaMode()) return;
+  try {
+    await delCache(getCaptchaRedisKey(key));
+  } catch { /* ok */ }
 }
 
 /**
  * 生成验证码
- * @returns {{ key: string, svg: string }}
+ * @returns {Promise<{ key: string, svg: string }>}
  */
-function getCaptcha() {
+async function getCaptcha() {
   const captcha = svgCaptcha.create({
     size: 4,
     ignoreChars: '0o1il',
@@ -40,10 +80,7 @@ function getCaptcha() {
   });
 
   const key = Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
-  captchaStore.set(key, {
-    code: captcha.text.toLowerCase(),
-    expires: Date.now() + 5 * 60 * 1000
-  });
+  await saveCaptcha(key, captcha.text.toLowerCase());
 
   return { key, svg: captcha.data };
 }
@@ -52,19 +89,19 @@ function getCaptcha() {
  * 验证码校验
  * @param {string} captchaKey
  * @param {string} captcha
- * @returns {{ valid: boolean, message?: string }}
+ * @returns {Promise<{ valid: boolean, message?: string }>}
  */
-function verifyCaptcha(captchaKey, captcha) {
-  const stored = captchaStore.get(captchaKey);
-  if (!stored || stored.expires < Date.now()) {
-    captchaStore.delete(captchaKey);
+async function verifyCaptcha(captchaKey, captcha) {
+  const storedCode = await loadCaptcha(captchaKey);
+  if (!storedCode) {
+    await removeCaptcha(captchaKey);
     return { valid: false, message: '验证码已过期，请刷新' };
   }
-  if (stored.code !== captcha.toLowerCase()) {
-    captchaStore.delete(captchaKey);
+  if (storedCode !== captcha.toLowerCase()) {
+    await removeCaptcha(captchaKey);
     return { valid: false, message: '验证码错误' };
   }
-  captchaStore.delete(captchaKey);
+  await removeCaptcha(captchaKey);
   return { valid: true };
 }
 
@@ -150,13 +187,23 @@ async function logout(pool, token) {
   }
 }
 
+// [性能优化] /auth/me 内存缓存，TTL 30秒，避免每次页面刷新都执行3个权限查询
+const meCache = new Map();
+const ME_CACHE_TTL = 30 * 1000; // 30秒
+
 /**
- * 获取当前用户信息（含权限）
+ * 获取当前用户信息（含权限），带短TTL内存缓存
  * @param {object} pool
  * @param {number} userId
  * @returns {object|null}
  */
 async function getMe(pool, userId) {
+  // 检查缓存
+  const cached = meCache.get(userId);
+  if (cached && cached.expires > Date.now()) {
+    return cached.data;
+  }
+
   const [users] = await pool.query(
     `SELECT u.id, u.username, u.real_name, u.phone, u.email,
             u.dept_id, u.role_id, u.status,
@@ -179,7 +226,7 @@ async function getMe(pool, userId) {
     getDataPermissions(pool, user.role_id)
   ]);
 
-  return {
+  const result = {
     id: user.id,
     username: user.username,
     realName: user.real_name,
@@ -194,6 +241,23 @@ async function getMe(pool, userId) {
     menus,
     dataPermissions
   };
+
+  // 写入缓存
+  meCache.set(userId, { data: result, expires: Date.now() + ME_CACHE_TTL });
+
+  return result;
+}
+
+/**
+ * 清除指定用户的 /auth/me 缓存（权限变更后调用）
+ * @param {number} userId
+ */
+function clearMeCache(userId) {
+  if (userId) {
+    meCache.delete(userId);
+  } else {
+    meCache.clear();
+  }
 }
 
 /**
@@ -280,7 +344,7 @@ async function changePassword(pool, userId, oldPassword, newPassword) {
     throw err;
   }
 
-  const hashedPassword = await bcrypt.hash(newPassword, 12);
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
   await pool.query('UPDATE sys_user SET password = ? WHERE id = ?', [hashedPassword, userId]);
 }
 
@@ -315,7 +379,7 @@ async function register(pool, data) {
     throw err;
   }
 
-  const hashedPassword = await bcrypt.hash(password, 12);
+  const hashedPassword = await bcrypt.hash(password, 10);
 
   const [roles] = await pool.query(
     "SELECT id FROM sys_role WHERE code = 'sales'"
@@ -348,6 +412,7 @@ module.exports = {
   updateLastLogin,
   logout,
   getMe,
+  clearMeCache,
   getProfile,
   updateProfile,
   changePassword,

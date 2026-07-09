@@ -6,6 +6,7 @@ const compression = require('compression');
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 
 const app = express();
+const pkg = require('./package.json');
 const logger = require('./config/logger');
 const { appErrorHandler, globalErrorHandler } = require('./middleware/errorHandler');
 
@@ -22,8 +23,23 @@ if (isProduction || process.env.VERCEL) {
   app.set('trust proxy', 1);
 }
 
-// 启用 helmet 安全头（CSP、HSTS、X-Frame-Options 等）
-app.use(helmet());
+// 启用 helmet 安全头（CSP、X-Frame-Options 等）
+// HSTS 关闭：本地 HTTP 部署不需要 HSTS
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      connectSrc: ["'self'", "http://localhost:5000"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+    }
+  },
+  hsts: false,
+}));
 
 // 慢查询日志（拦截 pool.query，必须在路由加载之前执行）
 require('./config/slowQuery');
@@ -45,7 +61,7 @@ const corsOrigin = isProduction
   : 'http://localhost:5173';
 
 if (isProduction && !corsOrigin) {
-  console.error('FATAL: 生产环境必须设置 CORS_ORIGIN 环境变量');
+  console.error('FATAL: 生产环境必须设置 CORS_ORIGIN 环境变量'); // 启动前尚未加载 logger
   process.exit(1);
 }
 
@@ -63,7 +79,7 @@ app.use(express.urlencoded({ extended: true }));
 const { globalLogMiddleware } = require('./middleware/logger');
 
 // 加载限流中间件
-const { apiLimiter, authLimiter } = require('./middleware/rateLimiter');
+const { apiLimiter } = require('./middleware/rateLimiter');
 
 // 统一响应格式中间件
 const responseFormat = require('./middleware/responseFormat');
@@ -147,8 +163,8 @@ apiRouter.get('/', (req, res) => {
     message: '欢迎使用铧旗CRM系统 API',
     data: {
       name: '铧旗CRM系统 API',
-      version: 'crm_v1',
-      build: '1.0.0',
+      version: pkg.version,
+      build: pkg.version,
       status: 'running'
     }
   });
@@ -182,7 +198,7 @@ apiRouter.get('/health', async (req, res) => {
     message: '服务运行正常',
     data: {
       status: 'ok',
-      version: 'crm_v1',
+      version: pkg.version,
       nodeEnv: process.env.NODE_ENV || 'development',
       expressVersion: require('express/package.json').version,
       mysqlVersion,
@@ -193,8 +209,8 @@ apiRouter.get('/health', async (req, res) => {
   });
 });
 
-// 认证路由（更严格的限流）
-apiRouter.use('/auth', authLimiter, authRoutes);
+// 认证路由（登录限流在 routes/auth.js 内单独挂载，避免验证码接口被误限）
+apiRouter.use('/auth', authRoutes);
 
 // 用户管理路由
 apiRouter.use('/user', userRoutes);
@@ -448,10 +464,50 @@ if (!process.env.VERCEL) {
   }
 
   // 启动服务器
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     logger.info('[服务器] 启动成功', { port: PORT });
     logger.info('[服务器] API地址', { apiUrl: `http://localhost:${PORT}/api` });
   });
+
+  // 优雅关闭
+  const shutdown = async (signal) => {
+    logger.info(`[Shutdown] 收到 ${signal}，开始优雅关闭...`);
+
+    // 停止接收新连接
+    server.close(() => {
+      logger.info('[Shutdown] HTTP 服务已关闭');
+    });
+
+    // 关闭数据库连接池
+    try {
+      const pool = require('./config/database');
+      await pool.end();
+      logger.info('[Shutdown] 数据库连接池已关闭');
+    } catch (e) {
+      logger.error('[Shutdown] 关闭数据库连接池失败:', e.message);
+    }
+
+    // 关闭 Redis
+    if (REDIS_ENABLED) {
+      try {
+        const { redis } = require('./config/redis');
+        await redis.quit();
+        logger.info('[Shutdown] Redis 连接已关闭');
+      } catch (e) { /* ignore */ }
+    }
+
+    // 停止定时任务
+    try {
+      const { stopAllCronJobs } = require('./cron/scheduler');
+      stopAllCronJobs();
+    } catch (e) { /* ignore */ }
+
+    logger.info('[Shutdown] 优雅关闭完成');
+    process.exit(0);
+  };
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
 module.exports = app;

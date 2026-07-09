@@ -7,6 +7,7 @@ const { validate, Joi } = require('../middleware/validate');
 const { checkPermission } = require('../middleware/permission');
 const { logAction, getIpAddress } = require('../middleware/logger');
 const authService = require('../services/authService');
+const { authLimiter } = require('../middleware/rateLimiter');
 const logger = require('../config/logger');
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -113,8 +114,8 @@ const logoutSchema = Joi.object({});
 const refreshSchema = Joi.object({});
 
 // 0. 获取验证码
-router.get('/captcha', (req, res) => {
-  const { key, svg } = authService.getCaptcha();
+router.get('/captcha', async (req, res) => {
+  const { key, svg } = await authService.getCaptcha();
   res.json({ code: 200, message: 'success', data: { key, svg } });
 });
 
@@ -127,8 +128,8 @@ router.use('/login', (req, res, next) => {
   next();
 });
 
-// 1. 登录接口
-router.post('/login', validate(loginSchema), async (req, res) => {
+// 1. 登录接口（单独挂载登录限流，避免影响验证码刷新）
+router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
   try {
     const { username, password, captcha, captchaKey } = req.body;
     const ip = getIpAddress(req);
@@ -139,7 +140,7 @@ router.post('/login', validate(loginSchema), async (req, res) => {
     }
 
     // 验证码校验
-    const captchaResult = authService.verifyCaptcha(captchaKey, captcha);
+    const captchaResult = await authService.verifyCaptcha(captchaKey, captcha);
     if (!captchaResult.valid) {
       return res.status(400).json({ code: 400, message: captchaResult.message, data: null });
     }
@@ -171,9 +172,10 @@ router.post('/login', validate(loginSchema), async (req, res) => {
     });
 
     // 设置httpOnly cookie
+    // 仅在生产环境且请求为 HTTPS 时启用 secure，避免 HTTP 部署下浏览器不发送 cookie
     res.cookie('token', token, {
       httpOnly: true,
-      secure: isProduction,
+      secure: isProduction && req.secure,
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
@@ -219,7 +221,7 @@ router.post('/logout', validate(logoutSchema), async (req, res) => {
 
   res.clearCookie('token', {
     httpOnly: true,
-    secure: isProduction,
+    secure: isProduction && req.secure,
     sameSite: 'strict'
   });
 
@@ -242,7 +244,7 @@ router.get('/me', authenticateToken, async (req, res) => {
       const newToken = generateToken({ id: data.id, username: data.username, role_id: data.roleId, view_all: data.viewAll ? 1 : 0, manage_all: data.manageAll ? 1 : 0 });
       res.cookie('token', newToken, {
         httpOnly: true,
-        secure: isProduction,
+        secure: isProduction && req.secure,
         sameSite: 'strict',
         maxAge: 7 * 24 * 60 * 60 * 1000
       });
@@ -369,7 +371,7 @@ router.post('/refresh', validate(refreshSchema), async (req, res) => {
     // 同步刷新 httpOnly cookie
     res.cookie('token', newToken, {
       httpOnly: true,
-      secure: isProduction,
+      secure: isProduction && req.secure,
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000
     });

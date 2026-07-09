@@ -236,7 +236,8 @@ const monthRate = ref(0)
 const exportLoading = ref(false)
 
 // 导入相关
-const importUrl = '/api/contract/payment/import'
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+const importUrl = `${apiBaseUrl}/contract/payment/import`
 
 // 对账汇总
 const summaryLoading = ref(false)
@@ -421,7 +422,7 @@ const handleImportError = () => {
 }
 
 const downloadTemplate = () => {
-  window.open('/api/contract/payment/import-template', '_blank')
+  window.open(`${apiBaseUrl}/contract/payment/import-template`, '_blank')
 }
 
 const handleExport = async () => {

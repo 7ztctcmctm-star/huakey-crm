@@ -52,10 +52,10 @@ async function migrate() {
     const [executed] = await pool.query('SELECT version FROM schema_migrations');
     const executedSet = new Set(executed.map(r => r.version));
 
-    // 读取迁移文件
+    // 读取迁移文件（只处理正向迁移，跳过 _down.sql 回滚文件）
     const migrationsDir = path.join(__dirname, 'migrations');
     const files = fs.readdirSync(migrationsDir)
-      .filter(f => f.endsWith('.sql'))
+      .filter(f => f.endsWith('.sql') && !f.endsWith('_down.sql'))
       .sort();
 
     console.log(`[迁移] 发现 ${files.length} 个迁移文件`);
@@ -88,6 +88,7 @@ async function migrate() {
           );
         }
 
+        executedSet.add(version);
         console.log(`[迁移] ✅ ${file}`);
         success++;
       } catch (error) {

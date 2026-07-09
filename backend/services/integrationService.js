@@ -93,7 +93,7 @@ async function testIntegration(pool) {
     port: cfg.port || 465,
     secure: cfg.secure !== false,
     auth: { user: cfg.user, pass: cfg.pass },
-    tls: { rejectUnauthorized: false }
+    ...(process.env.TLS_REJECT_UNAUTHORIZED === 'false' ? { tls: { rejectUnauthorized: false } } : {})
   });
 
   try {
@@ -139,7 +139,7 @@ async function sendTestEmail(pool, data, userId) {
     port: cfg.port || 465,
     secure: cfg.secure !== false,
     auth: { user: cfg.user, pass: cfg.pass },
-    tls: { rejectUnauthorized: false }
+    ...(process.env.TLS_REJECT_UNAUTHORIZED === 'false' ? { tls: { rejectUnauthorized: false } } : {})
   });
 
   try {

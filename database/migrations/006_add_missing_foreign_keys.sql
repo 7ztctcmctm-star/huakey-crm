@@ -55,6 +55,15 @@ SET @sql = IF(@fk_exists = 0,
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- ========== crm_assign_log.to_user_id → sys_user.id ==========
+-- ON DELETE SET NULL 要求列可为 NULL，基线中 to_user_id 为 NOT NULL，先修正
+SET @col_nullable = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db_name AND TABLE_NAME = 'crm_assign_log'
+    AND COLUMN_NAME = 'to_user_id' AND IS_NULLABLE = 'NO');
+SET @sql = IF(@col_nullable = 0,
+  'SELECT ''crm_assign_log.to_user_id already nullable'' AS msg',
+  'ALTER TABLE crm_assign_log MODIFY COLUMN to_user_id INT NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 SET @fk_exists = (SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
   WHERE TABLE_SCHEMA = @db_name AND TABLE_NAME = 'crm_assign_log'
   AND CONSTRAINT_NAME = 'fk_assign_log_to_user' AND CONSTRAINT_TYPE = 'FOREIGN KEY');

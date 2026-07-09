@@ -357,7 +357,8 @@ import { getKnowledgeFaqs } from '@/api/tools'
 import { formatTime } from '@/composables/useFormat'
 
 // 上传相关
-const uploadUrl = '/api/upload/file'
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+const uploadUrl = `${apiBaseUrl}/upload/file`
 const uploadFileList = ref([])
 const attachmentIds = ref([])
 const uploadRef = ref(null)

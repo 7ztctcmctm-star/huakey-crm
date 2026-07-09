@@ -110,8 +110,10 @@ const renderTrendChart = () => {
   })
 }
 
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+
 const handleExport = (type) => {
-  window.open(`/api/report/finance/export?type=${type}`, '_blank')
+  window.open(`${apiBaseUrl}/report/finance/export?type=${type}`, '_blank')
 }
 
 onMounted(() => { fetchData() })

@@ -812,7 +812,8 @@ const insertScript = (item) => {
 
 watch(scriptDialogVisible, (v) => { if (v) fetchScripts() })
 
-const uploadUrl = '/api/upload/file'
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+const uploadUrl = `${apiBaseUrl}/upload/file`
 const followUploadRef = ref(null)
 const followUploadList = ref([])
 const followAttachmentIds = ref([])

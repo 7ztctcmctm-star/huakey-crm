@@ -66,7 +66,7 @@ async function addUser(pool, { username, password, real_name, phone, email, dept
     throw err;
   }
 
-  const hashedPassword = await bcrypt.hash(password, 12);
+  const hashedPassword = await bcrypt.hash(password, 10);
 
   const [result] = await pool.query(
     `INSERT INTO sys_user (username, password, real_name, phone, email, dept_id, role_id, status)

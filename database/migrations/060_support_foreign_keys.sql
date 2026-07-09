@@ -9,6 +9,15 @@ USE huakey_crm;
 SET @db_name = 'huakey_crm';
 
 -- ========== crm_opportunity_stage_log.opportunity_id → crm_opportunity.id ==========
+-- ON DELETE SET NULL 要求 opportunity_id 可为 NULL
+SET @col_nullable = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db_name AND TABLE_NAME = 'crm_opportunity_stage_log'
+    AND COLUMN_NAME = 'opportunity_id' AND IS_NULLABLE = 'NO');
+SET @sql = IF(@col_nullable = 0,
+  'SELECT ''crm_opportunity_stage_log.opportunity_id already nullable'' AS msg',
+  'ALTER TABLE crm_opportunity_stage_log MODIFY COLUMN opportunity_id INT NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 SET @fk_exists = (SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
   WHERE TABLE_SCHEMA = @db_name AND TABLE_NAME = 'crm_opportunity_stage_log'
   AND CONSTRAINT_NAME = 'fk_stagelog_opp' AND CONSTRAINT_TYPE = 'FOREIGN KEY');
@@ -18,6 +27,14 @@ SET @sql = IF(@fk_exists = 0,
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- ========== crm_pool_log.customer_id → crm_customer.id ==========
+SET @col_nullable = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db_name AND TABLE_NAME = 'crm_pool_log'
+    AND COLUMN_NAME = 'customer_id' AND IS_NULLABLE = 'NO');
+SET @sql = IF(@col_nullable = 0,
+  'SELECT ''crm_pool_log.customer_id already nullable'' AS msg',
+  'ALTER TABLE crm_pool_log MODIFY COLUMN customer_id INT NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 SET @fk_exists = (SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
   WHERE TABLE_SCHEMA = @db_name AND TABLE_NAME = 'crm_pool_log'
   AND CONSTRAINT_NAME = 'fk_poollog_customer' AND CONSTRAINT_TYPE = 'FOREIGN KEY');
@@ -45,6 +62,14 @@ SET @sql = IF(@fk_exists = 0,
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- ========== crm_email_account.user_id → sys_user.id ==========
+SET @col_nullable = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db_name AND TABLE_NAME = 'crm_email_account'
+    AND COLUMN_NAME = 'user_id' AND IS_NULLABLE = 'NO');
+SET @sql = IF(@col_nullable = 0,
+  'SELECT ''crm_email_account.user_id already nullable'' AS msg',
+  'ALTER TABLE crm_email_account MODIFY COLUMN user_id INT NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 SET @fk_exists = (SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
   WHERE TABLE_SCHEMA = @db_name AND TABLE_NAME = 'crm_email_account'
   AND CONSTRAINT_NAME = 'fk_email_account_user' AND CONSTRAINT_TYPE = 'FOREIGN KEY');
@@ -72,6 +97,14 @@ SET @sql = IF(@fk_exists = 0,
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- ========== crm_payment_reminder.customer_id → crm_customer.id ==========
+SET @col_nullable = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db_name AND TABLE_NAME = 'crm_payment_reminder'
+    AND COLUMN_NAME = 'customer_id' AND IS_NULLABLE = 'NO');
+SET @sql = IF(@col_nullable = 0,
+  'SELECT ''crm_payment_reminder.customer_id already nullable'' AS msg',
+  'ALTER TABLE crm_payment_reminder MODIFY COLUMN customer_id INT NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 SET @fk_exists = (SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
   WHERE TABLE_SCHEMA = @db_name AND TABLE_NAME = 'crm_payment_reminder'
   AND CONSTRAINT_NAME = 'fk_payremind_customer' AND CONSTRAINT_TYPE = 'FOREIGN KEY');
@@ -81,6 +114,14 @@ SET @sql = IF(@fk_exists = 0,
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- ========== crm_sales_target.user_id → sys_user.id ==========
+SET @col_nullable = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db_name AND TABLE_NAME = 'crm_sales_target'
+    AND COLUMN_NAME = 'user_id' AND IS_NULLABLE = 'NO');
+SET @sql = IF(@col_nullable = 0,
+  'SELECT ''crm_sales_target.user_id already nullable'' AS msg',
+  'ALTER TABLE crm_sales_target MODIFY COLUMN user_id INT NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 SET @fk_exists = (SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
   WHERE TABLE_SCHEMA = @db_name AND TABLE_NAME = 'crm_sales_target'
   AND CONSTRAINT_NAME = 'fk_salestarget_user' AND CONSTRAINT_TYPE = 'FOREIGN KEY');

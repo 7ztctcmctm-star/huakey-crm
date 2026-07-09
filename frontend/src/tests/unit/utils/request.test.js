@@ -10,7 +10,7 @@ vi.mock('@/router', () => ({
 }))
 
 // 需要 mock import.meta.env
-vi.stubEnv('VITE_API_BASE_URL', '/api')
+vi.stubEnv('VITE_API_BASE_URL', '/api/v1')
 
 describe('request 工具', () => {
   let request
@@ -30,7 +30,7 @@ describe('request 工具', () => {
   })
 
   it('应有正确的 baseURL', () => {
-    expect(request.defaults.baseURL).toBe('/api')
+    expect(request.defaults.baseURL).toBe('/api/v1')
   })
 
   it('应设置 withCredentials: true', () => {

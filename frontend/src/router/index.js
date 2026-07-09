@@ -1,7 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Login from '../views/login/index.vue'
-import Layout from '../views/layout/index.vue'
-import Dashboard from '../views/Dashboard.vue'
+import { useUser } from '../composables/useUser'
+// Layout 和 Dashboard 改为懒加载，减小首屏包体积
+const Layout = () => import('../views/layout/index.vue')
+const Dashboard = () => import('../views/Dashboard.vue')
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -566,7 +568,6 @@ router.beforeEach(async (to, from, next) => {
   }
 
   // 验证登录状态（cookie + 后端校验）
-  const { useUser } = await import('../composables/useUser')
   const { userInfo, verifyAuth } = useUser()
 
   const isAuthenticated = await verifyAuth()
@@ -583,7 +584,12 @@ router.beforeEach(async (to, from, next) => {
     if (user.manageAll) {
       next()
     } else {
-      next('/dashboard')
+      // 防止死循环：如果目标已经是 /dashboard，跳到 /login
+      if (to.path === '/dashboard') {
+        next('/login')
+      } else {
+        next('/dashboard')
+      }
     }
     return
   }
@@ -594,7 +600,12 @@ router.beforeEach(async (to, from, next) => {
     const hasAuth = user.manageAll || permissions.includes(to.meta.permission)
 
     if (!hasAuth) {
-      next('/dashboard')
+      // 防止死循环：如果目标已经是 /dashboard，跳到 /login
+      if (to.path === '/dashboard') {
+        next('/login')
+      } else {
+        next('/dashboard')
+      }
       return
     }
   }

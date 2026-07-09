@@ -1,18 +1,22 @@
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
+const { version } = require('../package.json');
+
+const PORT = process.env.PORT || 5000;
+const API_URL = process.env.API_BASE_URL || `http://localhost:${PORT}`;
 
 const options = {
   definition: {
     openapi: '3.0.0',
     info: {
       title: '铧旗 CRM API',
-      version: '1.0.0',
+      version,
       description: '铧旗 CRM 企业管理系统 RESTful API 文档',
     },
     servers: [
       {
-        url: 'http://localhost:5000',
-        description: '本地开发',
+        url: API_URL,
+        description: process.env.API_BASE_URL ? '当前环境' : '本地开发',
       },
     ],
     components: {

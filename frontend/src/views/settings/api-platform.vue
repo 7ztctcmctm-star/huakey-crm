@@ -71,7 +71,7 @@
 
             <h3>请求示例</h3>
             <pre class="code-block">curl -H "X-API-Key: crm_xxxxxxxxxxxx" \
-  http://your-server/api/customer/list</pre>
+  http://your-server/api/v1/customer/list</pre>
 
             <h3>可用端点</h3>
             <div v-for="mod in docs.endpoints" :key="mod.module" class="doc-module">

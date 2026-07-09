@@ -173,10 +173,12 @@ const renderCharts = () => {
   }
 }
 
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+
 const handleExport = () => {
   const now = new Date()
   const start_date = `${now.getFullYear()}-01-01`
-  window.open(`/api/finance/analysis/export?start_date=${start_date}`, '_blank')
+  window.open(`${apiBaseUrl}/finance/analysis/export?start_date=${start_date}`, '_blank')
 }
 
 onMounted(() => { fetchData() })

@@ -3,7 +3,7 @@
     <div class="login-box">
       <div class="login-header">
         <h1 class="title">铧旗CRM系统</h1>
-        <p class="subtitle">客户关系管理系统 crm_v1</p>
+        <p class="subtitle">客户关系管理系统 v{{ appVersion }}</p>
       </div>
       
       <el-form
@@ -85,6 +85,7 @@ import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
 import { login, getCaptcha } from '@/api/auth'
 import { useUser } from '@/composables/useUser'
+import { version as appVersion } from '../../../package.json'
 
 const router = useRouter()
 const { setUser } = useUser()
@@ -145,7 +146,11 @@ const handleLogin = async () => {
     })
 
     if (res.code === 200) {
-      setUser(res.data.userInfo)
+      // 不立即 setUser，让路由守卫通过 /auth/me 获取完整用户信息（含 permissions/manageAll）
+      // 避免 userInfo 缺少 manageAll 字段导致路由守卫权限判断失败死循环
+      if (res.data.token) {
+        localStorage.setItem('token', res.data.token)
+      }
 
       if (loginForm.remember) {
         localStorage.setItem('remembered_user', loginForm.username)
