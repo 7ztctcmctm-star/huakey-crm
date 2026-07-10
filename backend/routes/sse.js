@@ -12,7 +12,17 @@ function sseAuth(req, res, next) {
   try {
     const secret = process.env.JWT_SECRET;
     if (!secret) throw new Error('JWT_SECRET not configured');
-    req.user = jwt.verify(token, secret);
+    const decoded = jwt.verify(token, secret);
+    // 映射 JWT payload 字段到 req.user（与 authenticateToken 一致）
+    req.user = {
+      id: decoded.userId,
+      userId: decoded.userId,
+      username: decoded.username,
+      roleId: decoded.roleId,
+      roleCode: decoded.roleCode,
+      viewAll: decoded.viewAll,
+      manageAll: decoded.manageAll
+    };
     next();
   } catch {
     return res.status(401).json({ code: 401, message: '无效或过期的访问令牌' });
