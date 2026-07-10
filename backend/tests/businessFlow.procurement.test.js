@@ -166,13 +166,16 @@ describe('采购全流程 - 端到端流程', () => {
     approvalRecordId = 30;
   });
 
-  // Step 4: 审批通过
+  // Step 4: 审批通过（approveRecord 使用 conn.query）
   it('Step 4: POST /api/v1/approval/approve/:id — 审批通过', async () => {
-    mockPool.query
-      .mockResolvedValueOnce([[{ id: 30, status: 'pending', approver_id: 1, workflow_id: 1, step_order: 1, business_type: 'purchase', business_id: 20 }]]) // 查询审批记录
+    mockConn.beginTransaction.mockResolvedValue(undefined);
+    mockConn.commit.mockResolvedValue(undefined);
+    mockConn.release.mockResolvedValue(undefined);
+    mockConn.query
+      .mockResolvedValueOnce([[{ id: 30, status: 'pending', approver_id: 1, workflow_id: 1, step_order: 1, business_type: 'purchase', business_id: 20 }]]) // SELECT FOR UPDATE
       .mockResolvedValueOnce([{ affectedRows: 1 }])  // UPDATE 为 approved
-      .mockResolvedValueOnce([[]])                     // 无下一步
-      .mockResolvedValueOnce([{ affectedRows: 1 }]); // UPDATE 业务表
+      .mockResolvedValueOnce([[]])                     // 查下一步（无）
+      .mockResolvedValueOnce([{ affectedRows: 1 }]); // UPDATE 业务表 approval_status
 
     const res = await request(app)
       .post(`/api/v1/approval/approve/${approvalRecordId}`)
