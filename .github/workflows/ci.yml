@@ -32,7 +32,7 @@ jobs:
         with:
           path: frontend/node_modules
           key: frontend-deps-${{ hashFiles('frontend/package-lock.json') }}
-      - run: cd frontend && npm install
+      - run: cd frontend && npm install --legacy-peer-deps
       - run: cd frontend && npm test
 
   frontend-unit-test:
@@ -45,7 +45,7 @@ jobs:
         with:
           path: frontend/node_modules
           key: frontend-deps-${{ hashFiles('frontend/package-lock.json') }}
-      - run: cd frontend && npm ci
+      - run: cd frontend && npm ci --legacy-peer-deps --legacy-peer-deps
       - run: cd frontend && npx vitest run
 
   frontend-build:
@@ -58,7 +58,7 @@ jobs:
         with:
           path: frontend/node_modules
           key: frontend-deps-${{ hashFiles('frontend/package-lock.json') }}
-      - run: cd frontend && npm install && npm run build
+      - run: cd frontend && npm install --legacy-peer-deps && npm run build
       - run: test -f frontend/dist/index.html
       - run: |
           size=$(du -sm frontend/dist | cut -f1)
@@ -100,7 +100,7 @@ jobs:
       - run: docker compose -f docker-compose.ci.yml up -d
       - run: sleep 25
       - run: cd backend && npm ci
-      - run: cd frontend && npm ci
+      - run: cd frontend && npm ci --legacy-peer-deps
       - run: cd backend && node database/migrations/run_migrations.js
       - run: cd backend && node app.js &
       - run: sleep 5
@@ -149,7 +149,7 @@ jobs:
       - run: docker compose -f docker-compose.ci.yml up -d
       - run: sleep 25
       - run: cd backend && npm ci
-      - run: cd frontend && npm ci
+      - run: cd frontend && npm ci --legacy-peer-deps
       - run: cd backend && node database/migrations/run_migrations.js
       - run: cd backend && node app.js &
       - run: sleep 5
