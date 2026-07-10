@@ -96,7 +96,7 @@ const npsClass = (n) => n <= 6 ? 'nps-detractor' : n <= 8 ? 'nps-passive' : 'nps
 
 const fetchList = async () => {
   loading.value = true
-  try { const res = await getSurveyTemplates(); if (res.code === 200) list.value = res.data } catch (e) { /* */ }
+  try { const res = await getSurveyTemplates(); if (res.code === 200) list.value = res.data || [] } catch (e) { /* */ }
   finally { loading.value = false }
 }
 

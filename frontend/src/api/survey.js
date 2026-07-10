@@ -7,6 +7,7 @@ export const deleteSurveyTemplate = (id) => request.delete(`/survey/templates/${
 export const getSurveyCampaigns = () => request.get('/survey/campaigns')
 export const saveSurveyCampaign = (data) => request.post('/survey/campaigns', data)
 export const getSurveyAnalytics = (id) => request.get(`/survey/analytics/${id}`)
+export const getSurveyOverview = () => request.get('/survey/analytics/overview')
 export const getCampaignDetail = (id) => request.get(`/survey/campaigns/${id}`)
 export const getCampaignResponses = (id, params) => request.get(`/survey/campaigns/${id}/responses`, { params })
 export const startCampaign = (id) => request.post(`/survey/campaigns/${id}/start`)

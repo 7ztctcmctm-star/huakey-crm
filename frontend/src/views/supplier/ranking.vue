@@ -16,7 +16,7 @@
         </el-table-column>
         <el-table-column prop="category" label="分类" width="100" />
         <el-table-column prop="rating" label="等级" width="80" align="center">
-          <template #default="{ row }"><el-rate :model-value="row.rating" disabled :max="5" /></template>
+          <template #default="{ row }"><el-rate :model-value="Number(row.rating) || 0" disabled :max="5" /></template>
         </el-table-column>
         <el-table-column label="综合评分" width="100" align="center">
           <template #default="{ row }"><span class="score-value">{{ row.total_score || '-' }}</span></template>
