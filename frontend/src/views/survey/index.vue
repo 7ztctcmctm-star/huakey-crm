@@ -44,7 +44,7 @@
             <el-button v-if="row.status==='draft'" type="primary" link @click="$router.push(`/survey/detail/${row.id}`)">编辑</el-button>
             <el-button v-if="row.status==='draft'" type="success" link @click="handleStart(row)">启动</el-button>
             <el-button v-if="row.status==='active'" type="warning" link @click="handleClose(row)">关闭</el-button>
-            <el-button v-if="row.status!=='draft'" type="primary" link @click="$router.push(`/survey/analytics/${row.id}`)">分析</el-button>
+            <el-button v-if="row.status!=='draft' && row.id" type="primary" link @click="$router.push(`/survey/analytics/${row.id}`)">分析</el-button>
           </template>
         </el-table-column>
       </el-table>

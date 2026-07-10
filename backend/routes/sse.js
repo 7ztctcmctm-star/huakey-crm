@@ -1,15 +1,29 @@
 const express = require('express');
-const { authenticateToken } = require('../middleware/auth');
+const jwt = require('jsonwebtoken');
 const sseManager = require('../utils/sseManager');
 const logger = require('../config/logger');
 
 const router = express.Router();
 
+// SSE 专用轻量认证：EventSource 不支持自定义 Header，token 通过 query string 传递
+function sseAuth(req, res, next) {
+  const token = req.query.token || (req.headers.authorization || '').replace('Bearer ', '');
+  if (!token) return res.status(401).json({ code: 401, message: '未提供访问令牌' });
+  try {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) throw new Error('JWT_SECRET not configured');
+    req.user = jwt.verify(token, secret);
+    next();
+  } catch {
+    return res.status(401).json({ code: 401, message: '无效或过期的访问令牌' });
+  }
+}
+
 /**
  * GET /api/v1/sse/notifications
  * SSE 实时通知流
  */
-router.get('/notifications', authenticateToken, (req, res) => {
+router.get('/notifications', sseAuth, (req, res) => {
   const userId = req.user?.id;
   if (!userId) {
     return res.status(401).json({ code: 401, message: '未登录' });

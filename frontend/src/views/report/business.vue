@@ -56,8 +56,8 @@
         <el-table-column prop="opp_count" label="商机数" width="80" align="center" />
         <el-table-column label="目标完成率" width="120" align="center">
           <template #default="{ row }">
-            <el-progress :percentage="Math.min(Math.round((row.contract_amount || 0) / (row.target_amount || 1) * 100), 999)" :stroke-width="14" :text-inside="true" :show-text="false" style="width:80px;display:inline-block" />
-            <span style="font-size:12px;margin-left:4px">{{ Math.round((row.contract_amount || 0) / (row.target_amount || 1) * 100) }}%</span>
+            <el-progress :percentage="Math.min(Math.round(Number(row.contract_amount || 0) / (Number(row.target_amount) || 1) * 100) || 0, 999)" :stroke-width="14" :text-inside="true" :show-text="false" style="width:80px;display:inline-block" />
+            <span style="font-size:12px;margin-left:4px">{{ Math.round(Number(row.contract_amount || 0) / (Number(row.target_amount) || 1) * 100) || 0 }}%</span>
           </template>
         </el-table-column>
       </el-table>

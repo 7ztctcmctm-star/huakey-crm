@@ -9,7 +9,7 @@
       <div>
         <el-button v-if="campaign.status==='draft'" type="primary" @click="handleStart">启动调查</el-button>
         <el-button v-if="campaign.status==='active'" type="warning" @click="handleClose">关闭调查</el-button>
-        <el-button v-if="campaign.status!=='draft'" type="success" @click="$router.push(`/survey/analytics/${campaign.id}`)">查看分析</el-button>
+        <el-button v-if="campaign.status!=='draft' && campaign.id" type="success" @click="$router.push(`/survey/analytics/${campaign.id}`)">查看分析</el-button>
       </div>
     </div>
 

@@ -203,7 +203,7 @@ async function getWorkflowLogs(pool, { rule_id, page = 1, pageSize = 20 }) {
  * 查询分配规则列表
  */
 async function getAssignRules(pool) {
-  const [rows] = await pool.query('SELECT * FROM crm_assign_rule WHERE deleted_at IS NULL ORDER BY priority DESC, id');
+  const [rows] = await pool.query('SELECT * FROM crm_assign_rule ORDER BY priority DESC, id');
   return rows;
 }
 
