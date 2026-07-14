@@ -14,16 +14,6 @@ const releaseCustomerSchema = Joi.object({
   customer_id: Joi.number().integer().positive().required()
 });
 
-const poolListSchema = Joi.object({
-  page: Joi.number().integer().min(1).optional(),
-  pageSize: Joi.number().integer().min(1).max(200).optional(),
-  company_name: Joi.string().max(200).allow('', null),
-  industry: Joi.string().max(200).allow('', null),
-  source: Joi.string().max(50).allow('', null),
-  level: Joi.string().valid('A', 'B', 'C').allow('', null),
-  pool_type: Joi.string().max(50).allow('', null)
-});
-
 const batchClaimSchema = Joi.object({
   customer_ids: Joi.array().items(Joi.number().integer().positive()).min(1).max(20).required()
 });
@@ -38,8 +28,10 @@ const poolLogSchema = Joi.object({
   pageSize: Joi.number().integer().min(1).max(200).optional()
 });
 
-// 公海客户列表
-router.post('/pool', authenticateToken, checkPermission('customer:pool'), validate(poolListSchema), customerController.listPool);
+// 公海客户列表（已合并到 /customer/list，返回 410 Gone 引导迁移）
+router.post('/pool', authenticateToken, checkPermission('customer:pool'), (req, res) => {
+  res.status(410).json({ code: 410, message: '公海列表已合并到 /customer/list，请使用 unassigned=true 筛选', data: null });
+});
 
 // 认领公海客户
 router.post('/claim', authenticateToken, checkPermission('customer:pool'), validate(claimCustomerSchema), customerController.claim);

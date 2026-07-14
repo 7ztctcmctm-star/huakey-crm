@@ -506,18 +506,7 @@ async function getMySubordinates(req, res, next) {
 }
 
 // ==================== pool.js ====================
-
-async function listPool(req, res, next) {
-  try {
-    const result = await poolService.listPoolCustomers(pool, req.body, customerDetailService.SOURCE_PARENT_MAP);
-    res.json({ code: 200, message: '获取公海客户列表成功', data: result });
-  } catch (error) {
-    logger.error('获取公海客户列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    error.status = 500;
-    error.message = '获取公海客户列表失败';
-    next(error);
-  }
-}
+// listPool 已废弃：公海列表合并到 /customer/list，/pool 路由返回 410 Gone
 
 async function claim(req, res, next) {
   try {
@@ -656,7 +645,6 @@ module.exports = {
   getAssignRules,
   getSalesUsers,
   getMySubordinates,
-  listPool,
   claim,
   batchClaim,
   release,
