@@ -6,6 +6,7 @@
 const logger = require('../config/logger');
 const { CUSTOMER_STATUS } = require('../constants/customerStatus');
 const customerService = require('../services/customerService');
+const opportunityService = require('../services/opportunityService');
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
 
@@ -32,6 +33,20 @@ async function createQuote(pool, data, userId) {
       [customer_id]
     );
     if (customers.length === 0) throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND)
+
+    // 4-3-4: 传入 opportunity_id 时校验商机存在且属于同一客户
+    if (opportunity_id) {
+      const [opps] = await connection.query(
+        'SELECT id, customer_id FROM crm_opportunity WHERE id = ? AND deleted_at IS NULL',
+        [opportunity_id]
+      );
+      if (opps.length === 0) {
+        throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '关联的商机不存在');
+      }
+      if (opps[0].customer_id !== customer_id) {
+        throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '商机与客户不匹配，无法关联');
+      }
+    }
 
     let totalAmount = 0;
     const validatedItems = [];
@@ -339,6 +354,22 @@ async function approveQuote(pool, id, approvalStatus, approvalRemark, userId) {
     ['quote', id]
   );
 
+  // 4-3-5: 报价审批通过时推进商机到 stage 3（方案报价）（不阻塞主流程）
+  if (approvalStatus === 1) {
+    try {
+      const [quoteRows] = await pool.query('SELECT opportunity_id FROM crm_quote WHERE id = ?', [id]);
+      if (quoteRows.length > 0 && quoteRows[0].opportunity_id) {
+        await opportunityService.advanceStage(pool, quoteRows[0].opportunity_id, 3, userId);
+      }
+    } catch (e) {
+      logger.error('[报价审批] 推进商机阶段失败（不影响主流程）', {
+        quote_id: id,
+        error: e.message,
+        traceId: 'N/A'
+      });
+    }
+  }
+
   return { success: true };
 }
 
@@ -354,16 +385,31 @@ async function convertToContract(pool, quoteId, userId) {
     const [[{ cnt }]] = await conn.query("SELECT COUNT(*) as cnt FROM crm_contract WHERE contract_no LIKE ?", [`HT-${dateStr}-%`]);
     const contractNo = `HT-${dateStr}-${String(cnt + 1).padStart(3, '0')}`;
 
+    // 4-3-2: 从报价单传递 opportunity_id 和 quote_id 到合同
     const [result] = await conn.query(
-      `INSERT INTO crm_contract (contract_no, customer_id, amount, status, remark, create_by, create_time)
-       VALUES (?, ?, ?, 1, ?, ?, NOW())`,
-      [contractNo, quote.customer_id, quote.final_amount || quote.amount, `从报价单${quote.quote_no}转入`, userId]
+      `INSERT INTO crm_contract (contract_no, customer_id, opportunity_id, quote_id, amount, status, remark, create_by, create_time)
+       VALUES (?, ?, ?, ?, ?, 1, ?, ?, NOW())`,
+      [contractNo, quote.customer_id, quote.opportunity_id || null, quoteId, quote.final_amount || quote.amount, `从报价单${quote.quote_no}转入`, userId]
     );
     const contractId = result.insertId;
 
     await conn.query("UPDATE crm_quote SET status = 3 WHERE id = ?", [quoteId]);
 
     await conn.commit();
+
+    // 4-3-5: 报价转合同后推进商机到 stage 5（成交）（不阻塞主流程）
+    if (quote.opportunity_id) {
+      try {
+        await opportunityService.advanceStage(pool, quote.opportunity_id, 5, userId);
+      } catch (e) {
+        logger.error('[报价转合同] 推进商机阶段失败（不影响主流程）', {
+          opportunity_id: quote.opportunity_id,
+          error: e.message,
+          traceId: 'N/A'
+        });
+      }
+    }
+
     return { contract_id: contractId };
   } catch (error) {
     await conn.rollback();

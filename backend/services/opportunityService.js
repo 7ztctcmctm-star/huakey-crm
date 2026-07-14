@@ -5,6 +5,8 @@
 
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
+const quoteService = require('./quoteService');
+const contractService = require('./contractService');
 
 const STAGE_MAP = {
   1: '询盘',
@@ -405,6 +407,133 @@ async function getStageLog(pool, opportunityId) {
   return logs;
 }
 
+/**
+ * 从商机创建报价单（Prompt 4-3-3）
+ * 创建后推进商机到 stage 3（方案报价）
+ * @param {object} pool
+ * @param {number} opportunityId
+ * @param {object} quoteData - 报价单数据（不含 customer_id / opportunity_id，由本方法注入）
+ * @param {number} userId
+ * @returns {object} - { id, quote_no }
+ */
+async function createQuoteFromOpportunity(pool, opportunityId, quoteData, userId) {
+  const [rows] = await pool.query(
+    'SELECT id, customer_id, name FROM crm_opportunity WHERE id = ? AND deleted_at IS NULL',
+    [opportunityId]
+  );
+  if (rows.length === 0) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '商机不存在');
+  }
+
+  const opp = rows[0];
+  const data = {
+    ...quoteData,
+    customer_id: opp.customer_id,
+    opportunity_id: opp.id,
+    advance_status: false // 不让 createQuote 自动推进客户状态，这里单独推进商机
+  };
+
+  const result = await quoteService.createQuote(pool, data, userId);
+
+  // 推进商机到 stage 3（方案报价），不阻塞主流程
+  try {
+    await advanceStage(pool, opportunityId, 3, userId);
+  } catch (e) {
+    // 商机已在 stage 3+ 时不推进，不报错
+  }
+
+  return result;
+}
+
+/**
+ * 从商机创建合同（Prompt 4-3-3）
+ * 创建后推进商机到 stage 5（成交）
+ * @param {object} pool
+ * @param {number} opportunityId
+ * @param {object} contractData - 合同数据（不含 customer_id / opportunity_id，由本方法注入）
+ * @param {number} userId
+ * @returns {object} - { id, contract_no }
+ */
+async function createContractFromOpportunity(pool, opportunityId, contractData, userId) {
+  const [rows] = await pool.query(
+    'SELECT id, customer_id, name FROM crm_opportunity WHERE id = ? AND deleted_at IS NULL',
+    [opportunityId]
+  );
+  if (rows.length === 0) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '商机不存在');
+  }
+
+  const opp = rows[0];
+  const data = {
+    ...contractData,
+    customer_id: opp.customer_id,
+    opportunity_id: opp.id
+  };
+
+  const result = await contractService.createContract(pool, data, userId);
+
+  // 推进商机到 stage 5（成交），不阻塞主流程
+  try {
+    await advanceStage(pool, opportunityId, 5, userId);
+  } catch (e) {
+    // 商机已在 stage 5+ 时不推进，不报错
+  }
+
+  return result;
+}
+
+/**
+ * 获取商机销售时间轴（Prompt 4-3-7）
+ * 聚合商机阶段日志 + 报价单 + 合同，按时间排序
+ * @param {object} pool
+ * @param {number} opportunityId
+ * @returns {Array} 时间轴事件列表
+ */
+async function getTimeline(pool, opportunityId) {
+  const [opp] = await pool.query(
+    'SELECT id FROM crm_opportunity WHERE id = ? AND deleted_at IS NULL',
+    [opportunityId]
+  );
+  if (!opp.length) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '商机不存在');
+  }
+
+  const [stageLogs] = await pool.query(
+    `SELECT 'stage_change' as type, l.id, l.from_stage, l.to_stage, l.changed_at as event_time,
+       u.real_name as user_name
+     FROM crm_opportunity_stage_log l
+     LEFT JOIN sys_user u ON l.changed_by = u.id
+     WHERE l.opportunity_id = ?`,
+    [opportunityId]
+  );
+
+  const [quotes] = await pool.query(
+    `SELECT 'quote' as type, q.id, q.quote_no, q.amount, q.final_amount, q.status, q.create_time as event_time,
+       u.real_name as user_name
+     FROM crm_quote q
+     LEFT JOIN sys_user u ON q.create_by = u.id
+     WHERE q.opportunity_id = ? AND q.deleted_at IS NULL`,
+    [opportunityId]
+  );
+
+  const [contracts] = await pool.query(
+    `SELECT 'contract' as type, c.id, c.contract_no, c.amount, c.status, c.sign_date, c.create_time as event_time,
+       u.real_name as user_name
+     FROM crm_contract c
+     LEFT JOIN sys_user u ON c.create_by = u.id
+     WHERE c.opportunity_id = ? AND c.deleted_at IS NULL`,
+    [opportunityId]
+  );
+
+  const events = [
+    ...stageLogs.map(e => ({ ...e, stage_name: STAGE_MAP[e.to_stage] })),
+    ...quotes,
+    ...contracts
+  ].sort((a, b) => new Date(b.event_time) - new Date(a.event_time));
+
+  return events;
+}
+
 module.exports = {
   STAGE_MAP,
   DEFAULT_STAGE_PROBABILITY,
@@ -418,5 +547,8 @@ module.exports = {
   advanceStage,
   getFunnelStats,
   getStageStats,
-  getStageLog
+  getStageLog,
+  createQuoteFromOpportunity,
+  createContractFromOpportunity,
+  getTimeline
 };

@@ -164,7 +164,7 @@ async function getContract(pool, contractId) {
  * @returns {{ id: number, contract_no: string }}
  */
 async function createContract(pool, data, createBy) {
-  const { customer_id, opportunity_id, amount, sign_date, delivery_date, payment_terms, remark, plans } = data;
+  const { customer_id, opportunity_id, quote_id, amount, sign_date, delivery_date, payment_terms, remark, plans } = data;
   const connection = await pool.getConnection();
 
   try {
@@ -182,6 +182,20 @@ async function createContract(pool, data, createBy) {
       throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '只能为正式客户创建合同，请先将客户转化为正式客户');
     }
 
+    // 4-3-4: 传入 opportunity_id 时校验商机存在且属于同一客户
+    if (opportunity_id) {
+      const [opps] = await connection.query(
+        'SELECT id, customer_id FROM crm_opportunity WHERE id = ? AND deleted_at IS NULL',
+        [opportunity_id]
+      );
+      if (opps.length === 0) {
+        throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '关联的商机不存在');
+      }
+      if (opps[0].customer_id !== customer_id) {
+        throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '商机与客户不匹配，无法关联');
+      }
+    }
+
     // 生成合同编号
     const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
     const [count] = await connection.query('SELECT COUNT(*) as cnt FROM crm_contract WHERE contract_no LIKE ? FOR UPDATE', [`CON-${dateStr}-%`]);
@@ -189,8 +203,8 @@ async function createContract(pool, data, createBy) {
     const contractNo = `CON-${dateStr}-${seq}`;
 
     const [result] = await connection.query(
-      'INSERT INTO crm_contract (contract_no, customer_id, opportunity_id, amount, sign_date, delivery_date, payment_terms, remark, create_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [contractNo, customer_id, opportunity_id || null, amount, sign_date, delivery_date, payment_terms, remark, createBy]
+      'INSERT INTO crm_contract (contract_no, customer_id, opportunity_id, quote_id, amount, sign_date, delivery_date, payment_terms, remark, create_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [contractNo, customer_id, opportunity_id || null, quote_id || null, amount, sign_date, delivery_date, payment_terms, remark, createBy]
     );
 
     const contractId = result.insertId;

@@ -446,7 +446,7 @@ async function getCustomer360(pool, customerId) {
       ORDER BY o.create_time DESC
     `, [customerId]),
     pool.query(`
-      SELECT q.id, q.quote_no, q.amount, q.final_amount, q.status, q.create_time,
+      SELECT q.id, q.quote_no, q.amount, q.final_amount, q.status, q.create_time, q.opportunity_id,
              u.real_name as create_by_name
       FROM crm_quote q
       LEFT JOIN sys_user u ON q.create_by = u.id
@@ -454,7 +454,7 @@ async function getCustomer360(pool, customerId) {
       ORDER BY q.create_time DESC
     `, [customerId]),
     pool.query(`
-      SELECT ct.id, ct.contract_no, ct.amount, ct.sign_date, ct.status, ct.create_time,
+      SELECT ct.id, ct.contract_no, ct.amount, ct.sign_date, ct.status, ct.create_time, ct.opportunity_id, ct.quote_id,
              u.real_name as create_by_name,
              (SELECT COALESCE(SUM(p.pay_amount), 0) FROM crm_payment p WHERE p.contract_id = ct.id AND p.deleted_at IS NULL) as paid_amount
       FROM crm_contract ct

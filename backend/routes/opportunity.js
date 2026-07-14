@@ -156,4 +156,7 @@ router.get('/funnel', authenticateToken, checkDataPermission('opportunity', 'own
 // 8. 商机阶段变更日志（带数据权限）
 router.get('/stage-log/:id', authenticateToken, checkDataPermission('opportunity', 'owner_id'), opportunityController.stageLogWithPermission);
 
+// 9. 商机销售时间轴（Prompt 4-3-7）
+router.get('/timeline/:id', authenticateToken, checkDataPermission('opportunity', 'owner_id'), opportunityController.timeline);
+
 module.exports = router;

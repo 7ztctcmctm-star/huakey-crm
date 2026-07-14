@@ -272,7 +272,8 @@ const addQuoteSchema = Joi.object({
   valid_days: Joi.number().integer().min(1).optional(),
   remark: Joi.string().max(2000).allow('', null),
   currency: Joi.string().max(10).optional(),
-  exchange_rate: Joi.number().min(0).optional()
+  exchange_rate: Joi.number().min(0).optional(),
+  advance_status: Joi.boolean().optional()
 });
 
 const listQuoteSchema = Joi.object({

@@ -154,6 +154,20 @@ async function stageLogWithPermission(req, res, next) {
   }
 }
 
+async function timeline(req, res, next) {
+  try {
+    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'o');
+    const existing = await opportunityService.getOpportunityWithPermission(pool, req.params.id, { clause, params: permParams });
+    if (!existing) return res.status(404).json({ code: 404, message: '商机不存在', data: null });
+
+    const events = await opportunityService.getTimeline(pool, req.params.id);
+    res.json({ code: 200, message: '查询成功', data: events });
+  } catch (error) {
+    logger.error('获取商机时间轴错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    next(error);
+  }
+}
+
 module.exports = {
   list,
   add,
@@ -164,5 +178,6 @@ module.exports = {
   delete: remove,
   detail,
   funnel,
-  stageLogWithPermission
+  stageLogWithPermission,
+  timeline
 };
