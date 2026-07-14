@@ -33,3 +33,20 @@ export function fullTime(t) {
     hour: '2-digit', minute: '2-digit'
   })
 }
+
+/**
+ * 相对未来/过去时间（用于“距下次跟进”）
+ * - 未来：今天 / 明天 / N 天后
+ * - 过去：已逾期（今天） / 已逾期 N 天
+ */
+export function relativeNextTime(t) {
+  if (!t) return '-'
+  const now = Date.now()
+  const d = new Date(t).getTime()
+  const diff = d - now
+  const day = Math.floor(Math.abs(diff) / (24 * 60 * 60 * 1000))
+  if (diff < 0) return day === 0 ? '已逾期（今天）' : `已逾期 ${day} 天`
+  if (day === 0) return '今天'
+  if (day === 1) return '明天'
+  return `${day} 天后`
+}
