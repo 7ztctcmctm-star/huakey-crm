@@ -151,7 +151,7 @@ describe('customerService.assignCustomer', () => {
 
     await expect(
       customerService.assignCustomer(mockPool, 999, 2, 1)
-    ).rejects.toMatchObject({ code: 404 });
+    ).rejects.toMatchObject({ code: 404002 });
   });
 
   it('分配成功应返回原负责人 ID', async () => {
@@ -174,7 +174,7 @@ describe('customerService.claimCustomer', () => {
 
     await expect(
       customerService.claimCustomer(mockPool, 999, 1)
-    ).rejects.toMatchObject({ code: 404 });
+    ).rejects.toMatchObject({ code: 404002 });
   });
 
   it('客户不在公海应抛出 400', async () => {
@@ -184,7 +184,7 @@ describe('customerService.claimCustomer', () => {
 
     await expect(
       customerService.claimCustomer(mockPool, 1, 1)
-    ).rejects.toMatchObject({ code: 400, message: '该客户不在公海中' });
+    ).rejects.toMatchObject({ code: 400005, message: '该客户不在公海中' });
   });
 });
 
@@ -197,7 +197,7 @@ describe('customerService.releaseCustomer', () => {
 
     await expect(
       customerService.releaseCustomer(mockPool, 999, 1)
-    ).rejects.toMatchObject({ code: 404 });
+    ).rejects.toMatchObject({ code: 404002 });
   });
 
   it('释放成功应执行 UPDATE 和 INSERT 日志', async () => {
