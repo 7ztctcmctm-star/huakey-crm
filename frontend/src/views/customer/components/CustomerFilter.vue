@@ -4,7 +4,7 @@
     <el-radio-group :model-value="activeQuickTab" @update:model-value="$emit('quick-tab-change', $event)">
       <el-radio-button value="mine">我的客户</el-radio-button>
       <el-radio-button value="all">全部客户</el-radio-button>
-      <el-radio-button value="unassigned">待分配</el-radio-button>
+      <el-radio-button value="unassigned">公海/待分配</el-radio-button>
       <el-radio-button value="overdue_follow">久未跟进</el-radio-button>
     </el-radio-group>
   </el-card>
@@ -39,22 +39,6 @@
       <el-form-item label="状态">
         <el-select v-model="searchForm.status" placeholder="请选择状态" clearable>
           <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="客户类型">
-        <el-select v-model="searchForm.customer_type" placeholder="全部类型" clearable>
-          <el-option label="潜客" value="prospect" />
-          <el-option label="正式客户" value="customer" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="生命周期">
-        <el-select v-model="searchForm.lifecycle_status" placeholder="全部阶段" clearable>
-          <el-option label="新导入" value="new" />
-          <el-option label="培育中" value="nurturing" />
-          <el-option label="意向合作" value="intent" />
-          <el-option label="正在合作" value="active" />
-          <el-option label="流失" value="lost" />
-          <el-option label="无效" value="inactive" />
         </el-select>
       </el-form-item>
       <el-form-item label="标签">
@@ -98,10 +82,13 @@
   <el-card class="tab-card" shadow="never" style="margin-bottom: 12px;">
     <el-tabs :model-value="activeTab" @tab-change="$emit('tab-change', $event)">
       <el-tab-pane label="全部" name="all" />
-      <el-tab-pane label="线索" name="lead" />
-      <el-tab-pane label="潜客" name="prospect" />
-      <el-tab-pane label="正式客户" name="customer" />
-      <el-tab-pane label="流失客户" name="lost" />
+      <el-tab-pane label="公海" name="sea" />
+      <el-tab-pane label="跟进中" name="following" />
+      <el-tab-pane label="已报价" name="quoted" />
+      <el-tab-pane label="谈判中" name="negotiating" />
+      <el-tab-pane label="已签约" name="signed" />
+      <el-tab-pane label="已流失" name="lost" />
+      <el-tab-pane label="暂停跟进" name="paused" />
     </el-tabs>
   </el-card>
 </template>

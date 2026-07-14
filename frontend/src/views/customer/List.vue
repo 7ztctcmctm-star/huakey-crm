@@ -40,11 +40,10 @@
       @staff-filter-change="switchViewMode"
       @quick-follow="(row) => { quickFollowCustomer = row; quickFollowVisible = true }"
       @assign="(row) => { assignCustomer = row; assignDialogVisible = true }"
-      @convert-success="fetchList"
+      @status-change="fetchList"
       @view="(row) => router.push(`/customer/detail/${row.id}`)"
       @edit="handleEdit"
       @delete="handleDelete"
-      @to-prospect="(row) => customerTableRef?.openConvertDialog(row, 'to_prospect')"
     />
 
     <CustomerPagination
@@ -209,9 +208,7 @@ const searchForm = reactive({
   phone: '',
   source: '',
   level: '',
-  status: isProspectView.value ? 1 : '',
-  customer_type: isProspectView.value ? 'prospect' : '',
-  lifecycle_status: '',
+  status: isProspectView.value ? 'following' : '',
   dateRange: [],
   sort: '',
   page: 1,
@@ -228,17 +225,22 @@ const levelOptions = [
 ]
 
 const statusOptions = [
-  { label: '线索', value: 5 },
-  { label: '潜客', value: 1 },
-  { label: '正式客户', value: 2 },
-  { label: '流失', value: 3 }
+  { label: '公海客户', value: 'sea' },
+  { label: '跟进中', value: 'following' },
+  { label: '已报价', value: 'quoted' },
+  { label: '谈判中', value: 'negotiating' },
+  { label: '已签约', value: 'signed' },
+  { label: '已流失', value: 'lost' },
+  { label: '暂停跟进', value: 'paused' }
 ]
 
 const editStatusOptions = [
-  { label: '线索', value: 5 },
-  { label: '潜客', value: 1 },
-  { label: '正式客户', value: 2 },
-  { label: '流失', value: 3 }
+  { label: '跟进中', value: 'following' },
+  { label: '已报价', value: 'quoted' },
+  { label: '谈判中', value: 'negotiating' },
+  { label: '已签约', value: 'signed' },
+  { label: '已流失', value: 'lost' },
+  { label: '暂停跟进', value: 'paused' }
 ]
 
 const tableData = ref([])
@@ -294,7 +296,6 @@ const fetchList = async () => {
     if (searchForm.source) params.source = searchForm.source
     if (searchForm.level) params.level = searchForm.level
     if (searchForm.status !== '' && searchForm.status !== null) params.status = searchForm.status
-    if (searchForm.customer_type) params.customer_type = searchForm.customer_type
     if (searchForm.lifecycle_status) params.lifecycle_status = searchForm.lifecycle_status
     if (searchForm.dateRange && searchForm.dateRange.length === 2) {
       params.start_date = searchForm.dateRange[0]
@@ -315,13 +316,22 @@ const fetchList = async () => {
     }
 
     if (activeTab.value === 'lead') {
-      params.status = 5
-    } else if (activeTab.value === 'prospect') {
-      params.status = 1
-    } else if (activeTab.value === 'customer') {
-      params.status = 2
+      params.status = 'following'
+      params.unassigned = true
+    } else if (activeTab.value === 'sea') {
+      params.unassigned = true
+    } else if (activeTab.value === 'following') {
+      params.status = 'following'
+    } else if (activeTab.value === 'quoted') {
+      params.status = 'quoted'
+    } else if (activeTab.value === 'negotiating') {
+      params.status = 'negotiating'
+    } else if (activeTab.value === 'signed') {
+      params.status = 'signed'
     } else if (activeTab.value === 'lost') {
-      params.status = 3
+      params.status = 'lost'
+    } else if (activeTab.value === 'paused') {
+      params.status = 'paused'
     }
 
     const res = await getCustomerList(params)
@@ -355,9 +365,7 @@ const handleReset = () => {
   searchForm.phone = ''
   searchForm.source = ''
   searchForm.level = ''
-  searchForm.status = isProspectView.value ? 1 : ''
-  searchForm.customer_type = isProspectView.value ? 'prospect' : ''
-  searchForm.lifecycle_status = ''
+  searchForm.status = isProspectView.value ? 'following' : ''
   searchForm.dateRange = []
   searchForm.sort = ''
   searchForm.page = 1
@@ -367,18 +375,15 @@ const handleReset = () => {
 watch(() => route.path, (newPath, oldPath) => {
   if (newPath === oldPath) return
   if (newPath.includes('prospects') || newPath.includes('customer/list')) {
-    searchForm.status = newPath.includes('prospects') ? 1 : ''
-    searchForm.customer_type = newPath.includes('prospects') ? 'prospect' : ''
+    searchForm.status = newPath.includes('prospects') ? 'following' : ''
     searchForm.page = 1
-    activeTab.value = newPath.includes('prospects') ? 'prospect' : 'all'
+    activeTab.value = newPath.includes('prospects') ? 'following' : 'all'
     fetchList()
   }
 })
 
 const handleQuickTabChange = (val) => {
   searchForm.status = ''
-  searchForm.customer_type = ''
-  searchForm.lifecycle_status = ''
   searchForm.page = 1
   viewMode.value = 'all'
   staffFilterId.value = null
@@ -426,8 +431,6 @@ const handleExport = async () => {
     if (searchForm.source) params.source = searchForm.source
     if (searchForm.level) params.level = searchForm.level
     if (searchForm.status !== '' && searchForm.status !== null) params.status = searchForm.status
-    if (searchForm.customer_type) params.customer_type = searchForm.customer_type
-    if (searchForm.lifecycle_status) params.lifecycle_status = searchForm.lifecycle_status
     if (viewMode.value === 'mine') {
       const stored = localStorage.getItem('userInfo')
       if (stored) params.owner_id = JSON.parse(stored).id
