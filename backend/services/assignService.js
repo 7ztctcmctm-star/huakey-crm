@@ -3,6 +3,8 @@
  * 从 routes/customer/assign.js 提取的业务逻辑
  */
 
+const { CUSTOMER_STATUS } = require('../constants/customerStatus');
+
 // ========== 分配规则 ==========
 
 /**
@@ -195,10 +197,20 @@ async function manualAssign(pool, customerId, toUserId, operatorId, remark) {
   const fromUserId = customer.owner_id;
 
   // 更新负责人（to_user_id 为 null 表示回收为无负责人）
-  await pool.query(
-    'UPDATE crm_customer SET owner_id = ?, pool_status = 0, protect_until = NULL WHERE id = ?',
-    [toUserId || null, customerId]
-  );
+  // 回收时同步 pool_status=1 和 status=sea，分配时 pool_status=0
+  const toUserIdValue = toUserId || null;
+  const poolStatus = toUserIdValue ? 0 : 1;
+
+  let updateSql = 'UPDATE crm_customer SET owner_id = ?, pool_status = ?, protect_until = NULL';
+  const updateParams = [toUserIdValue, poolStatus];
+  if (!toUserIdValue) {
+    updateSql += ', status = ?';
+    updateParams.push(CUSTOMER_STATUS.SEA);
+  }
+  updateSql += ' WHERE id = ?';
+  updateParams.push(customerId);
+
+  await pool.query(updateSql, updateParams);
 
   // 记录分配日志
   await pool.query(
@@ -227,10 +239,17 @@ async function batchAssign(pool, customerIds, toUserId, operatorId, remark) {
       if (customers.length === 0) continue;
       const customer = customers[0];
 
-      await connection.query(
-        'UPDATE crm_customer SET owner_id = ?, pool_status = 0, protect_until = NULL WHERE id = ?',
-        [toUserId, customerId]
-      );
+      const poolStatus = toUserId ? 0 : 1;
+      let updateSql = 'UPDATE crm_customer SET owner_id = ?, pool_status = ?, protect_until = NULL';
+      const updateParams = [toUserId, poolStatus];
+      if (!toUserId) {
+        updateSql += ', status = ?';
+        updateParams.push(CUSTOMER_STATUS.SEA);
+      }
+      updateSql += ' WHERE id = ?';
+      updateParams.push(customerId);
+
+      await connection.query(updateSql, updateParams);
 
       await connection.query(
         `INSERT INTO crm_assign_log (customer_id, from_user_id, to_user_id, operator_id, remark)
