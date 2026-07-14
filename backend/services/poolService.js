@@ -2,6 +2,7 @@
 // 从 routes/customer/pool.js 提取的业务逻辑
 
 const ROLES = require('../config/roles');
+const { CUSTOMER_STATUS } = require('../constants/customerStatus');
 
 /**
  * 获取公海客户列表
@@ -10,7 +11,7 @@ async function listPoolCustomers(pool, { page = 1, pageSize = 10, company_name, 
   const offset = (page - 1) * pageSize;
   const params = [];
 
-  let whereClause = 'WHERE c.pool_status = 1 AND c.deleted_at IS NULL';
+  let whereClause = 'WHERE c.owner_id IS NULL AND c.deleted_at IS NULL';
 
   if (company_name) {
     whereClause += ' AND c.company_name LIKE ?';
@@ -46,13 +47,15 @@ async function listPoolCustomers(pool, { page = 1, pageSize = 10, company_name, 
   const total = countResult[0].total;
 
   const [list] = await pool.query(
-    `SELECT c.id, c.company_name, c.contact_name, c.phone, c.email,
+    `SELECT c.id, c.company_name,
+      pc.name as primary_contact_name, pc.phone as primary_contact_phone, pc.email as primary_contact_email,
       c.industry, c.source, c.level, c.status,
       c.pool_status, c.pool_type, c.protect_until, c.last_follow_time,
       c.create_time, c.update_time,
       u.real_name as owner_name
     FROM crm_customer c
     LEFT JOIN sys_user u ON c.owner_id = u.id
+    LEFT JOIN crm_contact pc ON pc.customer_id = c.id AND pc.is_primary = 1 AND pc.deleted_at IS NULL
     ${whereClause}
     ORDER BY c.protect_until IS NULL ASC, c.protect_until ASC, c.create_time DESC
     LIMIT ? OFFSET ?`,
@@ -77,7 +80,7 @@ async function claimCustomer(pool, customer_id, userId, user) {
 
   const customer = customers[0];
 
-  if (customer.pool_status !== 1) return { error: '该客户不在公海中', status: 400 };
+  if (customer.owner_id !== null) return { error: '该客户不在公海中', status: 400 };
 
   if (customer.pool_type === 'private' && !user.manageAll && user.roleId !== ROLES.ADMIN && user.roleId !== ROLES.MANAGER) {
     return { error: '私有池客户仅管理员可认领', status: 403 };
@@ -92,8 +95,8 @@ async function claimCustomer(pool, customer_id, userId, user) {
   protectUntil.setDate(protectUntil.getDate() + 7);
 
   await pool.query(
-    'UPDATE crm_customer SET pool_status = 0, owner_id = ?, protect_until = ?, last_follow_time = NOW() WHERE id = ?',
-    [userId, protectUntil, customer_id]
+    'UPDATE crm_customer SET pool_status = 0, owner_id = ?, protect_until = ?, status = ?, last_follow_time = NOW() WHERE id = ?',
+    [userId, protectUntil, CUSTOMER_STATUS.FOLLOWING, customer_id]
   );
 
   await pool.query(
@@ -133,7 +136,7 @@ async function batchClaimCustomers(pool, customer_ids, userId, user) {
       if (customers.length === 0) { skipped.push(`${customerId}(不存在)`); continue; }
       const customer = customers[0];
 
-      if (customer.pool_status !== 1) { skipped.push(`${customer.company_name}(不在公海)`); continue; }
+      if (customer.owner_id !== null) { skipped.push(`${customer.company_name}(不在公海)`); continue; }
 
       if (customer.pool_type === 'private' && !user.manageAll && user.roleId !== ROLES.ADMIN && user.roleId !== ROLES.MANAGER) {
         skipped.push(`${customer.company_name}(私有池限制)`); continue;
@@ -148,8 +151,8 @@ async function batchClaimCustomers(pool, customer_ids, userId, user) {
       protectUntil.setDate(protectUntil.getDate() + 7);
 
       await connection.query(
-        'UPDATE crm_customer SET pool_status = 0, owner_id = ?, protect_until = ?, last_follow_time = NOW() WHERE id = ?',
-        [userId, protectUntil, customerId]
+        'UPDATE crm_customer SET pool_status = 0, owner_id = ?, protect_until = ?, status = ?, last_follow_time = NOW() WHERE id = ?',
+        [userId, protectUntil, CUSTOMER_STATUS.FOLLOWING, customerId]
       );
 
       await connection.query(
@@ -190,8 +193,8 @@ async function releaseCustomer(pool, customer_id, userId, user) {
   }
 
   await pool.query(
-    'UPDATE crm_customer SET pool_status = 1, owner_id = NULL, protect_until = NULL WHERE id = ?',
-    [customer_id]
+    'UPDATE crm_customer SET pool_status = 1, owner_id = NULL, protect_until = NULL, status = ? WHERE id = ?',
+    [CUSTOMER_STATUS.SEA, customer_id]
   );
 
   await pool.query(
@@ -232,11 +235,11 @@ async function batchReleaseCustomers(pool, customer_ids, userId, user) {
         if (customer.owner_id !== userId) continue;
       }
 
-      if (customer.pool_status === 1) continue;
+      if (customer.owner_id === null) continue;
 
       await connection.query(
-        'UPDATE crm_customer SET pool_status = 1, owner_id = NULL, protect_until = NULL WHERE id = ?',
-        [customerId]
+        'UPDATE crm_customer SET pool_status = 1, owner_id = NULL, protect_until = NULL, status = ? WHERE id = ?',
+        [CUSTOMER_STATUS.SEA, customerId]
       );
 
       await connection.query(
