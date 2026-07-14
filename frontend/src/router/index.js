@@ -81,12 +81,6 @@ const router = createRouter({
           meta: { title: '客户详情' }
         },
         {
-          path: 'customer/pool',
-          name: 'CustomerPool',
-          component: () => import('../views/customer/pool.vue'),
-          meta: { title: '客户池', permission: 'customer:pool' }
-        },
-        {
           path: 'customer/assign-rules',
           name: 'AssignRules',
           component: () => import('../views/customer/AssignRules.vue'),
