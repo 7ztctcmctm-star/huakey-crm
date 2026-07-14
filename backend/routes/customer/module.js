@@ -11,8 +11,7 @@ const descriptor = {
     'customer:view',
     'customer:assign',
     'customer:import',
-    'customer:pool',
-    'data_quality:check'
+    'customer:pool'
   ]
 };
 

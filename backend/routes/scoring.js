@@ -8,6 +8,7 @@ const requireAdmin = require('../middleware/admin');
 const { requireManager } = require('../middleware/admin');
 
 const scoringService = require('../services/scoringRouteService');
+const supplierScoringService = require('../services/supplierScoringService');
 const logger = require('../config/logger');
 const { validate, Joi } = require('../middleware/validate');
 
@@ -137,6 +138,59 @@ router.get('/customer/:customerId', authenticateToken, checkPermission('scoring'
       return res.status(error.statusCode).json({ code: error.statusCode, message: error.message, data: null });
     }
     logger.error('[评分] 客户评分详情查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+  }
+});
+
+/* ===================== 供应商评分（评分统一，Prompt 4-5） ===================== */
+/* 客户评分使用 crm_score_rule，供应商评分使用 crm_scoring_rule + crm_supplier_rating，
+   两张表保持独立；此处统一挂载在 /scoring 模块下，共享 scoring 权限。 */
+
+// 获取供应商评分规则（crm_scoring_rule）
+router.get('/supplier/rules', authenticateToken, checkPermission('scoring'), async (req, res) => {
+  try {
+    const rows = await supplierScoringService.getSupplierRules(pool);
+    res.json({ code: 200, message: '查询成功', data: rows });
+  } catch (error) {
+    logger.error('[评分] 获取供应商评分规则失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+  }
+});
+
+// 计算单个供应商评分
+router.post('/supplier/calculate/:id', authenticateToken, checkPermission('scoring'), requireManager, validate(emptySchema), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const data = await supplierScoringService.calculateSupplierScore(pool, parseInt(id, 10));
+    if (!data) {
+      return res.status(404).json({ code: 404, message: '供应商不存在或无启用评分规则', data: null });
+    }
+    res.json({ code: 200, message: '供应商评分计算完成', data });
+  } catch (error) {
+    logger.error('[评分] 计算供应商评分失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+  }
+});
+
+// 获取供应商最新评分
+router.get('/supplier/rating/:id', authenticateToken, checkPermission('scoring'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const data = await supplierScoringService.getSupplierRating(pool, parseInt(id, 10));
+    res.json({ code: 200, message: '查询成功', data });
+  } catch (error) {
+    logger.error('[评分] 获取供应商评分失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+  }
+});
+
+// 批量计算所有供应商评分
+router.post('/supplier/batch', authenticateToken, checkPermission('scoring'), requireAdmin, validate(emptySchema), async (req, res) => {
+  try {
+    const result = await supplierScoringService.checkAllSuppliersScores(pool);
+    res.json({ code: 200, message: '供应商批量评分完成', data: result });
+  } catch (error) {
+    logger.error('[评分] 供应商批量评分失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
   }
 });

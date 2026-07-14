@@ -1,5 +1,11 @@
 /**
- * 数据质量服务层
+ * 数据质量服务层（数据管理域）
+ *
+ * 从 services/qualityService.js 迁移而来（Prompt 4-5 质量检查剥离）。
+ * 数据质量检查（重复/缺失/无效字段统计 + 质量评分）属于数据管理职责，
+ * 不再挂靠客户/评分模块，统一归入 dataManagement 域，对外暴露
+ * /api/v1/data-quality/* 路由。
+ *
  * 职责：处理数据质量检查相关的业务逻辑
  */
 
@@ -7,8 +13,8 @@
  * 白名单表配置
  */
 const ALLOWED_TABLES = {
-  crm_customer: { nameColumn: 'company_name', phoneColumn: 'phone', emailColumn: 'email' },
-  crm_supplier: { nameColumn: 'name', phoneColumn: 'contact_phone', emailColumn: 'contact_email' }
+  crm_customer: { nameColumn: 'company_name', emailColumn: 'email' },
+  crm_supplier: { nameColumn: 'name', emailColumn: 'contact_email' }
 };
 
 /**
@@ -40,7 +46,7 @@ async function runQualityCheck(pool, table = 'crm_customer') {
     throw new Error('不支持的表');
   }
 
-  const { nameColumn, phoneColumn, emailColumn } = ALLOWED_TABLES[table];
+  const { nameColumn, emailColumn } = ALLOWED_TABLES[table];
 
   // 总记录数（排除已删除）
   const [totalResult] = await pool.query(
@@ -85,7 +91,7 @@ async function runQualityCheck(pool, table = 'crm_customer') {
      WHERE deleted_at IS NULL
        AND ${emailColumn} IS NOT NULL
        AND ${emailColumn} != ''
-       AND ${emailColumn} NOT REGEXP '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\\\.[a-zA-Z]{2,}$'`
+       AND ${emailColumn} NOT REGEXP '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$'`
   );
   const invalidCount = invalidResult[0].invalid;
 
@@ -129,7 +135,7 @@ async function fixQualityIssues(pool, table = 'crm_customer', options = {}) {
     throw new Error('不支持的表');
   }
 
-  const { nameColumn, phoneColumn, emailColumn } = ALLOWED_TABLES[table];
+  const { nameColumn } = ALLOWED_TABLES[table];
   const results = { fixed: 0, errors: [] };
 
   // 修复空名称：设置为"未知客户"

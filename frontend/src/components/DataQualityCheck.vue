@@ -69,7 +69,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { qualityCheck, qualityReport } from '@/api/customer'
+import { qualityCheck, qualityReport } from '@/api/dataQuality'
 
 const props = defineProps({
   table: { type: String, default: 'crm_customer' }

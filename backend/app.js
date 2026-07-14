@@ -89,6 +89,7 @@ const registry = require('./core/ModuleRegistry');
 require('./routes/customer/module');
 require('./routes/product/module');
 require('./routes/report/module');
+require('./routes/dataManagement/module'); // 数据管理域（质量检查剥离，Prompt 4-5）
 
 // 加载路由
 const authRoutes = require('./routes/auth');

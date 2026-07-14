@@ -30,8 +30,6 @@ export const convertToCustomer = (id) => request.post('/customer/convert-to-cust
 export const batchClaimCustomer = (ids) => request.post('/customer/batch-claim', { ids })
 export const autoAssignCustomer = (data) => request.post('/customer/auto-assign', data)
 export const getCustomerTemplate = () => request.get('/customer/template')
-export const qualityCheck = (data) => request.post('/customer/quality-check', data)
-export const qualityReport = (data) => request.post('/customer/quality-report', data)
 export const importPreview = (data) => request.post('/customer/import-preview', data)
 export const importConfirm = (data) => request.post('/customer/import-confirm', data)
 export const calculateCustomerScore = (id) => request.post(`/scoring/calculate/${id}`)
