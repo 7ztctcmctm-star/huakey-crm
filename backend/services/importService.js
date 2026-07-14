@@ -107,11 +107,19 @@ async function batchImport(pool, customers, userId) {
   // 1. 数据清洗
   let data = DataCleaner.cleanCustomerData(customers);
 
-  // 2. 状态映射
-  const statusMap = { '潜在客户': 1, '成交客户': 2, '流失客户': 3, '未合作': 1, '已合作': 2 };
+  // 2. 状态映射（适配统一后的状态机）
+  const statusMap = {
+    '潜在客户': 'following', '潜客': 'following', '未合作': 'following', '跟进中': 'following',
+    '成交客户': 'signed', '正式客户': 'signed', '已合作': 'signed', '已签约': 'signed',
+    '流失客户': 'lost', '已流失': 'lost',
+    '公海客户': 'sea', '公海': 'sea',
+    '已报价': 'quoted',
+    '谈判中': 'negotiating',
+    '暂停跟进': 'paused'
+  };
   data = data.map(item => ({
     ...item,
-    status: (item.status && isNaN(item.status)) ? (statusMap[item.status] || 1) : (parseInt(item.status) || 1)
+    status: (item.status && isNaN(item.status)) ? (statusMap[item.status] || 'following') : (statusMap[item.status] || 'following')
   }));
 
   // 3. 数据验证
@@ -139,14 +147,30 @@ async function batchImport(pool, customers, userId) {
 
     for (const record of newRecords) {
       try {
-        await connection.query(
-          `INSERT INTO crm_customer (company_name, contact_name, phone, email, address, industry, source, level, status, remark, owner_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [truncate(record.company_name, 200), truncate(record.contact_name, 50), truncate(record.phone, 20),
-           truncate(record.email, 100), truncate(record.address, 500), truncate(record.industry, 50),
+        const [result] = await connection.query(
+          `INSERT INTO crm_customer (company_name, address, industry, source, level, status, remark, owner_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [truncate(record.company_name, 200), truncate(record.address, 500), truncate(record.industry, 50),
            truncate(record.source, 50), truncate(record.level, 20), record.status,
            record.remark ? record.remark.substring(0, 2000) : null, userId]
         );
+
+        // 同步创建主联系人（仅当联系人姓名存在时）
+        if (record.contact_name && String(record.contact_name).trim() !== '') {
+          await connection.query(
+            `INSERT INTO crm_contact (customer_id, name, phone, email, is_decision, is_primary, create_time, update_time)
+             VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+            [
+              result.insertId,
+              truncate(String(record.contact_name).trim(), 50),
+              record.phone ? truncate(String(record.phone).trim(), 20) : null,
+              record.email ? truncate(String(record.email).trim(), 100) : null,
+              1,
+              1
+            ]
+          );
+        }
+
         success++;
       } catch (error) {
         insertErrors.push(`第${record._row}行: ${error.message}`);

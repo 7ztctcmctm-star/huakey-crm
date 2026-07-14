@@ -108,7 +108,12 @@ async function getCustomerReconciliation(pool, { customer_id, start_date, end_da
   const startDate = start_date || `${now.getFullYear()}-01-01`;
   const endDate = end_date || `${now.getFullYear()}-12-31`;
 
-  const [[customer]] = await pool.query('SELECT id, company_name, contact_name, phone FROM crm_customer WHERE id = ? AND deleted_at IS NULL', [customer_id]);
+  const [[customer]] = await pool.query(`
+    SELECT c.id, c.company_name, pc.name as contact_name, pc.phone
+    FROM crm_customer c
+    LEFT JOIN crm_contact pc ON pc.customer_id = c.id AND pc.is_primary = 1 AND pc.deleted_at IS NULL
+    WHERE c.id = ? AND c.deleted_at IS NULL
+  `, [customer_id]);
   if (!customer) return { error: 'not_found' };
 
   const [contracts] = await pool.query(`

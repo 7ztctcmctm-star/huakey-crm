@@ -67,11 +67,12 @@ async function getChurnAlert(pool, { page, pageSize }) {
   `, [overdueDays]);
 
   const [list] = await pool.query(`
-    SELECT c.id, c.company_name, c.contact_name, c.phone, c.level,
+    SELECT c.id, c.company_name, pc.name as contact_name, pc.phone, c.level,
            c.last_follow_time, c.create_time, u.real_name as owner_name,
            DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days
     FROM crm_customer c
     LEFT JOIN sys_user u ON c.owner_id = u.id
+    LEFT JOIN crm_contact pc ON pc.customer_id = c.id AND pc.is_primary = 1 AND pc.deleted_at IS NULL
     WHERE c.status != 0 AND c.owner_id IS NOT NULL
       AND (c.last_follow_time IS NULL
         OR c.last_follow_time < NOW() - INTERVAL ? DAY)

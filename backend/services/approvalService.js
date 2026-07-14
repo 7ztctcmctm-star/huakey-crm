@@ -225,7 +225,12 @@ async function getDetailWithHistory(pool, businessType, businessId) {
 
   let customer = null, stats = null, follows = [];
   if (customerId) {
-    [[customer]] = await pool.query('SELECT company_name, level, source, contact_name, phone FROM crm_customer WHERE id = ?', [customerId]);
+    [[customer]] = await pool.query(`
+      SELECT c.company_name, c.level, c.source, pc.name as contact_name, pc.phone
+      FROM crm_customer c
+      LEFT JOIN crm_contact pc ON pc.customer_id = c.id AND pc.is_primary = 1 AND pc.deleted_at IS NULL
+      WHERE c.id = ?
+    `, [customerId]);
     [[stats]] = await pool.query('SELECT COUNT(*) as contract_count, COALESCE(SUM(amount),0) as total_amount FROM crm_contract WHERE customer_id = ? AND deleted_at IS NULL', [customerId]);
     const [[payment]] = await pool.query('SELECT COALESCE(SUM(pay_amount),0) as total_paid FROM crm_payment WHERE contract_id IN (SELECT id FROM crm_contract WHERE customer_id = ? AND deleted_at IS NULL) AND deleted_at IS NULL', [customerId]);
     stats = { ...stats, total_paid: payment?.total_paid || 0 };

@@ -1,11 +1,14 @@
 const express = require('express');
 const pool = require('../../config/database');
 const { authenticateToken } = require('../../middleware/auth');
-const { validate, Joi } = require('../../middleware/validate');
-const { checkPermission, checkDataPermission } = require('../../middleware/permission');
+const { validate, queryValidate, Joi } = require('../../middleware/validate');
+const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../../middleware/permission');
 const { createCache } = require('../../middleware/cache');
 const customerDetailService = require('../../services/customerDetailService');
+const customerService = require('../../services/customerService');
 const customerController = require('../../controllers/customerController');
+const logger = require('../../config/logger');
+const { CUSTOMER_STATUS_CODES } = require('../../constants/customerStatus');
 
 const customerListSchema = Joi.object({
   page: Joi.number().integer().min(1).optional(),
@@ -15,7 +18,7 @@ const customerListSchema = Joi.object({
   phone: Joi.string().max(20).allow('', null),
   source: Joi.string().valid(...customerDetailService.VALID_SOURCES, ...Object.keys(customerDetailService.SOURCE_PARENT_MAP)).allow('', null),
   level: Joi.string().valid('A', 'B', 'C').allow('', null),
-  status: Joi.number().integer().valid(0, 1, 2, 3, 5).allow('', null),
+  status: Joi.string().valid(...CUSTOMER_STATUS_CODES, ...[0, 1, 2, 3, 5].map(String)).allow('', null),
   customer_type: Joi.string().valid('prospect', 'customer').allow('', null),
   lifecycle_status: Joi.string().valid('new', 'nurturing', 'intent', 'active', 'lost', 'inactive').allow('', null),
   owner_id: Joi.number().integer().positive().allow(null),
@@ -30,9 +33,20 @@ const customerListSchema = Joi.object({
 
 const addCustomerSchema = Joi.object({
   company_name: Joi.string().required().max(200),
-  contact_name: Joi.string().max(200).allow('', null),
-  phone: Joi.string().pattern(/^\+?\d{7,20}$/).allow('', null),
-  email: Joi.string().email().max(200).allow('', null),
+  contacts: Joi.array().items(
+    Joi.object({
+      name: Joi.string().max(50).required(),
+      position: Joi.string().max(50).allow('', null),
+      phone: Joi.string().pattern(/^\+?\d{7,20}$/).allow('', null),
+      email: Joi.string().email().max(100).allow('', null),
+      wechat: Joi.string().max(50).allow('', null),
+      is_decision: Joi.boolean().allow('', null),
+      remark: Joi.string().max(500).allow('', null)
+    })
+  ).min(1).required().messages({
+    'array.min': '请至少添加一个联系人',
+    'any.required': '请至少添加一个联系人'
+  }),
   address: Joi.string().max(500).allow('', null),
   industry: Joi.string().max(200).allow('', null),
   source: Joi.string().valid(...customerDetailService.VALID_SOURCES).allow('', null),
@@ -43,14 +57,11 @@ const addCustomerSchema = Joi.object({
 const updateCustomerSchema = Joi.object({
   id: Joi.number().integer().positive().required(),
   company_name: Joi.string().max(200),
-  contact_name: Joi.string().max(200).allow('', null),
-  phone: Joi.string().pattern(/^\+?\d{7,20}$/).allow('', null),
-  email: Joi.string().email().max(200).allow('', null),
   address: Joi.string().max(500).allow('', null),
   industry: Joi.string().max(200).allow('', null),
   source: Joi.string().valid(...customerDetailService.VALID_SOURCES).allow('', null),
   level: Joi.string().valid('A', 'B', 'C'),
-  status: Joi.number().integer().valid(1, 2, 3, 5),
+  status: Joi.string().valid(...CUSTOMER_STATUS_CODES, ...[1, 2, 3, 5].map(String)),
   remark: Joi.string().max(2000).allow('', null)
 });
 
@@ -64,7 +75,7 @@ const exportCustomersSchema = Joi.object({
   phone: Joi.string().max(20).allow('', null),
   source: Joi.string().max(50).allow('', null),
   level: Joi.string().valid('A', 'B', 'C').allow('', null),
-  status: Joi.number().integer().valid(0, 1, 2, 3, 5).allow('', null),
+  status: Joi.string().valid(...CUSTOMER_STATUS_CODES, ...[0, 1, 2, 3, 5].map(String)).allow('', null),
   customer_type: Joi.string().valid('prospect', 'customer').allow('', null),
   lifecycle_status: Joi.string().valid('new', 'nurturing', 'intent', 'active', 'lost', 'inactive').allow('', null),
   owner_id: Joi.number().integer().positive().allow('', null),
@@ -72,9 +83,18 @@ const exportCustomersSchema = Joi.object({
   end_date: Joi.string().isoDate().allow('', null)
 });
 
-const convertCustomerSchema = Joi.object({
+const forwardCustomerSchema = Joi.object({
+  customer_id: Joi.number().integer().positive().required()
+});
+
+const backwardCustomerSchema = Joi.object({
   customer_id: Joi.number().integer().positive().required(),
-  action: Joi.string().required()
+  reason: Joi.string().max(500).allow('', null)
+});
+
+const paginationSchema = Joi.object({
+  page: Joi.number().integer().min(1).optional(),
+  pageSize: Joi.number().integer().min(1).max(200).optional()
 });
 
 const router = express.Router();
@@ -211,8 +231,47 @@ router.get('/:id/360', authenticateToken, checkPermission('customer:list'), cust
 // 6. 导出客户列表
 router.post('/export', authenticateToken, checkPermission('customer:list'), checkDataPermission('customer', 'owner_id'), validate(exportCustomersSchema), customerController.exportCustomers);
 
-// 客户状态转化（复用 customerService）
-router.post('/convert', authenticateToken, checkPermission('customer:edit'), validate(convertCustomerSchema), customerController.convert);
+// 客户状态推进（沿主销售漏斗前进一步）
+router.post('/forward', authenticateToken, checkPermission('customer:edit'), validate(forwardCustomerSchema), customerController.forward);
+
+// 客户状态回退（沿主销售漏斗回退一步）
+router.post('/backward', authenticateToken, checkPermission('customer:edit'), validate(backwardCustomerSchema), customerController.backward);
+
+// 7. 逾期客户列表
+router.get('/overdue',
+  authenticateToken,
+  checkPermission('customer:view'),
+  checkDataPermission('customer', 'owner_id'),
+  queryValidate(paginationSchema),
+  async (req, res) => {
+    try {
+      const permission = await buildDataPermissionWhere(req.dataPermission, 'c');
+      const data = await customerService.getOverdueCustomers(pool, req.query, permission);
+      res.json({ code: 200, message: '获取逾期客户列表成功', data });
+    } catch (error) {
+      logger.error('获取逾期客户列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+      res.status(500).json({ code: 500, message: '获取逾期客户列表失败', data: null });
+    }
+  }
+);
+
+// 8. 即将回收客户列表
+router.get('/near-recycle',
+  authenticateToken,
+  checkPermission('customer:view'),
+  checkDataPermission('customer', 'owner_id'),
+  queryValidate(paginationSchema),
+  async (req, res) => {
+    try {
+      const permission = await buildDataPermissionWhere(req.dataPermission, 'c');
+      const data = await customerService.getNearRecycleCustomersList(pool, req.query, permission);
+      res.json({ code: 200, message: '获取即将回收客户列表成功', data });
+    } catch (error) {
+      logger.error('获取即将回收客户列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+      res.status(500).json({ code: 500, message: '获取即将回收客户列表失败', data: null });
+    }
+  }
+);
 
 module.exports = router;
 module.exports.VALID_SOURCES = customerDetailService.VALID_SOURCES;
