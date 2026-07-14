@@ -2,8 +2,14 @@
  * 客户核心服务层
  * 从 routes/customer/ 提取的业务逻辑，供路由层复用
  */
-const { CUSTOMER_STATUS } = require('../constants/customer');
+const {
+  CUSTOMER_STATUS,
+  CUSTOMER_STATUS_PIPELINE,
+  isValidCustomerStatus
+} = require('../constants/customerStatus');
 const { paginatedQuery } = require('../utils/pagination');
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 
 // 客户来源白名单
 const VALID_SOURCES = [
@@ -25,32 +31,76 @@ const SORT_MAP = {
   'last_follow_time_desc': 'c.last_follow_time DESC'
 };
 
-// 状态→客户类型/生命周期映射
-const CONVERT_MAP = {
-  to_prospect: {
-    status: CUSTOMER_STATUS.PROSPECT,
-    customer_type: 'prospect',
-    lifecycle_status: 'nurturing'
-  },
-  to_customer: {
-    status: CUSTOMER_STATUS.CUSTOMER,
-    customer_type: 'customer',
-    lifecycle_status: 'active'
-  },
-  to_lost: {
-    status: CUSTOMER_STATUS.LOST,
-    customer_type: 'customer',
-    lifecycle_status: 'lost'
-  }
-};
+// 状态配置缓存（启动时加载，可定时刷新）
+let statusConfigCache = null;
+let statusTransitionCache = null;
 
-// 合法转化路径
-const VALID_PATHS = {
-  [CUSTOMER_STATUS.LEAD]: ['to_prospect'],
-  [CUSTOMER_STATUS.PROSPECT]: ['to_customer'],
-  [CUSTOMER_STATUS.CUSTOMER]: ['to_lost'],
-  [CUSTOMER_STATUS.LOST]: ['to_prospect']
-};
+/**
+ * 旧数字状态兼容映射（用于过渡期间旧前端/旧数据查询）
+ * @param {number|string} legacyStatus
+ * @returns {string|null}
+ */
+function legacyStatusToCode(legacyStatus) {
+  const map = {
+    0: CUSTOMER_STATUS.SEA,
+    1: CUSTOMER_STATUS.FOLLOWING,
+    2: CUSTOMER_STATUS.FOLLOWING,
+    3: CUSTOMER_STATUS.LOST,
+    5: CUSTOMER_STATUS.FOLLOWING
+  };
+  return map[legacyStatus] || null;
+}
+
+/**
+ * 加载客户状态配置
+ */
+async function loadStatusConfig(pool) {
+  if (statusConfigCache) return statusConfigCache;
+  const [rows] = await pool.query(
+    'SELECT code, name, sort_order, is_default, is_end, color FROM sys_customer_status ORDER BY sort_order'
+  );
+  statusConfigCache = rows;
+  return rows;
+}
+
+/**
+ * 加载状态流转规则
+ */
+async function loadStatusTransitions(pool) {
+  if (statusTransitionCache) return statusTransitionCache;
+  const [rows] = await pool.query(
+    'SELECT from_code, to_code, require_permission, require_reason FROM sys_customer_status_transition'
+  );
+  statusTransitionCache = rows;
+  return rows;
+}
+
+/**
+ * 清空状态配置缓存（状态配置变更时调用）
+ */
+function clearStatusConfigCache() {
+  statusConfigCache = null;
+  statusTransitionCache = null;
+}
+
+/**
+ * 获取默认状态 code
+ */
+async function getDefaultStatus(pool) {
+  const configs = await loadStatusConfig(pool);
+  const defaultStatus = configs.find(s => s.is_default === 1);
+  return defaultStatus ? defaultStatus.code : CUSTOMER_STATUS.FOLLOWING;
+}
+
+/**
+ * 判断状态流转是否合法
+ */
+async function canTransition(pool, fromCode, toCode) {
+  if (fromCode === toCode) return { valid: true };
+  const transitions = await loadStatusTransitions(pool);
+  const rule = transitions.find(t => t.from_code === fromCode && t.to_code === toCode);
+  return rule ? { valid: true, rule } : { valid: false };
+}
 
 /**
  * 查询客户列表（分页、关键字、多维筛选）
@@ -95,8 +145,14 @@ async function listCustomers(pool, params = {}, permission = null) {
   // 基础 WHERE
   let whereClause;
   if (status !== undefined && status !== null && status !== '') {
+    const mappedStatus = isValidCustomerStatus(status)
+      ? status
+      : legacyStatusToCode(status);
+    if (!mappedStatus) {
+      throw new AppError(ErrorCodes.VALIDATION_ERROR, '无效的客户状态');
+    }
     whereClause = `WHERE ${permissionWhere} AND c.status = ?`;
-    queryParams.push(parseInt(status));
+    queryParams.push(mappedStatus);
   } else {
     whereClause = `WHERE ${permissionWhere} AND c.deleted_at IS NULL`;
   }
@@ -111,11 +167,11 @@ async function listCustomers(pool, params = {}, permission = null) {
     queryParams.push(`%${company_name}%`);
   }
   if (contact_name) {
-    whereClause += ' AND c.contact_name LIKE ?';
+    whereClause += ' AND pc.name LIKE ?';
     queryParams.push(`%${contact_name}%`);
   }
   if (phone) {
-    whereClause += ' AND c.phone LIKE ?';
+    whereClause += ' AND pc.phone LIKE ?';
     queryParams.push(`%${phone}%`);
   }
   if (source) {
@@ -171,16 +227,24 @@ async function listCustomers(pool, params = {}, permission = null) {
   // 分页查询
   const { list, total } = await paginatedQuery(pool, {
     baseQuery: `SELECT
-      c.id, c.company_name, c.contact_name, c.phone, c.email,
+      c.id, c.company_name,
+      pc.name as primary_contact_name, pc.phone as primary_contact_phone, pc.email as primary_contact_email,
       c.address, c.industry, c.source, c.level,
       c.owner_id, c.status, c.customer_type, c.lifecycle_status, c.remark, c.create_time, c.update_time,
       c.pool_status, c.protect_until, c.last_follow_time,
       c.lead_level, c.follow_status, c.converted_at,
+      (SELECT f.next_time FROM crm_follow_up f
+       WHERE f.customer_id = c.id AND f.deleted_at IS NULL
+       ORDER BY f.create_time DESC LIMIT 1) as next_follow_time,
       u.real_name as owner_name
     FROM crm_customer c
     LEFT JOIN sys_user u ON c.owner_id = u.id
+    LEFT JOIN crm_contact pc ON pc.customer_id = c.id AND pc.is_primary = 1 AND pc.deleted_at IS NULL
     ${whereClause}`,
-    countQuery: `SELECT COUNT(*) as total FROM crm_customer c ${whereClause}`,
+    countQuery: `SELECT COUNT(DISTINCT c.id) as total
+      FROM crm_customer c
+      LEFT JOIN crm_contact pc ON pc.customer_id = c.id AND pc.is_primary = 1 AND pc.deleted_at IS NULL
+      ${whereClause}`,
     params: queryParams,
     page,
     pageSize,
@@ -217,7 +281,7 @@ async function listCustomers(pool, params = {}, permission = null) {
 async function getCustomer(pool, customerId) {
   const [customers] = await pool.query(
     `SELECT
-      c.id, c.company_name, c.contact_name, c.phone, c.email,
+      c.id, c.company_name,
       c.address, c.industry, c.source, c.level,
       c.owner_id, c.status, c.customer_type, c.lifecycle_status, c.remark, c.create_time, c.update_time,
       c.pool_status, c.protect_until, c.last_follow_time, c.converted_at,
@@ -233,9 +297,9 @@ async function getCustomer(pool, customerId) {
   const customer = customers[0];
 
   const [contacts] = await pool.query(
-    `SELECT id, customer_id, name, position, phone, email, wechat, is_decision, remark
+    `SELECT id, customer_id, name, position, phone, email, wechat, is_decision, is_primary, remark
     FROM crm_contact WHERE customer_id = ? AND deleted_at IS NULL
-    ORDER BY is_decision DESC, id ASC`,
+    ORDER BY is_primary DESC, is_decision DESC, id ASC`,
     [customerId]
   );
 
@@ -274,48 +338,99 @@ async function getCustomer(pool, customerId) {
 }
 
 /**
- * 客户状态转化（线索→潜客→正式客户→流失）
+ * 通用客户状态流转
  * @param {object} pool
  * @param {number} customerId
- * @param {string} action - 'to_prospect' | 'to_customer' | 'to_lost'
- * @returns {{ status: number }} 转化后的状态值
+ * @param {string} toCode - 目标状态编码
+ * @param {number} [operatorId]
+ * @param {string} [reason]
+ * @returns {{ id: number, status: string, from_status: string }}
  * @throws {Error} 含 code / message 的业务异常
  */
-async function convertStatus(pool, customerId, action) {
+async function transitionStatus(pool, customerId, toCode, operatorId, reason) {
+  if (!isValidCustomerStatus(toCode)) {
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '无效的目标状态');
+  }
+
   const [customers] = await pool.query(
     'SELECT id, company_name, status FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [customerId]
   );
   if (!customers.length) {
-    const err = new Error('客户不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);
   }
 
   const customer = customers[0];
-  const allowedActions = VALID_PATHS[customer.status] || [];
-  if (!allowedActions.includes(action)) {
-    const err = new Error('当前状态不允许执行此操作');
-    err.code = 400;
-    throw err;
+  const { valid, rule } = await canTransition(pool, customer.status, toCode);
+  if (!valid) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '当前状态不允许流转到目标状态');
   }
 
-  const mapping = CONVERT_MAP[action];
-  if (!mapping) {
-    const err = new Error('无效的转化操作');
-    err.code = 400;
-    throw err;
+  if (rule && rule.require_reason && !reason) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该状态流转需要填写原因');
   }
 
   await pool.query(
     `UPDATE crm_customer
-     SET status = ?, customer_type = ?, lifecycle_status = ?,
-         converted_at = COALESCE(converted_at, NOW()), update_time = NOW()
+     SET status = ?, update_time = NOW()
      WHERE id = ?`,
-    [mapping.status, mapping.customer_type, mapping.lifecycle_status, customerId]
+    [toCode, customerId]
   );
 
-  return { status: mapping.status };
+  return { id: customerId, status: toCode, from_status: customer.status };
+}
+
+/**
+ * 状态推进（沿主销售漏斗前进一步）
+ * @param {object} pool
+ * @param {number} customerId
+ * @param {number} [operatorId]
+ * @returns {{ id: number, status: string, from_status: string }}
+ */
+async function forwardStatus(pool, customerId, operatorId) {
+  const [customers] = await pool.query(
+    'SELECT id, status FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+    [customerId]
+  );
+  if (!customers.length) {
+    throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);
+  }
+
+  const fromCode = customers[0].status;
+  const idx = CUSTOMER_STATUS_PIPELINE.indexOf(fromCode);
+  if (idx === -1 || idx >= CUSTOMER_STATUS_PIPELINE.length - 1) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '当前状态无法继续推进');
+  }
+
+  const toCode = CUSTOMER_STATUS_PIPELINE[idx + 1];
+  return transitionStatus(pool, customerId, toCode, operatorId);
+}
+
+/**
+ * 状态回退（沿主销售漏斗回退一步）
+ * @param {object} pool
+ * @param {number} customerId
+ * @param {number} [operatorId]
+ * @param {string} [reason]
+ * @returns {{ id: number, status: string, from_status: string }}
+ */
+async function backwardStatus(pool, customerId, operatorId, reason) {
+  const [customers] = await pool.query(
+    'SELECT id, status FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+    [customerId]
+  );
+  if (!customers.length) {
+    throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);
+  }
+
+  const fromCode = customers[0].status;
+  const idx = CUSTOMER_STATUS_PIPELINE.indexOf(fromCode);
+  if (idx <= 0) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '当前状态无法回退');
+  }
+
+  const toCode = CUSTOMER_STATUS_PIPELINE[idx - 1];
+  return transitionStatus(pool, customerId, toCode, operatorId, reason);
 }
 
 /**
@@ -333,9 +448,7 @@ async function assignCustomer(pool, customerId, toUserId, operatorId, remark) {
     [customerId]
   );
   if (customers.length === 0) {
-    const err = new Error('客户不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);
   }
 
   const fromUserId = customers[0].owner_id;
@@ -411,25 +524,18 @@ async function claimCustomer(pool, customerId, userId) {
     [customerId]
   );
   if (customers.length === 0) {
-    const err = new Error('客户不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);
   }
 
   const customer = customers[0];
 
   if (customer.pool_status !== 1) {
-    const err = new Error('该客户不在公海中');
-    err.code = 400;
-    throw err;
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户不在公海中');
   }
 
   if (customer.protect_until && new Date(customer.protect_until) > new Date()) {
     const remainDays = Math.ceil((new Date(customer.protect_until) - new Date()) / (1000 * 60 * 60 * 24));
-    const err = new Error(`该客户在保护期内，还需等待 ${remainDays} 天`);
-    err.code = 400;
-    err.protect_until = customer.protect_until;
-    throw err;
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, `该客户在保护期内，还需等待 ${remainDays} 天`, { protect_until: customer.protect_until });
   }
 
   const protectUntil = new Date();
@@ -460,9 +566,7 @@ async function releaseCustomer(pool, customerId, userId) {
     [customerId]
   );
   if (customers.length === 0) {
-    const err = new Error('客户不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);
   }
 
   await pool.query(
@@ -476,14 +580,135 @@ async function releaseCustomer(pool, customerId, userId) {
   );
 }
 
+/**
+ * 获取逾期客户列表（基于 last_follow_time 超过 overdue_days）
+ * @param {object} pool
+ * @param {object} params - { page, pageSize }
+ * @param {object} [permission] - { clause, params }
+ * @returns {{ list: Array, total: number, page: number, pageSize: number }}
+ */
+async function getOverdueCustomers(pool, params = {}, permission = null) {
+  const { getOverdueDays } = require('../utils/config');
+  const overdueDays = await getOverdueDays();
+  const page = parseInt(params.page || 1);
+  const pageSize = parseInt(params.pageSize || 20);
+  const offset = (page - 1) * pageSize;
+
+  let permissionWhere = '1=1';
+  let permParams = [];
+  if (permission && permission.clause) {
+    permissionWhere = permission.clause;
+    permParams = permission.params || [];
+  }
+
+  const [countResult] = await pool.query(
+    `SELECT COUNT(*) as total FROM crm_customer c
+     WHERE c.deleted_at IS NULL AND c.status NOT IN ('signed', 'lost')
+       AND c.owner_id IS NOT NULL
+       AND (c.last_follow_time IS NULL
+         OR c.last_follow_time < NOW() - INTERVAL ? DAY)
+       AND ${permissionWhere}`,
+    [overdueDays, ...permParams]
+  );
+
+  const [list] = await pool.query(
+    `SELECT c.id, c.company_name, c.status, c.owner_id,
+            c.last_follow_time, c.create_time,
+            DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days,
+            u.real_name as owner_name
+     FROM crm_customer c
+     LEFT JOIN sys_user u ON c.owner_id = u.id
+     WHERE c.deleted_at IS NULL AND c.status NOT IN ('signed', 'lost')
+       AND c.owner_id IS NOT NULL
+       AND (c.last_follow_time IS NULL
+         OR c.last_follow_time < NOW() - INTERVAL ? DAY)
+       AND ${permissionWhere}
+     ORDER BY overdue_days DESC
+     LIMIT ? OFFSET ?`,
+    [overdueDays, ...permParams, pageSize, offset]
+  );
+
+  return {
+    list,
+    total: countResult[0].total,
+    page,
+    pageSize
+  };
+}
+
+/**
+ * 获取即将回收客户列表（following 状态超过 near_recycle_days 未跟进）
+ * @param {object} pool
+ * @param {object} params - { page, pageSize }
+ * @param {object} [permission] - { clause, params }
+ * @returns {{ list: Array, total: number, page: number, pageSize: number }}
+ */
+async function getNearRecycleCustomersList(pool, params = {}, permission = null) {
+  const { getNearRecycleDays } = require('../utils/config');
+  const nearDays = await getNearRecycleDays();
+  const page = parseInt(params.page || 1);
+  const pageSize = parseInt(params.pageSize || 20);
+  const offset = (page - 1) * pageSize;
+
+  let permissionWhere = '1=1';
+  let permParams = [];
+  if (permission && permission.clause) {
+    permissionWhere = permission.clause;
+    permParams = permission.params || [];
+  }
+
+  const [countResult] = await pool.query(
+    `SELECT COUNT(*) as total FROM crm_customer c
+     WHERE c.pool_status = 0 AND c.deleted_at IS NULL AND c.owner_id IS NOT NULL
+       AND c.status = 'following'
+       AND (c.last_follow_time IS NULL AND c.create_time < NOW() - INTERVAL ? DAY
+         OR c.last_follow_time < NOW() - INTERVAL ? DAY)
+       AND ${permissionWhere}`,
+    [nearDays, nearDays, ...permParams]
+  );
+
+  const [list] = await pool.query(
+    `SELECT c.id, c.company_name, c.status, c.owner_id,
+            c.last_follow_time, c.create_time,
+            DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days,
+            u.real_name as owner_name
+     FROM crm_customer c
+     LEFT JOIN sys_user u ON c.owner_id = u.id
+     WHERE c.pool_status = 0 AND c.deleted_at IS NULL AND c.owner_id IS NOT NULL
+       AND c.status = 'following'
+       AND (c.last_follow_time IS NULL AND c.create_time < NOW() - INTERVAL ? DAY
+         OR c.last_follow_time < NOW() - INTERVAL ? DAY)
+       AND ${permissionWhere}
+     ORDER BY overdue_days DESC
+     LIMIT ? OFFSET ?`,
+    [nearDays, nearDays, ...permParams, pageSize, offset]
+  );
+
+  return {
+    list,
+    total: countResult[0].total,
+    page,
+    pageSize
+  };
+}
+
 module.exports = {
   VALID_SOURCES,
   SOURCE_PARENT_MAP,
   listCustomers,
   getCustomer,
-  convertStatus,
+  transitionStatus,
+  forwardStatus,
+  backwardStatus,
   assignCustomer,
   batchAssignCustomers,
   claimCustomer,
-  releaseCustomer
+  releaseCustomer,
+  loadStatusConfig,
+  loadStatusTransitions,
+  canTransition,
+  getDefaultStatus,
+  clearStatusConfigCache,
+  getOverdueCustomers,
+  getNearRecycleCustomersList
 };

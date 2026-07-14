@@ -76,3 +76,7 @@ sftp-*.txt
 database/migrations/node_modules/
 
 .env.vercel
+
+# Dev secrets & agent session (do not commit)
+backend/.dev-token.txt
+.workbuddy/
