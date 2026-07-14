@@ -26,8 +26,30 @@ async function getOverdueDays() {
   return parseInt(val) || 15;
 }
 
+async function isFollowupReminderEnabled() {
+  const val = await getConfig('followup_reminder_enabled', '1');
+  return String(val) !== '0';
+}
+
+async function getNearRecycleDays() {
+  const val = await getConfig('near_recycle_days', '7');
+  return parseInt(val) || 7;
+}
+
+async function getRecycleDays() {
+  const val = await getConfig('recycle_days', '15');
+  return parseInt(val) || 15;
+}
+
 function clearConfigCache() {
   Object.keys(cache).forEach(k => delete cache[k]);
 }
 
-module.exports = { getConfig, getOverdueDays, clearConfigCache };
+module.exports = {
+  getConfig,
+  getOverdueDays,
+  isFollowupReminderEnabled,
+  getNearRecycleDays,
+  getRecycleDays,
+  clearConfigCache
+};

@@ -7,7 +7,8 @@ const cron = require('node-cron');
 const { createSysCronLogTable, logCronRun } = require('./logger');
 const logger = require('../config/logger');
 const { alertError } = require('../utils/alert');
-const { autoReleaseCustomers } = require('../services/cronService');
+const { autoReleaseCustomers, notifyPreReleaseCustomers } = require('../services/cronService');
+const { getRecycleDays } = require('../utils/config');
 
 // 存储所有定时任务引用，允�?stopAllCronJobs 停止
 const _cronTasks = [];
@@ -74,19 +75,18 @@ function startAllCronJobs(pool) {
   // 确保日志表存在
   createSysCronLogTable();
 
-  const { checkAllSuppliersScores } = require('../utils/scoring');
   const { checkQualificationExpiry, updateQualificationStatus } = require('../utils/qualification-reminder');
   const { generateReminders } = require('../scripts/generate_reminders');
-  const AUTO_RELEASE_DAYS = parseInt(process.env.AUTO_RELEASE_DAYS) || 30;
 
-  // 1. 每日 02:00 — 供应商评分 + 资质检查
+  // 1. 每日 02:00 — 资质检查（供应商评分任务已禁用：scoring.js 使用 PostgreSQL 语法 ON CONFLICT，
+  //    与 MySQL 不兼容，且 crm_scoring_rule 表虽已由 072_prompt3_scoring_rule.sql 创建，但为避免
+  //    日志报错，暂时关闭 supplier-scoring；需要时可重写 scoring.js 为 MySQL 语法后重新启用）
   _cronTasks.push(cron.schedule('0 2 * * *', () => {
-    logger.info('[定时任务] 开始执行供应商评分');
+    logger.info('[定时任务] 开始执行资质检查');
     executeWithRetry(async () => {
-      await checkAllSuppliersScores();
       await updateQualificationStatus();
       await checkQualificationExpiry();
-      logger.info('[定时任务] 供应商评分完成');
+      logger.info('[定时任务] 资质检查完成');
     }, 'supplier-scoring');
   }, { timezone: 'Asia/Shanghai' }));
 
@@ -114,15 +114,20 @@ function startAllCronJobs(pool) {
     }, 'token-blacklist-cleanup');
   }, { timezone: 'Asia/Shanghai' }));
 
-  // 4. 每日 01:00 — 公海池自动回收
+  // 4. 每日 01:00 — 公海池自动回收（含释放前 1 天通知）
   _cronTasks.push(cron.schedule('0 1 * * *', () => {
     logger.info('[公海回收] 开始检查超期未跟进客户...');
     executeWithRetry(async () => {
-      const released = await autoReleaseCustomers(pool, AUTO_RELEASE_DAYS);
+      const recycleDays = await getRecycleDays();
+      const notified = await notifyPreReleaseCustomers(pool, recycleDays);
+      if (notified > 0) {
+        logger.info(`[公海回收] 已通知 ${notified} 个客户即将被释放`);
+      }
+      const released = await autoReleaseCustomers(pool, recycleDays);
       if (released === 0) {
         logger.info('[公海回收] 无需要释放的客户');
       } else {
-        logger.info(`[公海回收] 已释放 ${released} 个客户（超过${AUTO_RELEASE_DAYS}天未跟进）`);
+        logger.info(`[公海回收] 已释放 ${released} 个客户（超过${recycleDays}天未跟进）`);
       }
     }, 'auto-release');
   }, { timezone: 'Asia/Shanghai' }));
