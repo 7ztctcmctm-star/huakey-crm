@@ -258,7 +258,7 @@ const router = createRouter({
           path: 'service',
           name: 'Service',
           component: () => import('../views/service/index.vue'),
-          meta: { title: '售后服务', permission: 'service' }
+          meta: { title: '服务工单', permission: 'service' }
         },
         {
           path: 'survey',

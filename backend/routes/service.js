@@ -4,7 +4,7 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
-const afterSalesService = require('../services/afterSalesService');
+const serviceOrderService = require('../services/serviceOrderService');
 const logger = require('../config/logger');
 
 // Joi schemas
@@ -68,8 +68,8 @@ const confirmSchema = Joi.object({
 // 获取工单列表
 router.post('/list', authenticateToken, checkPermission('service'), checkDataPermission('service', 'create_by'), validate(listSchema), async (req, res) => {
   try {
-    const permissionClause = await afterSalesService.buildServicePermissionClause(pool, req.dataPermission);
-    const data = await afterSalesService.listServiceOrders(pool, req.body, permissionClause);
+    const permissionClause = await serviceOrderService.buildServicePermissionClause(pool, req.dataPermission);
+    const data = await serviceOrderService.listServiceOrders(pool, req.body, permissionClause);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -80,12 +80,12 @@ router.post('/list', authenticateToken, checkPermission('service'), checkDataPer
 // 获取工单详情
 router.get('/detail/:id', authenticateToken, async (req, res) => {
   try {
-    const data = await afterSalesService.getServiceOrderDetail(pool, req.params.id);
+    const data = await serviceOrderService.getServiceOrderDetail(pool, req.params.id);
     if (!data) {
       return res.status(404).json({ code: 404, message: '工单不存在', data: null });
     }
 
-    if (!(await afterSalesService.canManageService(pool, req.user, data))) {
+    if (!(await serviceOrderService.canManageService(pool, req.user, data))) {
       return res.status(403).json({ code: 403, message: '无权查看该工单', data: null });
     }
 
@@ -99,7 +99,7 @@ router.get('/detail/:id', authenticateToken, async (req, res) => {
 // 创建工单
 router.post('/add', authenticateToken, checkPermission('service:add'), validate(addSchema), async (req, res) => {
   try {
-    const result = await afterSalesService.createServiceOrder(pool, req.body, req.user.userId);
+    const result = await serviceOrderService.createServiceOrder(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '创建工单成功', data: result });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -111,7 +111,7 @@ router.post('/add', authenticateToken, checkPermission('service:add'), validate(
 // 更新工单
 router.post('/update', authenticateToken, checkPermission('service:edit'), validate(updateSchema), async (req, res) => {
   try {
-    await afterSalesService.updateServiceOrder(pool, req.body, req.user);
+    await serviceOrderService.updateServiceOrder(pool, req.body, req.user);
     res.json({ code: 200, message: '修改工单成功', data: null });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -123,7 +123,7 @@ router.post('/update', authenticateToken, checkPermission('service:edit'), valid
 // 删除工单
 router.post('/delete', authenticateToken, checkPermission('service:delete'), validate(idSchema), async (req, res) => {
   try {
-    await afterSalesService.deleteServiceOrder(pool, req.body.id, req.user);
+    await serviceOrderService.deleteServiceOrder(pool, req.body.id, req.user);
     res.json({ code: 200, message: '删除工单成功', data: null });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -136,7 +136,7 @@ router.post('/delete', authenticateToken, checkPermission('service:delete'), val
 router.post('/assign', authenticateToken, checkPermission('service:edit'), validate(assignSchema), async (req, res) => {
   try {
     const { id, assignee_id } = req.body;
-    await afterSalesService.assignServiceOrder(pool, id, assignee_id, req.user);
+    await serviceOrderService.assignServiceOrder(pool, id, assignee_id, req.user);
     res.json({ code: 200, message: '分配成功', data: null });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -159,7 +159,7 @@ router.post('/batch-assign', authenticateToken, checkPermission('service:edit'),
       return res.status(400).json({ code: 400, message: '单次批量分配不超过50条', data: null });
     }
 
-    const result = await afterSalesService.batchAssignServiceOrders(pool, ids, assignee_id, req.user.userId);
+    const result = await serviceOrderService.batchAssignServiceOrders(pool, ids, assignee_id, req.user.userId);
     res.json({ code: 200, message: `已批量分配 ${result.count} 个工单`, data: result });
   } catch (error) {
     logger.error('批量分配工单错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -170,7 +170,7 @@ router.post('/batch-assign', authenticateToken, checkPermission('service:edit'),
 // 开始处理
 router.post('/start', authenticateToken, checkPermission('service:edit'), validate(idSchema), async (req, res) => {
   try {
-    await afterSalesService.startServiceOrder(pool, req.body.id, req.user);
+    await serviceOrderService.startServiceOrder(pool, req.body.id, req.user);
     res.json({ code: 200, message: '开始处理', data: null });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -183,7 +183,7 @@ router.post('/start', authenticateToken, checkPermission('service:edit'), valida
 router.post('/finish', authenticateToken, checkPermission('service:edit'), validate(finishSchema), async (req, res) => {
   try {
     const { id, finish_desc } = req.body;
-    await afterSalesService.finishServiceOrder(pool, id, finish_desc, req.user);
+    await serviceOrderService.finishServiceOrder(pool, id, finish_desc, req.user);
     res.json({ code: 200, message: '处理完成，请等待客户确认', data: null });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -196,7 +196,7 @@ router.post('/finish', authenticateToken, checkPermission('service:edit'), valid
 router.post('/confirm', authenticateToken, checkPermission('service:edit'), validate(confirmSchema), async (req, res) => {
   try {
     const { id, satisfaction } = req.body;
-    await afterSalesService.confirmServiceOrder(pool, id, satisfaction, req.user);
+    await serviceOrderService.confirmServiceOrder(pool, id, satisfaction, req.user);
     res.json({ code: 200, message: '确认完成', data: null });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -212,6 +212,9 @@ router.get('/types', authenticateToken, (req, res) => {
     { value: '维修', label: '维修' },
     { value: '保养', label: '保养' },
     { value: '培训', label: '培训' },
+    { value: '投诉', label: '投诉' },
+    { value: '咨询', label: '咨询' },
+    { value: '退换货', label: '退换货' },
     { value: '其他', label: '其他' }
   ];
   res.json({ code: 200, message: '查询成功', data: types });

@@ -1,7 +1,7 @@
 <template>
   <div class="page-container">
     <div class="page-header">
-      <h2>售后服务工单</h2>
+      <h2>服务工单</h2>
     </div>
 
     <!-- 视图切换 -->
@@ -436,9 +436,11 @@ const selectedTemplate = ref(null)
 const ticketTemplates = [
   { id: 1, name: '产品质量投诉', type: '投诉', priority: 2, description: '客户反馈产品质量问题：\n- 产品名称：\n- 问题描述：\n- 影响程度：' },
   { id: 2, name: '物流延迟', type: '投诉', priority: 3, description: '客户反馈物流延迟：\n- 订单号：\n- 预计到达：\n- 实际状态：' },
-  { id: 3, name: '技术支持请求', type: '技术支持', priority: 2, description: '客户需要技术支持：\n- 设备型号：\n- 故障现象：\n- 已尝试方案：' },
+  { id: 3, name: '技术支持请求', type: '咨询', priority: 2, description: '客户需要技术支持：\n- 设备型号：\n- 故障现象：\n- 已尝试方案：' },
   { id: 4, name: '退换货申请', type: '退换货', priority: 2, description: '客户申请退换货：\n- 产品名称：\n- 退换原因：\n- 购买日期：' },
-  { id: 5, name: '售后保养咨询', type: '咨询', priority: 4, description: '客户咨询保养事宜：\n- 设备型号：\n- 使用时长：\n- 具体问题：' }
+  { id: 5, name: '售后保养咨询', type: '咨询', priority: 4, description: '客户咨询保养事宜：\n- 设备型号：\n- 使用时长：\n- 具体问题：' },
+  { id: 6, name: '设备安装', type: '安装', priority: 3, description: '客户申请设备安装：\n- 设备型号：\n- 安装地址：\n- 预约时间：' },
+  { id: 7, name: '设备维修', type: '维修', priority: 2, description: '客户报修设备：\n- 设备型号：\n- 故障描述：\n- 购买日期：' }
 ]
 const applyTemplate = (id) => {
   const tpl = ticketTemplates.find(t => t.id === id)
@@ -786,12 +788,12 @@ function getPriorityTag(priority) {
 }
 
 function getTypeTag(type) {
-  const map = { '安装': 'success', '维修': 'danger', '保养': 'info', '培训': 'warning', '其他': 'primary' }
+  const map = { '安装': 'success', '维修': 'danger', '保养': 'info', '培训': 'warning', '投诉': 'danger', '咨询': '', '退换货': 'warning', '其他': 'primary' }
   return map[type] || 'info'
 }
 
 // SLA计算
-const SLA_HOURS = { 1: 4, 2: 8, 3: 24, 4: 48 }
+const SLA_HOURS = { 1: 2, 2: 4, 3: 8, 4: 24 }
 function getSlaHours(row) {
   if (!row.create_time || row.status >= 5) return null
   const elapsed = (Date.now() - new Date(row.create_time).getTime()) / 3600000

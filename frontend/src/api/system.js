@@ -36,7 +36,7 @@ export const createBackup = () => request.post('/backup/create')
 export const deleteBackup = (id) => request.post('/backup/delete', { id })
 export const restoreBackup = (id) => request.post('/backup/restore', { id })
 
-// ============ 售后服务 ============
+// ============ 服务工单 ============
 export const getServiceList = (params) => request.post('/service/list', params)
 export const getServiceDetail = (id) => request.get(`/service/detail/${id}`)
 export const addService = (data) => request.post('/service/add', data)

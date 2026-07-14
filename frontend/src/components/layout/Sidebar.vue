@@ -103,7 +103,7 @@
 
       <el-menu-item index="/service" v-if="hasMenuPermission('service')">
         <el-icon><Service /></el-icon>
-        <template #title>售后服务</template>
+        <template #title>服务工单</template>
       </el-menu-item>
 
       <el-sub-menu index="/survey">

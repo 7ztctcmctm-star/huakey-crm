@@ -15,6 +15,8 @@
             <el-option v-for="u in salesUsers" :key="u.id" :label="u.real_name" :value="u.id" />
           </el-select>
         </template>
+        <el-button v-if="canForward(customer.status)" type="primary" :icon="ArrowRight" @click="handleForward">推进</el-button>
+        <el-button v-if="canBackward(customer.status)" type="info" :icon="ArrowLeft" @click="openBackwardDialog">回退</el-button>
         <el-button type="primary" :icon="EditPen" @click="handleEdit">编辑</el-button>
         <el-button v-if="customer.owner_id && customer.pool_status === 0" :icon="Share" @click="handleRelease">释放公海</el-button>
       </div>
@@ -23,12 +25,41 @@
     <!-- 顶部客户信息 -->
     <el-card class="hero-card" shadow="never" v-loading="loading">
       <div class="hero-content">
+        <!-- 行动卡：下次跟进 / 逾期 / 快捷入口 -->
+        <div class="action-card" v-if="customer.id">
+          <div class="action-main">
+            <div v-if="nextFollowTime" class="action-item">
+              <el-icon><Clock /></el-icon>
+              <span :class="{ 'text-danger': isNextFollowOverdue }">
+                下次跟进: {{ formatTime(nextFollowTime) }}
+                <span class="action-sub">({{ relativeNextTime(nextFollowTime) }})</span>
+              </span>
+            </div>
+            <div v-if="followOverdueDays > 0" class="action-item">
+              <el-icon><Warning /></el-icon>
+              <span class="text-danger">
+                已逾期 {{ followOverdueDays }} 天未跟进
+              </span>
+            </div>
+            <div v-else-if="customer.last_follow_time" class="action-item">
+              <el-icon><Clock /></el-icon>
+              <span>上次跟进: {{ relativeTime(customer.last_follow_time) }}</span>
+            </div>
+            <div v-if="lastFollowSummary" class="action-summary">
+              <span>最近: {{ lastFollowSummary }}</span>
+            </div>
+          </div>
+          <el-button type="primary" size="small" :icon="EditPen" @click="openQuickFollow">
+            立即跟进
+          </el-button>
+        </div>
+
         <div class="hero-left">
           <div class="hero-name">{{ customer.company_name }}</div>
           <div class="hero-contact">
-            <span v-if="customer.contact_name"><el-icon><User /></el-icon> {{ customer.contact_name }}</span>
-            <span v-if="customer.phone"><el-icon><Phone /></el-icon> <a :href="'tel:' + customer.phone">{{ customer.phone }}</a></span>
-            <span v-if="customer.email"><el-icon><Message /></el-icon> {{ customer.email }}</span>
+            <span v-if="primaryContact.name"><el-icon><User /></el-icon> {{ primaryContact.name }}</span>
+            <span v-if="primaryContact.phone"><el-icon><Phone /></el-icon> <a :href="'tel:' + primaryContact.phone">{{ primaryContact.phone }}</a></span>
+            <span v-if="primaryContact.email"><el-icon><Message /></el-icon> {{ primaryContact.email }}</span>
           </div>
           <div class="hero-address" v-if="customer.address">
             <el-icon><Location /></el-icon> {{ customer.address }}
@@ -37,13 +68,7 @@
             <el-tag v-if="customer.pool_status === 1" type="warning" effect="dark">公海客户</el-tag>
             <el-tag v-else-if="isProtected()" type="success">保护期至 {{ formatTime(customer.protect_until) }}</el-tag>
             <el-tag :type="levelTagType(customer.level)" effect="dark">{{ customer.level }}级客户</el-tag>
-            <el-tag :type="statusTagType(customer.status)">{{ statusMap[customer.status] }}</el-tag>
-            <el-tag v-if="customer.customer_type" :type="customer.customer_type === 'customer' ? 'success' : 'warning'">
-              {{ customer.customer_type === 'customer' ? '正式客户' : '潜客' }}
-            </el-tag>
-            <el-tag v-if="customer.lifecycle_status" :type="lifecycleStatusType(customer.lifecycle_status)">
-              {{ lifecycleStatusMap[customer.lifecycle_status] || customer.lifecycle_status }}
-            </el-tag>
+            <el-tag :type="statusTagType(customer.status)">{{ statusMap[customer.status] || customer.status }}</el-tag>
             <el-tag v-if="customer.score > 0" type="warning" effect="dark">评分 {{ customer.score }}</el-tag>
           </div>
         </div>
@@ -310,6 +335,10 @@
             </el-form-item>
           </el-col>
         </el-row>
+        <el-form-item label="是否主联系人">
+          <el-switch v-model="contactForm.is_primary" :active-value="1" :inactive-value="0" />
+          <span class="el-text el-text--info" style="margin-left: 8px; font-size: 12px">主联系人将显示在客户列表和详情顶部</span>
+        </el-form-item>
         <el-form-item label="电话">
           <el-input v-model="contactForm.phone" placeholder="请输入电话" />
         </el-form-item>
@@ -409,31 +438,20 @@
         <el-form-item label="公司名称" prop="company_name">
           <el-input v-model="editForm.company_name" placeholder="请输入公司名称" />
         </el-form-item>
+        <el-form-item label="联系人">
+          <el-alert
+            title="联系人信息已迁移至「联系人」标签页，请前往该标签页管理"
+            type="info"
+            :closable="false"
+            show-icon
+          />
+        </el-form-item>
         <el-row :gutter="24">
-          <el-col :span="12">
-            <el-form-item label="联系人">
-              <el-input v-model="editForm.contact_name" placeholder="请输入联系人" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="电话">
-              <el-input v-model="editForm.phone" placeholder="请输入电话" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row :gutter="24">
-          <el-col :span="12">
-            <el-form-item label="邮箱">
-              <el-input v-model="editForm.email" placeholder="请输入邮箱" />
-            </el-form-item>
-          </el-col>
           <el-col :span="12">
             <el-form-item label="所属行业">
               <el-input v-model="editForm.industry" placeholder="请输入行业" />
             </el-form-item>
           </el-col>
-        </el-row>
-        <el-row :gutter="24">
           <el-col :span="12">
             <el-form-item label="客户来源">
               <el-select v-model="editForm.source" placeholder="请选择来源" filterable style="width: 100%">
@@ -441,6 +459,8 @@
               </el-select>
             </el-form-item>
           </el-col>
+        </el-row>
+        <el-row :gutter="24">
           <el-col :span="12">
             <el-form-item label="客户等级">
               <el-select v-model="editForm.level" placeholder="请选择等级" style="width: 100%">
@@ -451,14 +471,16 @@
               </el-select>
             </el-form-item>
           </el-col>
-        </el-row>
-        <el-row :gutter="24">
           <el-col :span="12">
             <el-form-item label="客户状态">
               <el-select v-model="editForm.status" placeholder="请选择状态" style="width: 100%">
-                <el-option label="潜在客户" :value="1" />
-                <el-option label="成交客户" :value="2" />
-                <el-option label="流失客户" :value="3" />
+                <el-option label="公海客户" value="sea" />
+                <el-option label="跟进中" value="following" />
+                <el-option label="已报价" value="quoted" />
+                <el-option label="谈判中" value="negotiating" />
+                <el-option label="已签约" value="signed" />
+                <el-option label="已流失" value="lost" />
+                <el-option label="暂停跟进" value="paused" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -476,15 +498,29 @@
       </template>
     </el-dialog>
   </div>
+
+  <!-- 回退原因弹窗 -->
+  <el-dialog v-model="backwardDialogVisible" title="回退客户状态" width="440px" :close-on-click-modal="false">
+    <p style="font-size:15px;font-weight:bold;text-align:center;padding:8px">{{ customer.company_name }}</p>
+    <el-form label-width="80px">
+      <el-form-item label="回退原因" required>
+        <el-input v-model="backwardReason" type="textarea" :rows="3" placeholder="请输入回退原因" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="backwardDialogVisible = false">取消</el-button>
+      <el-button type="warning" @click="handleBackward" :loading="backwardLoading">确认回退</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, Plus, Edit, EditPen, Delete, User, Clock, Share, Refresh, Phone, Message, Location, ChatLineRound } from '@element-plus/icons-vue'
+import { ArrowLeft, Plus, Edit, EditPen, Delete, User, Clock, Share, Refresh, Phone, Message, Location, ChatLineRound, ArrowRight, Warning } from '@element-plus/icons-vue'
 import request from '@/utils/request'
-import { getCustomer360, updateCustomer, assignCustomer, releaseCustomer, getSalesUsers, addContact, updateContact, deleteContact, calculateCustomerScore } from '@/api/customer'
+import { getCustomer360, updateCustomer, assignCustomer, releaseCustomer, getSalesUsers, addContact, updateContact, deleteContact, calculateCustomerScore, forwardCustomer, backwardCustomer } from '@/api/customer'
 import { addFollowUp, updateFollowUp, deleteFollowUp, getFollowupTemplates } from '@/api/customer'
 import { getEmailList } from '@/api/tools'
 import { getKnowledgeScripts } from '@/api/tools'
@@ -531,22 +567,52 @@ const handleAssignOwner = (newOwnerId) => {
 const activeTab = ref('follow')
 
 // 状态映射
-const statusMap = { 1: '潜在客户', 2: '成交客户', 3: '流失客户' }
-const lifecycleStatusMap = { new: '新导入', nurturing: '培育中', intent: '意向合作', active: '正在合作', lost: '流失', inactive: '无效' }
-const lifecycleStatusType = (s) => ({ new: 'info', nurturing: 'warning', intent: '', active: 'success', lost: 'danger', inactive: 'info' }[s] || 'info')
+const PIPELINE = ['sea', 'following', 'quoted', 'negotiating', 'signed']
+const statusMap = {
+  sea: '公海客户',
+  following: '跟进中',
+  quoted: '已报价',
+  negotiating: '谈判中',
+  signed: '已签约',
+  lost: '已流失',
+  paused: '暂停跟进'
+}
 const levelTagType = (l) => ({ A: 'danger', B: 'warning', C: 'info', D: '' }[l] || 'info')
-const statusTagType = (s) => ({ 1: 'warning', 2: 'success', 3: 'info' }[s] || 'info')
+const statusTagType = (s) => ({
+  sea: 'info',
+  following: 'warning',
+  quoted: '',
+  negotiating: 'primary',
+  signed: 'success',
+  lost: 'danger',
+  paused: 'info'
+}[s] || 'info')
+
+const canForward = (status) => {
+  const idx = PIPELINE.indexOf(status)
+  return idx !== -1 && idx < PIPELINE.length - 1 && status !== 'lost' && status !== 'paused'
+}
+
+const canBackward = (status) => {
+  const idx = PIPELINE.indexOf(status)
+  return idx > 0 && status !== 'lost' && status !== 'paused'
+}
 
 // 客户数据
 const customer = reactive({
   id: null, company_name: '', contact_name: '', phone: '', email: '', address: '',
-  industry: '', source: '', level: '', status: 0, customer_type: '', lifecycle_status: '',
+  industry: '', source: '', level: '', status: '', customer_type: '', lifecycle_status: '',
   remark: '', owner_name: '', owner_id: null, create_time: '', update_time: '',
   pool_status: 0, protect_until: null, score: 0
 })
 
 // 各模块数据
 const contacts = ref([])
+const primaryContact = computed(() => {
+  if (!contacts.value || contacts.value.length === 0) return { name: '', phone: '', email: '' }
+  const primary = contacts.value.find(c => c.is_primary === 1)
+  return primary || contacts.value[0]
+})
 const followRecords = ref([])
 const quoteList = ref([])
 const quoteLoading = ref(false)
@@ -580,6 +646,38 @@ const statCards = computed(() => [
   { key: 'service', label: '工单数量', value: stats.service_count }
 ])
 
+// 行动卡计算
+const latestFollow = computed(() => followRecords.value && followRecords.value.length > 0 ? followRecords.value[0] : null)
+const nextFollowTime = computed(() => latestFollow.value?.next_time || null)
+const lastFollowSummary = computed(() => {
+  const content = latestFollow.value?.content
+  if (!content) return ''
+  return content.length > 40 ? content.slice(0, 40) + '...' : content
+})
+const followOverdueDays = computed(() => {
+  const base = customer.last_follow_time || customer.create_time
+  if (!base) return 0
+  const diff = Date.now() - new Date(base).getTime()
+  return Math.max(0, Math.floor(diff / (24 * 60 * 60 * 1000)))
+})
+const isFollowOverdue = computed(() => followOverdueDays.value > 15)
+const isNextFollowOverdue = computed(() => {
+  const t = nextFollowTime.value
+  if (!t) return false
+  return new Date(t).getTime() < Date.now()
+})
+const relativeNextTime = (t) => {
+  if (!t) return '-'
+  const now = Date.now()
+  const d = new Date(t).getTime()
+  const diff = d - now
+  const day = Math.floor(Math.abs(diff) / (24 * 60 * 60 * 1000))
+  if (diff < 0) return day === 0 ? '已逾期（今天）' : `已逾期 ${day} 天`
+  if (day === 0) return '今天'
+  if (day === 1) return '明天'
+  return `${day} 天后`
+}
+
 // 映射
 const stageMap = { 1: '询盘', 2: '需求确认', 3: '方案报价', 4: '谈判', 5: '成交', 6: '失败' }
 const stageTagType = (s) => ({ 1: 'info', 2: '', 3: 'warning', 4: '', 5: 'success', 6: 'danger' }[s] || 'info')
@@ -589,8 +687,8 @@ const quoteStatusMap = { 1: '草稿', 2: '已发送', 3: '已确认', 4: '已过
 const quoteStatusType = (s) => ({ 1: 'info', 2: '', 3: 'success', 4: 'danger' }[s] || 'info')
 const priorityMap = { 1: '紧急', 2: '高', 3: '中', 4: '低' }
 const priorityType = (p) => ({ 1: 'danger', 2: 'warning', 3: '', 4: 'info' }[p] || 'info')
-const serviceStatusMap = { 1: '待分配', 2: '处理中', 3: '已完成', 4: '已关闭', 5: '已评价' }
-const serviceStatusType = (s) => ({ 1: 'warning', 2: '', 3: 'success', 4: 'info', 5: 'success' }[s] || 'info')
+const serviceStatusMap = { 1: '待分配', 2: '已分配', 3: '处理中', 4: '待确认', 5: '已完成' }
+const serviceStatusType = (s) => ({ 1: 'warning', 2: 'info', 3: '', 4: 'warning', 5: 'success' }[s] || 'info')
 const fmtMoney = (v) => { if (!v && v !== 0) return '0.00'; return parseFloat(v).toLocaleString('zh-CN', { minimumFractionDigits: 2 }) }
 
 // 获取360度数据
@@ -638,6 +736,51 @@ const handleRelease = () => {
   }).catch(() => {})
 }
 
+const handleForward = async () => {
+  try {
+    const res = await forwardCustomer({ customer_id: customer.id })
+    if (res.code === 200) {
+      ElMessage.success(res.message)
+      fetchDetail()
+    } else {
+      ElMessage.error(res.message || '推进失败')
+    }
+  } catch (error) {
+    ElMessage.error('推进失败：' + (error.response?.data?.message || error.message))
+  }
+}
+
+const backwardDialogVisible = ref(false)
+const backwardReason = ref('')
+const backwardLoading = ref(false)
+
+const openBackwardDialog = () => {
+  backwardReason.value = ''
+  backwardDialogVisible.value = true
+}
+
+const handleBackward = async () => {
+  if (!backwardReason.value.trim()) {
+    ElMessage.warning('请输入回退原因')
+    return
+  }
+  backwardLoading.value = true
+  try {
+    const res = await backwardCustomer({ customer_id: customer.id, reason: backwardReason.value })
+    if (res.code === 200) {
+      ElMessage.success(res.message)
+      backwardDialogVisible.value = false
+      fetchDetail()
+    } else {
+      ElMessage.error(res.message || '回退失败')
+    }
+  } catch (error) {
+    ElMessage.error('回退失败：' + (error.response?.data?.message || error.message))
+  } finally {
+    backwardLoading.value = false
+  }
+}
+
 // 评分计算
 const handleCalculateScore = async () => {
   scoreCalculating.value = true
@@ -662,7 +805,7 @@ const fetchEmails = async () => {
 }
 
 const goComposeEmail = () => {
-  router.push({ path: '/email/compose', query: { to: customer.email, customer_id: customer.id } })
+  router.push({ path: '/email/compose', query: { to: primaryContact.value.email, customer_id: customer.id } })
 }
 
 // ============ 编辑客户 ============
@@ -670,14 +813,14 @@ const sourceOptions = ALL_SOURCE_VALUES
 const editDialogVisible = ref(false)
 const editSubmitLoading = ref(false)
 const editFormRef = ref(null)
-const editForm = reactive({ company_name: '', contact_name: '', phone: '', email: '', industry: '', source: '', level: '', status: 1, address: '', remark: '' })
+const editForm = reactive({ company_name: '', industry: '', source: '', level: '', status: 'following', address: '', remark: '' })
 const editRules = { company_name: [{ required: true, message: '请输入公司名称', trigger: 'blur' }] }
 
 const handleEdit = () => {
   Object.assign(editForm, {
-    company_name: customer.company_name || '', contact_name: customer.contact_name || '',
-    phone: customer.phone || '', email: customer.email || '', industry: customer.industry || '',
-    source: customer.source || '', level: customer.level || 'C', status: customer.status || 1,
+    company_name: customer.company_name || '',
+    industry: customer.industry || '',
+    source: customer.source || '', level: customer.level || 'C', status: customer.status || 'following',
     address: customer.address || '', remark: customer.remark || ''
   })
   editDialogVisible.value = true
@@ -705,13 +848,13 @@ const isContactEdit = ref(false)
 const contactSubmitLoading = ref(false)
 const contactFormRef = ref(null)
 const contactEditId = ref(null)
-const contactForm = reactive({ name: '', position: '', phone: '', email: '', wechat: '', is_decision: 0, remark: '' })
+const contactForm = reactive({ name: '', position: '', phone: '', email: '', wechat: '', is_decision: 0, is_primary: 0, remark: '' })
 const contactRules = { name: [{ required: true, message: '请输入姓名', trigger: 'blur' }] }
 
 const handleContactAdd = () => { isContactEdit.value = false; contactDialogTitle.value = '新增联系人'; contactEditId.value = null; contactDialogVisible.value = true }
 const handleContactEdit = (row) => {
   isContactEdit.value = true; contactDialogTitle.value = '编辑联系人'; contactEditId.value = row.id
-  Object.assign(contactForm, { name: row.name || '', position: row.position || '', phone: row.phone || '', email: row.email || '', wechat: row.wechat || '', is_decision: row.is_decision || 0, remark: row.remark || '' })
+  Object.assign(contactForm, { name: row.name || '', position: row.position || '', phone: row.phone || '', email: row.email || '', wechat: row.wechat || '', is_decision: row.is_decision || 0, is_primary: row.is_primary || 0, remark: row.remark || '' })
   contactDialogVisible.value = true
 }
 
@@ -742,7 +885,7 @@ const handleContactDelete = (row) => {
 
 const handleContactDialogClosed = () => {
   contactFormRef.value?.resetFields()
-  Object.assign(contactForm, { name: '', position: '', phone: '', email: '', wechat: '', is_decision: 0, remark: '' })
+  Object.assign(contactForm, { name: '', position: '', phone: '', email: '', wechat: '', is_decision: 0, is_primary: 0, remark: '' })
 }
 
 // ============ 跟进管理 ============
@@ -899,8 +1042,57 @@ onMounted(() => { fetchDetail(); fetchSalesUsers() })
 
 /* Hero 卡片 */
 .hero-card { margin-bottom: var(--space-4); }
-.hero-content { display: flex; gap: var(--space-6); }
+.hero-content { display: flex; gap: var(--space-6); flex-wrap: wrap; }
 .hero-left { flex: 1; }
+.action-card { width: 100%; }
+
+/* 行动卡 */
+.action-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg);
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  margin-bottom: var(--space-3);
+}
+.action-main {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+.action-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--color-text);
+}
+.action-item .el-icon {
+  color: var(--color-text-secondary);
+}
+.action-sub {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  margin-left: 4px;
+}
+.action-summary {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.text-danger {
+  color: #e85c5c;
+}
+.text-danger .el-icon {
+  color: #e85c5c;
+}
 .hero-right { flex-shrink: 0; }
 .hero-name {
   font-size: 28px; font-weight: 700; color: var(--color-text);
