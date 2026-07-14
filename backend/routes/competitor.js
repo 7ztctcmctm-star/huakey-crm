@@ -82,15 +82,19 @@ const intelUpdateSchema = Joi.object({
 
 // ============ 竞争对手 ============
 
-router.get('/list', authenticateToken, checkPermission('competitor:view'), async (req, res) => {
+const competitorListHandler = async (req, res) => {
+  const source = req.method === "GET" ? req.query : req.body;
   try {
-    const data = await competitorService.listCompetitors(pool, req.query);
-    res.json({ code: 200, message: '查询成功', data });
+    const data = await competitorService.listCompetitors(pool, source);
+    res.json({ code: 200, message: "查询成功", data });
   } catch (error) {
-    logger.error('[竞品] 列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    logger.error("[竞品] 列表查询失败:", { error: error.stack || error.message, traceId: req.traceId || "N/A" });
+    res.status(500).json({ code: 500, message: "服务器内部错误", data: null });
   }
-});
+};
+router.get("/list", authenticateToken, checkPermission("competitor:view"), competitorListHandler);
+router.post("/list", authenticateToken, checkPermission("competitor:view"), competitorListHandler);
+
 
 router.get('/:id', authenticateToken, checkPermission('competitor:view'), async (req, res) => {
   try {
