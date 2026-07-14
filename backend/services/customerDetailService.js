@@ -7,6 +7,8 @@
 const XLSX = require('xlsx');
 const { CUSTOMER_STATUS, CUSTOMER_STATUS_NAME, isValidCustomerStatus } = require('../constants/customerStatus');
 const customerService = require('./customerService');
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 
 /**
  * 旧数字状态兼容映射
@@ -403,9 +405,7 @@ async function getCustomer360(pool, customerId) {
   `, [customerId]);
 
   if (!customer) {
-    const err = new Error('客户不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);
   }
 
   const [
