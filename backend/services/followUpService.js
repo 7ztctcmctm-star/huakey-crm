@@ -4,6 +4,9 @@
  */
 
 const ROLES = require('../config/roles');
+const logger = require('../config/logger');
+const { CUSTOMER_STATUS } = require('../constants/customerStatus');
+const customerService = require('../services/customerService');
 
 /**
  * 添加跟进记录
@@ -62,6 +65,35 @@ async function addFollowUp(pool, params, userId) {
      WHERE customer_id = ? AND is_dismissed = 0`,
     [customer_id]
   );
+
+  // 自动推进客户状态：new / sea -> following（可通过 advance_status=false 手动覆盖）
+  const advanceStatus = params.advance_status !== false;
+  if (advanceStatus) {
+    const [customerRows] = await pool.query(
+      'SELECT status FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+      [customer_id]
+    );
+    if (customerRows.length > 0) {
+      const currentStatus = customerRows[0].status;
+      if (currentStatus === CUSTOMER_STATUS.SEA || currentStatus === 'new') {
+        try {
+          await customerService.transitionStatus(
+            pool,
+            customer_id,
+            CUSTOMER_STATUS.FOLLOWING,
+            userId
+          );
+        } catch (e) {
+          logger.error('[跟进] 自动推进客户状态失败', {
+            customer_id,
+            from_status: currentStatus,
+            error: e.message,
+            traceId: 'N/A'
+          });
+        }
+      }
+    }
+  }
 
   return { id: result.insertId };
 }
@@ -129,6 +161,7 @@ async function listFollowUps(pool, params, permission) {
   const [records] = await pool.query(
     `SELECT f.id, f.customer_id, f.contact_id, f.follow_type, f.content,
       f.next_time, f.next_content, f.create_by, f.create_time,
+      f.is_plan, f.plan_status, f.finish_time,
       u.real_name as creator_name,
       c.name as contact_name
     FROM crm_follow_up f
@@ -414,6 +447,143 @@ async function getCalendar(pool, params, dataPermission) {
   return { list: records, total: records.length };
 }
 
+/**
+ * 添加跟进计划（合并模型：is_plan=1 的跟进记录）
+ * @param {object} pool
+ * @param {object} params - { customer_id, contact_id, plan_time, plan_content, follow_type }
+ * @param {number} userId
+ * @returns {{ id: number }}
+ */
+async function addPlan(pool, params, userId) {
+  const { customer_id, contact_id, plan_time, plan_content, follow_type } = params;
+
+  const [customers] = await pool.query(
+    'SELECT id FROM crm_customer WHERE id = ? AND status != 0',
+    [customer_id]
+  );
+  if (customers.length === 0) {
+    const err = new Error('客户不存在');
+    err.code = 404;
+    throw err;
+  }
+
+  const [result] = await pool.query(
+    `INSERT INTO crm_follow_up
+       (customer_id, contact_id, follow_type, content, next_time, create_by, is_plan, plan_status)
+     VALUES (?, ?, ?, ?, ?, ?, 1, 'pending')`,
+    [customer_id, contact_id || null, follow_type || '电话', plan_content, plan_time || null, userId]
+  );
+
+  return { id: result.insertId };
+}
+
+/**
+ * 跟进计划列表（is_plan=1）
+ * @param {object} pool
+ * @param {object} params - { customer_id, status, start_date, end_date, page, pageSize }
+ * @param {object} permission - { clause, params }
+ */
+async function listPlans(pool, params, permission) {
+  const { customer_id, status, start_date, end_date, page = 1, pageSize = 20 } = params;
+  const offset = (page - 1) * pageSize;
+  const { clause: permClause, params: permParams } = permission;
+
+  const where = ['f.is_plan = 1', 'f.deleted_at IS NULL', permClause];
+  const queryParams = [...permParams];
+  if (customer_id) { where.push('f.customer_id = ?'); queryParams.push(customer_id); }
+  if (status) { where.push('f.plan_status = ?'); queryParams.push(status); }
+  if (start_date) { where.push('DATE(f.next_time) >= ?'); queryParams.push(start_date); }
+  if (end_date) { where.push('DATE(f.next_time) <= ?'); queryParams.push(end_date); }
+  const whereStr = where.join(' AND ');
+
+  const [countResult] = await pool.query(
+    `SELECT COUNT(*) as total FROM crm_follow_up f WHERE ${whereStr}`,
+    queryParams
+  );
+  const total = countResult[0].total;
+
+  const [records] = await pool.query(
+    `SELECT f.id, f.customer_id, f.contact_id, f.follow_type, f.content,
+       f.next_time, f.finish_time, f.plan_status, f.create_by, f.create_time,
+       u.real_name as creator_name,
+       c.name as contact_name
+     FROM crm_follow_up f
+     LEFT JOIN sys_user u ON f.create_by = u.id
+     LEFT JOIN crm_contact c ON f.contact_id = c.id AND c.deleted_at IS NULL
+     WHERE ${whereStr}
+     ORDER BY f.next_time ASC
+     LIMIT ? OFFSET ?`,
+    [...queryParams, parseInt(pageSize), parseInt(offset)]
+  );
+
+  return { list: records, total, page: parseInt(page), pageSize: parseInt(pageSize) };
+}
+
+/**
+ * 完成跟进计划：将 is_plan=1 的计划转为实际跟进（is_plan=0），填充完成时间与内容
+ * @param {object} pool
+ * @param {object} params - { id, content, follow_type }
+ * @param {number} userId
+ */
+async function completePlan(pool, params) {
+  const { id, content, follow_type } = params;
+
+  const [rows] = await pool.query(
+    'SELECT id, customer_id, create_by FROM crm_follow_up WHERE id = ? AND is_plan = 1 AND deleted_at IS NULL',
+    [id]
+  );
+  if (rows.length === 0) {
+    const err = new Error('跟进计划不存在');
+    err.code = 404;
+    throw err;
+  }
+
+  await pool.query(
+    `UPDATE crm_follow_up
+     SET is_plan = 0, plan_status = 'completed', finish_time = NOW(),
+         content = ?, follow_type = COALESCE(?, follow_type)
+     WHERE id = ?`,
+    [content, follow_type || null, id]
+  );
+
+  const customerId = rows[0].customer_id;
+  await pool.query('UPDATE crm_customer SET last_follow_time = NOW() WHERE id = ?', [customerId]);
+  await pool.query(
+    'UPDATE crm_follow_up_reminder SET is_dismissed = 1 WHERE customer_id = ? AND is_dismissed = 0',
+    [customerId]
+  );
+
+  return { id };
+}
+
+/**
+ * 取消跟进计划（软删除）
+ * @param {object} pool
+ * @param {object} params - { id, roleId, userId, manageAll }
+ */
+async function cancelPlan(pool, params) {
+  const { id, roleId, userId, manageAll } = params;
+
+  const [rows] = await pool.query(
+    'SELECT id, create_by FROM crm_follow_up WHERE id = ? AND is_plan = 1 AND deleted_at IS NULL',
+    [id]
+  );
+  if (rows.length === 0) {
+    const err = new Error('跟进计划不存在');
+    err.code = 404;
+    throw err;
+  }
+
+  if (!manageAll && ![ROLES.ADMIN, ROLES.MANAGER].includes(roleId) && rows[0].create_by !== userId) {
+    const err = new Error('无权取消该计划');
+    err.code = 403;
+    throw err;
+  }
+
+  await pool.query('UPDATE crm_follow_up SET deleted_at = NOW() WHERE id = ?', [id]);
+  return { id };
+}
+
 module.exports = {
   addFollowUp,
   batchAddFollowUp,
@@ -424,5 +594,9 @@ module.exports = {
   getTaskStats,
   updateFollowUp,
   deleteFollowUp,
-  getCalendar
+  getCalendar,
+  addPlan,
+  listPlans,
+  completePlan,
+  cancelPlan
 };

@@ -1,4 +1,7 @@
-// 跟进计划服务
+// @deprecated 跟进计划服务（仅保留兼容，逻辑已合并至 followUpService.js）
+// Prompt 4-2 将 crm_follow_plan 合并进 crm_follow_up（is_plan=1），
+// 新代码请使用 followUpService 的 addPlan/listPlans/completePlan/cancelPlan。
+// 本文件对应的 /follow-plan/* 路由已返回 410 Gone。
 // 从 routes/followPlan.js 提取的业务逻辑
 
 /**

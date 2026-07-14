@@ -33,12 +33,6 @@ const router = createRouter({
           meta: { title: '跟进日历', permission: 'followup:calendar' }
         },
         {
-          path: 'followup/plan',
-          name: 'FollowupPlan',
-          component: () => import('../views/followup/plan.vue'),
-          meta: { title: '跟进计划', permission: 'followup:plan' }
-        },
-        {
           path: 'followup/template',
           name: 'FollowupTemplate',
           component: () => import('../views/followup/template.vue'),

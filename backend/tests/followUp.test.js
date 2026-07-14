@@ -63,6 +63,8 @@ describe('跟进模块', () => {
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1, company_name: '测试公司' }]])
         .mockResolvedValueOnce([{ insertId: 1 }]);
+      // 兜底：addFollowUp 在 INSERT 之后还会执行 UPDATE last_follow_time / UPDATE reminder / SELECT status 等查询
+      mockPool.query.mockResolvedValue([[]]);
 
       const res = await request(app)
         .post('/api/v1/follow-up/add')

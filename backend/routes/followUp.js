@@ -15,7 +15,8 @@ const followUpAddSchema = Joi.object({
   content: Joi.string().required().max(5000),
   next_time: Joi.date().iso().allow(null),
   next_content: Joi.string().max(1000).allow('', null),
-  attachment_ids: Joi.array().items(Joi.number().integer().positive()).allow(null)
+  attachment_ids: Joi.array().items(Joi.number().integer().positive()).allow(null),
+  advance_status: Joi.boolean().optional()
 });
 
 const followUpBatchAddSchema = Joi.object({
@@ -49,6 +50,33 @@ const followUpListSchema = Joi.object({
 const followUpCalendarSchema = Joi.object({
   year: Joi.number().integer().min(1900).max(2100).required(),
   month: Joi.number().integer().min(1).max(12).required()
+});
+
+const followPlanAddSchema = Joi.object({
+  customer_id: Joi.number().integer().positive().required(),
+  contact_id: Joi.number().integer().positive().allow(null),
+  plan_time: Joi.date().iso().required(),
+  plan_content: Joi.string().max(500).required(),
+  follow_type: Joi.string().max(20).default('电话')
+});
+
+const followPlanListSchema = Joi.object({
+  customer_id: Joi.number().integer().positive().allow(null),
+  status: Joi.string().valid('pending', 'completed', 'overdue', 'cancelled').allow('', null),
+  start_date: Joi.string().isoDate().allow('', null),
+  end_date: Joi.string().isoDate().allow('', null),
+  page: Joi.number().integer().min(1).optional(),
+  pageSize: Joi.number().integer().min(1).max(200).optional()
+});
+
+const followPlanCompleteSchema = Joi.object({
+  id: Joi.number().integer().positive().required(),
+  content: Joi.string().max(2000).required(),
+  follow_type: Joi.string().max(20).allow(null)
+});
+
+const followPlanCancelSchema = Joi.object({
+  id: Joi.number().integer().positive().required()
 });
 
 // 1. 添加跟进记录
@@ -183,6 +211,57 @@ router.post('/calendar', authenticateToken, checkPermission('followup:calendar')
   } catch (error) {
     logger.error('跟进日历查询错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '查询失败', data: null });
+  }
+});
+
+// ====== 跟进计划（合并模型：is_plan=1 的跟进记录） ======
+// 7. 创建跟进计划
+router.post('/plan/add', authenticateToken, checkPermission('customer:edit'), validate(followPlanAddSchema), async (req, res) => {
+  try {
+    const result = await followUpService.addPlan(pool, req.body, req.user.userId);
+    res.json({ code: 200, message: '创建跟进计划成功', data: { id: result.id } });
+  } catch (error) {
+    logger.error('创建跟进计划错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    const status = error.code && typeof error.code === 'number' ? error.code : 500;
+    res.status(status).json({ code: status, message: error.message || '创建跟进计划失败', data: null });
+  }
+});
+
+// 8. 跟进计划列表
+router.post('/plan/list', authenticateToken, checkPermission('customer:edit'), checkDataPermission('followup', 'create_by'), validate(followPlanListSchema), async (req, res) => {
+  try {
+    const permission = await buildDataPermissionWhere(req.dataPermission, 'f');
+    const data = await followUpService.listPlans(pool, req.body, permission);
+    res.json({ code: 200, message: '获取跟进计划列表成功', data });
+  } catch (error) {
+    logger.error('获取跟进计划列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    res.status(500).json({ code: 500, message: '获取跟进计划列表失败', data: null });
+  }
+});
+
+// 9. 完成跟进计划（is_plan 置 0 + 填充完成时间）
+router.post('/plan/complete', authenticateToken, checkPermission('customer:edit'), validate(followPlanCompleteSchema), async (req, res) => {
+  try {
+    await followUpService.completePlan(pool, req.body);
+    res.json({ code: 200, message: '跟进计划已完成', data: null });
+  } catch (error) {
+    logger.error('完成跟进计划错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    const status = error.code && typeof error.code === 'number' ? error.code : 500;
+    res.status(status).json({ code: status, message: error.message || '完成跟进计划失败', data: null });
+  }
+});
+
+// 10. 取消跟进计划（软删除）
+router.post('/plan/cancel', authenticateToken, validate(followPlanCancelSchema), async (req, res) => {
+  try {
+    const { id } = req.body;
+    const { roleId, userId, manageAll } = req.user;
+    await followUpService.cancelPlan(pool, { id, roleId, userId, manageAll });
+    res.json({ code: 200, message: '跟进计划已取消', data: null });
+  } catch (error) {
+    logger.error('取消跟进计划错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    const status = error.code && typeof error.code === 'number' ? error.code : 500;
+    res.status(status).json({ code: status, message: error.message || '取消跟进计划失败', data: null });
   }
 });
 

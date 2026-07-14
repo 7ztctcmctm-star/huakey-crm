@@ -98,10 +98,15 @@
         <el-tab-pane label="跟进记录" name="follow">
           <div class="tab-toolbar">
             <el-button type="primary" :icon="Plus" @click="handleFollowAdd">新增跟进</el-button>
+            <el-radio-group v-model="followFilter" size="small" style="margin-left: 12px;">
+              <el-radio-button value="all">全部</el-radio-button>
+              <el-radio-button value="followed">已跟进</el-radio-button>
+              <el-radio-button value="pending">待跟进</el-radio-button>
+            </el-radio-group>
           </div>
-          <el-timeline v-if="followRecords.length > 0">
+          <el-timeline v-if="filteredFollowRecords.length > 0">
             <el-timeline-item
-              v-for="item in followRecords"
+              v-for="item in filteredFollowRecords"
               :key="item.id"
               :timestamp="formatTime(item.create_time)"
               placement="top"
@@ -110,6 +115,7 @@
               <el-card shadow="hover" class="follow-card">
                 <div class="follow-header">
                   <el-tag :type="followTypeTag(item.follow_type)" size="small">{{ item.follow_type || '电话' }}</el-tag>
+                  <el-tag v-if="item.is_plan" type="warning" size="small">计划</el-tag>
                   <span v-if="item.contact_name" class="follow-contact"><el-icon><User /></el-icon> {{ item.contact_name }}</span>
                   <span class="follow-creator">{{ item.creator_name }}</span>
                   <span class="follow-actions">
@@ -614,6 +620,18 @@ const primaryContact = computed(() => {
   return primary || contacts.value[0]
 })
 const followRecords = ref([])
+// 跟进筛选：全部 / 已跟进 / 待跟进（Prompt 4-2 合并后统一在跟进记录中区分计划与跟进）
+const followFilter = ref('all')
+const isPendingFollow = (item) => {
+  if (item.is_plan === 1) return true
+  if (item.next_time && new Date(item.next_time).getTime() > Date.now()) return true
+  return false
+}
+const filteredFollowRecords = computed(() => {
+  if (followFilter.value === 'all') return followRecords.value
+  if (followFilter.value === 'pending') return followRecords.value.filter(isPendingFollow)
+  return followRecords.value.filter(item => !isPendingFollow(item))
+})
 const quoteList = ref([])
 const quoteLoading = ref(false)
 const contractList = ref([])

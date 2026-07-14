@@ -5,6 +5,22 @@
  */
 
 const XLSX = require('xlsx');
+const { CUSTOMER_STATUS, CUSTOMER_STATUS_NAME, isValidCustomerStatus } = require('../constants/customerStatus');
+const customerService = require('./customerService');
+
+/**
+ * 旧数字状态兼容映射
+ */
+function legacyStatusToCode(legacyStatus) {
+  const map = {
+    0: CUSTOMER_STATUS.SEA,
+    1: CUSTOMER_STATUS.FOLLOWING,
+    2: CUSTOMER_STATUS.FOLLOWING,
+    3: CUSTOMER_STATUS.LOST,
+    5: CUSTOMER_STATUS.FOLLOWING
+  };
+  return map[legacyStatus] || null;
+}
 
 // 客户来源白名单
 const VALID_SOURCES = [
@@ -46,9 +62,9 @@ async function canManageCustomer(pool, user, customerOwnerId) {
 }
 
 /**
- * 添加客户（含重复检测、自动分配负责人）
+ * 添加客户（含重复检测、自动分配负责人、同步创建联系人）
  * @param {object} pool
- * @param {object} data - { company_name, contact_name, phone, email, address, industry, source, level, remark }
+ * @param {object} data - { company_name, contacts, address, industry, source, level, remark }
  * @param {number} operatorId - 操作人ID
  * @returns {{ id: number, possibleDuplicates: Array|null, assignedOwner: number|null }}
  */
@@ -57,13 +73,27 @@ async function addCustomer(pool, data, operatorId) {
   const { clearByPrefix } = require('../config/redis');
 
   const {
-    company_name, contact_name, phone, email,
+    company_name, contacts,
     address, industry, source, level, remark
   } = data;
 
-  // 重复检测
+  // 联系人校验：至少提供一个有效联系人
+  const validContacts = Array.isArray(contacts)
+    ? contacts.filter(c => c && typeof c === 'object' && c.name && String(c.name).trim() !== '')
+    : [];
+  if (validContacts.length === 0) {
+    const err = new Error('请至少添加一个联系人');
+    err.code = 400;
+    throw err;
+  }
+
+  // 重复检测（联系人信息从 crm_contact 主联系人获取）
   const [duplicates] = await pool.query(
-    'SELECT id, company_name, phone, email FROM crm_customer WHERE company_name = ? AND deleted_at IS NULL LIMIT 5',
+    `SELECT c.id, c.company_name, pc.phone, pc.email
+     FROM crm_customer c
+     LEFT JOIN crm_contact pc ON pc.customer_id = c.id AND pc.is_primary = 1 AND pc.deleted_at IS NULL
+     WHERE c.company_name = ? AND c.deleted_at IS NULL
+     LIMIT 5`,
     [company_name]
   );
 
@@ -71,37 +101,73 @@ async function addCustomer(pool, data, operatorId) {
   const assignedOwner = await autoAssignOwner(pool, { source, address });
   const ownerId = assignedOwner || operatorId;
 
-  const [result] = await pool.query(
-    `INSERT INTO crm_customer
-      (company_name, contact_name, phone, email, address, industry, source, level, owner_id, status, customer_type, lifecycle_status, remark)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'prospect', 'new', ?)`,
-    [
-      company_name,
-      contact_name || null,
-      phone || null,
-      email || null,
-      address || null,
-      industry || null,
-      source || null,
-      level || 'C',
-      ownerId,
-      remark || null
-    ]
-  );
+  const connection = await pool.getConnection();
+  await connection.beginTransaction();
 
-  // 如果自动分配了负责人，记录分配日志
-  if (assignedOwner) {
-    await pool.query(
-      'INSERT INTO crm_assign_log (customer_id, from_user_id, to_user_id, operator_id, remark) VALUES (?, NULL, ?, ?, ?)',
-      [result.insertId, assignedOwner, operatorId, '新建客户自动分配']
+  let customerId;
+  try {
+    const [result] = await connection.query(
+      `INSERT INTO crm_customer
+        (company_name, address, industry, source, level, owner_id, status, remark)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        company_name,
+        address || null,
+        industry || null,
+        source || null,
+        level || 'C',
+        ownerId,
+        CUSTOMER_STATUS.FOLLOWING,
+        remark || null
+      ]
     );
+    customerId = result.insertId;
+
+    // 同步创建联系人，第一个标记为主联系人
+    const contactValues = [];
+    const contactParams = [];
+    validContacts.forEach((contact, index) => {
+      contactValues.push('(?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())');
+      contactParams.push(
+        customerId,
+        contact.name ? String(contact.name).trim() : '',
+        contact.position ? String(contact.position).trim() : null,
+        contact.phone ? String(contact.phone).trim() : null,
+        contact.email ? String(contact.email).trim() : null,
+        contact.wechat ? String(contact.wechat).trim() : null,
+        contact.is_decision ? 1 : 0,
+        index === 0 ? 1 : 0
+      );
+    });
+
+    await connection.query(
+      `INSERT INTO crm_contact
+        (customer_id, name, position, phone, email, wechat, is_decision, is_primary, create_time, update_time)
+      VALUES ${contactValues.join(', ')}`,
+      contactParams
+    );
+
+    // 如果自动分配了负责人，记录分配日志
+    if (assignedOwner) {
+      await connection.query(
+        'INSERT INTO crm_assign_log (customer_id, from_user_id, to_user_id, operator_id, remark) VALUES (?, NULL, ?, ?, ?)',
+        [customerId, assignedOwner, operatorId, '新建客户自动分配']
+      );
+    }
+
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
   }
 
   // 清除客户列表缓存
   clearByPrefix('cache:');
 
   return {
-    id: result.insertId,
+    id: customerId,
     possibleDuplicates: duplicates.length > 0 ? duplicates : null,
     assignedOwner
   };
@@ -138,10 +204,31 @@ async function updateCustomer(pool, id, updateFields, user) {
     throw err;
   }
 
+  // 联系人信息统一由 crm_contact 管理，客户表字段不再允许直接修改
   const allowedFields = [
-    'company_name', 'contact_name', 'phone', 'email', 'address',
+    'company_name', 'address',
     'industry', 'source', 'level', 'status', 'remark'
   ];
+
+  // 状态变更需要符合流转规则
+  if (updateFields.status !== undefined && updateFields.status !== customer.status) {
+    if (!isValidCustomerStatus(updateFields.status)) {
+      const err = new Error('无效的客户状态');
+      err.code = 400;
+      throw err;
+    }
+    const { valid, rule } = await customerService.canTransition(pool, customer.status, updateFields.status);
+    if (!valid) {
+      const err = new Error('当前状态不允许直接修改为目标状态');
+      err.code = 400;
+      throw err;
+    }
+    if (rule && rule.require_reason) {
+      const err = new Error('该状态变更需要填写原因，请使用状态流转接口');
+      err.code = 400;
+      throw err;
+    }
+  }
 
   const setClauses = [];
   const params = [];
@@ -233,7 +320,7 @@ async function getCustomerDetail(pool, customerId, permission) {
 
   const [customers] = await pool.query(
     `SELECT
-      c.id, c.company_name, c.contact_name, c.phone, c.email,
+      c.id, c.company_name,
       c.address, c.industry, c.source, c.level,
       c.owner_id, c.status, c.customer_type, c.lifecycle_status, c.remark, c.create_time, c.update_time,
       c.pool_status, c.protect_until, c.last_follow_time, c.converted_at,
@@ -253,16 +340,22 @@ async function getCustomerDetail(pool, customerId, permission) {
   const customer = customers[0];
 
   const [contacts] = await pool.query(
-    `SELECT id, customer_id, name, position, phone, email, wechat, is_decision, remark
+    `SELECT id, customer_id, name, position, phone, email, wechat, is_decision, is_primary, remark
     FROM crm_contact
     WHERE customer_id = ? AND deleted_at IS NULL
-    ORDER BY is_decision DESC, id ASC`,
+    ORDER BY is_primary DESC, is_decision DESC, id ASC`,
     [customerId]
   );
+
+  // 数据兼容：若没有任何主联系人标记，自动将第一个联系人标记为主联系人
+  if (contacts.length > 0 && !contacts.some(c => c.is_primary === 1)) {
+    contacts[0].is_primary = 1;
+  }
 
   const [followRecords] = await pool.query(
     `SELECT f.id, f.customer_id, f.contact_id, f.follow_type, f.content,
       f.next_time, f.next_content, f.create_by, f.create_time,
+      f.is_plan, f.plan_status, f.finish_time,
       u.real_name as creator_name,
       c.name as contact_name
     FROM crm_follow_up f
@@ -431,16 +524,24 @@ async function exportCustomers(pool, filters, permission) {
 
   let whereClause;
   if (status !== undefined && status !== null && status !== '') {
+    const mappedStatus = isValidCustomerStatus(status)
+      ? status
+      : legacyStatusToCode(status);
+    if (!mappedStatus) {
+      const err = new Error('无效的客户状态');
+      err.code = 400;
+      throw err;
+    }
     whereClause = `WHERE ${permissionClause} AND c.status = ?`;
-    params.push(parseInt(status));
+    params.push(mappedStatus);
   } else {
     whereClause = `WHERE ${permissionClause} AND c.deleted_at IS NULL`;
   }
 
   if (owner_id) { whereClause += ' AND c.owner_id = ?'; params.push(owner_id); }
   if (company_name) { whereClause += ' AND c.company_name LIKE ?'; params.push(`%${company_name}%`); }
-  if (contact_name) { whereClause += ' AND c.contact_name LIKE ?'; params.push(`%${contact_name}%`); }
-  if (phone) { whereClause += ' AND c.phone LIKE ?'; params.push(`%${phone}%`); }
+  if (contact_name) { whereClause += ' AND pc.name LIKE ?'; params.push(`%${contact_name}%`); }
+  if (phone) { whereClause += ' AND pc.phone LIKE ?'; params.push(`%${phone}%`); }
   if (source) {
     if (SOURCE_PARENT_MAP[source]) {
       const children = SOURCE_PARENT_MAP[source];
@@ -458,20 +559,19 @@ async function exportCustomers(pool, filters, permission) {
   if (end_date) { whereClause += ' AND c.create_time < ?'; params.push(end_date + ' 23:59:59'); }
 
   const [list] = await pool.query(
-    `SELECT c.company_name, c.contact_name, c.phone, c.email,
+    `SELECT c.company_name, pc.name as contact_name, pc.phone, pc.email,
       c.address, c.industry, c.source, c.level,
       c.status, c.customer_type, c.lifecycle_status, c.remark, c.create_time, c.last_follow_time,
       u.real_name as owner_name
     FROM crm_customer c
     LEFT JOIN sys_user u ON c.owner_id = u.id
+    LEFT JOIN crm_contact pc ON pc.customer_id = c.id AND pc.is_primary = 1 AND pc.deleted_at IS NULL
     ${whereClause}
     ORDER BY c.create_time DESC
     LIMIT 10000`,
     params
   );
 
-  const statusMap = { 1: '潜在客户', 2: '成交客户', 3: '流失客户' };
-  const lifecycleStatusMap = { new: '新导入', nurturing: '培育中', intent: '意向合作', active: '正在合作', lost: '流失', inactive: '无效' };
   const exportData = list.map(row => ({
     '公司名称': row.company_name,
     '联系人': row.contact_name || '',
@@ -481,9 +581,9 @@ async function exportCustomers(pool, filters, permission) {
     '行业': row.industry || '',
     '来源': row.source || '',
     '等级': row.level || '',
-    '状态': statusMap[row.status] || '',
+    '状态': CUSTOMER_STATUS_NAME[row.status] || row.status || '',
     '客户类型': row.customer_type === 'customer' ? '正式客户' : '潜客',
-    '生命周期': lifecycleStatusMap[row.lifecycle_status] || row.lifecycle_status || '',
+    '生命周期': row.lifecycle_status || '',
     '负责人': row.owner_name || '',
     '最后跟进': row.last_follow_time ? new Date(row.last_follow_time).toISOString().slice(0, 10) : '',
     '创建时间': row.create_time ? new Date(row.create_time).toISOString().slice(0, 10) : '',

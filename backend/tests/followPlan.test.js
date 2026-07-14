@@ -38,7 +38,7 @@ describe('跟进计划模块', () => {
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('POST /api/v1/follow-plan/add', () => {
-    it('应该返回400当缺少customer_id', async () => {
+    it('应该返回410当缺少customer_id（模块已废弃）', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
@@ -47,11 +47,11 @@ describe('跟进计划模块', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({ plan_time: '2026-07-01T10:00:00.000Z', plan_content: '电话回访客户' });
 
-      expect(res.status).toBe(400);
-      expect(res.body.code).toBe(400);
+      expect(res.status).toBe(410);
+      expect(res.body.code).toBe(410);
     });
 
-    it('应该返回200当正常创建跟进计划', async () => {
+    it('应该返回410当创建跟进计划（模块已废弃）', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
@@ -63,14 +63,13 @@ describe('跟进计划模块', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: 1, plan_time: '2026-07-01T10:00:00.000Z', plan_content: '电话回访客户', follow_type: '电话' });
 
-      expect(res.status).toBe(200);
-      expect(res.body.code).toBe(200);
-      expect(res.body.data).toHaveProperty('id');
+      expect(res.status).toBe(410);
+      expect(res.body.code).toBe(410);
     });
   });
 
   describe('POST /api/v1/follow-plan/list', () => {
-    it('应该返回计划列表', async () => {
+    it('应该返回410当获取计划列表（模块已废弃）', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
@@ -85,15 +84,13 @@ describe('跟进计划模块', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({ page: 1, pageSize: 10 });
 
-      expect(res.status).toBe(200);
-      expect(res.body.code).toBe(200);
-      expect(res.body.data.list).toHaveLength(2);
-      expect(res.body.data.total).toBe(2);
+      expect(res.status).toBe(410);
+      expect(res.body.code).toBe(410);
     });
   });
 
   describe('POST /api/v1/follow-plan/cancel', () => {
-    it('应该返回200当正常取消跟进计划', async () => {
+    it('应该返回410当取消跟进计划（模块已废弃）', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
@@ -105,8 +102,8 @@ describe('跟进计划模块', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1 });
 
-      expect(res.status).toBe(200);
-      expect(res.body.code).toBe(200);
+      expect(res.status).toBe(410);
+      expect(res.body.code).toBe(410);
     });
   });
 
