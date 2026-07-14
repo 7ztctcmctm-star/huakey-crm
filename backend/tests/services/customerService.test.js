@@ -3,7 +3,6 @@
  * 直接 mock pool.query，不经过 HTTP 层
  */
 const customerService = require('../../services/customerService');
-const { CUSTOMER_STATUS } = require('../../constants/customer');
 
 // Mock getOverdueDays
 jest.mock('../../utils/config', () => ({
@@ -59,18 +58,17 @@ describe('customerService.listCustomers', () => {
     expect(result).toEqual({ list: [], total: 0 });
   });
 
-  it('指定 status 时应按状态筛选（不加 deleted_at 条件）', async () => {
+  it('指定 status 时应按状态筛选', async () => {
     mockPool.query
       .mockResolvedValueOnce([[{ total: 5 }]])
-      .mockResolvedValueOnce([[{ id: 1, status: 2 }]])
+      .mockResolvedValueOnce([[{ id: 1, status: 'following' }]])
       .mockResolvedValueOnce([[]]);
 
-    await customerService.listCustomers(mockPool, { status: '2' });
+    await customerService.listCustomers(mockPool, { status: 'following' });
 
     const countCall = mockPool.query.mock.calls[0];
     expect(countCall[0]).toContain('c.status = ?');
-    expect(countCall[0]).not.toContain('deleted_at');
-    expect(countCall[1]).toContain(2);
+    expect(countCall[1]).toContain('following');
   });
 
   it('未指定 status 时应加 deleted_at IS NULL 条件', async () => {
@@ -141,44 +139,8 @@ describe('customerService.getCustomer', () => {
 });
 
 // ---------------------------------------------------------------------------
-// convertStatus
+// convertStatus 已废弃：070 迁移后状态流转改由 sys_customer_status_transition 表管理
 // ---------------------------------------------------------------------------
-describe('customerService.convertStatus', () => {
-  it('客户不存在应抛出 404', async () => {
-    mockPool.query.mockResolvedValueOnce([[]]);
-
-    await expect(
-      customerService.convertStatus(mockPool, 999, 'to_prospect')
-    ).rejects.toMatchObject({ code: 404 });
-  });
-
-  it('不允许的状态转化应抛出 400', async () => {
-    // 线索(status=5) 不能直接 to_customer
-    mockPool.query.mockResolvedValueOnce([[{ id: 1, status: CUSTOMER_STATUS.LEAD }]]);
-
-    await expect(
-      customerService.convertStatus(mockPool, 1, 'to_customer')
-    ).rejects.toMatchObject({ code: 400, message: '当前状态不允许执行此操作' });
-  });
-
-  it('线索→潜客 应成功并返回新状态', async () => {
-    mockPool.query
-      .mockResolvedValueOnce([[{ id: 1, status: CUSTOMER_STATUS.LEAD }]])
-      .mockResolvedValueOnce([{ affectedRows: 1 }]);
-
-    const result = await customerService.convertStatus(mockPool, 1, 'to_prospect');
-    expect(result.status).toBe(CUSTOMER_STATUS.PROSPECT);
-  });
-
-  it('潜客→正式客户 应成功', async () => {
-    mockPool.query
-      .mockResolvedValueOnce([[{ id: 1, status: CUSTOMER_STATUS.PROSPECT }]])
-      .mockResolvedValueOnce([{ affectedRows: 1 }]);
-
-    const result = await customerService.convertStatus(mockPool, 1, 'to_customer');
-    expect(result.status).toBe(CUSTOMER_STATUS.CUSTOMER);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // assignCustomer

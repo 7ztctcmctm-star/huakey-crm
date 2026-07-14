@@ -39,22 +39,15 @@ describe('客户池模块', () => {
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('POST /api/v1/customer/pool', () => {
-    it('应该返回公海客户列表（分页）', async () => {
-      mockPool.query
-        .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ total: 2 }]]) // count
-        .mockResolvedValueOnce([[{ id: 1, company_name: '公海客户A' }, { id: 2, company_name: '公海客户B' }]]); // list
-
+    it('应该返回410 Gone（公海列表已合并到客户列表）', async () => {
       const res = await request(app)
         .post('/api/v1/customer/pool')
         .set('Authorization', `Bearer ${token}`)
         .send({ page: 1, pageSize: 10 });
 
-      expect(res.status).toBe(200);
-      expect(res.body.code).toBe(200);
-      expect(res.body.data.list).toHaveLength(2);
-      expect(res.body.data.total).toBe(2);
+      expect(res.status).toBe(410);
+      expect(res.body.code).toBe(410);
+      expect(res.body.message).toContain('合并');
     });
   });
 
