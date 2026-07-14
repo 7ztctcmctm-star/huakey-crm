@@ -3,6 +3,9 @@
  * 从 routes/contract.js 提取的业务逻辑，供路由层复用
  */
 
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
+
 // 合同状态映射
 const STATUS_MAP = { 1: '待执行', 2: '执行中', 3: '已完成', 4: '已取消' };
 
@@ -117,10 +120,11 @@ async function listContracts(pool, params = {}, permission = null) {
  */
 async function getContract(pool, contractId) {
   const [contract] = await pool.query(`
-    SELECT c.*, cu.company_name as customer_name, cu.contact_name as contact, cu.phone, cu.address,
+    SELECT c.*, cu.company_name as customer_name, pc.name as contact, pc.phone, cu.address,
       u.real_name as create_by_name
     FROM crm_contract c
     LEFT JOIN crm_customer cu ON c.customer_id = cu.id
+    LEFT JOIN crm_contact pc ON pc.customer_id = cu.id AND pc.is_primary = 1 AND pc.deleted_at IS NULL
     LEFT JOIN sys_user u ON c.create_by = u.id
     WHERE c.id = ? AND c.deleted_at IS NULL
   `, [contractId]);
@@ -172,14 +176,10 @@ async function createContract(pool, data, createBy) {
       [customer_id]
     );
     if (customerCheck.length === 0) {
-      const err = new Error('客户不存在');
-      err.code = 404;
-      throw err;
+      throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);
     }
     if (customerCheck[0].status !== 2) {
-      const err = new Error('只能为正式客户创建合同，请先将客户转化为正式客户');
-      err.code = 400;
-      throw err;
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '只能为正式客户创建合同，请先将客户转化为正式客户');
     }
 
     // 生成合同编号
@@ -258,15 +258,11 @@ async function updateContractStatus(pool, contractId, newStatus) {
     [contractId]
   );
   if (!contracts.length) {
-    const err = new Error('合同不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.CONTRACT_NOT_FOUND);
   }
 
   if (contracts[0].status === 3 && newStatus !== 3) {
-    const err = new Error('已完成的合同不能变更状态');
-    err.code = 400;
-    throw err;
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '已完成的合同不能变更状态');
   }
 
   await pool.query('UPDATE crm_contract SET status = ? WHERE id = ?', [newStatus, contractId]);

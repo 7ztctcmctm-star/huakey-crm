@@ -102,10 +102,6 @@ async function deleteContract(req, res, next) {
 
   try {
     const result = await contractCrudService.deleteContract(pool, id, req.user);
-    if (result.code !== 200) {
-      return res.status(result.code).json({ code: result.code, message: result.message, data: null });
-    }
-
     await logAction(req, 'delete', `删除合同: ID=${id}`);
     await invalidateCache(['cache:*:/api/contract/*']);
     res.json({ code: 200, message: result.message, data: null });

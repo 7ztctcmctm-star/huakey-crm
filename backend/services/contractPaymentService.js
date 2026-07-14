@@ -6,6 +6,8 @@
 const ROLES = require('../config/roles');
 const paymentService = require('./paymentService');
 const XLSX = require('xlsx');
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 
 /**
  * 检查用户对合同的操作权限
@@ -17,15 +19,11 @@ const XLSX = require('xlsx');
 async function checkContractPermission(pool, contractId, user, action) {
   const [contracts] = await pool.query('SELECT create_by FROM crm_contract WHERE id=? AND deleted_at IS NULL', [contractId]);
   if (!contracts.length) {
-    const err = new Error('所属合同不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.CONTRACT_NOT_FOUND, '所属合同不存在');
   }
   const { manageAll, roleId, userId } = user;
   if (!manageAll && ![ROLES.ADMIN, ROLES.MANAGER].includes(roleId) && contracts[0].create_by !== userId) {
-    const err = new Error(`无权${action}该回款记录`);
-    err.code = 403;
-    throw err;
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, `无权${action}该回款记录`);
   }
   return contracts[0];
 }
@@ -68,9 +66,7 @@ async function updatePayment(pool, data, user) {
 async function deletePayment(pool, paymentId, user) {
   const [payments] = await pool.query('SELECT contract_id, plan_id FROM crm_payment WHERE id=? AND deleted_at IS NULL', [paymentId]);
   if (!payments.length) {
-    const err = new Error('回款记录不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '回款记录不存在');
   }
 
   await checkContractPermission(pool, payments[0].contract_id, user, '删除');
@@ -217,19 +213,20 @@ async function getStatementExport(pool, params = {}) {
   }
 
   const [summaryRows] = await pool.query(
-    `SELECT cu.company_name, cu.contact_name, cu.phone,
+    `SELECT cu.company_name, pc.name as contact_name, pc.phone,
             COUNT(DISTINCT c.id) as contract_count,
             COALESCE(SUM(c.amount), 0) as total_amount,
             COALESCE(SUM(cp.paid), 0) as paid_amount,
             COALESCE(SUM(c.amount), 0) - COALESCE(SUM(cp.paid), 0) as outstanding_amount
      FROM crm_contract c
      JOIN crm_customer cu ON c.customer_id = cu.id
+     LEFT JOIN crm_contact pc ON pc.customer_id = cu.id AND pc.is_primary = 1 AND pc.deleted_at IS NULL
      LEFT JOIN (
        SELECT contract_id, SUM(pay_amount) as paid
        FROM crm_payment WHERE deleted_at IS NULL GROUP BY contract_id
      ) cp ON cp.contract_id = c.id
      ${where}
-     GROUP BY cu.id, cu.company_name, cu.contact_name, cu.phone
+     GROUP BY cu.id, cu.company_name, pc.name, pc.phone
      HAVING total_amount > 0
      ORDER BY outstanding_amount DESC`,
     queryParams

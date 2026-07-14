@@ -6,6 +6,8 @@
 const ROLES = require('../config/roles');
 const contractService = require('./contractService');
 const { paginatedQuery } = require('../utils/pagination');
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 
 // 回款状态子查询条件
 const PAYMENT_STATUS_CLAUSE = {
@@ -199,22 +201,22 @@ async function updateContract(pool, data) {
 async function deleteContract(pool, id, user) {
   const [contract] = await pool.query('SELECT status, create_by FROM crm_contract WHERE id=? AND deleted_at IS NULL', [id]);
   if (!contract.length) {
-    return { code: 404, message: '合同不存在' };
+    throw new AppError(ErrorCodes.CONTRACT_NOT_FOUND);
   }
   if (contract[0].status === 3) {
-    return { code: 400, message: '已完成的合同不能删除' };
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '已完成的合同不能删除');
   }
 
   const { manageAll, roleId, userId } = user;
   if (!manageAll && ![ROLES.ADMIN, ROLES.MANAGER].includes(roleId) && contract[0].create_by !== userId) {
-    return { code: 403, message: '无权删除该合同' };
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权删除该合同');
   }
 
   await pool.query('UPDATE crm_contract SET deleted_at = NOW() WHERE id=?', [id]);
   await pool.query('UPDATE crm_payment SET deleted_at = NOW() WHERE contract_id=? AND deleted_at IS NULL', [id]);
   await pool.query('UPDATE crm_payment_plan SET deleted_at = NOW() WHERE contract_id=? AND deleted_at IS NULL', [id]);
 
-  return { code: 200, message: '删除合同成功' };
+  return { message: '删除合同成功' };
 }
 
 /**
