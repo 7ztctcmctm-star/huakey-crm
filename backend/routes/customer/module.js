@@ -12,7 +12,6 @@ const descriptor = {
     'customer:assign',
     'customer:import',
     'customer:pool',
-    'leads',
     'data_quality:check'
   ]
 };
