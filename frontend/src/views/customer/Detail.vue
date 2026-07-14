@@ -249,6 +249,25 @@
           <el-empty v-if="!opportunityLoading && opportunityList.length === 0" description="暂无商机记录" />
         </el-tab-pane>
 
+        <el-tab-pane label="销售漏斗" name="sales-funnel">
+          <div v-if="opportunityList.length === 0" class="tab-toolbar">
+            <el-empty description="暂无商机，无法展示销售漏斗" />
+          </div>
+          <div v-else>
+            <div class="funnel-selector">
+              <el-select v-model="selectedOppId" placeholder="选择商机查看时间轴" style="width: 300px" @change="onOppSelect">
+                <el-option
+                  v-for="opp in opportunityList"
+                  :key="opp.id"
+                  :label="opp.name + ' (' + stageMap[opp.stage] + ')'"
+                  :value="opp.id"
+                />
+              </el-select>
+            </div>
+            <SalesTimeline v-if="selectedOppId" :opportunity-id="selectedOppId" />
+          </div>
+        </el-tab-pane>
+
         <el-tab-pane label="服务工单" name="service">
           <el-table :data="serviceList" stripe border v-loading="serviceLoading">
             <el-table-column prop="order_no" label="工单号" width="160" />
@@ -533,6 +552,7 @@ import { getKnowledgeScripts } from '@/api/tools'
 import { formatTime } from '@/composables/useFormat'
 import { recordVisit } from '@/composables/useRecentVisit'
 import { ALL_SOURCE_VALUES } from '@/constants/source'
+import SalesTimeline from '@/components/customer/SalesTimeline.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -708,6 +728,10 @@ const priorityType = (p) => ({ 1: 'danger', 2: 'warning', 3: '', 4: 'info' }[p] 
 const serviceStatusMap = { 1: '待分配', 2: '已分配', 3: '处理中', 4: '待确认', 5: '已完成' }
 const serviceStatusType = (s) => ({ 1: 'warning', 2: 'info', 3: '', 4: 'warning', 5: 'success' }[s] || 'info')
 const fmtMoney = (v) => { if (!v && v !== 0) return '0.00'; return parseFloat(v).toLocaleString('zh-CN', { minimumFractionDigits: 2 }) }
+
+// 销售漏斗标签：选中商机的 timeline（Prompt 4-3-10）
+const selectedOppId = ref(null)
+const onOppSelect = () => {} // SalesTimeline 组件通过 watch 自动加载
 
 // 获取360度数据
 const fetchDetail = async () => {
@@ -1149,6 +1173,7 @@ onMounted(() => { fetchDetail(); fetchSalesUsers() })
 /* Tab 区域 */
 .tab-card { min-height: 400px; }
 .tab-toolbar { margin-bottom: var(--space-4); }
+.funnel-selector { margin-bottom: var(--space-4); }
 
 /* 跟进卡片 */
 .follow-card { margin-bottom: 0; }
