@@ -3,6 +3,9 @@
  * 从 routes/opportunity.js 提取的业务逻辑，供路由层复用
  */
 
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
+
 const STAGE_MAP = {
   1: '询盘',
   2: '需求确认',
@@ -135,9 +138,7 @@ async function getOpportunity(pool, opportunityId) {
  */
 async function advanceStage(pool, opportunityId, newStage, changedBy, stageProbability = null) {
   if (!newStage || newStage < 1 || newStage > 6) {
-    const err = new Error('阶段值无效(1-6)');
-    err.code = 400;
-    throw err;
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '阶段值无效(1-6)');
   }
 
   const [rows] = await pool.query(
@@ -145,16 +146,12 @@ async function advanceStage(pool, opportunityId, newStage, changedBy, stageProba
     [opportunityId]
   );
   if (rows.length === 0) {
-    const err = new Error('商机不存在或无权修改');
-    err.code = 403;
-    throw err;
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '商机不存在或无权修改');
   }
 
   const oldStage = rows[0].stage;
   if (oldStage === 5 || oldStage === 6) {
-    const err = new Error(`商机已${oldStage === 5 ? '成交' : '失败'}，不可再推进`);
-    err.code = 400;
-    throw err;
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, `商机已${oldStage === 5 ? '成交' : '失败'}，不可再推进`);
   }
 
   // 根据配置概率自动设置赢率
@@ -293,14 +290,10 @@ async function getStageStats(pool, opportunityId) {
 async function createOpportunity(pool, data, userId) {
   const [customers] = await pool.query('SELECT id, status FROM crm_customer WHERE id = ? AND status != 0', [data.customer_id]);
   if (customers.length === 0) {
-    const err = new Error('客户不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);
   }
   if (customers[0].status !== 2) {
-    const err = new Error('只能为正式客户创建商机，请先将客户转化为正式客户');
-    err.code = 400;
-    throw err;
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '只能为正式客户创建商机，请先将客户转化为正式客户');
   }
 
   const finalOwnerId = data.owner_id || userId;
@@ -325,9 +318,7 @@ async function updateOpportunity(pool, id, data) {
     [id]
   );
   if (rows.length === 0) {
-    const err = new Error('商机不存在或无权修改');
-    err.code = 403;
-    throw err;
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '商机不存在或无权修改');
   }
   const oldData = rows[0];
 
