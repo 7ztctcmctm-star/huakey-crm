@@ -372,7 +372,9 @@ app.use('/api/v1', apiRouter);
 app.use('/api/v1/survey', responseFormat, surveyRoutes);
 
 // 旧 /api 前缀重定向到 /api/v1（兼容期至 2026-08-01）
-app.use('/api', (req, res) => {
+// 仅处理 /api/X 格式的旧路径，/api/v1/X 正常放行避免无限循环
+app.use('/api', (req, res, next) => {
+  if (req.originalUrl.startsWith('/api/v1/')) return next();
   res.set('Deprecation', 'true');
   res.set('Sunset', 'Sat, 01 Aug 2026 00:00:00 GMT');
   res.redirect(307, '/api/v1' + req.originalUrl.replace(/^\/api/, ''));
