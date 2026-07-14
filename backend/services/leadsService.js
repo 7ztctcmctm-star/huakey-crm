@@ -1,10 +1,12 @@
 /**
- * 线索服务层
+ * @deprecated 线索服务层（Prompt 4-1 已废弃）
+ * 线索已整合为客户生命周期的"潜客"阶段（customer_type='prospect'）。
+ * 相关路由 /customer/leads/* 已全部返回 410 Gone，请使用 customerService。
  * 从 routes/customer/leads.js 提取的业务逻辑
  */
 
 const ROLES = require('../config/roles');
-const { CUSTOMER_STATUS } = require('../constants/customer');
+const { CUSTOMER_STATUS } = require('../constants/customerStatus');
 
 /**
  * 线索数据权限子句构建
@@ -54,10 +56,11 @@ async function getLeadsList(pool, params, user, sourceParentMap = {}) {
 
   let whereClause;
   if (owner_id) {
-    whereClause = `WHERE ${permissionClause} AND c.status = ${CUSTOMER_STATUS.LEAD} AND c.owner_id = ?`;
-    queryParams.push(owner_id);
+    whereClause = `WHERE ${permissionClause} AND c.status = ? AND c.owner_id = ?`;
+    queryParams.push(CUSTOMER_STATUS.FOLLOWING, owner_id);
   } else {
-    whereClause = `WHERE ${permissionClause} AND c.status = ${CUSTOMER_STATUS.LEAD}`;
+    whereClause = `WHERE ${permissionClause} AND c.status = ? AND c.owner_id IS NULL`;
+    queryParams.push(CUSTOMER_STATUS.FOLLOWING);
   }
 
   if (company_name) { whereClause += ' AND c.company_name LIKE ?'; queryParams.push(`%${company_name}%`); }
@@ -97,22 +100,23 @@ async function getLeadsList(pool, params, user, sourceParentMap = {}) {
 }
 
 /**
- * 线索转化：将线索转为潜客（status 5→1）
+ * 线索转化：将未分配的线索分配给指定销售
  * @param {object} pool
  * @param {number} id
+ * @param {number} userId
  * @returns {{ id: number, company_name: string }}
  */
-async function convertLead(pool, id) {
+async function convertLead(pool, id, userId) {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
 
     const [rows] = await connection.query(
-      `SELECT id, company_name, owner_id FROM crm_customer WHERE id = ? AND status = ${CUSTOMER_STATUS.LEAD}`,
-      [id]
+      `SELECT id, company_name, owner_id FROM crm_customer WHERE id = ? AND status = ? AND owner_id IS NULL`,
+      [id, CUSTOMER_STATUS.FOLLOWING]
     );
     if (rows.length === 0) {
-      const err = new Error('线索不存在或已转化');
+      const err = new Error('线索不存在或已分配');
       err.code = 404;
       throw err;
     }
@@ -120,13 +124,11 @@ async function convertLead(pool, id) {
     const lead = rows[0];
     await connection.query(
       `UPDATE crm_customer
-       SET status = ${CUSTOMER_STATUS.PROSPECT},
-           customer_type = 'prospect',
-           lifecycle_status = 'nurturing',
+       SET owner_id = ?,
            converted_at = COALESCE(converted_at, NOW()),
            lead_level = NULL
        WHERE id = ?`,
-      [id]
+      [userId, id]
     );
 
     await connection.commit();
@@ -173,15 +175,32 @@ async function importLeads(pool, leads, userId) {
   const errors = [];
 
   for (const lead of leads) {
+    const connection = await pool.getConnection();
     try {
-      await pool.query(
-        `INSERT INTO crm_customer (company_name, contact_name, phone, source, status, owner_id, create_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [lead.company_name, lead.contact_name || null, lead.phone || null, lead.source || null, CUSTOMER_STATUS.LEAD, userId, userId]
+      await connection.beginTransaction();
+
+      const [result] = await connection.query(
+        `INSERT INTO crm_customer (company_name, source, status, owner_id, create_by)
+         VALUES (?, ?, ?, ?, ?)`,
+        [lead.company_name, lead.source || null, CUSTOMER_STATUS.FOLLOWING, null, userId]
       );
+
+      // 联系人信息统一存入 crm_contact
+      if (lead.contact_name || lead.phone) {
+        await connection.query(
+          `INSERT INTO crm_contact (customer_id, name, phone, is_decision, is_primary, create_time, update_time)
+           VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
+          [result.insertId, lead.contact_name || '', lead.phone || null, 0, 1]
+        );
+      }
+
+      await connection.commit();
       imported++;
     } catch (error) {
+      await connection.rollback();
       errors.push({ lead: lead.company_name, message: error.message });
+    } finally {
+      connection.release();
     }
   }
 
@@ -197,8 +216,8 @@ async function importLeads(pool, leads, userId) {
  */
 async function claimLead(pool, id, userId) {
   const [rows] = await pool.query(
-    `SELECT id, company_name FROM crm_customer WHERE id = ? AND status = ${CUSTOMER_STATUS.LEAD} AND (owner_id IS NULL OR owner_id = 1)`,
-    [id]
+    `SELECT id, company_name FROM crm_customer WHERE id = ? AND status = ? AND owner_id IS NULL`,
+    [id, CUSTOMER_STATUS.FOLLOWING]
   );
   if (rows.length === 0) {
     const err = new Error('线索不存在或已被领取');
@@ -228,8 +247,8 @@ async function claimLead(pool, id, userId) {
  */
 async function markLeadLost(pool, id, userId) {
   const [rows] = await pool.query(
-    `SELECT id FROM crm_customer WHERE id = ? AND status = ${CUSTOMER_STATUS.LEAD} AND owner_id = ?`,
-    [id, userId]
+    `SELECT id FROM crm_customer WHERE id = ? AND status = ? AND owner_id = ?`,
+    [id, CUSTOMER_STATUS.FOLLOWING, userId]
   );
   if (rows.length === 0) {
     const err = new Error('线索不存在或无权操作');
@@ -239,12 +258,10 @@ async function markLeadLost(pool, id, userId) {
 
   await pool.query(
     `UPDATE crm_customer
-     SET status = ${CUSTOMER_STATUS.LOST},
-         customer_type = 'customer',
-         lifecycle_status = 'lost',
+     SET status = ?,
          follow_status = '已流失'
      WHERE id = ?`,
-    [id]
+    [CUSTOMER_STATUS.LOST, id]
   );
 }
 
@@ -257,17 +274,20 @@ async function markLeadLost(pool, id, userId) {
 async function getLeadsStats(pool, user) {
   const { clause: permissionClause, params: permParams } = await buildLeadsPermissionClause(pool, user);
 
+  const leadWhere = `${permissionClause} AND c.status = ? AND c.owner_id IS NULL`;
+  const convertedWhere = `${permissionClause} AND c.status = ? AND c.owner_id IS NOT NULL AND c.converted_at >= NOW() - INTERVAL 30 DAY`;
+
   const [total] = await pool.query(
-    `SELECT COUNT(*) as cnt FROM crm_customer c WHERE ${permissionClause} AND status = ${CUSTOMER_STATUS.LEAD}`,
-    permParams
+    `SELECT COUNT(*) as cnt FROM crm_customer c WHERE ${leadWhere}`,
+    [...permParams, CUSTOMER_STATUS.FOLLOWING]
   );
   const [month] = await pool.query(
-    `SELECT COUNT(*) as cnt FROM crm_customer c WHERE ${permissionClause} AND status = ${CUSTOMER_STATUS.LEAD} AND YEAR(create_time) = YEAR(NOW()) AND WEEK(create_time, 1) = WEEK(NOW(), 1)`,
-    permParams
+    `SELECT COUNT(*) as cnt FROM crm_customer c WHERE ${leadWhere} AND YEAR(c.create_time) = YEAR(NOW()) AND WEEK(c.create_time, 1) = WEEK(NOW(), 1)`,
+    [...permParams, CUSTOMER_STATUS.FOLLOWING]
   );
   const [converted] = await pool.query(
-    `SELECT COUNT(*) as cnt FROM crm_customer c WHERE ${permissionClause} AND status = ${CUSTOMER_STATUS.PROSPECT} AND converted_at >= NOW() - INTERVAL 30 DAY`,
-    permParams
+    `SELECT COUNT(*) as cnt FROM crm_customer c WHERE ${convertedWhere}`,
+    [...permParams, CUSTOMER_STATUS.FOLLOWING]
   );
 
   return {

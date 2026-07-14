@@ -692,6 +692,44 @@ async function getNearRecycleCustomersList(pool, params = {}, permission = null)
   };
 }
 
+/**
+ * 潜客转化为正式客户（Prompt 4-1）
+ * 将 customer_type 从 prospect 更新为 customer，lifecycle_status 置为 active
+ * @param {object} pool
+ * @param {number} id
+ * @param {number} userId
+ * @returns {{ id: number, company_name: string }}
+ */
+async function convertToCustomer(pool, id) {
+  const [rows] = await pool.query(
+    'SELECT id, company_name, customer_type FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+    [id]
+  );
+  if (rows.length === 0) {
+    throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);
+  }
+  const customer = rows[0];
+  if (customer.customer_type === 'customer') {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已是正式客户');
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    await connection.query(
+      'UPDATE crm_customer SET customer_type = ?, lifecycle_status = ? WHERE id = ?',
+      ['customer', 'active', id]
+    );
+    await connection.commit();
+    return { id, company_name: customer.company_name };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
 module.exports = {
   VALID_SOURCES,
   SOURCE_PARENT_MAP,
@@ -710,5 +748,6 @@ module.exports = {
   getDefaultStatus,
   clearStatusConfigCache,
   getOverdueCustomers,
-  getNearRecycleCustomersList
+  getNearRecycleCustomersList,
+  convertToCustomer
 };

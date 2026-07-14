@@ -410,9 +410,21 @@ async function importConfirm(req, res, next) {
   }
 }
 
+// ==================== 潜客转化（Prompt 4-1） ====================
+
+async function convertToCustomer(req, res, next) {
+  try {
+    const result = await customerService.convertToCustomer(pool, req.body.id);
+    res.json({ code: 200, message: '转化为正式客户成功', data: result });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   list, create, update, remove, detail, view360, exportCustomers, forward, backward,
   listLeads, convertLead, batchConvertLeads, importLeads, claimLead, markLeadLost, getLeadsStats,
+  convertToCustomer,
   assign, batchAssign, listAssignLogs, createAssignRule, updateAssignRule, deleteAssignRule, autoAssign,
   getAssignRules, getSalesUsers, getMySubordinates,
   claim, batchClaim, release, batchRelease, listPoolLogs, importPreview, importConfirm
