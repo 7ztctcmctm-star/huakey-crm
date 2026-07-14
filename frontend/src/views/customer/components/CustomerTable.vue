@@ -78,10 +78,14 @@
           <el-tag v-else type="danger" size="small" effect="plain">待分配</el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="contact_name" label="联系人" width="100" class-name="hide-mobile" />
-      <el-table-column prop="phone" label="电话" width="130" class-name="hide-mobile">
+      <el-table-column prop="primary_contact_name" label="联系人" width="100" class-name="hide-mobile">
         <template #default="{ row }">
-          <a v-if="row.phone" :href="'tel:' + row.phone" style="color: var(--el-color-primary); text-decoration: none;">{{ row.phone }}</a>
+          <span>{{ row.primary_contact_name || '-' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column prop="primary_contact_phone" label="电话" width="130" class-name="hide-mobile">
+        <template #default="{ row }">
+          <a v-if="row.primary_contact_phone" :href="'tel:' + row.primary_contact_phone" style="color: var(--el-color-primary); text-decoration: none;">{{ row.primary_contact_phone }}</a>
           <span v-else>-</span>
         </template>
       </el-table-column>
@@ -128,6 +132,16 @@
           <el-tag v-else type="danger" size="small">从未跟进</el-tag>
         </template>
       </el-table-column>
+      <el-table-column label="距下次跟进" width="140" align="center">
+        <template #default="{ row }">
+          <el-tooltip v-if="row.next_follow_time" :content="fullTime(row.next_follow_time)" placement="top">
+            <span :style="{ color: isNextFollowOverdue(row.next_follow_time) ? '#e85c5c' : '' }">
+              {{ relativeNextTime(row.next_follow_time) }}
+            </span>
+          </el-tooltip>
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="create_time" label="创建时间" width="150">
         <template #default="{ row }">
           <el-tooltip :content="fullTime(row.create_time)" placement="top">
@@ -135,18 +149,19 @@
           </el-tooltip>
         </template>
       </el-table-column>
-      <el-table-column label="操作" :width="isProspectView && (isBoss || isManager) ? 350 : 260" fixed="right">
+      <el-table-column label="操作" :width="isBoss || isManager ? 380 : 300" fixed="right">
         <template #default="{ row }">
+          <el-button v-if="viewMode === 'sea' || !row.owner_id" type="success" size="small" :icon="Aim" @click="$emit('claim', row)" v-permission="'customer:pool'">认领</el-button>
           <el-button type="success" size="small" :icon="ChatLineRound" @click="$emit('quick-follow', row)" v-permission="'customer:edit'">跟进</el-button>
           <el-button v-if="isBoss || isManager" type="warning" size="small" @click="$emit('assign', row)" v-permission="'customer:assign'">分配</el-button>
-          <el-button v-if="isProspectView && (isBoss || isManager)" type="primary" size="small" @click="openConvertDialog(row, 'to_customer')">转为正式客户</el-button>
+          <el-button v-if="canForward(row)" type="primary" size="small" :icon="ArrowRight" @click="handleForward(row)" v-permission="'customer:edit'">推进</el-button>
+          <el-button v-if="canBackward(row)" type="info" size="small" :icon="ArrowLeft" @click="handleBackward(row)" v-permission="'customer:edit'">回退</el-button>
           <el-dropdown trigger="click" @command="(cmd) => handleMoreAction(cmd, row)">
             <el-button size="small">更多</el-button>
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item command="view">查看</el-dropdown-item>
                 <el-dropdown-item v-if="hasPermissionFromStorage('customer:edit')" command="edit">编辑</el-dropdown-item>
-                <el-dropdown-item v-if="!isProspectView && (isBoss || isManager)" command="to_prospect" divided :style="{ color: '#f97316' }">退回潜客池</el-dropdown-item>
                 <el-dropdown-item v-if="hasPermissionFromStorage('customer:delete')" command="delete" divided :style="{ color: 'var(--color-accent)' }">删除</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -155,13 +170,17 @@
       </el-table-column>
     </el-table>
 
-    <!-- 转化确认弹窗 -->
-    <el-dialog v-model="convertDialogVisible" :title="convertAction === 'to_customer' ? '转为正式客户' : '退回潜客池'" width="440px">
-      <el-alert :title="convertAction === 'to_customer' ? '确认将以下潜客转为正式客户？' : '确认将以下客户退回潜客池？'" :type="convertAction === 'to_customer' ? 'success' : 'warning'" :description="convertAction === 'to_customer' ? '转化后该客户将出现在正式客户列表中，可联动后续业务流程（商机、合同、回款、售后）。' : '退回后该客户将回到潜客池，不再享有正式客户状态。'" show-icon :closable="false" style="margin-bottom:16px" />
-      <p style="font-size:15px;font-weight:bold;text-align:center;padding:8px">{{ convertTarget?.company_name }}</p>
+    <!-- 回退原因弹窗 -->
+    <el-dialog v-model="backwardDialogVisible" title="回退客户状态" width="440px" :close-on-click-modal="false">
+      <p style="font-size:15px;font-weight:bold;text-align:center;padding:8px">{{ backwardTarget?.company_name }}</p>
+      <el-form label-width="80px">
+        <el-form-item label="回退原因">
+          <el-input v-model="backwardReason" type="textarea" :rows="3" placeholder="请输入回退原因（可选）" />
+        </el-form-item>
+      </el-form>
       <template #footer>
-        <el-button @click="convertDialogVisible = false">取消</el-button>
-        <el-button :type="convertAction === 'to_customer' ? 'primary' : 'warning'" @click="confirmConvert" :loading="convertLoading">确认{{ convertAction === 'to_customer' ? '转化' : '退回' }}</el-button>
+        <el-button @click="backwardDialogVisible = false">取消</el-button>
+        <el-button type="warning" @click="confirmBackward" :loading="backwardLoading">确认回退</el-button>
       </template>
     </el-dialog>
   </el-card>
@@ -170,10 +189,10 @@
 <script setup>
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus, Upload, Download, DataAnalysis, ChatLineRound, Select } from '@element-plus/icons-vue'
-import { relativeTime, fullTime } from '@/composables/useRelativeTime'
+import { Plus, Upload, Download, DataAnalysis, ChatLineRound, Select, ArrowRight, ArrowLeft, Aim } from '@element-plus/icons-vue'
+import { relativeTime, fullTime, relativeNextTime } from '@/composables/useRelativeTime'
 import { hasPermissionFromStorage } from '@/utils/permission'
-import { convertCustomer } from '@/api/customer'
+import { forwardCustomer, backwardCustomer } from '@/api/customer'
 
 const props = defineProps({
   loading: { type: Boolean, default: false },
@@ -194,7 +213,7 @@ const emit = defineEmits([
   'add', 'import', 'export', 'quality-check', 'batch-follow', 'batch-assign',
   'update:viewMode', 'update:staffFilterId', 'update:batchNewOwnerId',
   'view-mode-change', 'staff-filter-change',
-  'selection-change', 'quick-follow', 'assign', 'convert-success', 'view', 'edit', 'delete', 'to-prospect'
+  'selection-change', 'quick-follow', 'assign', 'claim', 'status-change', 'view', 'edit', 'delete'
 ])
 
 const tableRef = ref(null)
@@ -215,22 +234,37 @@ const levelColor = (level) => {
 }
 
 const statusTagType = (status) => {
-  const map = { 0: 'info', 1: 'warning', 2: 'success', 3: 'danger', 5: '' }
+  const map = {
+    sea: 'info',
+    following: 'warning',
+    quoted: '',
+    negotiating: 'primary',
+    signed: 'success',
+    lost: 'danger',
+    paused: 'info'
+  }
   return map[status] || 'info'
 }
 
 const statusMap = {
-  0: '已删除',
-  1: '潜客',
-  2: '正式客户',
-  3: '已流失',
-  5: '线索'
+  sea: '公海客户',
+  following: '跟进中',
+  quoted: '已报价',
+  negotiating: '谈判中',
+  signed: '已签约',
+  lost: '已流失',
+  paused: '暂停跟进'
 }
 
 const overdueDays = 15
 const isOverdue = (time) => {
   if (!time) return true
   return (new Date() - new Date(time)) > overdueDays * 24 * 60 * 60 * 1000
+}
+
+const isNextFollowOverdue = (time) => {
+  if (!time) return false
+  return new Date(time).getTime() < Date.now()
 }
 
 const rowClassName = ({ row }) => {
@@ -242,44 +276,69 @@ const handleMoreAction = (command, row) => {
   if (command === 'view') emit('view', row)
   else if (command === 'edit') emit('edit', row)
   else if (command === 'delete') emit('delete', row)
-  else if (command === 'to_prospect') emit('to-prospect', row)
 }
 
-// 转化确认弹窗
-const convertDialogVisible = ref(false)
-const convertAction = ref('')
-const convertTarget = ref(null)
-const convertLoading = ref(false)
+// 状态流转
+const PIPELINE = ['sea', 'following', 'quoted', 'negotiating', 'signed']
 
-const confirmConvert = async () => {
-  convertLoading.value = true
+const canForward = (row) => {
+  const idx = PIPELINE.indexOf(row.status)
+  return idx !== -1 && idx < PIPELINE.length - 1 && row.status !== 'lost' && row.status !== 'paused'
+}
+
+const canBackward = (row) => {
+  const idx = PIPELINE.indexOf(row.status)
+  return idx > 0 && row.status !== 'lost' && row.status !== 'paused'
+}
+
+const handleForward = async (row) => {
   try {
-    const res = await convertCustomer({
-      customer_id: convertTarget.value.id,
-      action: convertAction.value
-    })
+    const res = await forwardCustomer({ customer_id: row.id })
     if (res.code === 200) {
       ElMessage.success(res.message)
-      convertDialogVisible.value = false
-      emit('convert-success')
+      emit('status-change')
     } else {
-      ElMessage.error(res.message || '操作失败')
+      ElMessage.error(res.message || '推进失败')
     }
   } catch (error) {
-    ElMessage.error('转化失败：' + (error.response?.data?.message || error.message))
-  } finally {
-    convertLoading.value = false
+    ElMessage.error('推进失败：' + (error.response?.data?.message || error.message))
   }
 }
 
-// 外部调用打开转化弹窗
-const openConvertDialog = (row, action) => {
-  convertTarget.value = row
-  convertAction.value = action
-  convertDialogVisible.value = true
+const backwardDialogVisible = ref(false)
+const backwardTarget = ref(null)
+const backwardReason = ref('')
+const backwardLoading = ref(false)
+
+const handleBackward = (row) => {
+  backwardTarget.value = row
+  backwardReason.value = ''
+  backwardDialogVisible.value = true
 }
 
-defineExpose({ openConvertDialog, tableRef })
+const confirmBackward = async () => {
+  if (!backwardTarget.value) return
+  backwardLoading.value = true
+  try {
+    const res = await backwardCustomer({
+      customer_id: backwardTarget.value.id,
+      reason: backwardReason.value
+    })
+    if (res.code === 200) {
+      ElMessage.success(res.message)
+      backwardDialogVisible.value = false
+      emit('status-change')
+    } else {
+      ElMessage.error(res.message || '回退失败')
+    }
+  } catch (error) {
+    ElMessage.error('回退失败：' + (error.response?.data?.message || error.message))
+  } finally {
+    backwardLoading.value = false
+  }
+}
+
+defineExpose({ tableRef })
 </script>
 
 <style scoped>

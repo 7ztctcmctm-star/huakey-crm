@@ -40,6 +40,7 @@
       @staff-filter-change="switchViewMode"
       @quick-follow="(row) => { quickFollowCustomer = row; quickFollowVisible = true }"
       @assign="(row) => { assignCustomer = row; assignDialogVisible = true }"
+      @claim="handleClaim"
       @status-change="fetchList"
       @view="(row) => router.push(`/customer/detail/${row.id}`)"
       @edit="handleEdit"
@@ -103,7 +104,7 @@ import AssignDialog from './components/AssignDialog.vue'
 import FollowDialog from './components/FollowDialog.vue'
 import BatchFollowDialog from './components/BatchFollowDialog.vue'
 import { get } from '@/utils/request'
-import { getCustomerList, deleteCustomer, batchAssignCustomer, exportCustomers, getSalesUsers, getMySubordinates } from '@/api/customer'
+import { getCustomerList, deleteCustomer, batchAssignCustomer, exportCustomers, getSalesUsers, getMySubordinates, claimCustomer } from '@/api/customer'
 import { SOURCE_SEARCH_OPTIONS } from '@/constants/source'
 
 const router = useRouter()
@@ -164,6 +165,20 @@ const fetchSubordinates = async () => {
 
 const handleSelectionChange = (rows) => {
   selectedRows.value = rows
+}
+
+const handleClaim = async (row) => {
+  try {
+    const res = await claimCustomer(row.id)
+    if (res.code === 200) {
+      ElMessage.success('认领成功')
+      fetchList()
+    } else {
+      ElMessage.error(res.message || '认领失败')
+    }
+  } catch (e) {
+    ElMessage.error('认领失败')
+  }
 }
 
 const handleBatchAssign = async () => {
