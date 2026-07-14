@@ -22,12 +22,11 @@
         <template #title>首页</template>
       </el-menu-item>
 
-      <el-sub-menu index="/customer" v-if="hasAnyMenuPermission(['leads', 'customer:list', 'customer:pool', 'followup:calendar'])">
+      <el-sub-menu index="/customer" v-if="hasAnyMenuPermission(['customer:list', 'customer:pool', 'followup:calendar'])">
         <template #title>
           <el-icon><UserFilled /></el-icon>
           <span>客户管理</span>
         </template>
-        <el-menu-item index="/leads" v-if="hasMenuPermission('leads')">线索管理</el-menu-item>
         <el-menu-item index="/customer/list?tab=prospect" v-if="hasMenuPermission('customer:list')">潜客池</el-menu-item>
         <el-menu-item index="/customer/list?tab=customer" v-if="hasMenuPermission('customer:list')">正式客户</el-menu-item>
         <el-menu-item index="/customer/list?tab=sea" v-if="hasMenuPermission('customer:pool')">公海池</el-menu-item>

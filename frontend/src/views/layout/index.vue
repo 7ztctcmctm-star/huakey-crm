@@ -37,7 +37,7 @@
       <!-- 中间内容区 -->
       <el-main class="main-content">
         <router-view v-slot="{ Component }">
-          <keep-alive :include="['Dashboard', 'CustomerList', 'Leads', 'TeamDashboard']">
+          <keep-alive :include="['Dashboard', 'CustomerList', 'TeamDashboard']">
             <component :is="Component" />
           </keep-alive>
         </router-view>

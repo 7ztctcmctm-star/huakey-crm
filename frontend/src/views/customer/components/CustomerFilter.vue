@@ -83,6 +83,7 @@
     <el-tabs :model-value="activeTab" @tab-change="$emit('tab-change', $event)">
       <el-tab-pane label="全部" name="all" />
       <el-tab-pane label="公海" name="sea" />
+      <el-tab-pane label="潜客" name="prospect" />
       <el-tab-pane label="跟进中" name="following" />
       <el-tab-pane label="已报价" name="quoted" />
       <el-tab-pane label="谈判中" name="negotiating" />

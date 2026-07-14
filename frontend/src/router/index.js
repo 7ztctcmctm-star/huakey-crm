@@ -27,12 +27,6 @@ const router = createRouter({
           meta: { title: '首页', permission: 'dashboard' }
         },
         {
-          path: 'leads',
-          name: 'Leads',
-          component: () => import('../views/leads/Index.vue'),
-          meta: { title: '线索导入', permission: 'leads' }
-        },
-        {
           path: 'followup/calendar',
           name: 'FollowupCalendar',
           component: () => import('../views/followup/calendar.vue'),

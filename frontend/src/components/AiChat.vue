@@ -54,7 +54,6 @@ const hints = ['最近7天新增了多少线索', '各等级的客户数量', '�
 function getCtx() {
   const m = {
     '/dashboard': '仪表盘页面，可看到销售数据、客户统计、业绩排行',
-    '/leads': '线索管理页面，管理潜在客户线索',
     '/customer/list': '客户列表，管理正式成交客户',
     '/customer/pool': '客户公海，无负责人的客户资源池'
   }

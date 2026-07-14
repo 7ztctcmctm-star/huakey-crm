@@ -41,6 +41,7 @@
       @quick-follow="(row) => { quickFollowCustomer = row; quickFollowVisible = true }"
       @assign="(row) => { assignCustomer = row; assignDialogVisible = true }"
       @claim="handleClaim"
+      @convert-to-customer="handleConvertToCustomer"
       @status-change="fetchList"
       @view="(row) => router.push(`/customer/detail/${row.id}`)"
       @edit="handleEdit"
@@ -104,7 +105,7 @@ import AssignDialog from './components/AssignDialog.vue'
 import FollowDialog from './components/FollowDialog.vue'
 import BatchFollowDialog from './components/BatchFollowDialog.vue'
 import { get } from '@/utils/request'
-import { getCustomerList, deleteCustomer, batchAssignCustomer, exportCustomers, getSalesUsers, getMySubordinates, claimCustomer } from '@/api/customer'
+import { getCustomerList, deleteCustomer, batchAssignCustomer, exportCustomers, getSalesUsers, getMySubordinates, claimCustomer, convertToCustomer } from '@/api/customer'
 import { SOURCE_SEARCH_OPTIONS } from '@/constants/source'
 
 const router = useRouter()
@@ -181,6 +182,21 @@ const handleClaim = async (row) => {
   }
 }
 
+const handleConvertToCustomer = async (row) => {
+  try {
+    await ElMessageBox.confirm(`确定将「${row.company_name}」转化为正式客户吗？`, '转化确认', { type: 'warning' })
+    const res = await convertToCustomer(row.id)
+    if (res.code === 200) {
+      ElMessage.success(`客户「${row.company_name}」已成功转化为正式客户`)
+      fetchList()
+    } else {
+      ElMessage.error(res.message || '转化失败')
+    }
+  } catch (e) {
+    if (e !== 'cancel') ElMessage.error('转化失败')
+  }
+}
+
 const handleBatchAssign = async () => {
   if (selectedRows.value.length === 0) return
   const isBatchRecycle = batchNewOwnerId.value === ''
@@ -215,7 +231,7 @@ const handleBatchAssign = async () => {
 const assignDialogVisible = ref(false)
 const assignCustomer = ref(null)
 
-const isProspectView = computed(() => route.path.includes('prospects'))
+const isProspectView = computed(() => activeTab.value === 'prospect' || route.query.tab === 'prospect')
 
 const searchForm = reactive({
   company_name: '',
@@ -330,9 +346,8 @@ const fetchList = async () => {
       params.owner_id = staffFilterId.value
     }
 
-    if (activeTab.value === 'lead') {
-      params.status = 'following'
-      params.unassigned = true
+    if (activeTab.value === 'prospect') {
+      params.customer_type = 'prospect'
     } else if (activeTab.value === 'sea') {
       params.unassigned = true
     } else if (activeTab.value === 'following') {
@@ -387,12 +402,18 @@ const handleReset = () => {
   fetchList()
 }
 
-watch(() => route.path, (newPath, oldPath) => {
-  if (newPath === oldPath) return
-  if (newPath.includes('prospects') || newPath.includes('customer/list')) {
-    searchForm.status = newPath.includes('prospects') ? 'following' : ''
+watch(() => route.fullPath, (newFull, oldFull) => {
+  if (newFull === oldFull) return
+  if (route.path.includes('customer/list')) {
+    const tab = route.query.tab
+    if (tab === 'prospect') {
+      activeTab.value = 'prospect'
+      searchForm.status = ''
+    } else {
+      activeTab.value = 'all'
+      searchForm.status = ''
+    }
     searchForm.page = 1
-    activeTab.value = newPath.includes('prospects') ? 'following' : 'all'
     fetchList()
   }
 })
