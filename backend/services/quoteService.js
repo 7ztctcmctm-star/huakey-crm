@@ -3,6 +3,12 @@
  * 从 routes/quote.js 提取的业务逻辑
  */
 
+const logger = require('../config/logger');
+const { CUSTOMER_STATUS } = require('../constants/customerStatus');
+const customerService = require('../services/customerService');
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
+
 async function generateQuoteNo(connection) {
   const now = new Date();
   const dateStr = now.getFullYear().toString().slice(2) + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
@@ -25,7 +31,7 @@ async function createQuote(pool, data, userId) {
       'SELECT id FROM crm_customer WHERE id = ? AND status != 0',
       [customer_id]
     );
-    if (customers.length === 0) return { error: '客户不存在', code: 404 };
+    if (customers.length === 0) throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND)
 
     let totalAmount = 0;
     const validatedItems = [];
@@ -34,7 +40,7 @@ async function createQuote(pool, data, userId) {
         'SELECT id, name, code, price FROM crm_product WHERE id = ? AND status = 1',
         [item.product_id]
       );
-      if (products.length === 0) return { error: `产品ID ${item.product_id} 不存在或已禁用`, code: 404 };
+      if (products.length === 0) throw new AppError(ErrorCodes.BUSINESS_VALIDATION, `产品ID ${item.product_id} 不存在或已禁用`)
 
       const product = products[0];
       const quantity = item.quantity || 1;
@@ -78,6 +84,26 @@ async function createQuote(pool, data, userId) {
     }
 
     await connection.commit();
+
+    // 报价创建后自动推进客户状态：following -> quoted（不阻塞主流程）
+    const advanceStatus = data.advance_status !== false;
+    if (advanceStatus) {
+      try {
+        const [customerRows] = await pool.query(
+          'SELECT status FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+          [customer_id]
+        );
+        if (customerRows.length > 0 && customerRows[0].status === CUSTOMER_STATUS.FOLLOWING) {
+          await customerService.forwardStatus(pool, customer_id, userId);
+        }
+      } catch (e) {
+        logger.error('[报价] 自动推进客户状态失败', {
+          customer_id,
+          error: e.message,
+          traceId: 'N/A'
+        });
+      }
+    }
 
     // 创建审批通知（不阻塞主流程）
     try {
@@ -218,11 +244,11 @@ async function updateQuote(pool, data) {
     const { id, customer_id, items, discount, valid_days, remark, status } = data;
 
     const [quotes] = await connection.query('SELECT * FROM crm_quote WHERE id = ? AND deleted_at IS NULL', [id]);
-    if (quotes.length === 0) return { error: '报价单不存在', code: 404 };
+    if (quotes.length === 0) throw new AppError(ErrorCodes.QUOTE_NOT_FOUND)
 
     const existingQuote = quotes[0];
     if (existingQuote.status === 3 || existingQuote.status === 4) {
-      return { error: `${STATUS_MAP[existingQuote.status]}的报价单不可修改`, code: 400 };
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, `${STATUS_MAP[existingQuote.status]}的报价单不可修改`)
     }
 
     let updates = [];
@@ -230,7 +256,7 @@ async function updateQuote(pool, data) {
 
     if (customer_id !== undefined) {
       const [customers] = await connection.query('SELECT id FROM crm_customer WHERE id = ? AND status != 0', [customer_id]);
-      if (customers.length === 0) return { error: '客户不存在', code: 404 };
+      if (customers.length === 0) throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND)
       updates.push('customer_id = ?');
       updateParams.push(customer_id);
     }
@@ -249,7 +275,7 @@ async function updateQuote(pool, data) {
           'SELECT id, name, code, price FROM crm_product WHERE id = ? AND status = 1',
           [item.product_id]
         );
-        if (products.length === 0) return { error: `产品ID ${item.product_id} 不存在或已禁用`, code: 404 };
+        if (products.length === 0) throw new AppError(ErrorCodes.BUSINESS_VALIDATION, `产品ID ${item.product_id} 不存在或已禁用`)
 
         const product = products[0];
         const quantity = item.quantity || 1;
@@ -286,13 +312,13 @@ async function updateQuote(pool, data) {
 
 async function deleteQuote(pool, id, user) {
   const [quotes] = await pool.query('SELECT status, create_by FROM crm_quote WHERE id = ? AND deleted_at IS NULL', [id]);
-  if (quotes.length === 0) return { error: '报价单不存在', code: 404 };
-  if (quotes[0].status === 3) return { error: '已确认的报价单不可删除', code: 400 };
+  if (quotes.length === 0) throw new AppError(ErrorCodes.QUOTE_NOT_FOUND)
+  if (quotes[0].status === 3) throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '已确认的报价单不可删除')
 
   const ROLES = require('../config/roles');
   const { manageAll, roleId, userId } = user;
   if (!manageAll && ![ROLES.ADMIN, ROLES.MANAGER].includes(roleId) && quotes[0].create_by !== userId) {
-    return { error: '无权删除该报价单', code: 403 };
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权删除该报价单')
   }
 
   await pool.query('UPDATE crm_quote SET deleted_at = NOW() WHERE id = ?', [id]);
@@ -301,7 +327,7 @@ async function deleteQuote(pool, id, user) {
 
 async function approveQuote(pool, id, approvalStatus, approvalRemark, userId) {
   const [rows] = await pool.query('SELECT id FROM crm_quote WHERE id = ? AND deleted_at IS NULL', [id]);
-  if (rows.length === 0) return { error: '报价单不存在', code: 404 };
+  if (rows.length === 0) throw new AppError(ErrorCodes.QUOTE_NOT_FOUND)
 
   await pool.query(
     'UPDATE crm_quote SET approval_status = ?, approver_id = ?, approval_remark = ? WHERE id = ?',
@@ -320,7 +346,7 @@ async function convertToContract(pool, quoteId, userId) {
   const conn = await pool.getConnection();
   try {
     const [[quote]] = await conn.query('SELECT * FROM crm_quote WHERE id = ? AND deleted_at IS NULL', [quoteId]);
-    if (!quote) return { error: '报价单不存在', code: 404 };
+    if (!quote) throw new AppError(ErrorCodes.QUOTE_NOT_FOUND)
 
     await conn.beginTransaction();
 

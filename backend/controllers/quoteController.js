@@ -14,7 +14,6 @@ async function add(req, res, next) {
     if (!items || items.length === 0) return res.status(400).json({ code: 400, message: '报价项不能为空', data: null });
 
     const result = await quoteService.createQuote(pool, req.body, req.user.userId);
-    if (result.error) return res.status(result.code).json({ code: result.code, message: result.error, data: null });
     res.json({ code: 200, message: '创建报价单成功', data: result });
   } catch (error) {
     logger.error('[报价] 创建报价单错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -53,7 +52,6 @@ async function update(req, res, next) {
     if (!id) return res.status(400).json({ code: 400, message: '报价单ID不能为空', data: null });
 
     const result = await quoteService.updateQuote(pool, req.body);
-    if (result.error) return res.status(result.code).json({ code: result.code, message: result.error, data: null });
 
     await logFieldChanges(req, {
       module: MODULE_NAME,
@@ -76,8 +74,7 @@ async function remove(req, res, next) {
     const { id } = req.body;
     if (!id) return res.status(400).json({ code: 400, message: '报价单ID不能为空', data: null });
 
-    const result = await quoteService.deleteQuote(pool, id, req.user);
-    if (result.error) return res.status(result.code).json({ code: result.code, message: result.error, data: null });
+    await quoteService.deleteQuote(pool, id, req.user);
     res.json({ code: 200, message: '删除报价单成功', data: null });
   } catch (error) {
     logger.error('删除报价单错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -91,7 +88,6 @@ async function toContract(req, res, next) {
     if (!id) return res.status(400).json({ code: 400, message: '报价单ID不能为空', data: null });
 
     const result = await quoteService.convertToContract(pool, id, req.user.userId);
-    if (result.error) return res.status(result.code).json({ code: result.code, message: result.error, data: null });
     res.json({ code: 200, message: '转合同成功', data: result });
   } catch (error) {
     logger.error('报价转合同失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -109,8 +105,7 @@ async function approve(req, res, next) {
       return res.status(400).json({ code: 400, message: '参数错误: id必填, approval_status为2(通过)或3(拒绝)', data: null });
     }
 
-    const result = await quoteService.approveQuote(pool, id, approval_status, approval_remark, req.user.userId);
-    if (result.error) return res.status(result.code).json({ code: result.code, message: result.error, data: null });
+    await quoteService.approveQuote(pool, id, approval_status, approval_remark, req.user.userId);
     res.json({ code: 200, message: approval_status === 2 ? '审批通过' : '已拒绝', data: null });
   } catch (error) {
     logger.error('审批报价单错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
