@@ -4,7 +4,12 @@
  */
 
 async function listSuppliers(pool, params = {}, permission = null) {
-  const { page = 1, pageSize = 10, keyword = '', type = '', level = '', status = '' } = params;
+  const page = parseInt(params.page) || 1;
+  const pageSize = Math.min(Math.max(parseInt(params.pageSize) || 10, 1), 200);
+  const keyword = String(params.keyword || '');
+  const type = String(params.type || '');
+  const level = String(params.level || '');
+  const status = String(params.status || '');
   const offset = (page - 1) * pageSize;
 
   let permissionClause = '1=1';
