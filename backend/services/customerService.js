@@ -155,7 +155,7 @@ async function listCustomers(pool, params = {}, permission = null) {
     queryParams.push(overdueDays);
   }
   if (unassigned) {
-    whereClause += ' AND (c.owner_id IS NULL OR c.owner_id = 0)';
+    whereClause += ' AND (c.owner_id IS NULL OR c.owner_id = 0 OR c.pool_status = 1)';
   }
   if (overdue_follow) {
     whereClause += ' AND c.last_follow_time IS NOT NULL AND DATEDIFF(NOW(), c.last_follow_time) > 7';
