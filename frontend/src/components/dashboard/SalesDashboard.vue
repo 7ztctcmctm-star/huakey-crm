@@ -7,6 +7,7 @@
       :service-data="serviceData"
       :quick-stats="quickStats"
       :task-stats="taskStats"
+      :follow-stats="followStats"
       :overdue-count="overdueCount"
       :overdue-days="overdueDays"
       :is-admin="false"
@@ -66,7 +67,7 @@ import QuickFollowDialog from '@/components/dashboard/QuickFollowDialog.vue'
 import BatchFollowDialog from '@/components/dashboard/BatchFollowDialog.vue'
 import { formatAmount } from '@/composables/useFormat'
 import { getReportOverview, getReportQuickStats, getReportTodayTasks, getReportOverdueStats } from '@/api/report'
-import { getFollowUpTaskStats } from '@/api/customer'
+import { getFollowUpTaskStats, getOverdueCustomers, getNearRecycleCustomers } from '@/api/customer'
 
 const router = useRouter()
 
@@ -77,6 +78,7 @@ const overview = reactive({ month_sales: '0', month_customers: 0, month_contract
 const quickStats = reactive({ customer_pool: 0, pending_contract: 0, pending_payment: 0 })
 const todayTasks = reactive({ follow_list: [], follow_count: 0, service_list: [], service_count: 0 })
 const taskStats = reactive({ today_count: 0, tomorrow_count: 0, overdue_count: 0 })
+const followStats = reactive({ today_follow: 0, overdue: 0, near_recycle: 0 })
 const followLoading = ref(false), serviceLoading = ref(false)
 const overdueCount = ref(0), overdueDays = ref(15)
 const quickFollowVisible = ref(false), batchFollowVisible = ref(false)
@@ -157,12 +159,32 @@ const fetchTaskStats = async () => {
   } catch { /* */ }
 }
 
+const fetchFollowStats = async () => {
+  try {
+    const [taskRes, overdueRes, nearRes] = await Promise.all([
+      getFollowUpTaskStats(),
+      getOverdueCustomers({ page: 1, pageSize: 1 }),
+      getNearRecycleCustomers({ page: 1, pageSize: 1 })
+    ])
+    if (taskRes.code === 200) {
+      followStats.today_follow = taskRes.data.today_count || 0
+    }
+    if (overdueRes.code === 200) {
+      followStats.overdue = overdueRes.data.total || 0
+    }
+    if (nearRes.code === 200) {
+      followStats.near_recycle = nearRes.data.total || 0
+    }
+  } catch { /* */ }
+}
+
 const load = () => {
   fetchOverview()
   fetchQuickStats()
   fetchTodayTasks()
   fetchOverdueStats()
   fetchTaskStats()
+  fetchFollowStats()
 }
 
 onMounted(() => load())

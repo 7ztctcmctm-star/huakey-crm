@@ -275,34 +275,34 @@
             <el-icon :size="20"><Bell /></el-icon>
           </div>
           <div class="stat-info">
-            <div class="stat-value small orange">{{ taskStats.today_count }}</div>
+            <div class="stat-value small orange">{{ followStats.today_follow }}</div>
             <div class="stat-label">今日待跟进</div>
           </div>
         </div>
       </el-card>
     </el-col>
     <el-col :span="8">
-      <el-card shadow="hover" class="stat-card mini" @click="$emit('go-tasks', 'tomorrow')">
-        <div class="stat-body">
-          <div class="stat-icon small" style="background: #eff6ff; color: #1a56db">
-            <el-icon :size="20"><Calendar /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value small blue">{{ taskStats.tomorrow_count }}</div>
-            <div class="stat-label">明日计划</div>
-          </div>
-        </div>
-      </el-card>
-    </el-col>
-    <el-col :span="8">
-      <el-card shadow="hover" class="stat-card mini" @click="$emit('go-tasks', 'overdue')">
+      <el-card shadow="hover" class="stat-card mini" @click="$router.push({ path: '/customer/list', query: { overdue: 'true' } })">
         <div class="stat-body">
           <div class="stat-icon small" style="background: #fef2f2; color: #dc2626">
             <el-icon :size="20"><Warning /></el-icon>
           </div>
           <div class="stat-info">
-            <div class="stat-value small danger">{{ taskStats.overdue_count }}</div>
-            <div class="stat-label">逾期未跟进</div>
+            <div class="stat-value small danger">{{ followStats.overdue }}</div>
+            <div class="stat-label">逾期客户</div>
+          </div>
+        </div>
+      </el-card>
+    </el-col>
+    <el-col :span="8">
+      <el-card shadow="hover" class="stat-card mini" @click="$router.push({ path: '/customer/list', query: { near_recycle: 'true' } })">
+        <div class="stat-body">
+          <div class="stat-icon small" style="background: #fff7ed; color: #ea580c">
+            <el-icon :size="20"><Clock /></el-icon>
+          </div>
+          <div class="stat-info">
+            <div class="stat-value small" style="color: #ea580c">{{ followStats.near_recycle }}</div>
+            <div class="stat-label">即将回收</div>
           </div>
         </div>
       </el-card>
@@ -324,6 +324,7 @@ defineProps({
   serviceData: { type: Object, required: true },
   quickStats: { type: Object, required: true },
   taskStats: { type: Object, required: true },
+  followStats: { type: Object, default: () => ({ today_follow: 0, overdue: 0, near_recycle: 0 }) },
   overdueCount: { type: Number, default: 0 },
   overdueDays: { type: Number, default: 15 },
   isAdmin: { type: Boolean, default: false },
