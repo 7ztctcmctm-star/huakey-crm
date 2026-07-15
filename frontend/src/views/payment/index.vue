@@ -272,14 +272,16 @@ const fmt = (v) => {
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await getPaymentList({
+    const params = {
       page: page.value,
       pageSize: pageSize.value,
-      tab: activeTab.value,
       keyword: keyword.value || undefined,
       start_date: dateRange.value?.[0] || undefined,
       end_date: dateRange.value?.[1] || undefined
-    })
+    }
+    const res = activeTab.value === 'merged'
+      ? await getMergedPayments(params)
+      : await getPaymentList({ ...params, tab: activeTab.value })
     if (res.code === 200) {
       tableData.value = res.data.list
       total.value = res.data.total
