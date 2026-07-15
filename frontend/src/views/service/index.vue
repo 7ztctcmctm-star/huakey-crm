@@ -7,13 +7,13 @@
     <!-- 视图切换 -->
     <div class="view-toggle" style="margin-bottom: 16px; display: flex; gap: 16px; align-items: center;">
       <el-radio-group v-model="viewMode" @change="handleViewChange">
-        <el-radio-button label="all">全部工单</el-radio-button>
-        <el-radio-button label="mine">我的工单</el-radio-button>
+        <el-radio-button value="all">全部工单</el-radio-button>
+        <el-radio-button value="mine">我的工单</el-radio-button>
       </el-radio-group>
       <el-radio-group v-model="quickFilter" @change="handleQuickFilter" size="small">
-        <el-radio-button label="">不限</el-radio-button>
-        <el-radio-button label="today">今日工单</el-radio-button>
-        <el-radio-button label="timeout">超时工单</el-radio-button>
+        <el-radio-button value="">不限</el-radio-button>
+        <el-radio-button value="today">今日工单</el-radio-button>
+        <el-radio-button value="timeout">超时工单</el-radio-button>
       </el-radio-group>
     </div>
 

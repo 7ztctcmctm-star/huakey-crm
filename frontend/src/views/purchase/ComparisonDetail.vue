@@ -36,7 +36,7 @@
         <el-table :data="items" stripe style="width: 100%" :row-class-name="rowClassName">
           <el-table-column width="60" align="center">
             <template #default="{ row }">
-              <el-radio :label="row.supplier_id" :disabled="comparison?.status !== 'draft'">
+              <el-radio :value="row.supplier_id" :disabled="comparison?.status !== 'draft'">
                 &nbsp;
               </el-radio>
             </template>

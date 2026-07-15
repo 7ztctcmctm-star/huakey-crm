@@ -49,7 +49,7 @@
         <el-empty v-if="!loading && emailList.length === 0" description="暂无邮件" />
       </div>
       <div class="list-footer">
-        <el-pagination small layout="prev, pager, next" :total="total" v-model:current-page="page" :page-size="pageSize" @current-change="fetchList" />
+        <el-pagination size="small" layout="prev, pager, next" :total="total" v-model:current-page="page" :page-size="pageSize" @current-change="fetchList" />
       </div>
     </div>
 
