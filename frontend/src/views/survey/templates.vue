@@ -91,12 +91,12 @@ const form = reactive({ name: '', survey_type: 'csat', description: '', question
 const previewVisible = ref(false)
 const previewData = ref(null)
 
-const parseQuestions = (v) => { try { return typeof v === 'string' ? JSON.parse(v) : v } catch { return [] } }
+const parseQuestions = (v) => { if (!v) return []; try { return typeof v === 'string' ? JSON.parse(v) : (Array.isArray(v) ? v : []) } catch { return [] } }
 const npsClass = (n) => n <= 6 ? 'nps-detractor' : n <= 8 ? 'nps-passive' : 'nps-promoter'
 
 const fetchList = async () => {
   loading.value = true
-  try { const res = await getSurveyTemplates(); if (res.code === 200) list.value = res.data || [] } catch (e) { /* */ }
+  try { const res = await getSurveyTemplates(); if (res.code === 200) list.value = res.data?.list || [] } catch (e) { /* */ }
   finally { loading.value = false }
 }
 
