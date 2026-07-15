@@ -3,7 +3,7 @@
  * 从 routes/ai.js 提取的数据库操作
  */
 
-async function getAiStatus(pool) {
+async function getAiStatus() {
   const { getProviderStatus } = require('../utils/llmClient');
   return await getProviderStatus();
 }
@@ -68,7 +68,7 @@ async function generateSuggestions(pool, userId) {
     SELECT c.id, c.company_name, c.last_follow_time,
            DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days
     FROM crm_customer c
-    WHERE c.status != 0 AND c.owner_id IS NOT NULL
+    WHERE c.deleted_at IS NULL AND c.owner_id IS NOT NULL
       AND (c.last_follow_time IS NULL OR c.last_follow_time < NOW() - INTERVAL 30 DAY)
     LIMIT 20
   `);

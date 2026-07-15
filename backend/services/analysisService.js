@@ -73,7 +73,7 @@ async function getChurnAlert(pool, { page, pageSize }) {
     FROM crm_customer c
     LEFT JOIN sys_user u ON c.owner_id = u.id
     LEFT JOIN crm_contact pc ON pc.customer_id = c.id AND pc.is_primary = 1 AND pc.deleted_at IS NULL
-    WHERE c.status != 0 AND c.owner_id IS NOT NULL
+    WHERE c.deleted_at IS NULL AND c.owner_id IS NOT NULL
       AND (c.last_follow_time IS NULL
         OR c.last_follow_time < NOW() - INTERVAL ? DAY)
     ORDER BY overdue_days DESC
@@ -143,7 +143,7 @@ async function getCustomerScore(pool, id) {
   );
 
   const [contractResult] = await pool.query(
-    "SELECT COUNT(*) as cnt, COALESCE(SUM(amount), 0) as amount FROM crm_contract WHERE customer_id = ? AND deleted_at IS NULL AND status = 2",
+    "SELECT COUNT(*) as cnt, COALESCE(SUM(amount), 0) as amount FROM crm_contract WHERE customer_id = ? AND deleted_at IS NULL AND status = 'signed'",
     [id]
   );
 
@@ -248,7 +248,7 @@ async function getRFM(pool) {
       WHERE deleted_at IS NULL AND status = 2
       GROUP BY customer_id
     ) ct ON ct.customer_id = c.id
-    WHERE c.status != 0
+    WHERE c.deleted_at IS NULL
     ORDER BY monetary DESC
     LIMIT 200
   `);

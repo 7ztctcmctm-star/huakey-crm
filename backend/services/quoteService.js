@@ -29,7 +29,7 @@ async function createQuote(pool, data, userId) {
     const { customer_id, opportunity_id, items, discount, valid_days, remark } = data;
 
     const [customers] = await connection.query(
-      'SELECT id FROM crm_customer WHERE id = ? AND status != 0',
+      'SELECT id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
       [customer_id]
     );
     if (customers.length === 0) throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND)

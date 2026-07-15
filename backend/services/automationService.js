@@ -351,7 +351,7 @@ async function runSmartReminder(pool) {
         [matches] = await pool.query(`
           SELECT c.id, c.company_name, c.owner_id, c.last_follow_time,
                  DATEDIFF(CURDATE(), COALESCE(c.last_follow_time, c.create_time)) as days_gap
-          FROM crm_customer c WHERE c.deleted_at IS NULL AND c.status = 1
+          FROM crm_customer c WHERE c.deleted_at IS NULL AND c.status = 'following'
             AND DATEDIFF(CURDATE(), COALESCE(c.last_follow_time, c.create_time)) >= ?
         `, [config.days || 7]);
         break;

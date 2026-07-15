@@ -11,7 +11,7 @@
  * @param {object} opts - { overdueDays, viewAll, isBoss }
  */
 async function getMyReminders(pool, userId, roleId, opts = {}) {
-  const { overdueDays = 30, viewAll = false, isBoss = false } = opts;
+  const { overdueDays = 30, isBoss = false } = opts;
   const preWarningDays = Math.max(overdueDays - 3, 3);
 
   // 查询1：合并逾期+今日+明日提醒
@@ -21,7 +21,7 @@ async function getMyReminders(pool, userId, roleId, opts = {}) {
             DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days,
             fp.plan_content, fp.plan_time
      FROM crm_follow_up_reminder r
-     JOIN crm_customer c ON r.customer_id = c.id AND c.status != 0
+     JOIN crm_customer c ON r.customer_id = c.id AND c.deleted_at IS NULL
      LEFT JOIN crm_follow_plan fp ON r.follow_plan_id = fp.id
      WHERE r.owner_id = ? AND r.is_dismissed = 0
        AND r.reminder_type IN ('overdue', 'today', 'upcoming')
@@ -140,7 +140,7 @@ async function getOverdueList(pool, params = {}, permission = null) {
 
   const [countResult] = await pool.query(
     `SELECT COUNT(*) as total FROM crm_customer c
-     WHERE c.status NOT IN (2, 3) AND c.status != 0
+     WHERE c.status NOT IN (2, 3) AND c.deleted_at IS NULL
        AND (c.last_follow_time IS NULL
          OR c.last_follow_time < NOW() - INTERVAL ? DAY)
        ${userFilter}`,
@@ -154,7 +154,7 @@ async function getOverdueList(pool, params = {}, permission = null) {
             u.real_name as owner_name
      FROM crm_customer c
      LEFT JOIN sys_user u ON c.owner_id = u.id
-     WHERE c.status NOT IN (2, 3) AND c.status != 0
+     WHERE c.status NOT IN (2, 3) AND c.deleted_at IS NULL
        AND (c.last_follow_time IS NULL
          OR c.last_follow_time < NOW() - INTERVAL ? DAY)
        ${userFilter}

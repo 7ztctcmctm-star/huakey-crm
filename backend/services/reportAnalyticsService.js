@@ -579,8 +579,6 @@ async function exportFinance(pool, params = {}) {
  * @returns {object} { kpi, teamRanking, sellerDetails, distribution, trends, warnings }
  */
 async function getBusinessDashboard(pool) {
-  const { getOverdueDays } = require('../utils/config');
-
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
@@ -598,8 +596,7 @@ async function getBusinessDashboard(pool) {
     [[oppTotal]],
     [[oppWon]],
     [[lastCustomerNew]],
-    [[lastContractTotal]],
-    [[lastPaymentTotal]]
+    [[lastContractTotal]]
   ] = await Promise.all([
     pool.query("SELECT COUNT(*) as cnt FROM crm_customer WHERE deleted_at IS NULL"),
     pool.query("SELECT COUNT(*) as cnt FROM crm_customer WHERE deleted_at IS NULL AND create_time >= ?", [thisMonthStart]),
@@ -617,7 +614,6 @@ async function getBusinessDashboard(pool) {
   const avgUnitPrice = contractCount.cnt > 0 ? Math.round(contractTotal.total / contractCount.cnt) : 0;
   const conversionRate = oppTotal.cnt > 0 ? Math.round(oppWon.cnt / oppTotal.cnt * 100) : 0;
 
-  const overdueDays = await getOverdueDays();
   const [
     [teamRanking],
     [sellerDetails],
@@ -687,7 +683,7 @@ async function getBusinessDashboard(pool) {
     `),
     pool.query(`
       SELECT id, company_name, last_follow_time, DATEDIFF(NOW(), last_follow_time) as days
-      FROM crm_customer WHERE deleted_at IS NULL AND status = 1
+      FROM crm_customer WHERE deleted_at IS NULL AND status = 'following'
       AND (last_follow_time IS NULL OR last_follow_time < NOW() - INTERVAL 30 DAY)
       ORDER BY days DESC LIMIT 10
     `)

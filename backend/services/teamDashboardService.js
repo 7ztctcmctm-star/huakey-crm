@@ -19,13 +19,13 @@ async function getOverview(pool, { userId, isBoss, startDate, endDate }) {
   }
 
   const [totalCustomers] = await pool.query(
-    `SELECT COUNT(*) as count FROM crm_customer c WHERE c.status != 0 ${userFilter}`,
+    `SELECT COUNT(*) as count FROM crm_customer c WHERE c.deleted_at IS NULL ${userFilter}`,
     params
   );
 
   const [weekNew] = await pool.query(
     `SELECT COUNT(*) as count FROM crm_customer c
-     WHERE c.status != 0 AND YEAR(c.create_time) = YEAR(NOW()) AND WEEK(c.create_time, 1) = WEEK(NOW(), 1) ${userFilter}`,
+     WHERE c.deleted_at IS NULL AND YEAR(c.create_time) = YEAR(NOW()) AND WEEK(c.create_time, 1) = WEEK(NOW(), 1) ${userFilter}`,
     params
   );
 
@@ -39,7 +39,7 @@ async function getOverview(pool, { userId, isBoss, startDate, endDate }) {
   const overdueDays = await getOverdueDays();
   const [overdueCount] = await pool.query(
     `SELECT COUNT(*) as count FROM crm_customer c
-     WHERE c.status NOT IN (2, 3) AND c.status != 0
+     WHERE c.status NOT IN (2, 3) AND c.deleted_at IS NULL
        AND (c.last_follow_time IS NULL
          OR c.last_follow_time < NOW() - INTERVAL ? DAY)
        ${userFilter}`,
@@ -146,7 +146,7 @@ async function getSalesBreakdown(pool, { userId, isBoss }) {
     FROM sys_user u
     LEFT JOIN (
       SELECT owner_id, COUNT(*) as cnt FROM crm_customer
-      WHERE owner_id IN (${placeholders}) AND status != 0
+      WHERE owner_id IN (${placeholders}) AND deleted_at IS NULL
       GROUP BY owner_id
     ) cc ON cc.owner_id = u.id
     LEFT JOIN (
@@ -176,7 +176,7 @@ async function getSalesBreakdown(pool, { userId, isBoss }) {
     ) pa ON pa.owner_id = u.id
     LEFT JOIN (
       SELECT owner_id, COUNT(*) as cnt FROM crm_customer
-      WHERE owner_id IN (${placeholders}) AND status NOT IN (2, 3) AND status != 0
+      WHERE owner_id IN (${placeholders}) AND status NOT IN (2, 3) AND deleted_at IS NULL
         AND (last_follow_time IS NULL OR last_follow_time < NOW() - INTERVAL ? DAY)
       GROUP BY owner_id
     ) nf ON nf.owner_id = u.id
@@ -241,7 +241,7 @@ async function getSalesOverdueCustomers(pool, { user_id, page, pageSize }) {
 
   const [countResult] = await pool.query(
     `SELECT COUNT(*) as total FROM crm_customer
-     WHERE owner_id = ? AND status NOT IN (2, 3) AND status != 0
+     WHERE owner_id = ? AND status NOT IN (2, 3) AND deleted_at IS NULL
        AND (last_follow_time IS NULL
          OR last_follow_time < NOW() - INTERVAL ? DAY)`,
     [user_id, overdueDays]
@@ -252,7 +252,7 @@ async function getSalesOverdueCustomers(pool, { user_id, page, pageSize }) {
             last_follow_time, create_time,
             DATEDIFF(NOW(), COALESCE(last_follow_time, create_time)) as overdue_days
      FROM crm_customer
-     WHERE owner_id = ? AND status NOT IN (2, 3) AND status != 0
+     WHERE owner_id = ? AND status NOT IN (2, 3) AND deleted_at IS NULL
        AND (last_follow_time IS NULL
          OR last_follow_time < NOW() - INTERVAL ? DAY)
      ORDER BY overdue_days DESC
@@ -270,7 +270,7 @@ async function getSalesCustomers(pool, { user_id, page, pageSize }) {
   const offset = (page - 1) * pageSize;
 
   const [countResult] = await pool.query(
-    'SELECT COUNT(*) as total FROM crm_customer WHERE owner_id = ? AND status != 0',
+    'SELECT COUNT(*) as total FROM crm_customer WHERE owner_id = ? AND deleted_at IS NULL',
     [user_id]
   );
 
@@ -278,7 +278,7 @@ async function getSalesCustomers(pool, { user_id, page, pageSize }) {
     `SELECT id, company_name, contact_name, phone, source, level, status,
             last_follow_time, create_time
      FROM crm_customer
-     WHERE owner_id = ? AND status != 0
+     WHERE owner_id = ? AND deleted_at IS NULL
      ORDER BY last_follow_time IS NULL ASC, last_follow_time DESC, create_time DESC
      LIMIT ? OFFSET ?`,
     [user_id, parseInt(pageSize), parseInt(offset)]
@@ -293,7 +293,7 @@ async function getSalesCustomers(pool, { user_id, page, pageSize }) {
 async function urgeFollowup(pool, { customer_id, user_id, senderUserId }) {
   // 验证客户存在且属于该销售员
   const [customers] = await pool.query(
-    'SELECT id, company_name FROM crm_customer WHERE id = ? AND owner_id = ? AND status != 0',
+    'SELECT id, company_name FROM crm_customer WHERE id = ? AND owner_id = ? AND deleted_at IS NULL',
     [customer_id, user_id]
   );
   if (customers.length === 0) return { error: 'not_found' };
@@ -365,7 +365,7 @@ async function getPendingApprovals(pool, { roleId }) {
 /**
  * 卡住的商机（阶段停留超过N天未推进）
  */
-async function getStuckOpportunities(pool, { userId, isBoss, viewAll, roleId }) {
+async function getStuckOpportunities(pool, { userId, viewAll, roleId }) {
   const stuckDays = parseInt(await getConfig('opportunity_stuck_days', '14')) || 14;
 
   let deptFilter = '';

@@ -46,7 +46,7 @@ function parseRows(rawRows) {
       item.remark = (item.remark ? item.remark + '; ' : '') + extras.join('; ');
     }
     if (!item.level) item.level = 'C';
-    if (!item.status) item.status = 1;
+    if (!item.status) item.status = 'following';
     return item;
   });
 }

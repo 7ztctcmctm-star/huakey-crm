@@ -63,7 +63,7 @@ async function getOverview(pool, userId, roleId) {
         AND stage NOT IN (5, 6) ${isAdmin ? '' : ' AND owner_id = ?'}
     `, isAdmin ? [] : [userId]),
     pool.query(
-      `SELECT COUNT(*) as count FROM crm_customer WHERE deleted_at IS NULL AND create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH AND status = 1 ${customerFilter}`,
+      `SELECT COUNT(*) as count FROM crm_customer WHERE deleted_at IS NULL AND create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH AND status = 'following' ${customerFilter}`,
       params
     ),
     pool.query(

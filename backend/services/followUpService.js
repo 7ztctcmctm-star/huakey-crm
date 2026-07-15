@@ -191,7 +191,7 @@ async function getTodayRemind(pool, permission) {
       cu.company_name,
       co.name as contact_name
     FROM crm_follow_up f
-    LEFT JOIN crm_customer cu ON f.customer_id = cu.id AND cu.status != 0
+    LEFT JOIN crm_customer cu ON f.customer_id = cu.id AND cu.deleted_at IS NULL
     LEFT JOIN crm_contact co ON f.contact_id = co.id
     WHERE ${permClause}
       AND f.next_time IS NOT NULL
@@ -219,7 +219,7 @@ async function getTomorrowPlan(pool, permission) {
       co.name as contact_name,
       u.real_name as creator_name
     FROM crm_follow_up f
-    LEFT JOIN crm_customer cu ON f.customer_id = cu.id AND cu.status != 0
+    LEFT JOIN crm_customer cu ON f.customer_id = cu.id AND cu.deleted_at IS NULL
     LEFT JOIN crm_contact co ON f.contact_id = co.id AND co.deleted_at IS NULL
     LEFT JOIN sys_user u ON f.create_by = u.id
     WHERE f.deleted_at IS NULL
@@ -248,7 +248,7 @@ async function getOverdueList(pool, permission) {
       co.name as contact_name,
       u.real_name as creator_name
     FROM crm_follow_up f
-    LEFT JOIN crm_customer cu ON f.customer_id = cu.id AND cu.status != 0
+    LEFT JOIN crm_customer cu ON f.customer_id = cu.id AND cu.deleted_at IS NULL
     LEFT JOIN crm_contact co ON f.contact_id = co.id AND co.deleted_at IS NULL
     LEFT JOIN sys_user u ON f.create_by = u.id
     WHERE f.deleted_at IS NULL
@@ -307,7 +307,7 @@ async function getTaskStats(pool, dataPermission) {
     FROM (
       SELECT f.next_time, f.create_by, cu.owner_id as customer_owner
       FROM crm_follow_up f
-      LEFT JOIN crm_customer cu ON f.customer_id = cu.id AND cu.status != 0
+      LEFT JOIN crm_customer cu ON f.customer_id = cu.id AND cu.deleted_at IS NULL
       WHERE f.deleted_at IS NULL AND f.next_time IS NOT NULL
     ) t
     WHERE ${permClause}`,
@@ -436,7 +436,7 @@ async function getCalendar(pool, params, dataPermission) {
       DATE(f.create_time) as follow_date,
       DATE(f.next_time) as plan_date
     FROM crm_follow_up f
-    LEFT JOIN crm_customer cu ON f.customer_id = cu.id AND cu.status != 0
+    LEFT JOIN crm_customer cu ON f.customer_id = cu.id AND cu.deleted_at IS NULL
     LEFT JOIN crm_contact co ON f.contact_id = co.id
     WHERE (DATE(f.create_time) BETWEEN ? AND ? OR DATE(f.next_time) BETWEEN ? AND ?)
       AND ${permClause}

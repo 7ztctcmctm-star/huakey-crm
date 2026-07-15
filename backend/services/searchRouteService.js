@@ -37,7 +37,7 @@ async function globalSearch(pool, { keyword, user }) {
   const [customers] = await pool.query(
     `SELECT c.id, c.company_name, c.contact_name, c.phone, c.level
      FROM crm_customer c
-     WHERE c.status != 0 AND c.deleted_at IS NULL AND ${customerWhere}
+     WHERE c.deleted_at IS NULL AND ${customerWhere}
      ORDER BY c.update_time DESC
      LIMIT 5`,
     customerParams
