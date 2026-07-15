@@ -88,7 +88,7 @@ import { getScoringRules, saveScoringRule, batchCalculateScore, deleteScoringRul
 import request from '@/utils/request'
 
 const typeNameMap = { source: '来源', action: '行为', interaction: '互动' }
-const typeTagMap = { source: '', action: 'warning', interaction: 'success' }
+const typeTagMap = { source: 'info', action: 'warning', interaction: 'success' }
 
 const fieldMap = {
   source: [
