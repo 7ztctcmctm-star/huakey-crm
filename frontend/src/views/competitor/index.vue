@@ -99,7 +99,7 @@ const reasonChartRef = ref(null)
 
 const fetchList = async () => {
   loading.value = true
-  try { const res = await getCompetitorList(); if (res.code === 200) list.value = res.data } catch (e) { /* */ }
+  try { const res = await getCompetitorList(); if (res.code === 200) list.value = res.data.list || res.data } catch (e) { /* */ }
   finally { loading.value = false }
 }
 
