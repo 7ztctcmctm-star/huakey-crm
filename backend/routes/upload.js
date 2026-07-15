@@ -85,7 +85,7 @@ const validateFileMagic = async (req, res, next) => {
 
 // 上传文件
 // [权限说明] 当前仅做认证，未绑定业务权限码；如需细控可补充 checkPermission('file:upload')
-router.post('/file', authenticateToken, upload.single('file'), validateFileMagic, validate(uploadFileSchema), async (req, res) => {
+const uploadHandler = async (req, res) => {
   try {
     const result = await uploadRouteService.uploadFile(pool, {
       file: req.file,
@@ -101,7 +101,27 @@ router.post('/file', authenticateToken, upload.single('file'), validateFileMagic
     logger.error('文件上传错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(500).json({ code: 500, message: '文件上传失败', data: null });
   }
-});
+};
+
+// Multer 错误处理中间件（确保错误响应带 CORS 头）
+const multerErrorHandler = (err, req, res, next) => {
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({ code: 400, message: '文件大小不能超过10MB', data: null });
+  }
+  if (err.message === '不支持的文件格式' || err.message === '文件类型与扩展名不匹配') {
+    return res.status(400).json({ code: 400, message: err.message, data: null });
+  }
+  // 其他 multer 错误
+  if (err.name === 'MulterError') {
+    return res.status(400).json({ code: 400, message: '文件上传失败: ' + err.message, data: null });
+  }
+  next(err);
+};
+
+router.post('/file', authenticateToken, upload.single('file'), validateFileMagic, validate(uploadFileSchema), uploadHandler);
+// 兼容前端直接调用 /upload 的旧路径
+router.post('/', authenticateToken, upload.single('file'), validateFileMagic, validate(uploadFileSchema), uploadHandler);
+router.use(multerErrorHandler);
 
 // 查询附件列表
 router.get('/list', authenticateToken, checkPermission('file'), async (req, res) => {
