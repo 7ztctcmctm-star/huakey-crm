@@ -1,0 +1,13 @@
+# Trivy 扫描配置
+# 用于 GitHub Actions trivy-scan 工作流
+
+scan:
+  skip-dirs:
+    - "**/node_modules"
+    - "**/.git"
+    - "**/dist"
+    - "**/uploads"
+
+severity:
+  - CRITICAL
+  - HIGH
