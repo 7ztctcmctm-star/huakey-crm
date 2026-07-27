@@ -2,6 +2,8 @@
  * 货币管理服务层
  * 从 routes/currency.js 提取的业务逻辑
  */
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 
 /**
  * 获取货币列表
@@ -56,9 +58,7 @@ async function updateCurrency(pool, id, { exchange_rate, is_default, status }) {
   }
 
   if (fields.length === 0) {
-    const err = new Error('没有要更新的字段');
-    err.statusCode = 400;
-    throw err;
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '没有要更新的字段');
   }
 
   values.push(id);

@@ -143,16 +143,18 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh, View, Edit, Delete, Download, Coin } from '@element-plus/icons-vue'
 import { getContractList, getContractDetail, addContract, updateContract, deleteContract, approveContract, exportContracts, getContractOpportunityList, getContractTemplates, addPayment, searchContract } from '@/api/contract'
 import { getCustomerList } from '@/api/customer'
 import { submitApproval, withdrawApproval } from '@/api/tools'
+import { useUser } from '@/composables/useUser'
 
 const router = useRouter()
 const route = useRoute()
+const { userInfo } = useUser()
 
 const loading = ref(false), tableData = ref([]), total = ref(0), page = ref(1), pageSize = ref(20), exportLoading = ref(false)
 const searchForm = reactive({ keyword: '', status: '', approval_status: '', payment_status: '' })
@@ -177,8 +179,7 @@ const statusText = (s) => ({ 1: '待执行', 2: '执行中', 3: '已完成', 4: 
 // 审批状态
 const approvalMap = { 1: '待审批', 2: '已通过', 3: '已拒绝' }
 const approvalTagType = (s) => ({ 1: 'warning', 2: 'success', 3: 'danger' }[s] || 'info')
-const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
-const isAdmin = userInfo.roleId === 1 || userInfo.roleId === 2 || userInfo.manageAll
+const isAdmin = computed(() => userInfo.value?.roleId === 1 || userInfo.value?.roleId === 2 || userInfo.value?.manageAll)
 
 const fetchList = async () => {
   loading.value = true

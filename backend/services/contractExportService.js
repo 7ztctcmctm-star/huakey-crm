@@ -3,11 +3,9 @@
  * 从 routes/contract/export.js 提取的业务逻辑
  */
 const XLSX = require('xlsx');
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 const { buildDataPermissionWhere } = require('../middleware/permission');
-const { createRouteLogger } = require('../middleware/logger');
-
-const logAction = createRouteLogger('合同管理');
-
 /**
  * 导出合同列表
  */
@@ -105,10 +103,10 @@ async function importPayments(pool, fileBuffer) {
   const rows = XLSX.utils.sheet_to_json(ws);
 
   if (rows.length === 0) {
-    throw Object.assign(new Error('文件内容为空'), { statusCode: 400 });
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '文件内容为空');
   }
   if (rows.length > 500) {
-    throw Object.assign(new Error('单次导入不超过500条'), { statusCode: 400 });
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '单次导入不超过500条');
   }
 
   const connection = await pool.getConnection();

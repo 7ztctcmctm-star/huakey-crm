@@ -7,11 +7,9 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../../config/database');
 const { authenticateToken } = require('../../middleware/auth');
+const { checkPermission } = require('../../middleware/permission');
 const { validate, Joi } = require('../../middleware/validate');
 const purchaseComparisonService = require('../../services/purchaseComparisonService');
-const logger = require('../../config/logger');
-
-const MODULE_NAME = '采购比价';
 
 const listSchema = Joi.object({
   page: Joi.number().integer().min(1).optional(),
@@ -45,39 +43,31 @@ const selectSchema = Joi.object({
   supplier_id: Joi.number().integer().positive().allow(null)
 });
 
-function handleServiceError(res, error) {
-  logger.error(`[${MODULE_NAME}]`, { error: error.stack || error.message });
-  const statusCode = error.code || 500;
-  const message = error.message || '操作失败';
-  res.status(statusCode >= 400 && statusCode < 600 ? statusCode : 500).json({
-    code: statusCode,
-    message,
-    data: null
-  });
-}
+// 所有比价单接口需要采购比价权限
+router.use(authenticateToken, checkPermission('purchase:comparison'));
 
 // 比价单列表
-router.post('/list', authenticateToken, validate(listSchema), async (req, res) => {
+router.post('/list', validate(listSchema), async (req, res, next) => {
   try {
     const data = await purchaseComparisonService.listComparisons(pool, req.body);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    handleServiceError(res, error);
+    next(error);
   }
 });
 
 // 创建比价单
-router.post('/create', authenticateToken, validate(createSchema), async (req, res) => {
+router.post('/create', validate(createSchema), async (req, res, next) => {
   try {
     const data = await purchaseComparisonService.createComparison(pool, req.body, req.user.userId);
     res.status(201).json({ code: 201, message: '创建成功', data });
   } catch (error) {
-    handleServiceError(res, error);
+    next(error);
   }
 });
 
 // 比价单详情
-router.get('/detail/:id', authenticateToken, validate(idParamSchema, 'params'), async (req, res) => {
+router.get('/detail/:id', validate(idParamSchema, 'params'), async (req, res, next) => {
   try {
     const data = await purchaseComparisonService.getComparisonDetail(pool, req.params.id);
     if (!data) {
@@ -85,37 +75,37 @@ router.get('/detail/:id', authenticateToken, validate(idParamSchema, 'params'), 
     }
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    handleServiceError(res, error);
+    next(error);
   }
 });
 
 // 添加供应商报价
-router.post('/:id/add-quote', authenticateToken, validate(idParamSchema, 'params'), validate(quoteSchema), async (req, res) => {
+router.post('/:id/add-quote', validate(idParamSchema, 'params'), validate(quoteSchema), async (req, res, next) => {
   try {
     const data = await purchaseComparisonService.addSupplierQuote(pool, req.params.id, req.body);
     res.json({ code: 200, message: '报价已添加', data });
   } catch (error) {
-    handleServiceError(res, error);
+    next(error);
   }
 });
 
 // 选择供应商
-router.post('/:id/select-supplier', authenticateToken, validate(idParamSchema, 'params'), validate(selectSchema), async (req, res) => {
+router.post('/:id/select-supplier', validate(idParamSchema, 'params'), validate(selectSchema), async (req, res, next) => {
   try {
     const data = await purchaseComparisonService.selectSupplier(pool, req.params.id, req.body.supplier_id);
     res.json({ code: 200, message: '供应商已选定', data });
   } catch (error) {
-    handleServiceError(res, error);
+    next(error);
   }
 });
 
 // 取消比价单
-router.post('/:id/cancel', authenticateToken, validate(idParamSchema, 'params'), async (req, res) => {
+router.post('/:id/cancel', validate(idParamSchema, 'params'), async (req, res, next) => {
   try {
     await purchaseComparisonService.cancelComparison(pool, req.params.id);
     res.json({ code: 200, message: '已取消', data: null });
   } catch (error) {
-    handleServiceError(res, error);
+    next(error);
   }
 });
 

@@ -65,14 +65,12 @@ router.post('/list', authenticateToken, checkPermission('invoice'), checkDataPer
 });
 
 // 详情
-router.get('/detail/:id', authenticateToken, async (req, res) => {
+router.get('/detail/:id', authenticateToken, async (req, res, next) => {
   try {
     const data = await invoiceService.getInvoice(pool, req.params.id);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    const status = error.statusCode || 500;
-    logger.error('发票详情查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(status).json({ code: status, message: error.message || '查询失败', data: null });
+    next(error);
   }
 });
 
@@ -88,26 +86,22 @@ router.post('/add', authenticateToken, checkPermission('invoice:add'), validate(
 });
 
 // 编辑
-router.post('/update', authenticateToken, checkPermission('invoice:edit'), validate(updateSchema), async (req, res) => {
+router.post('/update', authenticateToken, checkPermission('invoice:edit'), validate(updateSchema), async (req, res, next) => {
   try {
     await invoiceService.updateInvoice(pool, req.body, req);
     res.json({ code: 200, message: '修改成功', data: null });
   } catch (error) {
-    const status = error.statusCode || 500;
-    logger.error('修改发票失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(status).json({ code: status, message: error.message || '修改失败', data: null });
+    next(error);
   }
 });
 
 // 删除（软删除）
-router.post('/delete', authenticateToken, checkPermission('invoice:delete'), validate(deleteSchema), async (req, res) => {
+router.post('/delete', authenticateToken, checkPermission('invoice:delete'), validate(deleteSchema), async (req, res, next) => {
   try {
     await invoiceService.deleteInvoice(pool, req.body, req);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
-    const status = error.statusCode || 500;
-    logger.error('删除发票失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(status).json({ code: status, message: error.message || '删除失败', data: null });
+    next(error);
   }
 });
 

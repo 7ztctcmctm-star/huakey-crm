@@ -3,6 +3,8 @@
  * 从 routes/customer/import.js 提取的业务逻辑
  */
 const XLSX = require('xlsx');
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 const DataCleaner = require('../utils/dataCleaner');
 const DataValidator = require('../utils/validator');
 const { createRouteLogger } = require('../middleware/logger');
@@ -60,7 +62,7 @@ async function importPreview(pool, fileBuffer) {
   const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
   if (rows.length === 0) {
-    throw Object.assign(new Error('Excel文件为空'), { statusCode: 400 });
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, 'Excel文件为空');
   }
 
   const headers = Object.keys(rows[0]);
@@ -101,7 +103,7 @@ async function importPreview(pool, fileBuffer) {
  */
 async function batchImport(pool, customers, userId) {
   if (!Array.isArray(customers) || customers.length === 0) {
-    throw Object.assign(new Error('导入数据为空'), { statusCode: 400 });
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '导入数据为空');
   }
 
   // 1. 数据清洗
@@ -205,7 +207,7 @@ async function importCustomers(pool, fileBuffer, userId) {
   const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
   if (rawRows.length === 0) {
-    throw Object.assign(new Error('Excel文件为空'), { statusCode: 400 });
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, 'Excel文件为空');
   }
 
   // 1. 原始数据映射

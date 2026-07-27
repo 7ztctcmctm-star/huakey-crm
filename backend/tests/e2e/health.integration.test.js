@@ -4,9 +4,7 @@
  */
 
 const request = require('supertest');
-const { app, getPool } = require('../setup-integration');
-
-const pool = getPool();
+const { app } = require('../setup-integration');
 
 describe('健康检查 /api/health', () => {
   test('返回 200，db 状态正常', async () => {
@@ -19,15 +17,15 @@ describe('健康检查 /api/health', () => {
     expect(res.body.data.db).toBe(true);
   });
 
-  test('旧路径 /api/health 返回 307 重定向并带 Deprecation 头', async () => {
+  test('旧路径 /api/health 不再重定向，返回 404', async () => {
     const res = await request(app)
       .get('/api/health')
       .redirects(0)
-      .expect(307);
+      .expect(404);
 
-    expect(res.headers.deprecation).toBe('true');
-    expect(res.headers.sunset).toBe('Sat, 01 Aug 2026 00:00:00 GMT');
-    expect(res.headers.location).toBe('/api/v1/health');
+    expect(res.headers.deprecation).toBeUndefined();
+    expect(res.headers.sunset).toBeUndefined();
+    expect(res.headers.location).toBeUndefined();
   });
 });
 

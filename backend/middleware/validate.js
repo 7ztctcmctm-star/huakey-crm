@@ -1,22 +1,28 @@
 const Joi = require('joi');
 
-const validate = (schema) => (req, res, next) => {
-  const { error, value } = schema.validate(req.body, { abortEarly: false, stripUnknown: true });
-  if (value) req.body = value;
-  
+const validate = (schema, source = 'body') => (req, res, next) => {
+  const raw = source === 'params' ? req.params : (source === 'query' ? req.query : req.body);
+  const { error, value } = schema.validate(raw, { abortEarly: false, stripUnknown: true, convert: true });
+  if (value) {
+    if (source === 'params') req.params = value;
+    else if (source === 'query') req.query = value;
+    else req.body = value;
+  }
+
   if (error) {
     const details = error.details.map(err => ({
       field: err.path.join('.'),
       message: err.message
     }));
-    
+
+    const message = source === 'query' ? '查询参数校验失败' : '请求参数校验失败';
     return res.status(400).json({
       code: 400,
-      message: '请求参数校验失败',
+      message,
       data: details
     });
   }
-  
+
   next();
 };
 

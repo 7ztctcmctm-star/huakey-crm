@@ -4,6 +4,8 @@
  */
 const path = require('path');
 const crypto = require('crypto');
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 const { getSupabaseStorage } = require('../utils/supabaseStorage');
 
 // Supabase Storage 客户端（懒加载）
@@ -18,9 +20,7 @@ const getStorage = async () => {
  */
 async function uploadFile(pool, { file, business_type, business_id, userId }) {
   if (!file) {
-    const err = new Error('请选择文件');
-    err.statusCode = 400;
-    throw err;
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '请选择文件');
   }
 
   const ext = path.extname(file.originalname);
@@ -67,9 +67,7 @@ async function uploadFile(pool, { file, business_type, business_id, userId }) {
  */
 async function listAttachments(pool, { business_type, business_id }) {
   if (!business_type || !business_id) {
-    const err = new Error('参数不完整');
-    err.statusCode = 400;
-    throw err;
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '参数不完整');
   }
   const [list] = await pool.query(
     'SELECT * FROM crm_attachment WHERE business_type = ? AND business_id = ? AND deleted_at IS NULL ORDER BY create_time DESC',
@@ -83,16 +81,12 @@ async function listAttachments(pool, { business_type, business_id }) {
  */
 async function deleteAttachment(pool, id) {
   if (!id) {
-    const err = new Error('附件ID不能为空');
-    err.statusCode = 400;
-    throw err;
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '附件ID不能为空');
   }
 
   const [rows] = await pool.query('SELECT * FROM crm_attachment WHERE id = ? AND deleted_at IS NULL', [id]);
   if (rows.length === 0) {
-    const err = new Error('附件不存在');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '附件不存在');
   }
 
   const attachment = rows[0];
@@ -109,9 +103,7 @@ async function deleteAttachment(pool, id) {
     const uploadsDir = path.resolve(__dirname, '..', 'uploads');
     const fullPath = path.resolve(__dirname, '..', attachment.file_path.replace(/^\//, ''));
     if (!fullPath.startsWith(uploadsDir)) {
-      const err = new Error('非法文件路径');
-      err.statusCode = 400;
-      throw err;
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '非法文件路径');
     }
     if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
   }

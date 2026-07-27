@@ -56,23 +56,17 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getMyReminders, getPaymentOverdue, markAllRead, markNotificationRead } from '@/api/tools'
+import { useUser } from '@/composables/useUser'
 import AiChat from '@/components/AiChat.vue'
 import RecycleBin from '@/components/RecycleBin.vue'
 import Sidebar from '@/components/layout/Sidebar.vue'
 import HeaderBar from '@/components/layout/HeaderBar.vue'
 
 const router = useRouter()
+const { userInfo } = useUser()
 
 // 菜单折叠状态
 const isCollapse = ref(false)
-
-// 用户信息
-const userInfo = ref({
-  username: '',
-  realName: '',
-  roleId: 0,
-  permissions: []
-})
 
 const showReminderDialog = ref(false)
 const showRecycleBin = ref(false)
@@ -199,14 +193,6 @@ const goToNewService = async (row) => {
   router.push(`/service?id=${row.business_id}`)
 }
 
-const getUserInfo = () => {
-  const storedUserInfo = localStorage.getItem('userInfo')
-  if (storedUserInfo) {
-    userInfo.value = JSON.parse(storedUserInfo)
-  }
-}
-
-getUserInfo()
 fetchReminders()
 fetchPaymentOverdue()
 const reminderTimer = setInterval(fetchReminders, 2 * 60 * 1000)

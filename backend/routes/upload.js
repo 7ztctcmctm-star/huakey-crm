@@ -84,8 +84,8 @@ const validateFileMagic = async (req, res, next) => {
 };
 
 // 上传文件
-// [权限说明] 当前仅做认证，未绑定业务权限码；如需细控可补充 checkPermission('file:upload')
-const uploadHandler = async (req, res) => {
+// [权限控制] 仅允许拥有 file:upload 权限的用户上传
+const uploadHandler = async (req, res, next) => {
   try {
     const result = await uploadRouteService.uploadFile(pool, {
       file: req.file,
@@ -95,11 +95,7 @@ const uploadHandler = async (req, res) => {
     });
     res.json({ code: 200, message: '上传成功', data: [result] });
   } catch (error) {
-    if (error.statusCode === 400) {
-      return res.status(400).json({ code: 400, message: error.message, data: null });
-    }
-    logger.error('文件上传错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '文件上传失败', data: null });
+    next(error);
   }
 };
 
@@ -118,39 +114,28 @@ const multerErrorHandler = (err, req, res, next) => {
   next(err);
 };
 
-router.post('/file', authenticateToken, upload.single('file'), validateFileMagic, validate(uploadFileSchema), uploadHandler);
+router.post('/file', authenticateToken, checkPermission('file:upload'), upload.single('file'), validateFileMagic, validate(uploadFileSchema), uploadHandler);
 // 兼容前端直接调用 /upload 的旧路径
-router.post('/', authenticateToken, upload.single('file'), validateFileMagic, validate(uploadFileSchema), uploadHandler);
+router.post('/', authenticateToken, checkPermission('file:upload'), upload.single('file'), validateFileMagic, validate(uploadFileSchema), uploadHandler);
 router.use(multerErrorHandler);
 
 // 查询附件列表
-router.get('/list', authenticateToken, checkPermission('file'), async (req, res) => {
+router.get('/list', authenticateToken, checkPermission('file'), async (req, res, next) => {
   try {
     const list = await uploadRouteService.listAttachments(pool, req.query);
     res.json({ code: 200, message: '查询成功', data: list });
   } catch (error) {
-    if (error.statusCode === 400) {
-      return res.status(400).json({ code: 400, message: error.message, data: null });
-    }
-    logger.error('查询附件错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 删除附件
-router.post('/delete', authenticateToken, checkPermission('file'), validate(deleteAttachmentSchema), async (req, res) => {
+router.post('/delete', authenticateToken, checkPermission('file'), validate(deleteAttachmentSchema), async (req, res, next) => {
   try {
     await uploadRouteService.deleteAttachment(pool, req.body.id);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
-    if (error.statusCode === 400) {
-      return res.status(400).json({ code: 400, message: error.message, data: null });
-    }
-    if (error.statusCode === 404) {
-      return res.status(404).json({ code: 404, message: error.message, data: null });
-    }
-    logger.error('删除附件错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '删除失败', data: null });
+    next(error);
   }
 });
 

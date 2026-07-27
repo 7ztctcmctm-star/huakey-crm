@@ -21,6 +21,14 @@ const ModuleType = {
   SYSTEM: '系统管理'
 };
 
+// 根据字段名对单个值进行脱敏（用于 changedFields 数组中的 old/new 值）
+function maskFieldValue(fieldName, value) {
+  if (value === undefined || value === null) return value;
+  const wrapped = { [fieldName]: value };
+  const masked = maskLogParams(wrapped);
+  return masked[fieldName];
+}
+
 async function logAction({ module, action, method, url, params, ipAddress, userId, userName, description, status = 1, errorMsg = null, changedFields = null, oldValue = null, newValue = null }) {
   try {
     // 脱敏处理
@@ -46,9 +54,20 @@ async function logAction({ module, action, method, url, params, ipAddress, userI
       paramsStr = paramsStr.substring(0, 2000) + '...[truncated]';
     }
 
-    const changedFieldsStr = changedFields ? JSON.stringify(changedFields).substring(0, 2000) : null;
-    const oldValueStr = oldValue ? JSON.stringify(oldValue).substring(0, 2000) : null;
-    const newValueStr = newValue ? JSON.stringify(newValue).substring(0, 2000) : null;
+    // 字段级变更日志脱敏：按字段名对 old/new 值脱敏
+    const maskedChangedFields = changedFields
+      ? changedFields.map(item => ({
+          ...item,
+          old: maskFieldValue(item.field, item.old),
+          new: maskFieldValue(item.field, item.new)
+        }))
+      : null;
+    const maskedOldValue = oldValue && typeof oldValue === 'object' ? maskLogParams(oldValue) : oldValue;
+    const maskedNewValue = newValue && typeof newValue === 'object' ? maskLogParams(newValue) : newValue;
+
+    const changedFieldsStr = maskedChangedFields ? JSON.stringify(maskedChangedFields).substring(0, 2000) : null;
+    const oldValueStr = maskedOldValue ? JSON.stringify(maskedOldValue).substring(0, 2000) : null;
+    const newValueStr = maskedNewValue ? JSON.stringify(maskedNewValue).substring(0, 2000) : null;
 
     await pool.query(
       `INSERT INTO \`${LOG_TABLE}\` (module, action, method, url, params, ip_address, user_id, user_name, description, status, error_msg, changed_fields, old_value, new_value)

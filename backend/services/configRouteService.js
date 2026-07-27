@@ -4,6 +4,8 @@
  */
 const { clearConfigCache, getOverdueDays } = require('../utils/config');
 const notification = require('../utils/notification');
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 
 /**
  * 获取逾期天数
@@ -28,9 +30,7 @@ async function listConfigs(pool) {
  */
 async function updateConfigs(pool, configs) {
   if (!configs || !Array.isArray(configs) || configs.length === 0) {
-    const err = new Error('配置数据不能为空');
-    err.statusCode = 400;
-    throw err;
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '配置数据不能为空');
   }
 
   for (const item of configs) {

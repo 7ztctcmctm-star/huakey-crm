@@ -9,6 +9,18 @@ const MIGRATIONS_DIR = __dirname
 const args = process.argv.slice(2)
 const isRollback = args.includes('--rollback')
 const targetVersion = args.find(a => /^\d{3}$/.test(a)) || null
+const DB_NAME = process.env.DB_NAME || 'huakey_crm'
+
+/**
+ * 规范化迁移 SQL：
+ * 1. 移除硬编码的 USE 语句，避免切换到错误的数据库
+ * 2. 将 @db_name = 'huakey_crm' 替换为实际目标库名，支持测试/CI 使用不同库名
+ */
+function normalizeMigrationSql(sql) {
+  return sql
+    .replace(/^USE\s+`?[^`;\s]+`?\s*;?\s*$/gim, '')
+    .replace(/(@db_name\s*=\s*')huakey_crm(')/gi, `$1${DB_NAME}$2`)
+}
 
 async function run() {
   const pool = await mysql.createPool({
@@ -72,12 +84,13 @@ async function migrateUp(pool) {
     }
 
     console.log(`  执行 ${file} ...`)
-    const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8')
+    const rawSql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8')
+    const sql = normalizeMigrationSql(rawSql)
 
     try {
       await pool.query(sql)
       await pool.query(
-        'INSERT INTO schema_migrations (version, name) VALUES (?, ?)',
+        'INSERT IGNORE INTO schema_migrations (version, name) VALUES (?, ?)',
         [version, file]
       )
       console.log(`  ✓ ${file} 执行成功`)
@@ -131,7 +144,8 @@ async function rollback(pool, targetVersion) {
     }
 
     console.log(`  回滚 ${name} (使用 ${downFile}) ...`)
-    const sql = fs.readFileSync(downPath, 'utf8')
+    const rawSql = fs.readFileSync(downPath, 'utf8')
+    const sql = normalizeMigrationSql(rawSql)
 
     try {
       await pool.query(sql)

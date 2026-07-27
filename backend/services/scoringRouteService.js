@@ -2,6 +2,8 @@
  * 评分规则服务层
  * 从 routes/scoring.js 提取的业务逻辑，供路由层复用
  */
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 
 /**
  * 辅助函数：获取字段值
@@ -71,6 +73,7 @@ async function getRules(pool) {
  * @param {object} data - { name, condition_type, condition_field, condition_operator, condition_value, score }
  * @param {number} userId
  */
+// eslint-disable-next-line no-unused-vars
 async function createRule(pool, data, userId) {
   const { name, condition_type, condition_field, condition_operator, condition_value, score } = data;
 
@@ -97,9 +100,7 @@ async function updateRule(pool, id, data) {
 
   const [existing] = await pool.query('SELECT id FROM crm_score_rule WHERE id = ?', [id]);
   if (existing.length === 0) {
-    const err = new Error('规则不存在');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '规则不存在');
   }
 
   const fields = [];
@@ -113,9 +114,7 @@ async function updateRule(pool, id, data) {
   if (status !== undefined) { fields.push('status = ?'); values.push(parseInt(status)); }
 
   if (fields.length === 0) {
-    const err = new Error('没有要更新的字段');
-    err.statusCode = 400;
-    throw err;
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '没有要更新的字段');
   }
 
   values.push(id);
@@ -178,9 +177,7 @@ async function calculateScore(pool, customerId) {
     [customerId]
   );
   if (customers.length === 0) {
-    const err = new Error('客户不存在');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '客户不存在');
   }
   const customer = customers[0];
 
@@ -253,9 +250,7 @@ async function getCustomerScore(pool, customerId) {
     [customerId]
   );
   if (!customer) {
-    const err = new Error('客户不存在');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '客户不存在');
   }
 
   const [logs] = await pool.query(`

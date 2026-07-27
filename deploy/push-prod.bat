@@ -47,9 +47,9 @@ echo.
 echo  NOTE: If package.json changed (new deps),
 echo        manually run npm install in Container
 echo        Manager terminal for crm-prod-app:
-echo        cd /app && npm install --production
+echo        cd /app ^&^& npm install --production
 echo.
 echo  Restart crm-prod-app in Container Manager
-echo  Visit: http://192.168.0.200:6789
+echo  Visit: https://^<your-domain^>  (生产环境请通过 Nginx 443 访问)
 echo ========================================
 pause

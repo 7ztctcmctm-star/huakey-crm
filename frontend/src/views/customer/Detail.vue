@@ -552,6 +552,7 @@ import { getKnowledgeScripts } from '@/api/tools'
 import { formatTime } from '@/composables/useFormat'
 import { recordVisit } from '@/composables/useRecentVisit'
 import { ALL_SOURCE_VALUES } from '@/constants/source'
+import { useUser } from '@/composables/useUser'
 import SalesTimeline from '@/components/customer/SalesTimeline.vue'
 
 const route = useRoute()
@@ -559,18 +560,10 @@ const router = useRouter()
 const loading = ref(false)
 
 // 权限
-const userInfo = ref({})
-const isBoss = ref(false)
-const isManager = ref(false)
+const { userInfo } = useUser()
+const isBoss = computed(() => userInfo.value?.manageAll === true || userInfo.value?.roleId === 1)
+const isManager = computed(() => userInfo.value?.roleId === 2)
 const salesUsers = ref([])
-try {
-  const stored = localStorage.getItem('userInfo')
-  if (stored) {
-    userInfo.value = JSON.parse(stored)
-    isBoss.value = userInfo.value.manageAll === true || userInfo.value.roleId === 1
-    isManager.value = userInfo.value.roleId === 2
-  }
-} catch (e) { /* */ }
 
 const fetchSalesUsers = async () => {
   if (!isBoss.value && !isManager.value) return

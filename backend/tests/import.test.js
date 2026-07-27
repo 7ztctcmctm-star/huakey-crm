@@ -1,4 +1,4 @@
-﻿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -23,11 +23,15 @@ jest.mock('../services/permissionService', () => ({
   getDataPermissions: jest.fn().mockResolvedValue([])
 }));
 
+const { appErrorHandler, globalErrorHandler } = require('../middleware/errorHandler');
+
 const app = express();
 app.use(express.json());
 
 const importRoutes = require('../routes/customer/import');
 app.use('/api/v1/customer', importRoutes);
+app.use(appErrorHandler);
+app.use(globalErrorHandler);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -63,7 +67,7 @@ describe('客户导入模块', () => {
         .send({});
 
       expect(res.status).toBe(400);
-      expect(res.body.code).toBe(400);
+      expect(res.body.code).toBe(400001);
     });
 
     it('应该返回200当正常预览', async () => {

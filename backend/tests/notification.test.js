@@ -7,6 +7,11 @@ const jwt = require('jsonwebtoken');
 const mockPool = { query: jest.fn() };
 jest.mock('../config/database', () => mockPool);
 jest.mock('../utils/sseManager', () => ({ send: jest.fn() }));
+jest.mock('../services/permissionService', () => ({
+  getUserPermissions: jest.fn().mockResolvedValue(['notification']),
+  getMenuPermissions: jest.fn().mockResolvedValue([]),
+  getDataPermissions: jest.fn().mockResolvedValue([])
+}));
 
 const notificationRoutes = require('../routes/notification');
 

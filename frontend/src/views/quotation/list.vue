@@ -195,7 +195,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus, View, Edit, Promotion, Delete } from '@element-plus/icons-vue'
@@ -203,9 +203,11 @@ import request from '@/utils/request'
 import { getQuoteList, addQuote, updateQuote, deleteQuote, approveQuote, quoteToContract, getQuoteDetail } from '@/api/contract'
 import { submitApproval, withdrawApproval } from '@/api/tools'
 import { formatTime, formatAmount } from '@/composables/useFormat'
+import { useUser } from '@/composables/useUser'
 
 const router = useRouter()
 const route = useRoute()
+const { userInfo } = useUser()
 
 const STATUS_MAP = {
   1: '草稿',
@@ -232,8 +234,7 @@ const statusTagType = (status) => {
 const approvalMap = { 1: '待审批', 2: '已通过', 3: '已拒绝' }
 const approvalTagType = (s) => ({ 1: 'warning', 2: 'success', 3: 'danger' }[s] || 'info')
 // 判断当前用户是否为管理员（可审批）
-const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
-const isAdmin = userInfo.roleId === 1 || userInfo.roleId === 2 || userInfo.manageAll
+const isAdmin = computed(() => userInfo.value?.roleId === 1 || userInfo.value?.roleId === 2 || userInfo.value?.manageAll)
 
 
 // 搜索表单

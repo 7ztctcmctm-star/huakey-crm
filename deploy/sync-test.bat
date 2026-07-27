@@ -87,11 +87,13 @@ echo  Next steps:
 echo  1. Open Container Manager
 echo  2. Stop and recreate the test project
 echo     (docker-compose.yml updated with Redis)
-echo  3. Visit: http://192.168.0.200:6790
+echo  3. Visit: http://192.168.0.200:6790  (测试环境直连后端端口)
 echo  4. Check Settings: Redis should show green
 echo.
 echo  IMPORTANT: If this is a fresh deploy,
 echo  run seed data in Container Manager:
 echo    docker exec crm-test-mysql mysql -u root -p huakey_crm ^< /volume1/docker/huakey-crm-deploy/test/database/seeds/seed_test_data.sql
+echo.
+echo  Note: 首次登录请使用管理员账号，系统会强制修改初始密码
 echo ========================================
 pause

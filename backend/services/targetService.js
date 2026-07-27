@@ -2,6 +2,8 @@
  * 销售目标服务层
  * 从 routes/target.js 提取的业务逻辑
  */
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 
 /**
  * 获取销售目标列表（含达成率）
@@ -76,9 +78,7 @@ async function listTargets(pool, { year, month }) {
 async function setTarget(pool, { user_id, year, month, target_amount }, userId) {
   const [users] = await pool.query('SELECT id FROM sys_user WHERE id = ? AND status = 1', [user_id]);
   if (users.length === 0) {
-    const err = new Error('用户不存在');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError(ErrorCodes.USER_NOT_FOUND, '用户不存在');
   }
 
   await pool.query(
@@ -120,9 +120,7 @@ async function batchSetTarget(pool, { year, month, targets }, userId) {
  */
 async function deleteTarget(pool, { id }) {
   if (!id) {
-    const err = new Error('目标ID不能为空');
-    err.statusCode = 400;
-    throw err;
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '目标ID不能为空');
   }
 
   await pool.query('UPDATE crm_sales_target SET deleted_at = NOW() WHERE id = ?', [id]);

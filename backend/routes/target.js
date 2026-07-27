@@ -46,37 +46,32 @@ router.post('/list', authenticateToken, validate(targetListSchema), async (req, 
 });
 
 // 2. 设置/更新销售目标
-router.post('/set', authenticateToken, checkPermission('target'), validate(targetSetSchema), async (req, res) => {
+router.post('/set', authenticateToken, checkPermission('target'), validate(targetSetSchema), async (req, res, next) => {
   try {
     await targetService.setTarget(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '设置目标成功', data: null });
   } catch (error) {
-    const status = error.statusCode || 500;
-    logger.error('设置销售目标错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(status).json({ code: status, message: error.message || '设置目标失败', data: null });
+    next(error);
   }
 });
 
 // 3. 批量设置销售目标
-router.post('/batch-set', authenticateToken, checkPermission('target'), validate(targetBatchSetSchema), async (req, res) => {
+router.post('/batch-set', authenticateToken, checkPermission('target'), validate(targetBatchSetSchema), async (req, res, next) => {
   try {
     await targetService.batchSetTarget(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '批量设置成功', data: null });
   } catch (error) {
-    logger.error('批量设置销售目标错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '批量设置失败', data: null });
+    next(error);
   }
 });
 
 // 4. 删除销售目标
-router.post('/delete', authenticateToken, checkPermission('target'), validate(targetDeleteSchema), async (req, res) => {
+router.post('/delete', authenticateToken, checkPermission('target'), validate(targetDeleteSchema), async (req, res, next) => {
   try {
     await targetService.deleteTarget(pool, req.body);
     res.json({ code: 200, message: '删除目标成功', data: null });
   } catch (error) {
-    const status = error.statusCode || 500;
-    logger.error('删除销售目标错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(status).json({ code: status, message: error.message || '删除目标失败', data: null });
+    next(error);
   }
 });
 

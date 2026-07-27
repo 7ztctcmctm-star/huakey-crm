@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 认证流程集成测试
  * 真实数据库，覆盖登录/me/登出/token黑名单
  */
@@ -6,7 +6,7 @@
 const request = require('supertest');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { app, getPool, generateToken } = require('../setup-integration');
+const { app, getPool } = require('../setup-integration');
 
 const pool = getPool();
 
@@ -46,23 +46,26 @@ describe('认证流程 /api/v1/auth', () => {
     await pool.query('DELETE FROM sys_token_blacklist WHERE user_id = ?', [adminUserId]);
   });
 
-  test('正确密码登录 → 200 + token', async () => {
+  test('正确密码登录 → 200 + httpOnly Cookie token', async () => {
     const res = await request(app)
       .post('/api/v1/auth/login')
       .send({ username: ADMIN.username, password: ADMIN.password })
       .expect(200);
 
     expect(res.body.code).toBe(200);
-    expect(res.body.data.token).toBeDefined();
     expect(res.body.data.userInfo.username).toBe(ADMIN.username);
+    // token 不再在响应体返回，应通过 httpOnly Cookie 设置
+    expect(res.headers['set-cookie']).toEqual(
+      expect.arrayContaining([expect.stringContaining('token=')])
+    );
 
-    adminToken = res.body.data.token;
+    adminToken = res.headers['set-cookie'].find(c => c.startsWith('token='));
   });
 
-  test('GET /me 带 token → 200 + 用户信息', async () => {
+  test('GET /me 带 token cookie → 200 + 用户信息', async () => {
     const res = await request(app)
       .get('/api/v1/auth/me')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', [adminToken])
       .expect(200);
 
     expect(res.body.code).toBe(200);
@@ -88,13 +91,13 @@ describe('认证流程 /api/v1/auth', () => {
     // 登出
     await request(app)
       .post('/api/v1/auth/logout')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', [adminToken])
       .expect(200);
 
-    // 用同一 token 访问 → 应被黑名单拦截
+    // 用同一 token cookie 访问 → 应被黑名单拦截
     await request(app)
       .get('/api/v1/auth/me')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', [adminToken])
       .expect(401);
   });
 

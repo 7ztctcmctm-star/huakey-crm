@@ -16,26 +16,26 @@ SET @boss_role_id = (SELECT id FROM sys_role WHERE code = 'boss');
 SET @manager_role_id = (SELECT id FROM sys_role WHERE code = 'sales_manager');
 SET @sales_role_id = (SELECT id FROM sys_role WHERE code = 'sales');
 
--- 插入老板用户 (密码: 123456)
+-- 插入老板用户 (密码: Huakey@Test2026!)
 INSERT INTO sys_user (username, password, real_name, phone, email, dept_id, role_id, status, manager_id)
-SELECT 'boss', '$2b$10$eY0sRG.fsdRu5RO/HHMDrOVBEuFwE.BbPfe66qnMi3DqP0BIbofry', '王老板', '13900000001', 'boss@huakey.com', 1, @boss_role_id, 1, NULL
+SELECT 'boss', '$2b$10$Mn3PAECbK/GLl3Lm8WrveOoi0he.a0XWx5vYf0JO4vYSCGs/mwz5S', '王老板', '13900000001', 'boss@huakey.com', 1, @boss_role_id, 1, NULL
 WHERE NOT EXISTS (SELECT 1 FROM sys_user WHERE username = 'boss');
 
--- 插入销售经理 (密码: 123456)
+-- 插入销售经理 (密码: Huakey@Test2026!)
 INSERT INTO sys_user (username, password, real_name, phone, email, dept_id, role_id, status, manager_id)
-SELECT 'manager_zhang', '$2b$10$eY0sRG.fsdRu5RO/HHMDrOVBEuFwE.BbPfe66qnMi3DqP0BIbofry', '张经理', '13900000002', 'zhang@huakey.com', 2, @manager_role_id, 1, (SELECT id FROM sys_user WHERE username = 'boss')
+SELECT 'manager_zhang', '$2b$10$Mn3PAECbK/GLl3Lm8WrveOoi0he.a0XWx5vYf0JO4vYSCGs/mwz5S', '张经理', '13900000002', 'zhang@huakey.com', 2, @manager_role_id, 1, (SELECT id FROM sys_user WHERE username = 'boss')
 WHERE NOT EXISTS (SELECT 1 FROM sys_user WHERE username = 'manager_zhang');
 
 -- 获取老板ID
 SET @boss_id = (SELECT id FROM sys_user WHERE username = 'boss');
 SET @manager_id = (SELECT id FROM sys_user WHERE username = 'manager_zhang');
 
--- 插入销售人员（密码: 123456）
+-- 插入销售人员（密码: Huakey@Test2026!）
 INSERT INTO sys_user (username, password, real_name, phone, email, dept_id, role_id, status, manager_id) VALUES
-('sales_wang', '$2b$10$eY0sRG.fsdRu5RO/HHMDrOVBEuFwE.BbPfe66qnMi3DqP0BIbofry', '王销售', '13900000010', 'wang_sales@huakey.com', 2, @sales_role_id, 1, @manager_id),
-('sales_li', '$2b$10$eY0sRG.fsdRu5RO/HHMDrOVBEuFwE.BbPfe66qnMi3DqP0BIbofry', '李销售', '13900000011', 'li_sales@huakey.com', 2, @sales_role_id, 1, @manager_id),
-('sales_zhao', '$2b$10$eY0sRG.fsdRu5RO/HHMDrOVBEuFwE.BbPfe66qnMi3DqP0BIbofry', '赵销售', '13900000012', 'zhao_sales@huakey.com', 2, @sales_role_id, 1, @manager_id),
-('sales_chen', '$2b$10$eY0sRG.fsdRu5RO/HHMDrOVBEuFwE.BbPfe66qnMi3DqP0BIbofry', '陈销售', '13900000013', 'chen_sales@huakey.com', 2, @sales_role_id, 1, @manager_id)
+('sales_wang', '$2b$10$Mn3PAECbK/GLl3Lm8WrveOoi0he.a0XWx5vYf0JO4vYSCGs/mwz5S', '王销售', '13900000010', 'wang_sales@huakey.com', 2, @sales_role_id, 1, @manager_id),
+('sales_li', '$2b$10$Mn3PAECbK/GLl3Lm8WrveOoi0he.a0XWx5vYf0JO4vYSCGs/mwz5S', '李销售', '13900000011', 'li_sales@huakey.com', 2, @sales_role_id, 1, @manager_id),
+('sales_zhao', '$2b$10$Mn3PAECbK/GLl3Lm8WrveOoi0he.a0XWx5vYf0JO4vYSCGs/mwz5S', '赵销售', '13900000012', 'zhao_sales@huakey.com', 2, @sales_role_id, 1, @manager_id),
+('sales_chen', '$2b$10$Mn3PAECbK/GLl3Lm8WrveOoi0he.a0XWx5vYf0JO4vYSCGs/mwz5S', '陈销售', '13900000013', 'chen_sales@huakey.com', 2, @sales_role_id, 1, @manager_id)
 ON DUPLICATE KEY UPDATE real_name = VALUES(real_name);
 
 -- 获取销售ID

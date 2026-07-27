@@ -39,7 +39,7 @@ USER nodejs
 EXPOSE 5000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -qO- http://localhost:5000/api/health || exit 1
+  CMD wget -qO- http://localhost:5000/api/v1/health || exit 1
 
 # 先运行数据库迁移，再启动应用
 CMD ["sh", "-c", "node database/migrations/run_migrations.js; node app.js"]

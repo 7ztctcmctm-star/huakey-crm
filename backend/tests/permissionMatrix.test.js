@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 权限矩阵测试
  *
  * 验证各角色对关键接口的访问权限是否符合预期。
@@ -88,6 +88,8 @@ jest.mock('../services/customerDetailService', () => ({
 const { getUserPermissions } = require('../services/permissionService');
 
 // ============ 构建测试 App ============
+const { appErrorHandler, globalErrorHandler } = require('../middleware/errorHandler');
+
 const app = express();
 app.use(express.json());
 
@@ -101,6 +103,8 @@ app.use('/api/v1/user', userRoutes);
 app.use('/api/v1/customer', customerRoutes);
 app.use('/api/v1/approval', approvalRoutes);
 app.use('/api/v1/log', logRoutes);
+app.use(appErrorHandler);
+app.use(globalErrorHandler);
 
 // Mock 路由（接口在代码库中不存在，但测试矩阵要求覆盖）
 // 模拟相同的中间件链：authenticateToken → checkPermission → handler
@@ -240,7 +244,7 @@ describe('权限矩阵测试', () => {
   describe('POST /api/v1/customer/add — ADMIN / MANAGER / SALES 可访问', () => {
     const endpoint = (app) => request(app)
       .post('/api/v1/customer/add')
-      .send({ company_name: '测试公司', contact_name: '张三', phone: '13800138000' });
+      .send({ company_name: '测试公司', contacts: [{ name: '张三', phone: '13800138000' }] });
 
     it('ADMIN → 200', async () => {
       setupAdminMocks();

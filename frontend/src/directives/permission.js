@@ -1,4 +1,4 @@
-import { hasPermission, hasAnyPermission, hasPermissionFromStorage } from '@/utils/permission'
+import { hasPermission, hasAnyPermission, hasAllPermissions } from '@/utils/permission'
 
 /**
  * 权限指令
@@ -12,14 +12,7 @@ export const permissionDirective = {
 
     if (!value) return
 
-    let hasAuth = false
-
-    // 优先使用localStorage检查（兼容性更好）
-    if (Array.isArray(value)) {
-      hasAuth = value.some(code => hasPermissionFromStorage(code))
-    } else {
-      hasAuth = hasPermissionFromStorage(value)
-    }
+    const hasAuth = Array.isArray(value) ? hasAnyPermission(value) : hasPermission(value)
 
     if (!hasAuth) {
       el.parentNode?.removeChild(el)
@@ -38,15 +31,9 @@ export const permissionAllDirective = {
 
     if (!value) return
 
-    let hasAuth = false
-
-    if (arg === 'all' && Array.isArray(value)) {
-      hasAuth = value.every(code => hasPermissionFromStorage(code))
-    } else if (Array.isArray(value)) {
-      hasAuth = value.some(code => hasPermissionFromStorage(code))
-    } else {
-      hasAuth = hasPermissionFromStorage(value)
-    }
+    const hasAuth = (arg === 'all' && Array.isArray(value))
+      ? hasAllPermissions(value)
+      : (Array.isArray(value) ? hasAnyPermission(value) : hasPermission(value))
 
     if (!hasAuth) {
       el.parentNode?.removeChild(el)
@@ -65,13 +52,7 @@ export const permissionDisabledDirective = {
 
     if (!value) return
 
-    let hasAuth = false
-
-    if (Array.isArray(value)) {
-      hasAuth = value.some(code => hasPermissionFromStorage(code))
-    } else {
-      hasAuth = hasPermissionFromStorage(value)
-    }
+    const hasAuth = Array.isArray(value) ? hasAnyPermission(value) : hasPermission(value)
 
     if (!hasAuth && arg === 'disabled') {
       el.disabled = true

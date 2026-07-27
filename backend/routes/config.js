@@ -20,8 +20,8 @@ const emptySchema = Joi.object({});
 
 const router = express.Router();
 
-// 获取逾期天数（所有登录用户可用）
-router.get('/overdue-days', authenticateToken, checkPermission('system'), async (req, res) => {
+// 获取逾期天数（所有登录用户可用，无需业务权限码）
+router.get('/overdue-days', authenticateToken, async (req, res) => {
   try {
     const data = await configRouteService.fetchOverdueDays();
     res.json({ code: 200, message: '查询成功', data });
@@ -43,16 +43,12 @@ router.get('/list', authenticateToken, checkPermission('system'), requireManager
 });
 
 // 更新配置（仅管理员/经理）
-router.post('/update', authenticateToken, checkPermission('system'), requireManager, validate(configUpdateSchema), async (req, res) => {
+router.post('/update', authenticateToken, checkPermission('system'), requireManager, validate(configUpdateSchema), async (req, res, next) => {
   try {
     await configRouteService.updateConfigs(pool, req.body.configs);
     res.json({ code: 200, message: '配置更新成功', data: null });
   } catch (error) {
-    if (error.statusCode === 400) {
-      return res.status(400).json({ code: 400, message: error.message, data: null });
-    }
-    logger.error('[配置] 更新配置错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '更新配置失败', data: null });
+    next(error);
   }
 });
 

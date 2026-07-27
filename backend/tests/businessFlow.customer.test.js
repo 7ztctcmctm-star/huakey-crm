@@ -83,6 +83,8 @@ jest.mock('../utils/fieldLog', () => ({
 }));
 
 // ============ 挂载路由（mock 必须在 require 之前）============
+const { appErrorHandler, globalErrorHandler } = require('../middleware/errorHandler');
+
 const app = express();
 app.use(express.json());
 
@@ -92,6 +94,8 @@ app.use('/api/v1/opportunity', require('../routes/opportunity'));
 app.use('/api/v1/quote', require('../routes/quote'));
 app.use('/api/v1/contract', require('../routes/contract'));
 app.use('/api/v1/recycle', require('../routes/recycle'));
+app.use(appErrorHandler);
+app.use(globalErrorHandler);
 
 const generateToken = () => {
   return jwt.sign(
@@ -117,15 +121,21 @@ describe('客户全生命周期 - 端到端流程', () => {
 
   // Step 1: 创建客户
   it('Step 1: POST /api/v1/customer/add — 创建客户', async () => {
-    // customerDetailService.addCustomer: 2 次 pool.query
+    // addCustomer: pool.query 检查重复，connection.query 事务内 INSERT 客户 + 联系人
     mockPool.query
-      .mockResolvedValueOnce([[]])                      // 检查重复（无重复）
-      .mockResolvedValueOnce([{ insertId: 100 }]);      // INSERT
+      .mockResolvedValueOnce([[]]);                      // 检查重复（无重复）
+
+    mockConn.query
+      .mockResolvedValueOnce([{ insertId: 100 }])        // INSERT 客户
+      .mockResolvedValueOnce([{ affectedRows: 1 }]);     // INSERT 联系人
 
     const res = await request(app)
       .post('/api/v1/customer/add')
       .set('Authorization', `Bearer ${token}`)
-      .send({ company_name: '测试客户公司', contact_name: '张三', phone: '13800138000' });
+      .send({
+        company_name: '测试客户公司',
+        contacts: [{ name: '张三', phone: '13800138000' }]
+      });
 
     expect(res.status).toBe(200);
     expect(res.body.code).toBe(200);
@@ -135,16 +145,22 @@ describe('客户全生命周期 - 端到端流程', () => {
 
   // Step 2: 添加跟进记录
   it('Step 2: POST /api/v1/follow-up/add — 添加跟进记录', async () => {
-    // followUpService.addFollowUp: 3 次 pool.query
+    // addFollowUp 使用 pool.query：客户检查 / 插入跟进 / 更新客户 / 解除提醒
     mockPool.query
       .mockResolvedValueOnce([[{ id: 100, owner_id: 1, status: 1 }]])  // 客户存在检查
       .mockResolvedValueOnce([{ insertId: 200 }])                       // INSERT 跟进
-      .mockResolvedValueOnce([{ affectedRows: 1 }]);                    // UPDATE last_follow_time
+      .mockResolvedValueOnce([{ affectedRows: 1 }])                    // UPDATE last_follow_time
+      .mockResolvedValueOnce([{ affectedRows: 1 }]);                   // UPDATE crm_follow_up_reminder
 
     const res = await request(app)
       .post('/api/v1/follow-up/add')
       .set('Authorization', `Bearer ${token}`)
-      .send({ customer_id: 100, content: '电话沟通需求', follow_type: '电话' });
+      .send({
+        customer_id: 100,
+        content: '电话沟通需求',
+        follow_type: '电话',
+        advance_status: false
+      });
 
     expect(res.status).toBe(200);
     expect(res.body.code).toBe(200);
@@ -174,6 +190,7 @@ describe('客户全生命周期 - 端到端流程', () => {
     mockConn.release.mockResolvedValue(undefined);
     mockConn.query
       .mockResolvedValueOnce([[{ id: 100 }]])                                          // 客户校验
+      .mockResolvedValueOnce([[{ id: 300, customer_id: 100 }]])                       // 商机校验
       .mockResolvedValueOnce([[{ id: 1, name: '产品A', code: 'P001', price: 5000 }]]) // 产品校验
       .mockResolvedValueOnce([[{ cnt: 0 }]])                                           // COUNT 报价编号
       .mockResolvedValueOnce([{ insertId: 400 }])                                      // INSERT 报价
@@ -185,7 +202,8 @@ describe('客户全生命周期 - 端到端流程', () => {
       .send({
         customer_id: 100,
         opportunity_id: 300,
-        items: [{ product_id: 1, quantity: 10, unit_price: 5000 }]
+        items: [{ product_id: 1, quantity: 10, unit_price: 5000 }],
+        advance_status: false
       });
 
     expect(res.status).toBe(200);

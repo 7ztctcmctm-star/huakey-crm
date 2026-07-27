@@ -131,7 +131,7 @@ const buildDataPermissionWhere = async (dataPermission, tableAlias = 't') => {
     }
 
     case 'self':
-      return { clause: `${column} = ?`, params: [userId] };
+      return { clause: `(${column} = ? OR (${column} IS NULL AND ${tableAlias}.status IN ('lead', 'sea')))`, params: [userId] };
 
     case 'custom':
       if (customDeptIds) {

@@ -118,7 +118,7 @@ async function addSupplierQuote(pool, comparisonId, quoteData) {
 
   if (!exists) {
     const err = new Error('比价单不存在或已取消');
-    err.code = 404;
+    err.statusCode = 404;
     throw err;
   }
 
@@ -129,7 +129,7 @@ async function addSupplierQuote(pool, comparisonId, quoteData) {
 
   if (duplicate) {
     const err = new Error('该供应商已报价');
-    err.code = 400;
+    err.statusCode = 400;
     throw err;
   }
 
@@ -155,13 +155,13 @@ async function selectSupplier(pool, comparisonId, supplierId) {
 
   if (!comparison) {
     const err = new Error('比价单不存在');
-    err.code = 404;
+    err.statusCode = 404;
     throw err;
   }
 
   if (comparison.status === 'cancelled') {
     const err = new Error('比价单已取消');
-    err.code = 400;
+    err.statusCode = 400;
     throw err;
   }
 
@@ -178,7 +178,7 @@ async function selectSupplier(pool, comparisonId, supplierId) {
 
     if (!best) {
       const err = new Error('暂无可选供应商报价');
-      err.code = 400;
+      err.statusCode = 400;
       throw err;
     }
 
@@ -191,7 +191,7 @@ async function selectSupplier(pool, comparisonId, supplierId) {
 
     if (!valid) {
       const err = new Error('选中的供应商未参与报价');
-      err.code = 400;
+      err.statusCode = 400;
       throw err;
     }
   }
@@ -217,7 +217,7 @@ async function cancelComparison(pool, id) {
 
   if (!comparison) {
     const err = new Error('比价单不存在');
-    err.code = 404;
+    err.statusCode = 404;
     throw err;
   }
 

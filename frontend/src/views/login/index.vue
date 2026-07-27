@@ -148,14 +148,19 @@ const handleLogin = async () => {
     if (res.code === 200) {
       // 不立即 setUser，让路由守卫通过 /auth/me 获取完整用户信息（含 permissions/manageAll）
       // 避免 userInfo 缺少 manageAll 字段导致路由守卫权限判断失败死循环
-      if (res.data.token) {
-        localStorage.setItem('token', res.data.token)
-      }
+      // token 由后端通过 httpOnly Cookie 设置，前端不存储
 
       if (loginForm.remember) {
         localStorage.setItem('remembered_user', loginForm.username)
       } else {
         localStorage.removeItem('remembered_user')
+      }
+
+      // 首次登录/重置密码后强制修改密码
+      if (res.data?.mustChangePassword) {
+        ElMessage.warning('首次登录，请修改密码')
+        router.push('/change-password')
+        return
       }
 
       ElMessage.success('登录成功')

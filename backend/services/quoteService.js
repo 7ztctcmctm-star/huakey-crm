@@ -190,7 +190,7 @@ async function listQuotes(pool, params = {}, permission = null) {
   const result = await paginatedQuery(pool, {
     baseQuery: `SELECT
       q.id, q.quote_no, q.customer_id, q.amount, q.discount, q.final_amount,
-      q.valid_days, q.remark, q.status, q.create_by, q.create_time,
+      q.valid_days, q.remark, q.status, q.approval_status, q.create_by, q.create_time,
       q.currency, q.exchange_rate,
       c.company_name as customer_name,
       u.real_name as create_name,
@@ -227,7 +227,7 @@ async function getQuote(pool, id, permission = null) {
   const [quote] = await pool.query(
     `SELECT
       q.id, q.quote_no, q.customer_id, q.amount, q.discount, q.final_amount,
-      q.valid_days, q.remark, q.status, q.create_by, q.create_time,
+      q.valid_days, q.remark, q.status, q.approval_status, q.create_by, q.create_time,
       c.company_name as customer_name, c.contact_name, c.phone,
       u.real_name as create_name
     FROM crm_quote q

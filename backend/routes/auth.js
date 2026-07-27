@@ -5,6 +5,7 @@ const pool = require('../config/database');
 const { authenticateToken, generateToken, getTokenFromRequest } = require('../middleware/auth');
 const { validate, Joi } = require('../middleware/validate');
 const { checkPermission } = require('../middleware/permission');
+const { generateCsrfToken, setCsrfCookie } = require('../middleware/csrf');
 const { logAction, getIpAddress } = require('../middleware/logger');
 const authService = require('../services/authService');
 const { authLimiter } = require('../middleware/rateLimiter');
@@ -110,6 +111,10 @@ const changePasswordSchema = Joi.object({
   new_password: Joi.string().required().max(200).pattern(authService.PASSWORD_PATTERN).message(authService.PASSWORD_MESSAGE)
 });
 
+const forceChangePasswordSchema = Joi.object({
+  new_password: Joi.string().required().max(200).pattern(authService.PASSWORD_PATTERN).message(authService.PASSWORD_MESSAGE)
+});
+
 const logoutSchema = Joi.object({});
 const refreshSchema = Joi.object({});
 
@@ -119,9 +124,9 @@ router.get('/captcha', async (req, res) => {
   res.json({ code: 200, message: 'success', data: { key, svg } });
 });
 
-// 本地开发环境跳过验证码（前置中间件，必须在JOI校验之前）
+// 跳过验证码（仅在显式设置 SKIP_CAPTCHA=true 时生效；生产环境由 app.js 启动校验拦截）
 router.use('/login', (req, res, next) => {
-  if (process.env.NODE_ENV !== 'production' && process.env.SKIP_CAPTCHA === 'true') {
+  if (process.env.SKIP_CAPTCHA === 'true') {
     req.body.captchaKey = 'dev';
     req.body.captcha = 'dev1';
   }
@@ -134,9 +139,9 @@ router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
     const { username, password, captcha, captchaKey } = req.body;
     const ip = getIpAddress(req);
 
-    // 本地开发跳过验证码校验
-    if (process.env.NODE_ENV !== 'production' && process.env.SKIP_CAPTCHA === 'true') {
-      authService.captchaStore.set('dev', { code: 'dev1', expires: Date.now() + 3600000 });
+    // 跳过验证码校验（仅在显式设置 SKIP_CAPTCHA=true 时生效）
+    if (process.env.SKIP_CAPTCHA === 'true') {
+      await authService.setDevCaptcha();
     }
 
     // 验证码校验
@@ -155,7 +160,9 @@ router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
         params: { username }, ipAddress: ip, userId: null, userName: username,
         description: `登录失败：${error.message}`, status: 0, errorMsg: error.message
       });
-      return res.status(error.code || 500).json({ code: error.code || 500, message: error.message, data: null });
+      // [安全修复] MySQL 错误码为字符串（如 ER_BAD_FIELD_ERROR），不能直接用做 HTTP status
+      const statusCode = typeof error.code === 'number' && error.code >= 100 && error.code < 600 ? error.code : 500;
+      return res.status(statusCode).json({ code: statusCode, message: error.message, data: null });
     }
 
     // 生成JWT token
@@ -180,11 +187,15 @@ router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
+    // 设置 CSRF double-submit cookie（非 httpOnly，供前端读取后放入请求头）
+    const csrfToken = generateCsrfToken();
+    setCsrfCookie(req, res, csrfToken);
+
     res.json({
       code: 200,
       message: '登录成功',
       data: {
-        token,
+        mustChangePassword: user.must_change_password === 1,
         userInfo: {
           id: user.id,
           username: user.username,
@@ -248,8 +259,10 @@ router.get('/me', authenticateToken, async (req, res) => {
         sameSite: 'strict',
         maxAge: 7 * 24 * 60 * 60 * 1000
       });
+      // 刷新 token 时同步刷新 CSRF cookie
+      const newCsrfToken = generateCsrfToken();
+      setCsrfCookie(req, res, newCsrfToken);
       res.set('X-Token-Refresh', 'true');
-      data.token = newToken;
     }
 
     res.json({ code: 200, message: '获取成功', data });
@@ -308,6 +321,26 @@ router.post('/change-password', authenticateToken, validate(changePasswordSchema
     res.json({ code: 200, message: '密码修改成功，请重新登录', data: null });
   } catch (error) {
     logger.error('[认证] 修改密码错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    res.status(error.code || 500).json({ code: error.code || 500, message: error.message || '修改密码失败', data: null });
+  }
+});
+
+// 6.5 强制修改密码（首次登录/重置密码后无需旧密码）
+// [权限说明] 个人密码修改接口，仅需认证，无需业务权限码
+router.post('/force-change-password', authenticateToken, validate(forceChangePasswordSchema), async (req, res) => {
+  try {
+    await authService.forceChangePassword(pool, req.user.userId, req.body.new_password);
+
+    // 强制改密后清除 token cookie，要求使用新密码重新登录
+    res.clearCookie('token', {
+      httpOnly: true,
+      secure: isProduction && req.secure,
+      sameSite: 'strict'
+    });
+
+    res.json({ code: 200, message: '密码修改成功，请使用新密码重新登录', data: null });
+  } catch (error) {
+    logger.error('[认证] 强制修改密码错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(error.code || 500).json({ code: error.code || 500, message: error.message || '修改密码失败', data: null });
   }
 });
@@ -376,10 +409,14 @@ router.post('/refresh', validate(refreshSchema), async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
+    // 同步刷新 CSRF cookie
+    const newCsrfToken = generateCsrfToken();
+    setCsrfCookie(req, res, newCsrfToken);
+
     res.json({
       code: 200,
       message: 'Token 已刷新',
-      data: { token: newToken }
+      data: null
     });
   } catch (error) {
     logger.error('[认证] Token 刷新失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });

@@ -4,7 +4,7 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const { requireManager } = require('../middleware/admin');
-const { success, fail, serverError, notFound } = require('../utils/response');
+const { success, serverError } = require('../utils/response');
 const { validate, Joi } = require('../middleware/validate');
 const contractTemplateService = require('../services/contractTemplateService');
 const logger = require('../config/logger');
@@ -31,19 +31,17 @@ router.get('/list', authenticateToken, checkPermission('contract_template'), asy
 });
 
 // 获取模板详情
-router.get('/:id', authenticateToken, checkPermission('contract_template'), async (req, res) => {
+router.get('/:id', authenticateToken, checkPermission('contract_template'), async (req, res, next) => {
   try {
     const template = await contractTemplateService.getTemplate(pool, req.params.id);
     success(res, template);
   } catch (error) {
-    if (error.statusCode === 404) return notFound(res, error.message);
-    logger.error('获取模板详情错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    serverError(res, '查询失败');
+    next(error);
   }
 });
 
 // 管理模板（仅管理员/经理）
-router.post('/manage', authenticateToken, checkPermission('contract_template'), requireManager, validate(templateManageSchema), async (req, res) => {
+router.post('/manage', authenticateToken, checkPermission('contract_template'), requireManager, validate(templateManageSchema), async (req, res, next) => {
   try {
     const result = await contractTemplateService.manageTemplate(pool, req.body);
     if (req.body.action === 'add') {
@@ -54,9 +52,7 @@ router.post('/manage', authenticateToken, checkPermission('contract_template'), 
       success(res, null, '模板已删除');
     }
   } catch (error) {
-    if (error.statusCode === 400) return fail(res, error.message);
-    logger.error('管理模板错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    serverError(res, '操作失败');
+    next(error);
   }
 });
 

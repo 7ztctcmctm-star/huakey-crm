@@ -57,6 +57,7 @@ import { ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getCustomerList } from '@/api/customer'
 import { addFollowUp } from '@/api/customer'
+import { useUser } from '@/composables/useUser'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false }
@@ -77,12 +78,12 @@ const formRules = {
   content: [{ required: true, message: '请填写跟进内容', trigger: 'blur' }]
 }
 
+const { userId } = useUser()
+
 const loadMyCustomers = async () => {
   customerLoading.value = true
   try {
-    const stored = localStorage.getItem('userInfo')
-    const userId = stored ? JSON.parse(stored).id : null
-    const res = await getCustomerList({ page: 1, pageSize: 50, owner_id: userId || undefined })
+    const res = await getCustomerList({ page: 1, pageSize: 50, owner_id: userId.value || undefined })
     if (res.code === 200) customerOptions.value = res.data.list || []
   } catch { /* ignore */ }
   finally { customerLoading.value = false }

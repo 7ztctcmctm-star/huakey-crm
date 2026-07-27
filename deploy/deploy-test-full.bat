@@ -98,7 +98,7 @@ echo.
 echo ========================================
 echo  Full deploy complete!
 echo.
-echo  Visit: http://192.168.0.200:6790
-echo  Login: admin / huakey123
+echo  Visit: http://192.168.0.200:6790  (测试环境直连后端端口)
+echo  Note: 首次登录请使用管理员账号，系统会强制修改初始密码
 echo ========================================
 pause

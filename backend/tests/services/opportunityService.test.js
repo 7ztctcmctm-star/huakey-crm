@@ -94,7 +94,7 @@ describe('opportunityService.createOpportunity', () => {
 
     await expect(
       opportunityService.createOpportunity(mockPool, { customer_id: 999, name: '商机A' }, 1)
-    ).rejects.toMatchObject({ code: 404, message: '客户不存在' });
+    ).rejects.toMatchObject({ code: 404002, message: '客户不存在' });
   });
 
   it('客户不是正式客户(status!=2)应抛出 400', async () => {
@@ -102,7 +102,7 @@ describe('opportunityService.createOpportunity', () => {
 
     await expect(
       opportunityService.createOpportunity(mockPool, { customer_id: 1, name: '商机A' }, 1)
-    ).rejects.toMatchObject({ code: 400 });
+    ).rejects.toMatchObject({ code: 400005 });
   });
 
   it('创建成功应返回 { id: insertId }', async () => {
@@ -157,11 +157,11 @@ describe('opportunityService.advanceStage', () => {
   it('阶段值无效(超出1-6)应抛出 400', async () => {
     await expect(
       opportunityService.advanceStage(mockPool, 1, 7, 1)
-    ).rejects.toMatchObject({ code: 400, message: '阶段值无效(1-6)' });
+    ).rejects.toMatchObject({ code: 400005, message: '阶段值无效(1-6)' });
 
     await expect(
       opportunityService.advanceStage(mockPool, 1, 0, 1)
-    ).rejects.toMatchObject({ code: 400 });
+    ).rejects.toMatchObject({ code: 400005 });
   });
 
   it('商机不存在应抛出 403', async () => {
@@ -169,7 +169,7 @@ describe('opportunityService.advanceStage', () => {
 
     await expect(
       opportunityService.advanceStage(mockPool, 999, 2, 1)
-    ).rejects.toMatchObject({ code: 403 });
+    ).rejects.toMatchObject({ code: 403001 });
   });
 
   it('已成交(stage=5)的商机不可推进', async () => {
@@ -177,7 +177,7 @@ describe('opportunityService.advanceStage', () => {
 
     await expect(
       opportunityService.advanceStage(mockPool, 1, 6, 1)
-    ).rejects.toMatchObject({ code: 400, message: '商机已成交，不可再推进' });
+    ).rejects.toMatchObject({ code: 400005, message: '商机已成交，不可再推进' });
   });
 
   it('已失败(stage=6)的商机不可推进', async () => {
@@ -185,7 +185,7 @@ describe('opportunityService.advanceStage', () => {
 
     await expect(
       opportunityService.advanceStage(mockPool, 1, 1, 1)
-    ).rejects.toMatchObject({ code: 400, message: '商机已失败，不可再推进' });
+    ).rejects.toMatchObject({ code: 400005, message: '商机已失败，不可再推进' });
   });
 
   it('正常推进应返回旧阶段、新阶段和阶段名称', async () => {

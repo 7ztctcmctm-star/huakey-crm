@@ -68,8 +68,9 @@ app.use('/api/v1/customer', customerRoutes);
 // 统一错误处理中间件（模拟 app.js）
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, _next) => {
-  res.status(err.status || 500).json({
-    code: err.status || 500,
+  const statusCode = err.statusCode || err.status || 500;
+  res.status(statusCode).json({
+    code: err.code || statusCode,
     message: err.message || '服务器内部错误',
     data: null
   });
@@ -87,7 +88,7 @@ describe('customerController 集成测试', () => {
 
       const res = await request(app)
         .post('/api/v1/customer/add')
-        .send({ company_name: '铧旗科技', source: 'website' });
+        .send({ company_name: '铧旗科技', source: 'website', contacts: [{ name: '张三', phone: '13800138000' }] });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
@@ -117,11 +118,11 @@ describe('customerController 集成测试', () => {
 
       const res = await request(app)
         .post('/api/v1/customer/add')
-        .send({ company_name: '铧旗科技' });
+        .send({ company_name: '铧旗科技', contacts: [{ name: '张三' }] });
 
       expect(res.status).toBe(500);
       expect(res.body.code).toBe(500);
-      expect(res.body.message).toBe('添加客户失败');
+      expect(res.body.message).toBe('数据库连接失败');
     });
   });
 

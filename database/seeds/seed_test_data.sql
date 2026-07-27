@@ -7,22 +7,31 @@
 
 USE huakey_crm;
 
--- 角色数据
-INSERT IGNORE INTO sys_role (id, role_name, description, view_all, manage_all, status, create_time)
-SELECT id, role_name, description, view_all, manage_all, status, create_time FROM sys_role;
+-- 角色数据（当前 schema 使用 name 而非 role_name）
+INSERT IGNORE INTO sys_role (id, name, code, description, view_all, manage_all, status, create_time)
+SELECT id, name, code, description, view_all, manage_all, status, create_time FROM sys_role;
 
--- 部门数据
-INSERT IGNORE INTO sys_dept (id, dept_name, parent_id, sort, status, create_time)
-SELECT id, dept_name, parent_id, sort, status, create_time FROM sys_dept;
+-- 部门数据（当前 schema 使用 name 而非 dept_name，无 status 列）
+INSERT IGNORE INTO sys_dept (id, name, parent_id, sort, create_time)
+SELECT id, name, parent_id, sort, create_time FROM sys_dept;
 
 -- 用户数据（至少包含admin）
 -- 默认密码：Admin@123（bcrypt hash）
-INSERT IGNORE INTO sys_user (id, username, password, real_name, phone, email, dept_id, role_id, status, create_time)
-VALUES (1, 'admin', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '管理员', '13800138000', 'admin@huakey.com', 1, 1, 1, NOW());
+INSERT INTO sys_user (id, username, password, real_name, phone, email, dept_id, role_id, status, create_time)
+VALUES (1, 'admin', '$2b$10$g7rMdveDPVl/wwmz4EjQVeAfs9Ap66gup.a8Dg6yMYOBeMbkHLmqC', '管理员', '13800138000', 'admin@huakey.com', 1, 1, 1, NOW())
+AS new_user
+ON DUPLICATE KEY UPDATE
+  password = new_user.password,
+  real_name = new_user.real_name,
+  phone = new_user.phone,
+  email = new_user.email,
+  dept_id = new_user.dept_id,
+  role_id = new_user.role_id,
+  status = new_user.status;
 
--- 系统配置
-INSERT IGNORE INTO sys_config (id, config_key, config_value, description, create_time)
-SELECT id, config_key, config_value, description, create_time FROM sys_config;
+-- 系统配置（当前 schema 无 create_time，使用 update_time）
+INSERT IGNORE INTO sys_config (id, config_key, config_value, description, update_time)
+SELECT id, config_key, config_value, description, update_time FROM sys_config;
 
 -- 权限数据（菜单+按钮）
 INSERT IGNORE INTO sys_permission (id, name, code, type, parent_id, path, icon, sort, create_time)

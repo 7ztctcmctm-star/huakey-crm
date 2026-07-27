@@ -4,6 +4,7 @@
     <el-radio-group :model-value="activeQuickTab" @update:model-value="$emit('quick-tab-change', $event)">
       <el-radio-button value="mine">我的客户</el-radio-button>
       <el-radio-button value="all">全部客户</el-radio-button>
+      <el-radio-button value="lead">线索池</el-radio-button>
       <el-radio-button value="unassigned">公海/待分配</el-radio-button>
       <el-radio-button value="overdue_follow">久未跟进</el-radio-button>
     </el-radio-group>

@@ -1,7 +1,13 @@
 import { test, expect } from './fixtures/auth.js'
 
 test.describe('导航和权限', () => {
-  test('登录后应能看到侧边栏菜单', async ({ authenticatedPage: page }) => {
+  test('登录后应能看到侧边栏菜单', async ({ authenticatedPage: page }, testInfo) => {
+    test.skip(
+      testInfo.project.name.includes('iPhone') ||
+      testInfo.project.name.includes('Mobile Chrome') ||
+      testInfo.project.name === 'firefox',
+      '桌面端侧边栏布局，firefox 与移动端由 responsive/cross-browser 覆盖'
+    )
     await page.goto('/')
     // 等待 layout 渲染 — sidebar 类名来自 layout/index.vue
     await expect(page.locator('.sidebar, .el-menu, [class*="menu"]').first()).toBeVisible()

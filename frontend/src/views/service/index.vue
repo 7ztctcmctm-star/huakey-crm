@@ -344,7 +344,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
@@ -355,6 +355,7 @@ import { getUserList } from '@/api/system'
 import { getContractList } from '@/api/contract'
 import { getKnowledgeFaqs } from '@/api/tools'
 import { formatTime } from '@/composables/useFormat'
+import { useUser } from '@/composables/useUser'
 
 // 上传相关
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1'
@@ -365,13 +366,13 @@ const uploadRef = ref(null)
 
 const route = useRoute()
 const router = useRouter()
+const { userInfo } = useUser()
 const loading = ref(false)
 const tableData = ref([])
 // [新增] 视图切换：全部/我的工单（非管理员默认显示我的工单）
-const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
-const currentUserId = userInfo.userId || userInfo.id
-const isAdmin = userInfo.roleId === 1 || userInfo.roleId === 2 || userInfo.manageAll
-const viewMode = ref(isAdmin ? 'all' : 'mine')
+const currentUserId = computed(() => userInfo.value?.userId || userInfo.value?.id)
+const isAdmin = computed(() => userInfo.value?.roleId === 1 || userInfo.value?.roleId === 2 || userInfo.value?.manageAll)
+const viewMode = ref(isAdmin.value ? 'all' : 'mine')
 const quickFilter = ref('')
 const selectedServiceRows = ref([])
 const batchAssigneeId = ref(null)

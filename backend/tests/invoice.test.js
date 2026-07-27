@@ -1,4 +1,4 @@
-﻿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -35,11 +35,15 @@ jest.mock('../services/permissionService', () => ({
   getDataPermissions: jest.fn().mockResolvedValue([])
 }));
 
+const { appErrorHandler, globalErrorHandler } = require('../middleware/errorHandler');
+
 const app = express();
 app.use(express.json());
 
 const invoiceRoutes = require('../routes/invoice');
 app.use('/api/v1/invoice', invoiceRoutes);
+app.use(appErrorHandler);
+app.use(globalErrorHandler);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });

@@ -6,6 +6,7 @@ const { checkPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const requireAdmin = require('../middleware/admin');
 const { requireManager } = require('../middleware/admin');
+const { surveyRespondLimiter } = require('../middleware/rateLimiter');
 const surveyService = require('../services/surveyService');
 const logger = require('../config/logger');
 
@@ -203,8 +204,8 @@ const respondSchema = Joi.object({
   respondent_contact: Joi.string().max(100).allow('', null)
 });
 
-// 提交回复（公开接口，不需要登录）
-router.post('/respond/:campaign_id', validate(respondSchema), async (req, res) => {
+// 提交回复（公开接口，不需要登录；启用 IP+campaign_id 限流防刷）
+router.post('/respond/:campaign_id', surveyRespondLimiter, validate(respondSchema), async (req, res) => {
   try {
     const { campaign_id } = req.params;
     const result = await surveyService.submitResponse(pool, campaign_id, req.body);

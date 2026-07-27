@@ -3,6 +3,8 @@
  * 从 routes/invoice.js 提取的业务逻辑
  */
 const XLSX = require('xlsx');
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 
 const { buildDataPermissionWhere } = require('../middleware/permission');
 const { logFieldChanges } = require('../utils/fieldLog');
@@ -72,9 +74,7 @@ async function getInvoice(pool, id) {
   );
 
   if (rows.length === 0) {
-    const err = new Error('发票不存在');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '发票不存在');
   }
 
   return rows[0];
@@ -121,9 +121,7 @@ async function createInvoice(pool, { contract_id, customer_id, type, amount, tax
 async function updateInvoice(pool, { id, contract_id, customer_id, type, amount, tax_rate, tax_amount, invoice_date, status, remark }, req) {
   const [oldRows] = await pool.query('SELECT * FROM crm_invoice WHERE id = ? AND deleted_at IS NULL', [id]);
   if (oldRows.length === 0) {
-    const err = new Error('发票不存在');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '发票不存在');
   }
   const oldData = oldRows[0];
 
@@ -149,9 +147,7 @@ async function updateInvoice(pool, { id, contract_id, customer_id, type, amount,
 async function deleteInvoice(pool, { id }, req) {
   const [rows] = await pool.query('SELECT id FROM crm_invoice WHERE id = ? AND deleted_at IS NULL', [id]);
   if (rows.length === 0) {
-    const err = new Error('发票不存在');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '发票不存在');
   }
 
   await pool.query('UPDATE crm_invoice SET deleted_at = NOW() WHERE id = ?', [id]);

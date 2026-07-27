@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 事务 rollback 集成测试
  * 验证 quote 和 contract 的事务在失败时正确回滚
  */
@@ -15,12 +15,14 @@ const ADMIN = {
   real_name: '事务测试员'
 };
 
-let token;
+let agent;
 let customerId;
 let productId;
 
 describe('事务回滚', () => {
   beforeAll(async () => {
+    agent = request.agent(app);
+
     // 确保角色存在
     await pool.query(
       `INSERT IGNORE INTO sys_role (id, name, code, description, status, view_all, manage_all)
@@ -36,11 +38,15 @@ describe('事务回滚', () => {
       [ADMIN.username, hash, ADMIN.real_name]
     );
 
-    // 登录
-    const res = await request(app)
+    // 登录（httpOnly Cookie 认证）
+    const loginRes = await agent
       .post('/api/v1/auth/login')
       .send({ username: ADMIN.username, password: ADMIN.password });
-    token = res.body.data.token;
+    expect(loginRes.body.code).toBe(200);
+
+    // 通过 GET /me 获取 CSRF cookie（agent 会自动保持 cookie）
+    const meRes = await agent.get('/api/v1/auth/me');
+    expect(meRes.body.code).toBe(200);
 
     // 创建测试客户（status=2 正式客户，用于合同测试）
     const [custResult] = await pool.query(
@@ -72,9 +78,8 @@ describe('事务回滚', () => {
       // 记录操作前的 quote 数量
       const [before] = await pool.query('SELECT COUNT(*) as cnt FROM crm_quote');
 
-      const res = await request(app)
+      const res = await agent
         .post('/api/v1/quote/add')
-        .set('Authorization', `Bearer ${token}`)
         .send({
           customer_id: customerId,
           items: [
@@ -99,9 +104,8 @@ describe('事务回滚', () => {
       const [beforeQuote] = await pool.query('SELECT COUNT(*) as cnt FROM crm_quote');
       const [beforeItem] = await pool.query('SELECT COUNT(*) as cnt FROM crm_quote_item');
 
-      const res = await request(app)
+      const res = await agent
         .post('/api/v1/quote/add')
-        .set('Authorization', `Bearer ${token}`)
         .send({
           customer_id: customerId,
           items: [
@@ -124,9 +128,8 @@ describe('事务回滚', () => {
     test('不存在的客户 → 事务回滚，contract 表无新增', async () => {
       const [before] = await pool.query('SELECT COUNT(*) as cnt FROM crm_contract');
 
-      const res = await request(app)
+      const res = await agent
         .post('/api/v1/contract/add')
-        .set('Authorization', `Bearer ${token}`)
         .send({
           customer_id: 999999, // 不存在的客户
           amount: 10000
@@ -139,4 +142,3 @@ describe('事务回滚', () => {
     });
   });
 });
-

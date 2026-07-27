@@ -1,4 +1,4 @@
-﻿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -26,7 +26,7 @@ jest.mock('../middleware/logger', () => ({
 }));
 
 jest.mock('../services/permissionService', () => ({
-  getUserPermissions: jest.fn().mockResolvedValue(['customer:assign']),
+  getUserPermissions: jest.fn().mockResolvedValue(['customer:assign', 'customer:pool']),
   getMenuPermissions: jest.fn().mockResolvedValue([]),
   getDataPermissions: jest.fn().mockResolvedValue([])
 }));
@@ -165,6 +165,71 @@ describe('客户分配模块', () => {
         .send({ customer_id: 1, to_user_id: 2 });
 
       expect(res.status).toBe(401);
+    });
+  });
+
+  // 从 pool.test.js 迁移：公海认领/释放已合并到 assign.js
+  describe('POST /api/v1/customer/claim', () => {
+    it('应该返回400当缺少customer_id', async () => {
+      mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+
+      const res = await request(app)
+        .post('/api/v1/customer/claim')
+        .set('Authorization', `Bearer ${token}`)
+        .send({});
+
+      expect(res.status).toBe(400);
+    });
+
+    it('应该返回200当正常领取公海客户', async () => {
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ id: 1, pool_status: 1, pool_type: 'public', protect_until: null, owner_id: null }]]) // customer lookup
+        .mockResolvedValueOnce([{ affectedRows: 1 }]) // update
+        .mockResolvedValueOnce([{ insertId: 1 }]); // pool_log insert
+
+      const res = await request(app)
+        .post('/api/v1/customer/claim')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ customer_id: 1 });
+
+      expect(res.status).toBe(200);
+      expect(res.body.code).toBe(200);
+      expect(res.body.data).toHaveProperty('protect_until');
+    });
+  });
+
+  describe('POST /api/v1/customer/release', () => {
+    it('应该返回400当缺少customer_id', async () => {
+      mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+
+      const res = await request(app)
+        .post('/api/v1/customer/release')
+        .set('Authorization', `Bearer ${token}`)
+        .send({});
+
+      expect(res.status).toBe(400);
+    });
+
+    it('应该返回200当正常释放客户到公海', async () => {
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ id: 1, owner_id: 1, company_name: '测试公司' }]]) // customer lookup
+        .mockResolvedValueOnce([{ affectedRows: 1 }]) // update
+        .mockResolvedValueOnce([{ insertId: 1 }]) // pool_log insert
+        .mockResolvedValueOnce(undefined); // logAction
+
+      const res = await request(app)
+        .post('/api/v1/customer/release')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ customer_id: 1 });
+
+      expect(res.status).toBe(200);
+      expect(res.body.code).toBe(200);
     });
   });
 });

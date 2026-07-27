@@ -6,6 +6,17 @@ import router from '../router'
 let isRefreshing = false
 let refreshSubscribers = []
 
+/**
+ * 从 document.cookie 中读取指定名称的 cookie 值
+ * @param {string} name
+ * @returns {string|null}
+ */
+function getCookie(name) {
+  if (typeof document === 'undefined') return null
+  const match = document.cookie.match(new RegExp('(?:^|;\\s*)' + encodeURIComponent(name).replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&') + '=([^;]*)'))
+  return match ? decodeURIComponent(match[1]) : null
+}
+
 function onRefreshed() {
   refreshSubscribers.forEach(sub => sub.resolve())
   refreshSubscribers = []
@@ -20,11 +31,8 @@ function addSubscriber(resolve, reject) {
   refreshSubscribers.push({ resolve, reject })
 }
 
-function getToken() {
-  return localStorage.getItem('token') || ''
-}
-
 // 创建axios实例
+// 认证通过 httpOnly Cookie 由浏览器自动携带，前端不再存储 token
 const request = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
   timeout: 60000,
@@ -37,10 +45,18 @@ const request = axios.create({
 // 请求拦截器
 request.interceptors.request.use(
   (config) => {
-    const token = getToken()
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+    // token 由 httpOnly Cookie 自动携带，无需手动设置 Authorization
+
+    // 非 GET/HEAD/OPTIONS 请求需携带 CSRF Token（double-submit cookie）
+    const method = (config.method || 'GET').toUpperCase()
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+      const csrfToken = getCookie('csrf-token')
+      if (csrfToken) {
+        config.headers = config.headers || {}
+        config.headers['X-CSRF-Token'] = csrfToken
+      }
     }
+
     return config
   },
   (error) => {
@@ -74,36 +90,30 @@ request.interceptors.response.use(
 
           // /auth/me 失败时交给路由守卫处理，避免和守卫 next('/login') 冲突导致无限重定向
           if (originalConfig.url === '/auth/me') {
-            localStorage.removeItem('token')
-            localStorage.removeItem('userInfo')
-            break
+            break;
           }
 
           // 避免对续期请求本身重试或排队
           if (originalConfig.url === '/auth/refresh') {
-            localStorage.removeItem('token')
-            localStorage.removeItem('userInfo')
             ElMessage.error(data.message || '登录已过期，请重新登录')
             router.push('/login')
-            break
+            break;
           }
 
           if (!isRefreshing) {
             isRefreshing = true
             try {
               // 调用后端 /auth/refresh 换取新 token（使用原生 axios 避免拦截器递归）
+              // 旧 token 通过 Cookie 自动携带，刷新后后端会设置新 Cookie
               const refreshRes = await axios.post('/auth/refresh', {}, {
                 baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
                 timeout: 60000,
-                withCredentials: true,
-                headers: { Authorization: `Bearer ${getToken()}` }
+                withCredentials: true
               })
               if (refreshRes.data?.code === 200) {
-                const newToken = refreshRes.data.data.token
-                localStorage.setItem('token', newToken)
                 // 重试所有排队的请求
                 onRefreshed()
-                // 重试当前请求（请求拦截器会自动带上新 token）
+                // 重试当前请求
                 return request(originalConfig)
               }
             } catch (refreshError) {
@@ -111,8 +121,6 @@ request.interceptors.response.use(
               onRefreshFailed(refreshError)
             }
             isRefreshing = false
-            localStorage.removeItem('token')
-            localStorage.removeItem('userInfo')
             ElMessage.error(data.message || '登录已过期，请重新登录')
             router.push('/login')
           } else {

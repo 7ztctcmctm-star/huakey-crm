@@ -9,10 +9,6 @@ let reconnectAttempts = 0
 const MAX_RECONNECT_DELAY = 30000
 const messageCallbacks = new Set()
 
-function getToken() {
-  return localStorage.getItem('token') || sessionStorage.getItem('token') || ''
-}
-
 /**
  * 建立 SSE 连接
  * @param {object} callbacks
@@ -25,9 +21,10 @@ export function connectSSE(callbacks = {}) {
   if (eventSource) return
 
   const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1'
-  const url = `${baseUrl}/sse/notifications?token=${encodeURIComponent(getToken())}`
+  const url = `${baseUrl}/sse/notifications`
 
-  eventSource = new EventSource(url)
+  // SSE 通过 withCredentials 自动携带 httpOnly Cookie，不在 URL 中暴露 token
+  eventSource = new EventSource(url, { withCredentials: true })
 
   eventSource.onopen = () => {
     reconnectAttempts = 0

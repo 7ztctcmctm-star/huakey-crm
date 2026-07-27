@@ -8,7 +8,6 @@ vi.mock('@/utils/request', () => ({
 describe('useUser', () => {
   beforeEach(() => {
     vi.resetModules()
-    localStorage.clear()
     vi.clearAllMocks()
   })
 
@@ -23,22 +22,22 @@ describe('useUser', () => {
     expect(userInfo.value).toBeNull()
   })
 
-  it('setUser 应更新 userInfo 并存入 localStorage', async () => {
+  it('setUser 应更新 userInfo 且不持久化到 localStorage', async () => {
     const useUser = await getUseUser()
     const { setUser, userInfo } = useUser()
     const user = { id: 1, username: 'admin', manageAll: true }
     setUser(user)
     expect(userInfo.value).toEqual(user)
-    expect(localStorage.setItem).toHaveBeenCalledWith('userInfo', JSON.stringify(user))
+    expect(localStorage.setItem).not.toHaveBeenCalled()
   })
 
-  it('clearUser 应清空 userInfo 和 localStorage', async () => {
+  it('clearUser 应清空 userInfo 且不操作 localStorage', async () => {
     const useUser = await getUseUser()
     const { setUser, clearUser, userInfo } = useUser()
     setUser({ id: 1, username: 'admin' })
     clearUser()
     expect(userInfo.value).toBeNull()
-    expect(localStorage.removeItem).toHaveBeenCalledWith('userInfo')
+    expect(localStorage.removeItem).not.toHaveBeenCalled()
   })
 
   it('verifyAuth 成功应返回 true 并设置 userInfo', async () => {

@@ -107,9 +107,11 @@ import BatchFollowDialog from './components/BatchFollowDialog.vue'
 import { get } from '@/utils/request'
 import { getCustomerList, deleteCustomer, batchAssignCustomer, exportCustomers, getSalesUsers, getMySubordinates, claimCustomer, convertToCustomer } from '@/api/customer'
 import { SOURCE_SEARCH_OPTIONS } from '@/constants/source'
+import { useUser } from '@/composables/useUser'
 
 const router = useRouter()
 const route = useRoute()
+const { userInfo } = useUser()
 const overdueMode = ref(route.query.overdue === 'true')
 
 const activeTab = ref(route.query.tab || 'all')
@@ -127,22 +129,13 @@ const switchViewMode = () => {
   fetchList()
 }
 
-const isBoss = ref(false)
-const isManager = ref(false)
+const isBoss = computed(() => userInfo.value?.manageAll === true || userInfo.value?.roleId === 1)
+const isManager = computed(() => userInfo.value?.roleId === 2)
 const selectedRows = ref([])
 const batchNewOwnerId = ref('')
 const salesUsers = ref([])
 const subordinateUsers = ref([])
 const customerTableRef = ref(null)
-
-try {
-  const stored = localStorage.getItem('userInfo')
-  if (stored) {
-    const u = JSON.parse(stored)
-    isBoss.value = u.manageAll === true || u.roleId === 1
-    isManager.value = u.roleId === 2
-  }
-} catch (e) { /* ignore */ }
 
 const staffOptions = computed(() => {
   return (isBoss.value || isManager.value) ? salesUsers.value : subordinateUsers.value
@@ -256,6 +249,7 @@ const levelOptions = [
 ]
 
 const statusOptions = [
+  { label: '线索', value: 'lead' },
   { label: '公海客户', value: 'sea' },
   { label: '跟进中', value: 'following' },
   { label: '已报价', value: 'quoted' },
@@ -336,8 +330,7 @@ const fetchList = async () => {
     if (searchForm._unassigned) params.unassigned = true
     if (searchForm._overdue_follow) params.overdue_follow = true
     if (viewMode.value === 'mine') {
-      const stored = localStorage.getItem('userInfo')
-      if (stored) params.owner_id = JSON.parse(stored).id
+      if (userInfo.value?.id) params.owner_id = userInfo.value.id
     }
     if (overdueMode.value) {
       params.overdue = true
@@ -429,6 +422,8 @@ const handleQuickTabChange = (val) => {
 
   if (val === 'mine') {
     viewMode.value = 'mine'
+  } else if (val === 'lead') {
+    searchForm.status = 'lead'
   } else if (val === 'unassigned') {
     searchForm._unassigned = true
   } else if (val === 'overdue_follow') {
@@ -468,8 +463,7 @@ const handleExport = async () => {
     if (searchForm.level) params.level = searchForm.level
     if (searchForm.status !== '' && searchForm.status !== null) params.status = searchForm.status
     if (viewMode.value === 'mine') {
-      const stored = localStorage.getItem('userInfo')
-      if (stored) params.owner_id = JSON.parse(stored).id
+      if (userInfo.value?.id) params.owner_id = userInfo.value.id
     }
     if (viewMode.value === 'staff' && staffFilterId.value) {
       params.owner_id = staffFilterId.value

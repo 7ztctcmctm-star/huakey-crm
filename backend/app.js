@@ -23,23 +23,50 @@ if (isProduction || process.env.VERCEL) {
   app.set('trust proxy', 1);
 }
 
-// 启用 helmet 安全头（CSP、X-Frame-Options 等）
-// HSTS 关闭：本地 HTTP 部署不需要 HSTS
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "blob:"],
-      connectSrc: isProduction ? ["'self'"] : ["'self'", "http://localhost:5000"],
-      fontSrc: ["'self'"],
-      objectSrc: ["'none'"],
-      frameAncestors: ["'none'"],
-    }
-  },
-  hsts: false,
-}));
+// 安全头配置
+// 说明: NAS 部署走 HTTP，禁用依赖 HTTPS 的特性（HSTS/COOP/OAC/CSP-upgrade）
+if (isProduction) {
+  // 生产环境（HTTP）：仅保留基础安全头，禁用 HTTPS 依赖特性
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        // 不包含 upgradeInsecureRequests — HTTP 下会导致资源请求升级到 HTTPS 而失败
+      }
+    },
+    crossOriginOpenerPolicy: false,
+    crossOriginResourcePolicy: false,
+    originAgentCluster: false,
+    hsts: false,
+  }));
+} else {
+  // 开发环境：轻量安全头
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        connectSrc: ["'self'", "http://localhost:5000"],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+      }
+    },
+    crossOriginOpenerPolicy: false,
+    crossOriginResourcePolicy: false,
+    originAgentCluster: false,
+    hsts: false,
+  }));
+}
 
 // 慢查询日志（拦截 pool.query，必须在路由加载之前执行）
 require('./config/slowQuery');
@@ -60,18 +87,59 @@ const corsOrigin = isProduction
   ? process.env.CORS_ORIGIN
   : 'http://localhost:5173';
 
-if (isProduction && !corsOrigin) {
-  console.error('FATAL: 生产环境必须设置 CORS_ORIGIN 环境变量'); // 启动前尚未加载 logger
-  process.exit(1);
+/**
+ * 生产环境安全配置校验
+ * 启动前强制检查，避免使用不安全的默认值上线
+ */
+function validateProductionSecurity() {
+  if (!isProduction) return;
+
+  const fatal = (msg) => {
+    console.error(`FATAL: ${msg}`); // 启动前尚未加载 logger
+    process.exit(1);
+  };
+
+  // CORS_ORIGIN 必须设置且不能指向本地开发地址
+  if (!corsOrigin) {
+    fatal('生产环境必须设置 CORS_ORIGIN 环境变量');
+  }
+  const lowerOrigin = corsOrigin.toLowerCase();
+  if (lowerOrigin.includes('localhost') || lowerOrigin.includes('127.0.0.1')) {
+    fatal('生产环境 CORS_ORIGIN 不能设置为 localhost 或 127.0.0.1');
+  }
+
+  // 禁止生产环境跳过验证码
+  if (process.env.SKIP_CAPTCHA === 'true') {
+    fatal('生产环境禁止设置 SKIP_CAPTCHA=true');
+  }
+
+  // 禁止生产环境开启 Swagger
+  if (process.env.ENABLE_SWAGGER === 'true') {
+    fatal('生产环境禁止设置 ENABLE_SWAGGER=true');
+  }
+
+  // JWT_SECRET 必须为 64 字节 hex（128 字符）
+  const jwtSecret = process.env.JWT_SECRET || '';
+  if (!/^[a-f0-9]{128}$/i.test(jwtSecret)) {
+    fatal('生产环境 JWT_SECRET 必须是 64 字节随机十六进制字符串（128 字符）');
+  }
 }
+
+validateProductionSecurity();
 
 app.use(cors({
   origin: corsOrigin,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token']
 }));
 app.use(cookieParser());
+
+// CSRF 防护中间件（double-submit cookie）
+// 注意：必须在 cookieParser 之后，业务路由之前挂载
+const { csrfProtection } = require('./middleware/csrf');
+app.use(csrfProtection);
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -151,11 +219,6 @@ apiRouter.use(globalLogMiddleware);
 // 统一响应格式中间件（确保所有 API 返回 { code, message, data } 三元组）
 apiRouter.use(responseFormat);
 
-// 统一业务错误处理（AppError + Joi 校验错误）
-apiRouter.use(appErrorHandler);
-
-// 全局错误处理中间件（捕获路由中未处理的错误）
-apiRouter.use(globalErrorHandler);
 
 // 测试路由
 apiRouter.get('/', (req, res) => {
@@ -371,14 +434,11 @@ app.use('/api/v1', apiRouter);
 // 调查模块单独注册（公开回复接口不需要token）
 app.use('/api/v1/survey', responseFormat, surveyRoutes);
 
-// 旧 /api 前缀重定向到 /api/v1（兼容期至 2026-08-01）
-// 仅处理 /api/X 格式的旧路径，/api/v1/X 正常放行避免无限循环
-app.use('/api', (req, res, next) => {
-  if (req.originalUrl.startsWith('/api/v1/')) return next();
-  res.set('Deprecation', 'true');
-  res.set('Sunset', 'Sat, 01 Aug 2026 00:00:00 GMT');
-  res.redirect(307, '/api/v1' + req.originalUrl.replace(/^\/api/, ''));
-});
+// 统一业务错误处理（AppError + Joi 校验错误）
+app.use(appErrorHandler);
+
+// 全局错误处理中间件（捕获所有未处理的错误）
+app.use(globalErrorHandler);
 
 // 生产环境：直接托管前端静态文件
 const path = require('path');
@@ -408,9 +468,6 @@ app.use((req, res) => {
     data: null
   });
 });
-
-// 全局错误处理中间件
-app.use(globalErrorHandler);
 
 // 数据库连接池
 const pool = require('./config/database');

@@ -8,7 +8,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const svgCaptcha = require('svg-captcha');
 const { getUserPermissions, getMenuPermissions, getDataPermissions } = require('./permissionService');
-const { getCache, setCache, delCache, REDIS_ENABLED } = require('../config/redis');
+const { getCache, setCache, delCache } = require('../config/redis');
 
 // [安全修复] 密码正则：至少8位，含大小写字母和数字
 const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
@@ -27,7 +27,8 @@ function getCaptchaRedisKey(key) {
 }
 
 function isMemoryCaptchaMode() {
-  return !REDIS_ENABLED || process.env.NODE_ENV !== 'production' || !!process.env.JEST_WORKER_ID;
+  // 生产环境且显式启用 Redis 时使用 Redis；否则使用内存（含测试、开发、Redis 未启用或故障降级）
+  return process.env.REDIS_ENABLED !== 'true' || process.env.NODE_ENV !== 'production';
 }
 
 async function saveCaptcha(key, code) {
@@ -121,6 +122,7 @@ async function login(pool, { username, password }) {
   const [users] = await pool.query(
     `SELECT u.id, u.username, u.password, u.real_name, u.phone, u.email,
             u.dept_id, u.role_id, u.status,
+            COALESCE(u.must_change_password, 0) as must_change_password,
             COALESCE(r.view_all, 0) as view_all,
             COALESCE(r.manage_all, 0) as manage_all,
             r.code as role_code
@@ -207,6 +209,7 @@ async function getMe(pool, userId) {
   const [users] = await pool.query(
     `SELECT u.id, u.username, u.real_name, u.phone, u.email,
             u.dept_id, u.role_id, u.status,
+            COALESCE(u.must_change_password, 0) as must_change_password,
             COALESCE(r.view_all, 0) as view_all,
             COALESCE(r.manage_all, 0) as manage_all,
             r.code as role_code
@@ -235,6 +238,7 @@ async function getMe(pool, userId) {
     deptId: user.dept_id,
     roleId: user.role_id,
     roleCode: user.role_code,
+    mustChangePassword: user.must_change_password === 1,
     viewAll: user.view_all === 1,
     manageAll: user.manage_all === 1,
     permissions,
@@ -345,7 +349,71 @@ async function changePassword(pool, userId, oldPassword, newPassword) {
   }
 
   const hashedPassword = await bcrypt.hash(newPassword, 10);
-  await pool.query('UPDATE sys_user SET password = ? WHERE id = ?', [hashedPassword, userId]);
+  await pool.query(
+    `UPDATE sys_user
+     SET password = ?,
+         must_change_password = 0,
+         password_changed_at = NOW()
+     WHERE id = ?`,
+    [hashedPassword, userId]
+  );
+}
+
+/**
+ * 强制修改密码（首次登录/重置密码后无需旧密码）
+ * @param {object} pool
+ * @param {number} userId
+ * @param {string} newPassword
+ */
+async function forceChangePassword(pool, userId, newPassword) {
+  if (!newPassword) {
+    const err = new Error('新密码不能为空');
+    err.code = 400;
+    throw err;
+  }
+  if (!PASSWORD_PATTERN.test(newPassword)) {
+    const err = new Error(PASSWORD_MESSAGE);
+    err.code = 400;
+    throw err;
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [users] = await connection.query(
+      'SELECT password, must_change_password FROM sys_user WHERE id = ? AND status = 1 FOR UPDATE',
+      [userId]
+    );
+    if (users.length === 0) {
+      const err = new Error('用户不存在或已禁用');
+      err.code = 404;
+      throw err;
+    }
+
+    if (users[0].must_change_password !== 1) {
+      const err = new Error('当前账号无需强制修改密码');
+      err.code = 400;
+      throw err;
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await connection.query(
+      `UPDATE sys_user
+       SET password = ?,
+           must_change_password = 0,
+           password_changed_at = NOW()
+       WHERE id = ?`,
+      [hashedPassword, userId]
+    );
+
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 }
 
 /**
@@ -402,12 +470,21 @@ async function register(pool, data) {
   return { id: newUser.id, username: newUser.username };
 }
 
+/**
+ * 开发/测试模式：预置一个固定的 dev 验证码
+ * 避免 routes 层直接操作内部的 captchaStore
+ */
+async function setDevCaptcha() {
+  await saveCaptcha('dev', 'dev1');
+}
+
 module.exports = {
   PASSWORD_PATTERN,
   PASSWORD_MESSAGE,
   captchaStore,
   getCaptcha,
   verifyCaptcha,
+  setDevCaptcha,
   login,
   updateLastLogin,
   logout,
@@ -416,5 +493,6 @@ module.exports = {
   getProfile,
   updateProfile,
   changePassword,
+  forceChangePassword,
   register
 };

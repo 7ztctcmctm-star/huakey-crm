@@ -2,6 +2,8 @@
  * 审批核心服务层
  * 从 routes/approval.js 提取的业务逻辑
  */
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 
 const BUSINESS_TABLE_MAP = {
   quote: 'crm_quote',
@@ -17,7 +19,7 @@ const VALID_TABLES = new Set(Object.values(BUSINESS_TABLE_MAP));
 
 function validateTable(tableName) {
   if (!VALID_TABLES.has(tableName)) {
-    throw Object.assign(new Error(`非法表名: ${tableName}`), { code: 400 });
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, `非法表名: ${tableName}`);
   }
   return tableName;
 }
@@ -99,8 +101,8 @@ async function submitApproval(pool, businessType, businessId, userId) {
   let actualType = businessType;
   if (businessType === 'quote' || businessType === 'contract') {
     const [bizDetail] = await pool.query(`SELECT discount FROM ${validateTable(tableName)} WHERE id = ?`, [businessId]);
-    if (bizDetail.length > 0 && bizDetail[0].discount) {
-      const discountRate = (1 - parseFloat(bizDetail[0].discount)) * 100;
+    if (bizDetail.length > 0 && bizDetail[0].discount != null) {
+      const discountRate = parseFloat(bizDetail[0].discount) * 100;
       if (discountRate > 10) actualType = 'discount';
     }
   }
@@ -352,7 +354,7 @@ async function batchReject(pool, ids, remark, userId, manageAll) {
 async function simpleApproveContract(pool, id, approval_status, approval_remark, userId) {
   const [rows] = await pool.query('SELECT id FROM crm_contract WHERE id = ? AND deleted_at IS NULL', [id]);
   if (rows.length === 0) {
-    throw Object.assign(new Error('合同不存在'), { statusCode: 404 });
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '合同不存在');
   }
 
   await pool.query(

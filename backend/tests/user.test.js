@@ -1,12 +1,20 @@
-﻿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
 process.env.JWT_SECRET = 'test_secret_key_for_unit_tests';
 
+const mockConnection = {
+  release: jest.fn(),
+  query: jest.fn(),
+  beginTransaction: jest.fn().mockResolvedValue(undefined),
+  commit: jest.fn().mockResolvedValue(undefined),
+  rollback: jest.fn().mockResolvedValue(undefined)
+};
+
 const mockPool = {
   query: jest.fn(),
-  getConnection: jest.fn().mockResolvedValue({ release: jest.fn() })
+  getConnection: jest.fn().mockResolvedValue(mockConnection)
 };
 
 jest.mock('../config/database', () => mockPool);
@@ -22,18 +30,28 @@ jest.mock('../services/permissionService', () => ({
   getDataPermissions: jest.fn().mockResolvedValue([])
 }));
 
+const { appErrorHandler, globalErrorHandler } = require('../middleware/errorHandler');
+
 const app = express();
 app.use(express.json());
 
 const userRoutes = require('../routes/user');
 app.use('/api/v1/user', userRoutes);
+app.use(appErrorHandler);
+app.use(globalErrorHandler);
 
 const generateToken = (userId = 1) => {
   return jwt.sign({ userId, username: 'admin', roleId: 1, manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
 describe('用户管理模块', () => {
-  beforeEach(() => { mockPool.query.mockReset(); });
+  beforeEach(() => {
+    mockPool.query.mockReset();
+    mockConnection.query.mockReset();
+    mockConnection.beginTransaction.mockClear();
+    mockConnection.commit.mockClear();
+    mockConnection.rollback.mockClear();
+  });
 
   describe('POST /api/v1/user/add', () => {
     it('应该返回400当缺少username字段', async () => {
@@ -151,8 +169,10 @@ describe('用户管理模块', () => {
       const token = generateToken(1); // userId = 1
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ id: 1 }]]); // user exists
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+
+      mockConnection.query
+        .mockResolvedValueOnce([[{ id: 1, username: 'admin', manager_id: null }]]); // user exists
 
       const res = await request(app)
         .post('/api/v1/user/delete')
@@ -168,8 +188,14 @@ describe('用户管理模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ id: 2 }]])  // user exists
-        .mockResolvedValueOnce([{ affectedRows: 1 }]);
+        .mockResolvedValueOnce([[{ id: 2, manager_id: 3 }]]); // user exists with manager
+
+      mockConnection.query
+        .mockResolvedValueOnce([[{ id: 3, deleted_at: null, status: 1 }]]) // manager valid
+        .mockResolvedValueOnce([{ affectedRows: 1 }]) // UPDATE sys_user
+        .mockResolvedValueOnce([{ affectedRows: 1 }]) // UPDATE crm_employee_profile
+        .mockResolvedValueOnce([{ affectedRows: 2 }]) // UPDATE crm_customer
+        .mockResolvedValueOnce([{ affectedRows: 1 }]); // UPDATE crm_opportunity
 
       const res = await request(app)
         .post('/api/v1/user/delete')
@@ -178,6 +204,7 @@ describe('用户管理模块', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
+      expect(mockConnection.commit).toHaveBeenCalled();
     });
   });
 });

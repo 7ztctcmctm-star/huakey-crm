@@ -8,6 +8,7 @@ node_modules/
 .env.local
 .env.production
 .env.*.local
+.env.secrets
 
 # Build outputs
 dist/
@@ -80,3 +81,17 @@ database/migrations/node_modules/
 # Dev secrets & agent session (do not commit)
 backend/.dev-token.txt
 .workbuddy/
+.trae/
+.claude/
+scripts/__pycache__/
+
+# One-off data migration/debug scripts (contain NAS credentials or temp logic)
+scripts/debug_*.py
+scripts/import_*.py
+scripts/copy_to_nas.py
+scripts/count_check.py
+scripts/extract_profile.py
+scripts/fix_and_import_hr.py
+scripts/prepare_import_sql.py
+scripts/verify_import.py
+scripts/analyze_backup.py

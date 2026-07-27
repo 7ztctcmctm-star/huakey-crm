@@ -5,9 +5,17 @@ const jwt = require('jsonwebtoken');
 
 process.env.JWT_SECRET = 'test_secret_key_for_unit_tests';
 
+const createMockConnection = () => ({
+  query: jest.fn(),
+  beginTransaction: jest.fn().mockResolvedValue(undefined),
+  commit: jest.fn().mockResolvedValue(undefined),
+  rollback: jest.fn().mockResolvedValue(undefined),
+  release: jest.fn()
+});
+
 const mockPool = {
   query: jest.fn(),
-  getConnection: jest.fn().mockResolvedValue({ release: jest.fn() })
+  getConnection: jest.fn().mockResolvedValue(createMockConnection())
 };
 
 jest.mock('../config/database', () => mockPool);
@@ -124,6 +132,76 @@ describe('认证模块', () => {
     });
   });
 
+  describe('POST /api/v1/auth/force-change-password', () => {
+    it('应该返回401当未认证', async () => {
+      const res = await request(app)
+        .post('/api/v1/auth/force-change-password')
+        .send({ new_password: 'NewSecurePass1' });
+
+      expect(res.status).toBe(401);
+      expect(res.body.code).toBe(401);
+    });
+
+    it('应该返回400当账号无需强制改密', async () => {
+      const token = generateToken();
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1, role_code: 'super_admin' }]]); // role query
+      mockPool.getConnection.mockResolvedValueOnce({
+        ...createMockConnection(),
+        query: jest.fn().mockResolvedValueOnce([[{ must_change_password: 0 }]])
+      });
+
+      const res = await request(app)
+        .post('/api/v1/auth/force-change-password')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ new_password: 'NewSecurePass1' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe('当前账号无需强制修改密码');
+    });
+
+    it('应该返回400当新密码不符合强度要求', async () => {
+      const token = generateToken();
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1, role_code: 'super_admin' }]]); // role query
+
+      const res = await request(app)
+        .post('/api/v1/auth/force-change-password')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ new_password: '123456' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe(400);
+    });
+
+    it('应该返回200当强制改密成功并清除token cookie', async () => {
+      const token = generateToken();
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1, role_code: 'super_admin' }]]); // role query
+      mockPool.getConnection.mockResolvedValueOnce({
+        ...createMockConnection(),
+        query: jest.fn()
+          .mockResolvedValueOnce([[{ must_change_password: 1 }]]) // get user
+          .mockResolvedValueOnce([{ affectedRows: 1 }]) // update password
+      });
+
+      const res = await request(app)
+        .post('/api/v1/auth/force-change-password')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ new_password: 'NewSecurePass1' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.code).toBe(200);
+      expect(res.body.message).toContain('密码修改成功');
+      expect(res.headers['set-cookie']).toEqual(
+        expect.arrayContaining([expect.stringContaining('token=;')])
+      );
+    });
+  });
+
   describe('POST /api/v1/auth/logout', () => {
     it('应该返回200成功登出', async () => {
       const res = await request(app)
@@ -149,8 +227,11 @@ describe('认证模块', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
-      expect(res.body.data).toHaveProperty('token');
       expect(res.body.message).toBe('Token 已刷新');
+      // token 不再在响应体中返回，应通过 httpOnly Cookie 设置
+      expect(res.headers['set-cookie']).toEqual(
+        expect.arrayContaining([expect.stringContaining('token=')])
+      );
     });
 
     it('应该返回200并签发新token当旧token已过期但签名有效', async () => {
@@ -171,7 +252,10 @@ describe('认证模块', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
-      expect(res.body.data).toHaveProperty('token');
+      // token 不再在响应体中返回，应通过 httpOnly Cookie 设置
+      expect(res.headers['set-cookie']).toEqual(
+        expect.arrayContaining([expect.stringContaining('token=')])
+      );
     });
 
     it('应该返回401当旧token已在黑名单', async () => {

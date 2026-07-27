@@ -131,7 +131,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
 import { getConfigList, updateConfig, testNotification, getHealth } from '@/api/system'
@@ -141,24 +141,19 @@ import { getOpportunityList } from '@/api/customer'
 import { getContractList } from '@/api/contract'
 import { getServiceList } from '@/api/system'
 import { version as appVersion } from '../../../package.json'
+import { useUser } from '@/composables/useUser'
+
+const { userInfo } = useUser()
 
 const health = reactive({ api: false, db: false, redis: false, timestamp: '', nodeEnv: '', expressVersion: '', mysqlVersion: '' })
 const stats = reactive({ userCount: 0, customerCount: 0, opportunityCount: 0, contractCount: 0, serviceCount: 0 })
 const statsLoading = ref(false)
 
 // 业务配置
-const isAdmin = ref(false)
+const isAdmin = computed(() => userInfo.value?.roleId === 1 || userInfo.value?.roleId === 2)
 const configLoading = ref(false)
 const configSaving = ref(false)
 const overdueDays = ref(15)
-
-try {
-  const stored = localStorage.getItem('userInfo')
-  if (stored) {
-    const u = JSON.parse(stored)
-    isAdmin.value = u.roleId === 1 || u.roleId === 2
-  }
-} catch { /* ignore */ }
 
 const fetchConfig = async () => {
   if (!isAdmin.value) return

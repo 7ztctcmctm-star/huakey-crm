@@ -4,13 +4,6 @@ import request from '@/utils/request'
 const userInfo = ref(null)
 let authChecked = false
 
-function loadUser() {
-  try {
-    const stored = localStorage.getItem('userInfo')
-    if (stored) userInfo.value = JSON.parse(stored)
-  } catch (e) { console.error('[useUser] 加载用户信息失败:', e) }
-}
-
 // 验证cookie登录状态（仅首次调用时请求后端）
 async function verifyAuth() {
   // 如果已检查过但 userInfo 为空（例如登录页未 setUser），重置以允许重新请求 /auth/me
@@ -22,23 +15,16 @@ async function verifyAuth() {
   try {
     const res = await request.get('/auth/me')
     if (res.code === 200) {
+      // 权限等敏感信息仅保存在内存中，不持久化到 localStorage/sessionStorage
       userInfo.value = res.data
-      localStorage.setItem('userInfo', JSON.stringify(res.data))
-      // 后端权限变化时会返回新 token，更新本地存储
-      if (res.data.token) {
-        localStorage.setItem('token', res.data.token)
-      }
       return true
     }
   } catch (e) { console.error('[useUser] 验证登录状态失败:', e) }
   userInfo.value = null
-  localStorage.removeItem('userInfo')
   return false
 }
 
 export function useUser() {
-  if (!userInfo.value) loadUser()
-
   const userId = computed(() => userInfo.value?.id)
   const roleId = computed(() => userInfo.value?.roleId)
   const isBoss = computed(() => userInfo.value?.manageAll === true)
@@ -51,14 +37,12 @@ export function useUser() {
 
   function setUser(info) {
     userInfo.value = info
-    localStorage.setItem('userInfo', JSON.stringify(info))
   }
 
   function clearUser() {
     userInfo.value = null
     authChecked = false
-    localStorage.removeItem('userInfo')
   }
 
-  return { userInfo, userId, roleId, isBoss, isAdmin, canViewAll, canClaim, setUser, clearUser, loadUser, verifyAuth }
+  return { userInfo, userId, roleId, isBoss, isAdmin, canViewAll, canClaim, setUser, clearUser, verifyAuth }
 }

@@ -38,7 +38,7 @@ docker run -d \
 echo "[3/7] 健康检查 canary..."
 CANARY_OK=false
 for i in $(seq 1 15); do
-    if curl -sf "http://localhost:$CANARY_PORT/api/health" > /dev/null 2>&1; then
+    if curl -sf "http://localhost:$CANARY_PORT/api/v1/health" > /dev/null 2>&1; then
         CANARY_OK=true
         break
     fi
@@ -62,7 +62,7 @@ echo "  ✓ Nginx 灰度模式已激活 (90/10)"
 echo "[5/7] 监控 canary (${MONITOR_DURATION}s)..."
 ELAPSED=0
 while [ $ELAPSED -lt $MONITOR_DURATION ]; do
-    if ! curl -sf "http://localhost:$CANARY_PORT/api/health" > /dev/null 2>&1; then
+    if ! curl -sf "http://localhost:$CANARY_PORT/api/v1/health" > /dev/null 2>&1; then
         echo "FAIL: canary 容机，执行回滚..."
         cp "$SCRIPT_DIR/nginx-stable.conf" "$DEPLOY_DIR/nginx/conf.d/default.conf"
         docker exec huakey-nginx nginx -s reload 2>/dev/null || nginx -s reload 2>/dev/null || true

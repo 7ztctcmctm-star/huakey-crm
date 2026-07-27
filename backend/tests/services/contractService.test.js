@@ -111,7 +111,7 @@ describe('contractService.createContract', () => {
 
     await expect(
       contractService.createContract(mockPool, { customer_id: 999, amount: 10000 }, 1)
-    ).rejects.toMatchObject({ code: 404 });
+    ).rejects.toMatchObject({ code: 404002 });
 
     expect(conn.rollback).toHaveBeenCalled();
     expect(conn.release).toHaveBeenCalled();
@@ -124,7 +124,7 @@ describe('contractService.createContract', () => {
 
     await expect(
       contractService.createContract(mockPool, { customer_id: 1, amount: 10000 }, 1)
-    ).rejects.toMatchObject({ code: 400 });
+    ).rejects.toMatchObject({ code: 400005 });
   });
 
   it('应自动生成 CON-YYMMDD-NNN 格式的合同编号', async () => {
@@ -221,7 +221,7 @@ describe('contractService.updateContractStatus', () => {
 
     await expect(
       contractService.updateContractStatus(mockPool, 999, 2)
-    ).rejects.toMatchObject({ code: 404 });
+    ).rejects.toMatchObject({ code: 404004 });
   });
 
   it('已完成(status=3)的合同不能变更状态', async () => {
@@ -229,7 +229,7 @@ describe('contractService.updateContractStatus', () => {
 
     await expect(
       contractService.updateContractStatus(mockPool, 1, 2)
-    ).rejects.toMatchObject({ code: 400, message: '已完成的合同不能变更状态' });
+    ).rejects.toMatchObject({ code: 400005, message: '已完成的合同不能变更状态' });
   });
 
   it('正常状态变更应返回 true', async () => {

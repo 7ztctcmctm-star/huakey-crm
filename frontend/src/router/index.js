@@ -15,6 +15,12 @@ const router = createRouter({
       meta: { public: true }
     },
     {
+      path: '/change-password',
+      name: 'ChangePassword',
+      component: () => import('../views/change-password/index.vue'),
+      meta: { public: true, title: '首次登录修改密码' }
+    },
+    {
       path: '/',
       name: 'Layout',
       component: Layout,
@@ -138,25 +144,25 @@ const router = createRouter({
           path: 'notification',
           name: 'Notification',
           component: () => import('../views/notification/index.vue'),
-          meta: { title: '通知中心' }
+          meta: { title: '通知中心', permission: 'notification' }
         },
         {
           path: 'email/inbox',
           name: 'EmailInbox',
           component: () => import('../views/email/inbox.vue'),
-          meta: { title: '邮件收发' }
+          meta: { title: '邮件收发', permission: 'email' }
         },
         {
           path: 'email/compose',
           name: 'EmailCompose',
           component: () => import('../views/email/compose.vue'),
-          meta: { title: '写邮件' }
+          meta: { title: '写邮件', permission: 'email' }
         },
         {
           path: 'email/settings',
           name: 'EmailSettings',
           component: () => import('../views/email/settings.vue'),
-          meta: { title: '邮箱设置' }
+          meta: { title: '邮箱设置', permission: 'email' }
         },
         {
           path: 'supplier/list',
@@ -252,31 +258,31 @@ const router = createRouter({
           path: 'survey',
           name: 'SurveyIndex',
           component: () => import('../views/survey/index.vue'),
-          meta: { title: '调查管理', permission: 'survey:view' }
+          meta: { title: '调查管理', permission: 'survey' }
         },
         {
           path: 'survey/templates',
           name: 'SurveyTemplates',
           component: () => import('../views/survey/templates.vue'),
-          meta: { title: '调查模板', permission: 'survey:view' }
+          meta: { title: '调查模板', permission: 'survey' }
         },
         {
           path: 'survey/detail/:id',
           name: 'SurveyDetail',
           component: () => import('../views/survey/detail.vue'),
-          meta: { title: '调查详情', permission: 'survey:view' }
+          meta: { title: '调查详情', permission: 'survey' }
         },
         {
           path: 'survey/analytics/:id',
           name: 'SurveyAnalytics',
           component: () => import('../views/survey/analytics.vue'),
-          meta: { title: '调查分析', permission: 'survey:view' }
+          meta: { title: '调查分析', permission: 'survey' }
         },
         {
           path: 'survey/overview',
           name: 'SurveyOverview',
           component: () => import('../views/survey/overview.vue'),
-          meta: { title: '满意度总览', permission: 'survey:view' }
+          meta: { title: '满意度总览', permission: 'survey' }
         },
         {
           path: 'hr/employees',
@@ -318,13 +324,13 @@ const router = createRouter({
           path: 'calendar',
           name: 'Calendar',
           component: () => import('../views/calendar/index.vue'),
-          meta: { title: '日程管理', permission: 'schedule:view' }
+          meta: { title: '日程管理', permission: 'calendar' }
         },
         {
           path: 'social',
           name: 'Social',
           component: () => import('../views/social/index.vue'),
-          meta: { title: '社媒沟通', permission: 'social:view' }
+          meta: { title: '社媒沟通', permission: 'social' }
         },
         {
           path: 'settings/api-platform',
@@ -348,7 +354,7 @@ const router = createRouter({
           path: 'analysis/prediction',
           name: 'AnalysisPrediction',
           component: () => import('../views/analysis/prediction.vue'),
-          meta: { title: '增强预测', permission: 'forecast:view' }
+          meta: { title: '增强预测', permission: 'analysis' }
         },
         {
           path: 'report',
@@ -390,7 +396,7 @@ const router = createRouter({
           path: 'analysis',
           name: 'Analysis',
           component: () => import('../views/analysis/index.vue'),
-          meta: { title: '数据分析' }
+          meta: { title: '数据分析', permission: 'analysis' }
         },
         {
           path: 'scoring/rules',
@@ -408,37 +414,37 @@ const router = createRouter({
           path: 'ai-suggestions',
           name: 'AiSuggestions',
           component: () => import('../views/ai/index.vue'),
-          meta: { title: 'AI建议' }
+          meta: { title: 'AI建议', permission: 'ai' }
         },
         {
           path: 'knowledge',
           name: 'Knowledge',
           component: () => import('../views/knowledge/index.vue'),
-          meta: { title: '知识库' }
+          meta: { title: '知识库', permission: 'knowledge' }
         },
         {
           path: 'knowledge/products',
           name: 'KnowledgeProducts',
           component: () => import('../views/knowledge/products.vue'),
-          meta: { title: '产品知识库' }
+          meta: { title: '产品知识库', permission: 'knowledge' }
         },
         {
           path: 'knowledge/scripts',
           name: 'KnowledgeScripts',
           component: () => import('../views/knowledge/scripts.vue'),
-          meta: { title: '销售话术' }
+          meta: { title: '销售话术', permission: 'knowledge' }
         },
         {
           path: 'knowledge/faqs',
           name: 'KnowledgeFaqs',
           component: () => import('../views/knowledge/faqs.vue'),
-          meta: { title: '常见问题' }
+          meta: { title: '常见问题', permission: 'knowledge' }
         },
         {
           path: 'knowledge/documents',
           name: 'KnowledgeDocuments',
           component: () => import('../views/knowledge/documents.vue'),
-          meta: { title: '文档模板' }
+          meta: { title: '文档模板', permission: 'knowledge' }
         },
         {
           path: 'profile',
@@ -450,7 +456,7 @@ const router = createRouter({
           path: 'settings',
           name: 'Settings',
           component: () => import('../views/settings/index.vue'),
-          meta: { title: '系统设置' }
+          meta: { title: '系统设置', permission: 'settings' }
         },
         {
           path: 'system/user',
@@ -561,17 +567,33 @@ router.beforeEach(async (to, from, next) => {
   // 获取用户信息
   const user = userInfo.value || {}
 
+  // 首次登录/重置密码后必须修改密码，强制跳转到改密页面
+  if (user.mustChangePassword && to.path !== '/change-password') {
+    next('/change-password')
+    return
+  }
+
   // 检查管理员权限
+  // admin 路由：manageAll 用户直接放行；非 manageAll 用户若持有对应 permission 也放行
   if (to.meta.admin) {
     if (user.manageAll) {
       next()
-    } else {
-      // 防止死循环：如果目标已经是 /dashboard，跳到 /login
-      if (to.path === '/dashboard') {
-        next('/login')
-      } else {
-        next('/dashboard')
+      return
+    }
+
+    if (to.meta.permission) {
+      const permissions = user.permissions || []
+      if (permissions.includes(to.meta.permission)) {
+        next()
+        return
       }
+    }
+
+    // 防止死循环：如果目标已经是 /dashboard，跳到 /login
+    if (to.path === '/dashboard') {
+      next('/login')
+    } else {
+      next('/dashboard')
     }
     return
   }

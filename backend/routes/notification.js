@@ -2,14 +2,18 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const notificationService = require('../services/notificationService');
 const logger = require('../config/logger');
 
 const emptySchema = Joi.object({});
 
+// 通知中心接口需要 notification 权限
+router.use(authenticateToken, checkPermission('notification'));
+
 // 获取通知列表
-router.get('/list', authenticateToken, async (req, res) => {
+router.get('/list', async (req, res) => {
   try {
     const userId = req.user.userId;
     const { page, pageSize, unread_only } = req.query;
@@ -26,7 +30,7 @@ router.get('/list', authenticateToken, async (req, res) => {
 });
 
 // 标记单条已读
-router.post('/read/:id', authenticateToken, validate(emptySchema), async (req, res) => {
+router.post('/read/:id', validate(emptySchema), async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (!id) {
@@ -41,7 +45,7 @@ router.post('/read/:id', authenticateToken, validate(emptySchema), async (req, r
 });
 
 // 全部已读
-router.post('/read-all', authenticateToken, validate(emptySchema), async (req, res) => {
+router.post('/read-all', validate(emptySchema), async (req, res) => {
   try {
     const { affectedRows } = await notificationService.markAllAsRead(pool, req.user.userId);
     res.json({ code: 200, message: '全部已读', data: { affectedRows } });
@@ -52,7 +56,7 @@ router.post('/read-all', authenticateToken, validate(emptySchema), async (req, r
 });
 
 // 未读数
-router.get('/unread-count', authenticateToken, async (req, res) => {
+router.get('/unread-count', async (req, res) => {
   try {
     const data = await notificationService.getUnreadCount(pool, req.user.userId);
     res.json({ code: 200, message: '查询成功', data });

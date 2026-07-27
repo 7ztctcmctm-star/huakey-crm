@@ -127,20 +127,20 @@ async function submitRequest(pool, id, user) {
 
   if (rows.length === 0) {
     const err = new Error('申请不存在');
-    err.code = 404;
+    err.statusCode = 404;
     throw err;
   }
 
   const request = rows[0];
   if (request.applicant_id !== user.userId) {
     const err = new Error('只能提交自己的申请');
-    err.code = 403;
+    err.statusCode = 403;
     throw err;
   }
 
   if (request.status !== 'draft') {
     const err = new Error('只有草稿状态可申请提交');
-    err.code = 400;
+    err.statusCode = 400;
     throw err;
   }
 
@@ -158,7 +158,7 @@ async function submitRequest(pool, id, user) {
 async function approveRequest(pool, id, user) {
   if (!isAdmin(user)) {
     const err = new Error('无权审批');
-    err.code = 403;
+    err.statusCode = 403;
     throw err;
   }
 
@@ -169,13 +169,13 @@ async function approveRequest(pool, id, user) {
 
   if (rows.length === 0) {
     const err = new Error('申请不存在');
-    err.code = 404;
+    err.statusCode = 404;
     throw err;
   }
 
   if (rows[0].status !== 'pending') {
     const err = new Error('只有待审批状态可通过');
-    err.code = 400;
+    err.statusCode = 400;
     throw err;
   }
 
@@ -195,7 +195,7 @@ async function approveRequest(pool, id, user) {
 async function rejectRequest(pool, id, user, reason) {
   if (!isAdmin(user)) {
     const err = new Error('无权审批');
-    err.code = 403;
+    err.statusCode = 403;
     throw err;
   }
 
@@ -206,13 +206,13 @@ async function rejectRequest(pool, id, user, reason) {
 
   if (rows.length === 0) {
     const err = new Error('申请不存在');
-    err.code = 404;
+    err.statusCode = 404;
     throw err;
   }
 
   if (rows[0].status !== 'pending') {
     const err = new Error('只有待审批状态可驳回');
-    err.code = 400;
+    err.statusCode = 400;
     throw err;
   }
 
@@ -237,20 +237,20 @@ async function cancelRequest(pool, id, user, reason) {
 
   if (rows.length === 0) {
     const err = new Error('申请不存在');
-    err.code = 404;
+    err.statusCode = 404;
     throw err;
   }
 
   const request = rows[0];
   if (request.applicant_id !== user.userId) {
     const err = new Error('只能撤销自己的申请');
-    err.code = 403;
+    err.statusCode = 403;
     throw err;
   }
 
   if (!['draft', 'pending'].includes(request.status)) {
     const err = new Error('只有草稿或待审批状态可撤销');
-    err.code = 400;
+    err.statusCode = 400;
     throw err;
   }
 

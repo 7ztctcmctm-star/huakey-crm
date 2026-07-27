@@ -151,7 +151,7 @@
       </el-table-column>
       <el-table-column label="操作" :width="isBoss || isManager ? 380 : 300" fixed="right">
         <template #default="{ row }">
-          <el-button v-if="viewMode === 'sea' || !row.owner_id" type="success" size="small" :icon="Aim" @click="$emit('claim', row)" v-permission="'customer:pool'">认领</el-button>
+          <el-button v-if="!row.owner_id && (row.status === 'lead' || row.status === 'sea' || row.pool_status === 1)" type="success" size="small" :icon="Aim" @click="$emit('claim', row)" v-permission="'customer:pool'">认领</el-button>
           <el-button v-if="isProspectView" type="primary" size="small" :icon="ArrowRight" @click="$emit('convert-to-customer', row)" v-permission="'customer:edit'">转为正式客户</el-button>
           <el-button type="success" size="small" :icon="ChatLineRound" @click="$emit('quick-follow', row)" v-permission="'customer:edit'">跟进</el-button>
           <el-button v-if="isBoss || isManager" type="warning" size="small" @click="$emit('assign', row)" v-permission="'customer:assign'">分配</el-button>
@@ -162,8 +162,8 @@
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item command="view">查看</el-dropdown-item>
-                <el-dropdown-item v-if="hasPermissionFromStorage('customer:edit')" command="edit">编辑</el-dropdown-item>
-                <el-dropdown-item v-if="hasPermissionFromStorage('customer:delete')" command="delete" divided :style="{ color: 'var(--color-accent)' }">删除</el-dropdown-item>
+                <el-dropdown-item v-if="hasPermission('customer:edit')" command="edit">编辑</el-dropdown-item>
+                <el-dropdown-item v-if="hasPermission('customer:delete')" command="delete" divided :style="{ color: 'var(--color-accent)' }">删除</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -192,7 +192,7 @@ import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Upload, Download, DataAnalysis, ChatLineRound, Select, ArrowRight, ArrowLeft, Aim } from '@element-plus/icons-vue'
 import { relativeTime, fullTime, relativeNextTime } from '@/composables/useRelativeTime'
-import { hasPermissionFromStorage } from '@/utils/permission'
+import { hasPermission } from '@/utils/permission'
 import { forwardCustomer, backwardCustomer } from '@/api/customer'
 
 const props = defineProps({
@@ -237,6 +237,7 @@ const levelColor = (level) => {
 
 const statusTagType = (status) => {
   const map = {
+    lead: '',
     sea: 'info',
     following: 'warning',
     quoted: '',
@@ -249,6 +250,7 @@ const statusTagType = (status) => {
 }
 
 const statusMap = {
+  lead: '线索',
   sea: '公海客户',
   following: '跟进中',
   quoted: '已报价',
@@ -281,7 +283,7 @@ const handleMoreAction = (command, row) => {
 }
 
 // 状态流转
-const PIPELINE = ['sea', 'following', 'quoted', 'negotiating', 'signed']
+const PIPELINE = ['lead', 'sea', 'following', 'quoted', 'negotiating', 'signed']
 
 const canForward = (row) => {
   const idx = PIPELINE.indexOf(row.status)

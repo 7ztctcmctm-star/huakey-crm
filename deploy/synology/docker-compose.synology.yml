@@ -1,4 +1,4 @@
-﻿# ============================================
+# ============================================
 # 华锴CRM — 群晖NAS 专用部署配置
 # 使用方法：在群晖 Container Manager 的"项目"中导入此文件
 # ============================================
@@ -122,7 +122,7 @@ services:
       - app-uploads:/app/uploads
       - ./database/migrations:/app/database/migrations:ro
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/v1/health"]
       interval: 30s
       timeout: 5s
       retries: 3

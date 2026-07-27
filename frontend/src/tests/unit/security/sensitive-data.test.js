@@ -24,11 +24,10 @@ describe('敏感数据处理', () => {
     consoleSpy.mockRestore()
   })
 
-  it('useUser 应正确清除 localStorage 中的用户信息', async () => {
+  it('useUser 不应将敏感信息持久化到 localStorage', async () => {
     const { useUser } = await import('@/composables/useUser')
-    const { setUser, clearUser } = useUser()
+    const { setUser } = useUser()
     setUser({ id: 1, username: 'admin', token: 'secret_token' })
-    clearUser()
     expect(localStorage.getItem('userInfo')).toBeNull()
   })
 })

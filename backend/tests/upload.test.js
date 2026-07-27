@@ -1,4 +1,4 @@
-﻿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -26,11 +26,15 @@ jest.mock('../utils/supabaseStorage', () => ({
   getSupabaseStorage: jest.fn().mockResolvedValue(null)
 }));
 
+const { appErrorHandler, globalErrorHandler } = require('../middleware/errorHandler');
+
 const app = express();
 app.use(express.json());
 
 const uploadRoutes = require('../routes/upload');
 app.use('/api/v1/upload', uploadRoutes);
+app.use(appErrorHandler);
+app.use(globalErrorHandler);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -92,7 +96,7 @@ describe('文件上传模块', () => {
         .field('business_id', '1');
 
       expect(res.status).toBe(400);
-      expect(res.body.code).toBe(400);
+      expect(res.body.code).toBe(400005);
     });
   });
 

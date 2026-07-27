@@ -99,9 +99,11 @@ async function addCustomer(pool, data, operatorId) {
     [company_name]
   );
 
-  // 自动分配负责人
+  // 自动分配负责人；未分配时进线索池
   const assignedOwner = await autoAssignOwner(pool, { source, address });
-  const ownerId = assignedOwner || operatorId;
+  const isAssigned = !!assignedOwner;
+  const ownerId = assignedOwner || null;
+  const status = isAssigned ? CUSTOMER_STATUS.FOLLOWING : CUSTOMER_STATUS.LEAD;
 
   const connection = await pool.getConnection();
   await connection.beginTransaction();
@@ -119,7 +121,7 @@ async function addCustomer(pool, data, operatorId) {
         source || null,
         level || 'C',
         ownerId,
-        CUSTOMER_STATUS.FOLLOWING,
+        status,
         remark || null
       ]
     );
@@ -334,9 +336,7 @@ async function getCustomerDetail(pool, customerId, permission) {
   );
 
   if (customers.length === 0) {
-    const err = new Error('客户不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);
   }
 
   const customer = customers[0];

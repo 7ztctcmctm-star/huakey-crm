@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 响应式布局快照测试 (Phase 8)
  *
  * 验证关键页面的响应式断点布局。
@@ -19,7 +19,6 @@ for (const bp of BREAKPOINTS) {
 
     test("login page adapts to viewport", async ({ page }) => {
       await page.goto("/login")
-      await page.waitForLoadState("networkidle")
 
       // 验证表单在视口内
       const form = page.locator(".login-form, form, [class*=login]").first()
@@ -36,7 +35,6 @@ for (const bp of BREAKPOINTS) {
 
     test("customer table switches layout appropriately", async ({ page }) => {
       await page.goto("/login")
-      await page.waitForLoadState("networkidle")
 
       // 如果页面有 el-table，验证其在窄屏下不溢出
       const table = page.locator(".el-table, table, [class*=table]")
@@ -51,17 +49,16 @@ for (const bp of BREAKPOINTS) {
 
     test("form dialogs fit within viewport", async ({ page }) => {
       await page.goto("/login")
-      await page.waitForLoadState("networkidle")
 
       // 检查是否有 dialog 组件超出了视口边界
-      const dialogOverflows = await page.evaluate((vpWidth, vpHeight) => {
+      const dialogOverflows = await page.evaluate(({ vpWidth, vpHeight }) => {
         const dialogs = document.querySelectorAll(".el-dialog, .el-drawer, [role=dialog]")
         if (dialogs.length === 0) return false
         return Array.from(dialogs).some(d => {
           const rect = d.getBoundingClientRect()
           return rect.right > vpWidth + 10 || rect.bottom > vpHeight + 10
         })
-      }, bp.width, bp.height)
+      }, { vpWidth: bp.width, vpHeight: bp.height })
 
       expect(dialogOverflows).toBe(false)
     })

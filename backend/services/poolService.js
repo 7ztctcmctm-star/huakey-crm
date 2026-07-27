@@ -96,21 +96,27 @@ async function claimCustomer(pool, customer_id, userId, user) {
 
   if (customer.owner_id !== null) throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户不在公海中')
 
-  if (customer.pool_type === 'private' && !canManagePrivatePool(user)) {
+  // 判断来源：线索池(lead) 还是 公海(sea)
+  const isLead = customer.status === CUSTOMER_STATUS.LEAD
+
+  // 公海私有池权限检查（线索池不限制）
+  if (!isLead && customer.pool_type === 'private' && !canManagePrivatePool(user)) {
     throw new AppError(ErrorCodes.PERMISSION_DENIED, '私有池客户仅管理员可认领')
   }
 
-  if (customer.protect_until && new Date(customer.protect_until) > new Date()) {
+  // 公海保护期检查（线索池无保护期）
+  if (!isLead && customer.protect_until && new Date(customer.protect_until) > new Date()) {
     const remainDays = Math.ceil((new Date(customer.protect_until) - new Date()) / (1000 * 60 * 60 * 24))
     throw new AppError(
       ErrorCodes.BUSINESS_VALIDATION,
       `该客户在保护期内，还需等待 ${remainDays} 天`,
-      { protect_until: customer.protect_until }   // details → 响应体 data 字段
+      { protect_until: customer.protect_until }
     )
   }
 
-  const protectUntil = new Date()
-  protectUntil.setDate(protectUntil.getDate() + 7)
+  // 线索池认领无保护期，公海认领有 7 天保护期
+  const protectUntil = isLead ? null : new Date()
+  if (protectUntil) protectUntil.setDate(protectUntil.getDate() + 7)
 
   await pool.query(
     'UPDATE crm_customer SET pool_status = 0, owner_id = ?, protect_until = ?, status = ?, last_follow_time = NOW() WHERE id = ?',

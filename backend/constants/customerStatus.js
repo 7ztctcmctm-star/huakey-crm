@@ -5,6 +5,7 @@
 
 // 状态编码
 const CUSTOMER_STATUS = {
+  LEAD: 'lead',
   SEA: 'sea',
   FOLLOWING: 'following',
   QUOTED: 'quoted',
@@ -16,6 +17,7 @@ const CUSTOMER_STATUS = {
 
 // 状态显示名称
 const CUSTOMER_STATUS_NAME = {
+  [CUSTOMER_STATUS.LEAD]: '线索',
   [CUSTOMER_STATUS.SEA]: '公海客户',
   [CUSTOMER_STATUS.FOLLOWING]: '跟进中',
   [CUSTOMER_STATUS.QUOTED]: '已报价',
@@ -27,6 +29,7 @@ const CUSTOMER_STATUS_NAME = {
 
 // Element Plus 标签类型映射
 const CUSTOMER_STATUS_TAG_TYPE = {
+  [CUSTOMER_STATUS.LEAD]: '',
   [CUSTOMER_STATUS.SEA]: 'info',
   [CUSTOMER_STATUS.FOLLOWING]: 'primary',
   [CUSTOMER_STATUS.QUOTED]: 'success',
@@ -38,6 +41,7 @@ const CUSTOMER_STATUS_TAG_TYPE = {
 
 // 默认颜色（供前端自定义渲染使用）
 const CUSTOMER_STATUS_COLOR = {
+  [CUSTOMER_STATUS.LEAD]: '#909399',
   [CUSTOMER_STATUS.SEA]: '#909399',
   [CUSTOMER_STATUS.FOLLOWING]: '#409EFF',
   [CUSTOMER_STATUS.QUOTED]: '#67C23A',
@@ -49,6 +53,7 @@ const CUSTOMER_STATUS_COLOR = {
 
 // 主销售漏斗路径（用于 forward / backward）
 const CUSTOMER_STATUS_PIPELINE = [
+  CUSTOMER_STATUS.LEAD,
   CUSTOMER_STATUS.SEA,
   CUSTOMER_STATUS.FOLLOWING,
   CUSTOMER_STATUS.QUOTED,

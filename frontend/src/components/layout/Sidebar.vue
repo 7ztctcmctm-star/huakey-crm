@@ -22,7 +22,12 @@
         <template #title>首页</template>
       </el-menu-item>
 
-      <el-sub-menu index="/customer" v-if="hasAnyMenuPermission(['customer:list', 'customer:pool', 'followup:calendar'])">
+      <el-menu-item index="/notification" v-if="hasMenuPermission('notification')">
+        <el-icon><Bell /></el-icon>
+        <template #title>通知中心</template>
+      </el-menu-item>
+
+      <el-sub-menu index="/customer" v-if="hasAnyMenuPermission(['customer:list', 'customer:pool', 'followup:calendar', 'followup:template'])">
         <template #title>
           <el-icon><UserFilled /></el-icon>
           <span>客户管理</span>
@@ -31,10 +36,10 @@
         <el-menu-item index="/customer/list?tab=customer" v-if="hasMenuPermission('customer:list')">正式客户</el-menu-item>
         <el-menu-item index="/customer/list?tab=sea" v-if="hasMenuPermission('customer:pool')">公海池</el-menu-item>
         <el-menu-item index="/followup/calendar" v-if="hasMenuPermission('followup:calendar')">跟进日历</el-menu-item>
-        <el-menu-item index="/followup/template" v-if="hasMenuPermission('customer:list')">跟进模板</el-menu-item>
+        <el-menu-item index="/followup/template" v-if="hasMenuPermission('followup:template')">跟进模板</el-menu-item>
       </el-sub-menu>
 
-      <el-menu-item index="/email/inbox">
+      <el-menu-item index="/email/inbox" v-if="hasMenuPermission('email')">
         <el-icon><Message /></el-icon>
         <template #title>邮件</template>
       </el-menu-item>
@@ -59,25 +64,25 @@
         <template #title>合同管理</template>
       </el-menu-item>
 
-      <el-menu-item index="/calendar">
+      <el-menu-item index="/calendar" v-if="hasMenuPermission('calendar')">
         <el-icon><Calendar /></el-icon>
         <template #title>日程管理</template>
       </el-menu-item>
 
-      <el-menu-item index="/social" v-if="hasMenuPermission('customer:list')">
+      <el-menu-item index="/social" v-if="hasMenuPermission('social')">
         <el-icon><ChatDotRound /></el-icon>
         <template #title>社媒沟通</template>
       </el-menu-item>
 
-      <el-sub-menu index="/payment" v-if="hasMenuPermission('contract')">
+      <el-sub-menu index="/payment" v-if="hasAnyMenuPermission(['payment', 'payment:view'])">
         <template #title>
           <el-icon><Money /></el-icon>
           <span>回款管理</span>
         </template>
-        <el-menu-item index="/payment">回款列表</el-menu-item>
-        <el-menu-item index="/payment/reminders">回款提醒</el-menu-item>
-        <el-menu-item index="/payment/reconciliation">对账管理</el-menu-item>
-        <el-menu-item index="/payment/analysis">财务分析</el-menu-item>
+        <el-menu-item index="/payment" v-if="hasMenuPermission('payment:view')">回款列表</el-menu-item>
+        <el-menu-item index="/payment/reminders" v-if="hasMenuPermission('payment:view')">回款提醒</el-menu-item>
+        <el-menu-item index="/payment/reconciliation" v-if="hasMenuPermission('payment:view')">对账管理</el-menu-item>
+        <el-menu-item index="/payment/analysis" v-if="hasMenuPermission('payment:view')">财务分析</el-menu-item>
       </el-sub-menu>
 
       <el-sub-menu index="/supplier" v-if="hasMenuPermission('supplier')">
@@ -85,8 +90,8 @@
           <el-icon><OfficeBuilding /></el-icon>
           <span>供应商管理</span>
         </template>
-        <el-menu-item index="/supplier/list">供应商列表</el-menu-item>
-        <el-menu-item index="/supplier/ranking">评估排行</el-menu-item>
+        <el-menu-item index="/supplier/list" v-if="hasMenuPermission('supplier')">供应商列表</el-menu-item>
+        <el-menu-item index="/supplier/ranking" v-if="hasMenuPermission('supplier')">评估排行</el-menu-item>
       </el-sub-menu>
 
       <el-sub-menu index="/purchase" v-if="hasMenuPermission('purchase')">
@@ -94,10 +99,10 @@
           <el-icon><ShoppingCart /></el-icon>
           <span>采购管理</span>
         </template>
-        <el-menu-item index="/purchase/list">采购单</el-menu-item>
-        <el-menu-item index="/procurement/plan">采购计划</el-menu-item>
-        <el-menu-item index="/inventory">库存管理</el-menu-item>
-        <el-menu-item index="/inventory/movements">库存变动</el-menu-item>
+        <el-menu-item index="/purchase/list" v-if="hasMenuPermission('purchase')">采购单</el-menu-item>
+        <el-menu-item index="/procurement/plan" v-if="hasMenuPermission('purchase')">采购计划</el-menu-item>
+        <el-menu-item index="/inventory" v-if="hasMenuPermission('product')">库存管理</el-menu-item>
+        <el-menu-item index="/inventory/movements" v-if="hasMenuPermission('product')">库存变动</el-menu-item>
       </el-sub-menu>
 
       <el-menu-item index="/service" v-if="hasMenuPermission('service')">
@@ -105,100 +110,100 @@
         <template #title>服务工单</template>
       </el-menu-item>
 
-      <el-sub-menu index="/survey">
+      <el-sub-menu index="/survey" v-if="hasMenuPermission('survey')">
         <template #title>
           <el-icon><Opportunity /></el-icon>
           <span>客户满意度</span>
         </template>
-        <el-menu-item index="/survey">调查管理</el-menu-item>
-        <el-menu-item index="/survey/templates">调查模板</el-menu-item>
-        <el-menu-item index="/survey/overview">满意度总览</el-menu-item>
+        <el-menu-item index="/survey" v-if="hasMenuPermission('survey')">调查管理</el-menu-item>
+        <el-menu-item index="/survey/templates" v-if="hasMenuPermission('survey')">调查模板</el-menu-item>
+        <el-menu-item index="/survey/overview" v-if="hasMenuPermission('survey')">满意度总览</el-menu-item>
       </el-sub-menu>
 
-      <el-sub-menu index="/hr" v-if="isAdmin">
+      <el-sub-menu index="/hr" v-if="hasMenuPermission('hr')">
         <template #title>
           <el-icon><User /></el-icon>
           <span>人力资源</span>
         </template>
-        <el-menu-item index="/hr/employees">员工档案</el-menu-item>
-        <el-menu-item index="/hr/commission">佣金管理</el-menu-item>
-        <el-menu-item index="/hr/org-chart">组织架构</el-menu-item>
+        <el-menu-item index="/hr/employees" v-if="hasMenuPermission('hr')">员工档案</el-menu-item>
+        <el-menu-item index="/hr/commission" v-if="hasMenuPermission('hr')">佣金管理</el-menu-item>
+        <el-menu-item index="/hr/org-chart" v-if="hasMenuPermission('hr')">组织架构</el-menu-item>
       </el-sub-menu>
 
-      <el-sub-menu index="/automation" v-if="isAdmin">
+      <el-sub-menu index="/automation" v-if="hasMenuPermission('automation')">
         <template #title>
           <el-icon><Setting /></el-icon>
           <span>自动化</span>
         </template>
-        <el-menu-item index="/automation/workflows">工作流管理</el-menu-item>
-        <el-menu-item index="/automation/assign-rules">自动分配</el-menu-item>
-        <el-menu-item index="/automation/smart-reminders">智能提醒</el-menu-item>
+        <el-menu-item index="/automation/workflows" v-if="hasMenuPermission('automation')">工作流管理</el-menu-item>
+        <el-menu-item index="/automation/assign-rules" v-if="hasMenuPermission('automation')">自动分配</el-menu-item>
+        <el-menu-item index="/automation/smart-reminders" v-if="hasMenuPermission('automation')">智能提醒</el-menu-item>
       </el-sub-menu>
 
-      <el-sub-menu index="/report" v-if="isAdmin && hasMenuPermission('report')">
+      <el-sub-menu index="/report" v-if="hasMenuPermission('report')">
         <template #title>
           <el-icon><TrendCharts /></el-icon>
           <span>数据报表</span>
         </template>
-        <el-menu-item index="/report">报表首页</el-menu-item>
-        <el-menu-item index="/report/finance">财务报表</el-menu-item>
-        <el-menu-item index="/report/business">经营分析</el-menu-item>
-        <el-menu-item index="/report/custom">自定义报表</el-menu-item>
+        <el-menu-item index="/report" v-if="hasMenuPermission('report')">报表首页</el-menu-item>
+        <el-menu-item index="/report/finance" v-if="hasMenuPermission('report')">财务报表</el-menu-item>
+        <el-menu-item index="/report/business" v-if="hasMenuPermission('report')">经营分析</el-menu-item>
+        <el-menu-item index="/report/custom" v-if="hasMenuPermission('report')">自定义报表</el-menu-item>
       </el-sub-menu>
 
-      <el-sub-menu index="/analysis">
+      <el-sub-menu index="/analysis" v-if="hasMenuPermission('analysis')">
         <template #title>
           <el-icon><DataAnalysis /></el-icon>
           <span>分析工具</span>
         </template>
-        <el-menu-item index="/analysis">分析首页</el-menu-item>
-        <el-menu-item index="/analysis/prediction">增强预测</el-menu-item>
-        <el-menu-item index="/competitor">竞品分析</el-menu-item>
+        <el-menu-item index="/analysis" v-if="hasMenuPermission('analysis')">分析首页</el-menu-item>
+        <el-menu-item index="/analysis/prediction" v-if="hasMenuPermission('analysis')">增强预测</el-menu-item>
+        <el-menu-item index="/competitor" v-if="hasMenuPermission('competitor')">竞品分析</el-menu-item>
       </el-sub-menu>
 
-      <el-menu-item index="/scoring/rules" v-if="hasMenuPermission('customer:list')">
+      <el-menu-item index="/scoring/rules" v-if="hasMenuPermission('scoring')">
         <el-icon><Trophy /></el-icon>
         <template #title>评分规则</template>
       </el-menu-item>
 
-      <el-menu-item index="/scoring/ranking" v-if="hasMenuPermission('customer:list')">
+      <el-menu-item index="/scoring/ranking" v-if="hasMenuPermission('scoring')">
         <el-icon><Histogram /></el-icon>
         <template #title>评分排行</template>
       </el-menu-item>
 
-      <el-menu-item index="/ai-suggestions">
+      <el-menu-item index="/ai-suggestions" v-if="hasMenuPermission('ai')">
         <el-icon><ChatDotRound /></el-icon>
         <template #title>AI助手</template>
       </el-menu-item>
 
-      <el-menu-item index="/approval/pending">
+      <el-menu-item index="/approval/pending" v-if="hasMenuPermission('approval')">
         <el-icon><Stamp /></el-icon>
         <template #title>待审批</template>
       </el-menu-item>
 
-      <el-menu-item index="/approval/submitted">
+      <el-menu-item index="/approval/submitted" v-if="hasMenuPermission('approval')">
         <el-icon><Document /></el-icon>
         <template #title>我的审批</template>
       </el-menu-item>
 
-      <el-sub-menu index="/knowledge">
+      <el-sub-menu index="/knowledge" v-if="hasMenuPermission('knowledge')">
         <template #title>
           <el-icon><Notebook /></el-icon>
           <span>知识库</span>
         </template>
-        <el-menu-item index="/knowledge">知识库首页</el-menu-item>
-        <el-menu-item index="/knowledge/products">产品知识</el-menu-item>
-        <el-menu-item index="/knowledge/scripts">销售话术</el-menu-item>
-        <el-menu-item index="/knowledge/faqs">常见问题</el-menu-item>
-        <el-menu-item index="/knowledge/documents">文档模板</el-menu-item>
+        <el-menu-item index="/knowledge" v-if="hasMenuPermission('knowledge')">知识库首页</el-menu-item>
+        <el-menu-item index="/knowledge/products" v-if="hasMenuPermission('knowledge')">产品知识</el-menu-item>
+        <el-menu-item index="/knowledge/scripts" v-if="hasMenuPermission('knowledge')">销售话术</el-menu-item>
+        <el-menu-item index="/knowledge/faqs" v-if="hasMenuPermission('knowledge')">常见问题</el-menu-item>
+        <el-menu-item index="/knowledge/documents" v-if="hasMenuPermission('knowledge')">文档模板</el-menu-item>
       </el-sub-menu>
 
-      <el-menu-item index="/target" v-if="isAdmin && hasMenuPermission('target')">
+      <el-menu-item index="/target" v-if="hasMenuPermission('target')">
         <el-icon><DataBoard /></el-icon>
         <template #title>销售目标</template>
       </el-menu-item>
 
-      <el-sub-menu index="/system" v-if="isAdmin">
+      <el-sub-menu index="/system" v-if="hasMenuPermission('system')">
         <template #title>
           <el-icon><Setting /></el-icon>
           <span>系统管理</span>
@@ -207,11 +212,18 @@
         <el-menu-item index="/system/role" v-if="hasMenuPermission('system:role')">角色管理</el-menu-item>
         <el-menu-item index="/system/dept" v-if="hasMenuPermission('system:dept')">部门管理</el-menu-item>
         <el-menu-item index="/system/log" v-if="hasMenuPermission('system:log')">操作日志</el-menu-item>
-        <el-menu-item index="/system/tags">标签管理</el-menu-item>
-        <el-menu-item index="/approval/workflow">审批流程</el-menu-item>
-        <el-menu-item index="/system/integration">集成管理</el-menu-item>
-        <el-menu-item index="/settings/api-platform">API开放平台</el-menu-item>
+        <el-menu-item index="/system/tags" v-if="hasMenuPermission('system:tag')">标签管理</el-menu-item>
+        <el-menu-item index="/system/backup" v-if="hasMenuPermission('system:backup')">数据备份</el-menu-item>
+        <el-menu-item index="/system/permission" v-if="hasMenuPermission('system:permission')">权限管理</el-menu-item>
+        <el-menu-item index="/approval/workflow" v-if="hasMenuPermission('approval')">审批流程</el-menu-item>
+        <el-menu-item index="/system/integration" v-if="hasMenuPermission('system:integration')">集成管理</el-menu-item>
+        <el-menu-item index="/settings/api-platform" v-if="hasMenuPermission('system:integration')">API开放平台</el-menu-item>
       </el-sub-menu>
+
+      <el-menu-item index="/settings" v-if="hasMenuPermission('settings')">
+        <el-icon><Setting /></el-icon>
+        <template #title>系统设置</template>
+      </el-menu-item>
     </el-menu>
   </el-aside>
 </template>
@@ -241,7 +253,8 @@ import {
   Notebook,
   Opportunity,
   Calendar,
-  Message
+  Message,
+  Bell
 } from '@element-plus/icons-vue'
 
 const props = defineProps({

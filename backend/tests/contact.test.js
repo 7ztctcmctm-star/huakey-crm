@@ -1,4 +1,4 @@
-﻿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -23,11 +23,15 @@ jest.mock('../services/permissionService', () => ({
   getDataPermissions: jest.fn().mockResolvedValue([])
 }));
 
+const { appErrorHandler, globalErrorHandler } = require('../middleware/errorHandler');
+
 const app = express();
 app.use(express.json());
 
 const contactRoutes = require('../routes/customer/contact');
 app.use('/api/v1/customer/contact', contactRoutes);
+app.use(appErrorHandler);
+app.use(globalErrorHandler);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -57,7 +61,9 @@ describe('客户联系人模块', () => {
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1 }]]) // customer lookup
-        .mockResolvedValueOnce([{ insertId: 10 }]); // insert contact
+        .mockResolvedValueOnce([[]]) // existing primary contact
+        .mockResolvedValueOnce([{ insertId: 10 }]) // insert contact
+        .mockResolvedValueOnce([{ affectedRows: 1 }]); // update other primary flags
 
       const res = await request(app)
         .post('/api/v1/customer/contact/add')
@@ -88,6 +94,8 @@ describe('客户联系人模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ customer_id: 1 }]]) // contact lookup
+        .mockResolvedValueOnce([[{ owner_id: 1 }]]) // customer lookup
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
 
       const res = await request(app)

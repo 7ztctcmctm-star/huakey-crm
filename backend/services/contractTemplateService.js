@@ -2,6 +2,8 @@
  * 合同模板服务层
  * 从 routes/contractTemplate.js 提取的业务逻辑
  */
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 
 /**
  * 获取模板列表
@@ -22,9 +24,7 @@ async function getTemplate(pool, id) {
     [id]
   );
   if (!rows.length) {
-    const err = new Error('模板不存在');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '模板不存在');
   }
   return rows[0];
 }
@@ -49,9 +49,7 @@ async function manageTemplate(pool, { action, id, name, amount, payment_terms, d
     await pool.query('UPDATE crm_contract_template SET deleted_at = NOW() WHERE id = ?', [id]);
     return null;
   } else {
-    const err = new Error('无效操作');
-    err.statusCode = 400;
-    throw err;
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '无效操作');
   }
 }
 

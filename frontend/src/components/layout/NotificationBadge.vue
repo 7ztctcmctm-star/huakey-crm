@@ -135,12 +135,10 @@ const handleSseMessage = (payload) => {
 }
 
 onMounted(() => {
-  const token = localStorage.getItem('token') || sessionStorage.getItem('token')
-  if (token) {
-    connectSSE({ onMessage: handleSseMessage })
-    fetchUnreadCount()
-    fetchNotificationCenter()
-  }
+  // SSE 通过 httpOnly Cookie 自动认证，无需前端提供 token
+  connectSSE({ onMessage: handleSseMessage })
+  fetchUnreadCount()
+  fetchNotificationCenter()
 })
 
 onUnmounted(() => {

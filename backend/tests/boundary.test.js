@@ -1,6 +1,8 @@
 const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 
 process.env.JWT_SECRET = 'test_secret_key_for_unit_tests';
 
@@ -109,6 +111,8 @@ jest.mock('../middleware/admin', () => {
 });
 
 // ============ Setup app ============
+const { appErrorHandler, globalErrorHandler } = require('../middleware/errorHandler');
+
 const app = express();
 app.use(express.json({ limit: '5mb' }));
 
@@ -121,6 +125,8 @@ app.use('/api/v1/customer', customerRoutes);
 app.use('/api/v1/opportunity', opportunityRoutes);
 app.use('/api/v1/contract', contractRoutes);
 app.use('/api/v1/product', productRoutes);
+app.use(appErrorHandler);
+app.use(globalErrorHandler);
 
 const generateToken = () => {
   return jwt.sign(
@@ -212,13 +218,14 @@ describe('边界测试 - 空数据场景', () => {
   describe('详情接口 id 不存在', () => {
     it('客户详情 99999 应返回 404', async () => {
       const svc = require('../services/customerDetailService');
-      svc.getCustomerDetail.mockRejectedValue({ code: 404, message: '客户不存在' });
+      svc.getCustomerDetail.mockRejectedValue(new AppError(ErrorCodes.CUSTOMER_NOT_FOUND));
 
       const res = await request(app)
         .get('/api/v1/customer/detail/99999')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(404);
+      expect(res.body.code).toBe(404002);
     });
 
     it('商机详情 99999 应返回 404', async () => {
@@ -320,7 +327,7 @@ describe('边界测试 - 极大值场景', () => {
       const res = await request(app)
         .post('/api/v1/customer/add')
         .set('Authorization', `Bearer ${token}`)
-        .send({ company_name: '测试', remark: LONG_STRING_2000 });
+        .send({ company_name: '测试', remark: LONG_STRING_2000, contacts: [{ name: '张三', phone: '13800138000' }] });
 
       expect(res.status).toBe(200);
     });
@@ -421,7 +428,7 @@ describe('边界测试 - 特殊字符场景', () => {
       const res = await request(app)
         .post('/api/v1/customer/add')
         .set('Authorization', `Bearer ${token}`)
-        .send({ company_name: SQL_INJECTION });
+        .send({ company_name: SQL_INJECTION, contacts: [{ name: '张三', phone: '13800138000' }] });
 
       expect(res.status).toBe(200);
       // 验证传给 service 的参数未被篡改
@@ -477,7 +484,7 @@ describe('边界测试 - 特殊字符场景', () => {
       const res = await request(app)
         .post('/api/v1/customer/add')
         .set('Authorization', `Bearer ${token}`)
-        .send({ company_name: XSS_PAYLOAD });
+        .send({ company_name: XSS_PAYLOAD, contacts: [{ name: '张三', phone: '13800138000' }] });
 
       expect(res.status).toBe(200);
     });
@@ -515,7 +522,7 @@ describe('边界测试 - 特殊字符场景', () => {
       const res = await request(app)
         .post('/api/v1/customer/add')
         .set('Authorization', `Bearer ${token}`)
-        .send({ company_name: EMOJI_STR });
+        .send({ company_name: EMOJI_STR, contacts: [{ name: '张三', phone: '13800138000' }] });
 
       expect(res.status).toBe(200);
     });
@@ -541,7 +548,7 @@ describe('边界测试 - 特殊字符场景', () => {
       const res = await request(app)
         .post('/api/v1/customer/add')
         .set('Authorization', `Bearer ${token}`)
-        .send({ company_name: '换行测试', address: NEWLINE_STR });
+        .send({ company_name: '换行测试', address: NEWLINE_STR, contacts: [{ name: '张三', phone: '13800138000' }] });
 
       expect(res.status).toBe(200);
     });

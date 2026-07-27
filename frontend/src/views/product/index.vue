@@ -209,6 +209,9 @@ import { Plus, Edit, Delete, Search, Refresh } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getProductList, addProduct, updateProduct, deleteProduct, getProductCategories, getProductPrices, addProductPrice, deleteProductPrice } from '@/api/product'
 import { formatAmount } from '@/composables/useFormat'
+import { useUser } from '@/composables/useUser'
+
+const { userInfo } = useUser()
 
 const loading = ref(false)
 const tableData = ref([])
@@ -222,8 +225,7 @@ const submitLoading = ref(false)
 const formRef = ref(null)
 const editId = ref(null)
 
-const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
-const isAdmin = computed(() => userInfo.manageAll || userInfo.roleId === 1)
+const isAdmin = computed(() => userInfo.value?.manageAll || userInfo.value?.roleId === 1)
 
 // 价格表相关
 const priceDialogVisible = ref(false)

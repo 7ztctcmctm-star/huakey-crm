@@ -86,5 +86,44 @@ router.post('/assign-rules/delete', authenticateToken, requireManager, validate(
 // 轮询自动分配：将公海客户均匀分配给销售团队
 router.post('/auto-assign', authenticateToken, checkPermission('customer:assign'), requireManager, validate(autoAssignSchema), customerController.autoAssign);
 
+// ========== 公海认领/释放（从 pool.js 迁移，避免废弃路由继续暴露）==========
+
+const claimSchema = Joi.object({
+  customer_id: Joi.number().integer().positive().required()
+});
+
+const batchClaimSchema = Joi.object({
+  customer_ids: Joi.array().items(Joi.number().integer().positive()).min(1).max(20).required()
+});
+
+const releaseSchema = Joi.object({
+  customer_id: Joi.number().integer().positive().required()
+});
+
+const batchReleaseSchema = Joi.object({
+  customer_ids: Joi.array().items(Joi.number().integer().positive()).min(1).max(100).required()
+});
+
+const poolLogSchema = Joi.object({
+  customer_id: Joi.number().integer().positive().allow('', null),
+  page: Joi.number().integer().min(1).optional(),
+  pageSize: Joi.number().integer().min(1).max(200).optional()
+});
+
+// 认领公海客户
+router.post('/claim', authenticateToken, checkPermission('customer:pool'), validate(claimSchema), customerController.claim);
+
+// 批量认领公海客户
+router.post('/batch-claim', authenticateToken, checkPermission('customer:pool'), validate(batchClaimSchema), customerController.batchClaim);
+
+// 释放客户到公海
+router.post('/release', authenticateToken, checkPermission('customer:pool'), validate(releaseSchema), customerController.release);
+
+// 批量释放客户到公海
+router.post('/batch-release', authenticateToken, checkPermission('customer:pool'), validate(batchReleaseSchema), customerController.batchRelease);
+
+// 获取公海操作日志
+router.post('/pool-log', authenticateToken, checkPermission('customer:pool'), validate(poolLogSchema), customerController.listPoolLogs);
+
 module.exports = router;
 module.exports.autoAssignOwner = autoAssignOwner;

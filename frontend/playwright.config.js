@@ -1,4 +1,4 @@
-﻿import { defineConfig, devices } from '@playwright/test'
+import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
@@ -11,10 +11,16 @@ export default defineConfig({
     trace: 'retain-on-failure'
   },
   webServer: {
-    command: 'npm run dev',
+    command: 'node scripts/start-e2e-server.mjs',
     port: 5173,
     reuseExistingServer: true,
-    timeout: 30000
+    timeout: 120000,
+    env: {
+      SKIP_CAPTCHA: 'true',
+      DB_NAME: 'huakey_crm_test',
+      REDIS_ENABLED: 'false',
+      ENABLE_SWAGGER: 'false'
+    }
   },
   projects: [
     { name: 'chromium', use: { browserName: 'chromium' } },
@@ -24,6 +30,7 @@ export default defineConfig({
     },
 
     // --- 跨浏览器测试 (Phase 8) ---
+    // CI 环境可取消注释以运行完整跨浏览器矩阵；本地默认仅 chromium 以加快速度
     {
       name: 'firefox',
       use: { browserName: 'firefox' },

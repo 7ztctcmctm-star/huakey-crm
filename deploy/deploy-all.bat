@@ -16,7 +16,7 @@ if errorlevel 1 (
 
 echo.
 echo ============================================
-echo  Please verify test env: http://192.168.0.200:6790
+echo  Please verify test env: http://192.168.0.200:6790  (测试环境直连后端端口)
 echo  Press any key to push to production...
 echo ============================================
 pause >nul
@@ -37,7 +37,7 @@ if errorlevel 1 (
 echo.
 echo ============================================
 echo  Full deploy complete!
-echo  Test: http://192.168.0.200:6790
-echo  Prod: http://192.168.0.200:6789
+echo  Test: http://192.168.0.200:6790  (测试环境直连后端端口)
+echo  Prod: https://^<your-domain^>  (生产环境请通过 Nginx 443 访问)
 echo ============================================
 pause

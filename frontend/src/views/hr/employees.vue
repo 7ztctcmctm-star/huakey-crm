@@ -53,10 +53,21 @@
         <el-table-column label="状态" width="80" align="center">
           <template #default="{ row }"><el-tag :type="row.status===1?'success':'info'" size="small">{{ row.status===1?'在职':'离职' }}</el-tag></template>
         </el-table-column>
-        <el-table-column label="操作" width="160" fixed="right">
+        <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="handleView(row)">详情</el-button>
             <el-button type="primary" link @click="handleEditProfile(row)">编辑档案</el-button>
+            <el-popconfirm
+              title="确定要删除该员工吗？"
+              :width="300"
+              confirm-button-text="确认删除"
+              cancel-button-text="取消"
+              @confirm="handleDelete(row)"
+            >
+              <template #reference>
+                <el-button type="danger" link>删除</el-button>
+              </template>
+            </el-popconfirm>
           </template>
         </el-table-column>
       </el-table>
@@ -152,7 +163,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
 import { getEmployees, getEmployeeStats, getEmployeeDetail, updateEmployeeProfile } from '@/api/hr'
-import { getDeptList } from '@/api/system'
+import { getDeptList, deleteUser } from '@/api/system'
 
 const empTypeName = { fulltime: '全职', parttime: '兼职', intern: '实习' }
 const empTypeTag = { fulltime: 'success', parttime: 'warning', intern: 'info' }
@@ -241,6 +252,21 @@ const handleSaveProfile = async () => {
     const res = await updateEmployeeProfile(editUserId.value, profileForm)
     if (res.code === 200) { ElMessage.success('保存成功'); editVisible.value = false; fetchList() }
   } finally { saveLoading.value = false }
+}
+
+const handleDelete = async (row) => {
+  try {
+    const res = await deleteUser(row.id)
+    if (res.code === 200) {
+      ElMessage.success(res.message)
+      fetchList()
+      fetchStats()
+    } else {
+      ElMessage.error(res.message || '删除失败')
+    }
+  } catch (e) {
+    ElMessage.error('删除失败，请稍后重试')
+  }
 }
 
 onMounted(() => { fetchList(); fetchStats(); fetchDepts() })

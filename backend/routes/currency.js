@@ -40,16 +40,12 @@ router.get('/rates', authenticateToken, async (req, res) => {
 });
 
 // 更新汇率（管理员）
-router.put('/:id', authenticateToken, requireAdmin, validate(updateCurrencySchema), async (req, res) => {
+router.put('/:id', authenticateToken, requireAdmin, validate(updateCurrencySchema), async (req, res, next) => {
   try {
     await currencyService.updateCurrency(pool, req.params.id, req.body);
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
-    if (error.statusCode === 400) {
-      return res.status(400).json({ code: 400, message: error.message, data: null });
-    }
-    logger.error('[货币] 更新汇率失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 

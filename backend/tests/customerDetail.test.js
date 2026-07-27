@@ -40,11 +40,15 @@ jest.mock('../utils/fieldLog', () => ({
   logFieldChanges: jest.fn().mockResolvedValue(undefined)
 }));
 
+const { appErrorHandler, globalErrorHandler } = require('../middleware/errorHandler');
+
 const app = express();
 app.use(express.json());
 
 const detailRoutes = require('../routes/customer/detail');
 app.use('/api/v1/customer', detailRoutes);
+app.use(appErrorHandler);
+app.use(globalErrorHandler);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -91,7 +95,7 @@ describe('客户详情模块', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(404);
-      expect(res.body.code).toBe(404);
+      expect(res.body.code).toBe(404002);
     });
   });
 

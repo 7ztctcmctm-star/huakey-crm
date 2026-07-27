@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 客户生命周期集成测试
  * 覆盖：创建客户 → 添加跟进 → 创建商机 → 软删除 → 恢复
  */
@@ -15,11 +15,13 @@ const ADMIN = {
   real_name: '生命周期测试员'
 };
 
-let token;
+let agent;
 let customerId;
 
 describe('客户生命周期', () => {
   beforeAll(async () => {
+    agent = request.agent(app);
+
     // 确保角色存在
     await pool.query(
       `INSERT IGNORE INTO sys_role (id, name, code, description, status, view_all, manage_all)
@@ -35,11 +37,11 @@ describe('客户生命周期', () => {
       [ADMIN.username, hash, ADMIN.real_name]
     );
 
-    // 登录获取 token
-    const res = await request(app)
+    // 登录获取 httpOnly Cookie 认证
+    const res = await agent
       .post('/api/v1/auth/login')
       .send({ username: ADMIN.username, password: ADMIN.password });
-    token = res.body.data.token;
+    expect(res.body.code).toBe(200);
   });
 
   afterAll(async () => {
@@ -53,9 +55,8 @@ describe('客户生命周期', () => {
   });
 
   test('POST /api/v1/customer/add 创建客户', async () => {
-    const res = await request(app)
+    const res = await agent
       .post('/api/v1/customer/add')
-      .set('Authorization', `Bearer ${token}`)
       .send({
         company_name: '集成测试公司',
         contact_name: '张三',
@@ -79,9 +80,8 @@ describe('客户生命周期', () => {
   });
 
   test('POST /api/v1/follow-up/add 添加跟进', async () => {
-    const res = await request(app)
+    const res = await agent
       .post('/api/v1/follow-up/add')
-      .set('Authorization', `Bearer ${token}`)
       .send({
         customer_id: customerId,
         follow_type: '电话',
@@ -99,9 +99,8 @@ describe('客户生命周期', () => {
   });
 
   test('POST /api/v1/opportunity/add 创建商机', async () => {
-    const res = await request(app)
+    const res = await agent
       .post('/api/v1/opportunity/add')
-      .set('Authorization', `Bearer ${token}`)
       .send({
         name: '集成测试商机',
         customer_id: customerId,
@@ -121,9 +120,8 @@ describe('客户生命周期', () => {
   });
 
   test('POST /api/v1/customer/delete 软删除客户', async () => {
-    const res = await request(app)
+    const res = await agent
       .post('/api/v1/customer/delete')
-      .set('Authorization', `Bearer ${token}`)
       .send({ id: customerId })
       .expect(200);
 
@@ -137,9 +135,8 @@ describe('客户生命周期', () => {
   });
 
   test('POST /api/v1/recycle/restore 恢复客户', async () => {
-    const res = await request(app)
+    const res = await agent
       .post('/api/v1/recycle/restore')
-      .set('Authorization', `Bearer ${token}`)
       .send({ module: 'customer', id: customerId })
       .expect(200);
 
@@ -152,4 +149,3 @@ describe('客户生命周期', () => {
     expect(rows[0].deleted_at).toBeNull();
   });
 });
-

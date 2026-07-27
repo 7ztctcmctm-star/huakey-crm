@@ -8,6 +8,7 @@ const {
   getMenuPermissions,
   getDataPermissions
 } = require('./permissionService');
+const { clearMeCache } = require('./authService');
 
 /**
  * 构建权限树形结构
@@ -81,6 +82,7 @@ async function updateRolePermissions(pool, role_id, permission_ids) {
     );
     users.forEach(u => clearPermissionCache(u.id));
     clearAllPermissionCache();
+    clearMeCache(); // 清除 /auth/me 缓存，避免权限列表延迟生效
 
     return { success: true };
   } catch (error) {
@@ -135,6 +137,7 @@ async function updateDataScope(pool, role_id, configs) {
     );
     users.forEach(u => clearPermissionCache(u.id));
     clearAllPermissionCache();
+    clearMeCache(); // 清除 /auth/me 缓存，避免数据权限延迟生效
 
     return { success: true };
   } catch (error) {
@@ -160,6 +163,7 @@ async function addPermission(pool, data) {
     [name, code, type, parent_id || 0, path || null, icon || null, sort || 0]
   );
   clearAllPermissionCache();
+  clearMeCache();
   return { success: true };
 }
 
@@ -175,6 +179,7 @@ async function updatePermission(pool, data) {
     [name, code, type, parent_id || 0, path || null, icon || null, sort || 0, id]
   );
   clearAllPermissionCache();
+  clearMeCache();
   return { success: true };
 }
 
@@ -194,6 +199,7 @@ async function deletePermission(pool, id) {
     await connection.query('DELETE FROM sys_permission WHERE id = ?', [id]);
     await connection.commit();
     clearAllPermissionCache();
+    clearMeCache();
     return { success: true };
   } catch (error) {
     await connection.rollback();

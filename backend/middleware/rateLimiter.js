@@ -96,9 +96,27 @@ const authLimiter = createRateLimiter({
   }
 });
 
+// [安全修复] 公开调查回复限流：按 IP + campaign_id 维度，生产环境15分钟内10次，开发环境100次
+const surveyRespondLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: isProduction ? 10 : 100,
+  message: {
+    code: 429,
+    message: '该调查提交过于频繁，请15分钟后再试',
+    data: null
+  },
+  // eslint-disable-next-line no-unused-vars
+  keyGenerator: (req, res) => {
+    const ip = ipKeyGenerator(req);
+    const campaignId = req.params.campaign_id || 'unknown';
+    return `${ip}:survey:respond:${campaignId}`;
+  }
+});
+
 module.exports = {
   createRateLimiter,
   apiLimiter,
   authLimiter,
+  surveyRespondLimiter,
   RedisRateLimitStore
 };
