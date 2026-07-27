@@ -46,15 +46,23 @@ INSERT INTO sys_permission (name, code, type, parent_id, path, sort)
 SELECT '跟进模板', 'followup_template', 'menu', 0, '/followup-template', 110 FROM dual
 WHERE NOT EXISTS (SELECT 1 FROM sys_permission WHERE code = 'followup_template');
 
--- 将新权限授予 ADMIN 和 MANAGER 角色
+-- 将新权限授予 boss 角色
+-- 通过 sys_role.code 动态解析 role_id，避免不同环境角色 ID 不一致导致的外键失败
 INSERT INTO sys_role_permission (role_id, permission_id)
-SELECT 1, id FROM sys_permission WHERE code IN ('ai','analysis','calendar','reminder','scoring','search','social','survey','tag','contract_template','followup_template')
-AND NOT EXISTS (
-  SELECT 1 FROM sys_role_permission rp WHERE rp.role_id = 1 AND rp.permission_id = sys_permission.id
-);
+SELECT r.id, p.id
+FROM sys_role r, sys_permission p
+WHERE r.code = 'boss'
+  AND p.code IN ('ai','analysis','calendar','reminder','scoring','search','social','survey','tag','contract_template','followup_template')
+  AND NOT EXISTS (
+    SELECT 1 FROM sys_role_permission rp WHERE rp.role_id = r.id AND rp.permission_id = p.id
+  );
 
+-- 将新权限授予 finance 角色
 INSERT INTO sys_role_permission (role_id, permission_id)
-SELECT 2, id FROM sys_permission WHERE code IN ('ai','analysis','calendar','reminder','scoring','search','social','survey','tag','contract_template','followup_template')
-AND NOT EXISTS (
-  SELECT 1 FROM sys_role_permission rp WHERE rp.role_id = 2 AND rp.permission_id = sys_permission.id
-);
+SELECT r.id, p.id
+FROM sys_role r, sys_permission p
+WHERE r.code = 'finance'
+  AND p.code IN ('ai','analysis','calendar','reminder','scoring','search','social','survey','tag','contract_template','followup_template')
+  AND NOT EXISTS (
+    SELECT 1 FROM sys_role_permission rp WHERE rp.role_id = r.id AND rp.permission_id = p.id
+  );
