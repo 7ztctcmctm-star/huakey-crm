@@ -95,3 +95,4 @@ scripts/fix_and_import_hr.py
 scripts/prepare_import_sql.py
 scripts/verify_import.py
 scripts/analyze_backup.py
+scripts/import_to_nas.bat
