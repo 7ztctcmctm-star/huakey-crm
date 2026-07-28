@@ -127,7 +127,7 @@ async function analyzeDatabase() {
 
     console.log('索引统计:');
     console.log('-'.repeat(80));
-    for (const [key, idx] of Object.entries(indexMap)) {
+    for (const [, idx] of Object.entries(indexMap)) {
       const cols = idx.columns.join(', ');
       const type = idx.unique ? 'UNIQUE' : 'NORMAL';
       console.log(`  ${idx.table}.${idx.name} [${type}]`);

@@ -84,9 +84,7 @@ async function addCustomer(pool, data, operatorId) {
     ? contacts.filter(c => c && typeof c === 'object' && c.name && String(c.name).trim() !== '')
     : [];
   if (validContacts.length === 0) {
-    const err = new Error('请至少添加一个联系人');
-    err.code = 400;
-    throw err;
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '请至少添加一个联系人', 400);
   }
 
   // 重复检测（联系人信息从 crm_contact 主联系人获取）

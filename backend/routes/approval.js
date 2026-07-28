@@ -318,7 +318,7 @@ router.post('/submit', authenticateToken, checkPermission('approval'), validate(
     await approvalService.submitApproval(pool, business_type, business_id, req.user.userId);
     res.json({ code: 200, message: '已提交审批', data: null });
   } catch (error) {
-    const status = error.code || 500;
+    const status = error.status || error.httpStatus || error.code || 500;
     logger.error('[审批] 提交审批失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
   }
@@ -330,7 +330,7 @@ router.post('/approve/:id', authenticateToken, checkPermission('approval'), vali
     const result = await approvalService.approveRecord(pool, req.params.id, req.body.remark, req.user.userId, req.user.manageAll);
     res.json({ code: 200, message: '审批通过', data: result });
   } catch (error) {
-    const status = error.code || 500;
+    const status = error.status || error.httpStatus || error.code || 500;
     logger.error('[审批] 审批通过失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
   }
@@ -342,7 +342,7 @@ router.post('/reject/:id', authenticateToken, checkPermission('approval'), valid
     await approvalService.rejectRecord(pool, req.params.id, req.body.remark, req.user.userId, req.user.manageAll);
     res.json({ code: 200, message: '已驳回', data: null });
   } catch (error) {
-    const status = error.code || 500;
+    const status = error.status || error.httpStatus || error.code || 500;
     logger.error('[审批] 驳回失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
   }
@@ -355,7 +355,7 @@ router.delete('/withdraw/:business_type/:business_id', authenticateToken, checkP
     await approvalService.withdrawApproval(pool, business_type, business_id, req.user.userId);
     res.json({ code: 200, message: '审批已撤回', data: null });
   } catch (error) {
-    const status = error.code || 500;
+    const status = error.status || error.httpStatus || error.code || 500;
     logger.error('[审批] 撤回审批失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
   }

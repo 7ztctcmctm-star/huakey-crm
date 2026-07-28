@@ -41,7 +41,11 @@ async function getProduct(pool, id) {
 }
 
 async function getProductFull(pool, id) {
-  const [rows] = await pool.query('SELECT * FROM crm_product WHERE id = ?', [id]);
+  const [rows] = await pool.query(
+    `SELECT id, name, code, category, unit, price, cost_price, stock, description, status, create_time, update_time, deleted_at
+     FROM crm_product WHERE id = ?`,
+    [id]
+  );
   return rows.length > 0 ? rows[0] : null;
 }
 
@@ -87,7 +91,8 @@ async function getCategories(pool) {
 
 async function getProductPrices(pool, productId) {
   const [rows] = await pool.query(
-    'SELECT * FROM crm_product_price WHERE product_id = ? AND deleted_at IS NULL ORDER BY price_type, customer_level',
+    `SELECT id, product_id, price_type, customer_level, unit_price, min_quantity, currency, valid_from, valid_to, status, create_time, update_time, deleted_at
+     FROM crm_product_price WHERE product_id = ? AND deleted_at IS NULL ORDER BY price_type, customer_level`,
     [productId]
   );
   return rows;
@@ -128,7 +133,8 @@ async function getDefaultPrice(pool, productId, customerLevel) {
 
   if (customerLevel) {
     const [levelPrices] = await pool.query(
-      `SELECT * FROM crm_product_price WHERE product_id = ? AND customer_level = ? AND deleted_at IS NULL
+      `SELECT id, product_id, price_type, customer_level, unit_price, min_quantity, currency, valid_from, valid_to, status
+       FROM crm_product_price WHERE product_id = ? AND customer_level = ? AND deleted_at IS NULL
        AND (valid_from IS NULL OR valid_from <= CURDATE()) AND (valid_to IS NULL OR valid_to >= CURDATE())
        ORDER BY unit_price ASC LIMIT 1`,
       [productId, customerLevel]

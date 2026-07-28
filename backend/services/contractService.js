@@ -45,7 +45,10 @@ async function listContracts(pool, params = {}, permission = null) {
   }
 
   // 查询
-  let sql = `SELECT c.*, cu.company_name as customer_name, u.real_name as create_by_name,
+  let sql = `SELECT c.id, c.contract_no, c.customer_id, c.opportunity_id, c.quote_id, c.amount, c.currency, c.exchange_rate,
+    c.sign_date, c.delivery_date, c.payment_terms, c.status, c.approval_status, c.approver_id, c.approval_remark,
+    c.remark, c.file_url, c.create_by, c.create_time, c.deleted_at,
+    cu.company_name as customer_name, u.real_name as create_by_name,
     (SELECT COALESCE(SUM(p.pay_amount), 0) FROM crm_payment p WHERE p.contract_id = c.id AND p.deleted_at IS NULL) as paid_amount,
     (SELECT COALESCE(SUM(pp.plan_amount), 0) FROM crm_payment_plan pp WHERE pp.contract_id = c.id) as plan_total,
     cur.symbol as currency_symbol
@@ -120,7 +123,10 @@ async function listContracts(pool, params = {}, permission = null) {
  */
 async function getContract(pool, contractId) {
   const [contract] = await pool.query(`
-    SELECT c.*, cu.company_name as customer_name, pc.name as contact, pc.phone, cu.address,
+    SELECT c.id, c.contract_no, c.customer_id, c.opportunity_id, c.quote_id, c.amount, c.currency, c.exchange_rate,
+      c.sign_date, c.delivery_date, c.payment_terms, c.status, c.approval_status, c.approver_id, c.approval_remark,
+      c.remark, c.file_url, c.create_by, c.create_time, c.deleted_at,
+      cu.company_name as customer_name, pc.name as contact, pc.phone, cu.address,
       u.real_name as create_by_name
     FROM crm_contract c
     LEFT JOIN crm_customer cu ON c.customer_id = cu.id
@@ -132,12 +138,14 @@ async function getContract(pool, contractId) {
   if (!contract.length) return null;
 
   const [plans] = await pool.query(
-    'SELECT * FROM crm_payment_plan WHERE contract_id = ? ORDER BY plan_date',
+    `SELECT id, contract_id, plan_date, plan_amount, status, remark, create_time, update_time
+     FROM crm_payment_plan WHERE contract_id = ? ORDER BY plan_date`,
     [contractId]
   );
 
   const [payments] = await pool.query(`
-    SELECT p.*, pp.plan_date, pp.plan_amount
+    SELECT p.id, p.contract_id, p.plan_id, p.pay_date, p.pay_amount, p.pay_method, p.remark, p.create_time, p.deleted_at,
+      pp.plan_date, pp.plan_amount
     FROM crm_payment p
     LEFT JOIN crm_payment_plan pp ON p.plan_id = pp.id
     WHERE p.contract_id = ?
@@ -291,7 +299,8 @@ async function updateContractStatus(pool, contractId, newStatus) {
  */
 async function getPaymentProgress(pool, contractId) {
   const [plans] = await pool.query(
-    'SELECT * FROM crm_payment_plan WHERE contract_id = ? ORDER BY plan_date',
+    `SELECT id, contract_id, plan_date, plan_amount, status, remark, create_time, update_time
+     FROM crm_payment_plan WHERE contract_id = ? ORDER BY plan_date`,
     [contractId]
   );
 

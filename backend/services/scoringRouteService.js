@@ -62,7 +62,8 @@ function matchRules(rules, customer, stats) {
  */
 async function getRules(pool) {
   const [rows] = await pool.query(
-    'SELECT * FROM crm_score_rule WHERE deleted_at IS NULL ORDER BY condition_type, name'
+    `SELECT id, name, condition_type, condition_field, condition_operator, condition_value, score, status, create_time, update_time, deleted_at
+     FROM crm_score_rule WHERE deleted_at IS NULL ORDER BY condition_type, name`
   );
   return rows;
 }
@@ -182,11 +183,13 @@ async function calculateScore(pool, customerId) {
   const customer = customers[0];
 
   const stats = await getCustomerStats(pool, customerId);
-  const [rules] = await pool.query('SELECT * FROM crm_score_rule WHERE status = 1');
+  const [rules] = await pool.query(
+    `SELECT id, name, condition_type, condition_field, condition_operator, condition_value, score, status
+     FROM crm_score_rule WHERE status = 1`
+  );
 
   const { totalScore, matchedRules } = matchRules(rules, customer, stats);
   await saveScoreResult(pool, customerId, totalScore, matchedRules);
-
   return { customer_id: customerId, score: totalScore, matched_rules: matchedRules.map(r => r.name) };
 }
 
@@ -206,7 +209,10 @@ async function batchCalculate(pool, customerIds) {
     [customers] = await pool.query('SELECT id FROM crm_customer WHERE deleted_at IS NULL');
   }
 
-  const [rules] = await pool.query('SELECT * FROM crm_score_rule WHERE status = 1');
+  const [rules] = await pool.query(
+    `SELECT id, name, condition_type, condition_field, condition_operator, condition_value, score, status
+     FROM crm_score_rule WHERE status = 1`
+  );
 
   let processed = 0;
   for (const customer of customers) {

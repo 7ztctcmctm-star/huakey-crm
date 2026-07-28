@@ -3,6 +3,9 @@
  * 从 routes/supplier.js 提取的业务逻辑
  */
 
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
+
 async function listSuppliers(pool, params = {}, permission = null) {
   const page = parseInt(params.page) || 1;
   const pageSize = Math.min(Math.max(parseInt(params.pageSize) || 10, 1), 200);
@@ -19,7 +22,10 @@ async function listSuppliers(pool, params = {}, permission = null) {
     permParams = permission.params || [];
   }
 
-  let sql = `SELECT s.*, u.real_name as owner_name,
+  let sql = `SELECT s.id, s.supplier_no, s.name, s.short_name, s.type, s.industry, s.level, s.status,
+    s.contact_person, s.contact_phone, s.contact_email, s.address, s.payment_terms, s.delivery_days,
+    s.remark, s.rating, s.owner_id, s.create_by, s.create_time, s.update_time, s.deleted_at,
+    u.real_name as owner_name,
     (SELECT COUNT(*) FROM crm_supplier_contact c WHERE c.supplier_id = s.id) as contact_count,
     (SELECT COUNT(*) FROM crm_supplier_qualification q WHERE q.supplier_id = s.id AND q.status = 1) as valid_cert_count
     FROM crm_supplier s
@@ -56,7 +62,10 @@ async function getSupplier(pool, id, permission = null) {
   }
 
   const [suppliers] = await pool.query(`
-    SELECT s.*, u.real_name as owner_name, ub.real_name as create_by_name
+    SELECT s.id, s.supplier_no, s.name, s.short_name, s.type, s.industry, s.level, s.status,
+      s.contact_person, s.contact_phone, s.contact_email, s.address, s.payment_terms, s.delivery_days,
+      s.remark, s.rating, s.owner_id, s.create_by, s.create_time, s.update_time, s.deleted_at,
+      u.real_name as owner_name, ub.real_name as create_by_name
     FROM crm_supplier s
     LEFT JOIN sys_user u ON s.owner_id = u.id
     LEFT JOIN sys_user ub ON s.create_by = ub.id
@@ -71,9 +80,14 @@ async function getSupplier(pool, id, permission = null) {
   const [qualifications] = await pool.query(
     'SELECT id, supplier_id, cert_type, cert_no, cert_name, issue_date, expire_date, issuing_authority, file_path, status, remark FROM crm_supplier_qualification WHERE supplier_id = ? ORDER BY expire_date ASC', [id]);
   const [ratings] = await pool.query(
-    `SELECT r.*, u.real_name as evaluator_name FROM crm_supplier_rating r LEFT JOIN sys_user u ON r.evaluator_id = u.id WHERE r.supplier_id = ? ORDER BY r.rating_period DESC LIMIT 10`, [id]);
+    `SELECT r.id, r.supplier_id, r.purchase_order_id, r.quality_score, r.delivery_score, r.service_score, r.price_score,
+      r.quality_rate, r.delivery_rate, r.total_score, r.rating_period, r.evaluator_id, r.remark, r.create_time, r.deleted_at,
+      u.real_name as evaluator_name
+     FROM crm_supplier_rating r LEFT JOIN sys_user u ON r.evaluator_id = u.id WHERE r.supplier_id = ? ORDER BY r.rating_period DESC LIMIT 10`, [id]);
   const [relatedCustomers] = await pool.query(
-    `SELECT r.*, cu.company_name as customer_name FROM crm_customer_supplier_relation r LEFT JOIN crm_customer cu ON r.customer_id = cu.id WHERE r.supplier_id = ? ORDER BY r.create_time DESC`, [id]);
+    `SELECT r.id, r.customer_id, r.supplier_id, r.relationship_type, r.effective_date, r.remark, r.create_by, r.create_time, r.deleted_at,
+      cu.company_name as customer_name
+     FROM crm_customer_supplier_relation r LEFT JOIN crm_customer cu ON r.customer_id = cu.id WHERE r.supplier_id = ? ORDER BY r.create_time DESC`, [id]);
 
   return { ...supplier, contacts, qualifications, ratings, relatedCustomers };
 }
@@ -113,10 +127,14 @@ async function createSupplier(pool, data, userId) {
 
 async function updateSupplier(pool, id, data) {
   const allowedFields = ['name', 'short_name', 'type', 'industry', 'level', 'status', 'contact_person', 'contact_phone', 'contact_email', 'address', 'payment_terms', 'delivery_days', 'remark'];
+  const unknownFields = Object.keys(data).filter(k => !allowedFields.includes(k));
+  if (unknownFields.length > 0) {
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, `不允许更新的字段: ${unknownFields.join(', ')}`);
+  }
   const setClauses = [];
   const params = [];
   for (const [key, value] of Object.entries(data)) {
-    if (allowedFields.includes(key) && value !== undefined) { setClauses.push(`${key} = ?`); params.push(value); }
+    if (value !== undefined) { setClauses.push(`${key} = ?`); params.push(value); }
   }
   if (setClauses.length === 0) return;
   params.push(id);
@@ -128,7 +146,13 @@ async function deleteSupplier(pool, id) {
 }
 
 async function getSupplierForEdit(pool, id) {
-  const [rows] = await pool.query('SELECT * FROM crm_supplier WHERE id=? AND deleted_at IS NULL', [id]);
+  const [rows] = await pool.query(
+    `SELECT id, supplier_no, name, short_name, type, industry, level, status,
+      contact_person, contact_phone, contact_email, address, payment_terms, delivery_days,
+      remark, rating, owner_id, create_by, create_time, update_time, deleted_at
+     FROM crm_supplier WHERE id=? AND deleted_at IS NULL`,
+    [id]
+  );
   return rows.length > 0 ? rows[0] : null;
 }
 
@@ -143,10 +167,14 @@ async function addContact(pool, data) {
 
 async function updateContact(pool, id, data) {
   const allowed = ['name', 'position', 'department', 'phone', 'mobile', 'email', 'wechat', 'role', 'is_primary', 'remark'];
+  const unknownFields = Object.keys(data).filter(k => !allowed.includes(k));
+  if (unknownFields.length > 0) {
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, `不允许更新的字段: ${unknownFields.join(', ')}`);
+  }
   const setClauses = [];
   const params = [];
   for (const [k, v] of Object.entries(data)) {
-    if (allowed.includes(k) && v !== undefined) { setClauses.push(`${k} = ?`); params.push(v); }
+    if (v !== undefined) { setClauses.push(`${k} = ?`); params.push(v); }
   }
   if (setClauses.length === 0) return;
   params.push(id);
@@ -197,6 +225,10 @@ async function addQualification(pool, data) {
 
 async function updateQualification(pool, id, data) {
   const allowed = ['cert_type', 'cert_no', 'cert_name', 'issue_date', 'expire_date', 'issuing_authority', 'remark'];
+  const unknownFields = Object.keys(data).filter(k => !allowed.includes(k) && k !== 'expire_date');
+  if (unknownFields.length > 0) {
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, `不允许更新的字段: ${unknownFields.join(', ')}`);
+  }
   const setClauses = [];
   const params = [];
   for (const [k, v] of Object.entries(data)) {

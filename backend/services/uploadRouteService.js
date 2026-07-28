@@ -35,7 +35,7 @@ async function uploadFile(pool, { file, business_type, business_id, userId }) {
       contentType: file.mimetype,
       cacheControl: '3600'
     });
-    if (error) throw new Error(`Supabase Storage 上传失败: ${error.message}`);
+    if (error) throw new AppError(ErrorCodes.FILE_UPLOAD_FAILED, `Supabase Storage 上传失败: ${error.message}`, 500);
     const { data: urlData } = storage.getPublicUrl(filename);
     filePath = urlData.publicUrl;
   } else {
@@ -70,7 +70,8 @@ async function listAttachments(pool, { business_type, business_id }) {
     throw new AppError(ErrorCodes.VALIDATION_ERROR, '参数不完整');
   }
   const [list] = await pool.query(
-    'SELECT * FROM crm_attachment WHERE business_type = ? AND business_id = ? AND deleted_at IS NULL ORDER BY create_time DESC',
+    `SELECT id, business_type, business_id, file_name, file_path, file_size, file_type, create_by, create_time, update_time, deleted_at
+     FROM crm_attachment WHERE business_type = ? AND business_id = ? AND deleted_at IS NULL ORDER BY create_time DESC`,
     [business_type, business_id]
   );
   return list;
@@ -84,7 +85,11 @@ async function deleteAttachment(pool, id) {
     throw new AppError(ErrorCodes.VALIDATION_ERROR, '附件ID不能为空');
   }
 
-  const [rows] = await pool.query('SELECT * FROM crm_attachment WHERE id = ? AND deleted_at IS NULL', [id]);
+  const [rows] = await pool.query(
+    `SELECT id, business_type, business_id, file_name, file_path, file_size, file_type, create_by, create_time, update_time, deleted_at
+     FROM crm_attachment WHERE id = ? AND deleted_at IS NULL`,
+    [id]
+  );
   if (rows.length === 0) {
     throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '附件不存在');
   }

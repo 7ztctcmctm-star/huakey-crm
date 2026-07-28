@@ -258,7 +258,12 @@ async function updateQuote(pool, data) {
 
     const { id, customer_id, items, discount, valid_days, remark, status } = data;
 
-    const [quotes] = await connection.query('SELECT * FROM crm_quote WHERE id = ? AND deleted_at IS NULL', [id]);
+    const [quotes] = await connection.query(
+      `SELECT id, quote_no, customer_id, amount, discount, final_amount, valid_days, remark, status, approval_status,
+        opportunity_id, create_by, create_time, update_time, deleted_at
+       FROM crm_quote WHERE id = ? AND deleted_at IS NULL`,
+      [id]
+    );
     if (quotes.length === 0) throw new AppError(ErrorCodes.QUOTE_NOT_FOUND)
 
     const existingQuote = quotes[0];
@@ -376,7 +381,12 @@ async function approveQuote(pool, id, approvalStatus, approvalRemark, userId) {
 async function convertToContract(pool, quoteId, userId) {
   const conn = await pool.getConnection();
   try {
-    const [[quote]] = await conn.query('SELECT * FROM crm_quote WHERE id = ? AND deleted_at IS NULL', [quoteId]);
+    const [[quote]] = await conn.query(
+      `SELECT id, quote_no, customer_id, amount, discount, final_amount, valid_days, remark, status, approval_status,
+        opportunity_id, create_by, create_time, update_time, deleted_at
+       FROM crm_quote WHERE id = ? AND deleted_at IS NULL`,
+      [quoteId]
+    );
     if (!quote) throw new AppError(ErrorCodes.QUOTE_NOT_FOUND)
 
     await conn.beginTransaction();

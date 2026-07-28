@@ -181,7 +181,6 @@ const targetRoutes = require('./routes/target');
 const permissionRoutes = require('./routes/permission');
 const recycleRoutes = require('./routes/recycle');
 const backupRoutes = require('./routes/backup');
-const followPlanRoutes = require('./routes/followPlan');
 const analysisRoutes = require('./routes/analysis');
 const integrationRoutes = require('./routes/integration');
 const uploadRoutes = require('./routes/upload');
@@ -307,7 +306,7 @@ apiRouter.use('/target', targetRoutes);
 apiRouter.use('/permission', permissionRoutes);
 apiRouter.use('/recycle', recycleRoutes);
 apiRouter.use('/backup', backupRoutes);
-apiRouter.use('/follow-plan', followPlanRoutes);
+// [安全清理] /follow-plan 已合并到 /follow-up/plan/*，不再单独挂载
 apiRouter.use('/ai', aiRoutes);
 apiRouter.use('/analysis', analysisRoutes);
 apiRouter.use('/integration', integrationRoutes);

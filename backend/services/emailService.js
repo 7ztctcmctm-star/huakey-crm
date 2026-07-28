@@ -3,6 +3,8 @@
  * 从 routes/email.js 提取的业务逻辑，供路由层复用
  */
 
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 
@@ -10,7 +12,7 @@ const crypto = require('crypto');
 const ENC_KEY = process.env.EMAIL_ENC_KEY;
 
 function encrypt(text) {
-  if (!ENC_KEY) throw new Error('EMAIL_ENC_KEY 未配置，无法加密邮箱密码');
+  if (!ENC_KEY) throw new AppError(ErrorCodes.INTERNAL_ERROR, 'EMAIL_ENC_KEY 未配置，无法加密邮箱密码', 500);
   const cipher = crypto.createCipheriv('aes-256-cbc', ENC_KEY.slice(0, 32), ENC_KEY.slice(0, 16));
   let encrypted = cipher.update(text, 'utf8', 'hex');
   encrypted += cipher.final('hex');
