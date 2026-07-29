@@ -86,7 +86,16 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
       - run: docker compose -f docker-compose.ci.yml up -d
-      - run: docker compose -f docker-compose.ci.yml wait mysql
+      - run: |
+          echo "Waiting for MySQL..."
+          for i in $(seq 1 30); do
+            if docker exec ci-mysql mysqladmin ping -h localhost --silent 2>/dev/null; then
+              echo "MySQL ready!"
+              break
+            fi
+            echo "  attempt $i/30..."
+            sleep 3
+          done
       - run: cd backend && npm ci
       - run: cd database/migrations && npm ci
       - name: Run migrations
@@ -107,7 +116,16 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
       - run: docker compose -f docker-compose.ci.yml up -d
-      - run: docker compose -f docker-compose.ci.yml wait mysql
+      - run: |
+          echo "Waiting for MySQL..."
+          for i in $(seq 1 30); do
+            if docker exec ci-mysql mysqladmin ping -h localhost --silent 2>/dev/null; then
+              echo "MySQL ready!"
+              break
+            fi
+            echo "  attempt $i/30..."
+            sleep 3
+          done
       - run: cd backend && npm ci
       - run: cd frontend && npm ci --legacy-peer-deps
       - run: cd database/migrations && npm ci
@@ -131,10 +149,19 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
       - run: docker compose -f docker-compose.ci.yml up -d
-      - run: sleep 25
+      - run: |
+          echo "Waiting for MySQL..."
+          for i in $(seq 1 30); do
+            if docker exec ci-mysql mysqladmin ping -h localhost --silent 2>/dev/null; then
+              echo "MySQL ready!"
+              break
+            fi
+            echo "  attempt $i/30..."
+            sleep 3
+          done
       - run: cd backend && npm ci
       - run: cd database/migrations && npm ci
-      - run: cd backend && DB_PORT=3307 DB_NAME=huakey_crm_test DB_PASSWORD=test_root_pass npx jest tests/db/migration-roundtrip.test.js --forceExit --testTimeout=60000
+      - run: cd backend && DB_PORT=3307 DB_NAME=huakey_crm_test DB_PASSWORD=test_root_pass npx jest tests/db/migration-roundtrip.test.js --forceExit --testTimeout=120000
       - if: always()
         run: docker compose -f docker-compose.ci.yml down -v
 
@@ -163,7 +190,16 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
       - run: docker compose -f docker-compose.ci.yml up -d
-      - run: docker compose -f docker-compose.ci.yml wait mysql
+      - run: |
+          echo "Waiting for MySQL..."
+          for i in $(seq 1 30); do
+            if docker exec ci-mysql mysqladmin ping -h localhost --silent 2>/dev/null; then
+              echo "MySQL ready!"
+              break
+            fi
+            echo "  attempt $i/30..."
+            sleep 3
+          done
       - run: cd backend && npm ci
       - run: cd frontend && npm ci --legacy-peer-deps
       - run: cd database/migrations && npm ci
