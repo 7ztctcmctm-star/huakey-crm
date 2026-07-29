@@ -87,57 +87,21 @@ beforeAll(async () => {
   );
   await adminPool.query(`USE \`${DB_NAME}\``);
 
-  // 创建核心表最小骨架，让早期迁移（如 002）有表可 ALTER
-  // 迁移 001 假定这些表已由 init-complete.sql 创建
-  await adminPool.query(`
-    CREATE TABLE IF NOT EXISTS crm_customer (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      company_name VARCHAR(200),
-      status VARCHAR(32) DEFAULT 'following',
-      source VARCHAR(50),
-      owner_id INT,
-      deleted_at DATETIME
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    CREATE TABLE IF NOT EXISTS sys_user (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      username VARCHAR(50),
-      real_name VARCHAR(50),
-      password VARCHAR(200),
-      status TINYINT DEFAULT 1,
-      role_id INT,
-      dept_id INT
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    CREATE TABLE IF NOT EXISTS crm_opportunity (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      name VARCHAR(200),
-      customer_id INT,
-      stage INT DEFAULT 1,
-      expected_amount DECIMAL(12,2),
-      win_rate INT,
-      owner_id INT,
-      deleted_at DATETIME
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    CREATE TABLE IF NOT EXISTS crm_quote (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      quote_no VARCHAR(50),
-      customer_id INT,
-      opportunity_id INT,
-      amount DECIMAL(12,2),
-      final_amount DECIMAL(12,2),
-      status INT DEFAULT 1,
-      deleted_at DATETIME
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    CREATE TABLE IF NOT EXISTS crm_contract (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      contract_no VARCHAR(50),
-      customer_id INT,
-      opportunity_id INT,
-      quote_id INT,
-      amount DECIMAL(12,2),
-      status INT DEFAULT 1,
-      deleted_at DATETIME
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-  `);
+  // 导入 init-complete.sql 作为基线 schema
+  // 迁移 001 假定所有核心表已由初始建表脚本创建
+  const initSqlPath = path.resolve(__dirname, '../../../../deploy/init-complete.sql');
+  if (fs.existsSync(initSqlPath)) {
+    const raw = fs.readFileSync(initSqlPath, 'utf8');
+    // 替换数据库名引用，剥离 USE 语句
+    const sql = raw
+      .replace(/^USE\s+`?[^`;\s]+`?\s*;?\s*$/gim, '')
+      .replace(/`huakey_crm`/g, `\`${DB_NAME}\``)
+      .replace(/'huakey_crm'/g, `'${DB_NAME}'`);
+    await adminPool.query(sql);
+    console.log('[migration-roundtrip] 已导入 init-complete.sql 基线 schema');
+  } else {
+    console.warn('[migration-roundtrip] init-complete.sql 不存在，跳过基线导入');
+  }
   await adminPool.end();
 
   // 先运行全部正向迁移，建立完整 schema
