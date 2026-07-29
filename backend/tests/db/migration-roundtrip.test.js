@@ -89,7 +89,7 @@ beforeAll(async () => {
 
   // 导入 init-complete.sql 作为基线 schema
   // 迁移 001 假定所有核心表已由初始建表脚本创建
-  const initSqlPath = path.resolve(__dirname, '../../../../deploy/init-complete.sql');
+  const initSqlPath = path.resolve(__dirname, '../../../deploy/init-complete.sql');
   if (fs.existsSync(initSqlPath)) {
     const raw = fs.readFileSync(initSqlPath, 'utf8');
     // 替换数据库名引用，剥离 USE 语句
