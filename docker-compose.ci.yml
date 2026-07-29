@@ -15,7 +15,7 @@ services:
       MYSQL_USER: crm_test
       MYSQL_PASSWORD: test_pass
     ports:
-      - "3307:3306"
+      - "3306:3306"
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci

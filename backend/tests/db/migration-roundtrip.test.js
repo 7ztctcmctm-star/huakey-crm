@@ -1,9 +1,9 @@
 /**
  * 迁移回合测试：验证 up + down 脚本的往返正确性。
  *
- * 环境要求：CI MySQL（docker-compose.ci.yml, DB_PORT=3307）
+ * 环境要求：CI MySQL（docker-compose.ci.yml, DB_PORT=3306）
  *
- * 运行：DB_PORT=3307 DB_NAME=huakey_crm_test npx jest tests/db/migration-roundtrip.test.js --forceExit --testTimeout=60000
+ * 运行：DB_PORT=3306 DB_NAME=huakey_crm_test npx jest tests/db/migration-roundtrip.test.js --forceExit --testTimeout=60000
  */
 
 const { execSync } = require('child_process');
@@ -13,7 +13,7 @@ const fs = require('fs');
 const net = require('net');
 
 const MIGRATIONS_DIR = path.resolve(__dirname, '../../../database/migrations');
-const DB_PORT = parseInt(process.env.DB_PORT) || 3307;
+const DB_PORT = parseInt(process.env.DB_PORT) || 3306;
 const DB_HOST = process.env.DB_HOST || 'localhost';
 const DB_USER = process.env.DB_USER || 'root';
 const DB_PASSWORD = process.env.DB_PASSWORD || '';
