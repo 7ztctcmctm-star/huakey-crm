@@ -3,10 +3,12 @@
 
 scan:
   skip-dirs:
-    - "**/node_modules"
-    - "**/.git"
-    - "**/dist"
-    - "**/uploads"
+    - node_modules
+    - .git
+    - dist
+    - uploads
+    - scripts
+    - database/backups
 
 severity:
   - CRITICAL
