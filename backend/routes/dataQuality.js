@@ -26,7 +26,7 @@ const router = express.Router();
  * 数据质量检查
  * POST /data-quality/check
  */
-router.post('/check', authenticateToken, checkPermission('data_quality:check'), validate(qualityCheckSchema), async (req, res) => {
+router.post('/check', authenticateToken, checkPermission('data_quality:check'), validate(qualityCheckSchema), async (req, res, next) => {
   try {
     const { table = 'crm_customer' } = req.body;
     const result = await qualityService.runQualityCheck(pool, table);
@@ -36,7 +36,7 @@ router.post('/check', authenticateToken, checkPermission('data_quality:check'), 
     if (error.message === '不支持的表') {
       return res.status(400).json({ code: 400, message: error.message, data: null });
     }
-    res.status(500).json({ code: 500, message: '检查失败', data: null });
+    next(error);
   }
 });
 
@@ -44,14 +44,14 @@ router.post('/check', authenticateToken, checkPermission('data_quality:check'), 
  * 获取最近的质量报告
  * POST /data-quality/report
  */
-router.post('/report', authenticateToken, checkPermission('data_quality:check'), validate(qualityReportSchema), async (req, res) => {
+router.post('/report', authenticateToken, checkPermission('data_quality:check'), validate(qualityReportSchema), async (req, res, next) => {
   try {
     const { table = 'crm_customer' } = req.body;
     const report = await qualityService.getQualityReport(pool, table);
     res.json({ code: 200, message: '查询成功', data: report });
   } catch (error) {
     logger.error('查询质量报告失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 

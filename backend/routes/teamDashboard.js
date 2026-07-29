@@ -22,7 +22,7 @@ const urgeFollowupSchema = Joi.object({
 // 老板团队跟单全景视图 API
 
 // 1. 团队总览卡片数据
-router.get('/overview', authenticateToken, checkPermission('team'), async (req, res) => {
+router.get('/overview', authenticateToken, checkPermission('team'), async (req, res, next) => {
   try {
     const isBoss = req.user.viewAll || ROLES.ADMIN_ROLE_CODES.has(req.user.roleCode);
     const { startDate, endDate } = req.query;
@@ -32,12 +32,12 @@ router.get('/overview', authenticateToken, checkPermission('team'), async (req, 
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('团队概览错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 2. 每个销售的实况卡片
-router.get('/sales-breakdown', authenticateToken, checkPermission('team'), async (req, res) => {
+router.get('/sales-breakdown', authenticateToken, checkPermission('team'), async (req, res, next) => {
   try {
     const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
     const data = await teamDashboardService.getSalesBreakdown(pool, {
@@ -46,12 +46,12 @@ router.get('/sales-breakdown', authenticateToken, checkPermission('team'), async
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('销售实况错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 3. 下钻：某个销售的逾期未跟进客户明细
-router.post('/sales-overdue-customers', authenticateToken, checkPermission('team'), validate(salesDrilldownSchema), async (req, res) => {
+router.post('/sales-overdue-customers', authenticateToken, checkPermission('team'), validate(salesDrilldownSchema), async (req, res, next) => {
   try {
     const { user_id, page = 1, pageSize = 20 } = req.body;
     if (!user_id) {
@@ -61,12 +61,12 @@ router.post('/sales-overdue-customers', authenticateToken, checkPermission('team
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('逾期客户错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 4. 下钻：某个销售的所有客户列表
-router.post('/sales-customers', authenticateToken, checkPermission('team'), validate(salesDrilldownSchema), async (req, res) => {
+router.post('/sales-customers', authenticateToken, checkPermission('team'), validate(salesDrilldownSchema), async (req, res, next) => {
   try {
     const { user_id, page = 1, pageSize = 20 } = req.body;
     if (!user_id) {
@@ -76,12 +76,12 @@ router.post('/sales-customers', authenticateToken, checkPermission('team'), vali
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('销售客户错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 5. 催办：主管对销售员的逾期客户发起跟进催促
-router.post('/urge-followup', authenticateToken, checkPermission('team'), validate(urgeFollowupSchema), async (req, res) => {
+router.post('/urge-followup', authenticateToken, checkPermission('team'), validate(urgeFollowupSchema), async (req, res, next) => {
   try {
     const { customer_id, user_id } = req.body;
     const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
@@ -107,12 +107,12 @@ router.post('/urge-followup', authenticateToken, checkPermission('team'), valida
     res.json({ code: 200, message: '催办成功', data: null });
   } catch (error) {
     logger.error('催办错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '催办失败', data: null });
+    next(error);
   }
 });
 
 // 6. 获取待审批列表（报价+合同，供团队看板直接审批）
-router.get('/pending-approvals', authenticateToken, checkPermission('team'), async (req, res) => {
+router.get('/pending-approvals', authenticateToken, checkPermission('team'), async (req, res, next) => {
   try {
     const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
     if (!isBoss) {
@@ -122,12 +122,12 @@ router.get('/pending-approvals', authenticateToken, checkPermission('team'), asy
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('待审批列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 8. 卡住的商机（阶段停留超过N天未推进）
-router.get('/stuck-opportunities', authenticateToken, checkPermission('team'), async (req, res) => {
+router.get('/stuck-opportunities', authenticateToken, checkPermission('team'), async (req, res, next) => {
   try {
     const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
     if (!isBoss) {
@@ -139,7 +139,7 @@ router.get('/stuck-opportunities', authenticateToken, checkPermission('team'), a
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('卡住商机查询错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 

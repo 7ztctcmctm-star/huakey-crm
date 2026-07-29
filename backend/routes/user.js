@@ -4,7 +4,6 @@ const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const userRouteService = require('../services/userRouteService');
-const logger = require('../config/logger');
 
 const router = express.Router();
 
@@ -40,13 +39,12 @@ const userDeleteSchema = Joi.object({
 });
 
 // 1. 获取用户列表
-router.post('/list', authenticateToken, checkPermission('system:user'), validate(userListSchema), async (req, res) => {
+router.post('/list', authenticateToken, checkPermission('system:user'), validate(userListSchema), async (req, res, next) => {
   try {
     const data = await userRouteService.listUsers(pool, req.body);
     res.json({ code: 200, message: '获取用户列表成功', data });
   } catch (error) {
-    logger.error('获取用户列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '获取用户列表失败', data: null });
+    next(error);
   }
 });
 

@@ -211,7 +211,7 @@ async function listCustomers(pool, params = {}, permission = null) {
     queryParams.push(overdueDays);
   }
   if (unassigned) {
-    whereClause += ' AND (c.owner_id IS NULL OR c.owner_id = 0 OR c.pool_status = 1)';
+    whereClause += ' AND c.owner_id IS NULL';
   }
   if (overdue_follow) {
     whereClause += ' AND c.last_follow_time IS NOT NULL AND DATEDIFF(NOW(), c.last_follow_time) > 7';
@@ -480,26 +480,33 @@ async function batchAssignCustomers(pool, customerIds, toUserId, operatorId, rem
   try {
     await connection.beginTransaction();
 
-    let successCount = 0;
-    for (const customerId of customerIds) {
-      const [customers] = await connection.query(
-        'SELECT id, company_name, owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
-        [customerId]
-      );
-      if (customers.length === 0) continue;
-
+    // 批量查询所有客户（1次 SQL）
+    const placeholders = customerIds.map(() => '?').join(',');
+    const [allCustomers] = await connection.query(
+      `SELECT id, company_name, owner_id FROM crm_customer WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
+      customerIds
+    );
+    // 批量 UPDATE（1次 SQL）
+    const existingIds = allCustomers.map(c => c.id);
+    if (existingIds.length > 0) {
       await connection.query(
-        'UPDATE crm_customer SET owner_id = ?, pool_status = 0, protect_until = NULL WHERE id = ?',
-        [toUserId, customerId]
+        `UPDATE crm_customer SET owner_id = ?, pool_status = 0, protect_until = NULL WHERE id IN (${existingIds.map(() => '?').join(',')})`,
+        [toUserId, ...existingIds]
       );
 
+      // 批量 INSERT 分配日志（1次 SQL）
+      const logValues = [];
+      const logParams = [];
+      for (const c of allCustomers) {
+        logValues.push('(?, ?, ?, ?, ?)');
+        logParams.push(c.id, c.owner_id, toUserId, operatorId, remark || null);
+      }
       await connection.query(
-        `INSERT INTO crm_assign_log (customer_id, from_user_id, to_user_id, operator_id, remark) VALUES (?, ?, ?, ?, ?)`,
-        [customerId, customers[0].owner_id, toUserId, operatorId, remark || null]
+        `INSERT INTO crm_assign_log (customer_id, from_user_id, to_user_id, operator_id, remark) VALUES ${logValues.join(',')}`,
+        logParams
       );
-
-      successCount++;
     }
+    const successCount = allCustomers.length;
 
     await connection.commit();
     return { count: successCount };

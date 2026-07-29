@@ -9,7 +9,7 @@
  */
 async function addPlan(pool, { customer_id, contact_id, plan_time, plan_content, follow_type }, userId) {
   const [customers] = await pool.query(
-    'SELECT id FROM crm_customer WHERE id = ? AND status != 0',
+    'SELECT id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [customer_id]
   );
   if (customers.length === 0) {

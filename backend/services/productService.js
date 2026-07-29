@@ -35,7 +35,7 @@ async function listProducts(pool, params = {}) {
 
 async function getProduct(pool, id) {
   const [rows] = await pool.query(
-    'SELECT id, name, code, category, unit, price, stock, description, status, create_time, update_time FROM crm_product WHERE id = ?', [id]
+    'SELECT id, name, code, category, unit, price, stock, description, status, create_time, update_time FROM crm_product WHERE id = ? AND deleted_at IS NULL', [id]
   );
   return rows.length > 0 ? rows[0] : null;
 }
@@ -43,7 +43,7 @@ async function getProduct(pool, id) {
 async function getProductFull(pool, id) {
   const [rows] = await pool.query(
     `SELECT id, name, code, category, unit, price, cost_price, stock, description, status, create_time, update_time, deleted_at
-     FROM crm_product WHERE id = ?`,
+     FROM crm_product WHERE id = ? AND deleted_at IS NULL`,
     [id]
   );
   return rows.length > 0 ? rows[0] : null;

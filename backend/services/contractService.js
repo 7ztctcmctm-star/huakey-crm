@@ -148,7 +148,7 @@ async function getContract(pool, contractId) {
       pp.plan_date, pp.plan_amount
     FROM crm_payment p
     LEFT JOIN crm_payment_plan pp ON p.plan_id = pp.id
-    WHERE p.contract_id = ?
+    WHERE p.contract_id = ? AND p.deleted_at IS NULL
     ORDER BY p.pay_date DESC
   `, [contractId]);
 
@@ -180,14 +180,14 @@ async function createContract(pool, data, createBy) {
 
     // 校验客户必须是正式客户（status=2）
     const [customerCheck] = await connection.query(
-      'SELECT id, status, company_name FROM crm_customer WHERE id = ? AND status != 0',
+      'SELECT id, status, company_name FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
       [customer_id]
     );
     if (customerCheck.length === 0) {
       throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);
     }
-    if (customerCheck[0].status !== 2) {
-      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '只能为正式客户创建合同，请先将客户转化为正式客户');
+    if (customerCheck[0].status !== 'signed') {
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '只能为已签约客户创建合同，请先将客户转化为已签约状态');
     }
 
     // 4-3-4: 传入 opportunity_id 时校验商机存在且属于同一客户

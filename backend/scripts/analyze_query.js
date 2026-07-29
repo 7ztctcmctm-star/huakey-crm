@@ -154,15 +154,15 @@ async function analyzeDatabase() {
     const criticalQueries = [
       {
         name: '客户列表查询',
-        sql: 'SELECT * FROM crm_customer WHERE status != 0 ORDER BY create_time DESC LIMIT 20'
+        sql: 'SELECT id, company_name, status, owner_id, create_time FROM crm_customer WHERE deleted_at IS NULL ORDER BY create_time DESC LIMIT 20'
       },
       {
         name: '商机列表查询',
-        sql: 'SELECT * FROM crm_opportunity ORDER BY create_time DESC LIMIT 20'
+        sql: 'SELECT id, name, customer_id, owner_id, stage, expected_amount, create_time FROM crm_opportunity WHERE deleted_at IS NULL ORDER BY create_time DESC LIMIT 20'
       },
       {
         name: '今日待办查询',
-        sql: `SELECT f.*, c.company_name
+        sql: `SELECT f.id, f.customer_id, f.follow_type, f.content, f.next_time, c.company_name
               FROM crm_follow_up f
               LEFT JOIN crm_customer c ON f.customer_id = c.id
               WHERE DATE(f.next_time) = CURDATE()`

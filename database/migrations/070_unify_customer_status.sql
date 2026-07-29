@@ -59,7 +59,7 @@ INSERT INTO sys_customer_status_transition (from_code, to_code, require_permissi
 ('signed', 'negotiating', NULL, 1)
 ON DUPLICATE KEY UPDATE from_code=from_code;
 
--- 5. 备份原 status 值（仅备份未删除的数据）
+-- 5. 备份原 status 值（仅备份未删除的数据，且仅当 status 仍为 INT 类型时执行）
 SET @col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_customer' AND COLUMN_NAME = 'old_status_int');
 SET @add_col_sql = IF(@col_exists = 0,
@@ -69,17 +69,35 @@ PREPARE add_col_stmt FROM @add_col_sql;
 EXECUTE add_col_stmt;
 DEALLOCATE PREPARE add_col_stmt;
 
-UPDATE crm_customer SET old_status_int = status WHERE deleted_at IS NULL;
+-- 仅当 status 列仍是 INT 类型时才备份（VARCHAR 说明已迁移）
+SET @is_int = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_customer'
+  AND COLUMN_NAME = 'status' AND DATA_TYPE = 'tinyint');
+SET @backup_sql = IF(@is_int > 0,
+  'UPDATE crm_customer SET old_status_int = status WHERE deleted_at IS NULL',
+  'SELECT ''status 已是 VARCHAR，跳过备份'' AS msg');
+PREPARE backup_stmt FROM @backup_sql;
+EXECUTE backup_stmt;
+DEALLOCATE PREPARE backup_stmt;
 
--- 6. 修改 status 字段类型为 varchar(32)
-ALTER TABLE crm_customer MODIFY COLUMN status VARCHAR(32) NOT NULL DEFAULT 'following';
+-- 6. 修改 status 字段类型为 varchar(32)（仅当仍是 INT 时执行）
+SET @modify_sql = IF(@is_int > 0,
+  'ALTER TABLE crm_customer MODIFY COLUMN status VARCHAR(32) NOT NULL DEFAULT \'following\'',
+  'SELECT ''status 已是 VARCHAR，跳过 MODIFY'' AS msg');
+PREPARE modify_stmt FROM @modify_sql;
+EXECUTE modify_stmt;
+DEALLOCATE PREPARE modify_stmt;
 
--- 7. 映射旧状态到新状态码（仅处理未删除数据）
+-- 7. 映射旧状态到新状态码（仅处理未删除数据，且仅首次迁移时执行）
 -- 旧状态：0=已删除(跳过), 1=潜客, 2=正式客户, 3=流失, 5=线索
-UPDATE crm_customer SET status = 'following' WHERE deleted_at IS NULL AND old_status_int = 1;
-UPDATE crm_customer SET status = 'signed'    WHERE deleted_at IS NULL AND old_status_int = 2;
-UPDATE crm_customer SET status = 'lost'      WHERE deleted_at IS NULL AND old_status_int = 3;
-UPDATE crm_customer SET status = 'following' WHERE deleted_at IS NULL AND old_status_int = 5;
+SET @map_sql1 = IF(@is_int > 0, 'UPDATE crm_customer SET status = \'following\' WHERE deleted_at IS NULL AND old_status_int = 1', 'SELECT 1');
+PREPARE map_stmt1 FROM @map_sql1; EXECUTE map_stmt1; DEALLOCATE PREPARE map_stmt1;
+SET @map_sql2 = IF(@is_int > 0, 'UPDATE crm_customer SET status = \'signed\'    WHERE deleted_at IS NULL AND old_status_int = 2', 'SELECT 1');
+PREPARE map_stmt2 FROM @map_sql2; EXECUTE map_stmt2; DEALLOCATE PREPARE map_stmt2;
+SET @map_sql3 = IF(@is_int > 0, 'UPDATE crm_customer SET status = \'lost\'      WHERE deleted_at IS NULL AND old_status_int = 3', 'SELECT 1');
+PREPARE map_stmt3 FROM @map_sql3; EXECUTE map_stmt3; DEALLOCATE PREPARE map_stmt3;
+SET @map_sql5 = IF(@is_int > 0, 'UPDATE crm_customer SET status = \'following\' WHERE deleted_at IS NULL AND old_status_int = 5', 'SELECT 1');
+PREPARE map_stmt5 FROM @map_sql5; EXECUTE map_stmt5; DEALLOCATE PREPARE map_stmt5;
 
 -- 8. 公海客户统一设置为 sea（覆盖上述映射，确保 pool_status=1 的优先）
 UPDATE crm_customer SET status = 'sea' WHERE deleted_at IS NULL AND pool_status = 1;

@@ -119,7 +119,7 @@ const logoutSchema = Joi.object({});
 const refreshSchema = Joi.object({});
 
 // 0. 获取验证码
-router.get('/captcha', async (req, res) => {
+router.get('/captcha', async (req, res, next) => {
   const { key, svg } = await authService.getCaptcha();
   res.json({ code: 200, message: 'success', data: { key, svg } });
 });
@@ -134,7 +134,7 @@ router.use('/login', (req, res, next) => {
 });
 
 // 1. 登录接口（单独挂载登录限流，避免影响验证码刷新）
-router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
+router.post('/login', authLimiter, validate(loginSchema), async (req, res, next) => {
   try {
     const { username, password, captcha, captchaKey } = req.body;
     const ip = getIpAddress(req);
@@ -160,9 +160,9 @@ router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
         params: { username }, ipAddress: ip, userId: null, userName: username,
         description: `登录失败：${error.message}`, status: 0, errorMsg: error.message
       });
-      // [安全修复] MySQL 错误码为字符串（如 ER_BAD_FIELD_ERROR），不能直接用做 HTTP status
-      const statusCode = typeof error.code === 'number' && error.code >= 100 && error.code < 600 ? error.code : 500;
-      return res.status(statusCode).json({ code: statusCode, message: error.message, data: null });
+      // AppError 取 httpStatus，普通 Error 回退 500
+      const statusCode = error.httpStatus || 500;
+      return res.status(statusCode).json({ code: error.code?.code || statusCode, message: error.message, data: null });
     }
 
     // 生成JWT token
@@ -205,13 +205,12 @@ router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('[认证] 登录错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '登录失败，请稍后重试', data: null });
+    next(error);
   }
 });
 
 // 2. 登出接口
-router.post('/logout', validate(logoutSchema), async (req, res) => {
+router.post('/logout', validate(logoutSchema), async (req, res, next) => {
   try {
     const ip = getIpAddress(req);
     const token = getTokenFromRequest(req);
@@ -241,7 +240,7 @@ router.post('/logout', validate(logoutSchema), async (req, res) => {
 
 // 3. 获取当前用户信息（用于前端验证登录状态）
 // [权限说明] 个人登录态接口，仅需认证，无需业务权限码
-router.get('/me', authenticateToken, async (req, res) => {
+router.get('/me', authenticateToken, async (req, res, next) => {
   try {
     const data = await authService.getMe(pool, req.user.userId);
     if (!data) {
@@ -267,26 +266,24 @@ router.get('/me', authenticateToken, async (req, res) => {
 
     res.json({ code: 200, message: '获取成功', data });
   } catch (error) {
-    logger.error('[认证] 获取用户信息错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '获取用户信息失败', data: null });
+    next(error);
   }
 });
 
 // 4. 注册接口（仅管理员可用，禁止公开注册）
 // [权限说明] 需要 user:create 权限
-router.post('/register', authenticateToken, checkPermission('user:create'), validate(registerSchema), async (req, res) => {
+router.post('/register', authenticateToken, checkPermission('user:create'), validate(registerSchema), async (req, res, next) => {
   try {
     const result = await authService.register(pool, req.body);
     res.json({ code: 200, message: '用户创建成功', data: result });
   } catch (error) {
-    logger.error('[认证] 注册错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(error.code || 500).json({ code: error.code || 500, message: error.message || '注册失败，请稍后重试', data: null });
+    next(error);
   }
 });
 
 // 4. 获取用户信息
 // [权限说明] 个人资料接口，仅需认证，无需业务权限码
-router.get('/profile', authenticateToken, async (req, res) => {
+router.get('/profile', authenticateToken, async (req, res, next) => {
   try {
     const user = await authService.getProfile(pool, req.user.userId);
     if (!user) {
@@ -295,39 +292,36 @@ router.get('/profile', authenticateToken, async (req, res) => {
 
     res.json({ code: 200, message: '获取用户信息成功', data: user });
   } catch (error) {
-    logger.error('[认证] 获取用户信息错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '获取用户信息失败', data: null });
+    next(error);
   }
 });
 
 // 5. 修改个人信息
 // [权限说明] 个人资料修改接口，仅需认证，无需业务权限码
-router.post('/update-profile', authenticateToken, validate(updateProfileSchema), async (req, res) => {
+router.post('/update-profile', authenticateToken, validate(updateProfileSchema), async (req, res, next) => {
   try {
     await authService.updateProfile(pool, req.user.userId, req.body);
     res.json({ code: 200, message: '个人信息更新成功', data: null });
   } catch (error) {
-    logger.error('[认证] 更新个人信息错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(error.code || 500).json({ code: error.code || 500, message: error.message || '更新失败', data: null });
+    next(error);
   }
 });
 
 // 6. 修改密码
 // [权限说明] 个人密码修改接口，仅需认证，无需业务权限码
-router.post('/change-password', authenticateToken, validate(changePasswordSchema), async (req, res) => {
+router.post('/change-password', authenticateToken, validate(changePasswordSchema), async (req, res, next) => {
   try {
     const { old_password, new_password } = req.body;
     await authService.changePassword(pool, req.user.userId, old_password, new_password);
     res.json({ code: 200, message: '密码修改成功，请重新登录', data: null });
   } catch (error) {
-    logger.error('[认证] 修改密码错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(error.code || 500).json({ code: error.code || 500, message: error.message || '修改密码失败', data: null });
+    next(error);
   }
 });
 
 // 6.5 强制修改密码（首次登录/重置密码后无需旧密码）
 // [权限说明] 个人密码修改接口，仅需认证，无需业务权限码
-router.post('/force-change-password', authenticateToken, validate(forceChangePasswordSchema), async (req, res) => {
+router.post('/force-change-password', authenticateToken, validate(forceChangePasswordSchema), async (req, res, next) => {
   try {
     await authService.forceChangePassword(pool, req.user.userId, req.body.new_password);
 
@@ -340,14 +334,13 @@ router.post('/force-change-password', authenticateToken, validate(forceChangePas
 
     res.json({ code: 200, message: '密码修改成功，请使用新密码重新登录', data: null });
   } catch (error) {
-    logger.error('[认证] 强制修改密码错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(error.code || 500).json({ code: error.code || 500, message: error.message || '修改密码失败', data: null });
+    next(error);
   }
 });
 
 // 7. 刷新 JWT token（接受过期但签名有效的 token，并将其加入黑名单）
 // [权限说明] 个人登录态接口，仅需提供旧 token，无需业务权限码
-router.post('/refresh', validate(refreshSchema), async (req, res) => {
+router.post('/refresh', validate(refreshSchema), async (req, res, next) => {
   try {
     const oldToken = getTokenFromRequest(req);
     if (!oldToken) {
@@ -419,8 +412,7 @@ router.post('/refresh', validate(refreshSchema), async (req, res) => {
       data: null
     });
   } catch (error) {
-    logger.error('[认证] Token 刷新失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: 'Token 刷新失败', data: null });
+    next(error);
   }
 });
 

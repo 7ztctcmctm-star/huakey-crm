@@ -60,7 +60,9 @@ async function listComparisons(pool, params = {}) {
   );
 
   const [rows] = await pool.query(
-    `SELECT c.*, u.real_name as created_by_name,
+    `SELECT c.id, c.comparison_no, c.request_id, c.title, c.product_name, c.quantity, c.unit, c.status,
+            c.selected_supplier_id, c.created_by, c.created_at, c.updated_at,
+            u.real_name as created_by_name,
             (SELECT COUNT(*) FROM crm_purchase_comparison_item ci WHERE ci.comparison_id = c.id) as supplier_count,
             s.name as selected_supplier_name
      FROM crm_purchase_comparison c
@@ -80,7 +82,9 @@ async function listComparisons(pool, params = {}) {
  */
 async function getComparisonDetail(pool, id) {
   const [[comparison]] = await pool.query(
-    `SELECT c.*, u.real_name as created_by_name,
+    `SELECT c.id, c.comparison_no, c.request_id, c.title, c.product_name, c.quantity, c.unit, c.status,
+            c.selected_supplier_id, c.created_by, c.created_at, c.updated_at,
+            u.real_name as created_by_name,
             r.title as request_title,
             s.name as selected_supplier_name
      FROM crm_purchase_comparison c
@@ -94,7 +98,8 @@ async function getComparisonDetail(pool, id) {
   if (!comparison) return null;
 
   const [items] = await pool.query(
-    `SELECT ci.*, s.name as supplier_name
+    `SELECT ci.id, ci.comparison_id, ci.supplier_id, ci.unit_price, ci.total_price, ci.delivery_days, ci.payment_terms, ci.remark, ci.created_at,
+            s.name as supplier_name
      FROM crm_purchase_comparison_item ci
      JOIN crm_supplier s ON ci.supplier_id = s.id
      WHERE ci.comparison_id = ?

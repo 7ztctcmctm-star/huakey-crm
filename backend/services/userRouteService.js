@@ -112,7 +112,7 @@ async function updateUser(pool, { id, real_name, phone, email, dept_id, role_id,
   );
 
   if (role_id !== undefined) {
-    clearPermissionCache(id);
+    await clearPermissionCache(id);
   }
 }
 
@@ -175,7 +175,7 @@ async function deleteUser(pool, { id }, currentUserId) {
            pool_type = 'public',
            protect_until = NULL,
            update_time = NOW()
-       WHERE owner_id = ? AND status != 0 AND deleted_at IS NULL`,
+       WHERE owner_id = ? AND deleted_at IS NULL`,
       [id]
     );
 

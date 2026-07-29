@@ -7,7 +7,7 @@
 set -e
 
 BASE_URL=${1:-http://localhost:5000}
-ADMIN_PASS=${ADMIN_PASS:-huakey123}
+ADMIN_PASS=${ADMIN_PASS:?请设置 ADMIN_PASS 环境变量（例如: export ADMIN_PASS=your_secure_password）}
 
 echo "==========================================="
 echo "  冒烟测试 — $BASE_URL"

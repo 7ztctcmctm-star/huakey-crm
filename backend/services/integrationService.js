@@ -3,13 +3,16 @@
  * 从 routes/integration.js 提取的业务逻辑，供路由层复用
  */
 
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
+
 /**
  * 获取集成配置列表（含脱敏）
  * @param {object} pool
  * @returns {Array}
  */
 async function listIntegrations(pool) {
-  const [rows] = await pool.query('SELECT * FROM sys_integration ORDER BY id ASC');
+  const [rows] = await pool.query('SELECT id, name, type, config, status, last_sync_time, create_time, update_time FROM sys_integration ORDER BY id ASC');
 
   rows.forEach(row => {
     if (row.config) {
@@ -39,9 +42,7 @@ async function listIntegrations(pool) {
 async function updateIntegration(pool, data) {
   const { id, config } = data;
   if (!id || !config) {
-    const err = new Error('参数不完整');
-    err.code = 400;
-    throw err;
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '参数不完整')
   }
 
   // 如果密码字段是 ***，保留原密码
@@ -74,17 +75,13 @@ async function testIntegration(pool) {
   );
 
   if (rows.length === 0) {
-    const err = new Error('邮件未配置，请先保存配置');
-    err.code = 400;
-    throw err;
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '邮件未配置，请先保存配置')
   }
 
   const cfg = typeof rows[0].config === 'string' ? JSON.parse(rows[0].config) : rows[0].config;
 
   if (!cfg.host || !cfg.user || !cfg.pass) {
-    const err = new Error('邮件配置不完整');
-    err.code = 400;
-    throw err;
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '邮件配置不完整')
   }
 
   const nodemailer = require('nodemailer');
@@ -117,9 +114,7 @@ async function testIntegration(pool) {
 async function sendTestEmail(pool, data, userId) {
   const { to, subject, body, ref_type, ref_id } = data;
   if (!to || !subject || !body) {
-    const err = new Error('收件人、主题和内容不能为空');
-    err.code = 400;
-    throw err;
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '收件人、主题和内容不能为空')
   }
 
   const [rows] = await pool.query(
@@ -127,9 +122,7 @@ async function sendTestEmail(pool, data, userId) {
   );
 
   if (rows.length === 0) {
-    const err = new Error('邮件服务未配置');
-    err.code = 400;
-    throw err;
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '邮件服务未配置')
   }
 
   const cfg = typeof rows[0].config === 'string' ? JSON.parse(rows[0].config) : rows[0].config;
@@ -163,9 +156,7 @@ async function sendTestEmail(pool, data, userId) {
       'INSERT INTO sys_email_log (to_email, subject, body, type, status, error_msg, ref_type, ref_id, send_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [to, subject, body, ref_type || null, 'failed', sendError.message, ref_type || null, ref_id || null, userId]
     );
-    const err = new Error('邮件发送失败: ' + sendError.message);
-    err.code = 500;
-    throw err;
+    throw new AppError(ErrorCodes.INTERNAL_ERROR, '邮件发送失败: ' + sendError.message);
   }
 }
 
@@ -181,7 +172,7 @@ async function getEmailLog(pool, params = {}) {
 
   const [countResult] = await pool.query('SELECT COUNT(*) as total FROM sys_email_log');
   const [list] = await pool.query(
-    `SELECT el.*, u.real_name as sender_name
+    `SELECT el.id, el.to_email, el.subject, el.body, el.type, el.status, el.error_msg, el.ref_type, el.ref_id, el.send_by, el.create_time, u.real_name as sender_name
      FROM sys_email_log el
      LEFT JOIN sys_user u ON el.send_by = u.id
      ORDER BY el.create_time DESC

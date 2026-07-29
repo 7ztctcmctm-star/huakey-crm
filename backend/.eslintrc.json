@@ -13,7 +13,7 @@
     "sourceType": "module"
   },
   "rules": {
-    "no-unused-vars": "warn",
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_|next$" }],
     "no-undef": "error",
     "no-empty": "warn",
     "no-constant-condition": "warn",

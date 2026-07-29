@@ -243,14 +243,14 @@ router.get('/overdue',
   checkPermission('customer:view'),
   checkDataPermission('customer', 'owner_id'),
   queryValidate(paginationSchema),
-  async (req, res) => {
+  async (req, res, next) => {
     try {
       const permission = await buildDataPermissionWhere(req.dataPermission, 'c');
       const data = await customerService.getOverdueCustomers(pool, req.query, permission);
       res.json({ code: 200, message: '获取逾期客户列表成功', data });
     } catch (error) {
       logger.error('获取逾期客户列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-      res.status(500).json({ code: 500, message: '获取逾期客户列表失败', data: null });
+      next(error);
     }
   }
 );
@@ -261,14 +261,14 @@ router.get('/near-recycle',
   checkPermission('customer:view'),
   checkDataPermission('customer', 'owner_id'),
   queryValidate(paginationSchema),
-  async (req, res) => {
+  async (req, res, next) => {
     try {
       const permission = await buildDataPermissionWhere(req.dataPermission, 'c');
       const data = await customerService.getNearRecycleCustomersList(pool, req.query, permission);
       res.json({ code: 200, message: '获取即将回收客户列表成功', data });
     } catch (error) {
       logger.error('获取即将回收客户列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-      res.status(500).json({ code: 500, message: '获取即将回收客户列表失败', data: null });
+      next(error);
     }
   }
 );

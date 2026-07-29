@@ -91,117 +91,117 @@ const exportSchema = Joi.object({
 // --- Routes ---
 
 // 销售漏斗统计
-router.get('/sales-funnel', authenticateToken, checkPermission('report'), createCache(600, (req) => `report:sales-funnel:${req.user.userId}:${JSON.stringify(req.query)}`), queryValidate(dateRangeQuerySchema), async (req, res) => {
+router.get('/sales-funnel', authenticateToken, checkPermission('report'), createCache(600, (req) => `report:sales-funnel:${req.user.userId}:${JSON.stringify(req.query)}`), queryValidate(dateRangeQuerySchema), async (req, res, next) => {
   try {
     const data = await reportAnalyticsService.getSalesFunnel(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 业绩统计
-router.get('/performance', authenticateToken, queryValidate(dateRangeQuerySchema), async (req, res) => {
+router.get('/performance', authenticateToken, queryValidate(dateRangeQuerySchema), async (req, res, next) => {
   try {
     const data = await reportAnalyticsService.getPerformance(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[报表] 业绩统计错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 客户统计
-router.get('/customer', authenticateToken, queryValidate(dateRangeQuerySchema), async (req, res) => {
+router.get('/customer', authenticateToken, queryValidate(dateRangeQuerySchema), async (req, res, next) => {
   try {
     const data = await reportAnalyticsService.getCustomerStats(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 回款统计
-router.get('/payment', authenticateToken, queryValidate(dateRangeQuerySchema), async (req, res) => {
+router.get('/payment', authenticateToken, queryValidate(dateRangeQuerySchema), async (req, res, next) => {
   try {
     const data = await reportAnalyticsService.getPaymentStats(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 销售趋势
-router.get('/sales-trend', authenticateToken, queryValidate(dateRangeQuerySchema), async (req, res) => {
+router.get('/sales-trend', authenticateToken, queryValidate(dateRangeQuerySchema), async (req, res, next) => {
   try {
     const data = await reportAnalyticsService.getSalesTrend(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 逾期跟进客户列表
-router.post('/overdue', authenticateToken, checkPermission('report'), validate(overdueSchema), async (req, res) => {
+router.post('/overdue', authenticateToken, checkPermission('report'), validate(overdueSchema), async (req, res, next) => {
   try {
     const data = await reportAnalyticsService.getOverdueCustomers(pool, req.body, req.user.userId, req.user.roleId);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 采购趋势（近12个月）
-router.get('/purchase-trend', authenticateToken, queryValidate(dateRangeQuerySchema), async (req, res) => {
+router.get('/purchase-trend', authenticateToken, queryValidate(dateRangeQuerySchema), async (req, res, next) => {
   try {
     const data = await reportAnalyticsService.getPurchaseTrend(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 采购按供应商分布
-router.get('/purchase-by-supplier', authenticateToken, queryValidate(dateRangeQuerySchema), async (req, res) => {
+router.get('/purchase-by-supplier', authenticateToken, queryValidate(dateRangeQuerySchema), async (req, res, next) => {
   try {
     const data = await reportAnalyticsService.getPurchaseBySupplier(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 采购成本分析
-router.get('/purchase-cost', authenticateToken, queryValidate(purchaseCostQuerySchema), async (req, res) => {
+router.get('/purchase-cost', authenticateToken, queryValidate(purchaseCostQuerySchema), async (req, res, next) => {
   try {
     const data = await reportAnalyticsService.getPurchaseCost(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[报表] 采购成本分析错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 供应商绩效分析
-router.get('/supplier-performance', authenticateToken, queryValidate(supplierPerformanceQuerySchema), async (req, res) => {
+router.get('/supplier-performance', authenticateToken, queryValidate(supplierPerformanceQuerySchema), async (req, res, next) => {
   try {
     const data = await reportAnalyticsService.getSupplierPerformance(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[报表] 供应商绩效分析错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 导出报表
-router.post('/export', authenticateToken, checkPermission('report'), validate(exportSchema), async (req, res) => {
+router.post('/export', authenticateToken, checkPermission('report'), validate(exportSchema), async (req, res, next) => {
   try {
     const buf = await reportAnalyticsService.exportReport(pool, req.body);
 
@@ -213,24 +213,24 @@ router.post('/export', authenticateToken, checkPermission('report'), validate(ex
     await logAction(req, 'export', `导出报表${startDate && endDate ? `(${startDate} ~ ${endDate})` : '(本月)'}`);
   } catch (error) {
     logger.error('导出报表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '导出失败', data: null });
+    next(error);
   }
 });
 
 // ============ 财务报表 ============
 
-router.get('/finance', authenticateToken, checkPermission('report'), queryValidate(financeQuerySchema), async (req, res) => {
+router.get('/finance', authenticateToken, checkPermission('report'), queryValidate(financeQuerySchema), async (req, res, next) => {
   try {
     const data = await reportAnalyticsService.getFinanceReport(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[报表] 财务报表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 财务报表导出CSV
-router.get('/finance/export', authenticateToken, checkPermission('report'), queryValidate(financeExportQuerySchema), async (req, res) => {
+router.get('/finance/export', authenticateToken, checkPermission('report'), queryValidate(financeExportQuerySchema), async (req, res, next) => {
   try {
     const { rows, filename } = await reportAnalyticsService.exportFinance(pool, req.query);
 
@@ -238,26 +238,26 @@ router.get('/finance/export', authenticateToken, checkPermission('report'), quer
       return res.status(404).json({ code: 404, message: '无数据可导出', data: null });
     }
 
-    const headers = Object.keys(rows[0]);
-    const csv = [headers.join(',')].concat(rows.map(r => headers.map(h => `"${(r[h] ?? '').toString().replace(/"/g, '""')}"`).join(','))).join('\n');
+    const { buildCsv } = require('../utils/csvExport');
+    const csv = buildCsv(rows);
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename=${encodeURIComponent(filename)}`);
     res.send('﻿' + csv);
   } catch (error) {
     logger.error('[报表] 财务导出失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '导出失败', data: null });
+    next(error);
   }
 });
 
 // ============ 经营分析看板 ============
 
-router.get('/business', authenticateToken, checkPermission('report'), async (req, res) => {
+router.get('/business', authenticateToken, checkPermission('report'), async (req, res, next) => {
   try {
     const data = await reportAnalyticsService.getBusinessDashboard(pool);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[报表] 经营分析查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 

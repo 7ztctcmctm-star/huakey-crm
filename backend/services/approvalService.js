@@ -184,7 +184,7 @@ async function rejectRecord(pool, recordId, remark, userId, manageAll) {
 
 async function withdrawApproval(pool, businessType, businessId, userId) {
   const tableName = BUSINESS_TABLE_MAP[businessType];
-  if (!tableName) throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '不支持的业务类型', 400);
+  if (!tableName) throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '不支持的业务类型');
 
   const [records] = await pool.query('SELECT r.id, r.workflow_id, r.business_type, r.business_id, r.step_id, r.step_order, r.approver_id, r.status FROM crm_approval_record r WHERE r.business_type = ? AND r.business_id = ? AND r.status = "pending"', [businessType, businessId]);
   if (records.length === 0) throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '没有待撤回的审批记录');
@@ -220,10 +220,10 @@ async function getApprovalDetail(pool, businessType, businessId) {
 async function getDetailWithHistory(pool, businessType, businessId) {
   let customerId = null;
   if (businessType === 'quote') {
-    const [[biz]] = await pool.query('SELECT customer_id FROM crm_quote WHERE id = ?', [businessId]);
+    const [[biz]] = await pool.query('SELECT customer_id FROM crm_quote WHERE id = ? AND deleted_at IS NULL', [businessId]);
     customerId = biz?.customer_id;
   } else if (businessType === 'contract') {
-    const [[biz]] = await pool.query('SELECT customer_id FROM crm_contract WHERE id = ?', [businessId]);
+    const [[biz]] = await pool.query('SELECT customer_id FROM crm_contract WHERE id = ? AND deleted_at IS NULL', [businessId]);
     customerId = biz?.customer_id;
   }
 

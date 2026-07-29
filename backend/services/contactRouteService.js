@@ -56,7 +56,7 @@ async function addContact(pool, params, user, canManageCustomer) {
   }
 
   const [customers] = await pool.query(
-    'SELECT id, owner_id FROM crm_customer WHERE id = ? AND status != 0',
+    'SELECT id, owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [customer_id]
   );
 
@@ -125,7 +125,7 @@ async function updateContact(pool, params, user, canManageCustomer) {
 
   // 查询客户负责人
   const [customers] = await pool.query(
-    'SELECT owner_id FROM crm_customer WHERE id = ?',
+    'SELECT owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [customerId]
   );
   if (customers.length === 0) {
@@ -177,7 +177,7 @@ async function deleteContact(pool, id, user, canManageCustomer) {
 
   // 查询客户负责人
   const [customers] = await pool.query(
-    'SELECT owner_id FROM crm_customer WHERE id = ?',
+    'SELECT owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [contacts[0].customer_id]
   );
 

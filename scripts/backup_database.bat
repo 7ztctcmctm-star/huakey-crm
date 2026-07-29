@@ -9,10 +9,16 @@ echo.
 
 set BACKUP_DIR=%~dp0backups
 set DB_NAME=huakey_crm
-set DB_USER=root
-set DB_PASSWORD=
+set DB_USER=%MYSQL_USER%
+set DB_PASSWORD=%MYSQL_PASSWORD%
 set MYSQL_BIN=C:\Program Files\MySQL\MySQL Server 8.0\bin
 set KEEP_DAYS=30
+
+if "%DB_USER%"=="" (
+    echo 错误：请设置 MYSQL_USER 和 MYSQL_PASSWORD 环境变量。
+    echo 示例: set MYSQL_USER=your_user ^&^& set MYSQL_PASSWORD=your_password
+    exit /b 1
+)
 
 if exist "%MYSQL_BIN%\mysqldump.exe" (
     set MYSQLDUMP="%MYSQL_BIN%\mysqldump.exe"

@@ -18,6 +18,12 @@ function validateTable(tableName) {
   }
 }
 
+function validateIdentifier(identifier) {
+  if (!identifier || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(identifier)) {
+    throw new Error('Invalid identifier');
+  }
+}
+
 /**
  * 软删除记录
  * @param {string} tableName - 表名
@@ -89,6 +95,7 @@ async function permanentDelete(tableName, id) {
 async function getDeletedList(tableName, options = {}) {
   validateTable(tableName);
   const { page = 1, pageSize = 20, keyword, nameColumn = 'name' } = options;
+  validateIdentifier(nameColumn);
   const offset = (page - 1) * pageSize;
 
   let whereClause = 'WHERE deleted_at IS NOT NULL';
@@ -105,7 +112,7 @@ async function getDeletedList(tableName, options = {}) {
   );
 
   const [rows] = await pool.query(
-    `SELECT * FROM ${tableName} ${whereClause} ORDER BY deleted_at DESC LIMIT ? OFFSET ?`,
+    `SELECT id, ${nameColumn}, deleted_at FROM ${tableName} ${whereClause} ORDER BY deleted_at DESC LIMIT ? OFFSET ?`,
     [...params, parseInt(pageSize), parseInt(offset)]
   );
 

@@ -1,4 +1,4 @@
-﻿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -28,10 +28,6 @@ app.use(express.json());
 // 新数据管理域路由（Prompt 4-5 质量检查剥离）
 const dataQualityRoutes = require('../routes/dataQuality');
 app.use('/api/v1/data-quality', dataQualityRoutes);
-
-// 已废弃的旧客户模块质量路由（应返回 410 Gone）
-const deprecatedQualityRoutes = require('../routes/customer/quality');
-app.use('/api/v1/customer', deprecatedQualityRoutes);
 
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -121,30 +117,4 @@ describe('数据质量检查模块（data-management 域）', () => {
   });
 });
 
-describe('已废弃的客户模块质量路由', () => {
-  const token = generateToken();
 
-  describe('POST /api/v1/customer/quality-check', () => {
-    it('应该返回410 Gone', async () => {
-      const res = await request(app)
-        .post('/api/v1/customer/quality-check')
-        .set('Authorization', `Bearer ${token}`)
-        .send({ table: 'crm_customer' });
-
-      expect(res.status).toBe(410);
-      expect(res.body.code).toBe(410);
-    });
-  });
-
-  describe('POST /api/v1/customer/quality-report', () => {
-    it('应该返回410 Gone', async () => {
-      const res = await request(app)
-        .post('/api/v1/customer/quality-report')
-        .set('Authorization', `Bearer ${token}`)
-        .send({ table: 'crm_customer' });
-
-      expect(res.status).toBe(410);
-      expect(res.body.code).toBe(410);
-    });
-  });
-});

@@ -15,14 +15,14 @@ const globalSearchSchema = Joi.object({
 });
 
 // 全局搜索
-router.get('/global', authenticateToken, checkPermission('search'), queryValidate(globalSearchSchema), async (req, res) => {
+router.get('/global', authenticateToken, checkPermission('search'), queryValidate(globalSearchSchema), async (req, res, next) => {
   try {
     const keyword = (req.query.keyword || '').trim();
     const data = await searchRouteService.globalSearch(pool, { keyword, user: req.user });
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('全局搜索错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '搜索失败', data: null });
+    next(error);
   }
 });
 

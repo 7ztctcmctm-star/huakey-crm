@@ -49,7 +49,7 @@ async function addPayment(pool, data, user) {
 async function updatePayment(pool, data, user) {
   const { id, pay_date, pay_amount, pay_method, remark } = data;
 
-  const [oldPayment] = await pool.query('SELECT plan_id, contract_id FROM crm_payment WHERE id = ?', [id]);
+  const [oldPayment] = await pool.query('SELECT plan_id, contract_id FROM crm_payment WHERE id = ? AND deleted_at IS NULL', [id]);
   if (oldPayment.length) {
     await checkContractPermission(pool, oldPayment[0].contract_id, user, '修改');
   }

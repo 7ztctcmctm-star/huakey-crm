@@ -171,7 +171,7 @@ async function startCampaign(pool, id) {
   const [[campaign]] = await pool.query('SELECT target_type, target_ids FROM crm_survey_campaign WHERE id = ?', [id]);
   let totalSent = 0;
   if (campaign.target_type === 'all') {
-    const [[{ cnt }]] = await pool.query("SELECT COUNT(*) as cnt FROM crm_customer WHERE deleted_at IS NULL AND status = 1");
+    const [[{ cnt }]] = await pool.query("SELECT COUNT(*) as cnt FROM crm_customer WHERE deleted_at IS NULL AND status = 'following'");
     totalSent = cnt;
   } else if (campaign.target_ids) {
     try { totalSent = JSON.parse(campaign.target_ids).length; } catch { totalSent = 0; }

@@ -12,7 +12,7 @@ const { CUSTOMER_STATUS } = require('../constants/customerStatus');
  */
 async function getAssignRules(pool) {
   const [list] = await pool.query(
-    'SELECT * FROM crm_assign_rule ORDER BY priority DESC, id ASC'
+    'SELECT id, rule_name, assign_type, source_value, region_value, user_ids, last_assigned_index, priority, is_active, create_time, update_time FROM crm_assign_rule ORDER BY priority DESC, id ASC'
   );
   return list;
 }
@@ -134,7 +134,7 @@ async function applyRule(pool, operatorId) {
 async function autoAssignOwner(pool, customer) {
   try {
     const [rules] = await pool.query(
-      'SELECT * FROM crm_assign_rule WHERE is_active = 1 ORDER BY priority DESC'
+      'SELECT id, rule_name, assign_type, source_value, region_value, user_ids, last_assigned_index, priority, is_active, create_time, update_time FROM crm_assign_rule WHERE is_active = 1 ORDER BY priority DESC'
     );
     if (rules.length === 0) return null;
 
@@ -293,7 +293,7 @@ async function getAssignLogs(pool, params) {
   const total = countResult[0].total;
 
   const [list] = await pool.query(
-    `SELECT al.*,
+    `SELECT al.id, al.customer_id, al.from_user_id, al.to_user_id, al.operator_id, al.remark, al.create_time,
       c.company_name,
       u1.real_name as from_user_name,
       u2.real_name as to_user_name,

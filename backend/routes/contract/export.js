@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../../middleware/auth');
-const { checkPermission, checkDataPermission } = require('../../middleware/permission');
+const { checkPermission, checkDataPermission, checkFieldPermission } = require('../../middleware/permission');
 const multer = require('multer');
 const { validate, Joi } = require('../../middleware/validate');
 const contractController = require('../../controllers/contractController');
@@ -29,8 +29,8 @@ const importUpload = multer({
   }
 });
 
-// 合同导出
-router.post('/export', authenticateToken, checkPermission('contract'), checkDataPermission('contract', 'create_by'), validate(exportContractsSchema), contractController.exportContracts);
+// 合同导出（挂载字段权限中间件，非管理员导出时移除敏感字段）
+router.post('/export', authenticateToken, checkPermission('contract'), checkDataPermission('contract', 'create_by'), checkFieldPermission('contract'), validate(exportContractsSchema), contractController.exportContracts);
 
 // 回款导出
 router.post('/payment/export', authenticateToken, checkPermission('contract'), validate(exportPaymentsSchema), contractController.exportPayments);

@@ -260,7 +260,8 @@ async function getCustomerScore(pool, customerId) {
   }
 
   const [logs] = await pool.query(`
-    SELECT l.*, r.name as rule_name, r.condition_type
+    SELECT l.id, l.customer_id, l.rule_id, l.score, l.total_score, l.remark, l.create_time,
+           r.name as rule_name, r.condition_type
     FROM crm_customer_score_log l
     LEFT JOIN crm_score_rule r ON l.rule_id = r.id
     WHERE l.customer_id = ?

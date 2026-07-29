@@ -72,7 +72,7 @@ const router = createRouter({
           path: 'customer/detail/:id',
           name: 'CustomerDetail',
           component: () => import('../views/customer/Detail.vue'),
-          meta: { title: '客户详情' }
+          meta: { title: '客户详情', permission: 'customer:view' }
         },
         {
           path: 'customer/assign-rules',
@@ -102,7 +102,7 @@ const router = createRouter({
           path: 'quotation/edit/:id?',
           name: 'QuotationEdit',
           component: () => import('../views/quotation/edit.vue'),
-          meta: { title: '报价单编辑' }
+          meta: { title: '报价单编辑', permission: 'quotation' }
         },
         {
           path: 'contract',
@@ -114,7 +114,7 @@ const router = createRouter({
           path: 'contract/detail/:id',
           name: 'ContractDetail',
           component: () => import('../views/contract/detail.vue'),
-          meta: { title: '合同详情' }
+          meta: { title: '合同详情', permission: 'contract' }
         },
         {
           path: 'payment',
@@ -174,7 +174,7 @@ const router = createRouter({
           path: 'supplier/detail/:id',
           name: 'SupplierDetail',
           component: () => import('../views/supplier/detail.vue'),
-          meta: { title: '供应商详情' }
+          meta: { title: '供应商详情', permission: 'supplier' }
         },
         {
           path: 'purchase/list',
@@ -186,7 +186,7 @@ const router = createRouter({
           path: 'purchase/detail/:id',
           name: 'PurchaseDetail',
           component: () => import('../views/purchase/detail.vue'),
-          meta: { title: '采购详情' }
+          meta: { title: '采购详情', permission: 'purchase' }
         },
         {
           path: 'purchase/requests',
@@ -390,7 +390,7 @@ const router = createRouter({
           path: 'team-dashboard',
           name: 'TeamDashboard',
           component: () => import('../views/TeamDashboard.vue'),
-          meta: { title: '团队看板', admin: true }
+          meta: { title: '团队看板', permission: 'team-dashboard', admin: true }
         },
         {
           path: 'analysis',
@@ -522,13 +522,13 @@ const router = createRouter({
           path: 'system/integration',
           name: 'SystemIntegration',
           component: () => import('../views/settings/integration.vue'),
-          meta: { title: '集成管理', admin: true }
+          meta: { title: '集成管理', permission: 'system:integration', admin: true }
         },
         {
           path: 'system/currency',
           name: 'SystemCurrency',
           component: () => import('../views/system/currency.vue'),
-          meta: { title: '货币管理', admin: true }
+          meta: { title: '货币管理', permission: 'system:currency', admin: true }
         }
       ]
     },

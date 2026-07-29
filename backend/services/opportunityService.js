@@ -290,12 +290,12 @@ async function getStageStats(pool, opportunityId) {
  * @returns {{ id: number }}
  */
 async function createOpportunity(pool, data, userId) {
-  const [customers] = await pool.query('SELECT id, status FROM crm_customer WHERE id = ? AND status != 0', [data.customer_id]);
+  const [customers] = await pool.query('SELECT id, status FROM crm_customer WHERE id = ? AND deleted_at IS NULL', [data.customer_id]);
   if (customers.length === 0) {
     throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);
   }
-  if (customers[0].status !== 2) {
-    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '只能为正式客户创建商机，请先将客户转化为正式客户');
+  if (customers[0].status !== 'signed') {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '只能为已签约客户创建商机，请先将客户转化为已签约状态');
   }
 
   const finalOwnerId = data.owner_id || userId;

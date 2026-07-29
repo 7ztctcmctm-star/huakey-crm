@@ -67,7 +67,8 @@ async function queryWithTrace(traceId, sql, params) {
  * 只读连接池（用于报表、AI 查询、搜索等读操作）
  * 未配置 DB_RO_* 时自动降级使用主库连接池
  */
-const readOnlyPool = process.env.DB_RO_HOST
+const isReadOnlyPoolAvailable = !!process.env.DB_RO_HOST;
+const readOnlyPool = isReadOnlyPoolAvailable
   ? mysql.createPool({
       host: process.env.DB_RO_HOST || process.env.DB_HOST || 'localhost',
       port: parseInt(process.env.DB_RO_PORT || process.env.DB_PORT) || 3306,
@@ -86,4 +87,5 @@ const readOnlyPool = process.env.DB_RO_HOST
 
 module.exports = pool;
 module.exports.readOnlyPool = readOnlyPool;
+module.exports.isReadOnlyPoolAvailable = isReadOnlyPoolAvailable;
 module.exports.queryWithTrace = queryWithTrace;

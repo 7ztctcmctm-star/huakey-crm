@@ -34,6 +34,23 @@ async function run() {
     connectionLimit: 5
   })
 
+  // 等待数据库就绪（最多重试30次，每次间隔2秒）
+  let connected = false;
+  for (let i = 0; i < 30; i++) {
+    try {
+      await pool.query('SELECT 1');
+      connected = true;
+      break;
+    } catch (e) {
+      console.log(`[迁移] 等待数据库就绪... (${i + 1}/30)`);
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  }
+  if (!connected) {
+    console.error('[迁移] 致命错误: 数据库连接超时（已重试30次）');
+    process.exit(1);
+  }
+
   try {
     // 确保 schema_migrations 表存在
     await pool.query(`

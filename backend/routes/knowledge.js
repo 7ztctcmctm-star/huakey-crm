@@ -654,28 +654,28 @@ const upload = multer({ storage, limits: { fileSize: 20 * 1024 * 1024 } });
 
 // ============ 产品知识库 ============
 
-router.get('/products', authenticateToken, checkPermission('knowledge'), cache(300), async (req, res) => {
+router.get('/products', authenticateToken, checkPermission('knowledge'), cache(300), async (req, res, next) => {
   try {
     const data = await knowledgeService.listProducts(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[知识库] 产品列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.get('/products/:id', authenticateToken, checkPermission('knowledge'), async (req, res) => {
+router.get('/products/:id', authenticateToken, checkPermission('knowledge'), async (req, res, next) => {
   try {
     const row = await knowledgeService.getProduct(pool, req.params.id);
     if (!row) return res.status(404).json({ code: 404, message: '产品不存在', data: null });
     res.json({ code: 200, message: '查询成功', data: row });
   } catch (error) {
     logger.error('[知识库] 产品详情查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.post('/products', authenticateToken, requireAdmin, validate(productSchema), async (req, res) => {
+router.post('/products', authenticateToken, requireAdmin, validate(productSchema), async (req, res, next) => {
   try {
     if (!req.body.name || !req.body.name.trim()) return res.status(400).json({ code: 400, message: '产品名称不能为空', data: null });
     const result = await knowledgeService.createProduct(pool, req.body, req.user.userId);
@@ -683,76 +683,76 @@ router.post('/products', authenticateToken, requireAdmin, validate(productSchema
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
     logger.error('[知识库] 创建产品失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.put('/products/:id', authenticateToken, requireAdmin, validate(productUpdateSchema), async (req, res) => {
+router.put('/products/:id', authenticateToken, requireAdmin, validate(productUpdateSchema), async (req, res, next) => {
   try {
     await knowledgeService.updateProduct(pool, req.params.id, req.body);
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
     logger.error('[知识库] 更新产品失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.delete('/products/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.delete('/products/:id', authenticateToken, requireAdmin, async (req, res, next) => {
   try {
     await knowledgeService.deleteProduct(pool, req.params.id);
     await invalidateCache(['cache:*:/api/knowledge/*']);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     logger.error('[知识库] 删除产品失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.post('/products/:id/images', authenticateToken, requireAdmin, upload.array('images', 9), validate(emptySchema), async (req, res) => {
+router.post('/products/:id/images', authenticateToken, requireAdmin, upload.array('images', 9), validate(emptySchema), async (req, res, next) => {
   try {
     const filePaths = req.files.map(f => `/uploads/knowledge/${f.filename}`);
     const allImages = await knowledgeService.addProductImages(pool, req.params.id, filePaths);
     res.json({ code: 200, message: '上传成功', data: { images: allImages } });
   } catch (error) {
     logger.error('[知识库] 上传图片失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.get('/products-meta/categories', authenticateToken, checkPermission('knowledge'), async (req, res) => {
+router.get('/products-meta/categories', authenticateToken, checkPermission('knowledge'), async (req, res, next) => {
   try {
     const data = await knowledgeService.getProductCategories(pool);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[知识库] 产品分类查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // ============ 销售话术 ============
 
-router.get('/scripts', authenticateToken, checkPermission('knowledge'), cache(300), async (req, res) => {
+router.get('/scripts', authenticateToken, checkPermission('knowledge'), cache(300), async (req, res, next) => {
   try {
     const data = await knowledgeService.listScripts(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[知识库] 话术列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.get('/scripts/:id', authenticateToken, checkPermission('knowledge'), async (req, res) => {
+router.get('/scripts/:id', authenticateToken, checkPermission('knowledge'), async (req, res, next) => {
   try {
     const row = await knowledgeService.getScript(pool, req.params.id);
     if (!row) return res.status(404).json({ code: 404, message: '话术不存在', data: null });
     res.json({ code: 200, message: '查询成功', data: row });
   } catch (error) {
     logger.error('[知识库] 话术详情查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.post('/scripts', authenticateToken, validate(scriptSchema), async (req, res) => {
+router.post('/scripts', authenticateToken, validate(scriptSchema), async (req, res, next) => {
   try {
     if (!req.body.title || !req.body.title.trim()) return res.status(400).json({ code: 400, message: '话术标题不能为空', data: null });
     if (!req.body.content || !req.body.content.trim()) return res.status(400).json({ code: 400, message: '话术内容不能为空', data: null });
@@ -761,66 +761,66 @@ router.post('/scripts', authenticateToken, validate(scriptSchema), async (req, r
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
     logger.error('[知识库] 创建话术失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.put('/scripts/:id', authenticateToken, validate(scriptUpdateSchema), async (req, res) => {
+router.put('/scripts/:id', authenticateToken, validate(scriptUpdateSchema), async (req, res, next) => {
   try {
     await knowledgeService.updateScript(pool, req.params.id, req.body);
     await invalidateCache(['cache:*:/api/knowledge/*']);
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
     logger.error('[知识库] 更新话术失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.delete('/scripts/:id', authenticateToken, async (req, res) => {
+router.delete('/scripts/:id', authenticateToken, async (req, res, next) => {
   try {
     await knowledgeService.deleteScript(pool, req.params.id);
     await invalidateCache(['cache:*:/api/knowledge/*']);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     logger.error('[知识库] 删除话术失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.get('/scripts-meta/scenes', authenticateToken, checkPermission('knowledge'), async (req, res) => {
+router.get('/scripts-meta/scenes', authenticateToken, checkPermission('knowledge'), async (req, res, next) => {
   try {
     const data = await knowledgeService.getScriptScenes(pool);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[知识库] 场景列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // ============ FAQ ============
 
-router.get('/faqs', authenticateToken, checkPermission('knowledge'), async (req, res) => {
+router.get('/faqs', authenticateToken, checkPermission('knowledge'), async (req, res, next) => {
   try {
     const data = await knowledgeService.listFaqs(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[知识库] FAQ列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.get('/faqs/:id', authenticateToken, checkPermission('knowledge'), async (req, res) => {
+router.get('/faqs/:id', authenticateToken, checkPermission('knowledge'), async (req, res, next) => {
   try {
     const row = await knowledgeService.getFaq(pool, req.params.id);
     if (!row) return res.status(404).json({ code: 404, message: 'FAQ不存在', data: null });
     res.json({ code: 200, message: '查询成功', data: row });
   } catch (error) {
     logger.error('[知识库] FAQ详情查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.post('/faqs', authenticateToken, validate(faqSchema), async (req, res) => {
+router.post('/faqs', authenticateToken, validate(faqSchema), async (req, res, next) => {
   try {
     if (!req.body.question || !req.body.question.trim()) return res.status(400).json({ code: 400, message: '问题不能为空', data: null });
     if (!req.body.answer || !req.body.answer.trim()) return res.status(400).json({ code: 400, message: '答案不能为空', data: null });
@@ -829,66 +829,66 @@ router.post('/faqs', authenticateToken, validate(faqSchema), async (req, res) =>
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
     logger.error('[知识库] 创建FAQ失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.put('/faqs/:id', authenticateToken, validate(faqUpdateSchema), async (req, res) => {
+router.put('/faqs/:id', authenticateToken, validate(faqUpdateSchema), async (req, res, next) => {
   try {
     await knowledgeService.updateFaq(pool, req.params.id, req.body);
     await invalidateCache(['cache:*:/api/knowledge/*']);
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
     logger.error('[知识库] 更新FAQ失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.delete('/faqs/:id', authenticateToken, async (req, res) => {
+router.delete('/faqs/:id', authenticateToken, async (req, res, next) => {
   try {
     await knowledgeService.deleteFaq(pool, req.params.id);
     await invalidateCache(['cache:*:/api/knowledge/*']);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     logger.error('[知识库] 删除FAQ失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.get('/faqs-meta/categories', authenticateToken, checkPermission('knowledge'), async (req, res) => {
+router.get('/faqs-meta/categories', authenticateToken, checkPermission('knowledge'), async (req, res, next) => {
   try {
     const data = await knowledgeService.getFaqCategories(pool);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[知识库] FAQ分类查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // ============ 文档管理 ============
 
-router.get('/documents', authenticateToken, checkPermission('knowledge'), cache(300), async (req, res) => {
+router.get('/documents', authenticateToken, checkPermission('knowledge'), cache(300), async (req, res, next) => {
   try {
     const data = await knowledgeService.listDocuments(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[知识库] 文档列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.get('/documents/:id', authenticateToken, checkPermission('knowledge'), async (req, res) => {
+router.get('/documents/:id', authenticateToken, checkPermission('knowledge'), async (req, res, next) => {
   try {
     const row = await knowledgeService.getDocument(pool, req.params.id);
     if (!row) return res.status(404).json({ code: 404, message: '文档不存在', data: null });
     res.json({ code: 200, message: '查询成功', data: row });
   } catch (error) {
     logger.error('[知识库] 文档详情查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.post('/documents', authenticateToken, upload.single('file'), validate(documentSchema), async (req, res) => {
+router.post('/documents', authenticateToken, upload.single('file'), validate(documentSchema), async (req, res, next) => {
   try {
     const { name, type, description } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ code: 400, message: '文档名称不能为空', data: null });
@@ -906,22 +906,22 @@ router.post('/documents', authenticateToken, upload.single('file'), validate(doc
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
     logger.error('[知识库] 创建文档失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.put('/documents/:id', authenticateToken, validate(documentUpdateSchema), async (req, res) => {
+router.put('/documents/:id', authenticateToken, validate(documentUpdateSchema), async (req, res, next) => {
   try {
     await knowledgeService.updateDocument(pool, req.params.id, req.body);
     await invalidateCache(['cache:*:/api/knowledge/*']);
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
     logger.error('[知识库] 更新文档失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.delete('/documents/:id', authenticateToken, async (req, res) => {
+router.delete('/documents/:id', authenticateToken, async (req, res, next) => {
   try {
     const filePath = await knowledgeService.getDocumentFilePath(pool, req.params.id);
     if (filePath) {
@@ -934,11 +934,11 @@ router.delete('/documents/:id', authenticateToken, async (req, res) => {
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     logger.error('[知识库] 删除文档失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.get('/documents/:id/download', authenticateToken, checkPermission('knowledge'), async (req, res) => {
+router.get('/documents/:id/download', authenticateToken, checkPermission('knowledge'), async (req, res, next) => {
   try {
     const row = await knowledgeService.getDocumentForDownload(pool, req.params.id);
     if (!row || !row.file_path) return res.status(404).json({ code: 404, message: '文档不存在', data: null });
@@ -950,19 +950,19 @@ router.get('/documents/:id/download', authenticateToken, checkPermission('knowle
     res.download(fullPath, `${row.name}.${row.file_type || 'bin'}`);
   } catch (error) {
     logger.error('[知识库] 下载文档失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // ============ 知识库首页统计 ============
 
-router.get('/stats', authenticateToken, checkPermission('knowledge'), async (req, res) => {
+router.get('/stats', authenticateToken, checkPermission('knowledge'), async (req, res, next) => {
   try {
     const data = await knowledgeService.getStats(pool);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[知识库] 统计查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 

@@ -61,7 +61,7 @@ async function getChurnAlert(pool, { page, pageSize }) {
 
   const [countResult] = await pool.query(`
     SELECT COUNT(*) as total FROM crm_customer
-    WHERE status != 0 AND owner_id IS NOT NULL
+    WHERE deleted_at IS NULL AND owner_id IS NOT NULL
       AND (last_follow_time IS NULL
         OR last_follow_time < NOW() - INTERVAL ? DAY)
   `, [overdueDays]);
@@ -285,7 +285,7 @@ async function getRanking(pool) {
       COALESCE(SUM(CASE WHEN o.stage = 5 THEN o.expected_amount ELSE 0 END), 0) as win_amount,
       COUNT(DISTINCT CASE WHEN o.stage = 5 THEN o.id END) as win_count
     FROM sys_user u
-    LEFT JOIN crm_customer c ON c.owner_id = u.id AND c.status != 0
+    LEFT JOIN crm_customer c ON c.owner_id = u.id AND c.deleted_at IS NULL
     LEFT JOIN crm_opportunity o ON o.owner_id = u.id
     WHERE u.status = 1
     GROUP BY u.id, u.real_name
@@ -413,7 +413,7 @@ async function getEnhancedSuggestions(pool) {
   const [churnCustomers] = await pool.query(`
     SELECT id, company_name, last_follow_time, level,
            DATEDIFF(NOW(), COALESCE(last_follow_time, create_time)) as idle_days
-    FROM crm_customer WHERE deleted_at IS NULL AND status = 1
+    FROM crm_customer WHERE deleted_at IS NULL AND status = 'following'
       AND (last_follow_time IS NULL OR last_follow_time < NOW() - INTERVAL 30 DAY)
     ORDER BY level, idle_days DESC LIMIT 5
   `);
@@ -454,7 +454,7 @@ async function getEnhancedSuggestions(pool) {
     JOIN crm_contract ct ON c.id = ct.customer_id AND ct.deleted_at IS NULL
     LEFT JOIN crm_quote_item qi ON ct.id = qi.quote_id
     LEFT JOIN crm_product p ON qi.product_id = p.id
-    WHERE c.deleted_at IS NULL AND c.status = 2
+    WHERE c.deleted_at IS NULL AND c.status = 'signed'
       AND NOT EXISTS (SELECT 1 FROM crm_opportunity o WHERE o.customer_id = c.id AND o.stage NOT IN (5, 6) AND o.deleted_at IS NULL)
     GROUP BY c.id LIMIT 5
   `);

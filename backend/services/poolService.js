@@ -83,25 +83,25 @@ async function listPoolCustomers(pool, { page = 1, pageSize = 10, company_name, 
  * 变更：return { error } → throw AppError；保护期用 details 携带 protect_until
  */
 async function claimCustomer(pool, customer_id, userId, user) {
-  if (!customer_id) throw new AppError(ErrorCodes.VALIDATION_ERROR, '客户ID不能为空')
+  if (!customer_id) throw new AppError(ErrorCodes.VALIDATION_ERROR, '客户ID不能为空');
 
   const [customers] = await pool.query(
     'SELECT id, pool_status, pool_type, protect_until, owner_id, company_name FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [customer_id]
   )
 
-  if (customers.length === 0) throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '客户不存在')
+  if (customers.length === 0) throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '客户不存在');
 
   const customer = customers[0]
 
-  if (customer.owner_id !== null) throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户不在公海中')
+  if (customer.owner_id !== null) throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户不在公海中');
 
   // 判断来源：线索池(lead) 还是 公海(sea)
   const isLead = customer.status === CUSTOMER_STATUS.LEAD
 
   // 公海私有池权限检查（线索池不限制）
   if (!isLead && customer.pool_type === 'private' && !canManagePrivatePool(user)) {
-    throw new AppError(ErrorCodes.PERMISSION_DENIED, '私有池客户仅管理员可认领')
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '私有池客户仅管理员可认领');
   }
 
   // 公海保护期检查（线索池无保护期）
@@ -111,7 +111,7 @@ async function claimCustomer(pool, customer_id, userId, user) {
       ErrorCodes.BUSINESS_VALIDATION,
       `该客户在保护期内，还需等待 ${remainDays} 天`,
       { protect_until: customer.protect_until }
-    )
+    );
   }
 
   // 线索池认领无保护期，公海认领有 7 天保护期
@@ -137,10 +137,10 @@ async function claimCustomer(pool, customer_id, userId, user) {
  */
 async function batchClaimCustomers(pool, customer_ids, userId, user) {
   if (!Array.isArray(customer_ids) || customer_ids.length === 0) {
-    throw new AppError(ErrorCodes.VALIDATION_ERROR, '请选择要认领的客户')
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '请选择要认领的客户');
   }
   if (customer_ids.length > 20) {
-    throw new AppError(ErrorCodes.VALIDATION_ERROR, '单次批量认领不能超过20条')
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '单次批量认领不能超过20条');
   }
 
   const connection = await pool.getConnection()
@@ -199,20 +199,20 @@ async function batchClaimCustomers(pool, customer_ids, userId, user) {
  * 释放客户到公海
  */
 async function releaseCustomer(pool, customer_id, userId, user) {
-  if (!customer_id) throw new AppError(ErrorCodes.VALIDATION_ERROR, '客户ID不能为空')
+  if (!customer_id) throw new AppError(ErrorCodes.VALIDATION_ERROR, '客户ID不能为空');
 
   const [customers] = await pool.query(
     'SELECT id, owner_id, company_name FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [customer_id]
   )
 
-  if (customers.length === 0) throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '客户不存在')
+  if (customers.length === 0) throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '客户不存在');
 
   const customer = customers[0]
 
   const isPrivileged = user.roleId === ROLES.ADMIN || user.roleId === ROLES.MANAGER || user.roleId === ROLES.SALES
   if (!isPrivileged && customer.owner_id !== userId) {
-    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权释放该客户')
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权释放该客户');
   }
 
   await pool.query(
@@ -232,10 +232,10 @@ async function releaseCustomer(pool, customer_id, userId, user) {
  */
 async function batchReleaseCustomers(pool, customer_ids, userId, user) {
   if (!Array.isArray(customer_ids) || customer_ids.length === 0) {
-    throw new AppError(ErrorCodes.VALIDATION_ERROR, '请选择要释放的客户')
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '请选择要释放的客户');
   }
   if (customer_ids.length > 100) {
-    throw new AppError(ErrorCodes.VALIDATION_ERROR, '单次批量操作不能超过100条')
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '单次批量操作不能超过100条');
   }
 
   const connection = await pool.getConnection()
@@ -295,7 +295,7 @@ async function getPoolLogs(pool, { customer_id, page = 1, pageSize = 20 }) {
   const total = countResult[0].total
 
   const [list] = await pool.query(
-    `SELECT pl.*,
+    `SELECT pl.id, pl.customer_id, pl.action, pl.from_user_id, pl.to_user_id, pl.create_time, pl.deleted_at,
       cu.real_name as from_user_name,
       cu2.real_name as to_user_name,
       c.company_name

@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul 2>&1
-set SSH_KEY=C:\Users\a8466\.ssh\id_rsa_nas
+set SSH_KEY=%USERPROFILE%\.ssh\id_rsa_nas
 set NAS=syadmin@192.168.0.200
 set TEST=/volume1/docker/huakey-crm-deploy/test
 set PROD=/volume1/docker/huakey-crm-deploy/prod

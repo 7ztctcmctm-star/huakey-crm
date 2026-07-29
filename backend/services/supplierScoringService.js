@@ -161,7 +161,7 @@ async function calculatePriceScore(pool, supplierId) {
  */
 async function calculateSupplierScore(pool, supplierId) {
   try {
-    const [[supplier]] = await pool.query('SELECT id FROM crm_supplier WHERE id = ?', [supplierId]);
+    const [[supplier]] = await pool.query('SELECT id FROM crm_supplier WHERE id = ? AND deleted_at IS NULL', [supplierId]);
     if (!supplier) return null;
 
     const rules = await getActiveRules(pool);

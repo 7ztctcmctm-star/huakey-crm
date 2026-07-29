@@ -37,10 +37,11 @@ function interceptSlowQuery(targetPool, poolName) {
       const result = await _originalQuery(sql, params);
       const duration = Date.now() - start;
       if (duration >= SLOW_QUERY_THRESHOLD) {
+        const { maskFieldValue } = require('../utils/mask');
         logger.warn('Slow query detected', {
           pool: poolName,
           sql: typeof sql === 'string' ? sql.slice(0, 200) : JSON.stringify(sql).slice(0, 200),
-          params: JSON.stringify(params).slice(0, 200),
+          params: JSON.stringify(maskFieldValue('params', params)).slice(0, 200),
           durationMs: duration,
           thresholdMs: SLOW_QUERY_THRESHOLD
         });

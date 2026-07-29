@@ -1,0 +1,13 @@
+# SSL 证书目录
+#
+# 请将以下文件放入此目录（文件名必须与 nginx-synology.conf 中配置的一致）：
+#   fullchain.pem  — 完整证书链
+#   privkey.pem    — 私钥
+#
+# 获取方式（以 Let's Encrypt 为例）：
+#   certbot certonly --standalone -d your-domain.com
+#   cp /etc/letsencrypt/live/your-domain.com/fullchain.pem deploy/ssl/
+#   cp /etc/letsencrypt/live/your-domain.com/privkey.pem deploy/ssl/
+#
+# 注意：privkey.pem 务必妥善保管，不要提交到版本控制。
+# 此文件仅作占位，nginx 启动若找不到证书文件会失败。

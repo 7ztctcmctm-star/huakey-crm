@@ -49,7 +49,7 @@
               class="captcha-svg"
               @click="refreshCaptcha"
               title="点击刷新验证码"
-              v-html="captchaSvg"
+              v-safe-html="captchaSvg"
             />
           </div>
         </el-form-item>

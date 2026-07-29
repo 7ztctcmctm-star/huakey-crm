@@ -154,7 +154,7 @@ async function getQuickStats(pool, userId, roleId) {
   const isAdmin = roleId === ROLES.ADMIN || roleId === ROLES.MANAGER;
 
   const [customerPool] = await pool.query(`
-    SELECT COUNT(*) as count FROM crm_customer WHERE pool_status = 1 AND deleted_at IS NULL ${isAdmin ? '' : ' AND owner_id = ?'}
+    SELECT COUNT(*) as count FROM crm_customer WHERE owner_id IS NULL AND deleted_at IS NULL
   `, isAdmin ? [] : [userId]);
 
   const [pendingContract] = await pool.query(`

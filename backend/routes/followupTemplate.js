@@ -21,18 +21,18 @@ const templateUpdateSchema = Joi.object({
 });
 
 // 获取所有模板
-router.get('/', authenticateToken, checkPermission('followup_template'), async (req, res) => {
+router.get('/', authenticateToken, checkPermission('followup_template'), async (req, res, next) => {
   try {
     const rows = await templateService.listTemplates(pool);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
     logger.error('[跟进模板] 获取列表失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 创建模板（仅管理员/经理）
-router.post('/', authenticateToken, checkPermission('followup_template'), requireManager, validate(templateCreateSchema), async (req, res) => {
+router.post('/', authenticateToken, checkPermission('followup_template'), requireManager, validate(templateCreateSchema), async (req, res, next) => {
   try {
     const id = await templateService.createTemplate(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '创建成功', data: { id } });
@@ -41,12 +41,12 @@ router.post('/', authenticateToken, checkPermission('followup_template'), requir
     if (error.message === '模板名称不能为空' || error.message === '模板内容不能为空') {
       return res.status(400).json({ code: 400, message: error.message, data: null });
     }
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 更新模板（仅管理员）
-router.put('/:id', authenticateToken, checkPermission('followup_template'), requireAdmin, validate(templateUpdateSchema), async (req, res) => {
+router.put('/:id', authenticateToken, checkPermission('followup_template'), requireAdmin, validate(templateUpdateSchema), async (req, res, next) => {
   try {
     await templateService.updateTemplate(pool, req.params.id, req.body, req.user.userId);
     res.json({ code: 200, message: '更新成功', data: null });
@@ -61,12 +61,12 @@ router.put('/:id', authenticateToken, checkPermission('followup_template'), requ
     if (error.message === '模板名称不能为空' || error.message === '模板内容不能为空') {
       return res.status(400).json({ code: 400, message: error.message, data: null });
     }
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 删除模板（仅管理员）
-router.delete('/:id', authenticateToken, checkPermission('followup_template'), requireAdmin, async (req, res) => {
+router.delete('/:id', authenticateToken, checkPermission('followup_template'), requireAdmin, async (req, res, next) => {
   try {
     await templateService.deleteTemplate(pool, req.params.id, req.user.userId);
     res.json({ code: 200, message: '删除成功', data: null });
@@ -78,7 +78,7 @@ router.delete('/:id', authenticateToken, checkPermission('followup_template'), r
     if (error.message === '无权删除此模板') {
       return res.status(403).json({ code: 403, message: error.message, data: null });
     }
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 

@@ -76,9 +76,9 @@ async function getSupplier(pool, id, permission = null) {
   const supplier = suppliers[0];
 
   const [contacts] = await pool.query(
-    'SELECT id, supplier_id, name, position, department, phone, mobile, email, wechat, role, is_primary, remark FROM crm_supplier_contact WHERE supplier_id = ? ORDER BY is_primary DESC, id ASC', [id]);
+    'SELECT id, supplier_id, name, position, department, phone, mobile, email, wechat, role, is_primary, remark FROM crm_supplier_contact WHERE supplier_id = ? AND deleted_at IS NULL ORDER BY is_primary DESC, id ASC', [id]);
   const [qualifications] = await pool.query(
-    'SELECT id, supplier_id, cert_type, cert_no, cert_name, issue_date, expire_date, issuing_authority, file_path, status, remark FROM crm_supplier_qualification WHERE supplier_id = ? ORDER BY expire_date ASC', [id]);
+    'SELECT id, supplier_id, cert_type, cert_no, cert_name, issue_date, expire_date, issuing_authority, file_path, status, remark FROM crm_supplier_qualification WHERE supplier_id = ? AND deleted_at IS NULL ORDER BY expire_date ASC', [id]);
   const [ratings] = await pool.query(
     `SELECT r.id, r.supplier_id, r.purchase_order_id, r.quality_score, r.delivery_score, r.service_score, r.price_score,
       r.quality_rate, r.delivery_rate, r.total_score, r.rating_period, r.evaluator_id, r.remark, r.create_time, r.deleted_at,
@@ -87,7 +87,7 @@ async function getSupplier(pool, id, permission = null) {
   const [relatedCustomers] = await pool.query(
     `SELECT r.id, r.customer_id, r.supplier_id, r.relationship_type, r.effective_date, r.remark, r.create_by, r.create_time, r.deleted_at,
       cu.company_name as customer_name
-     FROM crm_customer_supplier_relation r LEFT JOIN crm_customer cu ON r.customer_id = cu.id WHERE r.supplier_id = ? ORDER BY r.create_time DESC`, [id]);
+     FROM crm_customer_supplier_relation r LEFT JOIN crm_customer cu ON r.customer_id = cu.id WHERE r.supplier_id = ? AND r.deleted_at IS NULL ORDER BY r.create_time DESC`, [id]);
 
   return { ...supplier, contacts, qualifications, ratings, relatedCustomers };
 }
@@ -292,13 +292,37 @@ async function getComparison(pool, ids) {
   const placeholders = ids.map(() => '?').join(',');
   const [suppliers] = await pool.query(
     `SELECT id, name FROM crm_supplier WHERE id IN (${placeholders}) AND deleted_at IS NULL`, ids);
-  const result = [];
-  for (const s of suppliers) {
-    const [ratings] = await pool.query(
-      'SELECT quality_score, delivery_score, service_score, total_score, rating_period FROM crm_supplier_rating WHERE supplier_id = ? ORDER BY create_time DESC LIMIT 6', [s.id]);
-    result.push({ id: s.id, name: s.name, ratings: ratings.reverse() });
+
+  // 批量获取所有供应商评分（1 次查询，避免 N+1）
+  const supplierIds = suppliers.map(s => s.id);
+  if (supplierIds.length === 0) return [];
+
+  const ratingPlaceholders = supplierIds.map(() => '?').join(',');
+  const [allRatings] = await pool.query(
+    `SELECT r.supplier_id, r.quality_score, r.delivery_score, r.service_score, r.total_score, r.rating_period
+     FROM crm_supplier_rating r
+     INNER JOIN (
+       SELECT supplier_id, MAX(create_time) as max_time
+       FROM crm_supplier_rating
+       WHERE supplier_id IN (${ratingPlaceholders})
+       GROUP BY supplier_id
+     ) latest ON r.supplier_id = latest.supplier_id AND r.create_time = latest.max_time
+     ORDER BY r.create_time DESC`,
+    supplierIds
+  );
+
+  // 按 supplier_id 分组
+  const ratingsBySupplier = {};
+  for (const r of allRatings) {
+    if (!ratingsBySupplier[r.supplier_id]) ratingsBySupplier[r.supplier_id] = [];
+    ratingsBySupplier[r.supplier_id].push(r);
   }
-  return result;
+
+  return suppliers.map(s => ({
+    id: s.id,
+    name: s.name,
+    ratings: (ratingsBySupplier[s.id] || []).reverse()
+  }));
 }
 
 module.exports = {

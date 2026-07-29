@@ -7,6 +7,8 @@ const { execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 
 const backupDir = process.env.BACKUP_DIR || '/app/data/backups';
 
@@ -39,9 +41,7 @@ async function createBackup(pool, userId) {
   const dbUser = process.env.DB_USER || 'crm_user';
   const dbPass = process.env.DB_PASSWORD;
   if (!dbPass) {
-    const err = new Error('数据库密码未配置');
-    err.code = 500;
-    throw err;
+    throw new AppError(ErrorCodes.INTERNAL_ERROR, '数据库密码未配置')
   }
   const dbName = process.env.DB_NAME || 'huakey_crm';
   const dbHost = process.env.DB_HOST || 'localhost';
@@ -91,7 +91,7 @@ async function listBackups(pool, params = {}) {
   const total = countResult[0].total;
 
   const [rows] = await pool.query(
-    `SELECT b.*, u.real_name as create_by_name
+    `SELECT b.id, b.backup_type, b.file_name, b.file_path, b.file_size, b.status, b.error_msg, b.create_by, b.create_time, u.real_name as create_by_name
      FROM sys_backup_record b
      LEFT JOIN sys_user u ON b.create_by = u.id
      ORDER BY b.create_time DESC
@@ -123,31 +123,23 @@ function getConfirmCode(id) {
 async function restoreBackup(pool, id, confirmCode) {
   const expectedCode = getConfirmCode(id);
   if (!confirmCode || confirmCode !== expectedCode) {
-    const err = new Error('确认码不正确，恢复操作已拒绝');
-    err.code = 400;
-    throw err;
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '确认码不正确，恢复操作已拒绝')
   }
 
-  const [records] = await pool.query('SELECT * FROM sys_backup_record WHERE id = ? AND status = ?', [id, 'success']);
+  const [records] = await pool.query('SELECT id, backup_type, file_name, file_path, file_size, status, error_msg, create_by, create_time FROM sys_backup_record WHERE id = ? AND status = ?', [id, 'success']);
   if (records.length === 0) {
-    const err = new Error('备份记录不存在或备份未完成');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '备份记录不存在或备份未完成')
   }
 
   const backup = records[0];
   if (!fs.existsSync(backup.file_path)) {
-    const err = new Error('备份文件不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '备份文件不存在')
   }
 
   const dbUser = process.env.DB_USER || 'crm_user';
   const dbPass = process.env.DB_PASSWORD;
   if (!dbPass) {
-    const err = new Error('数据库密码未配置');
-    err.code = 500;
-    throw err;
+    throw new AppError(ErrorCodes.INTERNAL_ERROR, '数据库密码未配置')
   }
   const dbName = process.env.DB_NAME || 'huakey_crm';
   const dbHost = process.env.DB_HOST || 'localhost';
@@ -186,11 +178,9 @@ async function restoreBackup(pool, id, confirmCode) {
  * @param {number|string} id
  */
 async function deleteBackup(pool, id) {
-  const [records] = await pool.query('SELECT * FROM sys_backup_record WHERE id = ?', [id]);
+  const [records] = await pool.query('SELECT id, backup_type, file_name, file_path, file_size, status, error_msg, create_by, create_time FROM sys_backup_record WHERE id = ?', [id]);
   if (records.length === 0) {
-    const err = new Error('备份记录不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '备份记录不存在')
   }
 
   const backup = records[0];

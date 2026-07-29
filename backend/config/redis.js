@@ -54,11 +54,22 @@ module.exports = {
       await redis.set(key, JSON.stringify(value), 'EX', ttl);
     } catch { /* ok */ }
   },
+  // 使用 SCAN 迭代获取匹配的 key（非阻塞，替代 O(N) 的 KEYS 命令）
+  async _scanKeys(pattern) {
+    const keys = [];
+    let cursor = '0';
+    do {
+      const [nextCursor, foundKeys] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+      cursor = nextCursor;
+      keys.push(...foundKeys);
+    } while (cursor !== '0');
+    return keys;
+  },
   // 批量清除缓存（按前缀）
   async clearByPrefix(prefix) {
     if (!redis) return;
     try {
-      const keys = await redis.keys(`${prefix}*`);
+      const keys = await module.exports._scanKeys(`${prefix}*`);
       if (keys.length > 0) await redis.del(keys);
     } catch { /* ok */ }
   },
@@ -66,7 +77,7 @@ module.exports = {
   async delCacheByPattern(pattern) {
     if (!redis) return;
     try {
-      const keys = await redis.keys(pattern);
+      const keys = await module.exports._scanKeys(pattern);
       if (keys.length > 0) await redis.del(...keys);
     } catch { /* ok */ }
   },

@@ -76,7 +76,9 @@ async function listRequests(pool, params, user) {
   );
 
   const [rows] = await pool.query(
-    `SELECT r.*, u.real_name as applicant_name, d.name as dept_name,
+    `SELECT r.id, r.title, r.request_no, r.dept_id, r.applicant_id, r.expected_amount, r.reason, r.status,
+            r.approved_by, r.approved_at, r.reject_reason, r.created_at, r.updated_at,
+            u.real_name as applicant_name, d.name as dept_name,
             approver.real_name as approved_by_name
      FROM crm_purchase_request r
      LEFT JOIN sys_user u ON r.applicant_id = u.id
@@ -96,7 +98,9 @@ async function listRequests(pool, params, user) {
  */
 async function getRequest(pool, id, user) {
   const [rows] = await pool.query(
-    `SELECT r.*, u.real_name as applicant_name, d.name as dept_name,
+    `SELECT r.id, r.title, r.request_no, r.dept_id, r.applicant_id, r.expected_amount, r.reason, r.status,
+            r.approved_by, r.approved_at, r.reject_reason, r.created_at, r.updated_at,
+            u.real_name as applicant_name, d.name as dept_name,
             approver.real_name as approved_by_name
      FROM crm_purchase_request r
      LEFT JOIN sys_user u ON r.applicant_id = u.id

@@ -112,6 +112,19 @@ const maskSensitiveData = (data, fields = []) => {
         case 'contact_email':
           result[field] = maskEmail(result[field]);
           break;
+        case 'passport':
+          result[field] = maskIdCard(result[field]);
+          break;
+        case 'ssn':
+          result[field] = maskIdCard(result[field]);
+          break;
+        // 业务敏感字段（与 fieldPermissions.js 对齐）
+        case 'cost_price':
+        case 'unit_price':
+        case 'total_price':
+        case 'amount':
+          result[field] = '******';
+          break;
         case 'password':
         case 'pwd':
           delete result[field];
@@ -149,7 +162,9 @@ const MASK_FIELDS = [
   'phone', 'mobile', 'telephone', 'email', 'id_card', 'idcard',
   'bank_card', 'bankcard', 'account_no', 'credit_card', 'creditcard',
   'bank_account', 'bankaccount', 'tax_id', 'taxid', 'address',
-  'contact_phone', 'contact_email', 'passport', 'ssn'
+  'contact_phone', 'contact_email', 'passport', 'ssn',
+  // 业务敏感字段（与 fieldPermissions.js 对齐）
+  'cost_price', 'unit_price', 'total_price', 'amount'
 ];
 
 function maskLogParams(obj) {

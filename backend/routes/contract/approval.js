@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../../middleware/auth');
+const { requireAdmin } = require('../../middleware/admin');
 const { validate, Joi } = require('../../middleware/validate');
 const contractController = require('../../controllers/contractController');
 
@@ -11,8 +12,7 @@ const approveSchema = Joi.object({
   approval_remark: Joi.string().max(500).allow('', null)
 });
 
-// 审批合同（仅管理员）
-// [权限说明] 使用自定义 roleId 校验（ADMIN/MANAGER），无需 checkPermission
-router.post('/approve', authenticateToken, validate(approveSchema), contractController.approveContract);
+// 审批合同（管理员/经理，纵深防御：路由层 requireAdmin + 控制器层 roleId 校验）
+router.post('/approve', authenticateToken, requireAdmin, validate(approveSchema), contractController.approveContract);
 
 module.exports = router;

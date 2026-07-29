@@ -21,7 +21,7 @@ async function listInvoices(pool, { page = 1, pageSize = 10, keyword, status, ty
 
   const { clause: permissionClause, params: permParams } = await buildDataPermissionWhere(dataPermission, 'i');
 
-  let sql = `SELECT i.*, cu.company_name as customer_name, u.real_name as create_by_name
+  let sql = `SELECT i.id, i.invoice_no, i.contract_id, i.customer_id, i.type, i.amount, i.tax_rate, i.tax_amount, i.invoice_date, i.status, i.remark, i.create_by, i.create_time, i.update_time, i.deleted_at, cu.company_name as customer_name, u.real_name as create_by_name
     FROM crm_invoice i
     LEFT JOIN crm_customer cu ON i.customer_id = cu.id
     LEFT JOIN sys_user u ON i.create_by = u.id
@@ -65,7 +65,7 @@ async function listInvoices(pool, { page = 1, pageSize = 10, keyword, status, ty
  */
 async function getInvoice(pool, id) {
   const [rows] = await pool.query(
-    `SELECT i.*, cu.company_name as customer_name, u.real_name as create_by_name
+    `SELECT i.id, i.invoice_no, i.contract_id, i.customer_id, i.type, i.amount, i.tax_rate, i.tax_amount, i.invoice_date, i.status, i.remark, i.create_by, i.create_time, i.update_time, i.deleted_at, cu.company_name as customer_name, u.real_name as create_by_name
      FROM crm_invoice i
      LEFT JOIN crm_customer cu ON i.customer_id = cu.id
      LEFT JOIN sys_user u ON i.create_by = u.id
@@ -119,7 +119,7 @@ async function createInvoice(pool, { contract_id, customer_id, type, amount, tax
  * 编辑发票
  */
 async function updateInvoice(pool, { id, contract_id, customer_id, type, amount, tax_rate, tax_amount, invoice_date, status, remark }, req) {
-  const [oldRows] = await pool.query('SELECT * FROM crm_invoice WHERE id = ? AND deleted_at IS NULL', [id]);
+  const [oldRows] = await pool.query('SELECT id, invoice_no, contract_id, customer_id, type, amount, tax_rate, tax_amount, invoice_date, status, remark, create_by, create_time, update_time, deleted_at FROM crm_invoice WHERE id = ? AND deleted_at IS NULL', [id]);
   if (oldRows.length === 0) {
     throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '发票不存在');
   }

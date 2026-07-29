@@ -140,8 +140,9 @@ app.use(cookieParser());
 const { csrfProtection } = require('./middleware/csrf');
 app.use(csrfProtection);
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+// JSON body 限制 1MB（文件上传走 multipart，不受此限制）
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // 加载日志中间件
 const { globalLogMiddleware } = require('./middleware/logger');
@@ -256,11 +257,15 @@ apiRouter.get('/health', async (req, res) => {
     }
   } catch { /* ok */ }
 
-  res.json({
-    code: 200,
-    message: '服务运行正常',
+  // 健康检查：DB 或核心依赖不可用时返回 503，触发容器编排层摘流/重启
+  const healthy = dbOk && redisOk;
+  const statusCode = healthy ? 200 : 503;
+
+  res.status(statusCode).json({
+    code: statusCode,
+    message: healthy ? '服务运行正常' : '服务降级（数据库或 Redis 不可用）',
     data: {
-      status: 'ok',
+      status: healthy ? 'ok' : 'degraded',
       version: pkg.version,
       nodeEnv: process.env.NODE_ENV || 'development',
       expressVersion: require('express/package.json').version,

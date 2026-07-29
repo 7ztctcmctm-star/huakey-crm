@@ -13,7 +13,7 @@ const emptySchema = Joi.object({});
 router.use(authenticateToken, checkPermission('notification'));
 
 // 获取通知列表
-router.get('/list', async (req, res) => {
+router.get('/list', async (req, res, next) => {
   try {
     const userId = req.user.userId;
     const { page, pageSize, unread_only } = req.query;
@@ -25,12 +25,12 @@ router.get('/list', async (req, res) => {
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[通知] 列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 标记单条已读
-router.post('/read/:id', validate(emptySchema), async (req, res) => {
+router.post('/read/:id', validate(emptySchema), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (!id) {
@@ -40,29 +40,29 @@ router.post('/read/:id', validate(emptySchema), async (req, res) => {
     res.json({ code: 200, message: '已标记为已读', data: null });
   } catch (error) {
     logger.error('[通知] 标记已读失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '操作失败', data: null });
+    next(error);
   }
 });
 
 // 全部已读
-router.post('/read-all', validate(emptySchema), async (req, res) => {
+router.post('/read-all', validate(emptySchema), async (req, res, next) => {
   try {
     const { affectedRows } = await notificationService.markAllAsRead(pool, req.user.userId);
     res.json({ code: 200, message: '全部已读', data: { affectedRows } });
   } catch (error) {
     logger.error('[通知] 全部已读失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '操作失败', data: null });
+    next(error);
   }
 });
 
 // 未读数
-router.get('/unread-count', async (req, res) => {
+router.get('/unread-count', async (req, res, next) => {
   try {
     const data = await notificationService.getUnreadCount(pool, req.user.userId);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[通知] 未读数查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 

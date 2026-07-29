@@ -84,7 +84,7 @@ async function addCustomer(pool, data, operatorId) {
     ? contacts.filter(c => c && typeof c === 'object' && c.name && String(c.name).trim() !== '')
     : [];
   if (validContacts.length === 0) {
-    throw new AppError(ErrorCodes.VALIDATION_ERROR, '请至少添加一个联系人', 400);
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '请至少添加一个联系人');
   }
 
   // 重复检测（联系人信息从 crm_contact 主联系人获取）
@@ -193,17 +193,13 @@ async function updateCustomer(pool, id, updateFields, user) {
   );
 
   if (customers.length === 0) {
-    const err = new Error('客户不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '客户不存在')
   }
 
   const customer = customers[0];
 
   if (!(await canManageCustomer(pool, user, customer.owner_id))) {
-    const err = new Error('无权修改该客户');
-    err.code = 403;
-    throw err;
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权修改该客户')
   }
 
   // 联系人信息统一由 crm_contact 管理，客户表字段不再允许直接修改
@@ -215,20 +211,14 @@ async function updateCustomer(pool, id, updateFields, user) {
   // 状态变更需要符合流转规则
   if (updateFields.status !== undefined && updateFields.status !== customer.status) {
     if (!isValidCustomerStatus(updateFields.status)) {
-      const err = new Error('无效的客户状态');
-      err.code = 400;
-      throw err;
+      throw new AppError(ErrorCodes.VALIDATION_ERROR, '无效的客户状态')
     }
     const { valid, rule } = await customerService.canTransition(pool, customer.status, updateFields.status);
     if (!valid) {
-      const err = new Error('当前状态不允许直接修改为目标状态');
-      err.code = 400;
-      throw err;
+      throw new AppError(ErrorCodes.VALIDATION_ERROR, '当前状态不允许直接修改为目标状态')
     }
     if (rule && rule.require_reason) {
-      const err = new Error('该状态变更需要填写原因，请使用状态流转接口');
-      err.code = 400;
-      throw err;
+      throw new AppError(ErrorCodes.VALIDATION_ERROR, '该状态变更需要填写原因，请使用状态流转接口')
     }
   }
 
@@ -243,9 +233,7 @@ async function updateCustomer(pool, id, updateFields, user) {
   }
 
   if (setClauses.length === 0) {
-    const err = new Error('没有要修改的字段');
-    err.code = 400;
-    throw err;
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '没有要修改的字段')
   }
 
   // 重复检测：公司名变更时检查是否与已有客户重名
@@ -255,10 +243,7 @@ async function updateCustomer(pool, id, updateFields, user) {
       [updateFields.company_name, id]
     );
     if (dups.length > 0) {
-      const err = new Error(`公司名称"${updateFields.company_name}"已存在（${dups.length} 个同名客户），请确认是否重复`);
-      err.code = 409;
-      err.possibleDuplicates = dups;
-      throw err;
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, `公司名称"${updateFields.company_name}"已存在（${dups.length} 个同名客户），请确认是否重复`, { possibleDuplicates: dups });
     }
   }
 
@@ -290,15 +275,11 @@ async function deleteCustomer(pool, id, user) {
   );
 
   if (customers.length === 0) {
-    const err = new Error('客户不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '客户不存在')
   }
 
   if (!(await canManageCustomer(pool, user, customers[0].owner_id))) {
-    const err = new Error('无权删除该客户');
-    err.code = 403;
-    throw err;
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权删除该客户')
   }
 
   await pool.query(
@@ -396,7 +377,8 @@ async function getCustomerDetail(pool, customerId, permission) {
  */
 async function getCustomer360(pool, customerId) {
   const [[customer]] = await pool.query(`
-    SELECT c.*, u.real_name as owner_name
+    SELECT c.id, c.company_name, c.contact_name, c.phone, c.email, c.address, c.industry, c.source, c.level, c.lead_level, c.follow_status, c.converted_at, c.owner_id, c.status, c.customer_type, c.lifecycle_status, c.original_lead_id, c.score, c.remark, c.create_time, c.update_time, c.deleted_at, c.pool_status, c.pool_type, c.protect_until, c.last_follow_time, c.old_status_int,
+           u.real_name as owner_name
     FROM crm_customer c
     LEFT JOIN sys_user u ON c.owner_id = u.id
     WHERE c.id = ? AND c.deleted_at IS NULL
@@ -526,9 +508,7 @@ async function exportCustomers(pool, filters, permission) {
       ? status
       : legacyStatusToCode(status);
     if (!mappedStatus) {
-      const err = new Error('无效的客户状态');
-      err.code = 400;
-      throw err;
+      throw new AppError(ErrorCodes.VALIDATION_ERROR, '无效的客户状态')
     }
     whereClause = `WHERE ${permissionClause} AND c.status = ?`;
     params.push(mappedStatus);

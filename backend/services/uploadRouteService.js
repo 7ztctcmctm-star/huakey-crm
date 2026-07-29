@@ -18,12 +18,23 @@ const getStorage = async () => {
 /**
  * 上传文件
  */
+/**
+ * 安全化原始文件名：去除路径与特殊字符，保留基本名称
+ */
+function sanitizeOriginalName(name) {
+  if (!name || typeof name !== 'string') return 'unnamed';
+  const base = path.basename(name.replace(/\\/g, '/'));
+  const cleaned = base.replace(/[\x00-\x1f\x7f\/:*?"<>|]/g, '_').trim();
+  return cleaned || 'unnamed';
+}
+
 async function uploadFile(pool, { file, business_type, business_id, userId }) {
   if (!file) {
     throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '请选择文件');
   }
 
-  const ext = path.extname(file.originalname);
+  const safeOriginalName = sanitizeOriginalName(file.originalname);
+  const ext = path.extname(safeOriginalName);
   const filename = `${crypto.randomUUID()}${ext}`;
 
   let filePath;
@@ -50,12 +61,12 @@ async function uploadFile(pool, { file, business_type, business_id, userId }) {
   const [result] = await pool.query(
     `INSERT INTO crm_attachment (business_type, business_id, file_name, file_path, file_size, file_type, create_by)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [business_type || null, business_id || null, file.originalname, filePath, file.size, file.mimetype, userId]
+    [business_type || null, business_id || null, safeOriginalName, filePath, file.size, file.mimetype, userId]
   );
 
   return {
     id: result.insertId || (result.rows && result.rows[0]?.id),
-    file_name: file.originalname,
+    file_name: safeOriginalName,
     file_path: filePath,
     file_size: file.size,
     file_type: file.mimetype

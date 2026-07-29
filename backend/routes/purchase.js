@@ -309,7 +309,7 @@ const logAction = createRouteLogger(MODULE_NAME);
 // 字段级权限：采购明细单价/金额仅管理员可见
 router.use(checkFieldPermission('purchase_item'));
 
-router.post('/list', authenticateToken, checkPermission('purchase'), checkDataPermission('purchase', 'owner_id'), validate(listSchema), async (req, res) => {
+router.post('/list', authenticateToken, checkPermission('purchase'), checkDataPermission('purchase', 'owner_id'), validate(listSchema), async (req, res, next) => {
   try {
     const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'po');
     const result = await purchaseService.listPurchases(pool, req.body, { clause, params: permParams });
@@ -317,11 +317,11 @@ router.post('/list', authenticateToken, checkPermission('purchase'), checkDataPe
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
     logger.error('[采购] 采购列表错误:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
-router.get('/detail/:id', authenticateToken, checkDataPermission('purchase', 'owner_id'), async (req, res) => {
+router.get('/detail/:id', authenticateToken, checkDataPermission('purchase', 'owner_id'), async (req, res, next) => {
   try {
     const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'po');
     const data = await purchaseService.getPurchase(pool, req.params.id, { clause, params: permParams });
@@ -332,22 +332,22 @@ router.get('/detail/:id', authenticateToken, checkDataPermission('purchase', 'ow
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[采购] 采购详情错误:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
-router.post('/add', authenticateToken, checkPermission('purchase:add'), validate(addOrderSchema), async (req, res) => {
+router.post('/add', authenticateToken, checkPermission('purchase:add'), validate(addOrderSchema), async (req, res, next) => {
   try {
     const result = await purchaseService.createPurchase(pool, req.body, req.user.userId);
     await logAction(req, 'add', `创建采购单: ${result.order_no} - ${req.body.title}`);
     res.json({ code: 200, message: '创建采购单成功', data: result });
   } catch (error) {
     logger.error('[采购] 添加采购单错误:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '创建采购单失败', data: null });
+    next(error);
   }
 });
 
-router.post('/update-status', authenticateToken, checkPermission('purchase:add'), validate(updateOrderStatusSchema), async (req, res) => {
+router.post('/update-status', authenticateToken, checkPermission('purchase:add'), validate(updateOrderStatusSchema), async (req, res, next) => {
   try {
     const { id, status, approveRemark } = req.body;
     await purchaseService.updateStatus(pool, id, status, approveRemark);
@@ -355,32 +355,32 @@ router.post('/update-status', authenticateToken, checkPermission('purchase:add')
     res.json({ code: 200, message: '状态更新成功', data: null });
   } catch (error) {
     logger.error('[采购] 更新状态错误:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '更新失败', data: null });
+    next(error);
   }
 });
 
-router.post('/receipt/add', authenticateToken, checkPermission('purchase:add'), validate(addReceiptSchema), async (req, res) => {
+router.post('/receipt/add', authenticateToken, checkPermission('purchase:add'), validate(addReceiptSchema), async (req, res, next) => {
   try {
     const result = await purchaseService.addReceipt(pool, req.body, req.user.userId);
     await logAction(req, 'receipt', `入库记录: ${result.receipt_no}, 数量=${req.body.quantity}`);
     res.json({ code: 200, message: '入库记录成功', data: result });
   } catch (error) {
     logger.error('[采购] 添加收货错误:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '入库记录失败', data: null });
+    next(error);
   }
 });
 
-router.get('/statistics', authenticateToken, async (req, res) => {
+router.get('/statistics', authenticateToken, async (req, res, next) => {
   try {
     const data = await purchaseService.getStatistics(pool);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[采购] 统计错误:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '获取统计失败', data: null });
+    next(error);
   }
 });
 
-router.post('/payment/add', authenticateToken, checkPermission('purchase:add'), validate(addPaymentSchema), async (req, res) => {
+router.post('/payment/add', authenticateToken, checkPermission('purchase:add'), validate(addPaymentSchema), async (req, res, next) => {
   try {
     const { order_id, amount } = req.body;
     if (!order_id || !amount) {
@@ -391,7 +391,7 @@ router.post('/payment/add', authenticateToken, checkPermission('purchase:add'), 
     res.json({ code: 200, message: '付款登记成功', data: result });
   } catch (error) {
     logger.error('[采购] 添加付款错误:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '付款登记失败', data: null });
+    next(error);
   }
 });
 

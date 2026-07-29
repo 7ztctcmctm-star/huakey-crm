@@ -37,7 +37,7 @@ async function getMyPermissions(pool, userId, roleId) {
  */
 async function listPermissions(pool) {
   const [permissions] = await pool.query(
-    'SELECT * FROM sys_permission ORDER BY sort'
+    'SELECT id, name, code, type, parent_id, path, icon, sort, is_visible, create_time, update_time FROM sys_permission ORDER BY sort'
   );
   return buildPermissionTree(permissions);
 }
@@ -80,8 +80,8 @@ async function updateRolePermissions(pool, role_id, permission_ids) {
       'SELECT id FROM sys_user WHERE role_id = ?',
       [role_id]
     );
-    users.forEach(u => clearPermissionCache(u.id));
-    clearAllPermissionCache();
+    await Promise.all(users.map(u => clearPermissionCache(u.id)));
+    await clearAllPermissionCache();
     clearMeCache(); // 清除 /auth/me 缓存，避免权限列表延迟生效
 
     return { success: true };
@@ -135,8 +135,8 @@ async function updateDataScope(pool, role_id, configs) {
       'SELECT id FROM sys_user WHERE role_id = ?',
       [role_id]
     );
-    users.forEach(u => clearPermissionCache(u.id));
-    clearAllPermissionCache();
+    await Promise.all(users.map(u => clearPermissionCache(u.id)));
+    await clearAllPermissionCache();
     clearMeCache(); // 清除 /auth/me 缓存，避免数据权限延迟生效
 
     return { success: true };
@@ -162,7 +162,7 @@ async function addPermission(pool, data) {
     'INSERT INTO sys_permission (name, code, type, parent_id, path, icon, sort) VALUES (?, ?, ?, ?, ?, ?, ?)',
     [name, code, type, parent_id || 0, path || null, icon || null, sort || 0]
   );
-  clearAllPermissionCache();
+  await clearAllPermissionCache();
   clearMeCache();
   return { success: true };
 }
@@ -178,7 +178,7 @@ async function updatePermission(pool, data) {
     'UPDATE sys_permission SET name=?, code=?, type=?, parent_id=?, path=?, icon=?, sort=? WHERE id=?',
     [name, code, type, parent_id || 0, path || null, icon || null, sort || 0, id]
   );
-  clearAllPermissionCache();
+  await clearAllPermissionCache();
   clearMeCache();
   return { success: true };
 }

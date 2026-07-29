@@ -136,8 +136,10 @@ services:
     container_name: crm-nginx
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ../nginx-synology.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../ssl:/etc/nginx/ssl:ro
     depends_on:
       app:
         condition: service_healthy

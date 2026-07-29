@@ -45,8 +45,8 @@ async function updateRole(pool, params, clearPermissionCache, clearAllPermission
   );
   // 修改角色后清除该角色所有用户的权限缓存
   const [users] = await pool.query('SELECT id FROM sys_user WHERE role_id = ?', [id]);
-  users.forEach(u => clearPermissionCache(u.id));
-  clearAllPermissionCache();
+  await Promise.all(users.map(u => clearPermissionCache(u.id)));
+  await clearAllPermissionCache();
 }
 
 /**

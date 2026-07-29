@@ -7,6 +7,8 @@ const ROLES = require('../config/roles');
 const logger = require('../config/logger');
 const { CUSTOMER_STATUS } = require('../constants/customerStatus');
 const customerService = require('../services/customerService');
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 
 /**
  * 添加跟进记录
@@ -19,13 +21,11 @@ async function addFollowUp(pool, params, userId) {
   const { customer_id, contact_id, follow_type, content, next_time, next_content, attachment_ids } = params;
 
   const [customers] = await pool.query(
-    'SELECT id FROM crm_customer WHERE id = ? AND status != 0',
+    'SELECT id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [customer_id]
   );
   if (customers.length === 0) {
-    const err = new Error('客户不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '客户不存在');
   }
 
   const [result] = await pool.query(
@@ -330,17 +330,13 @@ async function getTaskStats(pool, dataPermission) {
 async function updateFollowUp(pool, params, user) {
   const { id, contact_id, follow_type, content, next_time, next_content } = params;
 
-  const [rows] = await pool.query('SELECT id, create_by FROM crm_follow_up WHERE id = ?', [id]);
+  const [rows] = await pool.query('SELECT id, create_by FROM crm_follow_up WHERE id = ? AND deleted_at IS NULL', [id]);
   if (rows.length === 0) {
-    const err = new Error('跟进记录不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '跟进记录不存在');
   }
 
   if (!user.manageAll && ![ROLES.ADMIN, ROLES.MANAGER].includes(user.roleId) && rows[0].create_by !== user.userId) {
-    const err = new Error('无权编辑该记录');
-    err.code = 403;
-    throw err;
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权编辑该记录');
   }
 
   await pool.query(
@@ -359,15 +355,11 @@ async function updateFollowUp(pool, params, user) {
 async function deleteFollowUp(pool, id, user) {
   const [rows] = await pool.query('SELECT id, create_by, customer_id FROM crm_follow_up WHERE id = ?', [id]);
   if (rows.length === 0) {
-    const err = new Error('跟进记录不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '跟进记录不存在');
   }
 
   if (!user.manageAll && ![ROLES.ADMIN, ROLES.MANAGER].includes(user.roleId) && rows[0].create_by !== user.userId) {
-    const err = new Error('无权删除该记录');
-    err.code = 403;
-    throw err;
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权删除该记录');
   }
 
   await pool.query('UPDATE crm_follow_up SET deleted_at = NOW() WHERE id = ?', [id]);
@@ -458,13 +450,11 @@ async function addPlan(pool, params, userId) {
   const { customer_id, contact_id, plan_time, plan_content, follow_type } = params;
 
   const [customers] = await pool.query(
-    'SELECT id FROM crm_customer WHERE id = ? AND status != 0',
+    'SELECT id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [customer_id]
   );
   if (customers.length === 0) {
-    const err = new Error('客户不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '客户不存在');
   }
 
   const [result] = await pool.query(
@@ -533,9 +523,7 @@ async function completePlan(pool, params) {
     [id]
   );
   if (rows.length === 0) {
-    const err = new Error('跟进计划不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '跟进计划不存在');
   }
 
   await pool.query(
@@ -569,15 +557,11 @@ async function cancelPlan(pool, params) {
     [id]
   );
   if (rows.length === 0) {
-    const err = new Error('跟进计划不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '跟进计划不存在');
   }
 
   if (!manageAll && ![ROLES.ADMIN, ROLES.MANAGER].includes(roleId) && rows[0].create_by !== userId) {
-    const err = new Error('无权取消该计划');
-    err.code = 403;
-    throw err;
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权取消该计划');
   }
 
   await pool.query('UPDATE crm_follow_up SET deleted_at = NOW() WHERE id = ?', [id]);
