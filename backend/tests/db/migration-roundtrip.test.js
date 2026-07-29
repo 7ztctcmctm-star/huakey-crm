@@ -87,21 +87,6 @@ beforeAll(async () => {
   );
   await adminPool.query(`USE \`${DB_NAME}\``);
 
-  // 导入 init-complete.sql 作为基线 schema
-  // 迁移 001 假定所有核心表已由初始建表脚本创建
-  const initSqlPath = path.resolve(__dirname, '../../../deploy/init-complete.sql');
-  if (fs.existsSync(initSqlPath)) {
-    const raw = fs.readFileSync(initSqlPath, 'utf8');
-    // 替换数据库名引用，剥离 USE 语句
-    const sql = raw
-      .replace(/^USE\s+`?[^`;\s]+`?\s*;?\s*$/gim, '')
-      .replace(/`huakey_crm`/g, `\`${DB_NAME}\``)
-      .replace(/'huakey_crm'/g, `'${DB_NAME}'`);
-    await adminPool.query(sql);
-    console.log('[migration-roundtrip] 已导入 init-complete.sql 基线 schema');
-  } else {
-    console.warn('[migration-roundtrip] init-complete.sql 不存在，跳过基线导入');
-  }
   await adminPool.end();
 
   // 先运行全部正向迁移，建立完整 schema
