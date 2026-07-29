@@ -14,7 +14,7 @@
         "lint": "eslint .",
         "lint:fix": "eslint . --fix",
         "test:unit": "jest --forceExit --coverage --coverageReporters=text-summary",
-        "test:integration": "node tests/run-integration.js",
+        "test:integration": "jest tests/e2e/ --config jest.integration.config.js --forceExit",
         "perf:baseline": "k6 run tests/performance/k6-api-baseline.js"
     },
     "keywords": [],

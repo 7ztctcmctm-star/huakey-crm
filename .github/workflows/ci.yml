@@ -98,7 +98,7 @@ jobs:
               -e "INSERT IGNORE INTO schema_migrations (version, name) VALUES ('$v', '$n')"
           done
           echo "Baseline ready."
-      - run: cd backend && npx jest tests/e2e/ --forceExit --testTimeout=30000 --testPathPatterns='e2e'
+      - run: cd backend && npx jest tests/e2e/ --config jest.integration.config.js --forceExit
       - if: always()
         run: docker compose -f docker-compose.ci.yml down -v
 
