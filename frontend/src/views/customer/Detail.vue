@@ -35,7 +35,7 @@
                 <span class="action-sub">({{ relativeNextTime(nextFollowTime) }})</span>
               </span>
             </div>
-            <div v-if="followOverdueDays > 0" class="action-item">
+            <div v-if="isFollowOverdue" class="action-item">
               <el-icon><Warning /></el-icon>
               <span class="text-danger">
                 已逾期 {{ followOverdueDays }} 天未跟进

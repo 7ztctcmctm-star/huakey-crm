@@ -107,7 +107,7 @@ describe('opportunityService.createOpportunity', () => {
 
   it('创建成功应返回 { id: insertId }', async () => {
     mockPool.query
-      .mockResolvedValueOnce([[{ id: 1, status: 2 }]])   // 客户校验
+      .mockResolvedValueOnce([[{ id: 1, status: 'signed' }]])   // 客户校验
       .mockResolvedValueOnce([{ insertId: 100 }]);        // INSERT
 
     const result = await opportunityService.createOpportunity(
@@ -120,7 +120,7 @@ describe('opportunityService.createOpportunity', () => {
 
   it('未传 owner_id 时应使用 userId 作为默认负责人', async () => {
     mockPool.query
-      .mockResolvedValueOnce([[{ id: 1, status: 2 }]])
+      .mockResolvedValueOnce([[{ id: 1, status: 'signed' }]])
       .mockResolvedValueOnce([{ insertId: 101 }]);
 
     await opportunityService.createOpportunity(
@@ -136,7 +136,7 @@ describe('opportunityService.createOpportunity', () => {
 
   it('未传 expected_amount 时默认为 0', async () => {
     mockPool.query
-      .mockResolvedValueOnce([[{ id: 1, status: 2 }]])
+      .mockResolvedValueOnce([[{ id: 1, status: 'signed' }]])
       .mockResolvedValueOnce([{ insertId: 102 }]);
 
     await opportunityService.createOpportunity(

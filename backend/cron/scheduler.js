@@ -14,7 +14,7 @@ const { getRecycleDays } = require('../utils/config');
 const _cronTasks = [];
 
 // 关键任务列表 — 失败时 logger.error 醒目输出
-const CRITICAL_JOBS = ['supplier-scoring', 'auto-release'];
+const CRITICAL_JOBS = ['supplier-scoring', 'auto-release', 'qualification-check'];
 
 /**
  * 带重试的任务执行器
@@ -78,16 +78,14 @@ function startAllCronJobs(pool) {
   const { checkQualificationExpiry, updateQualificationStatus } = require('../utils/qualification-reminder');
   const { generateReminders } = require('../scripts/generate_reminders');
 
-  // 1. 每日 02:00 — 资质检查（供应商评分任务已禁用：scoring.js 使用 PostgreSQL 语法 ON CONFLICT，
-  //    与 MySQL 不兼容，且 crm_scoring_rule 表虽已由 072_prompt3_scoring_rule.sql 创建，但为避免
-  //    日志报错，暂时关闭 supplier-scoring；需要时可重写 scoring.js 为 MySQL 语法后重新启用）
+  // 1. 每日 02:00 — 供应商资质检查（过期预警 + 状态更新）
   _cronTasks.push(cron.schedule('0 2 * * *', () => {
     logger.info('[定时任务] 开始执行资质检查');
     executeWithRetry(async () => {
       await updateQualificationStatus();
       await checkQualificationExpiry();
       logger.info('[定时任务] 资质检查完成');
-    }, 'supplier-scoring');
+    }, 'qualification-check');
   }, { timezone: 'Asia/Shanghai' }));
 
   // 2. 每日 03:00 — 清理过期日志（保留90天）
@@ -139,6 +137,16 @@ function startAllCronJobs(pool) {
       await generateReminders(pool);
       logger.info('[提醒生成] 执行完成');
     }, 'reminder-generation');
+  }, { timezone: 'Asia/Shanghai' }));
+
+  // 6. 每周一 04:00 — 供应商评分（基于 crm_scoring_rule 规则计算所有启用供应商得分）
+  _cronTasks.push(cron.schedule('0 4 * * 1', () => {
+    logger.info('[定时任务] 开始执行供应商评分...');
+    executeWithRetry(async () => {
+      const { checkAllSuppliersScores } = require('../services/supplierScoringService');
+      await checkAllSuppliersScores(pool);
+      logger.info('[定时任务] 供应商评分完成');
+    }, 'supplier-scoring');
   }, { timezone: 'Asia/Shanghai' }));
 
   logger.info('[定时任务] 全部定时任务已启动');

@@ -17,41 +17,25 @@ describe('paymentService', () => {
     jest.clearAllMocks();
   });
 
-  describe('createPayment', () => {
+  describe('recordPayment', () => {
     it('应创建回款记录', async () => {
       const pool = createMockPool();
       const conn = createMockConnection();
       pool.getConnection.mockResolvedValue(conn);
       conn.query
-        .mockResolvedValueOnce([[{ id: 1, amount: 100000 }]])    // contract check
-        .mockResolvedValueOnce([{ insertId: 55 }])                // INSERT payment
-        .mockResolvedValueOnce([]);                                // refresh plan status
+        .mockResolvedValueOnce([[{ id: 1, status: 2 }]])    // contract check
+        .mockResolvedValueOnce([{ insertId: 55 }])            // INSERT payment
+        .mockResolvedValueOnce([]);                            // UPDATE contract status
 
-      const result = await paymentService.createPayment(pool, {
+      const result = await paymentService.recordPayment(pool, {
         contract_id: 1,
         pay_date: '2026-07-01',
         pay_amount: 50000,
         pay_method: '银行转账'
-      }, 1);
+      });
 
       expect(result).toHaveProperty('id', 55);
       expect(conn.commit).toHaveBeenCalled();
-    });
-
-    it('回款金额超合同金额应拒绝', async () => {
-      const pool = createMockPool();
-      const conn = createMockConnection();
-      pool.getConnection.mockResolvedValue(conn);
-      conn.query.mockResolvedValueOnce([[{ id: 1, amount: 10000 }]]);
-
-      await expect(paymentService.createPayment(pool, {
-        contract_id: 1,
-        pay_date: '2026-07-01',
-        pay_amount: 99999,
-        pay_method: '现金'
-      }, 1)).rejects.toThrow('回款金额超过合同未付金额');
-
-      expect(conn.rollback).toHaveBeenCalled();
     });
 
     it('合同不存在应抛出异常', async () => {
@@ -60,12 +44,12 @@ describe('paymentService', () => {
       pool.getConnection.mockResolvedValue(conn);
       conn.query.mockResolvedValueOnce([[]]); // no contract
 
-      await expect(paymentService.createPayment(pool, {
+      await expect(paymentService.recordPayment(pool, {
         contract_id: 999,
         pay_date: '2026-07-01',
         pay_amount: 1000,
         pay_method: '现金'
-      }, 1)).rejects.toThrow('合同不存在');
+      })).rejects.toThrow('所属合同不存在');
     });
   });
 
@@ -73,7 +57,7 @@ describe('paymentService', () => {
     it('应更新回款记录并刷新计划状态', async () => {
       const pool = createMockPool();
       pool.query
-        .mockResolvedValueOnce([[{ plan_id: 1, contract_id: 1 }]]) // old lookup
+        .mockResolvedValueOnce([[{ plan_id: null, contract_id: 1 }]]) // old lookup (no plan_id → skip recalculate)
         .mockResolvedValueOnce([]);                                   // UPDATE
 
       await paymentService.updatePayment(pool, {

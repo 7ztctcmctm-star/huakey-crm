@@ -29,7 +29,7 @@ describe('aiRouteService', () => {
       pool.query
         .mockResolvedValueOnce([[{ total: 1 }]])
         .mockResolvedValueOnce([[{ id: 1, type: 'follow_up', ref_id: 10, create_by: 2 }]]);
-      pool.query.mockResolvedValueOnce([[{ company_name: 'A' }]]);
+      pool.query.mockResolvedValueOnce([[{ id: 10, company_name: 'A' }]]);
 
       const result = await aiRouteService.getAiSuggestions(pool, { page: 1, pageSize: 10 });
       expect(result.total).toBe(1);
@@ -52,7 +52,7 @@ describe('aiRouteService', () => {
       pool.query
         .mockResolvedValueOnce([[{ total: 1 }]])
         .mockResolvedValueOnce([[{ id: 1, type: 'customer', ref_id: 5 }]]);
-      pool.query.mockResolvedValueOnce([[{ company_name: 'Cust' }]]);
+      pool.query.mockResolvedValueOnce([[{ id: 5, company_name: 'Cust' }]]);
 
       const result = await aiRouteService.getAiSuggestions(pool, {});
       expect(result.list[0].ref_name).toBe('Cust');
@@ -108,7 +108,7 @@ describe('aiRouteService', () => {
       const pool = createMockPool();
       pool.query
         .mockResolvedValueOnce([[{ id: 1, company_name: 'A', last_follow_time: null, overdue_days: 35 }]])
-        .mockResolvedValueOnce([[{ id: 100 }]]);
+        .mockResolvedValueOnce([[{ ref_id: 1 }]]);
       pool.query
         .mockResolvedValueOnce([[]])
         .mockResolvedValueOnce([[]]);

@@ -132,7 +132,7 @@ describe('contractService.createContract', () => {
     mockPool.getConnection.mockResolvedValue(conn);
 
     // 客户校验
-    conn.query.mockResolvedValueOnce([[{ id: 1, status: 2, company_name: 'A' }]]);
+    conn.query.mockResolvedValueOnce([[{ id: 1, status: 'signed', company_name: 'A' }]]);
     // COUNT 查询（已有 3 个合同）
     conn.query.mockResolvedValueOnce([[{ cnt: 3 }]]);
     // INSERT
@@ -154,7 +154,7 @@ describe('contractService.createContract', () => {
     const conn = createMockConnection();
     mockPool.getConnection.mockResolvedValue(conn);
 
-    conn.query.mockResolvedValueOnce([[{ id: 1, status: 2, company_name: 'A' }]]);
+    conn.query.mockResolvedValueOnce([[{ id: 1, status: 'signed', company_name: 'A' }]]);
     conn.query.mockResolvedValueOnce([[{ cnt: 0 }]]);
     conn.query.mockResolvedValueOnce([{ insertId: 51 }]);
     conn.query.mockResolvedValueOnce([{ affectedRows: 2 }]);  // 批量插入 plans
@@ -181,7 +181,7 @@ describe('contractService.createContract', () => {
     const conn = createMockConnection();
     mockPool.getConnection.mockResolvedValue(conn);
 
-    conn.query.mockResolvedValueOnce([[{ id: 1, status: 2, company_name: 'A' }]]);
+    conn.query.mockResolvedValueOnce([[{ id: 1, status: 'signed', company_name: 'A' }]]);
     conn.query.mockResolvedValueOnce([[{ cnt: 0 }]]);
     conn.query.mockResolvedValueOnce([{ insertId: 52 }]);
 
@@ -200,7 +200,7 @@ describe('contractService.createContract', () => {
     const conn = createMockConnection();
     mockPool.getConnection.mockResolvedValue(conn);
 
-    conn.query.mockResolvedValueOnce([[{ id: 1, status: 2, company_name: 'A' }]]);
+    conn.query.mockResolvedValueOnce([[{ id: 1, status: 'signed', company_name: 'A' }]]);
     conn.query.mockRejectedValueOnce(new Error('DB error'));
 
     await expect(

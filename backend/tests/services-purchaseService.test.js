@@ -22,8 +22,9 @@ describe('purchaseService', () => {
       const pool = createMockPool();
       const conn = createMockConnection();
       pool.getConnection.mockResolvedValue(conn);
+      // generatePlanNo calls pool.query (not conn.query)
+      pool.query.mockResolvedValueOnce([[{ cnt: 0 }]]);
       conn.query
-        .mockResolvedValueOnce([[{ cnt: 0 }]])     // generatePlanNo
         .mockResolvedValueOnce([{ insertId: 10 }])  // INSERT plan
         .mockResolvedValueOnce([]);                  // batch INSERT items
 
@@ -45,7 +46,7 @@ describe('purchaseService', () => {
       const pool = createMockPool();
       const conn = createMockConnection();
       pool.getConnection.mockResolvedValue(conn);
-      conn.query.mockResolvedValueOnce([[{ cnt: 0 }]]);
+      pool.query.mockResolvedValueOnce([[{ cnt: 0 }]]);
       conn.query.mockRejectedValueOnce(new Error('INSERT failed'));
 
       await expect(purchaseService.createPlan(pool, {
@@ -62,10 +63,11 @@ describe('purchaseService', () => {
       const pool = createMockPool();
       const conn = createMockConnection();
       pool.getConnection.mockResolvedValue(conn);
+      // updatePlan checks plan status via pool.query first
+      pool.query.mockResolvedValueOnce([[{ status: 'draft' }]]);
       conn.query
-        .mockResolvedValueOnce([[{ status: 'draft' }]])  // plan check
-        .mockResolvedValueOnce([])                         // UPDATE
-        .mockResolvedValueOnce([]);                        // DELETE + INSERT items
+        .mockResolvedValueOnce([])    // UPDATE
+        .mockResolvedValueOnce([]);   // DELETE + INSERT items
 
       const result = await purchaseService.updatePlan(pool, 10, { name: '改个名字' });
       expect(result).toEqual({ success: true });
@@ -76,21 +78,22 @@ describe('purchaseService', () => {
       const pool = createMockPool();
       const conn = createMockConnection();
       pool.getConnection.mockResolvedValue(conn);
-      conn.query.mockResolvedValueOnce([[{ status: 'completed' }]]);
+      // updatePlan checks status via pool.query first
+      pool.query.mockResolvedValueOnce([[{ status: 'completed' }]]);
 
       const result = await purchaseService.updatePlan(pool, 10, { name: '改名字' });
       expect(result).toEqual({ error: '只能编辑草稿状态的计划', code: 400 });
     });
   });
 
-  describe('getPlans', () => {
+  describe('listPlans', () => {
     it('应分页返回采购计划列表', async () => {
       const pool = createMockPool();
       pool.query
         .mockResolvedValueOnce([[{ total: 5 }]])
         .mockResolvedValueOnce([[{ id: 1, name: '计划A' }, { id: 2, name: '计划B' }]]);
 
-      const result = await purchaseService.getPlans(pool, { page: 1, pageSize: 10 });
+      const result = await purchaseService.listPlans(pool, { page: 1, pageSize: 10 });
       expect(result.list).toHaveLength(2);
       expect(result.total).toBe(5);
       expect(pool.query.mock.calls[0][0]).toContain('deleted_at IS NULL');

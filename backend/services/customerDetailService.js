@@ -410,6 +410,7 @@ async function getCustomer360(pool, customerId) {
     `, [customerId]),
     pool.query(`
       SELECT f.id, f.follow_type, f.content, f.next_time, f.next_content, f.create_time,
+             f.is_plan, f.plan_status, f.finish_time,
              u.real_name as creator_name, c.name as contact_name
       FROM crm_follow_up f
       LEFT JOIN sys_user u ON f.create_by = u.id

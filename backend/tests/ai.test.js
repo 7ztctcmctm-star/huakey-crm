@@ -9,7 +9,16 @@ const mockPool = {
   getConnection: jest.fn().mockResolvedValue({ release: jest.fn() })
 };
 
-jest.mock('../config/database', () => mockPool);
+const mockReadOnlyPool = {
+  query: jest.fn()
+};
+
+jest.mock('../config/database', () => ({
+  query: mockPool.query.bind(mockPool),
+  getConnection: mockPool.getConnection.bind(mockPool),
+  readOnlyPool: mockReadOnlyPool,
+  isReadOnlyPoolAvailable: true
+}));
 
 jest.mock('../middleware/logger', () => ({
   logAction: jest.fn().mockResolvedValue(undefined),
