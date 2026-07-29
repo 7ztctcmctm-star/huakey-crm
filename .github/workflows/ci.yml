@@ -86,10 +86,15 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
       - run: docker compose -f docker-compose.ci.yml up -d
-      - run: sleep 25
+      - run: docker compose -f docker-compose.ci.yml wait mysql
       - run: cd backend && npm ci
       - run: cd database/migrations && npm ci
-      - run: cd database/migrations && DB_PORT=3307 DB_NAME=huakey_crm_test DB_PASSWORD=test_root_pass node run_migrations.js
+      - name: Run migrations
+        env:
+          DB_PORT: '3307'
+          DB_NAME: huakey_crm_test
+          DB_PASSWORD: test_root_pass
+        run: cd database/migrations && node run_migrations.js
       - run: cd backend && npx jest tests/e2e/ --forceExit --testTimeout=30000 --testPathPattern='e2e'
       - if: always()
         run: docker compose -f docker-compose.ci.yml down -v
@@ -102,11 +107,16 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
       - run: docker compose -f docker-compose.ci.yml up -d
-      - run: sleep 25
+      - run: docker compose -f docker-compose.ci.yml wait mysql
       - run: cd backend && npm ci
       - run: cd frontend && npm ci --legacy-peer-deps
       - run: cd database/migrations && npm ci
-      - run: cd database/migrations && DB_PORT=3307 DB_NAME=huakey_crm_test DB_PASSWORD=test_root_pass node run_migrations.js
+      - name: Run migrations
+        env:
+          DB_PORT: '3307'
+          DB_NAME: huakey_crm_test
+          DB_PASSWORD: test_root_pass
+        run: cd database/migrations && node run_migrations.js
       - run: cd backend && node app.js &
       - run: sleep 5
       - run: cd frontend && npx playwright install --with-deps chromium
@@ -153,11 +163,16 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
       - run: docker compose -f docker-compose.ci.yml up -d
-      - run: sleep 25
+      - run: docker compose -f docker-compose.ci.yml wait mysql
       - run: cd backend && npm ci
       - run: cd frontend && npm ci --legacy-peer-deps
       - run: cd database/migrations && npm ci
-      - run: cd database/migrations && DB_PORT=3307 DB_NAME=huakey_crm_test DB_PASSWORD=test_root_pass node run_migrations.js
+      - name: Run migrations
+        env:
+          DB_PORT: '3307'
+          DB_NAME: huakey_crm_test
+          DB_PASSWORD: test_root_pass
+        run: cd database/migrations && node run_migrations.js
       - run: cd backend && node app.js &
       - run: sleep 5
       - run: cd frontend && npx playwright install --with-deps ${{ matrix.browser }}
