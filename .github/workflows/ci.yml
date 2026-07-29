@@ -102,7 +102,7 @@ jobs:
         run: |
           echo "Importing init-complete.sql..."
           sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/init-complete.sql | \
-          docker exec -i ci-mysql mysql -u root -ptest_root_pass
+          docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
           echo "Recording all migration versions as executed..."
           for f in database/migrations/[0-9][0-9][0-9]_*.sql; do
             v=$(basename "$f" | grep -oP '^\d+')
@@ -140,7 +140,7 @@ jobs:
         run: |
           echo "Importing init-complete.sql..."
           sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/init-complete.sql | \
-          docker exec -i ci-mysql mysql -u root -ptest_root_pass
+          docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
           echo "Recording all migration versions as executed..."
           for f in database/migrations/[0-9][0-9][0-9]_*.sql; do
             v=$(basename "$f" | grep -oP '^\d+')
@@ -179,7 +179,7 @@ jobs:
         run: |
           echo "Importing init-complete.sql..."
           sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/init-complete.sql | \
-          docker exec -i ci-mysql mysql -u root -ptest_root_pass
+          docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
           echo "Recording all migration versions as executed..."
           for f in database/migrations/[0-9][0-9][0-9]_*.sql; do
             v=$(basename "$f" | grep -oP '^\d+')
