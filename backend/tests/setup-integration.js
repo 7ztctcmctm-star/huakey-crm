@@ -7,7 +7,7 @@
 
 // --- 1. 设置环境变量（必须在任何 require 之前） ---
 process.env.DB_HOST = process.env.DB_HOST || '127.0.0.1';
-process.env.DB_PORT = process.env.DB_PORT || '3307';
+process.env.DB_PORT = process.env.DB_PORT || '3306';
 process.env.DB_USER = process.env.DB_USER || 'crm_test';
 process.env.DB_PASSWORD = process.env.DB_PASSWORD || 'test_pass';
 process.env.DB_NAME = process.env.DB_NAME || 'huakey_crm_test';
