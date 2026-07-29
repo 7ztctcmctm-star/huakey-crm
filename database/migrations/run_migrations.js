@@ -18,8 +18,9 @@ const DB_NAME = process.env.DB_NAME || 'huakey_crm'
  */
 function normalizeMigrationSql(sql) {
   return sql
-    .replace(/^USE\s+`?[^`;\s]+`?\s*;?\s*$/gim, '')
-    .replace(/(@db_name\s*=\s*')huakey_crm(')/gi, `$1${DB_NAME}$2`)
+    .replace(/^USE\s+`?[^`;\s]+`?\s*;?\s*$/gim, '')       // 移除 USE huakey_crm 语句
+    .replace(/'(huakey_crm)'/gi, `'${DB_NAME}'`)            // 替换所有 'huakey_crm' 字符串引用
+    .replace(/`(huakey_crm)`/gi, `\`${DB_NAME}\``)          // 替换所有 `huakey_crm` 标识符引用
 }
 
 async function run() {

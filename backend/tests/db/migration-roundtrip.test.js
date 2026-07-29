@@ -79,11 +79,65 @@ beforeAll(async () => {
     host: DB_HOST,
     port: DB_PORT,
     user: DB_USER,
-    password: DB_PASSWORD
+    password: DB_PASSWORD,
+    multipleStatements: true
   });
   await adminPool.query(
     `CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
   );
+  await adminPool.query(`USE \`${DB_NAME}\``);
+
+  // 创建核心表最小骨架，让早期迁移（如 002）有表可 ALTER
+  // 迁移 001 假定这些表已由 init-complete.sql 创建
+  await adminPool.query(`
+    CREATE TABLE IF NOT EXISTS crm_customer (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      company_name VARCHAR(200),
+      status VARCHAR(32) DEFAULT 'following',
+      source VARCHAR(50),
+      owner_id INT,
+      deleted_at DATETIME
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    CREATE TABLE IF NOT EXISTS sys_user (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      username VARCHAR(50),
+      real_name VARCHAR(50),
+      password VARCHAR(200),
+      status TINYINT DEFAULT 1,
+      role_id INT,
+      dept_id INT
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    CREATE TABLE IF NOT EXISTS crm_opportunity (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(200),
+      customer_id INT,
+      stage INT DEFAULT 1,
+      expected_amount DECIMAL(12,2),
+      win_rate INT,
+      owner_id INT,
+      deleted_at DATETIME
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    CREATE TABLE IF NOT EXISTS crm_quote (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      quote_no VARCHAR(50),
+      customer_id INT,
+      opportunity_id INT,
+      amount DECIMAL(12,2),
+      final_amount DECIMAL(12,2),
+      status INT DEFAULT 1,
+      deleted_at DATETIME
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    CREATE TABLE IF NOT EXISTS crm_contract (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      contract_no VARCHAR(50),
+      customer_id INT,
+      opportunity_id INT,
+      quote_id INT,
+      amount DECIMAL(12,2),
+      status INT DEFAULT 1,
+      deleted_at DATETIME
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
   await adminPool.end();
 
   // 先运行全部正向迁移，建立完整 schema
