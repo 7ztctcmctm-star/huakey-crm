@@ -38,19 +38,6 @@ jobs:
       - run: cd frontend && npm install --legacy-peer-deps
       - run: cd frontend && npm test
 
-  frontend-unit-test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: '22' }
-      - uses: actions/cache@v4
-        with:
-          path: frontend/node_modules
-          key: frontend-deps-${{ hashFiles('frontend/package-lock.json') }}
-      - run: cd frontend && npm ci --legacy-peer-deps --legacy-peer-deps
-      - run: cd frontend && npx vitest run
-
   frontend-build:
     runs-on: ubuntu-latest
     steps:
@@ -111,7 +98,7 @@ jobs:
               -e "INSERT IGNORE INTO schema_migrations (version, name) VALUES ('$v', '$n')"
           done
           echo "Baseline ready."
-      - run: cd backend && npx jest tests/e2e/ --forceExit --testTimeout=30000 --testPathPattern='e2e'
+      - run: cd backend && npx jest tests/e2e/ --forceExit --testTimeout=30000 --testPathPatterns='e2e'
       - if: always()
         run: docker compose -f docker-compose.ci.yml down -v
 
@@ -149,10 +136,11 @@ jobs:
               -e "INSERT IGNORE INTO schema_migrations (version, name) VALUES ('$v', '$n')"
           done
           echo "Baseline ready."
-      - run: cd backend && node app.js &
-      - run: sleep 5
       - run: cd frontend && npx playwright install --with-deps chromium
-      - run: cd frontend && npx playwright test
+      - name: Run Playwright E2E tests
+        env:
+          SKIP_DB_SETUP: 'true'
+        run: cd frontend && npx playwright test
       - if: always()
         run: docker compose -f docker-compose.ci.yml down -v
 
@@ -230,15 +218,23 @@ jobs:
       - run: cd backend && npm ci
       - run: cd frontend && npm ci --legacy-peer-deps
       - run: cd database/migrations && npm ci
-      - name: Run migrations
-        env:
-          DB_PORT: '3307'
-          DB_NAME: huakey_crm_test
-          DB_PASSWORD: test_root_pass
-        run: cd database/migrations && node run_migrations.js
-      - run: cd backend && node app.js &
-      - run: sleep 5
+      - name: Import baseline schema + mark migrations done
+        run: |
+          echo "Importing init-complete.sql..."
+          sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/init-complete.sql | \
+          docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
+          echo "Recording all migration versions as executed..."
+          for f in database/migrations/[0-9][0-9][0-9]_*.sql; do
+            v=$(basename "$f" | grep -oP '^\d+')
+            n=$(basename "$f")
+            docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test \
+              -e "INSERT IGNORE INTO schema_migrations (version, name) VALUES ('$v', '$n')"
+          done
+          echo "Baseline ready."
       - run: cd frontend && npx playwright install --with-deps ${{ matrix.browser }}
-      - run: cd frontend && npx playwright test --project='${{ matrix.browser }}'
+      - name: Run Playwright tests
+        env:
+          SKIP_DB_SETUP: 'true'
+        run: cd frontend && npx playwright test --project='${{ matrix.browser }}'
       - if: always()
         run: docker compose -f docker-compose.ci.yml down -v

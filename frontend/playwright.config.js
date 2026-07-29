@@ -18,6 +18,9 @@ export default defineConfig({
     env: {
       SKIP_CAPTCHA: 'true',
       DB_NAME: 'huakey_crm_test',
+      DB_PORT: '3307',
+      DB_USER: 'root',
+      DB_PASSWORD: 'test_root_pass',
       REDIS_ENABLED: 'false',
       ENABLE_SWAGGER: 'false'
     }

@@ -52,6 +52,8 @@ const DB_CONFIG = {
 }
 
 // E2E 测试是否清理测试库（默认开启，仅对以 _test 结尾的数据库名生效）
+// CI 已提前导入 init-complete.sql，跳过数据库初始化
+const SKIP_DB_SETUP = (process.env.SKIP_DB_SETUP || 'false').toLowerCase() === 'true'
 const E2E_CLEAN_DB = (process.env.E2E_CLEAN_DB || 'true').toLowerCase() === 'true'
 // 数据库管理账号（创建/删除库需要更高权限），默认回退到应用账号
 const DB_ADMIN_USER = process.env.MYSQL_ROOT_USER || process.env.DB_USER
@@ -260,24 +262,26 @@ process.on('SIGINT', () => {
 async function main() {
   console.log(`[e2e-server] 目标数据库: ${DB_CONFIG.database}@${DB_CONFIG.host}:${DB_CONFIG.port}`)
 
-  await ensureDatabase()
-
-  if (E2E_USE_MIGRATIONS) {
-    console.log('[e2e-server] 使用迁移方式初始化测试库')
-    await runMigrations()
-  } else if (SOURCE_DB) {
-    console.log(`[e2e-server] 使用克隆方式初始化测试库（源库: ${SOURCE_DB}）`)
-    await cloneDatabase()
-    // 克隆后执行迁移：源库可能缺少最新迁移，运行迁移可应用缺失的 schema 变更
-    //（迁移脚本自身使用 IF EXISTS 判断，可安全重入）
-    console.log('[e2e-server] 克隆完成，正在运行迁移以应用缺失的 schema 变更...')
-    await runMigrations()
+  if (SKIP_DB_SETUP) {
+    console.log('[e2e-server] SKIP_DB_SETUP=true，跳过数据库初始化（CI 已提前准备）')
   } else {
-    throw new Error('未配置 SOURCE_DB 且 E2E_USE_MIGRATIONS=false，无法初始化测试库')
-  }
+    await ensureDatabase()
 
-  await runSeedSql(resolve(databaseRoot, 'seeds/seed_test_data.sql'))
-  await initPermissions()
+    if (E2E_USE_MIGRATIONS) {
+      console.log('[e2e-server] 使用迁移方式初始化测试库')
+      await runMigrations()
+    } else if (SOURCE_DB) {
+      console.log(`[e2e-server] 使用克隆方式初始化测试库（源库: ${SOURCE_DB}）`)
+      await cloneDatabase()
+      console.log('[e2e-server] 克隆完成，正在运行迁移以应用缺失的 schema 变更...')
+      await runMigrations()
+    } else {
+      throw new Error('未配置 SOURCE_DB 且 E2E_USE_MIGRATIONS=false，无法初始化测试库')
+    }
+
+    await runSeedSql(resolve(databaseRoot, 'seeds/seed_test_data.sql'))
+    await initPermissions()
+  }
 
   startBackend()
   await waitForPort(5000)
