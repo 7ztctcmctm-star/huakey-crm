@@ -85,7 +85,7 @@ jobs:
       - run: docker compose -f docker-compose.ci.yml up -d
       - run: sleep 25
       - run: cd backend && npm ci
-      - run: cd backend && node database/migrations/run_migrations.js
+      - run: node database/migrations/run_migrations.js
       - run: cd backend && npx jest tests/e2e/ --forceExit --testTimeout=30000 --testPathPattern='e2e'
       - if: always()
         run: docker compose -f docker-compose.ci.yml down -v
@@ -101,7 +101,7 @@ jobs:
       - run: sleep 25
       - run: cd backend && npm ci
       - run: cd frontend && npm ci --legacy-peer-deps
-      - run: cd backend && node database/migrations/run_migrations.js
+      - run: node database/migrations/run_migrations.js
       - run: cd backend && node app.js &
       - run: sleep 5
       - run: cd frontend && npx playwright install --with-deps chromium
@@ -118,6 +118,7 @@ jobs:
       - run: docker compose -f docker-compose.ci.yml up -d
       - run: sleep 25
       - run: cd backend && npm ci
+      - run: npm install mysql2 --no-save
       - run: cd backend && DB_PORT=3307 DB_NAME=huakey_crm_test DB_PASSWORD=test_root_pass npx jest tests/db/migration-roundtrip.test.js --forceExit --testTimeout=60000
       - if: always()
         run: docker compose -f docker-compose.ci.yml down -v
