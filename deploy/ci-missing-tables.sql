@@ -196,3 +196,23 @@ PREPARE stmt089b FROM @sql089b; EXECUTE stmt089b; DEALLOCATE PREPARE stmt089b;
 
 -- 为已有账号设置 password_changed_at（避免历史账号被误判为首次登录）
 UPDATE sys_user SET password_changed_at = NOW() WHERE password_changed_at IS NULL;
+
+-- 079: crm_contract.quote_id (080_down.sql rollback 依赖此列)
+SET @col_quote_id = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contract' AND COLUMN_NAME = 'quote_id');
+SET @sql079 = IF(@col_quote_id = 0,
+  'ALTER TABLE crm_contract ADD COLUMN quote_id INT DEFAULT NULL COMMENT ''关联合同来源报价单ID''',
+  'SELECT 1');
+PREPARE stmt079 FROM @sql079; EXECUTE stmt079; DEALLOCATE PREPARE stmt079;
+SET @idx_quote_id = (SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contract' AND INDEX_NAME = 'idx_contract_quote_id');
+SET @sql079b = IF(@idx_quote_id = 0,
+  'CREATE INDEX idx_contract_quote_id ON crm_contract(quote_id)',
+  'SELECT 1');
+PREPARE stmt079b FROM @sql079b; EXECUTE stmt079b; DEALLOCATE PREPARE stmt079b;
+
+-- E2E 测试用户: admin / Admin@123 (supertest + Playwright 共用)
+INSERT IGNORE INTO sys_role (name, code, description, status, view_all, manage_all)
+VALUES ('超级管理员', 'super_admin', '系统超级管理员', 1, 1, 1);
+INSERT IGNORE INTO sys_user (username, password, real_name, role_id, status)
+VALUES ('admin', '$2b$10$xos2wvNOQ5658wFzx27sBeU.3vHziQ9/4a/RXpd/AN82td/5Tq4QC', '管理员', 1, 1);
