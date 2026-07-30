@@ -30,7 +30,7 @@ const require = createRequire(resolve(backendRoot, 'package.json'))
 const mysql = require('mysql2/promise')
 
 // 强制使用测试数据库与测试友好配置，避免污染开发/生产数据
-process.env.NODE_ENV = 'development'
+process.env.NODE_ENV = 'test'
 process.env.SKIP_CAPTCHA = 'true'
 process.env.DB_NAME = process.env.DB_NAME || 'huakey_crm_test'
 process.env.DB_HOST = process.env.DB_HOST || '127.0.0.1'

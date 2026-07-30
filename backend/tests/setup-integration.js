@@ -28,11 +28,20 @@ const path = require('path');
 // --- 2. 运行数据库迁移 ---
 function runMigrations() {
   const projectRoot = path.resolve(__dirname, '../../');
-  execSync('node database/migrations/run_migrations.js', {
-    cwd: projectRoot,
-    stdio: 'pipe',
-    env: { ...process.env }
-  });
+  try {
+    execSync('node database/migrations/run_migrations.js', {
+      cwd: projectRoot,
+      stdio: 'pipe',
+      env: { ...process.env }
+    });
+  } catch (err) {
+    // 输出迁移脚本的 stderr/stdout，便于诊断 CI 失败
+    console.error('[setup-integration] 迁移执行失败:');
+    if (err.stdout) console.error('[stdout]:', err.stdout.toString());
+    if (err.stderr) console.error('[stderr]:', err.stderr.toString());
+    console.error('[error]:', err.message);
+    throw err;
+  }
 }
 
 // --- 3. 获取 pool 和 app ---

@@ -73,13 +73,15 @@ export const test = base.extend({
     const setCookies = loginRes.headers()['set-cookie'] || []
     const tokenCookie = parseCookieFromHeaders(setCookies, 'token')
     const csrfCookie = parseCookieFromHeaders(setCookies, 'csrf-token')
-    const cookiesToAdd = [tokenCookie, csrfCookie].filter(Boolean)
 
-    if (cookiesToAdd.length === 0) {
-      throw new Error('E2E 登录响应未返回 token 或 csrf-token cookie')
+    if (!tokenCookie) {
+      throw new Error('E2E 登录响应未返回 httpOnly token cookie。请确认后端 auth 路由是否正确设置 token cookie。')
+    }
+    if (!csrfCookie) {
+      throw new Error('E2E 登录响应未返回 csrf-token cookie。请确认 CSRF 中间件是否已挂载，以及 NODE_ENV 是否正确。')
     }
 
-    await page.context().addCookies(cookiesToAdd)
+    await page.context().addCookies([tokenCookie, csrfCookie])
 
     await use(page)
   }

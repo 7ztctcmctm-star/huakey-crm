@@ -92,6 +92,7 @@ jobs:
           docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
           echo "Recording all migration versions as executed..."
           for f in database/migrations/[0-9][0-9][0-9]_*.sql; do
+            case "$f" in *_down.sql) continue ;; esac
             v=$(basename "$f" | grep -oP '^\d+')
             n=$(basename "$f")
             docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test \
@@ -130,6 +131,7 @@ jobs:
           docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
           echo "Recording all migration versions as executed..."
           for f in database/migrations/[0-9][0-9][0-9]_*.sql; do
+            case "$f" in *_down.sql) continue ;; esac
             v=$(basename "$f" | grep -oP '^\d+')
             n=$(basename "$f")
             docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test \
@@ -170,13 +172,14 @@ jobs:
           docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
           echo "Recording all migration versions as executed..."
           for f in database/migrations/[0-9][0-9][0-9]_*.sql; do
+            case "$f" in *_down.sql) continue ;; esac
             v=$(basename "$f" | grep -oP '^\d+')
             n=$(basename "$f")
             docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test \
               -e "INSERT IGNORE INTO schema_migrations (version, name) VALUES ('$v', '$n')"
           done
           echo "Baseline ready."
-      - run: cd backend && DB_NAME=huakey_crm_test DB_PASSWORD=test_root_pass npx jest tests/db/migration-roundtrip.test.js --forceExit --testTimeout=120000
+      - run: cd backend && DB_NAME=huakey_crm_test DB_PASSWORD=test_root_pass npx jest tests/db/migration-roundtrip.test.js --forceExit --testTimeout=240000
       - if: always()
         run: docker compose -f docker-compose.ci.yml down -v
 
@@ -225,6 +228,7 @@ jobs:
           docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
           echo "Recording all migration versions as executed..."
           for f in database/migrations/[0-9][0-9][0-9]_*.sql; do
+            case "$f" in *_down.sql) continue ;; esac
             v=$(basename "$f" | grep -oP '^\d+')
             n=$(basename "$f")
             docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test \

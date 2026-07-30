@@ -35,7 +35,14 @@ export async function loginAsAdmin(request) {
   // Playwright APIRequestContext 没有 .context() 方法，通过 storageState() 读取 cookie
   const storageState = await request.storageState()
   const csrfCookie = storageState.cookies.find((c) => c.name === 'csrf-token')
-  return { csrfToken: csrfCookie?.value || '' }
+  if (!csrfCookie) {
+    throw new Error(
+      'E2E 登录后未获取到 csrf-token cookie。' +
+      `已存储的 cookies: ${JSON.stringify(storageState.cookies.map(c => c.name))}。` +
+      '请确认后端是否正确设置了 csrf-token cookie（检查 NODE_ENV 和 CSRF 中间件）。'
+    )
+  }
+  return { csrfToken: csrfCookie.value }
 }
 
 /**

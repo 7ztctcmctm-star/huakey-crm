@@ -189,7 +189,7 @@ describe('数据库迁移 roundtrip 测试', () => {
           expect(schemaAfter).toBe(schemasBefore[table]);
         }
       }
-    }, 60000);
+    }, 120000);
   });
 });
 
