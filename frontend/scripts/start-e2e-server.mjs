@@ -217,11 +217,32 @@ async function initPermissions() {
 
 function startBackend() {
   console.log('[e2e-server] 启动后端服务...')
+  let stdout = ''
+  let stderr = ''
   const proc = spawn('npm', ['start'], {
     cwd: backendRoot,
-    stdio: 'inherit',
+    stdio: ['ignore', 'pipe', 'pipe'],
     shell: true,
     env: { ...process.env }
+  })
+  proc.stdout.on('data', (chunk) => {
+    const text = chunk.toString()
+    stdout += text
+    process.stdout.write(text)
+  })
+  proc.stderr.on('data', (chunk) => {
+    const text = chunk.toString()
+    stderr += text
+    process.stderr.write(text)
+  })
+  proc.on('exit', (code) => {
+    if (code !== 0 && code !== null) {
+      console.error(`[e2e-server] 后端进程异常退出 (exit code: ${code})`)
+      console.error(`[e2e-server] === 后端 stdout (最后 2000 字符) ===`)
+      console.error(stdout.slice(-2000))
+      console.error(`[e2e-server] === 后端 stderr (最后 2000 字符) ===`)
+      console.error(stderr.slice(-2000))
+    }
   })
   children.push(proc)
   return proc
