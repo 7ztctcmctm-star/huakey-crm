@@ -32,6 +32,7 @@ const mysql = require('mysql2/promise')
 // 强制使用测试数据库与测试友好配置，避免污染开发/生产数据
 process.env.NODE_ENV = 'test'
 process.env.SKIP_CAPTCHA = 'true'
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'e2e_test_secret_64_bytes_for_ci_environment_only_not_used_in_production_xxxx'
 process.env.DB_NAME = process.env.DB_NAME || 'huakey_crm_test'
 process.env.DB_HOST = process.env.DB_HOST || '127.0.0.1'
 process.env.DB_PORT = process.env.DB_PORT || '3306'
