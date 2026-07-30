@@ -246,7 +246,7 @@ apiRouter.get('/health', async (req, res) => {
     const [rows] = await pool.query('SELECT VERSION() AS v');
     dbOk = true;
     if (rows && rows[0]) mysqlVersion = 'MySQL ' + rows[0].v;
-  } catch { /* ok */ }
+  } catch (e) { console.error("[health] DB check failed:", e.message); }
 
   // 检测Redis（仅当显式启用时才要求 Redis 可用）
   try {
@@ -258,7 +258,7 @@ apiRouter.get('/health', async (req, res) => {
       await redis.ping();
       redisOk = true;
     }
-  } catch { /* ok */ }
+  } catch (e) { console.error("[health] Redis check failed:", e.message); }
 
   // 健康检查：DB 或核心依赖不可用时返回 503，触发容器编排层摘流/重启
   const healthy = dbOk && redisOk;
