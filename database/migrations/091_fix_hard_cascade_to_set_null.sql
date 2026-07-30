@@ -54,15 +54,14 @@ SET @add_sql3 = IF(@constraint_exists3 > 0,
 PREPARE stmt FROM @add_sql3; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- 4. crm_customer_score_log: CASCADE → SET NULL (migration 042)
-SET @constraint_exists4 = (SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
-  WHERE TABLE_SCHEMA = @db_name AND TABLE_NAME = 'crm_customer_score_log'
-  AND CONSTRAINT_NAME LIKE '%customer_id%' AND CONSTRAINT_TYPE = 'FOREIGN KEY'
-  AND DELETE_RULE = 'CASCADE');
-SET @drop_sql4 = IF(@constraint_exists4 > 0,
-  (SELECT CONCAT('ALTER TABLE crm_customer_score_log DROP FOREIGN KEY ', CONSTRAINT_NAME)
-   FROM information_schema.TABLE_CONSTRAINTS
-   WHERE TABLE_SCHEMA = @db_name AND TABLE_NAME = 'crm_customer_score_log'
-   AND DELETE_RULE = 'CASCADE' LIMIT 1),
+SET @constraint_exists4 = (SELECT COUNT(*) FROM information_schema.REFERENTIAL_CONSTRAINTS
+  WHERE CONSTRAINT_SCHEMA COLLATE utf8mb3_general_ci = @db_name AND TABLE_NAME = 'crm_customer_score_log'
+  AND DELETE_RULE = 'CASCADE' AND UNIQUE_CONSTRAINT_SCHEMA COLLATE utf8mb3_general_ci = @db_name);
+SET @fk_name4 = (SELECT CONSTRAINT_NAME FROM information_schema.REFERENTIAL_CONSTRAINTS
+  WHERE CONSTRAINT_SCHEMA COLLATE utf8mb3_general_ci = @db_name AND TABLE_NAME = 'crm_customer_score_log'
+  AND DELETE_RULE = 'CASCADE' AND UNIQUE_CONSTRAINT_SCHEMA COLLATE utf8mb3_general_ci = @db_name LIMIT 1);
+SET @drop_sql4 = IF(@constraint_exists4 > 0 AND @fk_name4 IS NOT NULL,
+  CONCAT('ALTER TABLE crm_customer_score_log DROP FOREIGN KEY ', @fk_name4),
   'SELECT 1');
 PREPARE stmt FROM @drop_sql4; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
