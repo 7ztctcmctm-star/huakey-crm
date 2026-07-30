@@ -123,3 +123,57 @@ CREATE TABLE IF NOT EXISTS crm_scoring_rule (
   create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
   update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================
+-- DDL 变更（migration 中 ALTER TABLE 等操作）
+-- 这些变更不在 init-complete.sql 中，必须显式执行
+-- ============================================
+
+-- 070: crm_customer.status TINYINT -> VARCHAR(32)
+-- migration 088 的 roundtrip 测试依赖 VARCHAR 类型的 status 列
+SET @is_int_status = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_customer'
+  AND COLUMN_NAME = 'status' AND DATA_TYPE = 'tinyint');
+SET @modify_status_sql = IF(@is_int_status > 0,
+  'ALTER TABLE crm_customer MODIFY COLUMN status VARCHAR(32) NOT NULL DEFAULT ''following''',
+  'SELECT ''status 已是 VARCHAR，跳过 MODIFY'' AS msg');
+PREPARE modify_status_stmt FROM @modify_status_sql;
+EXECUTE modify_status_stmt;
+DEALLOCATE PREPARE modify_status_stmt;
+
+-- 070: 初始化默认客户状态 (seed data)
+INSERT IGNORE INTO sys_customer_status (code, name, sort_order, is_default, is_end, color) VALUES
+('sea', '公海客户', 10, 0, 0, '#909399'),
+('following', '跟进中', 20, 1, 0, '#409EFF'),
+('quoted', '已报价', 30, 0, 0, '#67C23A'),
+('negotiating', '谈判中', 40, 0, 0, '#E6A23C'),
+('signed', '已签约', 50, 0, 1, '#67C23A'),
+('lost', '已流失', 60, 0, 1, '#F56C6C'),
+('paused', '暂停跟进', 70, 0, 0, '#909399');
+
+-- 070: 初始化客户状态流转规则
+INSERT IGNORE INTO sys_customer_status_transition (from_code, to_code, require_permission, require_reason) VALUES
+('sea', 'following', NULL, 0),
+('following', 'sea', NULL, 0),
+('following', 'quoted', NULL, 0),
+('following', 'paused', NULL, 1),
+('following', 'lost', NULL, 1),
+('quoted', 'negotiating', NULL, 0),
+('quoted', 'lost', NULL, 1),
+('quoted', 'following', NULL, 0),
+('negotiating', 'signed', NULL, 0),
+('negotiating', 'lost', NULL, 1),
+('negotiating', 'quoted', NULL, 0),
+('paused', 'following', NULL, 0),
+('lost', 'following', 'customer:manage', 1),
+('signed', 'following', 'customer:manage', 1),
+('signed', 'negotiating', NULL, 1);
+
+-- 088: 初始化 lead 状态（线索池）
+INSERT IGNORE INTO sys_customer_status (code, name, sort_order, is_default, is_end, color) VALUES
+('lead', '线索', 0, 0, 0, '#909399');
+
+-- 088: 初始化 lead 流转规则
+INSERT IGNORE INTO sys_customer_status_transition (from_code, to_code, require_permission, require_reason) VALUES
+('lead', 'following', 0, 0),
+('lead', 'sea', 0, 0);
