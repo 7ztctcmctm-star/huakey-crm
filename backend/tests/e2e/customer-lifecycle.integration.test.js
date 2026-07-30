@@ -59,8 +59,7 @@ describe('客户生命周期', () => {
       .post('/api/v1/customer/add')
       .send({
         company_name: '集成测试公司',
-        contact_name: '张三',
-        phone: '13800138000',
+        contacts: [{ name: '张三', phone: '+8613800138000' }],
         source: '网络',
         level: 'B'
       })
