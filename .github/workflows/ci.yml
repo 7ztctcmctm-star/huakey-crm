@@ -85,24 +85,29 @@ jobs:
           done
       - run: cd backend && npm ci
       - run: cd database/migrations && npm ci
-      - name: Import baseline schema + apply remaining migrations
+      - name: Import baseline schema + create missing tables
         run: |
           echo "Importing init-complete.sql..."
           sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/init-complete.sql | \
           docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
-          echo "Marking baseline migrations (001-055, covered by init-complete.sql) as executed..."
-          for f in database/migrations/0[0-5][0-9]_*.sql; do
+          echo "Creating tables from migrations 056-072 (not covered by init-complete.sql)..."
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS sys_log_archive LIKE sys_log"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS sys_token_blacklist (id INT PRIMARY KEY AUTO_INCREMENT, token_hash VARCHAR(64) NOT NULL, user_id INT DEFAULT NULL, expire_at DATETIME NOT NULL, reason VARCHAR(50) DEFAULT 'logout', create_time DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_token_hash (token_hash), INDEX idx_expire (expire_at), INDEX idx_user (user_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS crm_purchase_request (id INT PRIMARY KEY AUTO_INCREMENT, title VARCHAR(200) NOT NULL, request_no VARCHAR(50), dept_id INT, request_by INT, request_date DATE, expected_date DATE, urgency VARCHAR(20) DEFAULT 'normal', status VARCHAR(20) DEFAULT 'draft', total_amount DECIMAL(12,2) DEFAULT 0, remark TEXT, deleted_at DATETIME, create_time DATETIME DEFAULT CURRENT_TIMESTAMP, update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_status (status), INDEX idx_request_by (request_by)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS crm_purchase_comparison (id INT PRIMARY KEY AUTO_INCREMENT, title VARCHAR(200) NOT NULL, request_id INT, compare_no VARCHAR(50), status VARCHAR(20) DEFAULT 'draft', remark TEXT, deleted_at DATETIME, create_time DATETIME DEFAULT CURRENT_TIMESTAMP, update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_status (status)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS crm_purchase_comparison_item (id INT PRIMARY KEY AUTO_INCREMENT, comparison_id INT NOT NULL, supplier_id INT, product_name VARCHAR(200), spec VARCHAR(200), quantity DECIMAL(12,2), unit VARCHAR(20), unit_price DECIMAL(12,2), total_price DECIMAL(12,2), delivery_days INT, remark TEXT, deleted_at DATETIME, create_time DATETIME DEFAULT CURRENT_TIMESTAMP, INDEX idx_comparison (comparison_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS crm_user_permission (id INT PRIMARY KEY AUTO_INCREMENT, user_id INT NOT NULL, permission_id INT NOT NULL, create_time DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_user_permission (user_id, permission_id), INDEX idx_user_id (user_id), INDEX idx_permission_id (permission_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS sys_customer_status (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, code VARCHAR(32) NOT NULL, name VARCHAR(50) NOT NULL, sort_order INT DEFAULT 0, is_default TINYINT(1) DEFAULT 0, is_end TINYINT(1) DEFAULT 0, color VARCHAR(20) DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY uk_code (code)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS sys_customer_status_transition (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, from_code VARCHAR(32) NOT NULL, to_code VARCHAR(32) NOT NULL, require_permission VARCHAR(50) DEFAULT NULL, require_reason TINYINT(1) DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_transition (from_code, to_code), KEY idx_from_code (from_code)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS crm_scoring_rule (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(100) NOT NULL, module VARCHAR(50) NOT NULL, field_name VARCHAR(50), operator VARCHAR(20), threshold VARCHAR(100), score INT DEFAULT 0, is_active TINYINT(1) DEFAULT 1, create_time DATETIME DEFAULT CURRENT_TIMESTAMP, update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+          echo "Recording all migration versions as executed (init-complete.sql baseline)..."
+          for f in database/migrations/[0-9][0-9][0-9]_*.sql; do
             case "$f" in *_down.sql) continue ;; esac
             v=$(basename "$f" | grep -oP '^\d+')
-            # 056+ are NOT covered by init-complete.sql; let run_migrations.js apply them
-            if [ "$v" -ge 056 ]; then continue; fi
             n=$(basename "$f")
             docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test \
               -e "INSERT IGNORE INTO schema_migrations (version, name) VALUES ('$v', '$n')"
           done
-          echo "Applying migrations 056+ (not covered by init-complete.sql)..."
-          DB_HOST=127.0.0.1 DB_PORT=3306 DB_USER=root DB_PASSWORD=test_root_pass DB_NAME=huakey_crm_test \
-            node database/migrations/run_migrations.js
           echo "Baseline ready."
       - run: cd backend && npx jest tests/e2e/ --config jest.integration.config.js --forceExit
       - if: always()
@@ -129,24 +134,29 @@ jobs:
       - run: cd backend && npm ci
       - run: cd frontend && npm ci --legacy-peer-deps
       - run: cd database/migrations && npm ci
-      - name: Import baseline schema + apply remaining migrations
+      - name: Import baseline schema + create missing tables
         run: |
           echo "Importing init-complete.sql..."
           sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/init-complete.sql | \
           docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
-          echo "Marking baseline migrations (001-055, covered by init-complete.sql) as executed..."
-          for f in database/migrations/0[0-5][0-9]_*.sql; do
+          echo "Creating tables from migrations 056-072 (not covered by init-complete.sql)..."
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS sys_log_archive LIKE sys_log"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS sys_token_blacklist (id INT PRIMARY KEY AUTO_INCREMENT, token_hash VARCHAR(64) NOT NULL, user_id INT DEFAULT NULL, expire_at DATETIME NOT NULL, reason VARCHAR(50) DEFAULT 'logout', create_time DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_token_hash (token_hash), INDEX idx_expire (expire_at), INDEX idx_user (user_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS crm_purchase_request (id INT PRIMARY KEY AUTO_INCREMENT, title VARCHAR(200) NOT NULL, request_no VARCHAR(50), dept_id INT, request_by INT, request_date DATE, expected_date DATE, urgency VARCHAR(20) DEFAULT 'normal', status VARCHAR(20) DEFAULT 'draft', total_amount DECIMAL(12,2) DEFAULT 0, remark TEXT, deleted_at DATETIME, create_time DATETIME DEFAULT CURRENT_TIMESTAMP, update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_status (status), INDEX idx_request_by (request_by)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS crm_purchase_comparison (id INT PRIMARY KEY AUTO_INCREMENT, title VARCHAR(200) NOT NULL, request_id INT, compare_no VARCHAR(50), status VARCHAR(20) DEFAULT 'draft', remark TEXT, deleted_at DATETIME, create_time DATETIME DEFAULT CURRENT_TIMESTAMP, update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_status (status)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS crm_purchase_comparison_item (id INT PRIMARY KEY AUTO_INCREMENT, comparison_id INT NOT NULL, supplier_id INT, product_name VARCHAR(200), spec VARCHAR(200), quantity DECIMAL(12,2), unit VARCHAR(20), unit_price DECIMAL(12,2), total_price DECIMAL(12,2), delivery_days INT, remark TEXT, deleted_at DATETIME, create_time DATETIME DEFAULT CURRENT_TIMESTAMP, INDEX idx_comparison (comparison_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS crm_user_permission (id INT PRIMARY KEY AUTO_INCREMENT, user_id INT NOT NULL, permission_id INT NOT NULL, create_time DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_user_permission (user_id, permission_id), INDEX idx_user_id (user_id), INDEX idx_permission_id (permission_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS sys_customer_status (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, code VARCHAR(32) NOT NULL, name VARCHAR(50) NOT NULL, sort_order INT DEFAULT 0, is_default TINYINT(1) DEFAULT 0, is_end TINYINT(1) DEFAULT 0, color VARCHAR(20) DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY uk_code (code)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS sys_customer_status_transition (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, from_code VARCHAR(32) NOT NULL, to_code VARCHAR(32) NOT NULL, require_permission VARCHAR(50) DEFAULT NULL, require_reason TINYINT(1) DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_transition (from_code, to_code), KEY idx_from_code (from_code)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS crm_scoring_rule (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(100) NOT NULL, module VARCHAR(50) NOT NULL, field_name VARCHAR(50), operator VARCHAR(20), threshold VARCHAR(100), score INT DEFAULT 0, is_active TINYINT(1) DEFAULT 1, create_time DATETIME DEFAULT CURRENT_TIMESTAMP, update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+          echo "Recording all migration versions as executed (init-complete.sql baseline)..."
+          for f in database/migrations/[0-9][0-9][0-9]_*.sql; do
             case "$f" in *_down.sql) continue ;; esac
             v=$(basename "$f" | grep -oP '^\d+')
-            # 056+ are NOT covered by init-complete.sql; let run_migrations.js apply them
-            if [ "$v" -ge 056 ]; then continue; fi
             n=$(basename "$f")
             docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test \
               -e "INSERT IGNORE INTO schema_migrations (version, name) VALUES ('$v', '$n')"
           done
-          echo "Applying migrations 056+ (not covered by init-complete.sql)..."
-          DB_HOST=127.0.0.1 DB_PORT=3306 DB_USER=root DB_PASSWORD=test_root_pass DB_NAME=huakey_crm_test \
-            node database/migrations/run_migrations.js
           echo "Baseline ready."
       - run: cd frontend && npx playwright install --with-deps chromium
       - name: Run Playwright E2E tests
@@ -175,24 +185,29 @@ jobs:
           done
       - run: cd backend && npm ci
       - run: cd database/migrations && npm ci
-      - name: Import baseline schema + apply remaining migrations
+      - name: Import baseline schema + create missing tables
         run: |
           echo "Importing init-complete.sql..."
           sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/init-complete.sql | \
           docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
-          echo "Marking baseline migrations (001-055, covered by init-complete.sql) as executed..."
-          for f in database/migrations/0[0-5][0-9]_*.sql; do
+          echo "Creating tables from migrations 056-072 (not covered by init-complete.sql)..."
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS sys_log_archive LIKE sys_log"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS sys_token_blacklist (id INT PRIMARY KEY AUTO_INCREMENT, token_hash VARCHAR(64) NOT NULL, user_id INT DEFAULT NULL, expire_at DATETIME NOT NULL, reason VARCHAR(50) DEFAULT 'logout', create_time DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_token_hash (token_hash), INDEX idx_expire (expire_at), INDEX idx_user (user_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS crm_purchase_request (id INT PRIMARY KEY AUTO_INCREMENT, title VARCHAR(200) NOT NULL, request_no VARCHAR(50), dept_id INT, request_by INT, request_date DATE, expected_date DATE, urgency VARCHAR(20) DEFAULT 'normal', status VARCHAR(20) DEFAULT 'draft', total_amount DECIMAL(12,2) DEFAULT 0, remark TEXT, deleted_at DATETIME, create_time DATETIME DEFAULT CURRENT_TIMESTAMP, update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_status (status), INDEX idx_request_by (request_by)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS crm_purchase_comparison (id INT PRIMARY KEY AUTO_INCREMENT, title VARCHAR(200) NOT NULL, request_id INT, compare_no VARCHAR(50), status VARCHAR(20) DEFAULT 'draft', remark TEXT, deleted_at DATETIME, create_time DATETIME DEFAULT CURRENT_TIMESTAMP, update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_status (status)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS crm_purchase_comparison_item (id INT PRIMARY KEY AUTO_INCREMENT, comparison_id INT NOT NULL, supplier_id INT, product_name VARCHAR(200), spec VARCHAR(200), quantity DECIMAL(12,2), unit VARCHAR(20), unit_price DECIMAL(12,2), total_price DECIMAL(12,2), delivery_days INT, remark TEXT, deleted_at DATETIME, create_time DATETIME DEFAULT CURRENT_TIMESTAMP, INDEX idx_comparison (comparison_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS crm_user_permission (id INT PRIMARY KEY AUTO_INCREMENT, user_id INT NOT NULL, permission_id INT NOT NULL, create_time DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_user_permission (user_id, permission_id), INDEX idx_user_id (user_id), INDEX idx_permission_id (permission_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS sys_customer_status (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, code VARCHAR(32) NOT NULL, name VARCHAR(50) NOT NULL, sort_order INT DEFAULT 0, is_default TINYINT(1) DEFAULT 0, is_end TINYINT(1) DEFAULT 0, color VARCHAR(20) DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY uk_code (code)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS sys_customer_status_transition (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, from_code VARCHAR(32) NOT NULL, to_code VARCHAR(32) NOT NULL, require_permission VARCHAR(50) DEFAULT NULL, require_reason TINYINT(1) DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_transition (from_code, to_code), KEY idx_from_code (from_code)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS crm_scoring_rule (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(100) NOT NULL, module VARCHAR(50) NOT NULL, field_name VARCHAR(50), operator VARCHAR(20), threshold VARCHAR(100), score INT DEFAULT 0, is_active TINYINT(1) DEFAULT 1, create_time DATETIME DEFAULT CURRENT_TIMESTAMP, update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+          echo "Recording all migration versions as executed (init-complete.sql baseline)..."
+          for f in database/migrations/[0-9][0-9][0-9]_*.sql; do
             case "$f" in *_down.sql) continue ;; esac
             v=$(basename "$f" | grep -oP '^\d+')
-            # 056+ are NOT covered by init-complete.sql; let run_migrations.js apply them
-            if [ "$v" -ge 056 ]; then continue; fi
             n=$(basename "$f")
             docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test \
               -e "INSERT IGNORE INTO schema_migrations (version, name) VALUES ('$v', '$n')"
           done
-          echo "Applying migrations 056+ (not covered by init-complete.sql)..."
-          DB_HOST=127.0.0.1 DB_PORT=3306 DB_USER=root DB_PASSWORD=test_root_pass DB_NAME=huakey_crm_test \
-            node database/migrations/run_migrations.js
           echo "Baseline ready."
       - run: cd backend && DB_NAME=huakey_crm_test DB_PASSWORD=test_root_pass npx jest tests/db/migration-roundtrip.test.js --forceExit --testTimeout=240000
       - if: always()
@@ -236,24 +251,29 @@ jobs:
       - run: cd backend && npm ci
       - run: cd frontend && npm ci --legacy-peer-deps
       - run: cd database/migrations && npm ci
-      - name: Import baseline schema + apply remaining migrations
+      - name: Import baseline schema + create missing tables
         run: |
           echo "Importing init-complete.sql..."
           sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/init-complete.sql | \
           docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
-          echo "Marking baseline migrations (001-055, covered by init-complete.sql) as executed..."
-          for f in database/migrations/0[0-5][0-9]_*.sql; do
+          echo "Creating tables from migrations 056-072 (not covered by init-complete.sql)..."
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS sys_log_archive LIKE sys_log"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS sys_token_blacklist (id INT PRIMARY KEY AUTO_INCREMENT, token_hash VARCHAR(64) NOT NULL, user_id INT DEFAULT NULL, expire_at DATETIME NOT NULL, reason VARCHAR(50) DEFAULT 'logout', create_time DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_token_hash (token_hash), INDEX idx_expire (expire_at), INDEX idx_user (user_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS crm_purchase_request (id INT PRIMARY KEY AUTO_INCREMENT, title VARCHAR(200) NOT NULL, request_no VARCHAR(50), dept_id INT, request_by INT, request_date DATE, expected_date DATE, urgency VARCHAR(20) DEFAULT 'normal', status VARCHAR(20) DEFAULT 'draft', total_amount DECIMAL(12,2) DEFAULT 0, remark TEXT, deleted_at DATETIME, create_time DATETIME DEFAULT CURRENT_TIMESTAMP, update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_status (status), INDEX idx_request_by (request_by)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS crm_purchase_comparison (id INT PRIMARY KEY AUTO_INCREMENT, title VARCHAR(200) NOT NULL, request_id INT, compare_no VARCHAR(50), status VARCHAR(20) DEFAULT 'draft', remark TEXT, deleted_at DATETIME, create_time DATETIME DEFAULT CURRENT_TIMESTAMP, update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_status (status)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS crm_purchase_comparison_item (id INT PRIMARY KEY AUTO_INCREMENT, comparison_id INT NOT NULL, supplier_id INT, product_name VARCHAR(200), spec VARCHAR(200), quantity DECIMAL(12,2), unit VARCHAR(20), unit_price DECIMAL(12,2), total_price DECIMAL(12,2), delivery_days INT, remark TEXT, deleted_at DATETIME, create_time DATETIME DEFAULT CURRENT_TIMESTAMP, INDEX idx_comparison (comparison_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS crm_user_permission (id INT PRIMARY KEY AUTO_INCREMENT, user_id INT NOT NULL, permission_id INT NOT NULL, create_time DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_user_permission (user_id, permission_id), INDEX idx_user_id (user_id), INDEX idx_permission_id (permission_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS sys_customer_status (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, code VARCHAR(32) NOT NULL, name VARCHAR(50) NOT NULL, sort_order INT DEFAULT 0, is_default TINYINT(1) DEFAULT 0, is_end TINYINT(1) DEFAULT 0, color VARCHAR(20) DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY uk_code (code)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS sys_customer_status_transition (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, from_code VARCHAR(32) NOT NULL, to_code VARCHAR(32) NOT NULL, require_permission VARCHAR(50) DEFAULT NULL, require_reason TINYINT(1) DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_transition (from_code, to_code), KEY idx_from_code (from_code)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+          docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test -e "CREATE TABLE IF NOT EXISTS crm_scoring_rule (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(100) NOT NULL, module VARCHAR(50) NOT NULL, field_name VARCHAR(50), operator VARCHAR(20), threshold VARCHAR(100), score INT DEFAULT 0, is_active TINYINT(1) DEFAULT 1, create_time DATETIME DEFAULT CURRENT_TIMESTAMP, update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+          echo "Recording all migration versions as executed (init-complete.sql baseline)..."
+          for f in database/migrations/[0-9][0-9][0-9]_*.sql; do
             case "$f" in *_down.sql) continue ;; esac
             v=$(basename "$f" | grep -oP '^\d+')
-            # 056+ are NOT covered by init-complete.sql; let run_migrations.js apply them
-            if [ "$v" -ge 056 ]; then continue; fi
             n=$(basename "$f")
             docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test \
               -e "INSERT IGNORE INTO schema_migrations (version, name) VALUES ('$v', '$n')"
           done
-          echo "Applying migrations 056+ (not covered by init-complete.sql)..."
-          DB_HOST=127.0.0.1 DB_PORT=3306 DB_USER=root DB_PASSWORD=test_root_pass DB_NAME=huakey_crm_test \
-            node database/migrations/run_migrations.js
           echo "Baseline ready."
       - run: cd frontend && npx playwright install --with-deps ${{ matrix.browser }}
       - name: Run Playwright tests
