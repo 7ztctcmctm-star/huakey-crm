@@ -156,9 +156,8 @@ async function rollback(pool, targetVersion) {
     const downPath = path.join(MIGRATIONS_DIR, downFile)
 
     if (!fs.existsSync(downPath)) {
-      console.error(`  ✗ 回滚文件不存在: ${downFile}`)
-      console.error(`    请创建回滚文件后重试`)
-      process.exit(1)
+      console.warn(`  ⚠ 版本 ${version} 缺少回滚文件: ${downFile}，跳过（迁移不可逆）`)
+      continue
     }
 
     console.log(`  回滚 ${name} (使用 ${downFile}) ...`)
