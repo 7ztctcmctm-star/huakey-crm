@@ -177,3 +177,22 @@ INSERT IGNORE INTO sys_customer_status (code, name, sort_order, is_default, is_e
 INSERT IGNORE INTO sys_customer_status_transition (from_code, to_code, require_permission, require_reason) VALUES
 ('lead', 'following', 0, 0),
 ('lead', 'sea', 0, 0);
+
+-- 089: sys_user 增加 must_change_password + password_changed_at 列
+-- authService.login/getMe 查询依赖这两个列
+SET @has_must_pwd = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND COLUMN_NAME = 'must_change_password');
+SET @sql089a = IF(@has_must_pwd = 0,
+  'ALTER TABLE sys_user ADD COLUMN must_change_password TINYINT NOT NULL DEFAULT 0 COMMENT ''首次登录/重置密码后必须改密(1是0否)''',
+  'SELECT 1');
+PREPARE stmt089a FROM @sql089a; EXECUTE stmt089a; DEALLOCATE PREPARE stmt089a;
+
+SET @has_pwd_ch = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND COLUMN_NAME = 'password_changed_at');
+SET @sql089b = IF(@has_pwd_ch = 0,
+  'ALTER TABLE sys_user ADD COLUMN password_changed_at DATETIME DEFAULT NULL COMMENT ''密码最后修改时间''',
+  'SELECT 1');
+PREPARE stmt089b FROM @sql089b; EXECUTE stmt089b; DEALLOCATE PREPARE stmt089b;
+
+-- 为已有账号设置 password_changed_at（避免历史账号被误判为首次登录）
+UPDATE sys_user SET password_changed_at = NOW() WHERE password_changed_at IS NULL;
