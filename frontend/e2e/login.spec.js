@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test'
 // 默认测试账号，可通过环境变量覆盖
 const TEST_USER = {
   username: process.env.E2E_USERNAME || 'admin',
-  password: process.env.E2E_PASSWORD || 'Admin@123'
+  password: process.env.E2E_PASSWORD || 'huakey123'
 }
 
 test.describe('登录页面', () => {

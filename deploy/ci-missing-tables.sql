@@ -211,8 +211,8 @@ SET @sql079b = IF(@idx_quote_id = 0,
   'SELECT 1');
 PREPARE stmt079b FROM @sql079b; EXECUTE stmt079b; DEALLOCATE PREPARE stmt079b;
 
--- E2E 测试用户: admin / Admin@123 (supertest + Playwright 共用)
+-- E2E 测试用户: admin / huakey123 (supertest + Playwright 共用)
 INSERT IGNORE INTO sys_role (name, code, description, status, view_all, manage_all)
 VALUES ('超级管理员', 'super_admin', '系统超级管理员', 1, 1, 1);
 INSERT IGNORE INTO sys_user (username, password, real_name, role_id, status)
-VALUES ('admin', '$2b$10$xos2wvNOQ5658wFzx27sBeU.3vHziQ9/4a/RXpd/AN82td/5Tq4QC', '管理员', 1, 1);
+VALUES ('admin', '$2b$10$8RTmG9jYHzGjVU04QdVwEunqICJxJXtFIpC6Pqlch3LaDhf2GRUYe', '管理员', 1, 1);

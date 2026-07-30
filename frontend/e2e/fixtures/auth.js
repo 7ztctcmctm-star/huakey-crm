@@ -5,7 +5,7 @@ const API_BASE_URL = process.env.VITE_API_BASE_URL || '/api/v1'
 // 默认测试账号（需与 seeds/init-complete.sql 中初始账号一致）
 const DEFAULT_TEST_USER = {
   username: process.env.E2E_USERNAME || 'admin',
-  password: process.env.E2E_PASSWORD || 'Admin@123'
+  password: process.env.E2E_PASSWORD || 'huakey123'
 }
 
 /**
