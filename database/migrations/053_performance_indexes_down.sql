@@ -78,10 +78,7 @@ SET @idx_exists = (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABL
 SET @sql = IF(@idx_exists > 0, 'DROP INDEX idx_opp_owner ON crm_opportunity', 'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- crm_service_order
-SET @idx_exists = (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='crm_service_order' AND INDEX_NAME='idx_service_customer');
-SET @sql = IF(@idx_exists > 0, 'DROP INDEX idx_service_customer ON crm_service_order', 'SELECT 1');
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+-- crm_service_order (idx_service_customer is used by a FK — skip, cannot drop)
 
 SET @idx_exists = (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='crm_service_order' AND INDEX_NAME='idx_service_status');
 SET @sql = IF(@idx_exists > 0, 'DROP INDEX idx_service_status ON crm_service_order', 'SELECT 1');

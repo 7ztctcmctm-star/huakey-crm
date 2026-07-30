@@ -211,6 +211,49 @@ SET @sql079b = IF(@idx_quote_id = 0,
   'SELECT 1');
 PREPARE stmt079b FROM @sql079b; EXECUTE stmt079b; DEALLOCATE PREPARE stmt079b;
 
+-- 076: crm_follow_up 新增字段 (077_down.sql rollback 依赖)
+SET @col_is_plan = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_follow_up' AND COLUMN_NAME = 'is_plan');
+SET @sql076a = IF(@col_is_plan = 0,
+  "ALTER TABLE crm_follow_up ADD COLUMN is_plan TINYINT(1) NOT NULL DEFAULT 0",
+  'SELECT 1');
+PREPARE stmt076a FROM @sql076a; EXECUTE stmt076a; DEALLOCATE PREPARE stmt076a;
+
+SET @col_spid = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_follow_up' AND COLUMN_NAME = 'source_plan_id');
+SET @sql076b = IF(@col_spid = 0,
+  'ALTER TABLE crm_follow_up ADD COLUMN source_plan_id INT DEFAULT NULL',
+  'SELECT 1');
+PREPARE stmt076b FROM @sql076b; EXECUTE stmt076b; DEALLOCATE PREPARE stmt076b;
+
+-- 071: crm_contact.is_primary (071_down.sql rollback 依赖)
+SET @col_primary = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contact' AND COLUMN_NAME = 'is_primary');
+SET @sql071 = IF(@col_primary = 0,
+  'ALTER TABLE crm_contact ADD COLUMN is_primary TINYINT(1) NOT NULL DEFAULT 0',
+  'SELECT 1');
+PREPARE stmt071 FROM @sql071; EXECUTE stmt071; DEALLOCATE PREPARE stmt071;
+SET @idx_primary = (SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contact' AND INDEX_NAME = 'idx_contact_primary');
+SET @sql071b = IF(@idx_primary = 0,
+  'CREATE INDEX idx_contact_primary ON crm_contact(is_primary)',
+  'SELECT 1');
+PREPARE stmt071b FROM @sql071b; EXECUTE stmt071b; DEALLOCATE PREPARE stmt071b;
+
+-- 074: crm_customer.original_lead_id (074_down.sql rollback 依赖)
+SET @col_olid = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_customer' AND COLUMN_NAME = 'original_lead_id');
+SET @sql074 = IF(@col_olid = 0,
+  'ALTER TABLE crm_customer ADD COLUMN original_lead_id INT DEFAULT NULL',
+  'SELECT 1');
+PREPARE stmt074 FROM @sql074; EXECUTE stmt074; DEALLOCATE PREPARE stmt074;
+SET @idx_olid = (SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_customer' AND INDEX_NAME = 'idx_original_lead_id');
+SET @sql074b = IF(@idx_olid = 0,
+  'CREATE INDEX idx_original_lead_id ON crm_customer(original_lead_id)',
+  'SELECT 1');
+PREPARE stmt074b FROM @sql074b; EXECUTE stmt074b; DEALLOCATE PREPARE stmt074b;
+
 -- E2E 测试用户: admin / huakey123 (supertest + Playwright 共用)
 INSERT IGNORE INTO sys_role (name, code, description, status, view_all, manage_all)
 VALUES ('超级管理员', 'super_admin', '系统超级管理员', 1, 1, 1);
