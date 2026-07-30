@@ -248,10 +248,13 @@ apiRouter.get('/health', async (req, res) => {
     if (rows && rows[0]) mysqlVersion = 'MySQL ' + rows[0].v;
   } catch { /* ok */ }
 
-  // 检测Redis
+  // 检测Redis（仅当显式启用时才要求 Redis 可用）
   try {
     const { redis, REDIS_ENABLED } = require('./config/redis');
-    if (REDIS_ENABLED && redis) {
+    const redisEnabled = REDIS_ENABLED === 'true' || REDIS_ENABLED === true;
+    if (!redisEnabled) {
+      redisOk = true; // Redis 未启用，不视为故障
+    } else if (redis) {
       await redis.ping();
       redisOk = true;
     }
