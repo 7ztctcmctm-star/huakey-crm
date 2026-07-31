@@ -1,4 +1,4 @@
-ï»¿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -32,35 +32,38 @@ const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-describe('ç¤¾äº¤è®°å½•æ¨¡å—', () => {
+describe('Éç½»¼ÇÂ¼Ä£¿é', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('POST /api/v1/social/records', () => {
-    it('åº”è¯¥è¿”å›ž400å½“ç¼ºå°‘platform', async () => {
+    it('Ó¦¸Ã·µ»Ø400µ±È±ÉÙplatform', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/v1/social/records')
         .set('Authorization', `Bearer ${token}`)
-        .send({ direction: 'outbound', content: 'æµ‹è¯•æ¶ˆæ¯' });
+        .send({ direction: 'outbound', content: '²âÊÔÏûÏ¢' });
 
       expect(res.status).toBe(400);
       expect(res.body.code).toBe(400);
     });
 
-    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸åˆ›å»ºæ²Ÿé€šè®°å½•', async () => {
+    it('Ó¦¸Ã·µ»Ø200µ±Õý³£´´½¨¹µÍ¨¼ÇÂ¼', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
         .post('/api/v1/social/records')
         .set('Authorization', `Bearer ${token}`)
-        .send({ customer_id: 1, platform: 'wechat', direction: 'outbound', content: 'ä½ å¥½ï¼Œè¯·é—®æŠ¥ä»·å•æ”¶åˆ°äº†å—ï¼Ÿ' });
+        .send({ customer_id: 1, platform: 'wechat', direction: 'outbound', content: 'ÄãºÃ£¬ÇëÎÊ±¨¼Ûµ¥ÊÕµ½ÁËÂð£¿' });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
@@ -69,14 +72,17 @@ describe('ç¤¾äº¤è®°å½•æ¨¡å—', () => {
   });
 
   describe('GET /api/v1/social/records', () => {
-    it('åº”è¯¥è¿”å›žæ²Ÿé€šè®°å½•åˆ—è¡¨', async () => {
+    it('Ó¦¸Ã·µ»Ø¹µÍ¨¼ÇÂ¼ÁÐ±í', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 2 }]]) // count
         .mockResolvedValueOnce([[ // list
-          { id: 1, platform: 'wechat', content: 'æ¶ˆæ¯1' },
-          { id: 2, platform: 'dingtalk', content: 'æ¶ˆæ¯2' }
+          { id: 1, platform: 'wechat', content: 'ÏûÏ¢1' },
+          { id: 2, platform: 'dingtalk', content: 'ÏûÏ¢2' }
         ]]);
 
       const res = await request(app)
@@ -92,10 +98,13 @@ describe('ç¤¾äº¤è®°å½•æ¨¡å—', () => {
   });
 
   describe('DELETE /api/v1/social/records/:id', () => {
-    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸åˆ é™¤è®°å½•', async () => {
+    it('Ó¦¸Ã·µ»Ø200µ±Õý³£É¾³ý¼ÇÂ¼', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ create_by: 1 }]]) // ownership check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 
@@ -108,8 +117,8 @@ describe('ç¤¾äº¤è®°å½•æ¨¡å—', () => {
     });
   });
 
-  describe('æ— tokenè®¿é—®', () => {
-    it('åº”è¯¥è¿”å›ž401å½“æ— token', async () => {
+  describe('ÎÞtoken·ÃÎÊ', () => {
+    it('Ó¦¸Ã·µ»Ø401µ±ÎÞtoken', async () => {
       const res = await request(app)
         .get('/api/v1/social/records');
 

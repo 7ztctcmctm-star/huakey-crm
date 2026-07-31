@@ -206,7 +206,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build
-        run: docker build -t huakey-crm:ci -f deploy/synology/Dockerfile.synology .
+        run: docker build -t huakey-crm:ci -f Dockerfile.synology .
       - name: Scan image with Trivy
         uses: aquasecurity/trivy-action@v0.36.0
         with:

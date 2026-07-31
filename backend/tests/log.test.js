@@ -1,4 +1,4 @@
-ï»¿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -32,20 +32,23 @@ const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-describe('æ“ä½œæ—¥å¿—æ¨¡å—', () => {
+describe('²Ù×÷ÈÕÖ¾Ä£¿é', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('POST /api/v1/log/list', () => {
-    it('åº”è¯¥è¿”å›ž200å’Œåˆ†é¡µæ—¥å¿—åˆ—è¡¨', async () => {
+    it('Ó¦¸Ã·µ»Ø200ºÍ·ÖÒ³ÈÕÖ¾ÁÐ±í', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 100 }]])  // count query
         .mockResolvedValueOnce([[                     // data query
-          { id: 1, module: 'auth', action: 'ç™»å½•', create_time: '2025-01-01' },
-          { id: 2, module: 'customer', action: 'æ–°å¢žå®¢æˆ·', create_time: '2025-01-02' }
+          { id: 1, module: 'auth', action: 'µÇÂ¼', create_time: '2025-01-01' },
+          { id: 2, module: 'customer', action: 'ÐÂÔö¿Í»§', create_time: '2025-01-02' }
         ]]);
 
       const res = await request(app)
@@ -61,12 +64,15 @@ describe('æ“ä½œæ—¥å¿—æ¨¡å—', () => {
       expect(Array.isArray(res.body.data.list)).toBe(true);
     });
 
-    it('åº”è¯¥æ”¯æŒæŒ‰æ¨¡å—ç­›é€‰', async () => {
+    it('Ó¦¸ÃÖ§³Ö°´Ä£¿éÉ¸Ñ¡', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 5 }]])
-        .mockResolvedValueOnce([[{ id: 1, module: 'auth', action: 'ç™»å½•' }]]);
+        .mockResolvedValueOnce([[{ id: 1, module: 'auth', action: 'µÇÂ¼' }]]);
 
       const res = await request(app)
         .post('/api/v1/log/list')
@@ -77,12 +83,15 @@ describe('æ“ä½œæ—¥å¿—æ¨¡å—', () => {
       expect(res.body.code).toBe(200);
     });
 
-    it('åº”è¯¥æ”¯æŒæŒ‰æ—¥æœŸèŒƒå›´ç­›é€‰', async () => {
+    it('Ó¦¸ÃÖ§³Ö°´ÈÕÆÚ·¶Î§É¸Ñ¡', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 3 }]])
-        .mockResolvedValueOnce([[{ id: 1, module: 'customer', action: 'æ–°å¢ž' }]]);
+        .mockResolvedValueOnce([[{ id: 1, module: 'customer', action: 'ÐÂÔö' }]]);
 
       const res = await request(app)
         .post('/api/v1/log/list')
@@ -95,10 +104,13 @@ describe('æ“ä½œæ—¥å¿—æ¨¡å—', () => {
   });
 
   describe('GET /api/v1/log/detail/:id', () => {
-    it('åº”è¯¥è¿”å›ž404å½“æ—¥å¿—ä¸å­˜åœ¨', async () => {
+    it('Ó¦¸Ã·µ»Ø404µ±ÈÕÖ¾²»´æÔÚ', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[]]); // log not found
 
       const res = await request(app)
@@ -109,12 +121,15 @@ describe('æ“ä½œæ—¥å¿—æ¨¡å—', () => {
       expect(res.body.code).toBe(404);
     });
 
-    it('åº”è¯¥è¿”å›ž200å’Œæ—¥å¿—è¯¦æƒ…', async () => {
+    it('Ó¦¸Ã·µ»Ø200ºÍÈÕÖ¾ÏêÇé', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[
-          { id: 1, module: 'auth', action: 'ç™»å½•', method: 'POST', url: '/api/v1/auth/login', user_name: 'ç®¡ç†å‘˜', ip_address: '127.0.0.1', status: 1, create_time: '2025-01-01 10:00:00' }
+          { id: 1, module: 'auth', action: 'µÇÂ¼', method: 'POST', url: '/api/v1/auth/login', user_name: '¹ÜÀíÔ±', ip_address: '127.0.0.1', status: 1, create_time: '2025-01-01 10:00:00' }
         ]]);
 
       const res = await request(app)
@@ -124,15 +139,18 @@ describe('æ“ä½œæ—¥å¿—æ¨¡å—', () => {
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
       expect(res.body.data).toHaveProperty('module', 'auth');
-      expect(res.body.data).toHaveProperty('action', 'ç™»å½•');
+      expect(res.body.data).toHaveProperty('action', 'µÇÂ¼');
     });
   });
 
   describe('GET /api/v1/log/modules', () => {
-    it('åº”è¯¥è¿”å›ž200å’Œæ¨¡å—åˆ—è¡¨', async () => {
+    it('Ó¦¸Ã·µ»Ø200ºÍÄ£¿éÁÐ±í', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ module: 'auth' }, { module: 'customer' }, { module: 'contract' }]]);
 
       const res = await request(app)

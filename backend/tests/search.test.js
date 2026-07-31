@@ -1,4 +1,4 @@
-ï»¿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -38,13 +38,13 @@ const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-describe('å…¨å±€æœç´¢æ¨¡å—', () => {
+describe('È«¾ÖËÑË÷Ä£¿é', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('GET /api/v1/search/global', () => {
-    it('åº”è¯¥è¿”å›ž400å½“keywordä¸ºç©º', async () => {
+    it('Ó¦¸Ã·µ»Ø400µ±keywordÎª¿Õ', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
@@ -56,7 +56,7 @@ describe('å…¨å±€æœç´¢æ¨¡å—', () => {
       expect(res.status).toBe(400);
     });
 
-    it('åº”è¯¥è¿”å›ž400å½“keywordå°‘äºŽ2å­—ç¬¦', async () => {
+    it('Ó¦¸Ã·µ»Ø400µ±keywordÉÙÓÚ2×Ö·û', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
@@ -68,7 +68,7 @@ describe('å…¨å±€æœç´¢æ¨¡å—', () => {
       expect(res.status).toBe(400);
     });
 
-    it('åº”è¯¥è¿”å›ž400å½“keywordè¶…è¿‡100å­—ç¬¦', async () => {
+    it('Ó¦¸Ã·µ»Ø400µ±keyword³¬¹ý100×Ö·û', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
@@ -80,11 +80,14 @@ describe('å…¨å±€æœç´¢æ¨¡å—', () => {
       expect(res.status).toBe(400);
     });
 
-    it('åº”è¯¥è¿”å›ž200å½“æœç´¢å®¢æˆ·åŒ¹é…', async () => {
+    it('Ó¦¸Ã·µ»Ø200µ±ËÑË÷¿Í»§Æ¥Åä', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ id: 1, company_name: 'æµ‹è¯•å…¬å¸', contact_name: 'å¼ ä¸‰', phone: '13800138000', level: 'A' }]]) // customers
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, company_name: '²âÊÔ¹«Ë¾', contact_name: 'ÕÅÈý', phone: '13800138000', level: 'A' }]]) // customers
         .mockResolvedValueOnce([[]]) // contracts
         .mockResolvedValueOnce([[]]) // opportunities
         .mockResolvedValueOnce([[]]); // quotes
@@ -92,18 +95,21 @@ describe('å…¨å±€æœç´¢æ¨¡å—', () => {
       const res = await request(app)
         .get('/api/v1/search/global')
         .set('Authorization', `Bearer ${token}`)
-        .query({ keyword: 'æµ‹è¯•' });
+        .query({ keyword: '²âÊÔ' });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
       expect(res.body.data.customers).toHaveLength(1);
-      expect(res.body.data.customers[0].company_name).toBe('æµ‹è¯•å…¬å¸');
+      expect(res.body.data.customers[0].company_name).toBe('²âÊÔ¹«Ë¾');
     });
 
-    it('åº”è¯¥è¿”å›ž200å½“æœç´¢æ— åŒ¹é…è¿”å›žç©ºç»“æžœ', async () => {
+    it('Ó¦¸Ã·µ»Ø200µ±ËÑË÷ÎÞÆ¥Åä·µ»Ø¿Õ½á¹û', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[]]) // customers
         .mockResolvedValueOnce([[]]) // contracts
         .mockResolvedValueOnce([[]]) // opportunities
@@ -112,7 +118,7 @@ describe('å…¨å±€æœç´¢æ¨¡å—', () => {
       const res = await request(app)
         .get('/api/v1/search/global')
         .set('Authorization', `Bearer ${token}`)
-        .query({ keyword: 'ä¸å­˜åœ¨çš„å…³é”®è¯' });
+        .query({ keyword: '²»´æÔÚµÄ¹Ø¼ü´Ê' });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
@@ -122,10 +128,10 @@ describe('å…¨å±€æœç´¢æ¨¡å—', () => {
       expect(res.body.data.quotes).toHaveLength(0);
     });
 
-    it('åº”è¯¥è¿”å›ž401å½“æ— token', async () => {
+    it('Ó¦¸Ã·µ»Ø401µ±ÎÞtoken', async () => {
       const res = await request(app)
         .get('/api/v1/search/global')
-        .query({ keyword: 'æµ‹è¯•' });
+        .query({ keyword: '²âÊÔ' });
 
       expect(res.status).toBe(401);
     });

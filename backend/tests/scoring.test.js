@@ -59,6 +59,8 @@ describe('评分规则模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
@@ -77,6 +79,8 @@ describe('评分规则模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
         .mockResolvedValueOnce([[ // rules list
           { id: 1, name: '官网来源加分', condition_type: 'source', score: 10 },
           { id: 2, name: '多次跟进加分', condition_type: 'action', score: 5 }
@@ -97,6 +101,8 @@ describe('评分规则模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
         .mockResolvedValueOnce([[{ id: 1 }]]) // existing check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
 
@@ -115,6 +121,8 @@ describe('评分规则模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 
       const res = await request(app)

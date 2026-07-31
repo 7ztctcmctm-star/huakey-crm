@@ -87,6 +87,8 @@ describe('用户管理模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
         .mockResolvedValueOnce([[{ id: 99 }]]); // user exists
 
       const res = await request(app)
@@ -103,6 +105,8 @@ describe('用户管理模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
         .mockResolvedValueOnce([[]])  // username not exists
         .mockResolvedValueOnce([{ insertId: 10 }]);
 
@@ -137,6 +141,8 @@ describe('用户管理模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
         .mockResolvedValueOnce([[{ id: 2 }]])  // user exists
         .mockResolvedValueOnce([{ affectedRows: 1 }]);
 
@@ -188,6 +194,8 @@ describe('用户管理模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
         .mockResolvedValueOnce([[{ id: 2, manager_id: 3 }]]); // user exists with manager
 
       mockConnection.query

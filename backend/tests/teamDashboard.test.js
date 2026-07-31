@@ -1,4 +1,4 @@
-ï»¿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -37,16 +37,19 @@ const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, manageAll: true, viewAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-describe('å›¢é˜Ÿä»ªè¡¨ç›˜æ¨¡å—', () => {
+describe('ÍÅ¶ÓÒÇ±íÅÌÄ£¿é', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('GET /api/v1/team-dashboard/overview', () => {
-    it('åº”è¯¥è¿”å›žæ¦‚è§ˆæ•°æ®', async () => {
+    it('Ó¦¸Ã·µ»Ø¸ÅÀÀÊý¾Ý', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ count: 100 }]]) // totalCustomers
         .mockResolvedValueOnce([[{ count: 5 }]]) // weekNew
         .mockResolvedValueOnce([[{ count: 20, total_amount: '500000' }]]) // activeOpps
@@ -68,13 +71,16 @@ describe('å›¢é˜Ÿä»ªè¡¨ç›˜æ¨¡å—', () => {
   });
 
   describe('GET /api/v1/team-dashboard/sales-breakdown', () => {
-    it('åº”è¯¥è¿”å›žé”€å”®åˆ†è§£æ•°æ®', async () => {
+    it('Ó¦¸Ã·µ»ØÏúÊÛ·Ö½âÊý¾Ý', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // salesUsers
-          { id: 1, real_name: 'å¼ ä¸‰', username: 'zhangsan', dept_name: 'é”€å”®éƒ¨' },
-          { id: 2, real_name: 'æŽå››', username: 'lisi', dept_name: 'é”€å”®éƒ¨' }
+          { id: 1, real_name: 'ÕÅÈý', username: 'zhangsan', dept_name: 'ÏúÊÛ²¿' },
+          { id: 2, real_name: 'ÀîËÄ', username: 'lisi', dept_name: 'ÏúÊÛ²¿' }
         ]])
         .mockResolvedValueOnce([[ // aggStats
           { user_id: 1, customer_count: 30, active_opp_count: 5, active_opp_amount: '200000', contract_amount: '100000', payment_amount: '80000', no_follow_count: 3 },
@@ -101,13 +107,16 @@ describe('å›¢é˜Ÿä»ªè¡¨ç›˜æ¨¡å—', () => {
   });
 
   describe('GET /api/v1/team-dashboard/pending-approvals', () => {
-    it('åº”è¯¥è¿”å›žå¾…å®¡æ‰¹åˆ—è¡¨', async () => {
+    it('Ó¦¸Ã·µ»Ø´ýÉóÅúÁÐ±í', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // notifications
-          { id: 1, type: 'quote_approval', business_type: 'quote', business_id: 1, content: 'æŠ¥ä»·å®¡æ‰¹', from_user_name: 'å¼ ä¸‰' },
-          { id: 2, type: 'contract_approval', business_type: 'contract', business_id: 1, content: 'åˆåŒå®¡æ‰¹', from_user_name: 'æŽå››' }
+          { id: 1, type: 'quote_approval', business_type: 'quote', business_id: 1, content: '±¨¼ÛÉóÅú', from_user_name: 'ÕÅÈý' },
+          { id: 2, type: 'contract_approval', business_type: 'contract', business_id: 1, content: 'ºÏÍ¬ÉóÅú', from_user_name: 'ÀîËÄ' }
         ]])
         .mockResolvedValueOnce([[{ quote_no: 'Q-001', final_amount: 50000 }]]) // quote detail
         .mockResolvedValueOnce([[{ contract_no: 'C-001', amount: 100000 }]]); // contract detail
@@ -123,12 +132,15 @@ describe('å›¢é˜Ÿä»ªè¡¨ç›˜æ¨¡å—', () => {
   });
 
   describe('GET /api/v1/team-dashboard/stuck-opportunities', () => {
-    it('åº”è¯¥è¿”å›žå¡ä½å•†æœºåˆ—è¡¨', async () => {
+    it('Ó¦¸Ã·µ»Ø¿¨×¡ÉÌ»úÁÐ±í', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // stuck opportunities
-          { id: 1, name: 'å¤§é¡¹ç›®å•†æœº', stage: 3, expected_amount: 200000, stuck_days: 21, customer_name: 'æµ‹è¯•å…¬å¸', owner_name: 'å¼ ä¸‰' }
+          { id: 1, name: '´óÏîÄ¿ÉÌ»ú', stage: 3, expected_amount: 200000, stuck_days: 21, customer_name: '²âÊÔ¹«Ë¾', owner_name: 'ÕÅÈý' }
         ]]);
 
       const res = await request(app)
@@ -142,8 +154,8 @@ describe('å›¢é˜Ÿä»ªè¡¨ç›˜æ¨¡å—', () => {
     });
   });
 
-  describe('æ— tokenè®¿é—®', () => {
-    it('åº”è¯¥è¿”å›ž401å½“æ— token', async () => {
+  describe('ÎÞtoken·ÃÎÊ', () => {
+    it('Ó¦¸Ã·µ»Ø401µ±ÎÞtoken', async () => {
       const res = await request(app)
         .get('/api/v1/team-dashboard/overview');
 

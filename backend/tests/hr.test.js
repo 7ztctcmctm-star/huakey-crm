@@ -1,4 +1,4 @@
-ï»¿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -33,20 +33,23 @@ const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-describe('äººåŠ›èµ„æºæ¨¡å—', () => {
+describe('ÈËÁ¦×ÊÔ´Ä£¿é', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('GET /api/v1/hr/employees', () => {
-    it('åº”è¯¥è¿”å›žå‘˜å·¥åˆ—è¡¨', async () => {
+    it('Ó¦¸Ã·µ»ØÔ±¹¤ÁÐ±í', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // 1. blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 2 }]]) // 2. count
         .mockResolvedValueOnce([[ // 3. employee list
-          { id: 1, real_name: 'å¼ ä¸‰', username: 'zhangsan', dept_name: 'é”€å”®éƒ¨', role_name: 'é”€å”®', hire_date: '2024-01-15' },
-          { id: 2, real_name: 'æŽå››', username: 'lisi', dept_name: 'æŠ€æœ¯éƒ¨', role_name: 'æŠ€æœ¯', hire_date: '2024-03-01' }
+          { id: 1, real_name: 'ÕÅÈý', username: 'zhangsan', dept_name: 'ÏúÊÛ²¿', role_name: 'ÏúÊÛ', hire_date: '2024-01-15' },
+          { id: 2, real_name: 'ÀîËÄ', username: 'lisi', dept_name: '¼¼Êõ²¿', role_name: '¼¼Êõ', hire_date: '2024-03-01' }
         ]])
         .mockResolvedValueOnce([[{ expiring: 1 }]]); // 4. expiring contracts count
 
@@ -63,11 +66,14 @@ describe('äººåŠ›èµ„æºæ¨¡å—', () => {
   });
 
   describe('GET /api/v1/hr/employees/:id', () => {
-    it('åº”è¯¥è¿”å›žå‘˜å·¥è¯¦æƒ…', async () => {
+    it('Ó¦¸Ã·µ»ØÔ±¹¤ÏêÇé', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ id: 1, real_name: 'å¼ ä¸‰', dept_name: 'é”€å”®éƒ¨', hire_date: '2024-01-15', position: 'é”€å”®ç»ç†' }]]); // employee detail
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, real_name: 'ÕÅÈý', dept_name: 'ÏúÊÛ²¿', hire_date: '2024-01-15', position: 'ÏúÊÛ¾­Àí' }]]); // employee detail
 
       const res = await request(app)
         .get('/api/v1/hr/employees/1')
@@ -75,15 +81,18 @@ describe('äººåŠ›èµ„æºæ¨¡å—', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
-      expect(res.body.data.real_name).toBe('å¼ ä¸‰');
+      expect(res.body.data.real_name).toBe('ÕÅÈý');
     });
   });
 
   describe('POST /api/v1/hr/employees/:id/profile', () => {
-    it('åº”è¯¥è¿”å›ž400å½“æ²¡æœ‰è¦æ›´æ–°çš„å­—æ®µ', async () => {
+    it('Ó¦¸Ã·µ»Ø400µ±Ã»ÓÐÒª¸üÐÂµÄ×Ö¶Î', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ id: 1 }]]); // user exists check
 
       const res = await request(app)
@@ -95,17 +104,20 @@ describe('äººåŠ›èµ„æºæ¨¡å—', () => {
       expect(res.body.code).toBe(400);
     });
 
-    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸åˆ›å»ºå‘˜å·¥æ¡£æ¡ˆ', async () => {
+    it('Ó¦¸Ã·µ»Ø200µ±Õý³£´´½¨Ô±¹¤µµ°¸', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ id: 1 }]]) // user exists check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // insert/update profile
 
       const res = await request(app)
         .post('/api/v1/hr/employees/1/profile')
         .set('Authorization', `Bearer ${token}`)
-        .send({ hire_date: '2024-01-15', position: 'é”€å”®ç»ç†', employment_type: 'å…¨èŒ', salary_base: 8000 });
+        .send({ hire_date: '2024-01-15', position: 'ÏúÊÛ¾­Àí', employment_type: 'È«Ö°', salary_base: 8000 });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
@@ -113,13 +125,16 @@ describe('äººåŠ›èµ„æºæ¨¡å—', () => {
   });
 
   describe('GET /api/v1/hr/org-tree', () => {
-    it('åº”è¯¥è¿”å›žç»„ç»‡æž¶æž„æ ‘', async () => {
+    it('Ó¦¸Ã·µ»Ø×éÖ¯¼Ü¹¹Ê÷', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // departments
-          { id: 1, name: 'æ€»å…¬å¸', parent_id: null, sort: 1, employee_count: 10, manager_name: 'å¼ ä¸‰' },
-          { id: 2, name: 'é”€å”®éƒ¨', parent_id: 1, sort: 1, employee_count: 5, manager_name: 'æŽå››' }
+          { id: 1, name: '×Ü¹«Ë¾', parent_id: null, sort: 1, employee_count: 10, manager_name: 'ÕÅÈý' },
+          { id: 2, name: 'ÏúÊÛ²¿', parent_id: 1, sort: 1, employee_count: 5, manager_name: 'ÀîËÄ' }
         ]])
         .mockResolvedValueOnce([[{ cnt: 2 }]]) // total depts
         .mockResolvedValueOnce([[{ cnt: 10 }]]); // total employees
@@ -136,8 +151,8 @@ describe('äººåŠ›èµ„æºæ¨¡å—', () => {
     });
   });
 
-  describe('æ— tokenè®¿é—®', () => {
-    it('åº”è¯¥è¿”å›ž401å½“æ— token', async () => {
+  describe('ÎÞtoken·ÃÎÊ', () => {
+    it('Ó¦¸Ã·µ»Ø401µ±ÎÞtoken', async () => {
       const res = await request(app)
         .get('/api/v1/hr/employees');
 

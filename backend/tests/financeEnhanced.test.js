@@ -1,4 +1,4 @@
-ï»¿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -32,22 +32,25 @@ const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-describe('è´¢åŠ¡å¢žå¼ºæ¨¡å—', () => {
+describe('²ÆÎñÔöÇ¿Ä£¿é', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('GET /api/v1/finance/reconciliation/customer', () => {
-    it('åº”è¯¥è¿”å›žå®¢æˆ·å¯¹è´¦æ•°æ®', async () => {
+    it('Ó¦¸Ã·µ»Ø¿Í»§¶ÔÕËÊý¾Ý', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ id: 1, company_name: 'æµ‹è¯•å…¬å¸', contact_name: 'å¼ ä¸‰', phone: '13800138000' }]]) // customer
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, company_name: '²âÊÔ¹«Ë¾', contact_name: 'ÕÅÈý', phone: '13800138000' }]]) // customer
         .mockResolvedValueOnce([[ // contracts
           { id: 1, contract_no: 'C-001', amount: 100000, sign_date: '2026-01-15', status: 2 }
         ]])
         .mockResolvedValueOnce([[ // payments
-          { id: 1, pay_amount: 50000, pay_date: '2026-02-01', pay_method: 'é“¶è¡Œè½¬è´¦', contract_no: 'C-001' }
+          { id: 1, pay_amount: 50000, pay_date: '2026-02-01', pay_method: 'ÒøÐÐ×ªÕË', contract_no: 'C-001' }
         ]]);
 
       const res = await request(app)
@@ -57,7 +60,7 @@ describe('è´¢åŠ¡å¢žå¼ºæ¨¡å—', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
-      expect(res.body.data.customer.company_name).toBe('æµ‹è¯•å…¬å¸');
+      expect(res.body.data.customer.company_name).toBe('²âÊÔ¹«Ë¾');
       expect(res.body.data.contracts).toHaveLength(1);
       expect(res.body.data.payments).toHaveLength(1);
       expect(res.body.data.summary.total_amount).toBe(100000);
@@ -66,13 +69,16 @@ describe('è´¢åŠ¡å¢žå¼ºæ¨¡å—', () => {
   });
 
   describe('GET /api/v1/finance/reconciliation/list', () => {
-    it('åº”è¯¥è¿”å›žå¯¹è´¦å•åˆ—è¡¨', async () => {
+    it('Ó¦¸Ã·µ»Ø¶ÔÕËµ¥ÁÐ±í', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[ // list
-          { id: 1, recon_no: 'RC-20260623-001', recon_type: 'customer', target_name: 'æµ‹è¯•å…¬å¸', total_amount: 100000 }
+          { id: 1, recon_no: 'RC-20260623-001', recon_type: 'customer', target_name: '²âÊÔ¹«Ë¾', total_amount: 100000 }
         ]]);
 
       const res = await request(app)
@@ -88,15 +94,18 @@ describe('è´¢åŠ¡å¢žå¼ºæ¨¡å—', () => {
   });
 
   describe('GET /api/v1/finance/analysis', () => {
-    it('åº”è¯¥è¿”å›žè´¢åŠ¡åˆ†æžæ•°æ®', async () => {
+    it('Ó¦¸Ã·µ»Ø²ÆÎñ·ÖÎöÊý¾Ý', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 500000 }]]) // income
         .mockResolvedValueOnce([[{ total: 300000 }]]) // cost
         .mockResolvedValueOnce([[ // cost structure
-          { name: 'ç”Ÿäº§', value: 200000 },
-          { name: 'è´¸æ˜“', value: 100000 }
+          { name: 'Éú²ú', value: 200000 },
+          { name: 'Ã³Ò×', value: 100000 }
         ]])
         .mockResolvedValueOnce([[ // receivables
           { id: 1, amount: 100000, paid: 50000, age_days: 45 }
@@ -125,10 +134,13 @@ describe('è´¢åŠ¡å¢žå¼ºæ¨¡å—', () => {
   });
 
   describe('GET /api/v1/finance/reminders/summary', () => {
-    it('åº”è¯¥è¿”å›žå›žæ¬¾æé†’æ±‡æ€»', async () => {
+    it('Ó¦¸Ã·µ»Ø»Ø¿îÌáÐÑ»ã×Ü', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ today_pending: 3 }]]) // today pending
         .mockResolvedValueOnce([[{ upcoming: 5 }]]) // upcoming
         .mockResolvedValueOnce([[{ overdue: 2 }]]) // overdue
@@ -145,8 +157,8 @@ describe('è´¢åŠ¡å¢žå¼ºæ¨¡å—', () => {
     });
   });
 
-  describe('æ— tokenè®¿é—®', () => {
-    it('åº”è¯¥è¿”å›ž401å½“æ— token', async () => {
+  describe('ÎÞtoken·ÃÎÊ', () => {
+    it('Ó¦¸Ã·µ»Ø401µ±ÎÞtoken', async () => {
       const res = await request(app)
         .get('/api/v1/finance/analysis');
 

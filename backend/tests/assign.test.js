@@ -71,6 +71,8 @@ describe('客户分配模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
         .mockResolvedValueOnce([[{ id: 1, owner_id: 3, company_name: '测试公司' }]]) // customer lookup
         .mockResolvedValueOnce([{ affectedRows: 1 }]) // update owner
         .mockResolvedValueOnce([{ insertId: 1 }]); // assign_log insert
@@ -88,6 +90,8 @@ describe('客户分配模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
         .mockResolvedValueOnce([[{ id: 1, owner_id: 3, company_name: '测试公司' }]]) // customer lookup
         .mockResolvedValueOnce([{ affectedRows: 1 }]) // update owner
         .mockResolvedValueOnce([{ insertId: 1 }]); // assign_log insert
@@ -144,6 +148,8 @@ describe('客户分配模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[{ id: 1, customer_id: 1, from_user_id: 3, to_user_id: 2 }]]); // list
 
@@ -186,6 +192,8 @@ describe('客户分配模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
         .mockResolvedValueOnce([[{ id: 1, pool_status: 1, pool_type: 'public', protect_until: null, owner_id: null }]]) // customer lookup
         .mockResolvedValueOnce([{ affectedRows: 1 }]) // update
         .mockResolvedValueOnce([{ insertId: 1 }]); // pool_log insert
@@ -218,6 +226,8 @@ describe('客户分配模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
         .mockResolvedValueOnce([[{ id: 1, owner_id: 1, company_name: '测试公司' }]]) // customer lookup
         .mockResolvedValueOnce([{ affectedRows: 1 }]) // update
         .mockResolvedValueOnce([{ insertId: 1 }]) // pool_log insert

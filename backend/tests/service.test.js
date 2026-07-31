@@ -1,4 +1,4 @@
-Ôªøconst request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -31,13 +31,13 @@ const generateToken = () => {
   );
 };
 
-describe('ÂîÆÂêéÊ®°Âùó', () => {
+describe(' €∫Ûƒ£øÈ', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('GET /api/v1/service/types', () => {
-    it('Â∫îËØ•ËøîÂõû200ÂíåÊúçÂä°Á±ªÂûãÂàóË°®', async () => {
+    it('”¶∏√∑µªÿ200∫Õ∑˛ŒÒ¿‡–Õ¡–±Ì', async () => {
       const res = await request(app)
         .get('/api/v1/service/types')
         .set('Authorization', `Bearer ${token}`);
@@ -50,12 +50,15 @@ describe('ÂîÆÂêéÊ®°Âùó', () => {
   });
 
   describe('POST /api/v1/service/list', () => {
-    it('Â∫îËØ•ËøîÂõû200ÂíåÂ∑•ÂçïÂàóË°®', async () => {
+    it('”¶∏√∑µªÿ200∫Õπ§µ•¡–±Ì', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]])  // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 1 }]])
-        .mockResolvedValueOnce([[{ id: 1, order_no: 'SO-001', title: 'ÊµãËØïÂ∑•Âçï', status: 1 }]]);
+        .mockResolvedValueOnce([[{ id: 1, order_no: 'SO-001', title: '≤‚ ‘π§µ•', status: 1 }]]);
 
       const res = await request(app)
         .post('/api/v1/service/list')

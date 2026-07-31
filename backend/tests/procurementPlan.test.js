@@ -1,4 +1,4 @@
-ï»¿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -40,7 +40,7 @@ const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-describe('é‡‡è´­è®¡åˆ’æ¨¡å—', () => {
+describe('²É¹º¼Æ»®Ä£¿é', () => {
   const token = generateToken();
 
   beforeEach(() => {
@@ -53,7 +53,7 @@ describe('é‡‡è´­è®¡åˆ’æ¨¡å—', () => {
   });
 
   describe('POST /api/v1/procurement-plan/create', () => {
-    it('åº”è¯¥è¿”å›ž400å½“ç¼ºå°‘name', async () => {
+    it('Ó¦¸Ã·µ»Ø400µ±È±ÉÙname', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
@@ -66,10 +66,13 @@ describe('é‡‡è´­è®¡åˆ’æ¨¡å—', () => {
       expect(res.body.code).toBe(400);
     });
 
-    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸åˆ›å»ºé‡‡è´­è®¡åˆ’', async () => {
+    it('Ó¦¸Ã·µ»Ø200µ±Õý³£´´½¨²É¹º¼Æ»®', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ cnt: 0 }]]); // generatePlanNo count
 
       mockConnection.query
@@ -79,7 +82,7 @@ describe('é‡‡è´­è®¡åˆ’æ¨¡å—', () => {
       const res = await request(app)
         .post('/api/v1/procurement-plan/create')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: '7æœˆé‡‡è´­è®¡åˆ’', remark: 'è¡¥è´§è®¡åˆ’', items: [{ product_id: 1, quantity: 100, unit_price: 5.5 }] });
+        .send({ name: '7ÔÂ²É¹º¼Æ»®', remark: '²¹»õ¼Æ»®', items: [{ product_id: 1, quantity: 100, unit_price: 5.5 }] });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
@@ -90,14 +93,17 @@ describe('é‡‡è´­è®¡åˆ’æ¨¡å—', () => {
   });
 
   describe('GET /api/v1/procurement-plan/list', () => {
-    it('åº”è¯¥è¿”å›žè®¡åˆ’åˆ—è¡¨', async () => {
+    it('Ó¦¸Ã·µ»Ø¼Æ»®ÁÐ±í', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 2 }]]) // count
         .mockResolvedValueOnce([[ // list
-          { id: 1, plan_no: 'PP-20260701-001', name: '7æœˆé‡‡è´­è®¡åˆ’', status: 'draft' },
-          { id: 2, plan_no: 'PP-20260701-002', name: 'ç´§æ€¥è¡¥è´§', status: 'submitted' }
+          { id: 1, plan_no: 'PP-20260701-001', name: '7ÔÂ²É¹º¼Æ»®', status: 'draft' },
+          { id: 2, plan_no: 'PP-20260701-002', name: '½ô¼±²¹»õ', status: 'submitted' }
         ]]);
 
       const res = await request(app)
@@ -113,10 +119,13 @@ describe('é‡‡è´­è®¡åˆ’æ¨¡å—', () => {
   });
 
   describe('POST /api/v1/procurement-plan/:id/submit', () => {
-    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸æäº¤å®¡æ‰¹', async () => {
+    it('Ó¦¸Ã·µ»Ø200µ±Õý³£Ìá½»ÉóÅú', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ status: 'draft' }]]) // plan check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update status
 
@@ -131,10 +140,13 @@ describe('é‡‡è´­è®¡åˆ’æ¨¡å—', () => {
   });
 
   describe('DELETE /api/v1/procurement-plan/:id', () => {
-    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸åˆ é™¤è®¡åˆ’', async () => {
+    it('Ó¦¸Ã·µ»Ø200µ±Õý³£É¾³ý¼Æ»®', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ status: 'draft' }]]) // plan check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 
@@ -147,8 +159,8 @@ describe('é‡‡è´­è®¡åˆ’æ¨¡å—', () => {
     });
   });
 
-  describe('æ— tokenè®¿é—®', () => {
-    it('åº”è¯¥è¿”å›ž401å½“æ— token', async () => {
+  describe('ÎÞtoken·ÃÎÊ', () => {
+    it('Ó¦¸Ã·µ»Ø401µ±ÎÞtoken', async () => {
       const res = await request(app)
         .get('/api/v1/procurement-plan/list');
 

@@ -60,6 +60,8 @@ describe('客户联系人模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
         .mockResolvedValueOnce([[{ id: 1 }]]) // customer lookup
         .mockResolvedValueOnce([[]]) // existing primary contact
         .mockResolvedValueOnce([{ insertId: 10 }]) // insert contact
@@ -94,6 +96,8 @@ describe('客户联系人模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
         .mockResolvedValueOnce([[{ customer_id: 1 }]]) // contact lookup
         .mockResolvedValueOnce([[{ owner_id: 1 }]]) // customer lookup
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update

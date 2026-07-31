@@ -1,4 +1,4 @@
-ï»¿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -41,13 +41,13 @@ const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-describe('é‚®ä»¶æ¨¡å—', () => {
+describe('ÓÊ¼þÄ£¿é', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('POST /api/v1/email/account', () => {
-    it('åº”è¯¥è¿”å›ž400å½“ç¼ºå°‘email', async () => {
+    it('Ó¦¸Ã·µ»Ø400µ±È±ÉÙemail', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
@@ -60,16 +60,19 @@ describe('é‚®ä»¶æ¨¡å—', () => {
       expect(res.body.code).toBe(400);
     });
 
-    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸åˆ›å»ºé‚®ä»¶è´¦å·', async () => {
+    it('Ó¦¸Ã·µ»Ø200µ±Õý³£´´½¨ÓÊ¼þÕËºÅ', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
         .post('/api/v1/email/account')
         .set('Authorization', `Bearer ${token}`)
-        .send({ email: 'test@qq.com', password: 'testpass', display_name: 'æµ‹è¯•é‚®ç®±' });
+        .send({ email: 'test@qq.com', password: 'testpass', display_name: '²âÊÔÓÊÏä' });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
@@ -78,12 +81,15 @@ describe('é‚®ä»¶æ¨¡å—', () => {
   });
 
   describe('GET /api/v1/email/accounts', () => {
-    it('åº”è¯¥è¿”å›žé‚®ä»¶è´¦å·åˆ—è¡¨', async () => {
+    it('Ó¦¸Ã·µ»ØÓÊ¼þÕËºÅÁÐ±í', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // accounts list
-          { id: 1, email: 'test@qq.com', display_name: 'æµ‹è¯•é‚®ç®±', smtp_host: 'smtp.qq.com', status: 'active' }
+          { id: 1, email: 'test@qq.com', display_name: '²âÊÔÓÊÏä', smtp_host: 'smtp.qq.com', status: 'active' }
         ]]);
 
       const res = await request(app)
@@ -97,13 +103,16 @@ describe('é‚®ä»¶æ¨¡å—', () => {
   });
 
   describe('GET /api/v1/email/list', () => {
-    it('åº”è¯¥è¿”å›žé‚®ä»¶åˆ—è¡¨', async () => {
+    it('Ó¦¸Ã·µ»ØÓÊ¼þÁÐ±í', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[ // emails list
-          { id: 1, subject: 'æŠ¥ä»·å•ç¡®è®¤', from_address: 'client@example.com', direction: 'in', is_read: 0 }
+          { id: 1, subject: '±¨¼Ûµ¥È·ÈÏ', from_address: 'client@example.com', direction: 'in', is_read: 0 }
         ]]);
 
       const res = await request(app)
@@ -118,10 +127,13 @@ describe('é‚®ä»¶æ¨¡å—', () => {
   });
 
   describe('DELETE /api/v1/email/account/:id', () => {
-    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸åˆ é™¤é‚®ä»¶è´¦å·', async () => {
+    it('Ó¦¸Ã·µ»Ø200µ±Õý³£É¾³ýÓÊ¼þÕËºÅ', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ id: 1 }]]) // existence check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 
@@ -134,8 +146,8 @@ describe('é‚®ä»¶æ¨¡å—', () => {
     });
   });
 
-  describe('æ— tokenè®¿é—®', () => {
-    it('åº”è¯¥è¿”å›ž401å½“æ— token', async () => {
+  describe('ÎÞtoken·ÃÎÊ', () => {
+    it('Ó¦¸Ã·µ»Ø401µ±ÎÞtoken', async () => {
       const res = await request(app)
         .get('/api/v1/email/accounts');
 

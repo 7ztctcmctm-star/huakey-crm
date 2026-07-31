@@ -50,6 +50,8 @@ describe('文件上传模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
         .mockResolvedValueOnce([[ // list
           { id: 1, file_name: '合同扫描件.pdf', file_path: '/uploads/attachments/abc123.pdf', file_size: 102400 },
           { id: 2, file_name: '报价单.xlsx', file_path: '/uploads/attachments/def456.xlsx', file_size: 51200 }
@@ -71,6 +73,8 @@ describe('文件上传模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
         .mockResolvedValueOnce([[{ id: 1, file_name: '合同扫描件.pdf', file_path: '/uploads/attachments/abc123.pdf' }]]) // existence check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 

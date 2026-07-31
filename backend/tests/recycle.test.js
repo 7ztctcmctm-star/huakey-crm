@@ -1,4 +1,4 @@
-ï»¿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -25,7 +25,7 @@ jest.mock('../services/permissionService', () => ({
 jest.mock('../utils/softDelete', () => ({
   restore: jest.fn().mockResolvedValue(true),
   permanentDelete: jest.fn().mockResolvedValue(true),
-  getDeletedList: jest.fn().mockResolvedValue({ list: [{ id: 1, company_name: 'å·²åˆ é™¤å®¢æˆ·' }], total: 1 }),
+  getDeletedList: jest.fn().mockResolvedValue({ list: [{ id: 1, company_name: 'ÒÑÉ¾³ý¿Í»§' }], total: 1 }),
   softDelete: jest.fn(),
   softDeleteBatch: jest.fn()
 }));
@@ -40,7 +40,7 @@ const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-describe('å›žæ”¶ç«™æ¨¡å—', () => {
+describe('»ØÊÕÕ¾Ä£¿é', () => {
   const token = generateToken();
 
   beforeEach(() => {
@@ -48,11 +48,14 @@ describe('å›žæ”¶ç«™æ¨¡å—', () => {
   });
 
   describe('POST /api/v1/recycle/list', () => {
-    it('åº”è¯¥è¿”å›žå›žæ”¶ç«™åˆ—è¡¨', async () => {
+    it('Ó¦¸Ã·µ»Ø»ØÊÕÕ¾ÁÐ±í', async () => {
       // 8 module stats queries (one per TABLE_CONFIG entry)
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ cnt: 5 }]]) // customer
         .mockResolvedValueOnce([[{ cnt: 2 }]]) // opportunity
         .mockResolvedValueOnce([[{ cnt: 1 }]]) // contract
@@ -75,7 +78,7 @@ describe('å›žæ”¶ç«™æ¨¡å—', () => {
   });
 
   describe('POST /api/v1/recycle/restore', () => {
-    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸æ¢å¤è®°å½•', async () => {
+    it('Ó¦¸Ã·µ»Ø200µ±Õý³£»Ö¸´¼ÇÂ¼', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
@@ -90,7 +93,7 @@ describe('å›žæ”¶ç«™æ¨¡å—', () => {
   });
 
   describe('POST /api/v1/recycle/permanent-delete', () => {
-    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸æ°¸ä¹…åˆ é™¤', async () => {
+    it('Ó¦¸Ã·µ»Ø200µ±Õý³£ÓÀ¾ÃÉ¾³ý', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
@@ -104,8 +107,8 @@ describe('å›žæ”¶ç«™æ¨¡å—', () => {
     });
   });
 
-  describe('æ— tokenè®¿é—®', () => {
-    it('åº”è¯¥è¿”å›ž401å½“æ— token', async () => {
+  describe('ÎÞtoken·ÃÎÊ', () => {
+    it('Ó¦¸Ã·µ»Ø401µ±ÎÞtoken', async () => {
       const res = await request(app)
         .post('/api/v1/recycle/list')
         .send({});

@@ -1,4 +1,4 @@
-ï»¿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -42,20 +42,23 @@ const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-describe('çŸ¥è¯†åº“æ¨¡å—', () => {
+describe('ÖªÊ¶¿âÄ£¿é', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('GET /api/v1/knowledge/products', () => {
-    it('åº”è¯¥è¿”å›žäº§å“çŸ¥è¯†åˆ—è¡¨', async () => {
+    it('Ó¦¸Ã·µ»Ø²úÆ·ÖªÊ¶ÁÐ±í', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 2 }]]) // count
         .mockResolvedValueOnce([[ // list
-          { id: 1, name: 'äº§å“A', category: 'ç”µå­', model: 'A-001', create_by_name: 'å¼ ä¸‰' },
-          { id: 2, name: 'äº§å“B', category: 'æœºæ¢°', model: 'B-001', create_by_name: 'æŽå››' }
+          { id: 1, name: '²úÆ·A', category: 'µç×Ó', model: 'A-001', create_by_name: 'ÕÅÈý' },
+          { id: 2, name: '²úÆ·B', category: '»úÐµ', model: 'B-001', create_by_name: 'ÀîËÄ' }
         ]]);
 
       const res = await request(app)
@@ -71,29 +74,32 @@ describe('çŸ¥è¯†åº“æ¨¡å—', () => {
   });
 
   describe('POST /api/v1/knowledge/products', () => {
-    it('åº”è¯¥è¿”å›ž400å½“ç¼ºå°‘name', async () => {
+    it('Ó¦¸Ã·µ»Ø400µ±È±ÉÙname', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/v1/knowledge/products')
         .set('Authorization', `Bearer ${token}`)
-        .send({ category: 'ç”µå­' });
+        .send({ category: 'µç×Ó' });
 
       expect(res.status).toBe(400);
       expect(res.body.code).toBe(400);
     });
 
-    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸åˆ›å»ºäº§å“', async () => {
+    it('Ó¦¸Ã·µ»Ø200µ±Õý³£´´½¨²úÆ·', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
         .post('/api/v1/knowledge/products')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'æ–°äº§å“', category: 'ç”µå­', model: 'X-001', description: 'äº§å“æè¿°' });
+        .send({ name: 'ÐÂ²úÆ·', category: 'µç×Ó', model: 'X-001', description: '²úÆ·ÃèÊö' });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
@@ -102,13 +108,16 @@ describe('çŸ¥è¯†åº“æ¨¡å—', () => {
   });
 
   describe('GET /api/v1/knowledge/faqs', () => {
-    it('åº”è¯¥è¿”å›žFAQåˆ—è¡¨', async () => {
+    it('Ó¦¸Ã·µ»ØFAQÁÐ±í', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[ // list
-          { id: 1, question: 'å¦‚ä½•æŠ¥ä»·ï¼Ÿ', answer: 'è¿›å…¥æŠ¥ä»·æ¨¡å—...', category: 'æ“ä½œæŒ‡å—' }
+          { id: 1, question: 'ÈçºÎ±¨¼Û£¿', answer: '½øÈë±¨¼ÛÄ£¿é...', category: '²Ù×÷Ö¸ÄÏ' }
         ]]);
 
       const res = await request(app)
@@ -123,14 +132,17 @@ describe('çŸ¥è¯†åº“æ¨¡å—', () => {
   });
 
   describe('GET /api/v1/knowledge/products-meta/categories', () => {
-    it('åº”è¯¥è¿”å›žäº§å“åˆ†ç±»åˆ—è¡¨', async () => {
+    it('Ó¦¸Ã·µ»Ø²úÆ··ÖÀàÁÐ±í', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // categories
-          { category: 'ç”µå­' },
-          { category: 'æœºæ¢°' },
-          { category: 'åŒ–å·¥' }
+          { category: 'µç×Ó' },
+          { category: '»úÐµ' },
+          { category: '»¯¹¤' }
         ]]);
 
       const res = await request(app)
@@ -140,12 +152,12 @@ describe('çŸ¥è¯†åº“æ¨¡å—', () => {
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
       expect(res.body.data).toHaveLength(3);
-      expect(res.body.data).toContain('ç”µå­');
+      expect(res.body.data).toContain('µç×Ó');
     });
   });
 
-  describe('æ— tokenè®¿é—®', () => {
-    it('åº”è¯¥è¿”å›ž401å½“æ— token', async () => {
+  describe('ÎÞtoken·ÃÎÊ', () => {
+    it('Ó¦¸Ã·µ»Ø401µ±ÎÞtoken', async () => {
       const res = await request(app)
         .get('/api/v1/knowledge/products');
 

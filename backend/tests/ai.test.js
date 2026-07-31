@@ -1,4 +1,4 @@
-ï»¿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -26,7 +26,7 @@ jest.mock('../middleware/logger', () => ({
 }));
 
 jest.mock('../utils/llmClient', () => ({
-  chatCompletion: jest.fn().mockResolvedValue('AIå›å¤å†…å®¹'),
+  chatCompletion: jest.fn().mockResolvedValue('AI»Ø¸´ÄÚÈİ'),
   getProviderStatus: jest.fn().mockResolvedValue({ online: true, provider: 'openai', model: 'gpt-4', models: ['gpt-4', 'gpt-3.5-turbo'] })
 }));
 
@@ -48,7 +48,7 @@ const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-describe('AIæ¨¡å—', () => {
+describe('AIÄ£¿é', () => {
   const token = generateToken();
 
   beforeEach(() => {
@@ -57,7 +57,7 @@ describe('AIæ¨¡å—', () => {
   });
 
   describe('POST /api/v1/ai/query', () => {
-    it('åº”è¯¥è¿”å›400å½“ç¼ºå°‘question', async () => {
+    it('Ó¦¸Ã·µ»Ø400µ±È±ÉÙquestion', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
@@ -70,13 +70,13 @@ describe('AIæ¨¡å—', () => {
       expect(res.body.code).toBe(400);
     });
 
-    it('åº”è¯¥è¿”å›200å½“æ­£å¸¸æŸ¥è¯¢', async () => {
+    it('Ó¦¸Ã·µ»Ø200µ±Õı³£²éÑ¯', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       chatCompletion
         .mockResolvedValueOnce('SELECT COUNT(*) FROM crm_customer WHERE status != 0') // SQL generation
-        .mockResolvedValueOnce('å…±æœ‰100ä¸ªæ´»è·ƒå®¢æˆ·'); // result formatting
+        .mockResolvedValueOnce('¹²ÓĞ100¸ö»îÔ¾¿Í»§'); // result formatting
 
       mockPool.query
         .mockResolvedValueOnce([[{ 'COUNT(*)': 100 }]]); // SQL execution
@@ -84,7 +84,7 @@ describe('AIæ¨¡å—', () => {
       const res = await request(app)
         .post('/api/v1/ai/query')
         .set('Authorization', `Bearer ${token}`)
-        .send({ question: 'å®¢æˆ·æ€»æ•°æ˜¯å¤šå°‘' });
+        .send({ question: '¿Í»§×ÜÊıÊÇ¶àÉÙ' });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
@@ -94,15 +94,18 @@ describe('AIæ¨¡å—', () => {
   });
 
   describe('GET /api/v1/ai/suggestions', () => {
-    it('åº”è¯¥è¿”å›å»ºè®®åˆ—è¡¨', async () => {
+    it('Ó¦¸Ã·µ»Ø½¨ÒéÁĞ±í', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[ // list
-          { id: 1, type: 'follow_up', ref_id: 1, suggestion: 'å»ºè®®è·Ÿè¿›å®¢æˆ·', confidence: 0.85 }
+          { id: 1, type: 'follow_up', ref_id: 1, suggestion: '½¨Òé¸ú½ø¿Í»§', confidence: 0.85 }
         ]])
-        .mockResolvedValueOnce([[{ company_name: 'æµ‹è¯•å…¬å¸' }]]); // customer ref lookup
+        .mockResolvedValueOnce([[{ company_name: '²âÊÔ¹«Ë¾' }]]); // customer ref lookup
 
       const res = await request(app)
         .get('/api/v1/ai/suggestions')
@@ -116,7 +119,7 @@ describe('AIæ¨¡å—', () => {
   });
 
   describe('GET /api/v1/ai/status', () => {
-    it('åº”è¯¥è¿”å›AIçŠ¶æ€', async () => {
+    it('Ó¦¸Ã·µ»ØAI×´Ì¬', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
@@ -130,8 +133,8 @@ describe('AIæ¨¡å—', () => {
     });
   });
 
-  describe('æ— tokenè®¿é—®', () => {
-    it('åº”è¯¥è¿”å›401å½“æ— token', async () => {
+  describe('ÎŞtoken·ÃÎÊ', () => {
+    it('Ó¦¸Ã·µ»Ø401µ±ÎŞtoken', async () => {
       const res = await request(app)
         .get('/api/v1/ai/status');
 

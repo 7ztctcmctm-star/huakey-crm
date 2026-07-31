@@ -254,5 +254,23 @@ SET @sql074b = IF(@idx_olid = 0,
   'SELECT 1');
 PREPARE stmt074b FROM @sql074b; EXECUTE stmt074b; DEALLOCATE PREPARE stmt074b;
 
+-- ============================================================
+-- 089: sys_user 增加 must_change_password / password_changed_at
+-- （CI 标记迁移为"已执行"但不实际执行 SQL，需在此补 DDL）
+-- ============================================================
+SET @col_mcp = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND COLUMN_NAME = 'must_change_password');
+SET @sql089a = IF(@col_mcp = 0,
+  'ALTER TABLE sys_user ADD COLUMN must_change_password TINYINT NOT NULL DEFAULT 0 COMMENT ''首次登录/重置密码后必须改密''',
+  'SELECT 1');
+PREPARE stmt089a FROM @sql089a; EXECUTE stmt089a; DEALLOCATE PREPARE stmt089a;
+
+SET @col_pca = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND COLUMN_NAME = 'password_changed_at');
+SET @sql089b = IF(@col_pca = 0,
+  'ALTER TABLE sys_user ADD COLUMN password_changed_at DATETIME DEFAULT NULL COMMENT ''密码最后修改时间''',
+  'SELECT 1');
+PREPARE stmt089b FROM @sql089b; EXECUTE stmt089b; DEALLOCATE PREPARE stmt089b;
+
 -- ⚠️ CI 测试用户已剥离到 .github/ci/test-users.sql
 -- 如需 E2E 测试用户，请执行 .github/ci/test-users.sql（仅限 CI/测试环境）

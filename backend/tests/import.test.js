@@ -74,6 +74,8 @@ describe('客户导入模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
         .mockResolvedValueOnce([[ // validation rules
           { id: 1, field_name: 'company_name', rule_type: 'required', is_active: 1 }
         ]]);

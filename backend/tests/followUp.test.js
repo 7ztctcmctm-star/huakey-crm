@@ -1,4 +1,4 @@
-ï»¿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -31,23 +31,23 @@ const generateToken = () => {
   );
 };
 
-describe('è·Ÿè¿›æ¨¡å—', () => {
+describe('¸ú½øÄ£¿é', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('POST /api/v1/follow-up/add', () => {
-    it('åº”è¯¥è¿”å›400å½“ç¼ºå°‘customer_id', async () => {
+    it('Ó¦¸Ã·µ»Ø400µ±È±ÉÙcustomer_id', async () => {
       const res = await request(app)
         .post('/api/v1/follow-up/add')
         .set('Authorization', `Bearer ${token}`)
-        .send({ content: 'æµ‹è¯•è·Ÿè¿›å†…å®¹' });
+        .send({ content: '²âÊÔ¸ú½øÄÚÈİ' });
 
       expect(res.status).toBe(400);
       expect(res.body.code).toBe(400);
     });
 
-    it('åº”è¯¥è¿”å›400å½“ç¼ºå°‘content', async () => {
+    it('Ó¦¸Ã·µ»Ø400µ±È±ÉÙcontent', async () => {
       const res = await request(app)
         .post('/api/v1/follow-up/add')
         .set('Authorization', `Bearer ${token}`)
@@ -57,19 +57,22 @@ describe('è·Ÿè¿›æ¨¡å—', () => {
       expect(res.body.code).toBe(400);
     });
 
-    it('åº”è¯¥è¿”å›200å½“åˆ›å»ºæˆåŠŸ', async () => {
+    it('Ó¦¸Ã·µ»Ø200µ±´´½¨³É¹¦', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]])  // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ id: 1, company_name: 'æµ‹è¯•å…¬å¸' }]])
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, company_name: '²âÊÔ¹«Ë¾' }]])
         .mockResolvedValueOnce([{ insertId: 1 }]);
-      // å…œåº•ï¼šaddFollowUp åœ¨ INSERT ä¹‹åè¿˜ä¼šæ‰§è¡Œ UPDATE last_follow_time / UPDATE reminder / SELECT status ç­‰æŸ¥è¯¢
+      // ¶µµ×£ºaddFollowUp ÔÚ INSERT Ö®ºó»¹»áÖ´ĞĞ UPDATE last_follow_time / UPDATE reminder / SELECT status µÈ²éÑ¯
       mockPool.query.mockResolvedValue([[]]);
 
       const res = await request(app)
         .post('/api/v1/follow-up/add')
         .set('Authorization', `Bearer ${token}`)
-        .send({ customer_id: 1, content: 'ç”µè¯è·Ÿè¿›å®¢æˆ·' });
+        .send({ customer_id: 1, content: 'µç»°¸ú½ø¿Í»§' });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);

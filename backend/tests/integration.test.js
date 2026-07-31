@@ -1,4 +1,4 @@
-ï»¿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -32,19 +32,22 @@ const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-describe('å¤–éƒ¨é›†æˆæ¨¡å—', () => {
+describe('Íâ²¿¼¯³ÉÄ£¿é', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('GET /api/v1/integration/list', () => {
-    it('åº”è¯¥è¿”å›é›†æˆåˆ—è¡¨', async () => {
+    it('Ó¦¸Ã·µ»Ø¼¯³ÉÁĞ±í', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // integration list
-          { id: 1, type: 'email', name: 'é‚®ä»¶æœåŠ¡', status: 'active', config: '{"host":"smtp.qq.com","user":"test@qq.com","pass":"oldpassword","from":"test@qq.com"}' },
-          { id: 2, type: 'sms', name: 'çŸ­ä¿¡æœåŠ¡', status: 'inactive', config: '{}' }
+          { id: 1, type: 'email', name: 'ÓÊ¼ş·şÎñ', status: 'active', config: '{"host":"smtp.qq.com","user":"test@qq.com","pass":"oldpassword","from":"test@qq.com"}' },
+          { id: 2, type: 'sms', name: '¶ÌĞÅ·şÎñ', status: 'inactive', config: '{}' }
         ]]);
 
       const res = await request(app)
@@ -54,33 +57,36 @@ describe('å¤–éƒ¨é›†æˆæ¨¡å—', () => {
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
       expect(res.body.data).toHaveLength(2);
-      // éªŒè¯è„±æ•ï¼šå¯†ç å­—æ®µåº”è¢«é®ç›–
+      // ÑéÖ¤ÍÑÃô£ºÃÜÂë×Ö¶ÎÓ¦±»ÕÚ¸Ç
       expect(res.body.data[0].config.pass).toBe('***');
     });
   });
 
   describe('POST /api/v1/integration/send-email', () => {
-    it('åº”è¯¥è¿”å›400å½“ç¼ºå°‘to', async () => {
+    it('Ó¦¸Ã·µ»Ø400µ±È±ÉÙto', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/v1/integration/send-email')
         .set('Authorization', `Bearer ${token}`)
-        .send({ subject: 'æµ‹è¯•', body: 'å†…å®¹' });
+        .send({ subject: '²âÊÔ', body: 'ÄÚÈİ' });
 
       expect(res.status).toBe(400);
       expect(res.body.code).toBe(400);
     });
 
-    it('åº”è¯¥è¿”å›200å½“æ­£å¸¸å‘é€é‚®ä»¶', async () => {
+    it('Ó¦¸Ã·µ»Ø200µ±Õı³£·¢ËÍÓÊ¼ş', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ config: '{"host":"smtp.qq.com","port":465,"user":"test@qq.com","pass":"password","from":"test@qq.com"}' }]]) // email config
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert email log
 
-      // éœ€è¦ mock nodemailer
+      // ĞèÒª mock nodemailer
       jest.mock('nodemailer', () => ({
         createTransport: jest.fn().mockReturnValue({
           sendMail: jest.fn().mockResolvedValue({ messageId: 'test-id' }),
@@ -92,7 +98,7 @@ describe('å¤–éƒ¨é›†æˆæ¨¡å—', () => {
       const res = await request(app)
         .post('/api/v1/integration/send-email')
         .set('Authorization', `Bearer ${token}`)
-        .send({ to: 'client@example.com', subject: 'æŠ¥ä»·å•', body: 'è¯·æŸ¥æ”¶æŠ¥ä»·å•' });
+        .send({ to: 'client@example.com', subject: '±¨¼Ûµ¥', body: 'Çë²éÊÕ±¨¼Ûµ¥' });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
@@ -100,13 +106,16 @@ describe('å¤–éƒ¨é›†æˆæ¨¡å—', () => {
   });
 
   describe('GET /api/v1/integration/email-log', () => {
-    it('åº”è¯¥è¿”å›é‚®ä»¶æ—¥å¿—', async () => {
+    it('Ó¦¸Ã·µ»ØÓÊ¼şÈÕÖ¾', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[ // list
-          { id: 1, to_email: 'client@example.com', subject: 'æŠ¥ä»·å•', status: 'sent', sender_name: 'å¼ ä¸‰' }
+          { id: 1, to_email: 'client@example.com', subject: '±¨¼Ûµ¥', status: 'sent', sender_name: 'ÕÅÈı' }
         ]]);
 
       const res = await request(app)
@@ -121,8 +130,8 @@ describe('å¤–éƒ¨é›†æˆæ¨¡å—', () => {
     });
   });
 
-  describe('æ— tokenè®¿é—®', () => {
-    it('åº”è¯¥è¿”å›401å½“æ— token', async () => {
+  describe('ÎŞtoken·ÃÎÊ', () => {
+    it('Ó¦¸Ã·µ»Ø401µ±ÎŞtoken', async () => {
       const res = await request(app)
         .get('/api/v1/integration/list');
 
