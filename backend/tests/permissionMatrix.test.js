@@ -166,17 +166,19 @@ const generateExpiredToken = () => {
 /**
  * 设置 mockPool.query 的调用序列（非 ADMIN 角色）
  *
- * authenticateToken 消耗 2 次调用：
+ * authenticateToken 消耗 3 次调用：
  *   1. blacklist check → [[]]（未被拉黑）
  *   2. role query → [[{ view_all, manage_all }]]
+ *   3. user status query → [[{ must_change_password }]]
  *
- * checkPermission 消耗 1 次调用：
- *   3. getUserPermissions 查询 → 用户权限列表
+ * checkPermission 消耗 1 次调用（ADMIN 跳过）：
+ *   4. getUserPermissions 查询 → 用户权限列表
  */
 const setupAuthMocks = (roleId, permissionCodes = []) => {
   mockPool.query
     .mockResolvedValueOnce([[]])                                                    // blacklist check
     .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0 }]])                     // role query
+    .mockResolvedValueOnce([[{ must_change_password: 0 }]])                         // user status
     .mockResolvedValueOnce([[{ id: 1, permission_id: 1 }]]);                       // getUserPermissions inner query
   getUserPermissions.mockResolvedValue(permissionCodes);
 };
@@ -189,7 +191,8 @@ const setupAuthMocks = (roleId, permissionCodes = []) => {
 const setupAdminMocks = () => {
   mockPool.query
     .mockResolvedValueOnce([[]])                                       // blacklist check
-    .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]);       // role query
+    .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])        // role query
+    .mockResolvedValueOnce([[{ must_change_password: 0 }]]);          // user status
 };
 
 // ============ 测试用例 ============
