@@ -98,6 +98,7 @@ describe('认证模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]])  // blacklist check (empty = not blacklisted)
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ password: hashedPassword }]]); // get user password
 
       const res = await request(app)
@@ -126,6 +127,7 @@ describe('认证模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]])  // blacklist check (empty = not blacklisted)
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ password: hashedPassword }]])  // get user password
         .mockResolvedValueOnce([{ affectedRows: 1 }]);  // update password
 
