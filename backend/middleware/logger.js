@@ -217,8 +217,8 @@ function globalLogMiddleware(req, res, next) {
   if (req.originalUrl.startsWith('/api/log')) {
     return next();
   }
-  // 跳过健康检查和根路径
-  if (req.originalUrl === '/api/health' || req.originalUrl === '/api/') {
+  // 跳过健康检查和根路径（兼容旧 /api/ 和新 /api/v1/ 前缀）
+  if (req.originalUrl === '/api/v1/health' || req.originalUrl === '/api/health' || req.originalUrl === '/api/v1/' || req.originalUrl === '/api/') {
     return next();
   }
   // 跳过登录/登出（auth路由已自行记录详细日志）

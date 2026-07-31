@@ -59,7 +59,7 @@ const authenticateToken = (req, res, next) => {
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
       // 并行：黑名单检查 + 角色权限查询（含 role_code）
-      const [blacklistResult, roleResult] = await Promise.all([
+      const [blacklistResult, roleResult, userResult] = await Promise.all([
         pool.query(
           'SELECT 1 as blacklisted FROM sys_token_blacklist WHERE token_hash = ? AND expire_at > NOW() LIMIT 1',
           [tokenHash]
@@ -67,6 +67,10 @@ const authenticateToken = (req, res, next) => {
         pool.query(
           'SELECT COALESCE(view_all, 0) as view_all, COALESCE(manage_all, 0) as manage_all, code as role_code FROM sys_role WHERE id = ?',
           [user.roleId]
+        ),
+        pool.query(
+          'SELECT must_change_password FROM sys_user WHERE id = ?',
+          [user.userId]
         )
       ]);
 
@@ -79,9 +83,11 @@ const authenticateToken = (req, res, next) => {
         });
       }
 
-      // 从 DB 获取最新权限，不依赖 token 中的过期值
+      // 从 DB 获取最新权限和用户状态，不依赖 token 中的过期值
       const roleRows = Array.isArray(roleResult) && Array.isArray(roleResult[0]) ? roleResult[0] : [];
+      const userRows = Array.isArray(userResult) && Array.isArray(userResult[0]) ? userResult[0] : [];
       const freshRole = roleRows[0] || {};
+      const freshUser = userRows[0] || {};
 
       // roleCode 优先使用 DB 新鲜值，fallback 到 JWT 中的值
       const roleCode = freshRole.role_code || user.roleCode || '';
@@ -92,8 +98,28 @@ const authenticateToken = (req, res, next) => {
         roleId: user.roleId,
         roleCode: roleCode,
         viewAll: freshRole.view_all === 1 || ADMIN_ROLE_CODES.has(roleCode),
-        manageAll: freshRole.manage_all === 1 || ADMIN_ROLE_CODES.has(roleCode)
+        manageAll: freshRole.manage_all === 1 || ADMIN_ROLE_CODES.has(roleCode),
+        mustChangePassword: freshUser.must_change_password === 1
       };
+
+      // [安全] 首次登录/重置密码后强制改密 — 仅允许改密、登出、获取个人信息
+      if (req.user.mustChangePassword) {
+        const allowedPaths = [
+          '/auth/force-change-password',
+          '/auth/logout',
+          '/auth/me',
+          '/auth/refresh'
+        ];
+        const requestPath = (req.baseUrl || '') + (req.path || '');
+        const isAllowed = allowedPaths.some(ep => requestPath === ep || requestPath.endsWith(ep));
+        if (!isAllowed) {
+          return res.status(403).json({
+            code: 403,
+            message: '请先修改初始密码后再操作',
+            data: { mustChangePassword: true }
+          });
+        }
+      }
     } catch (dbErr) {
       logger.error('[Auth] 数据库查询失败', dbErr);
       return res.status(500).json({

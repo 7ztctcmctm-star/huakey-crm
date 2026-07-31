@@ -1,9 +1,15 @@
 -- ============================================================
--- Test环境种子数据
+-- ⚠️  测试环境种子数据 — 禁止在生产环境执行  ⚠️
 -- 用途：从prod环境导出核心配置数据，供test环境初始化使用
--- 用法：mysql -u root -p huakey_crm < seed_test_data.sql
--- 注意：使用 INSERT IGNORE 避免重复插入
+-- 用法：mysql -u root -p huakey_crm_test < seed_test_data.sql
+-- 安全检查：若当前数据库名不含 'test' 则中止，防止误伤生产库
 -- ============================================================
+
+-- 环境安全检查：非测试/开发数据库则强制报错中止
+-- 原理：IF 条件为真时执行子查询，子查询引用不存在的标识符触发 1054 错误
+SELECT IF(DATABASE() NOT LIKE '%test%' AND DATABASE() NOT LIKE '%dev%',
+  (SELECT `ABORT__NOT_A_TEST_DATABASE`),
+  'test_db_ok') AS `guard`;
 
 USE huakey_crm;
 
@@ -17,17 +23,9 @@ SELECT id, name, parent_id, sort, create_time FROM sys_dept;
 
 -- 用户数据（至少包含admin）
 -- 默认密码：Admin@123（bcrypt hash）
-INSERT INTO sys_user (id, username, password, real_name, phone, email, dept_id, role_id, status, create_time)
+INSERT IGNORE INTO sys_user (id, username, password, real_name, phone, email, dept_id, role_id, status, create_time)
 VALUES (1, 'admin', '$2b$10$g7rMdveDPVl/wwmz4EjQVeAfs9Ap66gup.a8Dg6yMYOBeMbkHLmqC', '管理员', '13800138000', 'admin@huakey.com', 1, 1, 1, NOW())
-AS new_user
-ON DUPLICATE KEY UPDATE
-  password = new_user.password,
-  real_name = new_user.real_name,
-  phone = new_user.phone,
-  email = new_user.email,
-  dept_id = new_user.dept_id,
-  role_id = new_user.role_id,
-  status = new_user.status;
+;
 
 -- 系统配置（当前 schema 无 create_time，使用 update_time）
 INSERT IGNORE INTO sys_config (id, config_key, config_value, description, update_time)

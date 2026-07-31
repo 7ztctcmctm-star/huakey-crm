@@ -64,6 +64,8 @@ services:
         max-file: "3"
     command:
       - redis-server
+      - --requirepass
+      - ${REDIS_PASSWORD:-}
       - --maxmemory
       - 100mb
       - --maxmemory-policy
@@ -111,6 +113,10 @@ services:
       AUTO_RELEASE_DAYS: ${AUTO_RELEASE_DAYS:-30}
       CORS_ORIGIN: ${CORS_ORIGIN:-}
       SKIP_CAPTCHA: ${SKIP_CAPTCHA:-false}
+      TZ: ${TZ:-Asia/Shanghai}
+      ALERT_ENABLED: ${ALERT_ENABLED:-false}
+      WECHAT_WEBHOOK_URL: ${WECHAT_WEBHOOK_URL:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     ports:
       - "6789:5000"
     depends_on:
@@ -121,7 +127,8 @@ services:
     volumes:
       - app-uploads:/app/uploads
       - ./database/migrations:/app/database/migrations:ro
-      - ./logs:/app/logs
+      - app-logs:/app/logs          # named volume 自动继承镜像内目录属主，避免 bind mount 权限陷阱
+      - ./database/backups:/app/data/backups  # 数据库备份持久化
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:5000/api/v1/health"]
       interval: 30s
@@ -135,6 +142,8 @@ volumes:
   mysql-data:
     driver: local
   app-uploads:
+    driver: local
+  app-logs:
     driver: local
 
 networks:

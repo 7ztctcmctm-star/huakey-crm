@@ -161,12 +161,12 @@
         <el-menu-item index="/competitor" v-if="hasMenuPermission('competitor')">竞品分析</el-menu-item>
       </el-sub-menu>
 
-      <el-menu-item index="/scoring/rules" v-if="hasMenuPermission('scoring')">
+      <el-menu-item index="/scoring/rules" v-if="hasMenuPermission('scoring:view')">
         <el-icon><Trophy /></el-icon>
         <template #title>评分规则</template>
       </el-menu-item>
 
-      <el-menu-item index="/scoring/ranking" v-if="hasMenuPermission('scoring')">
+      <el-menu-item index="/scoring/ranking" v-if="hasMenuPermission('scoring:view')">
         <el-icon><Histogram /></el-icon>
         <template #title>评分排行</template>
       </el-menu-item>
@@ -176,12 +176,12 @@
         <template #title>AI助手</template>
       </el-menu-item>
 
-      <el-menu-item index="/approval/pending" v-if="hasMenuPermission('approval')">
+      <el-menu-item index="/approval/pending" v-if="hasMenuPermission('approval:view')">
         <el-icon><Stamp /></el-icon>
         <template #title>待审批</template>
       </el-menu-item>
 
-      <el-menu-item index="/approval/submitted" v-if="hasMenuPermission('approval')">
+      <el-menu-item index="/approval/submitted" v-if="hasMenuPermission('approval:view')">
         <el-icon><Document /></el-icon>
         <template #title>我的审批</template>
       </el-menu-item>
@@ -213,9 +213,9 @@
         <el-menu-item index="/system/dept" v-if="hasMenuPermission('system:dept')">部门管理</el-menu-item>
         <el-menu-item index="/system/log" v-if="hasMenuPermission('system:log')">操作日志</el-menu-item>
         <el-menu-item index="/system/tags" v-if="hasMenuPermission('system:tag')">标签管理</el-menu-item>
-        <el-menu-item index="/system/backup" v-if="hasMenuPermission('system:backup')">数据备份</el-menu-item>
-        <el-menu-item index="/system/permission" v-if="hasMenuPermission('system:permission')">权限管理</el-menu-item>
-        <el-menu-item index="/approval/workflow" v-if="hasMenuPermission('approval')">审批流程</el-menu-item>
+        <el-menu-item index="/system/backup" v-if="hasMenuPermission('backup:create')">数据备份</el-menu-item>
+        <el-menu-item index="/system/permission" v-if="hasMenuPermission('permission:view')">权限管理</el-menu-item>
+        <el-menu-item index="/approval/workflow" v-if="hasMenuPermission('approval:view')">审批流程</el-menu-item>
         <el-menu-item index="/system/integration" v-if="hasMenuPermission('system:integration')">集成管理</el-menu-item>
         <el-menu-item index="/settings/api-platform" v-if="hasMenuPermission('system:integration')">API开放平台</el-menu-item>
       </el-sub-menu>
@@ -264,13 +264,13 @@ const props = defineProps({
 
 const route = useRoute()
 
-const activeMenu = computed(() => route.path)
+const activeMenu = computed(() => route.fullPath)
 
-const isAdmin = computed(() => props.userInfo.manageAll === true || props.userInfo.roleId === 1)
-const isBoss = computed(() => props.userInfo.viewAll === true || props.userInfo.roleId === 1)
+const isAdmin = computed(() => props.userInfo.manageAll === true)
+const isBoss = computed(() => props.userInfo.viewAll === true)
 
 const hasMenuPermission = (permissionCode) => {
-  if (props.userInfo.roleId === 1 || props.userInfo.manageAll) return true
+  if (props.userInfo.manageAll) return true
   const permissions = props.userInfo.permissions || []
   return permissions.includes(permissionCode)
 }

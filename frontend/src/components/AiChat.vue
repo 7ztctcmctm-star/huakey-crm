@@ -55,7 +55,7 @@ function getCtx() {
   const m = {
     '/dashboard': '仪表盘页面，可看到销售数据、客户统计、业绩排行',
     '/customer/list': '客户列表，管理正式成交客户',
-    '/customer/pool': '客户公海，无负责人的客户资源池'
+    '/customer/list?tab=sea': '公海客户，无负责人的客户（在客户列表页切到公海标签）'
   }
   return m[route.path] || '铧旗CRM系统'
 }

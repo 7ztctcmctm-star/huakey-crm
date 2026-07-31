@@ -254,8 +254,5 @@ SET @sql074b = IF(@idx_olid = 0,
   'SELECT 1');
 PREPARE stmt074b FROM @sql074b; EXECUTE stmt074b; DEALLOCATE PREPARE stmt074b;
 
--- E2E 测试用户: admin / huakey123 (supertest + Playwright 共用)
-INSERT IGNORE INTO sys_role (name, code, description, status, view_all, manage_all)
-VALUES ('超级管理员', 'super_admin', '系统超级管理员', 1, 1, 1);
-INSERT IGNORE INTO sys_user (username, password, real_name, role_id, status)
-VALUES ('admin', '$2b$10$8RTmG9jYHzGjVU04QdVwEunqICJxJXtFIpC6Pqlch3LaDhf2GRUYe', '管理员', 1, 1);
+-- ⚠️ CI 测试用户已剥离到 .github/ci/test-users.sql
+-- 如需 E2E 测试用户，请执行 .github/ci/test-users.sql（仅限 CI/测试环境）

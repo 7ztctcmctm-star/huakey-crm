@@ -113,14 +113,17 @@ request.interceptors.response.use(
               if (refreshRes.data?.code === 200) {
                 // 重试所有排队的请求
                 onRefreshed()
-                // 重试当前请求
+                // 重试当前请求（finally 块会先于 return 执行，确保 isRefreshing 复位）
                 return request(originalConfig)
               }
+              // 续期返回非 200
+              onRefreshFailed(new Error(refreshRes.data?.message || '令牌刷新失败'))
             } catch (refreshError) {
               // 续期失败，通知所有排队请求
               onRefreshFailed(refreshError)
+            } finally {
+              isRefreshing = false
             }
-            isRefreshing = false
             ElMessage.error(data.message || '登录已过期，请重新登录')
             router.push('/login')
           } else {

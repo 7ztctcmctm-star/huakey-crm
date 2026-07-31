@@ -8,6 +8,7 @@ const logDir = path.resolve(__dirname, '..', 'logs');
 const transports = [];
 
 if (isProduction) {
+  // 文件日志（按日轮转）
   transports.push(
     new DailyRotateFile({
       filename: path.join(logDir, 'app-%DATE%.log'),
@@ -18,6 +19,20 @@ if (isProduction) {
       format: winston.format.combine(
         winston.format.timestamp(),
         winston.format.json()
+      )
+    })
+  );
+  // [修复] 生产环境同步输出 Console transport，确保 docker logs 可查看日志
+  transports.push(
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+        winston.format.printf(({ level, message, timestamp, ...metadata }) => {
+          const metaStr = Object.keys(metadata).length
+            ? ' ' + JSON.stringify(metadata)
+            : '';
+          return `${timestamp} [${level}]: ${message}${metaStr}`;
+        })
       )
     })
   );
@@ -50,6 +65,12 @@ const logger = winston.createLogger({
     winston.format.json()
   ),
   transports
+});
+
+// [修复] 处理日志文件写入错误（如磁盘满/权限不足），防止未捕获异常导致进程崩溃
+logger.on('error', (err) => {
+  // 降级输出到 stderr，避免静默丢失
+  console.error('[Logger] 日志写入失败:', err.message || err);
 });
 
 /**

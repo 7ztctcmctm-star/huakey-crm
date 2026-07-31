@@ -118,6 +118,11 @@ function validateProductionSecurity() {
     fatal('生产环境禁止设置 ENABLE_SWAGGER=true');
   }
 
+  // 禁止生产环境关闭 TLS 证书校验
+  if (process.env.TLS_REJECT_UNAUTHORIZED === 'false') {
+    fatal('生产环境禁止设置 TLS_REJECT_UNAUTHORIZED=false');
+  }
+
   // JWT_SECRET 必须为 64 字节 hex（128 字符）
   const jwtSecret = process.env.JWT_SECRET || '';
   if (!/^[a-f0-9]{128}$/i.test(jwtSecret)) {

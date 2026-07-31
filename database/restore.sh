@@ -1,7 +1,11 @@
 #!/bin/bash
 set -e
 
-MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD:-huakey123}"
+if [ -z "${MYSQL_ROOT_PASSWORD:-}" ]; then
+  echo "FATAL: MYSQL_ROOT_PASSWORD 环境变量未设置"
+  echo "请设置: export MYSQL_ROOT_PASSWORD=<your_root_password>"
+  exit 1
+fi
 DATABASE="${DATABASE:-huakey_crm}"
 BACKUP_FILE="$1"
 

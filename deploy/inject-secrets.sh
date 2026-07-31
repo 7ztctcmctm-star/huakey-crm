@@ -26,10 +26,12 @@ if [ ! -f "$SECRETS_PATH" ]; then
   exit 1
 fi
 
-# 权限检查：建议 600，避免组/其他用户可读
+# 权限检查：必须 600/400，拒绝组/其他可读
 perms=$(stat -c %a "$SECRETS_PATH" 2>/dev/null || stat -f %Lp "$SECRETS_PATH" 2>/dev/null)
 if [ -n "$perms" ] && [ "$perms" != "600" ] && [ "$perms" != "400" ]; then
-  echo "WARNING: $SECRETS_FILE 权限为 $perms，建议执行 chmod 600 $SECRETS_FILE"
+  echo "FATAL: $SECRETS_FILE 权限为 $perms，存在泄露风险"
+  echo "请执行: chmod 600 $SECRETS_PATH"
+  exit 1
 fi
 
 # 将 secrets 导出到当前 shell 环境

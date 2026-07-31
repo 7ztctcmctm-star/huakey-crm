@@ -98,6 +98,10 @@ async function migrate() {
     }
 
     console.log(`\n[迁移] 完成: 成功=${success}, 跳过=${skipped}, 失败=${failed}`);
+    if (failed > 0) {
+      console.error('[迁移] 存在失败的迁移，终止启动');
+      process.exit(1);
+    }
 
   } catch (error) {
     console.error('[迁移] 致命错误:', error.message);

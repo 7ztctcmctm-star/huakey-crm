@@ -93,6 +93,9 @@ jobs:
           echo "Applying post-dump schema changes (missing tables + DDL from migrations 056-092)..."
           sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/ci-missing-tables.sql | \
           docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
+          echo "Creating CI test users (from .github/ci/test-users.sql)..."
+          sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" .github/ci/test-users.sql | \
+          docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
           echo "Recording all migration versions as executed..."
           for f in database/migrations/[0-9][0-9][0-9]_*.sql; do
             case "$f" in *_down.sql) continue ;; esac
@@ -134,6 +137,9 @@ jobs:
           docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
           echo "Applying post-dump schema changes (missing tables + DDL from migrations 056-092)..."
           sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/ci-missing-tables.sql | \
+          docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
+          echo "Creating CI test users (from .github/ci/test-users.sql)..."
+          sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" .github/ci/test-users.sql | \
           docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
           echo "Recording all migration versions as executed..."
           for f in database/migrations/[0-9][0-9][0-9]_*.sql; do
@@ -178,6 +184,9 @@ jobs:
           docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
           echo "Applying post-dump schema changes (missing tables + DDL from migrations 056-092)..."
           sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/ci-missing-tables.sql | \
+          docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
+          echo "Creating CI test users (from .github/ci/test-users.sql)..."
+          sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" .github/ci/test-users.sql | \
           docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
           echo "Recording all migration versions as executed..."
           for f in database/migrations/[0-9][0-9][0-9]_*.sql; do
@@ -237,6 +246,9 @@ jobs:
           docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
           echo "Applying post-dump schema changes (missing tables + DDL from migrations 056-092)..."
           sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/ci-missing-tables.sql | \
+          docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
+          echo "Creating CI test users (from .github/ci/test-users.sql)..."
+          sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" .github/ci/test-users.sql | \
           docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
           echo "Recording all migration versions as executed..."
           for f in database/migrations/[0-9][0-9][0-9]_*.sql; do

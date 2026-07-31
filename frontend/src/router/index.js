@@ -589,12 +589,8 @@ router.beforeEach(async (to, from, next) => {
       }
     }
 
-    // 防止死循环：如果目标已经是 /dashboard，跳到 /login
-    if (to.path === '/dashboard') {
-      next('/login')
-    } else {
-      next('/dashboard')
-    }
+    // 无权限访问：直接转到登录页（避免 /dashboard 重定向循环）
+    next('/login')
     return
   }
 
@@ -604,12 +600,8 @@ router.beforeEach(async (to, from, next) => {
     const hasAuth = user.manageAll || permissions.includes(to.meta.permission)
 
     if (!hasAuth) {
-      // 防止死循环：如果目标已经是 /dashboard，跳到 /login
-      if (to.path === '/dashboard') {
-        next('/login')
-      } else {
-        next('/dashboard')
-      }
+      // 无权限访问：转到登录页
+      next('/login')
       return
     }
   }
