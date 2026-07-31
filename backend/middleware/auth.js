@@ -83,7 +83,7 @@ const authenticateToken = (req, res, next) => {
         });
       }
 
-      // 从 DB 获取最新权限和用户状态，不依赖 token 中的过期值
+      // 从 DB 获取最新权限和状态，不依赖 token 中的过期值
       const roleRows = Array.isArray(roleResult) && Array.isArray(roleResult[0]) ? roleResult[0] : [];
       const userRows = Array.isArray(userResult) && Array.isArray(userResult[0]) ? userResult[0] : [];
       const freshRole = roleRows[0] || {};
@@ -102,22 +102,13 @@ const authenticateToken = (req, res, next) => {
         mustChangePassword: freshUser.must_change_password === 1
       };
 
-      // [安全] 首次登录/重置密码后强制改密 — 仅允许改密、登出、获取个人信息
+      // 首次登录/重置密码后强制改密
       if (req.user.mustChangePassword) {
-        const allowedPaths = [
-          '/auth/force-change-password',
-          '/auth/logout',
-          '/auth/me',
-          '/auth/refresh'
-        ];
+        const allowedPaths = ['/auth/force-change-password', '/auth/logout', '/auth/me', '/auth/refresh'];
         const requestPath = (req.baseUrl || '') + (req.path || '');
         const isAllowed = allowedPaths.some(ep => requestPath === ep || requestPath.endsWith(ep));
         if (!isAllowed) {
-          return res.status(403).json({
-            code: 403,
-            message: '请先修改初始密码后再操作',
-            data: { mustChangePassword: true }
-          });
+          return res.status(403).json({ code: 403, message: '请先修改初始密码后再操作', data: { mustChangePassword: true } });
         }
       }
     } catch (dbErr) {

@@ -1,4 +1,4 @@
-const request = require('supertest');
+ï»¿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -31,21 +31,19 @@ const generateToken = () => {
   );
 };
 
-describe('²úÆ·Ä£¿é', () => {
+describe('äº§å“æ¨¡å—', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('POST /api/v1/product/list', () => {
-    it('Ó¦¸Ã·µ»Ø200ºÍ²úÆ·ÁĞ±í', async () => {
+    it('åº”è¯¥è¿”å›200å’Œäº§å“åˆ—è¡¨', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]])  // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 1 }]])
-        .mockResolvedValueOnce([[{ id: 1, name: '²âÊÔ²úÆ·', code: 'P001', price: 100 }]]);
+        .mockResolvedValueOnce([[{ id: 1, name: 'æµ‹è¯•äº§å“', code: 'P001', price: 100 }]]);
 
       const res = await request(app)
         .post('/api/v1/product/list')
@@ -60,7 +58,7 @@ describe('²úÆ·Ä£¿é', () => {
   });
 
   describe('POST /api/v1/product/add', () => {
-    it('Ó¦¸Ã·µ»Ø400µ±È±ÉÙ±ØÌî×Ö¶Îname', async () => {
+    it('åº”è¯¥è¿”å›400å½“ç¼ºå°‘å¿…å¡«å­—æ®µname', async () => {
       const res = await request(app)
         .post('/api/v1/product/add')
         .set('Authorization', `Bearer ${token}`)
@@ -70,13 +68,13 @@ describe('²úÆ·Ä£¿é', () => {
       expect(res.body.code).toBe(400);
     });
 
-    it('Ó¦¸Ã·µ»Ø200µ±´´½¨³É¹¦', async () => {
+    it('åº”è¯¥è¿”å›200å½“åˆ›å»ºæˆåŠŸ', async () => {
       mockPool.query.mockResolvedValue([{ insertId: 1 }]);
 
       const res = await request(app)
         .post('/api/v1/product/add')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'ĞÂ²úÆ·', price: 200 });
+        .send({ name: 'æ–°äº§å“', price: 200 });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);

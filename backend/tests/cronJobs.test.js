@@ -62,7 +62,8 @@ describe('定时任务模块', () => {
   function mockAdminAuth() {
     mockPool.query
       .mockResolvedValueOnce([[]])
-      .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1, role_code: 'super_admin' }]]);
+      .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1, role_code: 'super_admin' }]])
+      .mockResolvedValueOnce([[{ must_change_password: 0 }]]);
   }
 
   describe('GET /api/v1/cron/daily-scoring', () => {

@@ -1,4 +1,4 @@
-const request = require('supertest');
+ï»¿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -54,18 +54,16 @@ const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-describe('Êı¾İ±¸·İÄ£¿é', () => {
+describe('æ•°æ®å¤‡ä»½æ¨¡å—', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('POST /api/v1/backup/list', () => {
-    it('Ó¦¸Ã·µ»Ø±¸·İÁĞ±í', async () => {
+    it('åº”è¯¥è¿”å›å¤‡ä»½åˆ—è¡¨', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[{ id: 1, file_name: 'huakey_crm_full_2026-06-23.sql', status: 'success' }]]); // list
@@ -83,12 +81,10 @@ describe('Êı¾İ±¸·İÄ£¿é', () => {
   });
 
   describe('POST /api/v1/backup/create', () => {
-    it('Ó¦¸Ã·µ»Ø200µ±Õı³£´´½¨±¸·İ', async () => {
+    it('åº”è¯¥è¿”å›200å½“æ­£å¸¸åˆ›å»ºå¤‡ä»½', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert backup record
 
@@ -105,7 +101,7 @@ describe('Êı¾İ±¸·İÄ£¿é', () => {
   });
 
   describe('POST /api/v1/backup/restore', () => {
-    it('Ó¦¸Ã·µ»Ø400µ±È·ÈÏÂë²»ÕıÈ·', async () => {
+    it('åº”è¯¥è¿”å›400å½“ç¡®è®¤ç ä¸æ­£ç¡®', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
@@ -118,14 +114,12 @@ describe('Êı¾İ±¸·İÄ£¿é', () => {
       expect(res.body.code).toBe(400);
     });
 
-    it('Ó¦¸Ã·µ»Ø200µ±Õı³£»Ö¸´±¸·İ', async () => {
+    it('åº”è¯¥è¿”å›200å½“æ­£å¸¸æ¢å¤å¤‡ä»½', async () => {
       const confirmCode = crypto.createHmac('sha256', process.env.JWT_SECRET)
         .update('backup-restore-1').digest('hex').slice(0, 12);
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ id: 1, status: 'success', file_path: '/tmp/test_backup.sql' }]]); // SELECT backup record
 
@@ -140,12 +134,10 @@ describe('Êı¾İ±¸·İÄ£¿é', () => {
   });
 
   describe('POST /api/v1/backup/delete', () => {
-    it('Ó¦¸Ã·µ»Ø200µ±Õı³£É¾³ı±¸·İ', async () => {
+    it('åº”è¯¥è¿”å›200å½“æ­£å¸¸åˆ é™¤å¤‡ä»½', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ id: 1, file_path: '/tmp/test_backup.sql' }]]) // SELECT backup record
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // DELETE record
@@ -160,8 +152,8 @@ describe('Êı¾İ±¸·İÄ£¿é', () => {
     });
   });
 
-  describe('ÎŞtoken·ÃÎÊ', () => {
-    it('Ó¦¸Ã·µ»Ø401µ±ÎŞtoken', async () => {
+  describe('æ— tokenè®¿é—®', () => {
+    it('åº”è¯¥è¿”å›401å½“æ— token', async () => {
       const res = await request(app)
         .post('/api/v1/backup/list')
         .send({});

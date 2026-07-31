@@ -102,7 +102,6 @@ describe('发票管理模块', () => {
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ total: 2 }]]) // count
         .mockResolvedValueOnce([[ // list
           { id: 1, invoice_no: 'INV-260623-001', amount: 10000 },
@@ -127,7 +126,6 @@ describe('发票管理模块', () => {
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ id: 1, invoice_no: 'INV-260623-001', amount: 10000 }]]) // old data
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
 
@@ -147,7 +145,6 @@ describe('发票管理模块', () => {
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ id: 1 }]]) // existence check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 

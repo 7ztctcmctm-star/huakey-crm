@@ -1,4 +1,4 @@
-const request = require('supertest');
+ï»¿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -25,7 +25,7 @@ jest.mock('../services/permissionService', () => ({
 const app = express();
 app.use(express.json());
 
-// ¹©Ó¦ÉÌÆÀ·ÖÂ·ÓÉ¹ÒÔØÓÚ /scoring Ä£¿éÏÂ£¨Prompt 4-5 ÆÀ·ÖÍ³Ò»£©
+// ä¾›åº”å•†è¯„åˆ†è·¯ç”±æŒ‚è½½äºŽ /scoring æ¨¡å—ä¸‹ï¼ˆPrompt 4-5 è¯„åˆ†ç»Ÿä¸€ï¼‰
 const scoringRoutes = require('../routes/scoring');
 app.use('/api/v1/scoring', scoringRoutes);
 
@@ -33,20 +33,18 @@ const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-describe('¹©Ó¦ÉÌÆÀ·ÖÄ£¿é£¨ÆÀ·ÖÍ³Ò»£©', () => {
+describe('ä¾›åº”å•†è¯„åˆ†æ¨¡å—ï¼ˆè¯„åˆ†ç»Ÿä¸€ï¼‰', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('GET /api/v1/scoring/supplier/rules', () => {
-    it('Ó¦¸Ã·µ»Ø¹©Ó¦ÉÌÆÀ·Ö¹æÔò', async () => {
+    it('åº”è¯¥è¿”å›žä¾›åº”å•†è¯„åˆ†è§„åˆ™', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-        .mockResolvedValueOnce([[{ id: 1, category: 'quality', rule_name: 'ºÏ¸ñÂÊ¡Ý98', min_score: 1, max_score: 5 }]]); // rules
+        .mockResolvedValueOnce([[{ id: 1, category: 'quality', rule_name: 'åˆæ ¼çŽ‡â‰¥98', min_score: 1, max_score: 5 }]]); // rules
 
       const res = await request(app)
         .get('/api/v1/scoring/supplier/rules')
@@ -59,12 +57,10 @@ describe('¹©Ó¦ÉÌÆÀ·ÖÄ£¿é£¨ÆÀ·ÖÍ³Ò»£©', () => {
   });
 
   describe('GET /api/v1/scoring/supplier/rating/:id', () => {
-    it('Ó¦¸Ã·µ»Ø¹©Ó¦ÉÌ×îÐÂÆÀ·Ö', async () => {
+    it('åº”è¯¥è¿”å›žä¾›åº”å•†æœ€æ–°è¯„åˆ†', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // rating
           { id: 5, supplier_id: 1, total_score: 4.2, rating_period: '2026-Q3' }
@@ -81,14 +77,12 @@ describe('¹©Ó¦ÉÌÆÀ·ÖÄ£¿é£¨ÆÀ·ÖÍ³Ò»£©', () => {
   });
 
   describe('POST /api/v1/scoring/supplier/batch', () => {
-    it('Ó¦¸ÃÅúÁ¿¼ÆËã²¢·µ»Ø½á¹ûÊý×é', async () => {
+    it('åº”è¯¥æ‰¹é‡è®¡ç®—å¹¶è¿”å›žç»“æžœæ•°ç»„', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-        .mockResolvedValueOnce([[]]); // SELECT id FROM crm_supplier WHERE status = 1£¨ÎÞ¹©Ó¦ÉÌ£©
+        .mockResolvedValueOnce([[]]); // SELECT id FROM crm_supplier WHERE status = 1ï¼ˆæ— ä¾›åº”å•†ï¼‰
 
       const res = await request(app)
         .post('/api/v1/scoring/supplier/batch')

@@ -64,6 +64,7 @@ describe('采购申请模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ cnt: 0 }]]) // count
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
@@ -83,6 +84,7 @@ describe('采购申请模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[{ id: 1, title: '6月办公用品采购', status: 'draft', applicant_name: '管理员' }]]); // list
 
@@ -102,6 +104,7 @@ describe('采购申请模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ id: 1, applicant_id: 1, status: 'pending' }]]); // request
 
       const res = await request(app)
@@ -136,6 +139,7 @@ describe('采购申请模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ status: 'pending' }]]) // request
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
 
@@ -154,6 +158,7 @@ describe('采购申请模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ applicant_id: 1, status: 'draft' }]]) // request
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
 

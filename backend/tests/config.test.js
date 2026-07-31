@@ -1,4 +1,4 @@
-const request = require('supertest');
+ï»¿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -39,13 +39,13 @@ const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-describe('ÏµÍ³ÅäÖÃÄ£¿é', () => {
+describe('ç³»ç»Ÿé…ç½®æ¨¡å—', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('GET /api/v1/config/overdue-days', () => {
-    it('Ó¦¸Ã·µ»Ø200ºÍÓâÆÚÌìÊýÅäÖÃ', async () => {
+    it('åº”è¯¥è¿”å›ž200å’Œé€¾æœŸå¤©æ•°é…ç½®', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
@@ -60,16 +60,14 @@ describe('ÏµÍ³ÅäÖÃÄ£¿é', () => {
   });
 
   describe('GET /api/v1/config/list', () => {
-    it('Ó¦¸Ã·µ»Ø200ºÍÅäÖÃÁÐ±í', async () => {
+    it('åº”è¯¥è¿”å›ž200å’Œé…ç½®åˆ—è¡¨', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[
-          { config_key: 'overdue_days', config_value: '30', description: 'ÓâÆÚÌìÊý' },
-          { config_key: 'notify_enabled', config_value: 'true', description: 'Í¨Öª¿ª¹Ø' }
+          { config_key: 'overdue_days', config_value: '30', description: 'é€¾æœŸå¤©æ•°' },
+          { config_key: 'notify_enabled', config_value: 'true', description: 'é€šçŸ¥å¼€å…³' }
         ]]);
 
       const res = await request(app)
@@ -84,7 +82,7 @@ describe('ÏµÍ³ÅäÖÃÄ£¿é', () => {
   });
 
   describe('POST /api/v1/config/update', () => {
-    it('Ó¦¸Ã·µ»Ø400µ±configsÎª¿Õ', async () => {
+    it('åº”è¯¥è¿”å›ž400å½“configsä¸ºç©º', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
@@ -97,12 +95,10 @@ describe('ÏµÍ³ÅäÖÃÄ£¿é', () => {
       expect(res.body.code).toBe(400);
     });
 
-    it('Ó¦¸Ã·µ»Ø200µ±Õý³£¸üÐÂÅäÖÃ', async () => {
+    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸æ›´æ–°é…ç½®', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
 
@@ -117,7 +113,7 @@ describe('ÏµÍ³ÅäÖÃÄ£¿é', () => {
   });
 
   describe('POST /api/v1/config/test-notification', () => {
-    it('Ó¦¸Ã·µ»Ø200µ±·¢ËÍ²âÊÔÍ¨Öª³É¹¦', async () => {
+    it('åº”è¯¥è¿”å›ž200å½“å‘é€æµ‹è¯•é€šçŸ¥æˆåŠŸ', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
@@ -129,7 +125,7 @@ describe('ÏµÍ³ÅäÖÃÄ£¿é', () => {
       expect(res.body.code).toBe(200);
     });
 
-    it('Ó¦¸Ã·µ»Ø401µ±ÎÞtoken', async () => {
+    it('åº”è¯¥è¿”å›ž401å½“æ— token', async () => {
       const res = await request(app)
         .post('/api/v1/config/test-notification');
 

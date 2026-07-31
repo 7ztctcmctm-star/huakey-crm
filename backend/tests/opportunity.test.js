@@ -1,4 +1,4 @@
-const request = require('supertest');
+ï»¿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -31,21 +31,19 @@ const generateToken = () => {
   );
 };
 
-describe('ÉÌ»úÄ£¿é', () => {
+describe('å•†æœºæ¨¡å—', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('POST /api/v1/opportunity/list', () => {
-    it('Ó¦¸Ã·µ»Ø200ºÍÉÌ»úÁÐ±í', async () => {
+    it('åº”è¯¥è¿”å›ž200å’Œå•†æœºåˆ—è¡¨', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]])  // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 1 }]])
-        .mockResolvedValueOnce([[{ id: 1, name: '²âÊÔÉÌ»ú', stage: 1 }]]);
+        .mockResolvedValueOnce([[{ id: 1, name: 'æµ‹è¯•å•†æœº', stage: 1 }]]);
 
       const res = await request(app)
         .post('/api/v1/opportunity/list')
@@ -59,7 +57,7 @@ describe('ÉÌ»úÄ£¿é', () => {
   });
 
   describe('POST /api/v1/opportunity/add', () => {
-    it('Ó¦¸Ã·µ»Ø400µ±È±ÉÙname', async () => {
+    it('åº”è¯¥è¿”å›ž400å½“ç¼ºå°‘name', async () => {
       const res = await request(app)
         .post('/api/v1/opportunity/add')
         .set('Authorization', `Bearer ${token}`)
@@ -69,11 +67,11 @@ describe('ÉÌ»úÄ£¿é', () => {
       expect(res.body.code).toBe(400);
     });
 
-    it('Ó¦¸Ã·µ»Ø400µ±È±ÉÙcustomer_id', async () => {
+    it('åº”è¯¥è¿”å›ž400å½“ç¼ºå°‘customer_id', async () => {
       const res = await request(app)
         .post('/api/v1/opportunity/add')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'ÐÂÉÌ»ú' });
+        .send({ name: 'æ–°å•†æœº' });
 
       expect(res.status).toBe(400);
       expect(res.body.code).toBe(400);

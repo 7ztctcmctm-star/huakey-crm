@@ -1,4 +1,4 @@
-const request = require('supertest');
+ï»¿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -32,13 +32,13 @@ const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-describe('±êÇ©¹ÜÀíÄ£¿é', () => {
+describe('æ ‡ç­¾ç®¡ç†æ¨¡å—', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('POST /api/v1/tag/manage (add)', () => {
-    it('Ó¦¸Ã·µ»Ø400µ±È±ÉÙname', async () => {
+    it('åº”è¯¥è¿”å›400å½“ç¼ºå°‘name', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
@@ -51,19 +51,17 @@ describe('±êÇ©¹ÜÀíÄ£¿é', () => {
       expect(res.body.code).toBe(400);
     });
 
-    it('Ó¦¸Ã·µ»Ø200µ±Õı³£´´½¨±êÇ©', async () => {
+    it('åº”è¯¥è¿”å›200å½“æ­£å¸¸åˆ›å»ºæ ‡ç­¾', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ insertId: 5 }]); // insert tag
 
       const res = await request(app)
         .post('/api/v1/tag/manage')
         .set('Authorization', `Bearer ${token}`)
-        .send({ action: 'add', name: 'VIP¿Í»§', color: '#ff6600' });
+        .send({ action: 'add', name: 'VIPå®¢æˆ·', color: '#ff6600' });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
@@ -72,16 +70,14 @@ describe('±êÇ©¹ÜÀíÄ£¿é', () => {
   });
 
   describe('GET /api/v1/tag/list', () => {
-    it('Ó¦¸Ã·µ»Ø±êÇ©ÁĞ±í', async () => {
+    it('åº”è¯¥è¿”å›æ ‡ç­¾åˆ—è¡¨', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // tag list
           { id: 1, name: 'VIP', color: '#ff0000', sort: 1 },
-          { id: 2, name: 'ÖØµã', color: '#00ff00', sort: 2 }
+          { id: 2, name: 'é‡ç‚¹', color: '#00ff00', sort: 2 }
         ]]);
 
       const res = await request(app)
@@ -95,12 +91,10 @@ describe('±êÇ©¹ÜÀíÄ£¿é', () => {
   });
 
   describe('POST /api/v1/tag/manage (delete)', () => {
-    it('Ó¦¸Ã·µ»Ø200µ±Õı³£É¾³ı±êÇ©', async () => {
+    it('åº”è¯¥è¿”å›200å½“æ­£å¸¸åˆ é™¤æ ‡ç­¾', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ affectedRows: 1 }]) // delete customer_tag relations
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete tag
@@ -115,8 +109,8 @@ describe('±êÇ©¹ÜÀíÄ£¿é', () => {
     });
   });
 
-  describe('ÎŞtoken·ÃÎÊ', () => {
-    it('Ó¦¸Ã·µ»Ø401µ±ÎŞtoken', async () => {
+  describe('æ— tokenè®¿é—®', () => {
+    it('åº”è¯¥è¿”å›401å½“æ— token', async () => {
       const res = await request(app)
         .get('/api/v1/tag/list');
 

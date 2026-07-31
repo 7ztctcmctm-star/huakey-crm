@@ -44,7 +44,6 @@ describe('数据质量检查模块（data-management 域）', () => {
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ total: 100 }]]) // total count
         .mockResolvedValueOnce([[{ dup_count: 5 }]]) // duplicate count
         .mockResolvedValueOnce([[ // duplicate details
@@ -74,7 +73,6 @@ describe('数据质量检查模块（data-management 域）', () => {
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[ // report
           { id: 1, table_name: 'crm_customer', total_count: 100, duplicate_count: 5, quality_score: 85.5, check_time: '2026-06-23 10:00:00' }
         ]]);
@@ -96,7 +94,6 @@ describe('数据质量检查模块（data-management 域）', () => {
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[ // report for supplier
           { id: 2, table_name: 'crm_supplier', total_count: 50, duplicate_count: 2, quality_score: 92.0, check_time: '2026-06-23 11:00:00' }
         ]]);

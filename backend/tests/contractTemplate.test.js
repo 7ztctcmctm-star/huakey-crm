@@ -1,4 +1,4 @@
-const request = require('supertest');
+ï»¿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -39,22 +39,20 @@ const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-describe('ºÏÍ¬Ä£°åÄ£¿é', () => {
+describe('åˆåŒæ¨¡æ¿æ¨¡å—', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('GET /api/v1/contract-template/list', () => {
-    it('Ó¦¸Ã·µ»ØÄ£°åÁÐ±í', async () => {
+    it('åº”è¯¥è¿”å›žæ¨¡æ¿åˆ—è¡¨', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // list
-          { id: 1, name: '±ê×¼ºÏÍ¬Ä£°å', amount: 0, payment_terms: 'ÔÂ½á30Ìì' },
-          { id: 2, name: '´ó¿Í»§ºÏÍ¬Ä£°å', amount: 100000, payment_terms: 'Ô¤¸¶50%' }
+          { id: 1, name: 'æ ‡å‡†åˆåŒæ¨¡æ¿', amount: 0, payment_terms: 'æœˆç»“30å¤©' },
+          { id: 2, name: 'å¤§å®¢æˆ·åˆåŒæ¨¡æ¿', amount: 100000, payment_terms: 'é¢„ä»˜50%' }
         ]]);
 
       const res = await request(app)
@@ -68,19 +66,17 @@ describe('ºÏÍ¬Ä£°åÄ£¿é', () => {
   });
 
   describe('POST /api/v1/contract-template/manage (add)', () => {
-    it('Ó¦¸Ã·µ»Ø200µ±Õý³£´´½¨Ä£°å', async () => {
+    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸åˆ›å»ºæ¨¡æ¿', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ insertId: 3 }]); // insert
 
       const res = await request(app)
         .post('/api/v1/contract-template/manage')
         .set('Authorization', `Bearer ${token}`)
-        .send({ action: 'add', name: 'ÐÂºÏÍ¬Ä£°å', amount: 50000, payment_terms: 'ÑéÊÕºó¸¶Çå' });
+        .send({ action: 'add', name: 'æ–°åˆåŒæ¨¡æ¿', amount: 50000, payment_terms: 'éªŒæ”¶åŽä»˜æ¸…' });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
@@ -89,12 +85,10 @@ describe('ºÏÍ¬Ä£°åÄ£¿é', () => {
   });
 
   describe('POST /api/v1/contract-template/manage (delete)', () => {
-    it('Ó¦¸Ã·µ»Ø200µ±Õý³£É¾³ýÄ£°å', async () => {
+    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸åˆ é™¤æ¨¡æ¿', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 
@@ -108,8 +102,8 @@ describe('ºÏÍ¬Ä£°åÄ£¿é', () => {
     });
   });
 
-  describe('ÎÞtoken·ÃÎÊ', () => {
-    it('Ó¦¸Ã·µ»Ø401µ±ÎÞtoken', async () => {
+  describe('æ— tokenè®¿é—®', () => {
+    it('åº”è¯¥è¿”å›ž401å½“æ— token', async () => {
       const res = await request(app)
         .get('/api/v1/contract-template/list');
 

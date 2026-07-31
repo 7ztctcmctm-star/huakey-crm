@@ -1,4 +1,4 @@
-const request = require('supertest');
+ï»¿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -32,38 +32,36 @@ const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-describe('¸ú½øÄ£°åÄ£¿é', () => {
+describe('è·Ÿè¿›æ¨¡æ¿æ¨¡å—', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('POST /api/v1/followup-templates/', () => {
-    it('Ó¦¸Ã·µ»Ø400µ±È±ÉÙcontent', async () => {
+    it('åº”è¯¥è¿”å›ž400å½“ç¼ºå°‘content', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/v1/followup-templates/')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'Ê×´Î¸ú½øÄ£°å' });
+        .send({ name: 'é¦–æ¬¡è·Ÿè¿›æ¨¡æ¿' });
 
       expect(res.status).toBe(400);
       expect(res.body.code).toBe(400);
     });
 
-    it('Ó¦¸Ã·µ»Ø200µ±Õý³£´´½¨Ä£°å', async () => {
+    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸åˆ›å»ºæ¨¡æ¿', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
         .post('/api/v1/followup-templates/')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'Ê×´Î¸ú½øÄ£°å', type: 'first', content: 'ÄúºÃ£¬¸ÐÐ»ÄúµÄ¹Ø×¢£¬ÕâÊÇÎÒÃÇ¹«Ë¾µÄ½éÉÜ...' });
+        .send({ name: 'é¦–æ¬¡è·Ÿè¿›æ¨¡æ¿', type: 'first', content: 'æ‚¨å¥½ï¼Œæ„Ÿè°¢æ‚¨çš„å…³æ³¨ï¼Œè¿™æ˜¯æˆ‘ä»¬å…¬å¸çš„ä»‹ç»...' });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
@@ -72,16 +70,14 @@ describe('¸ú½øÄ£°åÄ£¿é', () => {
   });
 
   describe('GET /api/v1/followup-templates/', () => {
-    it('Ó¦¸Ã·µ»ØÄ£°åÁÐ±í', async () => {
+    it('åº”è¯¥è¿”å›žæ¨¡æ¿åˆ—è¡¨', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // list
-          { id: 1, name: 'Ê×´Î¸ú½ø', type: 'first', content: 'Ä£°åÄÚÈÝ1' },
-          { id: 2, name: '±¨¼Û¸ú½ø', type: 'quote', content: 'Ä£°åÄÚÈÝ2' }
+          { id: 1, name: 'é¦–æ¬¡è·Ÿè¿›', type: 'first', content: 'æ¨¡æ¿å†…å®¹1' },
+          { id: 2, name: 'æŠ¥ä»·è·Ÿè¿›', type: 'quote', content: 'æ¨¡æ¿å†…å®¹2' }
         ]]);
 
       const res = await request(app)
@@ -95,12 +91,10 @@ describe('¸ú½øÄ£°åÄ£¿é', () => {
   });
 
   describe('DELETE /api/v1/followup-templates/:id', () => {
-    it('Ó¦¸Ã·µ»Ø200µ±Õý³£É¾³ýÄ£°å', async () => {
+    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸åˆ é™¤æ¨¡æ¿', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ id: 1, create_by: 1 }]]) // existence + ownership check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
@@ -114,8 +108,8 @@ describe('¸ú½øÄ£°åÄ£¿é', () => {
     });
   });
 
-  describe('ÎÞtoken·ÃÎÊ', () => {
-    it('Ó¦¸Ã·µ»Ø401µ±ÎÞtoken', async () => {
+  describe('æ— tokenè®¿é—®', () => {
+    it('åº”è¯¥è¿”å›ž401å½“æ— token', async () => {
       const res = await request(app)
         .get('/api/v1/followup-templates/');
 

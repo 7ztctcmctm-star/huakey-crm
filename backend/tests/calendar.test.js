@@ -1,4 +1,4 @@
-const request = require('supertest');
+ï»¿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -32,13 +32,13 @@ const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-describe('ÈÕÀúÄ£¿é', () => {
+describe('æ—¥å†æ¨¡å—', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('POST /api/v1/calendar/events', () => {
-    it('Ó¦¸Ã·µ»Ø400µ±È±ÉÙtitle', async () => {
+    it('åº”è¯¥è¿”å›400å½“ç¼ºå°‘title', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
@@ -50,19 +50,17 @@ describe('ÈÕÀúÄ£¿é', () => {
       expect(res.status).toBe(400);
     });
 
-    it('Ó¦¸Ã·µ»Ø200µ±Õı³£´´½¨ÈÕ³ÌÊÂ¼ş', async () => {
+    it('åº”è¯¥è¿”å›200å½“æ­£å¸¸åˆ›å»ºæ—¥ç¨‹äº‹ä»¶', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
         .post('/api/v1/calendar/events')
         .set('Authorization', `Bearer ${token}`)
-        .send({ title: '¿Í»§°İ·Ã', start_time: '2026-06-23 10:00:00', event_type: 'meeting' });
+        .send({ title: 'å®¢æˆ·æ‹œè®¿', start_time: '2026-06-23 10:00:00', event_type: 'meeting' });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
@@ -71,14 +69,12 @@ describe('ÈÕÀúÄ£¿é', () => {
   });
 
   describe('GET /api/v1/calendar/events', () => {
-    it('Ó¦¸Ã·µ»ØÈÕ³ÌÊÂ¼şÁĞ±í', async () => {
+    it('åº”è¯¥è¿”å›æ—¥ç¨‹äº‹ä»¶åˆ—è¡¨', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-        .mockResolvedValueOnce([[{ id: 1, title: '¿Í»§°İ·Ã' }, { id: 2, title: 'ÍÅ¶Ó»áÒé' }]]); // list
+        .mockResolvedValueOnce([[{ id: 1, title: 'å®¢æˆ·æ‹œè®¿' }, { id: 2, title: 'å›¢é˜Ÿä¼šè®®' }]]); // list
 
       const res = await request(app)
         .get('/api/v1/calendar/events')
@@ -91,12 +87,10 @@ describe('ÈÕÀúÄ£¿é', () => {
   });
 
   describe('PUT /api/v1/calendar/events/:id', () => {
-    it('Ó¦¸Ã·µ»Ø400µ±Ã»ÓĞÒª¸üĞÂµÄ×Ö¶Î', async () => {
+    it('åº”è¯¥è¿”å›400å½“æ²¡æœ‰è¦æ›´æ–°çš„å­—æ®µ', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ create_by: 1 }]]); // ownership check
 
@@ -108,12 +102,10 @@ describe('ÈÕÀúÄ£¿é', () => {
       expect(res.status).toBe(400);
     });
 
-    it('Ó¦¸Ã·µ»Ø200µ±Õı³£¸üĞÂÈÕ³Ì', async () => {
+    it('åº”è¯¥è¿”å›200å½“æ­£å¸¸æ›´æ–°æ—¥ç¨‹', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ create_by: 1 }]]) // ownership check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
@@ -121,7 +113,7 @@ describe('ÈÕÀúÄ£¿é', () => {
       const res = await request(app)
         .put('/api/v1/calendar/events/1')
         .set('Authorization', `Bearer ${token}`)
-        .send({ title: '¸üĞÂºóµÄ±êÌâ' });
+        .send({ title: 'æ›´æ–°åçš„æ ‡é¢˜' });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
@@ -129,12 +121,10 @@ describe('ÈÕÀúÄ£¿é', () => {
   });
 
   describe('DELETE /api/v1/calendar/events/:id', () => {
-    it('Ó¦¸Ã·µ»Ø200µ±Õı³£É¾³ıÈÕ³Ì', async () => {
+    it('åº”è¯¥è¿”å›200å½“æ­£å¸¸åˆ é™¤æ—¥ç¨‹', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ create_by: 1 }]]) // ownership check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
@@ -148,8 +138,8 @@ describe('ÈÕÀúÄ£¿é', () => {
     });
   });
 
-  describe('ÎŞtoken·ÃÎÊ', () => {
-    it('Ó¦¸Ã·µ»Ø401µ±ÎŞtoken', async () => {
+  describe('æ— tokenè®¿é—®', () => {
+    it('åº”è¯¥è¿”å›401å½“æ— token', async () => {
       const res = await request(app)
         .get('/api/v1/calendar/events');
 

@@ -1,4 +1,4 @@
-const request = require('supertest');
+ï»¿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -32,13 +32,13 @@ const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-describe('×Ô¶¯»¯¹æÔòÄ£¿é', () => {
+describe('è‡ªåŠ¨åŒ–è§„åˆ™æ¨¡å—', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('POST /api/v1/automation/assign-rules', () => {
-    it('Ó¦¸Ã·µ»Ø400µ±È±ÉÙname', async () => {
+    it('åº”è¯¥è¿”å›ž400å½“ç¼ºå°‘name', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
@@ -51,19 +51,17 @@ describe('×Ô¶¯»¯¹æÔòÄ£¿é', () => {
       expect(res.body.code).toBe(400);
     });
 
-    it('Ó¦¸Ã·µ»Ø200µ±Õý³£´´½¨·ÖÅä¹æÔò', async () => {
+    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸åˆ›å»ºåˆ†é…è§„åˆ™', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
         .post('/api/v1/automation/assign-rules')
         .set('Authorization', `Bearer ${token}`)
-        .send({ rule_name: '°´À´Ô´·ÖÅä-¹ÙÍø', assign_type: 'by_source', source_value: '¹ÙÍø', user_ids: [1, 2, 3], priority: 10 });
+        .send({ rule_name: 'æŒ‰æ¥æºåˆ†é…-å®˜ç½‘', assign_type: 'by_source', source_value: 'å®˜ç½‘', user_ids: [1, 2, 3], priority: 10 });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
@@ -72,16 +70,14 @@ describe('×Ô¶¯»¯¹æÔòÄ£¿é', () => {
   });
 
   describe('GET /api/v1/automation/assign-rules', () => {
-    it('Ó¦¸Ã·µ»Ø·ÖÅä¹æÔòÁÐ±í', async () => {
+    it('åº”è¯¥è¿”å›žåˆ†é…è§„åˆ™åˆ—è¡¨', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // rules list
-          { id: 1, rule_name: '°´À´Ô´·ÖÅä-¹ÙÍø', assign_type: 'by_source', priority: 10 },
-          { id: 2, rule_name: 'ÂÖÑ¯·ÖÅä', assign_type: 'round_robin', priority: 5 }
+          { id: 1, rule_name: 'æŒ‰æ¥æºåˆ†é…-å®˜ç½‘', assign_type: 'by_source', priority: 10 },
+          { id: 2, rule_name: 'è½®è¯¢åˆ†é…', assign_type: 'round_robin', priority: 5 }
         ]]);
 
       const res = await request(app)
@@ -95,19 +91,17 @@ describe('×Ô¶¯»¯¹æÔòÄ£¿é', () => {
   });
 
   describe('POST /api/v1/automation/workflows', () => {
-    it('Ó¦¸Ã·µ»Ø200µ±Õý³£´´½¨¹¤×÷Á÷', async () => {
+    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸åˆ›å»ºå·¥ä½œæµ', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
         .post('/api/v1/automation/workflows')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'ÐÂ¿Í»§×Ô¶¯·ÖÅä', trigger_event: 'customer_created', conditions: [{ field: 'source', operator: 'equals', value: '¹ÙÍø' }], actions: [{ type: 'assign', params: { user_id: 2 } }] });
+        .send({ name: 'æ–°å®¢æˆ·è‡ªåŠ¨åˆ†é…', trigger_event: 'customer_created', conditions: [{ field: 'source', operator: 'equals', value: 'å®˜ç½‘' }], actions: [{ type: 'assign', params: { user_id: 2 } }] });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
@@ -116,16 +110,14 @@ describe('×Ô¶¯»¯¹æÔòÄ£¿é', () => {
   });
 
   describe('GET /api/v1/automation/workflows', () => {
-    it('Ó¦¸Ã·µ»Ø¹¤×÷Á÷ÁÐ±í', async () => {
+    it('åº”è¯¥è¿”å›žå·¥ä½œæµåˆ—è¡¨', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // workflows list
-          { id: 1, name: 'ÐÂ¿Í»§×Ô¶¯·ÖÅä', trigger_event: 'customer_created', status: 1, today_runs: 3 },
-          { id: 2, name: 'ÉÌ»úÍ£ÖÍÌáÐÑ', trigger_event: 'opportunity_stale', status: 1, today_runs: 0 }
+          { id: 1, name: 'æ–°å®¢æˆ·è‡ªåŠ¨åˆ†é…', trigger_event: 'customer_created', status: 1, today_runs: 3 },
+          { id: 2, name: 'å•†æœºåœæ»žæé†’', trigger_event: 'opportunity_stale', status: 1, today_runs: 0 }
         ]]);
 
       const res = await request(app)
@@ -138,8 +130,8 @@ describe('×Ô¶¯»¯¹æÔòÄ£¿é', () => {
     });
   });
 
-  describe('ÎÞtoken·ÃÎÊ', () => {
-    it('Ó¦¸Ã·µ»Ø401µ±ÎÞtoken', async () => {
+  describe('æ— tokenè®¿é—®', () => {
+    it('åº”è¯¥è¿”å›ž401å½“æ— token', async () => {
       const res = await request(app)
         .get('/api/v1/automation/workflows');
 

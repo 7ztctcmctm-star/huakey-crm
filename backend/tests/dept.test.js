@@ -1,4 +1,4 @@
-const request = require('supertest');
+ï»¿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -32,13 +32,13 @@ const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-describe('²¿ÃÅ¹ÜÀíÄ£¿é', () => {
+describe('éƒ¨é—¨ç®¡ç†æ¨¡å—', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('POST /api/v1/dept/add', () => {
-    it('Ó¦¸Ã·µ»Ø400µ±È±ÉÙname×Ö¶Î', async () => {
+    it('åº”è¯¥è¿”å›ž400å½“ç¼ºå°‘nameå­—æ®µ', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
@@ -51,26 +51,24 @@ describe('²¿ÃÅ¹ÜÀíÄ£¿é', () => {
       expect(res.body.code).toBe(400);
     });
 
-    it('Ó¦¸Ã·µ»Ø200µ±Õý³£´´½¨²¿ÃÅ', async () => {
+    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸åˆ›å»ºéƒ¨é—¨', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ insertId: 10 }]);
 
       const res = await request(app)
         .post('/api/v1/dept/add')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'ÐÂ²¿ÃÅ', parent_id: 0, sort: 1 });
+        .send({ name: 'æ–°éƒ¨é—¨', parent_id: 0, sort: 1 });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
       expect(res.body.data).toHaveProperty('id');
     });
 
-    it('Ó¦¸Ã·µ»Ø400µ±nameÎª¿Õ×Ö·û´®', async () => {
+    it('åº”è¯¥è¿”å›ž400å½“nameä¸ºç©ºå­—ç¬¦ä¸²', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
@@ -84,32 +82,30 @@ describe('²¿ÃÅ¹ÜÀíÄ£¿é', () => {
   });
 
   describe('POST /api/v1/dept/update', () => {
-    it('Ó¦¸Ã·µ»Ø400µ±È±ÉÙid×Ö¶Î', async () => {
+    it('åº”è¯¥è¿”å›ž400å½“ç¼ºå°‘idå­—æ®µ', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/v1/dept/update')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'ÐÞ¸ÄÃû³Æ' });
+        .send({ name: 'ä¿®æ”¹åç§°' });
 
       expect(res.status).toBe(400);
       expect(res.body.code).toBe(400);
     });
 
-    it('Ó¦¸Ã·µ»Ø200µ±Õý³£¸üÐÂ²¿ÃÅ', async () => {
+    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸æ›´æ–°éƒ¨é—¨', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ affectedRows: 1 }]);
 
       const res = await request(app)
         .post('/api/v1/dept/update')
         .set('Authorization', `Bearer ${token}`)
-        .send({ id: 1, name: 'ÐÞ¸ÄºóµÄ²¿ÃÅ' });
+        .send({ id: 1, name: 'ä¿®æ”¹åŽçš„éƒ¨é—¨' });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
@@ -117,7 +113,7 @@ describe('²¿ÃÅ¹ÜÀíÄ£¿é', () => {
   });
 
   describe('POST /api/v1/dept/delete', () => {
-    it('Ó¦¸Ã·µ»Ø400µ±È±ÉÙid×Ö¶Î', async () => {
+    it('åº”è¯¥è¿”å›ž400å½“ç¼ºå°‘idå­—æ®µ', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
@@ -130,12 +126,10 @@ describe('²¿ÃÅ¹ÜÀíÄ£¿é', () => {
       expect(res.body.code).toBe(400);
     });
 
-    it('Ó¦¸Ã·µ»Ø400µ±ÓÐ×Ó²¿ÃÅÊ±¾Ü¾øÉ¾³ý', async () => {
+    it('åº”è¯¥è¿”å›ž400å½“æœ‰å­éƒ¨é—¨æ—¶æ‹’ç»åˆ é™¤', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ cnt: 3 }]]); // children check
 
@@ -145,15 +139,13 @@ describe('²¿ÃÅ¹ÜÀíÄ£¿é', () => {
         .send({ id: 1 });
 
       expect(res.status).toBe(400);
-      expect(res.body.message).toContain('×Ó²¿ÃÅ');
+      expect(res.body.message).toContain('å­éƒ¨é—¨');
     });
 
-    it('Ó¦¸Ã·µ»Ø400µ±²¿ÃÅÏÂÓÐÓÃ»§Ê±¾Ü¾øÉ¾³ý', async () => {
+    it('åº”è¯¥è¿”å›ž400å½“éƒ¨é—¨ä¸‹æœ‰ç”¨æˆ·æ—¶æ‹’ç»åˆ é™¤', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ cnt: 0 }]])  // no children
         .mockResolvedValueOnce([[{ cnt: 5 }]]); // has users
@@ -164,15 +156,13 @@ describe('²¿ÃÅ¹ÜÀíÄ£¿é', () => {
         .send({ id: 1 });
 
       expect(res.status).toBe(400);
-      expect(res.body.message).toContain('ÓÃ»§');
+      expect(res.body.message).toContain('ç”¨æˆ·');
     });
 
-    it('Ó¦¸Ã·µ»Ø200µ±Õý³£É¾³ý²¿ÃÅ', async () => {
+    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸åˆ é™¤éƒ¨é—¨', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ cnt: 0 }]])  // no children
         .mockResolvedValueOnce([[{ cnt: 0 }]])  // no users

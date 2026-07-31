@@ -1,4 +1,4 @@
-const request = require('supertest');
+ï»¿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -34,13 +34,13 @@ const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-describe('½ÇÉ«¹ÜÀíÄ£¿é', () => {
+describe('è§’è‰²ç®¡ç†æ¨¡å—', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('POST /api/v1/role/add', () => {
-    it('Ó¦¸Ã·µ»Ø400µ±È±ÉÙname×Ö¶Î', async () => {
+    it('åº”è¯¥è¿”å›ž400å½“ç¼ºå°‘nameå­—æ®µ', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
@@ -53,32 +53,30 @@ describe('½ÇÉ«¹ÜÀíÄ£¿é', () => {
       expect(res.body.code).toBe(400);
     });
 
-    it('Ó¦¸Ã·µ»Ø400µ±È±ÉÙcode×Ö¶Î', async () => {
+    it('åº”è¯¥è¿”å›ž400å½“ç¼ºå°‘codeå­—æ®µ', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/v1/role/add')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: '²âÊÔ½ÇÉ«' });
+        .send({ name: 'æµ‹è¯•è§’è‰²' });
 
       expect(res.status).toBe(400);
       expect(res.body.code).toBe(400);
     });
 
-    it('Ó¦¸Ã·µ»Ø200µ±Õý³£´´½¨½ÇÉ«', async () => {
+    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸åˆ›å»ºè§’è‰²', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ insertId: 5 }]);
 
       const res = await request(app)
         .post('/api/v1/role/add')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'ÐÂ½ÇÉ«', code: 'new_role', description: '²âÊÔ½ÇÉ«' });
+        .send({ name: 'æ–°è§’è‰²', code: 'new_role', description: 'æµ‹è¯•è§’è‰²' });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
@@ -87,25 +85,23 @@ describe('½ÇÉ«¹ÜÀíÄ£¿é', () => {
   });
 
   describe('POST /api/v1/role/update', () => {
-    it('Ó¦¸Ã·µ»Ø400µ±È±ÉÙid×Ö¶Î', async () => {
+    it('åº”è¯¥è¿”å›ž400å½“ç¼ºå°‘idå­—æ®µ', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/v1/role/update')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'ÐÞ¸ÄÃû³Æ' });
+        .send({ name: 'ä¿®æ”¹åç§°' });
 
       expect(res.status).toBe(400);
       expect(res.body.code).toBe(400);
     });
 
-    it('Ó¦¸Ã·µ»Ø200µ±Õý³£¸üÐÂ½ÇÉ«', async () => {
+    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸æ›´æ–°è§’è‰²', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ affectedRows: 1 }])
         .mockResolvedValueOnce([[{ id: 1 }, { id: 2 }]]); // users with this role
@@ -113,7 +109,7 @@ describe('½ÇÉ«¹ÜÀíÄ£¿é', () => {
       const res = await request(app)
         .post('/api/v1/role/update')
         .set('Authorization', `Bearer ${token}`)
-        .send({ id: 1, name: 'ÐÞ¸ÄºóµÄ½ÇÉ«' });
+        .send({ id: 1, name: 'ä¿®æ”¹åŽçš„è§’è‰²' });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
@@ -121,7 +117,7 @@ describe('½ÇÉ«¹ÜÀíÄ£¿é', () => {
   });
 
   describe('POST /api/v1/role/delete', () => {
-    it('Ó¦¸Ã·µ»Ø400µ±È±ÉÙid×Ö¶Î', async () => {
+    it('åº”è¯¥è¿”å›ž400å½“ç¼ºå°‘idå­—æ®µ', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
@@ -134,12 +130,10 @@ describe('½ÇÉ«¹ÜÀíÄ£¿é', () => {
       expect(res.body.code).toBe(400);
     });
 
-    it('Ó¦¸Ã·µ»Ø400µ±½ÇÉ«ÏÂÓÐÓÃ»§Ê±¾Ü¾øÉ¾³ý', async () => {
+    it('åº”è¯¥è¿”å›ž400å½“è§’è‰²ä¸‹æœ‰ç”¨æˆ·æ—¶æ‹’ç»åˆ é™¤', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ cnt: 3 }]]); // users check
 
@@ -149,15 +143,13 @@ describe('½ÇÉ«¹ÜÀíÄ£¿é', () => {
         .send({ id: 1 });
 
       expect(res.status).toBe(400);
-      expect(res.body.message).toContain('ÓÃ»§');
+      expect(res.body.message).toContain('ç”¨æˆ·');
     });
 
-    it('Ó¦¸Ã·µ»Ø200µ±Õý³£É¾³ý½ÇÉ«', async () => {
+    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸åˆ é™¤è§’è‰²', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ cnt: 0 }]])  // no users
         .mockResolvedValueOnce([{ affectedRows: 1 }])

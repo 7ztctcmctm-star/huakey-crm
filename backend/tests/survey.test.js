@@ -1,4 +1,4 @@
-const request = require('supertest');
+ï»¿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -32,23 +32,21 @@ const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-describe('ÎÊ¾íµ÷²éÄ£¿é', () => {
+describe('é—®å·è°ƒæŸ¥æ¨¡å—', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('GET /api/v1/survey/templates', () => {
-    it('Ó¦¸Ã·µ»ØÄ£°åÁĞ±í', async () => {
+    it('åº”è¯¥è¿”å›æ¨¡æ¿åˆ—è¡¨', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 2 }]]) // count
         .mockResolvedValueOnce([[ // list
-          { id: 1, name: 'NPSµ÷²é', survey_type: 'nps', is_system: 1 },
-          { id: 2, name: 'ÂúÒâ¶Èµ÷²é', survey_type: 'csat', is_system: 0 }
+          { id: 1, name: 'NPSè°ƒæŸ¥', survey_type: 'nps', is_system: 1 },
+          { id: 2, name: 'æ»¡æ„åº¦è°ƒæŸ¥', survey_type: 'csat', is_system: 0 }
         ]]);
 
       const res = await request(app)
@@ -64,19 +62,17 @@ describe('ÎÊ¾íµ÷²éÄ£¿é', () => {
   });
 
   describe('POST /api/v1/survey/templates', () => {
-    it('Ó¦¸Ã·µ»Ø200µ±Õı³£´´½¨Ä£°å', async () => {
+    it('åº”è¯¥è¿”å›200å½“æ­£å¸¸åˆ›å»ºæ¨¡æ¿', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ insertId: 3 }]); // insert
 
       const res = await request(app)
         .post('/api/v1/survey/templates')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'ĞÂµ÷²éÄ£°å', description: '²âÊÔÄ£°å', survey_type: 'csat', questions: [{ type: 'rating', question: 'ÂúÒâ¶È' }] });
+        .send({ name: 'æ–°è°ƒæŸ¥æ¨¡æ¿', description: 'æµ‹è¯•æ¨¡æ¿', survey_type: 'csat', questions: [{ type: 'rating', question: 'æ»¡æ„åº¦' }] });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
@@ -85,16 +81,14 @@ describe('ÎÊ¾íµ÷²éÄ£¿é', () => {
   });
 
   describe('GET /api/v1/survey/campaigns', () => {
-    it('Ó¦¸Ã·µ»Ø»î¶¯ÁĞ±í', async () => {
+    it('åº”è¯¥è¿”å›æ´»åŠ¨åˆ—è¡¨', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // campaigns list
-          { id: 1, name: '6ÔÂÂúÒâ¶Èµ÷²é', status: 'active', template_name: 'NPSµ÷²é' },
-          { id: 2, name: '¿Í»§»Ø·Ã', status: 'draft', template_name: 'ÂúÒâ¶Èµ÷²é' }
+          { id: 1, name: '6æœˆæ»¡æ„åº¦è°ƒæŸ¥', status: 'active', template_name: 'NPSè°ƒæŸ¥' },
+          { id: 2, name: 'å®¢æˆ·å›è®¿', status: 'draft', template_name: 'æ»¡æ„åº¦è°ƒæŸ¥' }
         ]]);
 
       const res = await request(app)
@@ -108,19 +102,17 @@ describe('ÎÊ¾íµ÷²éÄ£¿é', () => {
   });
 
   describe('POST /api/v1/survey/campaigns', () => {
-    it('Ó¦¸Ã·µ»Ø200µ±Õı³£´´½¨»î¶¯', async () => {
+    it('åº”è¯¥è¿”å›200å½“æ­£å¸¸åˆ›å»ºæ´»åŠ¨', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
         .post('/api/v1/survey/campaigns')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: '7ÔÂ¿Í»§ÂúÒâ¶Èµ÷²é', template_id: 1, target_type: 'all', send_method: 'email' });
+        .send({ name: '7æœˆå®¢æˆ·æ»¡æ„åº¦è°ƒæŸ¥', template_id: 1, target_type: 'all', send_method: 'email' });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
@@ -129,12 +121,10 @@ describe('ÎÊ¾íµ÷²éÄ£¿é', () => {
   });
 
   describe('POST /api/v1/survey/campaigns/:id/start', () => {
-    it('Ó¦¸Ã·µ»Ø200µ±Æô¶¯»î¶¯', async () => {
+    it('åº”è¯¥è¿”å›200å½“å¯åŠ¨æ´»åŠ¨', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ status: 'draft' }]]) // status check
         .mockResolvedValueOnce([[{ target_type: 'all', target_ids: null }]]) // campaign detail
@@ -152,8 +142,8 @@ describe('ÎÊ¾íµ÷²éÄ£¿é', () => {
     });
   });
 
-  describe('ÎŞtoken·ÃÎÊ', () => {
-    it('Ó¦¸Ã·µ»Ø401µ±ÎŞtoken', async () => {
+  describe('æ— tokenè®¿é—®', () => {
+    it('åº”è¯¥è¿”å›401å½“æ— token', async () => {
       const res = await request(app)
         .get('/api/v1/survey/templates');
 

@@ -1,4 +1,4 @@
-const request = require('supertest');
+ï»¿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -35,18 +35,16 @@ const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, manageAll: true, viewAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-describe('ÌáÐÑÏµÍ³Ä£¿é', () => {
+describe('æé†’ç³»ç»Ÿæ¨¡å—', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('GET /api/v1/reminder/my-reminders', () => {
-    it('Ó¦¸Ã·µ»Ø200ºÍÌáÐÑÁÐ±í', async () => {
+    it('åº”è¯¥è¿”å›ž200å’Œæé†’åˆ—è¡¨', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[]]) // all reminders
         .mockResolvedValueOnce([[]]) // pre-warning
@@ -66,15 +64,13 @@ describe('ÌáÐÑÏµÍ³Ä£¿é', () => {
   });
 
   describe('POST /api/v1/reminder/overdue-list', () => {
-    it('Ó¦¸Ã·µ»Ø200ºÍÓâÆÚÁÐ±í', async () => {
+    it('åº”è¯¥è¿”å›ž200å’Œé€¾æœŸåˆ—è¡¨', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 5 }]]) // count
-        .mockResolvedValueOnce([[{ id: 1, company_name: '²âÊÔ¹«Ë¾', overdue_days: 10 }]]); // list
+        .mockResolvedValueOnce([[{ id: 1, company_name: 'æµ‹è¯•å…¬å¸', overdue_days: 10 }]]); // list
 
       const res = await request(app)
         .post('/api/v1/reminder/overdue-list')
@@ -89,7 +85,7 @@ describe('ÌáÐÑÏµÍ³Ä£¿é', () => {
   });
 
   describe('POST /api/v1/reminder/mark-read', () => {
-    it('Ó¦¸Ã·µ»Ø400µ±È±ÉÙreminder_id', async () => {
+    it('åº”è¯¥è¿”å›ž400å½“ç¼ºå°‘reminder_id', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
@@ -102,12 +98,10 @@ describe('ÌáÐÑÏµÍ³Ä£¿é', () => {
       expect(res.body.code).toBe(400);
     });
 
-    it('Ó¦¸Ã·µ»Ø200µ±Õý³£±ê¼ÇÒÑ¶Á', async () => {
+    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸æ ‡è®°å·²è¯»', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ affectedRows: 1 }]);
 
@@ -122,12 +116,10 @@ describe('ÌáÐÑÏµÍ³Ä£¿é', () => {
   });
 
   describe('POST /api/v1/reminder/mark-all-read', () => {
-    it('Ó¦¸Ã·µ»Ø200µ±È«²¿±ê¼ÇÒÑ¶Á', async () => {
+    it('åº”è¯¥è¿”å›ž200å½“å…¨éƒ¨æ ‡è®°å·²è¯»', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ affectedRows: 3 }]) // reminders
         .mockResolvedValueOnce([{ affectedRows: 5 }]); // notifications
@@ -142,12 +134,10 @@ describe('ÌáÐÑÏµÍ³Ä£¿é', () => {
   });
 
   describe('POST /api/v1/reminder/dismiss', () => {
-    it('Ó¦¸Ã·µ»Ø200µ±Õý³£ºöÂÔÌáÐÑ', async () => {
+    it('åº”è¯¥è¿”å›ž200å½“æ­£å¸¸å¿½ç•¥æé†’', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ affectedRows: 1 }]);
 
@@ -162,12 +152,10 @@ describe('ÌáÐÑÏµÍ³Ä£¿é', () => {
   });
 
   describe('GET /api/v1/reminder/payment-overdue', () => {
-    it('Ó¦¸Ã·µ»Ø200ºÍ»Ø¿îÓâÆÚÁÐ±í', async () => {
+    it('åº”è¯¥è¿”å›ž200å’Œå›žæ¬¾é€¾æœŸåˆ—è¡¨', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ id: 1, plan_date: '2025-01-01', plan_amount: 10000, paid_amount: 5000 }]]) // overdue
         .mockResolvedValueOnce([[{ id: 2, plan_date: '2025-06-25', plan_amount: 8000, paid_amount: 0 }]]); // upcoming
@@ -184,15 +172,13 @@ describe('ÌáÐÑÏµÍ³Ä£¿é', () => {
   });
 
   describe('GET /api/v1/reminder/notification-list', () => {
-    it('Ó¦¸Ã·µ»Ø200ºÍÍ¨ÖªÁÐ±í', async () => {
+    it('åº”è¯¥è¿”å›ž200å’Œé€šçŸ¥åˆ—è¡¨', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 10 }]]) // count
-        .mockResolvedValueOnce([[{ id: 1, title: '²âÊÔÍ¨Öª', is_read: 0 }]]); // list
+        .mockResolvedValueOnce([[{ id: 1, title: 'æµ‹è¯•é€šçŸ¥', is_read: 0 }]]); // list
 
       const res = await request(app)
         .get('/api/v1/reminder/notification-list')

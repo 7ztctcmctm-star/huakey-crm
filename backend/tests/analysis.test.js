@@ -1,4 +1,4 @@
-const request = require('supertest');
+ï»¿const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -32,18 +32,16 @@ const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-describe('Êý¾Ý·ÖÎöÄ£¿é', () => {
+describe('æ•°æ®åˆ†æžæ¨¡å—', () => {
   const token = generateToken();
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
   describe('GET /api/v1/analysis/win-rate', () => {
-    it('Ó¦¸Ã·µ»ØÓ®µ¥ÂÊ·ÖÎö', async () => {
+    it('åº”è¯¥è¿”å›žèµ¢å•çŽ‡åˆ†æž', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // stage counts
           { stage: 1, count: 10 },
@@ -63,12 +61,10 @@ describe('Êý¾Ý·ÖÎöÄ£¿é', () => {
   });
 
   describe('GET /api/v1/analysis/funnel', () => {
-    it('Ó¦¸Ã·µ»ØÏúÊÛÂ©¶··ÖÎö', async () => {
+    it('åº”è¯¥è¿”å›žé”€å”®æ¼æ–—åˆ†æž', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // funnel data
           { stage: 1, count: 20, amount: '500000' },
@@ -87,16 +83,14 @@ describe('Êý¾Ý·ÖÎöÄ£¿é', () => {
   });
 
   describe('GET /api/v1/analysis/rfm', () => {
-    it('Ó¦¸Ã·µ»ØRFM·ÖÎö', async () => {
+    it('åº”è¯¥è¿”å›žRFMåˆ†æž', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // RFM data
-          { id: 1, company_name: 'A¿Í»§', recency: 5, frequency: 10, monetary: 300000 },
-          { id: 2, company_name: 'B¿Í»§', recency: 30, frequency: 2, monetary: 50000 }
+          { id: 1, company_name: 'Aå®¢æˆ·', recency: 5, frequency: 10, monetary: 300000 },
+          { id: 2, company_name: 'Bå®¢æˆ·', recency: 30, frequency: 2, monetary: 50000 }
         ]]);
 
       const res = await request(app)
@@ -111,16 +105,14 @@ describe('Êý¾Ý·ÖÎöÄ£¿é', () => {
   });
 
   describe('GET /api/v1/analysis/churn-alert', () => {
-    it('Ó¦¸Ã·µ»ØÁ÷Ê§Ô¤¾¯', async () => {
+    it('åº”è¯¥è¿”å›žæµå¤±é¢„è­¦', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[ // list
-          { id: 1, company_name: 'Á÷Ê§¿Í»§', overdue_days: 45, owner_name: 'ÕÅÈý' }
+          { id: 1, company_name: 'æµå¤±å®¢æˆ·', overdue_days: 45, owner_name: 'å¼ ä¸‰' }
         ]]);
 
       const res = await request(app)
@@ -135,8 +127,8 @@ describe('Êý¾Ý·ÖÎöÄ£¿é', () => {
     });
   });
 
-  describe('ÎÞtoken·ÃÎÊ', () => {
-    it('Ó¦¸Ã·µ»Ø401µ±ÎÞtoken', async () => {
+  describe('æ— tokenè®¿é—®', () => {
+    it('åº”è¯¥è¿”å›ž401å½“æ— token', async () => {
       const res = await request(app)
         .get('/api/v1/analysis/win-rate');
 
