@@ -60,7 +60,7 @@ describe('客户生命周期', () => {
       .send({
         company_name: '集成测试公司',
         contacts: [{ name: '张三', phone: '+8613800138000' }],
-        source: '网络',
+        source: '其他网络渠道',
         level: 'B'
       })
       .expect(200);
@@ -98,6 +98,13 @@ describe('客户生命周期', () => {
   });
 
   test('POST /api/v1/opportunity/add 创建商机', async () => {
+    // 商机要求客户为已签约状态（opportunityService 校验 status='signed'）
+    // 测试流程未经过报价/谈判/签约，直接 SQL 推进客户状态到 signed
+    await pool.query(
+      "UPDATE crm_customer SET status = 'signed' WHERE id = ?",
+      [customerId]
+    );
+
     const res = await agent
       .post('/api/v1/opportunity/add')
       .send({

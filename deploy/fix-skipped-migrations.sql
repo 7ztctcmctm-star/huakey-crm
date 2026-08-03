@@ -1,35 +1,23 @@
--- 086: 为所有非管理员角色补充缺失的权限
--- 问题: 销售/purchaser/hr/finance/engineer 角色登录后 Dashboard 大量 403
--- 根因:
---   1. customer:view 权限码在 sys_permission 中不存在（被多处路由引用但从未创建）
---   2. 除 boss(id=1) / manager(id=2) 外，其他角色几乎没有权限分配
---   3. layout/HeaderBar/AiChat 等公共组件调用的 reminder/ai/tag 权限未分配给非管理员
--- 修复日期: 2026-07-21
---
--- 生产环境角色数据（role code）:
---   boss(1), manager(2), sales(3), hr(4), purchaser(5), finance(6), engineer(11)
+-- ============================================
+-- 修复两个跳过的迁移: 086 和 091
+-- ============================================
+
+-- ============================================
+-- 修复 086: 为所有非管理员角色补充缺失的权限
+-- 原始问题: FIND_IN_SET 排序规则冲突
+-- 修复方式: 用 IN 替代 FIND_IN_SET
+-- ============================================
 
 USE huakey_crm;
 
--- ============================================================
--- 第一步: 补充缺失的权限码
--- ============================================================
-
--- 1a. customer:view - 查看客户详情/逾期/临期回收
---     被 /customer/overdue, /customer/near-recycle, /customer/contact/list 等引用
---     从未在 sys_permission 中创建，导致非管理员永远无法通过权限检查
+-- 1a. customer:view 权限码
 INSERT IGNORE INTO sys_permission (code, name, type, parent_id, path, sort, is_visible, create_time, update_time)
 SELECT 'customer:view', '查看客户', 'button',
        (SELECT id FROM (SELECT id FROM sys_permission WHERE code = 'customer') AS p), NULL, 7, 1, NOW(), NOW()
 FROM dual
 WHERE EXISTS (SELECT 1 FROM sys_permission WHERE code = 'customer');
 
--- 注意: purchase:view / product:view 也被 migration 085 引用但从未创建，
---       但这两个权限码没有任何路由使用，故不在此创建。migration 085 的
---       INSERT IGNORE 会静默跳过不存在的权限码。
-
--- 1b. competitor:view / competitor:add / competitor:edit / competitor:delete
---     被 competitor.js 7个路由引用，但从未在 sys_permission 中创建
+-- 1b. competitor 权限码
 INSERT IGNORE INTO sys_permission (code, name, type, parent_id, sort, is_visible, create_time, update_time)
 SELECT code, name, 'button',
        (SELECT id FROM (SELECT id FROM sys_permission WHERE code = 'competitor') AS c),
@@ -42,7 +30,7 @@ FROM (
 ) t
 WHERE EXISTS (SELECT 1 FROM sys_permission WHERE code = 'competitor');
 
--- 1c. user:create - 注册新用户（被 /auth/register 引用）
+-- 1c. user:create 权限码
 INSERT IGNORE INTO sys_permission (code, name, type, parent_id, sort, is_visible, create_time, update_time)
 SELECT 'user:create', '创建用户', 'button',
        (SELECT id FROM (SELECT id FROM sys_permission WHERE code = 'system:user') AS u),
@@ -50,37 +38,28 @@ SELECT 'user:create', '创建用户', 'button',
 FROM dual
 WHERE EXISTS (SELECT 1 FROM sys_permission WHERE code = 'system:user');
 
--- ============================================================
--- 第二步: 公共权限 — 所有登录用户都需要（layout/HeaderBar/AiChat/NotificationBadge）
--- ============================================================
-
--- 目标角色: sales, hr, purchaser, finance, engineer（boss/manager 已有或绕过）
-SET @common_roles = 'sales,hr,purchaser,finance,engineer';
-
--- 2a. dashboard — 首页
+-- 2. 公共权限 (用 IN 替代 FIND_IN_SET 避免排序规则冲突)
+-- 2a. dashboard
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE FIND_IN_SET(r.code, @common_roles COLLATE utf8mb4_unicode_ci) AND p.code = 'dashboard';
+WHERE r.code IN ('sales','hr','purchaser','finance','engineer') AND p.code = 'dashboard';
 
--- 2b. reminder — 提醒/通知中心（HeaderBar 通知角标）
+-- 2b. reminder
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE FIND_IN_SET(r.code, @common_roles COLLATE utf8mb4_unicode_ci) AND p.code = 'reminder';
+WHERE r.code IN ('sales','hr','purchaser','finance','engineer') AND p.code = 'reminder';
 
--- 2c. ai — AI 助手（AiChat 浮动组件）
+-- 2c. ai
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE FIND_IN_SET(r.code, @common_roles COLLATE utf8mb4_unicode_ci) AND p.code = 'ai';
+WHERE r.code IN ('sales','hr','purchaser','finance','engineer') AND p.code = 'ai';
 
--- 2d. tag — 客户标签（CustomerFilter 筛选条件）
+-- 2d. tag
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE FIND_IN_SET(r.code, @common_roles COLLATE utf8mb4_unicode_ci) AND p.code = 'tag';
+WHERE r.code IN ('sales','hr','purchaser','finance','engineer') AND p.code = 'tag';
 
--- ============================================================
--- 第三步: sales 角色 — SalesDashboard + 客户/商机/合同等
--- ============================================================
-
+-- 3. sales 角色专项权限
 -- 3a. 客户管理
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
@@ -97,23 +76,17 @@ WHERE r.code = 'sales' AND p.code = 'leads';
 -- 3c. 商机管理
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE r.code = 'sales' AND p.code IN (
-  'opportunity', 'opportunity:add', 'opportunity:edit'
-);
+WHERE r.code = 'sales' AND p.code IN ('opportunity', 'opportunity:add', 'opportunity:edit');
 
 -- 3d. 报价管理
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE r.code = 'sales' AND p.code IN (
-  'quotation', 'quotation:add', 'quotation:edit'
-);
+WHERE r.code = 'sales' AND p.code IN ('quotation', 'quotation:add', 'quotation:edit');
 
 -- 3e. 合同管理
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE r.code = 'sales' AND p.code IN (
-  'contract', 'contract:add', 'contract:edit'
-);
+WHERE r.code = 'sales' AND p.code IN ('contract', 'contract:add', 'contract:edit');
 
 -- 3f. 产品/供应商（查看）
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
@@ -185,43 +158,33 @@ INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
 WHERE r.code = 'sales' AND p.code IN ('followup_template', 'contract_template');
 
--- ============================================================
--- 第四步: purchaser/hr/finance/engineer — PurchaseDashboard 公共部分
--- ============================================================
-
-SET @purchase_dashboard_roles = 'purchaser,hr,finance,engineer';
-
--- 4a. purchase — 采购列表（PurchaseDashboard 核心调用 POST /purchase/list）
+-- 4. purchaser/hr/finance/engineer 公共部分
+-- 4a. purchase
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE FIND_IN_SET(r.code, @purchase_dashboard_roles COLLATE utf8mb4_unicode_ci) AND p.code = 'purchase';
+WHERE r.code IN ('purchaser','hr','finance','engineer') AND p.code = 'purchase';
 
--- 4b. supplier — 供应商查看
+-- 4b. supplier
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE FIND_IN_SET(r.code, @purchase_dashboard_roles COLLATE utf8mb4_unicode_ci) AND p.code = 'supplier';
+WHERE r.code IN ('purchaser','hr','finance','engineer') AND p.code = 'supplier';
 
--- 4c. product — 产品查看
+-- 4c. product
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE FIND_IN_SET(r.code, @purchase_dashboard_roles COLLATE utf8mb4_unicode_ci) AND p.code = 'product';
+WHERE r.code IN ('purchaser','hr','finance','engineer') AND p.code = 'product';
 
--- 4d. service — 售后查看
+-- 4d. service
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE FIND_IN_SET(r.code, @purchase_dashboard_roles COLLATE utf8mb4_unicode_ci) AND p.code = 'service';
+WHERE r.code IN ('purchaser','hr','finance','engineer') AND p.code = 'service';
 
--- 4e. report — 报表查看
+-- 4e. report
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE FIND_IN_SET(r.code, @purchase_dashboard_roles COLLATE utf8mb4_unicode_ci) AND p.code = 'report';
+WHERE r.code IN ('purchaser','hr','finance','engineer') AND p.code = 'report';
 
--- ============================================================
--- 第五步: purchaser 角色专项权限
--- ============================================================
-
--- purchaser 已有 migration 085 分配的部分权限（supplier, purchase:add, customer:view, customer:list）
--- 这里补全采购编辑和供应商编辑
+-- 5. purchaser 专项
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
 WHERE r.code = 'purchaser' AND p.code IN (
@@ -230,19 +193,12 @@ WHERE r.code = 'purchaser' AND p.code IN (
   'calendar'
 );
 
--- ============================================================
--- 第六步: hr 角色专项权限
--- ============================================================
-
+-- 6. hr 专项
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
 WHERE r.code = 'hr' AND p.code IN ('hr', 'calendar');
 
--- ============================================================
--- 第七步: finance 角色专项权限
--- ============================================================
-
--- finance 已有 migration 029 分配的基础权限，这里补全
+-- 7. finance 专项
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
 WHERE r.code = 'finance' AND p.code IN (
@@ -250,38 +206,61 @@ WHERE r.code = 'finance' AND p.code IN (
   'calendar', 'report'
 );
 
--- ============================================================
--- 第八步: engineer 角色专项权限
--- ============================================================
-
+-- 8. engineer 专项
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
 WHERE r.code = 'engineer' AND p.code IN ('calendar', 'service:add', 'service:edit');
 
--- ============================================================
--- 第九步: 确保 manager 角色拥有新增的权限码
--- ============================================================
-
--- manager(id=2) 通过种子数据和 migration 062 已有大部分权限，
--- 但 migration 062 使用硬编码 role_id=2，这里用 role code 确保覆盖
+-- 9. manager 补充
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
 WHERE r.code = 'manager' AND p.code IN (
   'customer:view', 'reminder', 'ai', 'tag', 'team', 'calendar', 'search', 'scoring'
 );
 
--- ============================================================
--- 第十步: 验证结果
--- ============================================================
+-- ============================================
+-- 修复 091: crm_customer_score_log CASCADE → SET NULL
+-- 原始问题: 缺少 MODIFY COLUMN customer_id INT NULL
+-- 修复方式: 先 MODIFY COLUMN 再 ADD CONSTRAINT
+-- ============================================
 
-SELECT r.code AS '角色', COUNT(rp.permission_id) AS '权限数量'
+-- 先将 customer_id 改为可空
+ALTER TABLE crm_customer_score_log MODIFY COLUMN customer_id INT NULL;
+
+-- 删除可能残留的旧外键（如果存在）
+SET @db_name = DATABASE();
+SET @old_fk_exists = (SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = @db_name AND TABLE_NAME = 'crm_customer_score_log'
+  AND CONSTRAINT_NAME = 'fk_score_log_customer' AND CONSTRAINT_TYPE = 'FOREIGN KEY');
+SET @drop_old = IF(@old_fk_exists > 0,
+  'ALTER TABLE crm_customer_score_log DROP FOREIGN KEY fk_score_log_customer',
+  'SELECT 1');
+PREPARE stmt FROM @drop_old; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 添加 SET NULL 外键
+ALTER TABLE crm_customer_score_log
+  ADD CONSTRAINT fk_score_log_customer
+  FOREIGN KEY (customer_id) REFERENCES crm_customer(id) ON DELETE SET NULL;
+
+-- ============================================
+-- 验证结果
+-- ============================================
+SELECT '=== 086 验证: 各角色权限数量 ===' AS info;
+SELECT r.code AS role_code, COUNT(rp.permission_id) AS perm_count
 FROM sys_role r
 LEFT JOIN sys_role_permission rp ON r.id = rp.role_id
 GROUP BY r.id, r.code
 ORDER BY r.id;
 
-SELECT r.code AS '角色', p.code AS '拥有的权限'
-FROM sys_role_permission rp
-JOIN sys_role r ON rp.role_id = r.id
-JOIN sys_permission p ON rp.permission_id = p.id
-ORDER BY r.code, p.code;
+SELECT '=== 091 验证: crm_customer_score_log 外键 ===' AS info;
+SELECT
+  kcu.CONSTRAINT_NAME,
+  kcu.COLUMN_NAME,
+  rc.DELETE_RULE
+FROM information_schema.KEY_COLUMN_USAGE kcu
+JOIN information_schema.REFERENTIAL_CONSTRAINTS rc
+  ON kcu.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
+  AND kcu.TABLE_SCHEMA = rc.CONSTRAINT_SCHEMA
+WHERE kcu.TABLE_SCHEMA = 'huakey_crm'
+AND kcu.TABLE_NAME = 'crm_customer_score_log'
+AND kcu.REFERENCED_TABLE_NAME = 'crm_customer';

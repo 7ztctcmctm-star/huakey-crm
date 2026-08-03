@@ -303,6 +303,12 @@ async function main() {
 
     await runSeedSql(resolve(databaseRoot, 'seeds/seed_test_data.sql'))
     await initPermissions()
+
+    // 加载 Demo 种子数据（demo_admin / demo_sales / demo_purchase + 完整业务链）
+    // Playwright E2E 通过 .env.test 中的 E2E_ADMIN_USER=demo_admin 登录，需先 seed
+    // seed-demo.js 自带生产环境阻断 + 幂等保护，重复执行安全
+    console.log('[e2e-server] 加载 Demo 种子数据（demo_admin / demo_sales / demo_purchase）...')
+    await exec('node', ['scripts/seed-demo.js'], backendRoot)
   }
 
   startBackend()

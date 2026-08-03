@@ -167,6 +167,30 @@ const MASK_FIELDS = [
   'cost_price', 'unit_price', 'total_price', 'amount'
 ];
 
+/**
+ * 按字段名对单个值脱敏
+ * 用于字段级变更日志（changed_fields 的 old/new 值）和慢查询 params 脱敏
+ * @param {string} fieldName - 字段名
+ * @param {*} value - 字段值
+ * @returns {*} 脱敏后的值
+ */
+function maskFieldValue(fieldName, value) {
+  if (value === null || value === undefined) return value;
+  const lowerKey = String(fieldName || '').toLowerCase();
+
+  // 密码/令牌类字段：直接替换为固定占位符
+  if (lowerKey in SENSITIVE_FIELDS) {
+    return SENSITIVE_FIELDS[lowerKey];
+  }
+
+  // 其他敏感字段：部分脱敏（保留部分明文用于排查）
+  if (MASK_FIELDS.includes(lowerKey)) {
+    return maskSensitiveData({ [fieldName]: value }, [fieldName])[fieldName];
+  }
+
+  return value;
+}
+
 function maskLogParams(obj) {
   if (!obj || typeof obj !== 'object') return obj;
   const result = Array.isArray(obj) ? [...obj] : { ...obj };
@@ -205,5 +229,6 @@ module.exports = {
   maskAddress,
   maskName,
   maskSensitiveData,
+  maskFieldValue,
   maskLogParams
 };

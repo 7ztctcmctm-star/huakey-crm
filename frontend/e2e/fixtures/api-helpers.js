@@ -3,9 +3,24 @@
  * 用于在测试前通过后端 API 预置测试数据（客户/产品/报价/合同/审批流等）
  */
 
-const DEFAULT_USER = {
-  username: process.env.E2E_USERNAME || 'admin',
-  password: process.env.E2E_PASSWORD || 'huakey123'
+/**
+ * 读取 E2E 管理员账号（从环境变量，不硬编码）
+ * 优先级：E2E_ADMIN_USER / E2E_ADMIN_PASSWORD（Demo 账号体系）
+ * 回退：E2E_USERNAME / E2E_PASSWORD（兼容旧变量名 / CI 注入）
+ * 均未设置时 fail-fast，提示配置 .env.test
+ */
+function getAdminCredentials() {
+  const username = process.env.E2E_ADMIN_USER || process.env.E2E_USERNAME
+  const password = process.env.E2E_ADMIN_PASSWORD || process.env.E2E_PASSWORD
+  if (!username || !password) {
+    throw new Error(
+      'E2E 测试账号未配置：缺少 E2E_ADMIN_USER / E2E_ADMIN_PASSWORD。\n' +
+      '请在仓库根目录创建 .env.test（可从 .env.test.example 复制），\n' +
+      '或先执行 `cd backend && npm run seed:demo` 创建 Demo 账号。\n' +
+      '详见 docs/DEMO_DATA_GUIDE.md'
+    )
+  }
+  return { username, password }
 }
 
 /**
@@ -18,10 +33,11 @@ export async function loginAsAdmin(request) {
   const captchaData = await captchaRes.json()
 
   // 2. 登录；后端会设置 token（httpOnly）和 csrf-token cookie
+  const { username, password } = getAdminCredentials()
   const loginRes = await request.post('/api/v1/auth/login', {
     data: {
-      username: DEFAULT_USER.username,
-      password: DEFAULT_USER.password,
+      username,
+      password,
       captcha: 'dev1',
       captchaKey: captchaData.data?.key
     }
@@ -42,7 +58,16 @@ export async function loginAsAdmin(request) {
       '请确认后端是否正确设置了 csrf-token cookie（检查 NODE_ENV 和 CSRF 中间件）。'
     )
   }
-  return { csrfToken: csrfCookie.value }
+  // 返回登录用户 ID（审批工作流 approver_id 等场景需要动态使用，避免硬编码导致外键约束失败）
+  const userId = loginData.data?.userInfo?.id
+  if (!userId) {
+    throw new Error(
+      'E2E 登录响应未返回用户 ID。' +
+      `loginData: ${JSON.stringify(loginData)}。` +
+      '请确认后端 auth 路由登录成功后返回 userInfo.id。'
+    )
+  }
+  return { csrfToken: csrfCookie.value, userId }
 }
 
 /**

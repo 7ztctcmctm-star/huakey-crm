@@ -66,6 +66,6 @@ SET @drop_sql4 = IF(@constraint_exists4 > 0 AND @fk_name4 IS NOT NULL,
 PREPARE stmt FROM @drop_sql4; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 SET @add_sql4 = IF(@constraint_exists4 > 0,
-  'ALTER TABLE crm_customer_score_log ADD CONSTRAINT fk_score_log_customer FOREIGN KEY (customer_id) REFERENCES crm_customer(id) ON DELETE SET NULL',
+  'ALTER TABLE crm_customer_score_log MODIFY COLUMN customer_id INT NULL, ADD CONSTRAINT fk_score_log_customer FOREIGN KEY (customer_id) REFERENCES crm_customer(id) ON DELETE SET NULL',
   'SELECT 1');
 PREPARE stmt FROM @add_sql4; EXECUTE stmt; DEALLOCATE PREPARE stmt;

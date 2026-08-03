@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 真实数据库权限链路测试（不 mock permissionService）
  *
  * 前置：插入 3 个用户（admin/manager/sales）+ 角色权限数据
@@ -25,15 +25,16 @@ const PERMISSIONS = [
   { name: '用户管理', code: 'system:user', type: 'button', parent_id: 0 },
   { name: '新增用户', code: 'system:user:add', type: 'button', parent_id: 0 },
   { name: '客户管理', code: 'customer', type: 'menu', parent_id: 0 },
+  { name: '客户列表', code: 'customer:list', type: 'button', parent_id: 0 },
   { name: '新增客户', code: 'customer:add', type: 'button', parent_id: 0 },
   { name: '审批管理', code: 'approval', type: 'menu', parent_id: 0 }
 ];
 
 // 角色 → 权限映射
 const ROLE_PERMISSIONS = {
-  1: ['system:user', 'system:user:add', 'customer', 'customer:add', 'approval'], // admin 全部
-  2: ['customer:add', 'approval'],                                                // manager
-  3: ['customer:add']                                                             // sales
+  1: ['system:user', 'system:user:add', 'customer', 'customer:list', 'customer:add', 'approval'], // admin 全部
+  2: ['customer:list', 'customer:add', 'approval'],                                                // manager
+  3: ['customer:list', 'customer:add']                                                             // sales
 };
 
 const userIds = {};
@@ -198,7 +199,8 @@ describe('权限链路测试（真实数据库）', () => {
       .set('Authorization', `Bearer ${tokens.manager}`)
       .send({
         company_name: '权限测试_经理创建公司',
-        source: '网络',
+        contacts: [{ name: '测试联系人', phone: '13800138000' }],
+        source: '其他网络渠道',
         level: 'C'
       });
 
@@ -217,7 +219,8 @@ describe('权限链路测试（真实数据库）', () => {
       .set('Authorization', `Bearer ${tokens.sales_a}`)
       .send({
         company_name: '权限测试_销售A创建公司',
-        source: '网络',
+        contacts: [{ name: '测试联系人', phone: '13800138000' }],
+        source: '其他网络渠道',
         level: 'C'
       });
 
@@ -244,11 +247,19 @@ describe('权限链路测试（真实数据库）', () => {
       .set('Authorization', `Bearer ${tokens.sales_a}`)
       .send({
         company_name: '数据权限隔离测试公司',
-        source: '网络',
+        contacts: [{ name: '测试联系人', phone: '13800138000' }],
+        source: '其他网络渠道',
         level: 'C'
       });
     expect(createRes.status).toBe(200);
     const customerId = createRes.body.data.id;
+
+    // autoAssignOwner 可能未分配负责人（客户进公海 owner_id=null，公海客户所有人可见）
+    // 数据权限 self 模式隔离需要客户归属 sales_a，手动设置 owner_id
+    await pool.query(
+      'UPDATE crm_customer SET owner_id = ? WHERE id = ?',
+      [userIds.sales_a, customerId]
+    );
 
     try {
       // sales_b 查询客户列表 — 应看不到 sales_a 创建的客户

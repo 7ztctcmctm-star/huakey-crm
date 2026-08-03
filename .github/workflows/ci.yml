@@ -1,4 +1,4 @@
-﻿name: CRM CI
+name: CRM CI
 
 on:
   push:
@@ -150,11 +150,21 @@ jobs:
               -e "INSERT IGNORE INTO schema_migrations (version, name) VALUES ('$v', '$n')"
           done
           echo "Baseline ready."
+      - name: Load Demo seed data (demo_admin / demo_sales / demo_purchase)
+        # E2E 通过 .env.test 的 E2E_ADMIN_USER=demo_admin 登录，需先 seed Demo 账号 + 业务链
+        # seed-demo.js 自带生产环境阻断 + 幂等保护
+        run: cd backend && DB_NAME=huakey_crm_test DB_USER=root DB_PASSWORD=test_root_pass DB_HOST=127.0.0.1 DB_PORT=3306 npm run seed:demo
       - run: cd frontend && npx playwright install --with-deps chromium
       - name: Run Playwright E2E tests
         env:
           SKIP_DB_SETUP: 'true'
-        run: cd frontend && npx playwright test
+        # e2e-test 仅在 push main 时触发，作为核心业务流程的快速反馈闸门。
+        # 只运行 chromium project（CI 已安装 chromium），避免 firefox/webkit/iPhone 12 Pro
+        # 因浏览器未安装而失败。跨浏览器/移动设备的全面覆盖由 cross-browser-test job 负责
+        # （定时/手动触发，matrix: chromium/firefox/webkit/iPhone 12 Pro）。
+        # 核心业务测试（quotation/customer/approval/navigation）在移动项目上已 test.skip，
+        # 仅 login/responsive 在移动设备上有意义，已在 cross-browser-test 中覆盖。
+        run: cd frontend && npx playwright test --project=chromium
       - if: always()
         run: docker compose -f docker-compose.ci.yml down -v
 
@@ -259,6 +269,9 @@ jobs:
               -e "INSERT IGNORE INTO schema_migrations (version, name) VALUES ('$v', '$n')"
           done
           echo "Baseline ready."
+      - name: Load Demo seed data (demo_admin / demo_sales / demo_purchase)
+        # E2E 通过 .env.test 的 E2E_ADMIN_USER=demo_admin 登录，需先 seed Demo 账号 + 业务链
+        run: cd backend && DB_NAME=huakey_crm_test DB_USER=root DB_PASSWORD=test_root_pass DB_HOST=127.0.0.1 DB_PORT=3306 npm run seed:demo
       - run: cd frontend && npx playwright install --with-deps ${{ matrix.browser }}
       - name: Run Playwright tests
         env:
