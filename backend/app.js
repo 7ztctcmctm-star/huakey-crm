@@ -38,7 +38,9 @@ if (isProduction) {
         fontSrc: ["'self'"],
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"],
-        // 不包含 upgradeInsecureRequests — HTTP 下会导致资源请求升级到 HTTPS 而失败
+        // helmet 8.x 默认会自动合并 upgrade-insecure-requests / base-uri / form-action / script-src-attr
+        // HTTP 部署下必须显式置 null 移除 upgrade-insecure-requests，否则浏览器会把所有 HTTP 资源升级为 HTTPS 导致加载失败
+        upgradeInsecureRequests: null,
       }
     },
     crossOriginOpenerPolicy: false,
