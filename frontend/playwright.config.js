@@ -44,7 +44,7 @@ export default defineConfig({
     command: 'node scripts/start-e2e-server.mjs',
     port: 5173,
     reuseExistingServer: true,
-    timeout: 120000,
+    timeout: 300000,
     env: {
       SKIP_CAPTCHA: 'true',
       DB_NAME: 'huakey_crm_test',

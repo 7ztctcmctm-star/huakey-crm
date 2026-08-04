@@ -11,7 +11,7 @@
  *   2. 按 demo_all.sql 顺序执行各 seed 文件（幂等）
  *   3. 汇总验证 Demo 数据条数
  *
- * 环境变量（默认从 backend/.env 读取，可被进程 env 覆盖）：
+ * 环境变量（默认从项目根目录 .env 读取，可被进程 env 覆盖）：
  *   DB_HOST / DB_PORT / DB_USER / DB_PASSWORD / DB_NAME
  *
  * 安全：
@@ -22,7 +22,7 @@
 
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
 // ------------------------------------------------------------
 // 1. 生产环境阻断

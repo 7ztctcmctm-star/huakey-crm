@@ -6,10 +6,10 @@
 -- ============================================================
 
 -- 环境安全检查：非测试/开发数据库则强制报错中止
--- 原理：IF 条件为真时执行子查询，子查询引用不存在的标识符触发 1054 错误
-SELECT IF(DATABASE() NOT LIKE '%test%' AND DATABASE() NOT LIKE '%dev%',
-  (SELECT `ABORT__NOT_A_TEST_DATABASE`),
-  'test_db_ok') AS `guard`;
+-- 原理：用 PREPARE STATEMENT 实现惰性求值，仅在非测试库时才引用不存在的标识符
+SET @db_safe = (DATABASE() LIKE '%test%' OR DATABASE() LIKE '%dev%');
+SET @guard_sql = IF(@db_safe, 'SELECT 1', 'SELECT `ABORT__NOT_A_TEST_DATABASE`');
+PREPARE guard_stmt FROM @guard_sql; EXECUTE guard_stmt; DEALLOCATE PREPARE guard_stmt;
 
 USE huakey_crm;
 
