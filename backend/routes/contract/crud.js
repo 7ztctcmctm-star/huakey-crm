@@ -22,7 +22,7 @@ const router = express.Router();
  *               page: { type: integer, example: 1 }
  *               pageSize: { type: integer, example: 20 }
  *               keyword: { type: string }
- *               status: { type: integer, enum: [1, 2, 3, 4], description: '1=执行中 2=已完结 3=已终止 4=待审批' }
+ *               status: { type: integer, enum: [1, 2, 3, 4], description: '1=执行中 2=已完结 3=已终止 4=已取消' }
  *               customer_id: { type: integer }
  *               approval_status: { type: integer, enum: [1, 2, 3] }
  *               payment_status: { type: string, enum: [overdue, partial, completed, pending] }
@@ -113,6 +113,7 @@ const listSchema = Joi.object({
 const addContractSchema = Joi.object({
   customer_id: Joi.number().integer().positive().required(),
   opportunity_id: Joi.number().integer().positive().allow(null),
+  quote_id: Joi.number().integer().positive().allow(null),
   amount: Joi.number().precision(2).min(0).required(),
   sign_date: Joi.date().iso().allow(null),
   delivery_date: Joi.date().iso().allow(null),

@@ -2,6 +2,7 @@
 // 从 routes/cronJobs.js 提取的业务逻辑
 
 const { getRecycleDays, getNearRecycleDays } = require('../utils/config');
+const { POOL_STATUS } = require('../constants/poolStatus');
 const notification = require('../utils/notification');
 const sseManager = require('../utils/sseManager');
 const logger = require('../config/logger');
@@ -34,12 +35,12 @@ async function getNearRecycleCustomers(pool, nearDays) {
             u.real_name as owner_name
      FROM crm_customer c
      LEFT JOIN sys_user u ON c.owner_id = u.id
-     WHERE c.pool_status = 0 AND c.deleted_at IS NULL AND c.owner_id IS NOT NULL
+     WHERE c.pool_status = ? AND c.deleted_at IS NULL AND c.owner_id IS NOT NULL
        AND c.status = 'following'
        AND (c.last_follow_time IS NULL AND c.create_time < NOW() - INTERVAL ? DAY
          OR c.last_follow_time < NOW() - INTERVAL ? DAY)
      ORDER BY overdue_days DESC`,
-    [threshold, threshold]
+    [POOL_STATUS.PRIVATE, threshold, threshold]
   );
   return customers;
 }
@@ -61,10 +62,10 @@ async function notifyPreReleaseCustomers(pool, recycleDays) {
             u.real_name as owner_name
      FROM crm_customer c
      LEFT JOIN sys_user u ON c.owner_id = u.id
-     WHERE c.pool_status = 0 AND c.deleted_at IS NULL AND c.owner_id IS NOT NULL
+     WHERE c.pool_status = ? AND c.deleted_at IS NULL AND c.owner_id IS NOT NULL
        AND c.status = 'following'
        AND DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) = ?`,
-    [preReleaseDays]
+    [POOL_STATUS.PRIVATE, preReleaseDays]
   );
 
   for (const customer of customers) {
@@ -116,11 +117,11 @@ async function autoReleaseCustomers(pool, releaseDays) {
 
     const [customers] = await connection.query(
       `SELECT id, company_name, owner_id FROM crm_customer
-       WHERE pool_status = 0 AND deleted_at IS NULL AND owner_id IS NOT NULL
+       WHERE pool_status = ? AND deleted_at IS NULL AND owner_id IS NOT NULL
          AND status = 'following'
          AND (last_follow_time IS NULL AND create_time < NOW() - INTERVAL ? DAY
            OR last_follow_time < NOW() - INTERVAL ? DAY)`,
-      [threshold, threshold]
+      [POOL_STATUS.PRIVATE, threshold, threshold]
     );
 
     if (!customers || customers.length === 0) {
@@ -132,8 +133,8 @@ async function autoReleaseCustomers(pool, releaseDays) {
     const logValues = customers.map(c => [c.id, 'auto_release', c.owner_id, null]);
 
     await connection.query(
-      'UPDATE crm_customer SET pool_status = 1, owner_id = NULL, protect_until = NULL, status = ? WHERE id IN (?)',
-      ['sea', ids]
+      'UPDATE crm_customer SET pool_status = ?, owner_id = NULL, protect_until = NULL, status = ? WHERE id IN (?)',
+      [POOL_STATUS.SEA, 'sea', ids]
     );
 
     await connection.query(

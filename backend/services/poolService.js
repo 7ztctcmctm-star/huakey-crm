@@ -12,6 +12,7 @@
 
 const ROLES = require('../config/roles')
 const { CUSTOMER_STATUS } = require('../constants/customerStatus')
+const { POOL_STATUS } = require('../constants/poolStatus')
 const AppError = require('../errors/AppError')
 const ErrorCodes = require('../errors/codes')
 
@@ -119,8 +120,8 @@ async function claimCustomer(pool, customer_id, userId, user) {
   if (protectUntil) protectUntil.setDate(protectUntil.getDate() + 7)
 
   await pool.query(
-    'UPDATE crm_customer SET pool_status = 0, owner_id = ?, protect_until = ?, status = ?, last_follow_time = NOW() WHERE id = ?',
-    [userId, protectUntil, CUSTOMER_STATUS.FOLLOWING, customer_id]
+    'UPDATE crm_customer SET pool_status = ?, owner_id = ?, protect_until = ?, status = ?, last_follow_time = NOW() WHERE id = ?',
+    [POOL_STATUS.PRIVATE, userId, protectUntil, CUSTOMER_STATUS.FOLLOWING, customer_id]
   )
 
   await pool.query(
@@ -174,8 +175,8 @@ async function batchClaimCustomers(pool, customer_ids, userId, user) {
       protectUntil.setDate(protectUntil.getDate() + 7)
 
       await connection.query(
-        'UPDATE crm_customer SET pool_status = 0, owner_id = ?, protect_until = ?, status = ?, last_follow_time = NOW() WHERE id = ?',
-        [userId, protectUntil, CUSTOMER_STATUS.FOLLOWING, customerId]
+        'UPDATE crm_customer SET pool_status = ?, owner_id = ?, protect_until = ?, status = ?, last_follow_time = NOW() WHERE id = ?',
+        [POOL_STATUS.PRIVATE, userId, protectUntil, CUSTOMER_STATUS.FOLLOWING, customerId]
       )
       await connection.query(
         `INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id) VALUES (?, 'claim', ?, ?)`,
@@ -216,8 +217,8 @@ async function releaseCustomer(pool, customer_id, userId, user) {
   }
 
   await pool.query(
-    'UPDATE crm_customer SET pool_status = 1, owner_id = NULL, protect_until = NULL, status = ? WHERE id = ?',
-    [CUSTOMER_STATUS.SEA, customer_id]
+    'UPDATE crm_customer SET pool_status = ?, owner_id = NULL, protect_until = NULL, status = ? WHERE id = ?',
+    [POOL_STATUS.SEA, CUSTOMER_STATUS.SEA, customer_id]
   )
   await pool.query(
     `INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id) VALUES (?, 'release', ?, NULL)`,
@@ -257,8 +258,8 @@ async function batchReleaseCustomers(pool, customer_ids, userId, user) {
       if (customer.owner_id === null) continue
 
       await connection.query(
-        'UPDATE crm_customer SET pool_status = 1, owner_id = NULL, protect_until = NULL, status = ? WHERE id = ?',
-        [CUSTOMER_STATUS.SEA, customerId]
+        'UPDATE crm_customer SET pool_status = ?, owner_id = NULL, protect_until = NULL, status = ? WHERE id = ?',
+        [POOL_STATUS.SEA, CUSTOMER_STATUS.SEA, customerId]
       )
       await connection.query(
         `INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id) VALUES (?, 'release', ?, NULL)`,

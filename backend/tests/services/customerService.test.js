@@ -209,9 +209,10 @@ describe('customerService.releaseCustomer', () => {
     await customerService.releaseCustomer(mockPool, 1, 5);
 
     expect(mockPool.query).toHaveBeenCalledTimes(3);
-    // 检查 UPDATE 语句
+    // 检查 UPDATE 语句（097 迁移后 pool_status 参数化，不再字面量 1）
     const updateCall = mockPool.query.mock.calls[1];
-    expect(updateCall[0]).toContain('pool_status = 1');
+    expect(updateCall[0]).toContain('pool_status = ?');
+    expect(updateCall[1]).toEqual(['sea', 1]);
     // 检查 INSERT 日志
     const logCall = mockPool.query.mock.calls[2];
     expect(logCall[0]).toContain('crm_pool_log');

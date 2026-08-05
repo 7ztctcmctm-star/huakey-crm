@@ -421,11 +421,78 @@ async function convertToCustomer(req, res, next) {
   }
 }
 
+// ==================== Phase 2: 客户中心三页面 ====================
+
+async function listLeadPool(req, res, next) {
+  try {
+    const { clause, params } = await buildDataPermissionWhere(req.dataPermission, 'c')
+    const result = await customerService.listLeads(pool, req.body, { clause, params })
+    res.json({ code: 200, message: '获取潜客池列表成功', data: result })
+  } catch (error) {
+    next(error)
+  }
+}
+
+async function listFormal(req, res, next) {
+  try {
+    const { clause, params } = await buildDataPermissionWhere(req.dataPermission, 'c')
+    const result = await customerService.listFormalCustomers(pool, req.body, { clause, params })
+    res.json({ code: 200, message: '获取正式客户列表成功', data: result })
+  } catch (error) {
+    next(error)
+  }
+}
+
+async function listPoolNew(req, res, next) {
+  try {
+    const { clause, params } = await buildDataPermissionWhere(req.dataPermission, 'c')
+    const result = await customerService.listPoolCustomersNew(pool, req.body, { clause, params })
+    res.json({ code: 200, message: '获取公海池列表成功', data: result })
+  } catch (error) {
+    next(error)
+  }
+}
+
+async function convertLeadToFormal(req, res, next) {
+  try {
+    const result = await customerService.convertLeadToCustomer(pool, req.body.id, req.user.userId)
+    await logAction(req, 'convert-lead', `潜客转正式客户: ${result.company_name}`)
+    await invalidateCache([`customer:list:${req.user.userId}:*`])
+    res.json({ code: 200, message: '潜客转正式客户成功', data: result })
+  } catch (error) {
+    next(error)
+  }
+}
+
+async function releaseToPool(req, res, next) {
+  try {
+    const result = await customerService.releaseCustomerToPool(pool, req.body.id, req.user.userId, req.body.reason)
+    await logAction(req, 'release-to-pool', `释放客户到公海: ${result.company_name}`)
+    await invalidateCache([`customer:list:${req.user.userId}:*`])
+    res.json({ code: 200, message: '释放客户到公海成功', data: null })
+  } catch (error) {
+    next(error)
+  }
+}
+
+async function claimPool(req, res, next) {
+  try {
+    const result = await customerService.claimPoolCustomer(pool, req.body.id, req.user.userId)
+    await logAction(req, 'claim-pool', `领取公海客户: ${result.company_name}`)
+    await invalidateCache([`customer:list:${req.user.userId}:*`])
+    res.json({ code: 200, message: '领取公海客户成功', data: { protect_until: result.protect_until } })
+  } catch (error) {
+    next(error)
+  }
+}
+
 module.exports = {
   list, create, update, remove, detail, view360, exportCustomers, forward, backward,
   listLeads, convertLead, batchConvertLeads, importLeads, claimLead, markLeadLost, getLeadsStats,
   convertToCustomer,
   assign, batchAssign, listAssignLogs, createAssignRule, updateAssignRule, deleteAssignRule, autoAssign,
   getAssignRules, getSalesUsers, getMySubordinates,
-  claim, batchClaim, release, batchRelease, listPoolLogs, importPreview, importConfirm
+  claim, batchClaim, release, batchRelease, listPoolLogs, importPreview, importConfirm,
+  // Phase 2: 客户中心三页面（新接口，旧接口保留兼容）
+  listLeadPool, listFormal, listPoolNew, convertLeadToFormal, releaseToPool, claimPool
 }

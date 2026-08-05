@@ -32,7 +32,7 @@
               <el-icon><Clock /></el-icon>
               <span :class="{ 'text-danger': isNextFollowOverdue }">
                 下次跟进: {{ formatTime(nextFollowTime) }}
-                <span class="action-sub">({{ relativeNextTime(nextFollowTime) }})</span>
+                <span class="action-sub">({{ formatRelativeNextTime(nextFollowTime) }})</span>
               </span>
             </div>
             <div v-if="isFollowOverdue" class="action-item">
@@ -43,7 +43,7 @@
             </div>
             <div v-else-if="customer.last_follow_time" class="action-item">
               <el-icon><Clock /></el-icon>
-              <span>上次跟进: {{ relativeTime(customer.last_follow_time) }}</span>
+              <span>上次跟进: {{ formatRelativeTime(customer.last_follow_time) }}</span>
             </div>
             <div v-if="lastFollowSummary" class="action-summary">
               <span>最近: {{ lastFollowSummary }}</span>
@@ -550,6 +550,7 @@ import { addFollowUp, updateFollowUp, deleteFollowUp, getFollowupTemplates } fro
 import { getEmailList } from '@/api/tools'
 import { getKnowledgeScripts } from '@/api/tools'
 import { formatTime } from '@/composables/useFormat'
+import { formatRelativeTime, formatRelativeNextTime } from '@/utils/time'
 import { recordVisit } from '@/composables/useRecentVisit'
 import { ALL_SOURCE_VALUES } from '@/constants/source'
 import { useUser } from '@/composables/useUser'
@@ -697,17 +698,6 @@ const isNextFollowOverdue = computed(() => {
   if (!t) return false
   return new Date(t).getTime() < Date.now()
 })
-const relativeNextTime = (t) => {
-  if (!t) return '-'
-  const now = Date.now()
-  const d = new Date(t).getTime()
-  const diff = d - now
-  const day = Math.floor(Math.abs(diff) / (24 * 60 * 60 * 1000))
-  if (diff < 0) return day === 0 ? '已逾期（今天）' : `已逾期 ${day} 天`
-  if (day === 0) return '今天'
-  if (day === 1) return '明天'
-  return `${day} 天后`
-}
 
 // 映射
 const stageMap = { 1: '询盘', 2: '需求确认', 3: '方案报价', 4: '谈判', 5: '成交', 6: '失败' }

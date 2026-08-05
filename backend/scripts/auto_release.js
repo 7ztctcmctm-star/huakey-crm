@@ -4,6 +4,7 @@
 // Windows Task Scheduler 也可调用此脚本
 
 const pool = require('../config/database');
+const { POOL_STATUS } = require('../constants/poolStatus');
 
 const AUTO_RELEASE_DAYS = parseInt(process.env.AUTO_RELEASE_DAYS) || 30;
 
@@ -16,7 +17,7 @@ async function autoRelease() {
     const [customers] = await pool.query(
       `SELECT id, company_name, owner_id
        FROM crm_customer
-       WHERE pool_status = 0
+       WHERE pool_status = ?
          AND status != 0
          AND owner_id IS NOT NULL
          AND (
@@ -24,7 +25,7 @@ async function autoRelease() {
            AND create_time < NOW() - INTERVAL ? DAY
            OR last_follow_time < NOW() - INTERVAL ? DAY
          )`,
-      [AUTO_RELEASE_DAYS, AUTO_RELEASE_DAYS]
+      [POOL_STATUS.PRIVATE, AUTO_RELEASE_DAYS, AUTO_RELEASE_DAYS]
     );
 
     if (customers.length === 0) {
@@ -37,8 +38,8 @@ async function autoRelease() {
     let releasedCount = 0;
     for (const customer of customers) {
       await pool.query(
-        'UPDATE crm_customer SET pool_status = 1, owner_id = NULL, protect_until = NULL WHERE id = ?',
-        [customer.id]
+        'UPDATE crm_customer SET pool_status = ?, owner_id = NULL, protect_until = NULL WHERE id = ?',
+        [POOL_STATUS.SEA, customer.id]
       );
 
       await pool.query(

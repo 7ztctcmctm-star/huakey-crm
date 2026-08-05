@@ -42,22 +42,22 @@ WHERE EXISTS (SELECT 1 FROM sys_permission WHERE code = 'system:user');
 -- 2a. dashboard
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE r.code IN ('sales','hr','purchaser','finance','engineer') AND p.code = 'dashboard';
+WHERE r.code IN ('sales','hr','purchase','finance','engineer') AND p.code = 'dashboard';
 
 -- 2b. reminder
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE r.code IN ('sales','hr','purchaser','finance','engineer') AND p.code = 'reminder';
+WHERE r.code IN ('sales','hr','purchase','finance','engineer') AND p.code = 'reminder';
 
 -- 2c. ai
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE r.code IN ('sales','hr','purchaser','finance','engineer') AND p.code = 'ai';
+WHERE r.code IN ('sales','hr','purchase','finance','engineer') AND p.code = 'ai';
 
 -- 2d. tag
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE r.code IN ('sales','hr','purchaser','finance','engineer') AND p.code = 'tag';
+WHERE r.code IN ('sales','hr','purchase','finance','engineer') AND p.code = 'tag';
 
 -- 3. sales 角色专项权限
 -- 3a. 客户管理
@@ -158,36 +158,36 @@ INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
 WHERE r.code = 'sales' AND p.code IN ('followup_template', 'contract_template');
 
--- 4. purchaser/hr/finance/engineer 公共部分
+-- 4. purchase/hr/finance/engineer 公共部分
 -- 4a. purchase
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE r.code IN ('purchaser','hr','finance','engineer') AND p.code = 'purchase';
+WHERE r.code IN ('purchase','hr','finance','engineer') AND p.code = 'purchase';
 
 -- 4b. supplier
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE r.code IN ('purchaser','hr','finance','engineer') AND p.code = 'supplier';
+WHERE r.code IN ('purchase','hr','finance','engineer') AND p.code = 'supplier';
 
 -- 4c. product
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE r.code IN ('purchaser','hr','finance','engineer') AND p.code = 'product';
+WHERE r.code IN ('purchase','hr','finance','engineer') AND p.code = 'product';
 
 -- 4d. service
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE r.code IN ('purchaser','hr','finance','engineer') AND p.code = 'service';
+WHERE r.code IN ('purchase','hr','finance','engineer') AND p.code = 'service';
 
 -- 4e. report
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE r.code IN ('purchaser','hr','finance','engineer') AND p.code = 'report';
+WHERE r.code IN ('purchase','hr','finance','engineer') AND p.code = 'report';
 
--- 5. purchaser 专项
+-- 5. purchase 专项
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE r.code = 'purchaser' AND p.code IN (
+WHERE r.code = 'purchase' AND p.code IN (
   'purchase:add', 'purchase:edit',
   'supplier:add', 'supplier:edit',
   'calendar'

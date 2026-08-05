@@ -151,8 +151,6 @@
       </el-table-column>
       <el-table-column label="操作" :width="isBoss || isManager ? 380 : 300" fixed="right">
         <template #default="{ row }">
-          <el-button v-if="!row.owner_id && (row.status === 'lead' || row.status === 'sea' || row.pool_status === 1)" type="success" size="small" :icon="Aim" @click="$emit('claim', row)" v-permission="'customer:pool'">认领</el-button>
-          <el-button v-if="isProspectView" type="primary" size="small" :icon="ArrowRight" @click="$emit('convert-to-customer', row)" v-permission="'customer:edit'">转为正式客户</el-button>
           <el-button type="success" size="small" :icon="ChatLineRound" @click="$emit('quick-follow', row)" v-permission="'customer:edit'">跟进</el-button>
           <el-button v-if="isBoss || isManager" type="warning" size="small" @click="$emit('assign', row)" v-permission="'customer:assign'">分配</el-button>
           <el-button v-if="canForward(row)" type="primary" size="small" :icon="ArrowRight" @click="handleForward(row)" v-permission="'customer:edit'">推进</el-button>
@@ -190,7 +188,7 @@
 <script setup>
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus, Upload, Download, DataAnalysis, ChatLineRound, Select, ArrowRight, ArrowLeft, Aim } from '@element-plus/icons-vue'
+import { Plus, Upload, Download, DataAnalysis, ChatLineRound, Select, ArrowRight, ArrowLeft } from '@element-plus/icons-vue'
 import { relativeTime, fullTime, relativeNextTime } from '@/composables/useRelativeTime'
 import { hasPermission } from '@/utils/permission'
 import { forwardCustomer, backwardCustomer } from '@/api/customer'
@@ -198,7 +196,6 @@ import { forwardCustomer, backwardCustomer } from '@/api/customer'
 const props = defineProps({
   loading: { type: Boolean, default: false },
   tableData: { type: Array, default: () => [] },
-  isProspectView: { type: Boolean, default: false },
   isBoss: { type: Boolean, default: false },
   isManager: { type: Boolean, default: false },
   selectedRows: { type: Array, default: () => [] },
@@ -214,8 +211,7 @@ const emit = defineEmits([
   'add', 'import', 'export', 'quality-check', 'batch-follow', 'batch-assign',
   'update:viewMode', 'update:staffFilterId', 'update:batchNewOwnerId',
   'view-mode-change', 'staff-filter-change',
-  'selection-change', 'quick-follow', 'assign', 'claim', 'status-change', 'view', 'edit', 'delete',
-  'convert-to-customer'
+  'selection-change', 'quick-follow', 'assign', 'status-change', 'view', 'edit', 'delete'
 ])
 
 const tableRef = ref(null)

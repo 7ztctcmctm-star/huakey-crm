@@ -42,10 +42,14 @@ DELETE FROM crm_quote WHERE is_demo = 1;
 -- 5. 合同
 DELETE FROM crm_contract WHERE is_demo = 1;
 
--- 6. 审批记录（无 is_demo 列，按 demo 报价/合同关联清理）
+-- 6. 审批记录（无 is_demo 列，按 demo 报价/合同关联 + approver_id 维度清理）
+--    注意：approver_id 维度必须保留，因为 crm_approval_record.fk_ar_approver 为
+--    ON DELETE NO ACTION（等同 RESTRICT），不显式清理会阻塞 demo 用户删除。
+--    其余引用 sys_user 的外键均为 SET NULL / CASCADE，删除用户时自动处理。
 DELETE FROM crm_approval_record
   WHERE (business_type = 'quote' AND business_id IN (SELECT id FROM (SELECT id FROM crm_quote WHERE is_demo = 1) AS t))
-     OR (business_type = 'contract' AND business_id IN (SELECT id FROM (SELECT id FROM crm_contract WHERE is_demo = 1) AS t));
+     OR (business_type = 'contract' AND business_id IN (SELECT id FROM (SELECT id FROM crm_contract WHERE is_demo = 1) AS t))
+     OR approver_id IN (SELECT id FROM (SELECT id FROM sys_user WHERE is_demo = 1) AS t);
 
 -- 7. 审批流程
 DELETE FROM crm_approval_workflow WHERE is_demo = 1;

@@ -90,8 +90,13 @@ const opportunityListSchema = Joi.object({
   page: Joi.number().integer().min(1).optional(),
   pageSize: Joi.number().integer().min(1).max(200).optional(),
   keyword: Joi.string().max(200).allow('', null),
+  name: Joi.string().max(200).allow('', null),
+  customer_name: Joi.string().max(200).allow('', null),
+  opportunity_no: Joi.string().max(32).allow('', null),
   stage: Joi.number().integer().valid(1, 2, 3, 4, 5, 6).allow('', null),
-  customer_id: Joi.number().integer().positive().allow('', null)
+  customer_id: Joi.number().integer().positive().allow('', null),
+  source_id: Joi.number().integer().positive().allow('', null),
+  owner_id: Joi.number().integer().positive().allow('', null)
 });
 
 const addOpportunitySchema = Joi.object({
@@ -102,7 +107,8 @@ const addOpportunitySchema = Joi.object({
   stage: Joi.number().integer().valid(1, 2, 3, 4, 5, 6).default(1),
   win_rate: Joi.number().integer().min(0).max(100).allow(null),
   remark: Joi.string().max(2000).allow('', null),
-  owner_id: Joi.number().integer().positive().allow(null)
+  owner_id: Joi.number().integer().positive().allow(null),
+  source_id: Joi.number().integer().positive().allow(null)
 });
 
 const updateOpportunitySchema = Joi.object({
@@ -114,12 +120,21 @@ const updateOpportunitySchema = Joi.object({
   stage: Joi.number().integer().valid(1, 2, 3, 4, 5, 6),
   win_rate: Joi.number().integer().min(0).max(100).allow(null),
   remark: Joi.string().max(2000).allow('', null),
-  owner_id: Joi.number().integer().positive().allow(null)
+  owner_id: Joi.number().integer().positive().allow(null),
+  source_id: Joi.number().integer().positive().allow(null)
 });
 
 const updateStageSchema = Joi.object({
   id: Joi.number().integer().positive().required(),
-  stage: Joi.number().integer().valid(1, 2, 3, 4, 5, 6).required()
+  stage: Joi.number().integer().valid(1, 2, 3, 4, 5, 6).required(),
+  change_reason: Joi.string().max(500).allow('', null)
+});
+
+// v1.1: 阶段回退 schema（与推进 schema 结构相同）
+const backwardStageSchema = Joi.object({
+  id: Joi.number().integer().positive().required(),
+  stage: Joi.number().integer().valid(1, 2, 3, 4, 5, 6).required(),
+  change_reason: Joi.string().max(500).allow('', null)
 });
 
 const deleteOpportunitySchema = Joi.object({
@@ -138,11 +153,11 @@ router.post('/update', authenticateToken, checkPermission('opportunity:edit'), c
 // 4. 推进阶段
 router.post('/update-stage', authenticateToken, checkPermission('opportunity:edit'), checkDataPermission('opportunity', 'owner_id'), validate(updateStageSchema), opportunityController.updateStage);
 
-// 4.1 获取商机阶段日志
-router.get('/stage-log/:id', authenticateToken, opportunityController.stageLog);
+// 4.1 v1.1: 阶段回退
+router.post('/backward-stage', authenticateToken, checkPermission('opportunity:edit'), checkDataPermission('opportunity', 'owner_id'), validate(backwardStageSchema), opportunityController.backwardStage);
 
-// 4.2 商机阶段停留时间统计
-router.get('/stage-stats/:id', authenticateToken, opportunityController.stageStats);
+// 4.2 商机阶段停留时间统计（带数据权限）
+router.get('/stage-stats/:id', authenticateToken, checkDataPermission('opportunity', 'owner_id'), opportunityController.stageStats);
 
 // 5. 删除商机
 router.post('/delete', authenticateToken, checkPermission('opportunity:delete'), validate(deleteOpportunitySchema), opportunityController.delete);
@@ -158,5 +173,11 @@ router.get('/stage-log/:id', authenticateToken, checkDataPermission('opportunity
 
 // 9. 商机销售时间轴（Prompt 4-3-7）
 router.get('/timeline/:id', authenticateToken, checkDataPermission('opportunity', 'owner_id'), opportunityController.timeline);
+
+// 10. v1.1: 获取商机来源字典
+router.get('/sources', authenticateToken, opportunityController.getSources);
+
+// 11. v1.1: 导出商机列表（CSV）
+router.get('/export', authenticateToken, checkDataPermission('opportunity', 'owner_id'), opportunityController.exportOpportunities);
 
 module.exports = router;

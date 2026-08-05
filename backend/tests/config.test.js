@@ -1,8 +1,10 @@
-﻿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
 process.env.JWT_SECRET = 'test_secret_key_for_unit_tests';
+// testNotification 要求 WECHAT_WEBHOOK_URL 已配置（sendText 已 mock，不会真实发送）
+process.env.WECHAT_WEBHOOK_URL = 'https://test.example.com/webhook';
 
 const mockPool = {
   query: jest.fn(),

@@ -57,16 +57,26 @@ const router = createRouter({
           meta: { title: '明日计划', permission: 'followup:tomorrow' }
         },
         {
-          path: 'customer/prospects',
-          name: 'ProspectPool',
-          component: () => import('../views/customer/List.vue'),
-          meta: { title: '潜客池', permission: 'customer:list' }
+          path: 'leads',
+          name: 'LeadsPool',
+          component: () => import('../views/leads/List.vue'),
+          meta: { title: '潜客池', permission: 'leads:view' }
         },
         {
           path: 'customer/list',
           name: 'CustomerList',
           component: () => import('../views/customer/List.vue'),
-          meta: { title: '正式客户', permission: 'customer:list' }
+          meta: { title: '正式客户', permission: 'customer:view' }
+        },
+        {
+          path: 'pool',
+          name: 'PublicPool',
+          component: () => import('../views/pool/List.vue'),
+          meta: { title: '公海池', permission: 'pool:view' }
+        },
+        {
+          path: 'customer/prospects',
+          redirect: '/leads'
         },
         {
           path: 'customer/detail/:id',
@@ -85,6 +95,12 @@ const router = createRouter({
           name: 'Opportunity',
           component: () => import('../views/opportunity/list.vue'),
           meta: { title: '商机管理', permission: 'opportunity' }
+        },
+        {
+          path: 'opportunity/detail/:id',
+          name: 'OpportunityDetail',
+          component: () => import('../views/opportunity/Detail.vue'),
+          meta: { title: '商机详情', permission: 'opportunity:view' }
         },
         {
           path: 'product',
@@ -420,7 +436,7 @@ const router = createRouter({
           path: 'knowledge',
           name: 'Knowledge',
           component: () => import('../views/knowledge/index.vue'),
-          meta: { title: '知识库', permission: 'knowledge' }
+          meta: { title: '销售资料', permission: 'knowledge' }
         },
         {
           path: 'knowledge/products',
@@ -504,7 +520,7 @@ const router = createRouter({
           path: 'system/backup',
           name: 'SystemBackup',
           component: () => import('../views/system/backup.vue'),
-          meta: { title: '数据备份', permission: 'backup:create', admin: true }
+          meta: { title: '数据备份', permission: 'backup:add', admin: true }
         },
         {
           path: 'system/permission',

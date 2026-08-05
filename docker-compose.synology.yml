@@ -142,6 +142,31 @@ services:
     networks:
       - crm-network
 
+  # ---- 数据库自动备份（每日凌晨 2:00，Phase 10 P1-2）----
+  # mysql:8.0 镜像内置 busybox crond，无需额外安装
+  # 备份脚本通过 volume 挂载注入，与 app 容器共享 ./database/backups 目录
+  backup:
+    image: mysql:8.0
+    container_name: huakey-backup
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "0 2 * * * /backup.sh >> /var/log/backup.log 2>&1" > /etc/crontabs/root
+        crond -f -l 2
+    volumes:
+      - ./database/backup.sh:/backup.sh:ro
+      - ./database/backups:/backups
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      DATABASE: ${DB_NAME:-huakey_crm}
+    mem_limit: 64m
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - crm-network
+
 volumes:
   mysql-data:
     driver: local

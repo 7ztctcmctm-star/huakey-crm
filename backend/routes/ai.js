@@ -84,7 +84,7 @@ router.get('/status', authenticateToken, checkPermission('ai'), async (req, res,
 // Text-to-SQL：自然语言 → SQL → 执行 → AI格式化结果
 const DB_SCHEMA = `
 数据库表（所有表在 huakey_crm 库）：
-- crm_customer(客户): id, company_name, contact_name, phone, email, industry, source, level(A/B/C/D), owner_id, status(1=潜在/2=成交/3=流失), pool_status(0=归属/1=公海), lead_level(高/中/低), follow_status, last_follow_time, create_time
+- crm_customer(客户): id, company_name, contact_name, phone, email, industry, source, level(A/B/C/D), owner_id, status(字符串状态: lead/sea/following/quoted/negotiating/signed/lost/paused), business_status(业务生命周期: lead/following/quoted/negotiating/signed/lost), pool_status(private=私有/sea=公海), lead_level(高/中/低), follow_status, last_follow_time, create_time
 - sys_user(用户): id, username, real_name, role_id, dept_id
 - sys_dept(部门): id, name
 - sys_role(角色): id, name, code

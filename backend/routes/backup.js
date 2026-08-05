@@ -27,7 +27,7 @@ const deleteBackupSchema = Joi.object({
 const emptySchema = Joi.object({});
 
 // 创建备份
-router.post('/create', authenticateToken, checkPermission('backup:create'), requireAdmin, validate(emptySchema), async (req, res, next) => {
+router.post('/create', authenticateToken, checkPermission('backup:add'), requireAdmin, validate(emptySchema), async (req, res, next) => {
   try {
     const result = await backupService.createBackup(pool, req.user.userId);
     res.json({ code: 200, message: '备份任务已创建，正在后台执行', data: result });
@@ -39,7 +39,7 @@ router.post('/create', authenticateToken, checkPermission('backup:create'), requ
 });
 
 // 获取备份列表
-router.post('/list', authenticateToken, checkPermission('backup:create'), validate(listBackupSchema), async (req, res, next) => {
+router.post('/list', authenticateToken, checkPermission('backup:add'), validate(listBackupSchema), async (req, res, next) => {
   try {
     const { page = 1, pageSize = 20 } = req.body;
     const result = await backupService.listBackups(pool, { page, pageSize });
@@ -76,7 +76,7 @@ router.get('/confirm-code/:id', authenticateToken, checkPermission('backup:resto
 });
 
 // 删除备份文件
-router.post('/delete', authenticateToken, checkPermission('backup:create'), requireAdmin, validate(deleteBackupSchema), async (req, res, next) => {
+router.post('/delete', authenticateToken, checkPermission('backup:add'), requireAdmin, validate(deleteBackupSchema), async (req, res, next) => {
   try {
     const { id } = req.body;
     await backupService.deleteBackup(pool, id);

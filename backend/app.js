@@ -298,6 +298,11 @@ for (const { prefix, router } of registry.getAllRoutes()) {
   apiRouter.use(prefix, router);
 }
 
+// Phase 5：客户中心 API 独立化（旧 /customer/* 端点保留为兼容层，内部调用相同 controller）
+apiRouter.use('/leads', require('./routes/leads'));
+apiRouter.use('/pool', require('./routes/pool'));
+apiRouter.use('/customers', require('./routes/customers'));
+
 // 跟进记录路由
 apiRouter.use('/follow-up', followUpRoutes);
 apiRouter.use('/opportunity', opportunityRoutes);

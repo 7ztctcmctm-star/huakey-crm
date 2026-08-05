@@ -205,7 +205,7 @@ async function deleteContract(pool, id, user) {
     throw new AppError(ErrorCodes.CONTRACT_NOT_FOUND);
   }
   if (contract[0].status === 3) {
-    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '已完成的合同不能删除');
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '已终止的合同不能删除');
   }
 
   const { manageAll, roleId, userId } = user;

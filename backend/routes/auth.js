@@ -271,8 +271,8 @@ router.get('/me', authenticateToken, async (req, res, next) => {
 });
 
 // 4. 注册接口（仅管理员可用，禁止公开注册）
-// [权限说明] 需要 user:create 权限
-router.post('/register', authenticateToken, checkPermission('user:create'), validate(registerSchema), async (req, res, next) => {
+// [权限说明] 需要 system:user:add 权限（统一命名规范，原 user:create 已废弃）
+router.post('/register', authenticateToken, checkPermission('system:user:add'), validate(registerSchema), async (req, res, next) => {
   try {
     const result = await authService.register(pool, req.body);
     res.json({ code: 200, message: '用户创建成功', data: result });

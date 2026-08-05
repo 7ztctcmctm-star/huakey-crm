@@ -154,7 +154,7 @@ const handleSavePermission = async () => {
 
 // 权限预设包
 const permissionPresets = {
-  sales: ['dashboard', 'customer', 'customer:list', 'customer:pool', 'leads', 'followup:calendar', 'opportunity', 'quotation', 'knowledge', 'scoring'],
+  sales: ['dashboard', 'customer', 'customer:list', 'pool', 'pool:view', 'pool:claim', 'leads', 'followup:calendar', 'opportunity', 'quotation', 'knowledge', 'scoring'],
   finance: ['dashboard', 'contract', 'payment', 'invoice', 'report'],
   purchase: ['dashboard', 'supplier', 'purchase', 'inventory', 'product'],
   service: ['dashboard', 'service', 'customer:list', 'knowledge'],

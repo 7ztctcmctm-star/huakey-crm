@@ -229,7 +229,7 @@ describe('contractService.updateContractStatus', () => {
 
     await expect(
       contractService.updateContractStatus(mockPool, 1, 2)
-    ).rejects.toMatchObject({ code: 400005, message: '已完成的合同不能变更状态' });
+    ).rejects.toMatchObject({ code: 400005, message: '已终止的合同不能变更状态' });
   });
 
   it('正常状态变更应返回 true', async () => {

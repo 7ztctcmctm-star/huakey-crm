@@ -103,7 +103,7 @@ const fetchList = async () => {
   loading.value = true
   try {
     const res = await getKnowledgeDocuments(search)
-    if (res.code === 200) list.value = res.data
+    if (res.code === 200) list.value = res.data.list || []
   } catch (e) { /* */ }
   finally { loading.value = false }
 }

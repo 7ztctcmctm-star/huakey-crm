@@ -329,7 +329,7 @@
     </el-dialog>
 
     <!-- FAQ查询弹窗 -->
-    <el-dialog v-model="faqVisible" title="查询知识库FAQ" width="500px">
+    <el-dialog v-model="faqVisible" title="查询销售资料FAQ" width="500px">
       <el-input v-model="faqKeyword" placeholder="搜索FAQ" clearable style="margin-bottom: 12px;" @input="fetchFaqs" />
       <div v-loading="faqLoading" style="max-height: 350px; overflow-y: auto;">
         <div v-for="item in faqList" :key="item.id" class="faq-item" @click="item._expanded = !item._expanded">

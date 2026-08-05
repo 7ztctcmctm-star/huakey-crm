@@ -213,7 +213,7 @@
   <!-- 管理员/销售：商机/回款/逾期/合同 -->
   <el-row :gutter="24" style="margin-top: 16px" v-if="isAdmin || isSales">
     <el-col :span="6">
-      <el-card shadow="hover" class="stat-card mini">
+      <el-card shadow="hover" class="stat-card mini" @click="$router.push('/opportunity')">
         <div class="stat-body">
           <div class="stat-icon small" style="background: #eff6ff; color: #1a56db">
             <el-icon :size="20"><DocumentChecked /></el-icon>
@@ -226,7 +226,7 @@
       </el-card>
     </el-col>
     <el-col :span="6">
-      <el-card shadow="hover" class="stat-card mini">
+      <el-card shadow="hover" class="stat-card mini" @click="$router.push('/payment')">
         <div class="stat-body">
           <div class="stat-icon small" style="background: #fef2f2; color: #dc2626">
             <el-icon :size="20"><Service /></el-icon>
@@ -252,7 +252,7 @@
       </el-card>
     </el-col>
     <el-col :span="6">
-      <el-card shadow="hover" class="stat-card mini">
+      <el-card shadow="hover" class="stat-card mini" @click="$router.push('/contract')">
         <div class="stat-body">
           <div class="stat-icon small" style="background: #eff6ff; color: #1a56db">
             <el-icon :size="20"><Document /></el-icon>

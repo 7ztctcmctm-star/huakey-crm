@@ -12,11 +12,13 @@ const detailRoutes = require('./detail');
 const contactRoutes = require('./contact');
 const assignRoutes = require('./assign');
 const importRoutes = require('./import');
+const centerRoutes = require('./center');
 
 router.use('/', detailRoutes);
 router.use('/contact', contactRoutes);
 router.use('/', assignRoutes);
 router.use('/', importRoutes);
+router.use('/', centerRoutes);
 
 // 潜客转化为正式客户（Prompt 4-1）
 const convertToCustomerSchema = Joi.object({

@@ -5,6 +5,7 @@
 
 const ROLES = require('../config/roles');
 const { getOverdueDays } = require('../utils/config');
+const { POOL_STATUS } = require('../constants/poolStatus');
 
 /**
  * 概览数据（首页仪表盘）
@@ -186,7 +187,7 @@ async function getOverdueStats(pool, userId, roleId) {
   const isAdmin = roleId === ROLES.ADMIN || roleId === ROLES.MANAGER;
   const overdueDays = await getOverdueDays();
 
-  let whereClause = `c.pool_status = 0 AND c.deleted_at IS NULL AND c.owner_id IS NOT NULL
+  let whereClause = `c.pool_status = ? AND c.deleted_at IS NULL AND c.owner_id IS NOT NULL
     AND ((c.last_follow_time IS NULL AND c.create_time < NOW() - INTERVAL ${overdueDays} DAY)
       OR c.last_follow_time < NOW() - INTERVAL ${overdueDays} DAY)`;
 
@@ -196,7 +197,7 @@ async function getOverdueStats(pool, userId, roleId) {
     whereClause += ' AND c.owner_id = ?';
   }
 
-  const params = isAdmin ? [] : [userId];
+  const params = isAdmin ? [POOL_STATUS.PRIVATE] : [POOL_STATUS.PRIVATE, userId];
 
   const [result] = await pool.query(
     `SELECT COUNT(*) as total FROM crm_customer c WHERE ${whereClause}`, params

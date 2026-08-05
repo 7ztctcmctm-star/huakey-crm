@@ -1,6 +1,6 @@
 /**
  * 全角色权限初始化脚本
- * 为 boss / manager / sales / hr / purchaser / finance / engineer 补齐
+ * 为 boss / manager / sales / hr / purchase / finance / engineer 补齐
  * 菜单权限、按钮权限和数据权限。
  *
  * 设计原则：
@@ -26,7 +26,10 @@ const MENU_PERMISSIONS = [
   { code: 'dashboard', name: '首页', path: '/dashboard', icon: 'HomeFilled', sort: 1 },
   { code: 'customer', name: '客户管理', icon: 'UserFilled', sort: 2 },
   { code: 'customer:list', name: '客户列表', path: '/customer/list', sort: 1 },
-  { code: 'customer:pool', name: '客户池', path: '/customer/pool', sort: 2 },
+  { code: 'pool', name: '公海池', path: '/pool', sort: 2 },
+  { code: 'pool:view', name: '查看公海', parent: 'pool' },
+  { code: 'pool:claim', name: '认领公海', parent: 'pool' },
+  { code: 'customer:release', name: '释放到公海', parent: 'customer' },
   { code: 'followup:calendar', name: '跟进日历', path: '/followup/calendar', sort: 4 },
   { code: 'followup:template', name: '跟进模板', path: '/followup/template', sort: 5 },
   { code: 'opportunity', name: '商机管理', path: '/opportunity', icon: 'TrendCharts', sort: 3 },
@@ -47,7 +50,7 @@ const MENU_PERMISSIONS = [
   { code: 'scoring', name: '客户评分', path: '/scoring', icon: 'Trophy', sort: 17 },
   { code: 'ai', name: 'AI助手', path: '/ai-suggestions', icon: 'ChatDotRound', sort: 18 },
   { code: 'approval', name: '审批管理', path: '/approval', icon: 'Stamp', sort: 19 },
-  { code: 'knowledge', name: '知识库', path: '/knowledge', icon: 'Notebook', sort: 20 },
+  { code: 'knowledge', name: '销售资料', path: '/knowledge', icon: 'Notebook', sort: 20 },
   { code: 'email', name: '邮件管理', path: '/email', icon: 'Message', sort: 21 },
   { code: 'calendar', name: '日程管理', path: '/calendar', icon: 'Calendar', sort: 22 },
   { code: 'social', name: '社媒沟通', path: '/social', icon: 'ChatDotRound', sort: 23 },
@@ -89,6 +92,7 @@ const BUTTON_PERMISSIONS = [
   { code: 'opportunity:add', name: '新增商机', parent: 'opportunity' },
   { code: 'opportunity:edit', name: '编辑商机', parent: 'opportunity' },
   { code: 'opportunity:delete', name: '删除商机', parent: 'opportunity' },
+  { code: 'opportunity:view', name: '查看商机', parent: 'opportunity' },
   { code: 'quotation:add', name: '新增报价', parent: 'quotation' },
   { code: 'quotation:edit', name: '编辑报价', parent: 'quotation' },
   { code: 'quotation:delete', name: '删除报价', parent: 'quotation' },
@@ -121,7 +125,7 @@ const BUTTON_PERMISSIONS = [
   { code: 'system:role:delete', name: '删除角色', parent: 'system:role' },
   { code: 'system:role:permission', name: '配置权限', parent: 'system:role' },
   { code: 'approval:approve', name: '审批操作', parent: 'approval' },
-  { code: 'backup:create', name: '创建备份', parent: 'system:backup' },
+  { code: 'backup:add', name: '创建备份', parent: 'system:backup' },
   { code: 'backup:restore', name: '恢复备份', parent: 'system:backup' },
   // 补全缺失的按钮权限
   { code: 'contract:view', name: '查看合同', parent: 'contract' },
@@ -134,7 +138,7 @@ const BUTTON_PERMISSIONS = [
 const ROLE_PERMISSIONS = {
   boss: [
     // 所有菜单
-    'dashboard', 'customer', 'customer:list', 'customer:pool', 'followup:calendar', 'followup:template',
+    'dashboard', 'customer', 'customer:list', 'pool', 'pool:view', 'pool:claim', 'customer:release', 'followup:calendar', 'followup:template',
     'opportunity', 'product', 'quotation', 'contract', 'payment', 'payment:view',
     'supplier', 'purchase', 'service', 'survey', 'hr', 'automation', 'report', 'analysis',
     'competitor', 'scoring', 'ai', 'approval', 'knowledge', 'email', 'calendar', 'social',
@@ -143,7 +147,7 @@ const ROLE_PERMISSIONS = {
     'system:integration', 'system:currency', 'settings',
     // 所有按钮
     'customer:add', 'customer:edit', 'customer:view', 'customer:delete', 'customer:assign', 'customer:import', 'customer:export', 'customer:list',
-    'opportunity:add', 'opportunity:edit', 'opportunity:delete',
+    'opportunity:add', 'opportunity:edit', 'opportunity:delete', 'opportunity:view',
     'quotation:add', 'quotation:edit', 'quotation:delete',
     'contract:add', 'contract:edit', 'contract:delete',
     'product:add', 'product:edit', 'product:delete',
@@ -153,16 +157,16 @@ const ROLE_PERMISSIONS = {
     'invoice:add', 'invoice:edit', 'invoice:delete', 'invoice:export',
     'system:user:add', 'system:user:edit', 'system:user:delete',
     'system:role:add', 'system:role:edit', 'system:role:delete', 'system:role:permission',
-    'approval:approve', 'backup:create', 'backup:restore',
+    'approval:approve', 'backup:add', 'backup:restore',
     'file', 'file:upload'
   ],
   manager: [
-    'dashboard', 'customer', 'customer:list', 'customer:pool', 'followup:calendar', 'followup:template',
+    'dashboard', 'customer', 'customer:list', 'pool', 'pool:view', 'pool:claim', 'customer:release', 'followup:calendar', 'followup:template',
     'opportunity', 'product', 'quotation', 'contract', 'payment', 'payment:view',
     'supplier', 'purchase', 'service', 'survey', 'calendar', 'social', 'competitor', 'analysis',
     'report', 'scoring', 'ai', 'approval', 'knowledge', 'email', 'notification', 'target', 'team-dashboard',
     'customer:add', 'customer:edit', 'customer:view', 'customer:delete', 'customer:assign', 'customer:import', 'customer:export', 'customer:list',
-    'opportunity:add', 'opportunity:edit', 'opportunity:delete',
+    'opportunity:add', 'opportunity:edit', 'opportunity:delete', 'opportunity:view',
     'quotation:add', 'quotation:edit', 'quotation:delete',
     'contract:add', 'contract:edit', 'contract:delete',
     'product:add', 'product:edit', 'product:delete',
@@ -174,11 +178,11 @@ const ROLE_PERMISSIONS = {
     'file', 'file:upload'
   ],
   sales: [
-    'dashboard', 'customer', 'customer:list', 'customer:pool', 'followup:calendar', 'followup:template',
+    'dashboard', 'customer', 'customer:list', 'pool', 'pool:view', 'pool:claim', 'followup:calendar', 'followup:template',
     'opportunity', 'product', 'quotation', 'contract', 'calendar', 'social', 'scoring', 'ai',
     'approval', 'knowledge', 'email', 'notification', 'survey', 'schedule:view',
     'customer:add', 'customer:edit', 'customer:view', 'customer:delete', 'customer:import', 'customer:export', 'customer:list',
-    'opportunity:add', 'opportunity:edit', 'opportunity:delete',
+    'opportunity:add', 'opportunity:edit', 'opportunity:delete', 'opportunity:view',
     'quotation:add', 'quotation:edit', 'quotation:delete',
     'contract:add', 'contract:edit', 'contract:delete',
     'approval:approve',
@@ -190,7 +194,7 @@ const ROLE_PERMISSIONS = {
     'system:user:add', 'system:user:edit', 'system:user:delete',
     'file', 'file:upload'
   ],
-  purchaser: [
+  purchase: [
     'dashboard', 'supplier', 'purchase', 'product', 'calendar', 'knowledge', 'email', 'notification', 'survey',
     'supplier:add', 'supplier:edit', 'supplier:delete',
     'purchase:add', 'purchase:edit', 'purchase:delete', 'purchase:request', 'purchase:comparison',
@@ -233,7 +237,7 @@ const DATA_PERMISSIONS = {
   hr: {
     system: 'all', knowledge: 'dept', survey: 'dept'
   },
-  purchaser: {
+  purchase: {
     supplier: 'dept', purchase: 'dept', product: 'dept', invoice: 'dept'
   },
   finance: {

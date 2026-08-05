@@ -29,7 +29,7 @@ const ROLES = [
     expectDenied: ['/customer/list', '/opportunity', '/report', '/settings']
   },
   {
-    code: 'purchaser',
+    code: 'purchase',
     username: '_tmp_purchaser_01',
     expectAccessible: ['/dashboard', '/purchase/list', '/supplier/list', '/product'],
     expectDenied: ['/customer/list', '/opportunity', '/report', '/settings']

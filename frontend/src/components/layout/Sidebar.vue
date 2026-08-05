@@ -27,14 +27,14 @@
         <template #title>通知中心</template>
       </el-menu-item>
 
-      <el-sub-menu index="/customer" v-if="hasAnyMenuPermission(['customer:list', 'customer:pool', 'followup:calendar', 'followup:template'])">
+      <el-sub-menu index="/customer" v-if="hasAnyMenuPermission(['leads:view', 'customer:view', 'pool:view', 'followup:calendar', 'followup:template'])">
         <template #title>
           <el-icon><UserFilled /></el-icon>
           <span>客户管理</span>
         </template>
-        <el-menu-item index="/customer/list?tab=prospect" v-if="hasMenuPermission('customer:list')">潜客池</el-menu-item>
-        <el-menu-item index="/customer/list?tab=customer" v-if="hasMenuPermission('customer:list')">正式客户</el-menu-item>
-        <el-menu-item index="/customer/list?tab=sea" v-if="hasMenuPermission('customer:pool')">公海池</el-menu-item>
+        <el-menu-item index="/leads" v-if="hasMenuPermission('leads:view')">潜客池</el-menu-item>
+        <el-menu-item index="/customer/list" v-if="hasMenuPermission('customer:view')">正式客户</el-menu-item>
+        <el-menu-item index="/pool" v-if="hasMenuPermission('pool:view')">公海池</el-menu-item>
         <el-menu-item index="/followup/calendar" v-if="hasMenuPermission('followup:calendar')">跟进日历</el-menu-item>
         <el-menu-item index="/followup/template" v-if="hasMenuPermission('followup:template')">跟进模板</el-menu-item>
       </el-sub-menu>
@@ -189,9 +189,9 @@
       <el-sub-menu index="/knowledge" v-if="hasMenuPermission('knowledge')">
         <template #title>
           <el-icon><Notebook /></el-icon>
-          <span>知识库</span>
+          <span>销售资料</span>
         </template>
-        <el-menu-item index="/knowledge" v-if="hasMenuPermission('knowledge')">知识库首页</el-menu-item>
+        <el-menu-item index="/knowledge" v-if="hasMenuPermission('knowledge')">销售资料首页</el-menu-item>
         <el-menu-item index="/knowledge/products" v-if="hasMenuPermission('knowledge')">产品知识</el-menu-item>
         <el-menu-item index="/knowledge/scripts" v-if="hasMenuPermission('knowledge')">销售话术</el-menu-item>
         <el-menu-item index="/knowledge/faqs" v-if="hasMenuPermission('knowledge')">常见问题</el-menu-item>
@@ -213,7 +213,7 @@
         <el-menu-item index="/system/dept" v-if="hasMenuPermission('system:dept')">部门管理</el-menu-item>
         <el-menu-item index="/system/log" v-if="hasMenuPermission('system:log')">操作日志</el-menu-item>
         <el-menu-item index="/system/tags" v-if="hasMenuPermission('system:tag')">标签管理</el-menu-item>
-        <el-menu-item index="/system/backup" v-if="hasMenuPermission('backup:create')">数据备份</el-menu-item>
+        <el-menu-item index="/system/backup" v-if="hasMenuPermission('backup:add')">数据备份</el-menu-item>
         <el-menu-item index="/system/permission" v-if="hasMenuPermission('permission:view')">权限管理</el-menu-item>
         <el-menu-item index="/approval/workflow" v-if="hasMenuPermission('approval:view')">审批流程</el-menu-item>
         <el-menu-item index="/system/integration" v-if="hasMenuPermission('system:integration')">集成管理</el-menu-item>

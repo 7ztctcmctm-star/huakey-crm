@@ -6,6 +6,7 @@ const bcrypt = require('bcryptjs');
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
 const { clearPermissionCache } = require('./permissionService');
+const { POOL_STATUS } = require('../constants/poolStatus');
 
 /**
  * 获取用户列表
@@ -122,7 +123,7 @@ async function updateUser(pool, { id, real_name, phone, email, dept_id, role_id,
  * 级联规则：
  *   1. 用户账号 → 软删除（status=0, deleted_at=NOW()）
  *   2. 员工档案 → 自动设为离职（leave_date=NOW()）
- *   3. 名下客户 → 释放到公海池（pool_status=1, owner_id=NULL, protect_until=NULL）
+ *   3. 名下客户 → 释放到公海池（pool_status='sea', owner_id=NULL, protect_until=NULL）
  *   4. 名下商机 → 优先转移给直属上级 manager_id；无可用上级时 owner_id=NULL（待分配）
  *   5. 跟进记录 → 保留不动（归属客户，不归属用户）
  */
@@ -171,12 +172,12 @@ async function deleteUser(pool, { id }, currentUserId) {
     const [customerResult] = await connection.query(
       `UPDATE crm_customer
        SET owner_id = NULL,
-           pool_status = 1,
+           pool_status = ?,
            pool_type = 'public',
            protect_until = NULL,
            update_time = NOW()
        WHERE owner_id = ? AND deleted_at IS NULL`,
-      [id]
+      [POOL_STATUS.SEA, id]
     );
 
     // 4. 名下商机 → 优先转移给直属上级，无上级或上级不可用时再释放为待分配

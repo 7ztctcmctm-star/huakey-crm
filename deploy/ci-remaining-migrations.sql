@@ -1194,39 +1194,39 @@ VALUES (2, 2, 1, '部门经理审批', 'manager', NULL, 1, NOW());
 
 -- ====== Migration 085: 085_assign_purchaser_permissions.sql ======
 -- 085: 为采购专员角色分配缺失的权限
--- 修复 purchaser 角色无任何权限导致无法操作采购/供应商/产品模块
+-- 修复 purchase 角色无任何权限导致无法操作采购/供应商/产品模块
 
--- 为 purchaser 角色分配供应商查看权限
+-- 为 purchase 角色分配供应商查看权限
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE r.code = 'purchaser' AND p.code = 'supplier';
+WHERE r.code = 'purchase' AND p.code = 'supplier';
 
--- 为 purchaser 角色分配产品查看权限
+-- 为 purchase 角色分配产品查看权限
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE r.code = 'purchaser' AND p.code = 'product:view';
+WHERE r.code = 'purchase' AND p.code = 'product:view';
 
 -- 分配采购相关权限（如果存在）
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE r.code = 'purchaser' AND p.code = 'purchase:add';
+WHERE r.code = 'purchase' AND p.code = 'purchase:add';
 
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE r.code = 'purchaser' AND p.code = 'purchase:view';
+WHERE r.code = 'purchase' AND p.code = 'purchase:view';
 
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE r.code = 'purchaser' AND p.code = 'purchase:edit';
+WHERE r.code = 'purchase' AND p.code = 'purchase:edit';
 
 -- 分配客户查看权限（采购需查看客户基本信息）
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE r.code = 'purchaser' AND p.code IN ('customer:view', 'customer:list');
+WHERE r.code = 'purchase' AND p.code IN ('customer:view', 'customer:list');
 
 -- ====== Migration 086: 086_fix_sales_permissions.sql ======
 -- 086: 为所有非管理员角色补充缺失的权限
--- 问题: 销售/purchaser/hr/finance/engineer 角色登录后 Dashboard 大量 403
+-- 问题: 销售/purchase/hr/finance/engineer 角色登录后 Dashboard 大量 403
 -- 根因:
 --   1. customer:view 权限码在 sys_permission 中不存在（被多处路由引用但从未创建）
 --   2. 除 boss(id=1) / manager(id=2) 外，其他角色几乎没有权限分配
@@ -1234,7 +1234,7 @@ WHERE r.code = 'purchaser' AND p.code IN ('customer:view', 'customer:list');
 -- 修复日期: 2026-07-21
 --
 -- 生产环境角色数据（role code）:
---   boss(1), manager(2), sales(3), hr(4), purchaser(5), finance(6), engineer(11)
+--   boss(1), manager(2), sales(3), hr(4), purchase(5), finance(6), engineer(11)
 
 -- ============================================================
 -- 第一步: 补充缺失的权限码
@@ -1279,8 +1279,8 @@ WHERE EXISTS (SELECT 1 FROM sys_permission WHERE code = 'system:user');
 -- 第二步: 公共权限 — 所有登录用户都需要（layout/HeaderBar/AiChat/NotificationBadge）
 -- ============================================================
 
--- 目标角色: sales, hr, purchaser, finance, engineer（boss/manager 已有或绕过）
-SET @common_roles = 'sales,hr,purchaser,finance,engineer';
+-- 目标角色: sales, hr, purchase, finance, engineer（boss/manager 已有或绕过）
+SET @common_roles = 'sales,hr,purchase,finance,engineer';
 
 -- 2a. dashboard — 首页
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
@@ -1411,10 +1411,10 @@ SELECT r.id, p.id FROM sys_role r, sys_permission p
 WHERE r.code = 'sales' AND p.code IN ('followup_template', 'contract_template');
 
 -- ============================================================
--- 第四步: purchaser/hr/finance/engineer — PurchaseDashboard 公共部分
+-- 第四步: purchase/hr/finance/engineer — PurchaseDashboard 公共部分
 -- ============================================================
 
-SET @purchase_dashboard_roles = 'purchaser,hr,finance,engineer';
+SET @purchase_dashboard_roles = 'purchase,hr,finance,engineer';
 
 -- 4a. purchase — 采购列表（PurchaseDashboard 核心调用 POST /purchase/list）
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
@@ -1442,14 +1442,14 @@ SELECT r.id, p.id FROM sys_role r, sys_permission p
 WHERE FIND_IN_SET(r.code, @purchase_dashboard_roles) AND p.code = 'report';
 
 -- ============================================================
--- 第五步: purchaser 角色专项权限
+-- 第五步: purchase 角色专项权限
 -- ============================================================
 
--- purchaser 已有 migration 085 分配的部分权限（supplier, purchase:add, customer:view, customer:list）
+-- purchase 已有 migration 085 分配的部分权限（supplier, purchase:add, customer:view, customer:list）
 -- 这里补全采购编辑和供应商编辑
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE r.code = 'purchaser' AND p.code IN (
+WHERE r.code = 'purchase' AND p.code IN (
   'purchase:add', 'purchase:edit',
   'supplier:add', 'supplier:edit',
   'calendar'

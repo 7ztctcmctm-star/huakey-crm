@@ -1,4 +1,4 @@
-﻿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -39,7 +39,7 @@ jest.mock('child_process', () => ({
 }));
 
 jest.mock('../services/permissionService', () => ({
-  getUserPermissions: jest.fn().mockResolvedValue(['backup:create', 'backup:restore']),
+  getUserPermissions: jest.fn().mockResolvedValue(['backup:add', 'backup:restore']),
   getMenuPermissions: jest.fn().mockResolvedValue([]),
   getDataPermissions: jest.fn().mockResolvedValue([])
 }));

@@ -21,7 +21,7 @@ INSERT INTO sys_permission (name, code, type, parent_id, path, icon, sort) VALUE
 ('首页', 'dashboard', 'menu', 0, '/dashboard', 'HomeFilled', 1),
 ('客户管理', 'customer', 'menu', 0, NULL, 'UserFilled', 2),
 ('客户列表', 'customer:list', 'menu', 2, '/customer/list', NULL, 1),
-('客户池', 'customer:pool', 'menu', 2, '/customer/pool', NULL, 2),
+('公海池', 'pool', 'menu', 0, '/pool', NULL, 2),
 ('线索管理', 'leads', 'menu', 2, '/leads', NULL, 3),
 ('跟进日历', 'followup:calendar', 'menu', 2, '/followup/calendar', NULL, 4),
 ('商机管理', 'opportunity', 'menu', 0, '/opportunity', 'TrendCharts', 3),
@@ -43,7 +43,7 @@ INSERT INTO sys_permission (name, code, type, parent_id, path, icon, sort) VALUE
 ('财务管理', 'finance', 'menu', 0, '/finance', 'Money', 13),
 ('审批管理', 'approval', 'menu', 0, '/approval', 'Check', 14),
 ('邮件管理', 'email', 'menu', 0, '/email', 'Message', 15),
-('知识库', 'knowledge', 'menu', 0, '/knowledge', 'Reading', 16),
+('销售资料', 'knowledge', 'menu', 0, '/knowledge', 'Reading', 16),
 ('竞争对手', 'competitor', 'menu', 0, '/competitor', 'Aim', 17),
 ('文件管理', 'file', 'menu', 0, '/file', 'Folder', 18),
 ('发票管理', 'invoice', 'menu', 0, '/invoice', 'Ticket', 19),
@@ -121,7 +121,7 @@ INSERT INTO sys_permission (name, code, type, parent_id, sort) VALUES
 ('发送邮件', 'email:send', 'button', (SELECT id FROM sys_permission WHERE code = 'email'), 1),
 
 -- 备份按钮
-('创建备份', 'backup:create', 'button', (SELECT id FROM sys_permission WHERE code = 'backup'), 1),
+('创建备份', 'backup:add', 'button', (SELECT id FROM sys_permission WHERE code = 'backup'), 1),
 ('恢复备份', 'backup:restore', 'button', (SELECT id FROM sys_permission WHERE code = 'backup'), 2);
 
 -- 为超级管理员角色(id=1)分配所有权限

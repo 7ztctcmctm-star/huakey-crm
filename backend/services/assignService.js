@@ -4,6 +4,7 @@
  */
 
 const { CUSTOMER_STATUS } = require('../constants/customerStatus');
+const { POOL_STATUS } = require('../constants/poolStatus');
 
 // ========== 分配规则 ==========
 
@@ -103,8 +104,8 @@ async function applyRule(pool, operatorId) {
       const targetUser = salesUsers[i % salesUsers.length];
 
       await connection.query(
-        'UPDATE crm_customer SET owner_id = ?, pool_status = 0, protect_until = NULL WHERE id = ?',
-        [targetUser.id, customer.id]
+        'UPDATE crm_customer SET owner_id = ?, pool_status = ?, protect_until = NULL WHERE id = ?',
+        [targetUser.id, POOL_STATUS.PRIVATE, customer.id]
       );
 
       await connection.query(
@@ -197,9 +198,9 @@ async function manualAssign(pool, customerId, toUserId, operatorId, remark) {
   const fromUserId = customer.owner_id;
 
   // 更新负责人（to_user_id 为 null 表示回收为无负责人）
-  // 回收时同步 pool_status=1 和 status=sea，分配时 pool_status=0
+  // 回收时同步 pool_status='sea' 和 status=sea，分配时 pool_status='private'
   const toUserIdValue = toUserId || null;
-  const poolStatus = toUserIdValue ? 0 : 1;
+  const poolStatus = toUserIdValue ? POOL_STATUS.PRIVATE : POOL_STATUS.SEA;
 
   let updateSql = 'UPDATE crm_customer SET owner_id = ?, pool_status = ?, protect_until = NULL';
   const updateParams = [toUserIdValue, poolStatus];
@@ -239,7 +240,7 @@ async function batchAssign(pool, customerIds, toUserId, operatorId, remark) {
       if (customers.length === 0) continue;
       const customer = customers[0];
 
-      const poolStatus = toUserId ? 0 : 1;
+      const poolStatus = toUserId ? POOL_STATUS.PRIVATE : POOL_STATUS.SEA;
       let updateSql = 'UPDATE crm_customer SET owner_id = ?, pool_status = ?, protect_until = NULL';
       const updateParams = [toUserId, poolStatus];
       if (!toUserId) {

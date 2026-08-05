@@ -68,7 +68,8 @@ describe('cronService', () => {
 
       const result = await cronService.getNearRecycleCustomers(pool, 20);
       expect(result).toHaveLength(1);
-      expect(pool.query.mock.calls[0][1]).toEqual([20, 20]);
+      // 097 迁移后 pool_status 为 VARCHAR('private')，参数首位为 POOL_STATUS.PRIVATE
+      expect(pool.query.mock.calls[0][1]).toEqual(['private', 20, 20]);
     });
 
     it('未传入阈值时应读取配置', async () => {
@@ -76,7 +77,7 @@ describe('cronService', () => {
       pool.query.mockResolvedValueOnce([[]]);
 
       await cronService.getNearRecycleCustomers(pool);
-      expect(pool.query.mock.calls[0][1]).toEqual([25, 25]);
+      expect(pool.query.mock.calls[0][1]).toEqual(['private', 25, 25]);
     });
   });
 
@@ -146,9 +147,10 @@ describe('cronService', () => {
 
       const result = await cronService.autoReleaseCustomers(pool, 30);
       expect(result).toBe(1);
+      // 097 迁移后 pool_status 参数化：[POOL_STATUS.SEA, 'sea', ids]
       expect(conn.query).toHaveBeenCalledWith(
-        'UPDATE crm_customer SET pool_status = 1, owner_id = NULL, protect_until = NULL, status = ? WHERE id IN (?)',
-        ['sea', [1]]
+        'UPDATE crm_customer SET pool_status = ?, owner_id = NULL, protect_until = NULL, status = ? WHERE id IN (?)',
+        ['sea', 'sea', [1]]
       );
       expect(conn.commit).toHaveBeenCalled();
       expect(conn.release).toHaveBeenCalled();

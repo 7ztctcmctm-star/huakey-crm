@@ -4,8 +4,6 @@
  */
 
 const logger = require('../config/logger');
-const { CUSTOMER_STATUS } = require('../constants/customerStatus');
-const customerService = require('../services/customerService');
 const opportunityService = require('../services/opportunityService');
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
@@ -100,25 +98,10 @@ async function createQuote(pool, data, userId) {
 
     await connection.commit();
 
-    // 报价创建后自动推进客户状态：following -> quoted（不阻塞主流程）
-    const advanceStatus = data.advance_status !== false;
-    if (advanceStatus) {
-      try {
-        const [customerRows] = await pool.query(
-          'SELECT status FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
-          [customer_id]
-        );
-        if (customerRows.length > 0 && customerRows[0].status === CUSTOMER_STATUS.FOLLOWING) {
-          await customerService.forwardStatus(pool, customer_id, userId);
-        }
-      } catch (e) {
-        logger.error('[报价] 自动推进客户状态失败', {
-          customer_id,
-          error: e.message,
-          traceId: 'N/A'
-        });
-      }
-    }
+    // FIX-2: 移除跨模块写 Customer 的逻辑（违反领域边界约束 DB-1）
+    // 原代码：报价创建后自动调用 customerService.forwardStatus 推进客户状态 following → quoted
+    // 现状：客户状态推进由客户中心模块自治，商机/报价/合同模块不得自动触发
+    // 详见 docs/customer-center-freeze-v1.md §「领域边界」
 
     // 创建审批通知（不阻塞主流程）
     try {

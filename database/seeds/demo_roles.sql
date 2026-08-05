@@ -20,11 +20,16 @@ WHERE NOT EXISTS (SELECT 1 FROM sys_dept WHERE name = 'Demo演示部门');
 -- 已存在的角色跳过（INSERT IGNORE on code UNIQUE）
 -- ------------------------------------------------------------
 INSERT IGNORE INTO sys_role (name, code, description, status, view_all, manage_all, create_time) VALUES
+('超级管理员',   'super_admin', '超级管理员（Demo 测试用，绕过所有权限检查）', 1, 1, 1, NOW()),
 ('老板',         'boss',     '老板（看全部，管理全部）',     1, 1, 1, NOW()),
 ('人力资源',     'hr',       '人力资源',                     1, 0, 0, NOW()),
 ('采购专员',     'purchase', '采购管理',                     1, 0, 0, NOW()),
 ('财务专员',     'finance',  '财务查看',                     1, 1, 0, NOW()),
 ('工程师',       'engineer', '技术支持',                     1, 0, 0, NOW());
+
+-- 说明：super_admin 对应 backend/config/roles.js 的 ADMIN_ROLE_CODES，
+-- demo_users.sql 中 demo_admin 通过 (SELECT id FROM sys_role WHERE code='super_admin') 引用，
+-- 缺失该角色会导致 demo_admin.role_id=NULL，进而 /auth/me 返回 permissions:[]，路由守卫不放行。
 
 -- ------------------------------------------------------------
 -- 3. 货币（Demo 报价/合同引用）
