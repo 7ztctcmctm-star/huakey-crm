@@ -69,13 +69,44 @@ async function addUser(pool, { username, password, real_name, phone, email, dept
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
+  // [v1.0.1 安全补丁] 强制新建用户首次登录改密
   const [result] = await pool.query(
-    `INSERT INTO sys_user (username, password, real_name, phone, email, dept_id, role_id, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+    `INSERT INTO sys_user (username, password, real_name, phone, email, dept_id, role_id, status, must_change_password)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1)`,
     [username, hashedPassword, real_name || null, phone || null, email || null, dept_id || null, role_id || null]
   );
 
   return { id: result.insertId };
+}
+
+/**
+ * 重置用户密码（管理员操作）
+ * 重置后必须强制改密，且清除该用户 /auth/me 缓存
+ * @param {object} pool
+ * @param {number} id - 目标用户 id
+ * @param {string} newPassword - 新密码（已通过 Joi 校验）
+ * @returns {{ id: number, username: string }}
+ */
+async function resetPassword(pool, id, newPassword) {
+  const [users] = await pool.query(
+    'SELECT id, username FROM sys_user WHERE id = ? AND deleted_at IS NULL',
+    [id]
+  );
+  if (users.length === 0) {
+    throw new AppError(ErrorCodes.USER_NOT_FOUND, '用户不存在或已删除');
+  }
+
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+  await pool.query(
+    `UPDATE sys_user
+     SET password = ?,
+         must_change_password = 1,
+         password_changed_at = NOW()
+     WHERE id = ?`,
+    [hashedPassword, id]
+  );
+
+  return { id: users[0].id, username: users[0].username };
 }
 
 /**
@@ -232,5 +263,6 @@ module.exports = {
   addUser,
   updateUser,
   deleteUser,
-  getUserDetail
+  getUserDetail,
+  resetPassword
 };

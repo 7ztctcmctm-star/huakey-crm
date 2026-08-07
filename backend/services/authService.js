@@ -425,9 +425,10 @@ async function register(pool, data) {
   );
   const defaultRoleId = roles.length > 0 ? roles[0].id : 4;
 
+  // [v1.0.1 安全补丁] 注册用户强制首次登录改密
   const [result] = await pool.query(
-    `INSERT INTO sys_user (username, password, real_name, role_id, status)
-     VALUES (?, ?, ?, ?, 1)`,
+    `INSERT INTO sys_user (username, password, real_name, role_id, status, must_change_password)
+     VALUES (?, ?, ?, ?, 1, 1)`,
     [username, hashedPassword, real_name || null, defaultRoleId]
   );
 
