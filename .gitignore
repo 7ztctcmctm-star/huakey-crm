@@ -102,3 +102,16 @@ scripts/prepare_import_sql.py
 scripts/verify_import.py
 scripts/analyze_backup.py
 scripts/import_to_nas.bat
+
+# ===== 生产安全规则（nginx 配置恢复时重新添加）=====
+
+# Production private keys (DO NOT COMMIT)
+nginx/certs/*.key
+
+# Backup files
+*.bak.*
+*.bak
+
+# Environment backups (may contain real credentials)
+.env.bak.*
+.env.secrets.bak.*
