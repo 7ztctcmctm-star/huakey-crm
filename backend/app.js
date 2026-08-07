@@ -85,9 +85,15 @@ const { metricsMiddleware, startPoolMetricsCollection } = require('./config/metr
 app.use(metricsMiddleware);
 
 // CORS 配置：生产环境必须显式设置 CORS_ORIGIN，开发环境限制为本地前端
-const corsOrigin = isProduction
+// 支持逗号分隔的多 Origin（如 https://a.example.com,https://b.example.com）
+const corsOriginRaw = isProduction
   ? process.env.CORS_ORIGIN
   : 'http://localhost:5173';
+
+// 解析逗号分隔的多 Origin；cors 中间件 origin 支持字符串/数组
+const corsOrigin = corsOriginRaw
+  ? corsOriginRaw.split(',').map(item => item.trim()).filter(Boolean)
+  : false;
 
 /**
  * 生产环境安全配置校验
@@ -102,12 +108,16 @@ function validateProductionSecurity() {
   };
 
   // CORS_ORIGIN 必须设置且不能指向本地开发地址
-  if (!corsOrigin) {
+  // corsOrigin 为数组（单个 Origin 时长度为 1），逐项校验
+  if (!corsOrigin || corsOrigin.length === 0) {
     fatal('生产环境必须设置 CORS_ORIGIN 环境变量');
   }
-  const lowerOrigin = corsOrigin.toLowerCase();
-  if (lowerOrigin.includes('localhost') || lowerOrigin.includes('127.0.0.1')) {
-    fatal('生产环境 CORS_ORIGIN 不能设置为 localhost 或 127.0.0.1');
+  const bannedLocal = corsOrigin.find(o => {
+    const lower = o.toLowerCase();
+    return lower.includes('localhost') || lower.includes('127.0.0.1');
+  });
+  if (bannedLocal) {
+    fatal(`生产环境 CORS_ORIGIN 不能设置为 localhost 或 127.0.0.1（当前值: ${bannedLocal}）`);
   }
 
   // 禁止生产环境跳过验证码
