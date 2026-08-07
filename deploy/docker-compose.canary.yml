@@ -26,6 +26,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1'
 
   redis:
     image: redis:7-alpine
@@ -39,6 +44,11 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
 
   backend:
     build:
@@ -71,6 +81,11 @@ services:
     command: sh -c "node database/migrations/run_migrations.js && node app.js"
     volumes:
       - ./database/migrations:/app/database/migrations:ro
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1'
 
   backend-canary:
     image: huakey-backend:canary
@@ -101,6 +116,11 @@ services:
     command: sh -c "node database/migrations/run_migrations.js && node app.js"
     volumes:
       - ./database/migrations:/app/database/migrations:ro
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
 
   nginx:
     image: nginx:alpine
@@ -113,6 +133,11 @@ services:
     depends_on:
       - backend
       - backend-canary
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.25'
 
   frontend:
     build:
@@ -124,3 +149,8 @@ services:
       - "8080:80"
     depends_on:
       - backend
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.25'

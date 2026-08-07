@@ -61,7 +61,8 @@ async function listContracts(pool, params = {}, permission = null) {
   }
 
   return paginatedQuery(pool, {
-    baseQuery: `SELECT c.*, cu.company_name as customer_name, u.real_name as create_by_name,
+    baseQuery: `SELECT c.id, c.contract_no, c.customer_id, c.opportunity_id, c.amount, c.currency, c.exchange_rate, c.sign_date, c.delivery_date, c.payment_terms, c.status, c.approval_status, c.approver_id, c.approval_remark, c.remark, c.file_url, c.create_by, c.create_time, c.deleted_at, c.quote_id,
+           cu.company_name as customer_name, u.real_name as create_by_name,
     (SELECT COALESCE(SUM(p.pay_amount), 0) FROM crm_payment p WHERE p.contract_id = c.id AND p.deleted_at IS NULL) as paid_amount,
     (SELECT COALESCE(SUM(pp.plan_amount), 0) FROM crm_payment_plan pp WHERE pp.contract_id = c.id) as plan_total,
     cur.symbol as currency_symbol
@@ -110,7 +111,7 @@ async function getContractDetail(pool, id, permission = null) {
  */
 async function createContractNotification(pool, contractId, contractNo, amount, customerId, userId) {
   try {
-    const [custInfo] = await pool.query('SELECT company_name FROM crm_customer WHERE id = ?', [customerId]);
+    const [custInfo] = await pool.query('SELECT company_name FROM crm_customer WHERE id = ? AND deleted_at IS NULL', [customerId]);
     const customerName = custInfo.length > 0 ? custInfo[0].company_name : '未知客户';
     const [userInfo] = await pool.query('SELECT real_name FROM sys_user WHERE id = ?', [userId]);
     const userName = userInfo.length > 0 ? userInfo[0].real_name : '未知';

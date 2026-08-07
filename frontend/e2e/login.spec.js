@@ -1,10 +1,25 @@
 import { test, expect } from '@playwright/test'
 
-// 默认测试账号，可通过环境变量覆盖
-const TEST_USER = {
-  username: process.env.E2E_USERNAME || 'admin',
-  password: process.env.E2E_PASSWORD || 'Admin@123'
+/**
+ * 读取 E2E 管理员账号（从环境变量，不硬编码）
+ * 优先级：E2E_ADMIN_USER / E2E_ADMIN_PASSWORD（Demo 账号体系）
+ * 回退：E2E_USERNAME / E2E_PASSWORD（兼容旧变量名 / CI 注入）
+ */
+function getTestUser() {
+  const username = process.env.E2E_ADMIN_USER || process.env.E2E_USERNAME
+  const password = process.env.E2E_ADMIN_PASSWORD || process.env.E2E_PASSWORD
+  if (!username || !password) {
+    throw new Error(
+      'E2E 测试账号未配置：缺少 E2E_ADMIN_USER / E2E_ADMIN_PASSWORD。\n' +
+      '请在仓库根目录创建 .env.test（可从 .env.test.example 复制），\n' +
+      '或先执行 `cd backend && npm run seed:demo` 创建 Demo 账号。\n' +
+      '详见 docs/DEMO_DATA_GUIDE.md'
+    )
+  }
+  return { username, password }
 }
+
+const TEST_USER = getTestUser()
 
 test.describe('登录页面', () => {
   test('应显示登录表单', async ({ page }) => {

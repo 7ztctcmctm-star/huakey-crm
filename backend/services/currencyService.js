@@ -10,7 +10,7 @@ const ErrorCodes = require('../errors/codes');
  */
 async function listCurrencies(pool) {
   const [rows] = await pool.query(
-    'SELECT * FROM crm_currency WHERE deleted_at IS NULL ORDER BY is_default DESC, code ASC'
+    'SELECT id, code, name, symbol, exchange_rate, is_default, status, created_at, updated_at FROM crm_currency WHERE deleted_at IS NULL ORDER BY is_default DESC, code ASC'
   );
   return rows;
 }

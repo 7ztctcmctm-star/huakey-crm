@@ -27,11 +27,10 @@ function scan(dir) {
         // 跳过明确公开或已废弃的接口
         const isPublicAuth = file === 'auth.js';
         const isPublicSurvey = file === 'survey.js' && p === '/respond/:campaign_id';
-        const isDeprecated = file === 'customer/quality.js';
         const isMetricsClient = file === 'metrics.js' && p === '/client';
         const isHealth = p === '/health';
 
-        if (!hasAuth && !isPublicAuth && !isPublicSurvey && !isDeprecated && !isMetricsClient && !isHealth) {
+        if (!hasAuth && !isPublicAuth && !isPublicSurvey && !isMetricsClient && !isHealth) {
           results.push({ file, method: method.toUpperCase(), path: p, hasAuth, hasPerm, note: '' });
         }
       }

@@ -46,7 +46,11 @@
                 </el-table-column>
                 <el-table-column prop="sign_date" label="签订日期" width="110" />
                 <el-table-column prop="status" label="状态" width="80">
-                  <template #default="{ row }"><el-tag size="small" :type="row.status===2?'success':'info'">{{ row.status===1?'执行中':'已完成' }}</el-tag></template>
+                  <template #default="{ row }">
+                    <el-tag size="small" :type="{1:'info',2:'',3:'success',4:'danger'}[row.status] || 'info'">
+                      {{ {1:'待执行',2:'执行中',3:'已完成',4:'已取消'}[row.status] || row.status }}
+                    </el-tag>
+                  </template>
                 </el-table-column>
               </el-table>
             </el-card>

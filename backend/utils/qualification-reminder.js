@@ -65,7 +65,7 @@ const checkQualificationExpiry = async () => {
 const getPendingReminders = async () => {
   try {
     const [reminders] = await pool.query(
-      `SELECT r.*, s.name as supplier_name
+      `SELECT r.id, r.qualification_id, r.supplier_id, r.cert_name, r.expire_date, r.days_before, r.reminder_type, r.is_notified, r.notified_at, s.name as supplier_name
        FROM crm_qualification_reminder r
        JOIN crm_supplier s ON r.supplier_id = s.id
        WHERE r.is_notified = 0
@@ -98,7 +98,7 @@ const getExpiringSoonList = async (days = 30) => {
     targetDate.setDate(targetDate.getDate() + days);
 
     const [list] = await pool.query(
-      `SELECT q.*, s.name as supplier_name, (q.expire_date - CURRENT_DATE) as days_left
+      `SELECT q.id, q.supplier_id, q.cert_type, q.cert_name, q.cert_no, q.issue_date, q.expire_date, q.issuing_authority, q.file_path, q.status, q.remark, q.create_by, q.create_time, q.update_time, q.deleted_at, s.name as supplier_name, (q.expire_date - CURRENT_DATE) as days_left
        FROM crm_supplier_qualification q
        JOIN crm_supplier s ON q.supplier_id = s.id
        WHERE q.status = 1 AND q.expire_date <= ? AND q.expire_date > CURRENT_DATE
@@ -115,7 +115,7 @@ const getExpiringSoonList = async (days = 30) => {
 const getExpiredList = async () => {
   try {
     const [list] = await pool.query(
-      `SELECT q.*, s.name as supplier_name, (CURRENT_DATE - q.expire_date) as days_expired
+      `SELECT q.id, q.supplier_id, q.cert_type, q.cert_name, q.cert_no, q.issue_date, q.expire_date, q.issuing_authority, q.file_path, q.status, q.remark, q.create_by, q.create_time, q.update_time, q.deleted_at, s.name as supplier_name, (CURRENT_DATE - q.expire_date) as days_expired
        FROM crm_supplier_qualification q
        JOIN crm_supplier s ON q.supplier_id = s.id
        WHERE q.status = 1 AND q.expire_date < CURRENT_DATE

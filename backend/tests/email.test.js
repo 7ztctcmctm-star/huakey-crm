@@ -64,6 +64,7 @@ describe('邮件模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
@@ -82,6 +83,7 @@ describe('邮件模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // accounts list
           { id: 1, email: 'test@qq.com', display_name: '测试邮箱', smtp_host: 'smtp.qq.com', status: 'active' }
         ]]);
@@ -101,6 +103,7 @@ describe('邮件模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[ // emails list
           { id: 1, subject: '报价单确认', from_address: 'client@example.com', direction: 'in', is_read: 0 }
@@ -122,6 +125,7 @@ describe('邮件模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ id: 1 }]]) // existence check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 

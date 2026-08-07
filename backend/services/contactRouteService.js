@@ -2,6 +2,8 @@
  * 联系人路由服务层
  * 职责：处理联系人管理相关的业务逻辑
  */
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 
 /**
  * 查询联系人列表
@@ -13,7 +15,7 @@ async function listContacts(pool, params) {
   const { customer_id, page = 1, pageSize = 20 } = params;
 
   if (!customer_id) {
-    throw new Error('客户ID不能为空');
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '客户ID不能为空');
   }
 
   const safePageSize = Math.min(Math.max(1, parseInt(pageSize) || 20), 200);
@@ -26,7 +28,8 @@ async function listContacts(pool, params) {
   const total = countResult[0].total;
 
   const [rows] = await pool.query(
-    `SELECT * FROM crm_contact
+    `SELECT id, customer_id, name, position, phone, email, wechat, is_decision, remark, create_time, update_time, deleted_at
+     FROM crm_contact
      WHERE customer_id = ? AND deleted_at IS NULL
      ORDER BY is_primary DESC, is_decision DESC, create_time DESC
      LIMIT ? OFFSET ?`,
@@ -49,21 +52,21 @@ async function addContact(pool, params, user, canManageCustomer) {
   const { customer_id, name, position, phone, email, wechat, is_decision, is_primary, remark } = params;
 
   if (!customer_id || !name) {
-    throw new Error('客户ID和联系人姓名不能为空');
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '客户ID和联系人姓名不能为空');
   }
 
   const [customers] = await pool.query(
-    'SELECT id, owner_id FROM crm_customer WHERE id = ? AND status != 0',
+    'SELECT id, owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [customer_id]
   );
 
   if (customers.length === 0) {
-    throw new Error('客户不存在');
+    throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '客户不存在');
   }
 
   // 权限检查：有 manageAll 权限或客户负责人可添加
   if (!(await canManageCustomer(user, customers[0].owner_id))) {
-    throw new Error('无权添加该客户联系人');
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权添加该客户联系人');
   }
 
   // 如果客户当前没有主联系人，自动将本次新增联系人设为主联系人
@@ -107,7 +110,7 @@ async function updateContact(pool, params, user, canManageCustomer) {
   const { id, name, position, phone, email, wechat, is_decision, is_primary, remark } = params;
 
   if (!id) {
-    throw new Error('联系人ID不能为空');
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '联系人ID不能为空');
   }
 
   // 查询联系人所属客户
@@ -116,22 +119,22 @@ async function updateContact(pool, params, user, canManageCustomer) {
     [id]
   );
   if (contacts.length === 0) {
-    throw new Error('联系人不存在');
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '联系人不存在');
   }
   const customerId = contacts[0].customer_id;
 
   // 查询客户负责人
   const [customers] = await pool.query(
-    'SELECT owner_id FROM crm_customer WHERE id = ?',
+    'SELECT owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [customerId]
   );
   if (customers.length === 0) {
-    throw new Error('所属客户不存在');
+    throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '所属客户不存在');
   }
 
   // 权限检查：有 manageAll 权限或客户负责人可修改
   if (!(await canManageCustomer(user, customers[0].owner_id))) {
-    throw new Error('无权修改该联系人');
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权修改该联系人');
   }
 
   await pool.query(
@@ -159,7 +162,7 @@ async function updateContact(pool, params, user, canManageCustomer) {
  */
 async function deleteContact(pool, id, user, canManageCustomer) {
   if (!id) {
-    throw new Error('联系人ID不能为空');
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '联系人ID不能为空');
   }
 
   // 查询联系人所属客户
@@ -169,22 +172,22 @@ async function deleteContact(pool, id, user, canManageCustomer) {
   );
 
   if (contacts.length === 0) {
-    throw new Error('联系人不存在');
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '联系人不存在');
   }
 
   // 查询客户负责人
   const [customers] = await pool.query(
-    'SELECT owner_id FROM crm_customer WHERE id = ?',
+    'SELECT owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [contacts[0].customer_id]
   );
 
   if (customers.length === 0) {
-    throw new Error('所属客户不存在');
+    throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '所属客户不存在');
   }
 
   // 权限检查：有manageAll权限或客户负责人可删除
   if (!(await canManageCustomer(user, customers[0].owner_id))) {
-    throw new Error('无权删除该联系人');
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权删除该联系人');
   }
 
   // 查询被删除联系人的主联系人标记

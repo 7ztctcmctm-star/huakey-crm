@@ -8,6 +8,8 @@
  *
  * 职责：处理数据质量检查相关的业务逻辑
  */
+const AppError = require('../../errors/AppError');
+const ErrorCodes = require('../../errors/codes');
 
 /**
  * 白名单表配置
@@ -25,7 +27,8 @@ const ALLOWED_TABLES = {
  */
 async function getQualityReport(pool, table = 'crm_customer') {
   const [reports] = await pool.query(
-    `SELECT * FROM sys_data_quality_report
+    `SELECT id, table_name, total_count, duplicate_count, invalid_count, missing_count, quality_score, check_time
+     FROM sys_data_quality_report
      WHERE table_name = ?
      ORDER BY check_time DESC LIMIT 1`,
     [table]
@@ -43,7 +46,7 @@ async function getQualityReport(pool, table = 'crm_customer') {
 async function runQualityCheck(pool, table = 'crm_customer') {
   // 白名单表名，防止 SQL 注入
   if (!ALLOWED_TABLES[table]) {
-    throw new Error('不支持的表');
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '不支持的表');
   }
 
   const { nameColumn, emailColumn } = ALLOWED_TABLES[table];
@@ -132,7 +135,7 @@ async function runQualityCheck(pool, table = 'crm_customer') {
 async function fixQualityIssues(pool, table = 'crm_customer', options = {}) {
   // 白名单表名，防止 SQL 注入
   if (!ALLOWED_TABLES[table]) {
-    throw new Error('不支持的表');
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '不支持的表');
   }
 
   const { nameColumn } = ALLOWED_TABLES[table];

@@ -20,7 +20,7 @@ const templateManageSchema = Joi.object({
 });
 
 // 获取模板列表
-router.get('/list', authenticateToken, checkPermission('contract_template'), async (req, res) => {
+router.get('/list', authenticateToken, checkPermission('contract_template'), async (req, res, next) => {
   try {
     const templates = await contractTemplateService.listTemplates(pool);
     success(res, templates);

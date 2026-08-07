@@ -16,6 +16,7 @@ const ErrorCodes = {
   OPPORTUNITY_NOT_FOUND:{ code: 404003, httpStatus: 404, message: '商机不存在' },
   CONTRACT_NOT_FOUND:   { code: 404004, httpStatus: 404, message: '合同不存在' },
   QUOTE_NOT_FOUND:      { code: 404005, httpStatus: 404, message: '报价不存在' },
+  RECORD_NOT_FOUND:     { code: 404006, httpStatus: 404, message: '记录不存在' },
   // 业务校验 400xxx
   VALIDATION_ERROR:     { code: 400001, httpStatus: 400, message: '参数校验失败' },
   DUPLICATE_USERNAME:   { code: 400002, httpStatus: 400, message: '用户名已存在' },

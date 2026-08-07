@@ -3,6 +3,8 @@
  * 从 routes/email.js 提取的业务逻辑，供路由层复用
  */
 
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 
@@ -10,7 +12,7 @@ const crypto = require('crypto');
 const ENC_KEY = process.env.EMAIL_ENC_KEY;
 
 function encrypt(text) {
-  if (!ENC_KEY) throw new Error('EMAIL_ENC_KEY 未配置，无法加密邮箱密码');
+  if (!ENC_KEY) throw new AppError(ErrorCodes.INTERNAL_ERROR, 'EMAIL_ENC_KEY 未配置，无法加密邮箱密码');
   const cipher = crypto.createCipheriv('aes-256-cbc', ENC_KEY.slice(0, 32), ENC_KEY.slice(0, 16));
   let encrypted = cipher.update(text, 'utf8', 'hex');
   encrypted += cipher.final('hex');
@@ -88,9 +90,7 @@ async function listAccounts(pool, userId) {
 async function deleteAccount(pool, id, userId) {
   const [existing] = await pool.query('SELECT id FROM crm_email_account WHERE id = ? AND user_id = ?', [id, userId]);
   if (existing.length === 0) {
-    const err = new Error('账号不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '账号不存在')
   }
   await pool.query('UPDATE crm_email_account SET deleted_at = NOW() WHERE id = ?', [id]);
 }
@@ -103,11 +103,12 @@ async function deleteAccount(pool, id, userId) {
  * @returns {{ smtp: boolean, imap: boolean, smtp_error?: string }}
  */
 async function testConnection(pool, id, userId) {
-  const [[account]] = await pool.query('SELECT * FROM crm_email_account WHERE id = ? AND user_id = ?', [id, userId]);
+  const [[account]] = await pool.query(
+    'SELECT id, user_id, email, display_name, imap_host, imap_port, smtp_host, smtp_port, password_encrypted, use_ssl, sync_status, last_sync_at, status, created_at, updated_at FROM crm_email_account WHERE id = ? AND user_id = ?',
+    [id, userId]
+  );
   if (!account) {
-    const err = new Error('账号不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '账号不存在')
   }
 
   const password = decrypt(account.password_encrypted);
@@ -178,7 +179,10 @@ async function listEmails(pool, params, userId) {
  */
 async function getEmailDetail(pool, id) {
   const [[email]] = await pool.query(`
-    SELECT e.*, c.company_name as customer_name, ct.name as contact_name
+    SELECT e.id, e.account_id, e.message_id, e.direction, e.from_address, e.to_addresses, e.cc_addresses,
+           e.subject, e.body_text, e.body_html, e.has_attachments, e.attachment_count,
+           e.customer_id, e.contact_id, e.is_read, e.is_starred, e.folder, e.sent_at, e.received_at, e.created_at,
+           c.company_name as customer_name, ct.name as contact_name
     FROM crm_email e
     LEFT JOIN crm_customer c ON e.customer_id = c.id
     LEFT JOIN crm_contact ct ON e.contact_id = ct.id
@@ -205,11 +209,12 @@ async function getEmailDetail(pool, id) {
 async function sendEmail(pool, params, userId) {
   const { account_id, to, cc, subject, body_html, reply_to_id } = params;
 
-  const [[account]] = await pool.query('SELECT * FROM crm_email_account WHERE id = ? AND user_id = ?', [account_id, userId]);
+  const [[account]] = await pool.query(
+    'SELECT id, user_id, email, display_name, imap_host, imap_port, smtp_host, smtp_port, password_encrypted, use_ssl, sync_status, last_sync_at, status, created_at, updated_at FROM crm_email_account WHERE id = ? AND user_id = ?',
+    [account_id, userId]
+  );
   if (!account) {
-    const err = new Error('邮件账号不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '邮件账号不存在')
   }
 
   const password = decrypt(account.password_encrypted);
@@ -278,9 +283,7 @@ async function markAsRead(pool, id) {
 async function toggleStar(pool, id) {
   const [[email]] = await pool.query('SELECT is_starred FROM crm_email WHERE id = ?', [id]);
   if (!email) {
-    const err = new Error('邮件不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '邮件不存在')
   }
   const newStarred = email.is_starred ? 0 : 1;
   await pool.query('UPDATE crm_email SET is_starred = ? WHERE id = ?', [newStarred, id]);
@@ -296,9 +299,7 @@ async function toggleStar(pool, id) {
 async function linkCustomer(pool, emailId, customerId) {
   const [customer] = await pool.query('SELECT id FROM crm_customer WHERE id = ?', [customerId]);
   if (customer.length === 0) {
-    const err = new Error('客户不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '客户不存在')
   }
   await pool.query('UPDATE crm_email SET customer_id = ? WHERE id = ?', [customerId, emailId]);
 }
@@ -310,11 +311,12 @@ async function linkCustomer(pool, emailId, customerId) {
  * @param {number} userId
  */
 async function syncEmails(pool, accountId, userId) {
-  const [[account]] = await pool.query('SELECT * FROM crm_email_account WHERE id = ? AND user_id = ?', [accountId, userId]);
+  const [[account]] = await pool.query(
+    'SELECT id, user_id, email, display_name, imap_host, imap_port, smtp_host, smtp_port, password_encrypted, use_ssl, sync_status, last_sync_at, status, created_at, updated_at FROM crm_email_account WHERE id = ? AND user_id = ?',
+    [accountId, userId]
+  );
   if (!account) {
-    const err = new Error('账号不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '账号不存在')
   }
 
   try {

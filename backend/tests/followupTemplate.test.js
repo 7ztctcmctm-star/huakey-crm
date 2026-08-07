@@ -55,6 +55,7 @@ describe('跟进模板模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
@@ -73,6 +74,7 @@ describe('跟进模板模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // list
           { id: 1, name: '首次跟进', type: 'first', content: '模板内容1' },
           { id: 2, name: '报价跟进', type: 'quote', content: '模板内容2' }
@@ -93,6 +95,7 @@ describe('跟进模板模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ id: 1, create_by: 1 }]]) // existence + ownership check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 

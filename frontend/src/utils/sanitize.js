@@ -21,6 +21,9 @@ export async function sanitize(html) {
     ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li',
       'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'div', 'table', 'thead',
       'tbody', 'tr', 'td', 'th', 'blockquote', 'code', 'pre', 'hr'],
-    ALLOWED_ATTR: ['href', 'target', 'rel', 'class']
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
+    ADD_ATTR: ['target']  // 保留 target 属性
   });
+  // 注：DOMPurify 默认会移除 javascript: 等危险协议，
+  // target="_blank" 的 reverse tabnabbing 风险由 ADD_ATTR 保留 + 外部 rel="noopener" 约定控制
 }

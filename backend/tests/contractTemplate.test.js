@@ -49,6 +49,7 @@ describe('合同模板模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // list
           { id: 1, name: '标准合同模板', amount: 0, payment_terms: '月结30天' },
           { id: 2, name: '大客户合同模板', amount: 100000, payment_terms: '预付50%' }
@@ -69,6 +70,7 @@ describe('合同模板模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ insertId: 3 }]); // insert
 
       const res = await request(app)
@@ -87,6 +89,7 @@ describe('合同模板模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 
       const res = await request(app)

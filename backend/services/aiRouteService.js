@@ -3,6 +3,9 @@
  * 从 routes/ai.js 提取的数据库操作
  */
 
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
+
 async function getAiStatus() {
   const { getProviderStatus } = require('../utils/llmClient');
   return await getProviderStatus();
@@ -24,7 +27,7 @@ async function getAiSuggestions(pool, params = {}) {
   );
 
   const [list] = await pool.query(
-    `SELECT s.*, u.real_name as creator_name
+    `SELECT s.id, s.type, s.ref_id, s.suggestion, s.confidence, s.is_accepted, s.feedback, s.create_by, s.create_time, u.real_name as creator_name
      FROM crm_ai_suggestion s
      LEFT JOIN sys_user u ON s.create_by = u.id
      WHERE ${whereClause}
@@ -33,15 +36,35 @@ async function getAiSuggestions(pool, params = {}) {
     [...queryParams, parseInt(pageSize), parseInt(offset)]
   );
 
-  // 补充关联数据
+  // 批量补充关联数据（避免 N+1）
+  const customerIds = [...new Set(list.filter(i => i.type === 'follow_up' || i.type === 'customer').map(i => i.ref_id))];
+  const oppIds = [...new Set(list.filter(i => i.type === 'opportunity' || i.type === 'pricing').map(i => i.ref_id))];
+
+  const customerMap = new Map();
+  if (customerIds.length > 0) {
+    const [customers] = await pool.query(
+      `SELECT id, company_name FROM crm_customer WHERE id IN (${customerIds.map(() => '?').join(',')}) AND deleted_at IS NULL`,
+      customerIds
+    );
+    customers.forEach(c => customerMap.set(c.id, c.company_name));
+  }
+
+  const oppMap = new Map();
+  if (oppIds.length > 0) {
+    const [opps] = await pool.query(
+      `SELECT id, name, expected_amount, customer_id FROM crm_opportunity WHERE id IN (${oppIds.map(() => '?').join(',')}) AND deleted_at IS NULL`,
+      oppIds
+    );
+    opps.forEach(o => oppMap.set(o.id, o));
+  }
+
   for (const item of list) {
     if (item.type === 'follow_up' || item.type === 'customer') {
-      const [customer] = await pool.query('SELECT company_name FROM crm_customer WHERE id = ?', [item.ref_id]);
-      item.ref_name = customer[0]?.company_name || '未知客户';
+      item.ref_name = customerMap.get(item.ref_id) || '未知客户';
     } else if (item.type === 'opportunity' || item.type === 'pricing') {
-      const [opp] = await pool.query('SELECT name, expected_amount, customer_id FROM crm_opportunity WHERE id = ?', [item.ref_id]);
-      item.ref_name = opp[0]?.name || '未知商机';
-      item.expected_amount = opp[0]?.expected_amount;
+      const opp = oppMap.get(item.ref_id);
+      item.ref_name = opp?.name || '未知商机';
+      item.expected_amount = opp?.expected_amount;
     }
   }
 
@@ -73,18 +96,21 @@ async function generateSuggestions(pool, userId) {
     LIMIT 20
   `);
 
-  for (const c of overdueCustomers) {
-    const [exists] = await pool.query(
-      "SELECT id FROM crm_ai_suggestion WHERE type = 'follow_up' AND ref_id = ? AND create_time >= NOW() - INTERVAL 24 HOUR",
-      [c.id]
+  // 批量检查 + 批量插入（避免 N+1）
+  if (overdueCustomers.length > 0) {
+    const ids = overdueCustomers.map(c => c.id);
+    const [existRows] = await pool.query(
+      `SELECT ref_id FROM crm_ai_suggestion WHERE type = 'follow_up' AND ref_id IN (${ids.map(() => '?').join(',')}) AND create_time >= NOW() - INTERVAL 24 HOUR`,
+      ids
     );
-    if (exists.length === 0) {
-      await pool.query(
-        `INSERT INTO crm_ai_suggestion (type, ref_id, suggestion, confidence, create_by)
-         VALUES ('follow_up', ?, ?, ?, ?)`,
-        [c.id, `客户"${c.company_name}"已${c.overdue_days}天未跟进，建议立即安排回访或联系沟通。`, 0.85, userId]
-      );
-      created++;
+    const existingSet = new Set(existRows.map(r => r.ref_id));
+    const newItems = overdueCustomers.filter(c => !existingSet.has(c.id));
+    if (newItems.length > 0) {
+      const values = newItems.map(c =>
+        `('follow_up', ${c.id}, '客户"${c.company_name}"已${c.overdue_days}天未跟进，建议立即安排回访或联系沟通。', 0.85, ${userId})`
+      ).join(', ');
+      await pool.query(`INSERT INTO crm_ai_suggestion (type, ref_id, suggestion, confidence, create_by) VALUES ${values}`);
+      created += newItems.length;
     }
   }
 
@@ -94,22 +120,24 @@ async function generateSuggestions(pool, userId) {
            DATEDIFF(NOW(), o.update_time) as stale_days, c.company_name
     FROM crm_opportunity o
     LEFT JOIN crm_customer c ON o.customer_id = c.id
-    WHERE o.stage NOT IN (5, 6) AND o.update_time < NOW() - INTERVAL 14 DAY
+    WHERE o.stage NOT IN (5, 6) AND o.deleted_at IS NULL AND o.update_time < NOW() - INTERVAL 14 DAY
     LIMIT 20
   `);
 
-  for (const o of staleOpps) {
-    const [exists] = await pool.query(
-      "SELECT id FROM crm_ai_suggestion WHERE type = 'opportunity' AND ref_id = ? AND create_time >= NOW() - INTERVAL 24 HOUR",
-      [o.id]
+  if (staleOpps.length > 0) {
+    const ids = staleOpps.map(o => o.id);
+    const [existRows] = await pool.query(
+      `SELECT ref_id FROM crm_ai_suggestion WHERE type = 'opportunity' AND ref_id IN (${ids.map(() => '?').join(',')}) AND create_time >= NOW() - INTERVAL 24 HOUR`,
+      ids
     );
-    if (exists.length === 0) {
-      await pool.query(
-        `INSERT INTO crm_ai_suggestion (type, ref_id, suggestion, confidence, create_by)
-         VALUES ('opportunity', ?, ?, ?, ?)`,
-        [o.id, `商机"${o.name}"（${o.company_name}）在当前阶段已停滞${o.stale_days}天，建议推进或重新评估。`, 0.75, userId]
-      );
-      created++;
+    const existingSet = new Set(existRows.map(r => r.ref_id));
+    const newItems = staleOpps.filter(o => !existingSet.has(o.id));
+    if (newItems.length > 0) {
+      const values = newItems.map(o =>
+        `('opportunity', ${o.id}, '商机"${o.name}"（${o.company_name}）在当前阶段已停滞${o.stale_days}天，建议推进或重新评估。', 0.75, ${userId})`
+      ).join(', ');
+      await pool.query(`INSERT INTO crm_ai_suggestion (type, ref_id, suggestion, confidence, create_by) VALUES ${values}`);
+      created += newItems.length;
     }
   }
 
@@ -118,22 +146,24 @@ async function generateSuggestions(pool, userId) {
     SELECT o.id, o.name, o.expected_amount, o.win_rate, c.company_name
     FROM crm_opportunity o
     LEFT JOIN crm_customer c ON o.customer_id = c.id
-    WHERE o.stage NOT IN (5, 6) AND o.expected_amount >= 100000 AND (o.win_rate IS NULL OR o.win_rate < 30)
+    WHERE o.stage NOT IN (5, 6) AND o.deleted_at IS NULL AND o.expected_amount >= 100000 AND (o.win_rate IS NULL OR o.win_rate < 30)
     LIMIT 10
   `);
 
-  for (const o of lowWinOpps) {
-    const [exists] = await pool.query(
-      "SELECT id FROM crm_ai_suggestion WHERE type = 'pricing' AND ref_id = ? AND create_time >= NOW() - INTERVAL 24 HOUR",
-      [o.id]
+  if (lowWinOpps.length > 0) {
+    const ids = lowWinOpps.map(o => o.id);
+    const [existRows] = await pool.query(
+      `SELECT ref_id FROM crm_ai_suggestion WHERE type = 'pricing' AND ref_id IN (${ids.map(() => '?').join(',')}) AND create_time >= NOW() - INTERVAL 24 HOUR`,
+      ids
     );
-    if (exists.length === 0) {
-      await pool.query(
-        `INSERT INTO crm_ai_suggestion (type, ref_id, suggestion, confidence, create_by)
-         VALUES ('pricing', ?, ?, ?, ?)`,
-        [o.id, `商机"${o.name}"（${o.company_name}）预期金额¥${Number(o.expected_amount).toLocaleString()}但赢率仅${o.win_rate || 0}%，建议重新评估定价策略或加强需求沟通。`, 0.70, userId]
-      );
-      created++;
+    const existingSet = new Set(existRows.map(r => r.ref_id));
+    const newItems = lowWinOpps.filter(o => !existingSet.has(o.id));
+    if (newItems.length > 0) {
+      const values = newItems.map(o =>
+        `('pricing', ${o.id}, '商机"${o.name}"（${o.company_name}）预期金额¥${Number(o.expected_amount).toLocaleString()}但赢率仅${o.win_rate || 0}%，建议重新评估定价策略或加强需求沟通。', 0.70, ${userId})`
+      ).join(', ');
+      await pool.query(`INSERT INTO crm_ai_suggestion (type, ref_id, suggestion, confidence, create_by) VALUES ${values}`);
+      created += newItems.length;
     }
   }
 
@@ -147,6 +177,21 @@ async function generateSuggestions(pool, userId) {
  * @returns {Promise<Array>} 查询结果行
  */
 async function executeReadOnlyQuery(pool, sql) {
+  if (!pool) {
+    throw new AppError(ErrorCodes.INTERNAL_ERROR, '只读数据库连接池未配置');
+  }
+
+  // 最终兜底校验：即使路由层校验被绕过，服务层也拒绝任何非 SELECT / 危险 SQL
+  const normalized = sql.trim().replace(/\s+/g, ' ').toUpperCase();
+  if (!normalized.startsWith('SELECT')) {
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, 'AI 查询仅支持 SELECT 语句');
+  }
+
+  const dangerous = /\b(UNION|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE|INTO\s+OUTFILE|INTO\s+DUMPFILE|LOAD\s+DATA|INFORMATION_SCHEMA|SLEEP|BENCHMARK|WAITFOR\s+DELAY)\b/i;
+  if (dangerous.test(sql)) {
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, 'SQL 包含危险关键字，已阻止执行');
+  }
+
   const [rows] = await pool.query(sql);
   return rows;
 }

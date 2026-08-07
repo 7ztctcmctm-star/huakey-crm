@@ -75,6 +75,7 @@ describe('权限管理模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ id: 1 }]]); // code exists
 
       const res = await request(app)
@@ -90,6 +91,7 @@ describe('权限管理模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[]])  // code not exists
         .mockResolvedValueOnce([{ insertId: 10 }]);
 
@@ -108,6 +110,7 @@ describe('权限管理模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ permission_id: 1 }, { permission_id: 2 }, { permission_id: 5 }]]);
 
       const res = await request(app)
@@ -124,6 +127,7 @@ describe('权限管理模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[]]);
 
       const res = await request(app)
@@ -154,6 +158,7 @@ describe('权限管理模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ id: 2 }, { id: 3 }]]); // has children
 
       const res = await request(app)

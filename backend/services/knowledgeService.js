@@ -16,14 +16,14 @@ async function listProducts(pool, params = {}) {
 
   const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total FROM crm_knowledge_product p ${where}`, queryParams);
   const [rows] = await pool.query(
-    `SELECT p.*, u.real_name as create_by_name FROM crm_knowledge_product p LEFT JOIN sys_user u ON p.create_by = u.id ${where} ORDER BY p.create_time DESC LIMIT ? OFFSET ?`,
+    `SELECT p.id, p.name, p.category, p.model, p.description, p.specs, p.price, p.images, p.status, p.create_by, p.create_time, p.update_time, p.deleted_at, u.real_name as create_by_name FROM crm_knowledge_product p LEFT JOIN sys_user u ON p.create_by = u.id ${where} ORDER BY p.create_time DESC LIMIT ? OFFSET ?`,
     [...queryParams, parseInt(pageSize), offset]
   );
   return { list: rows, total };
 }
 
 async function getProduct(pool, id) {
-  const [[row]] = await pool.query('SELECT p.*, u.real_name as create_by_name FROM crm_knowledge_product p LEFT JOIN sys_user u ON p.create_by = u.id WHERE p.id = ? AND p.deleted_at IS NULL', [id]);
+  const [[row]] = await pool.query('SELECT p.id, p.name, p.category, p.model, p.description, p.specs, p.price, p.images, p.status, p.create_by, p.create_time, p.update_time, p.deleted_at, u.real_name as create_by_name FROM crm_knowledge_product p LEFT JOIN sys_user u ON p.create_by = u.id WHERE p.id = ? AND p.deleted_at IS NULL', [id]);
   return row || null;
 }
 
@@ -78,13 +78,13 @@ async function listScripts(pool, params = {}) {
   if (keyword) { where += ' AND (title LIKE ? OR content LIKE ?)'; queryParams.push(`%${keyword}%`, `%${keyword}%`); }
   if (scene) { where += ' AND scene = ?'; queryParams.push(scene); }
   const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total FROM crm_knowledge_script ${where}`, queryParams);
-  const [rows] = await pool.query(`SELECT * FROM crm_knowledge_script ${where} ORDER BY sort_order ASC, create_time DESC LIMIT ? OFFSET ?`, [...queryParams, parseInt(pageSize), offset]);
+  const [rows] = await pool.query(`SELECT id, title, scene, content, sort_order, usage_count, create_by, create_time, update_time, deleted_at FROM crm_knowledge_script ${where} ORDER BY sort_order ASC, create_time DESC LIMIT ? OFFSET ?`, [...queryParams, parseInt(pageSize), offset]);
   return { list: rows, total, page: parseInt(page), pageSize: parseInt(pageSize) };
 }
 
 async function getScript(pool, id) {
   await pool.query('UPDATE crm_knowledge_script SET usage_count = usage_count + 1 WHERE id = ?', [id]);
-  const [[row]] = await pool.query('SELECT * FROM crm_knowledge_script WHERE id = ? AND deleted_at IS NULL', [id]);
+  const [[row]] = await pool.query('SELECT id, title, scene, content, sort_order, usage_count, create_by, create_time, update_time, deleted_at FROM crm_knowledge_script WHERE id = ? AND deleted_at IS NULL', [id]);
   return row || null;
 }
 
@@ -125,13 +125,13 @@ async function listFaqs(pool, params = {}) {
   if (keyword) { where += ' AND (question LIKE ? OR answer LIKE ?)'; queryParams.push(`%${keyword}%`, `%${keyword}%`); }
   if (category) { where += ' AND category = ?'; queryParams.push(category); }
   const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total FROM crm_knowledge_faq ${where}`, queryParams);
-  const [rows] = await pool.query(`SELECT * FROM crm_knowledge_faq ${where} ORDER BY sort_order ASC, create_time DESC LIMIT ? OFFSET ?`, [...queryParams, parseInt(pageSize), offset]);
+  const [rows] = await pool.query(`SELECT id, question, answer, category, view_count, sort_order, create_by, create_time, update_time, deleted_at FROM crm_knowledge_faq ${where} ORDER BY sort_order ASC, create_time DESC LIMIT ? OFFSET ?`, [...queryParams, parseInt(pageSize), offset]);
   return { list: rows, total, page: parseInt(page), pageSize: parseInt(pageSize) };
 }
 
 async function getFaq(pool, id) {
   await pool.query('UPDATE crm_knowledge_faq SET view_count = view_count + 1 WHERE id = ?', [id]);
-  const [[row]] = await pool.query('SELECT * FROM crm_knowledge_faq WHERE id = ? AND deleted_at IS NULL', [id]);
+  const [[row]] = await pool.query('SELECT id, question, answer, category, view_count, sort_order, create_by, create_time, update_time, deleted_at FROM crm_knowledge_faq WHERE id = ? AND deleted_at IS NULL', [id]);
   return row || null;
 }
 
@@ -172,12 +172,12 @@ async function listDocuments(pool, params = {}) {
   if (keyword) { where += ' AND (d.name LIKE ? OR d.description LIKE ?)'; queryParams.push(`%${keyword}%`, `%${keyword}%`); }
   if (type) { where += ' AND d.type = ?'; queryParams.push(type); }
   const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total FROM crm_knowledge_document d ${where}`, queryParams);
-  const [rows] = await pool.query(`SELECT d.*, u.real_name as create_by_name FROM crm_knowledge_document d LEFT JOIN sys_user u ON d.create_by = u.id ${where} ORDER BY d.create_time DESC LIMIT ? OFFSET ?`, [...queryParams, parseInt(pageSize), offset]);
+  const [rows] = await pool.query(`SELECT d.id, d.name, d.type, d.description, d.file_path, d.file_size, d.file_type, d.download_count, d.create_by, d.create_time, d.update_time, d.deleted_at, u.real_name as create_by_name FROM crm_knowledge_document d LEFT JOIN sys_user u ON d.create_by = u.id ${where} ORDER BY d.create_time DESC LIMIT ? OFFSET ?`, [...queryParams, parseInt(pageSize), offset]);
   return { list: rows, total, page: parseInt(page), pageSize: parseInt(pageSize) };
 }
 
 async function getDocument(pool, id) {
-  const [[row]] = await pool.query('SELECT d.*, u.real_name as create_by_name FROM crm_knowledge_document d LEFT JOIN sys_user u ON d.create_by = u.id WHERE d.id = ? AND d.deleted_at IS NULL', [id]);
+  const [[row]] = await pool.query('SELECT d.id, d.name, d.type, d.description, d.file_path, d.file_size, d.file_type, d.download_count, d.create_by, d.create_time, d.update_time, d.deleted_at, u.real_name as create_by_name FROM crm_knowledge_document d LEFT JOIN sys_user u ON d.create_by = u.id WHERE d.id = ? AND d.deleted_at IS NULL', [id]);
   return row || null;
 }
 
@@ -214,7 +214,7 @@ async function incrementDownloadCount(pool, id) {
 }
 
 async function getDocumentForDownload(pool, id) {
-  const [[row]] = await pool.query('SELECT * FROM crm_knowledge_document WHERE id = ? AND deleted_at IS NULL', [id]);
+  const [[row]] = await pool.query('SELECT id, name, type, description, file_path, file_size, file_type, download_count, create_by, create_time, update_time, deleted_at FROM crm_knowledge_document WHERE id = ? AND deleted_at IS NULL', [id]);
   return row || null;
 }
 

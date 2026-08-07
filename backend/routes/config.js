@@ -21,24 +21,24 @@ const emptySchema = Joi.object({});
 const router = express.Router();
 
 // 获取逾期天数（所有登录用户可用，无需业务权限码）
-router.get('/overdue-days', authenticateToken, async (req, res) => {
+router.get('/overdue-days', authenticateToken, async (req, res, next) => {
   try {
     const data = await configRouteService.fetchOverdueDays();
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[配置] 获取逾期天数失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 获取所有配置（仅管理员/经理）
-router.get('/list', authenticateToken, checkPermission('system'), requireManager, async (req, res) => {
+router.get('/list', authenticateToken, checkPermission('system'), requireManager, async (req, res, next) => {
   try {
     const rows = await configRouteService.listConfigs(pool);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
     logger.error('[配置] 获取配置错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '获取配置失败', data: null });
+    next(error);
   }
 });
 
@@ -53,13 +53,13 @@ router.post('/update', authenticateToken, checkPermission('system'), requireMana
 });
 
 // 测试企业微信通知
-router.post('/test-notification', authenticateToken, checkPermission('system'), validate(emptySchema), async (req, res) => {
+router.post('/test-notification', authenticateToken, checkPermission('system'), validate(emptySchema), async (req, res, next) => {
   try {
     await configRouteService.testNotification();
     res.json({ code: 200, message: '测试消息已发送', data: null });
   } catch (error) {
     logger.error('[配置] 测试通知失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '发送失败，请检查配置', data: null });
+    next(error);
   }
 });
 

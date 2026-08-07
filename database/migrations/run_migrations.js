@@ -18,8 +18,9 @@ const DB_NAME = process.env.DB_NAME || 'huakey_crm'
  */
 function normalizeMigrationSql(sql) {
   return sql
-    .replace(/^USE\s+`?[^`;\s]+`?\s*;?\s*$/gim, '')
-    .replace(/(@db_name\s*=\s*')huakey_crm(')/gi, `$1${DB_NAME}$2`)
+    .replace(/^USE\s+`?[^`;\s]+`?\s*;?\s*$/gim, '')       // 移除 USE huakey_crm 语句
+    .replace(/'(huakey_crm)'/gi, `'${DB_NAME}'`)            // 替换所有 'huakey_crm' 字符串引用
+    .replace(/`(huakey_crm)`/gi, `\`${DB_NAME}\``)          // 替换所有 `huakey_crm` 标识符引用
 }
 
 async function run() {
@@ -33,6 +34,23 @@ async function run() {
     waitForConnections: true,
     connectionLimit: 5
   })
+
+  // 等待数据库就绪（最多重试30次，每次间隔2秒）
+  let connected = false;
+  for (let i = 0; i < 30; i++) {
+    try {
+      await pool.query('SELECT 1');
+      connected = true;
+      break;
+    } catch (e) {
+      console.log(`[迁移] 等待数据库就绪... (${i + 1}/30)`);
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  }
+  if (!connected) {
+    console.error('[迁移] 致命错误: 数据库连接超时（已重试30次）');
+    process.exit(1);
+  }
 
   try {
     // 确保 schema_migrations 表存在
@@ -138,9 +156,8 @@ async function rollback(pool, targetVersion) {
     const downPath = path.join(MIGRATIONS_DIR, downFile)
 
     if (!fs.existsSync(downPath)) {
-      console.error(`  ✗ 回滚文件不存在: ${downFile}`)
-      console.error(`    请创建回滚文件后重试`)
-      process.exit(1)
+      console.warn(`  ⚠ 版本 ${version} 缺少回滚文件: ${downFile}，跳过（迁移不可逆）`)
+      continue
     }
 
     console.log(`  回滚 ${name} (使用 ${downFile}) ...`)

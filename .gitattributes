@@ -1,2 +1,12 @@
 # Shell scripts must use LF line endings to run inside Linux containers
 *.sh text eol=lf
+
+# ===== Phase 1.5B 追加：统一 Git 内部换行符 =====
+*.js text eol=lf
+*.ts text eol=lf
+*.vue text eol=lf
+*.json text eol=lf
+*.sql text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf

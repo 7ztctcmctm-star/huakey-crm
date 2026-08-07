@@ -15,7 +15,7 @@ const SOURCE_FIELDS = {
  */
 async function listReports(pool, userId) {
   const [rows] = await pool.query(
-    "SELECT * FROM crm_report_config WHERE (create_by = ? OR is_public = 1) AND deleted_at IS NULL ORDER BY create_time DESC",
+    "SELECT id, name, description, report_type, data_source, columns_config, filter_config, chart_config, is_public, create_by, create_time, update_time, deleted_at FROM crm_report_config WHERE (create_by = ? OR is_public = 1) AND deleted_at IS NULL ORDER BY create_time DESC",
     [userId]
   );
   return rows;
@@ -92,7 +92,7 @@ function getFields(source) {
  * 执行自定义报表查询
  */
 async function runReport(pool, id, { page = 1, pageSize = 20, filters = {} }) {
-  const [configs] = await pool.query('SELECT * FROM crm_report_config WHERE id = ? AND deleted_at IS NULL', [id]);
+  const [configs] = await pool.query('SELECT id, name, description, report_type, data_source, columns_config, filter_config, chart_config, is_public, create_by, create_time, update_time, deleted_at FROM crm_report_config WHERE id = ? AND deleted_at IS NULL', [id]);
   if (configs.length === 0) return { error: '报表不存在', status: 404 };
   const config = configs[0];
 

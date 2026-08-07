@@ -19,7 +19,6 @@
       ref="customerTableRef"
       :loading="loading"
       :table-data="tableData"
-      :is-prospect-view="isProspectView"
       :is-boss="isBoss"
       :is-manager="isManager"
       :selected-rows="selectedRows"
@@ -40,8 +39,6 @@
       @staff-filter-change="switchViewMode"
       @quick-follow="(row) => { quickFollowCustomer = row; quickFollowVisible = true }"
       @assign="(row) => { assignCustomer = row; assignDialogVisible = true }"
-      @claim="handleClaim"
-      @convert-to-customer="handleConvertToCustomer"
       @status-change="fetchList"
       @view="(row) => router.push(`/customer/detail/${row.id}`)"
       @edit="handleEdit"
@@ -105,7 +102,7 @@ import AssignDialog from './components/AssignDialog.vue'
 import FollowDialog from './components/FollowDialog.vue'
 import BatchFollowDialog from './components/BatchFollowDialog.vue'
 import { get } from '@/utils/request'
-import { getCustomerList, deleteCustomer, batchAssignCustomer, exportCustomers, getSalesUsers, getMySubordinates, claimCustomer, convertToCustomer } from '@/api/customer'
+import { getFormalCustomers, deleteCustomer, batchAssignCustomer, exportCustomers, getSalesUsers, getMySubordinates } from '@/api/customer'
 import { SOURCE_SEARCH_OPTIONS } from '@/constants/source'
 import { useUser } from '@/composables/useUser'
 
@@ -114,9 +111,9 @@ const route = useRoute()
 const { userInfo } = useUser()
 const overdueMode = ref(route.query.overdue === 'true')
 
-const activeTab = ref(route.query.tab || 'all')
+const activeTab = ref('all')
 const handleTabChange = (tab) => {
-  activeTab.value = tab
+  // Phase 3：正式客户页面不再切换 tab，保留接口兼容 CustomerFilter
   searchForm.page = 1
   fetchList()
 }
@@ -129,8 +126,11 @@ const switchViewMode = () => {
   fetchList()
 }
 
-const isBoss = computed(() => userInfo.value?.manageAll === true || userInfo.value?.roleId === 1)
-const isManager = computed(() => userInfo.value?.roleId === 2)
+// 统一使用 manageAll/roleCode，禁止依赖固定数字 roleId
+// super_admin/boss 由 sys_role.manage_all=1 标记 → manageAll=true
+const isBoss = computed(() => userInfo.value?.manageAll === true)
+// manager 对应 roleCode='admin'
+const isManager = computed(() => userInfo.value?.roleCode === 'admin')
 const selectedRows = ref([])
 const batchNewOwnerId = ref('')
 const salesUsers = ref([])
@@ -159,35 +159,6 @@ const fetchSubordinates = async () => {
 
 const handleSelectionChange = (rows) => {
   selectedRows.value = rows
-}
-
-const handleClaim = async (row) => {
-  try {
-    const res = await claimCustomer(row.id)
-    if (res.code === 200) {
-      ElMessage.success('认领成功')
-      fetchList()
-    } else {
-      ElMessage.error(res.message || '认领失败')
-    }
-  } catch (e) {
-    ElMessage.error('认领失败')
-  }
-}
-
-const handleConvertToCustomer = async (row) => {
-  try {
-    await ElMessageBox.confirm(`确定将「${row.company_name}」转化为正式客户吗？`, '转化确认', { type: 'warning' })
-    const res = await convertToCustomer(row.id)
-    if (res.code === 200) {
-      ElMessage.success(`客户「${row.company_name}」已成功转化为正式客户`)
-      fetchList()
-    } else {
-      ElMessage.error(res.message || '转化失败')
-    }
-  } catch (e) {
-    if (e !== 'cancel') ElMessage.error('转化失败')
-  }
 }
 
 const handleBatchAssign = async () => {
@@ -224,15 +195,13 @@ const handleBatchAssign = async () => {
 const assignDialogVisible = ref(false)
 const assignCustomer = ref(null)
 
-const isProspectView = computed(() => activeTab.value === 'prospect' || route.query.tab === 'prospect')
-
 const searchForm = reactive({
   company_name: '',
   contact_name: '',
   phone: '',
   source: '',
   level: '',
-  status: isProspectView.value ? 'following' : '',
+  status: '',
   dateRange: [],
   sort: '',
   page: 1,
@@ -249,8 +218,6 @@ const levelOptions = [
 ]
 
 const statusOptions = [
-  { label: '线索', value: 'lead' },
-  { label: '公海客户', value: 'sea' },
   { label: '跟进中', value: 'following' },
   { label: '已报价', value: 'quoted' },
   { label: '谈判中', value: 'negotiating' },
@@ -327,7 +294,6 @@ const fetchList = async () => {
       params.end_date = searchForm.dateRange[1]
     }
     if (searchForm.sort) params.sort = searchForm.sort
-    if (searchForm._unassigned) params.unassigned = true
     if (searchForm._overdue_follow) params.overdue_follow = true
     if (viewMode.value === 'mine') {
       if (userInfo.value?.id) params.owner_id = userInfo.value.id
@@ -339,25 +305,8 @@ const fetchList = async () => {
       params.owner_id = staffFilterId.value
     }
 
-    if (activeTab.value === 'prospect') {
-      params.customer_type = 'prospect'
-    } else if (activeTab.value === 'sea') {
-      params.unassigned = true
-    } else if (activeTab.value === 'following') {
-      params.status = 'following'
-    } else if (activeTab.value === 'quoted') {
-      params.status = 'quoted'
-    } else if (activeTab.value === 'negotiating') {
-      params.status = 'negotiating'
-    } else if (activeTab.value === 'signed') {
-      params.status = 'signed'
-    } else if (activeTab.value === 'lost') {
-      params.status = 'lost'
-    } else if (activeTab.value === 'paused') {
-      params.status = 'paused'
-    }
-
-    const res = await getCustomerList(params)
+    // Phase 5：正式客户页面，调用 /customers 端点（status IN following/quoted/negotiating/signed）
+    const res = await getFormalCustomers(params)
     if (res.code === 200) {
       tableData.value = res.data.list
       total.value = res.data.total
@@ -388,7 +337,7 @@ const handleReset = () => {
   searchForm.phone = ''
   searchForm.source = ''
   searchForm.level = ''
-  searchForm.status = isProspectView.value ? 'following' : ''
+  searchForm.status = ''
   searchForm.dateRange = []
   searchForm.sort = ''
   searchForm.page = 1
@@ -398,14 +347,7 @@ const handleReset = () => {
 watch(() => route.fullPath, (newFull, oldFull) => {
   if (newFull === oldFull) return
   if (route.path.includes('customer/list')) {
-    const tab = route.query.tab
-    if (tab === 'prospect') {
-      activeTab.value = 'prospect'
-      searchForm.status = ''
-    } else {
-      activeTab.value = 'all'
-      searchForm.status = ''
-    }
+    // Phase 3：正式客户页面，不再处理 tab 切换
     searchForm.page = 1
     fetchList()
   }
@@ -417,15 +359,10 @@ const handleQuickTabChange = (val) => {
   viewMode.value = 'all'
   staffFilterId.value = null
   overdueMode.value = false
-  searchForm._unassigned = false
   searchForm._overdue_follow = false
 
   if (val === 'mine') {
     viewMode.value = 'mine'
-  } else if (val === 'lead') {
-    searchForm.status = 'lead'
-  } else if (val === 'unassigned') {
-    searchForm._unassigned = true
   } else if (val === 'overdue_follow') {
     searchForm._overdue_follow = true
   }

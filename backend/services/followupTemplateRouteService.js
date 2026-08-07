@@ -2,6 +2,8 @@
  * 跟进模板路由服务层
  * 职责：处理跟进模板管理相关的业务逻辑
  */
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 
 /**
  * 有效模板类型
@@ -34,10 +36,10 @@ async function createTemplate(pool, params, userId) {
   const { name, type = 'general', content } = params;
 
   if (!name || !name.trim()) {
-    throw new Error('模板名称不能为空');
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '模板名称不能为空');
   }
   if (!content || !content.trim()) {
-    throw new Error('模板内容不能为空');
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '模板内容不能为空');
   }
 
   const safeType = VALID_TYPES.includes(type) ? type : 'general';
@@ -67,20 +69,20 @@ async function updateTemplate(pool, id, params, userId) {
     [id]
   );
   if (existing.length === 0) {
-    throw new Error('模板不存在');
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '模板不存在');
   }
 
   // 权限检查：创建人可修改
   const isOwner = existing[0].create_by === userId;
   if (!isOwner) {
-    throw new Error('无权修改此模板');
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权修改此模板');
   }
 
   if (!name || !name.trim()) {
-    throw new Error('模板名称不能为空');
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '模板名称不能为空');
   }
   if (!content || !content.trim()) {
-    throw new Error('模板内容不能为空');
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '模板内容不能为空');
   }
 
   const safeType = VALID_TYPES.includes(type) ? type : 'general';
@@ -104,13 +106,13 @@ async function deleteTemplate(pool, id, userId) {
     [id]
   );
   if (existing.length === 0) {
-    throw new Error('模板不存在');
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '模板不存在');
   }
 
   // 权限检查：创建人可删除
   const isOwner = existing[0].create_by === userId;
   if (!isOwner) {
-    throw new Error('无权删除此模板');
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权删除此模板');
   }
 
   await pool.query('UPDATE crm_followup_template SET deleted_at = NOW() WHERE id = ?', [id]);

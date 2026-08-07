@@ -10,7 +10,7 @@ const ErrorCodes = require('../errors/codes');
  */
 async function listTemplates(pool) {
   const [templates] = await pool.query(
-    'SELECT * FROM crm_contract_template WHERE deleted_at IS NULL ORDER BY sort'
+    'SELECT id, name, amount, payment_terms, delivery_days, remark, sort, create_time, update_time FROM crm_contract_template WHERE deleted_at IS NULL ORDER BY sort'
   );
   return templates;
 }
@@ -20,7 +20,7 @@ async function listTemplates(pool) {
  */
 async function getTemplate(pool, id) {
   const [rows] = await pool.query(
-    'SELECT * FROM crm_contract_template WHERE id = ? AND deleted_at IS NULL',
+    'SELECT id, name, amount, payment_terms, delivery_days, remark, sort, create_time, update_time FROM crm_contract_template WHERE id = ? AND deleted_at IS NULL',
     [id]
   );
   if (!rows.length) {

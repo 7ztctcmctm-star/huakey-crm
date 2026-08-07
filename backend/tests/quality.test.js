@@ -1,4 +1,4 @@
-﻿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -29,10 +29,6 @@ app.use(express.json());
 const dataQualityRoutes = require('../routes/dataQuality');
 app.use('/api/v1/data-quality', dataQualityRoutes);
 
-// 已废弃的旧客户模块质量路由（应返回 410 Gone）
-const deprecatedQualityRoutes = require('../routes/customer/quality');
-app.use('/api/v1/customer', deprecatedQualityRoutes);
-
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
@@ -47,6 +43,7 @@ describe('数据质量检查模块（data-management 域）', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 100 }]]) // total count
         .mockResolvedValueOnce([[{ dup_count: 5 }]]) // duplicate count
         .mockResolvedValueOnce([[ // duplicate details
@@ -75,6 +72,7 @@ describe('数据质量检查模块（data-management 域）', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // report
           { id: 1, table_name: 'crm_customer', total_count: 100, duplicate_count: 5, quality_score: 85.5, check_time: '2026-06-23 10:00:00' }
         ]]);
@@ -95,6 +93,7 @@ describe('数据质量检查模块（data-management 域）', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // report for supplier
           { id: 2, table_name: 'crm_supplier', total_count: 50, duplicate_count: 2, quality_score: 92.0, check_time: '2026-06-23 11:00:00' }
         ]]);
@@ -121,30 +120,4 @@ describe('数据质量检查模块（data-management 域）', () => {
   });
 });
 
-describe('已废弃的客户模块质量路由', () => {
-  const token = generateToken();
 
-  describe('POST /api/v1/customer/quality-check', () => {
-    it('应该返回410 Gone', async () => {
-      const res = await request(app)
-        .post('/api/v1/customer/quality-check')
-        .set('Authorization', `Bearer ${token}`)
-        .send({ table: 'crm_customer' });
-
-      expect(res.status).toBe(410);
-      expect(res.body.code).toBe(410);
-    });
-  });
-
-  describe('POST /api/v1/customer/quality-report', () => {
-    it('应该返回410 Gone', async () => {
-      const res = await request(app)
-        .post('/api/v1/customer/quality-report')
-        .set('Authorization', `Bearer ${token}`)
-        .send({ table: 'crm_customer' });
-
-      expect(res.status).toBe(410);
-      expect(res.body.code).toBe(410);
-    });
-  });
-});

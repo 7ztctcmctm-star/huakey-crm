@@ -96,3 +96,18 @@ scripts/prepare_import_sql.py
 scripts/verify_import.py
 scripts/analyze_backup.py
 scripts/import_to_nas.bat
+
+# ===== Phase 1.5B 追加：生产基线冻结安全规则 =====
+
+# Production private keys (DO NOT COMMIT)
+nginx/certs/*.key
+
+# Backup files
+*.bak.*
+*.bak
+
+# Environment backups (may contain real credentials)
+.env.bak.*
+.env.secrets.bak.*
+# Demo seed data (not part of production baseline)
+database/seeds/

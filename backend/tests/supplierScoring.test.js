@@ -43,6 +43,7 @@ describe('供应商评分模块（评分统一）', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ id: 1, category: 'quality', rule_name: '合格率≥98', min_score: 1, max_score: 5 }]]); // rules
 
       const res = await request(app)
@@ -60,6 +61,7 @@ describe('供应商评分模块（评分统一）', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // rating
           { id: 5, supplier_id: 1, total_score: 4.2, rating_period: '2026-Q3' }
         ]]);
@@ -79,6 +81,7 @@ describe('供应商评分模块（评分统一）', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[]]); // SELECT id FROM crm_supplier WHERE status = 1（无供应商）
 
       const res = await request(app)

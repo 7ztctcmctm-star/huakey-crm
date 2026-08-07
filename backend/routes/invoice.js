@@ -54,13 +54,13 @@ const exportSchema = Joi.object({
 });
 
 // 列表查询
-router.post('/list', authenticateToken, checkPermission('invoice'), checkDataPermission('invoice', 'create_by'), validate(listSchema), async (req, res) => {
+router.post('/list', authenticateToken, checkPermission('invoice'), checkDataPermission('invoice', 'create_by'), validate(listSchema), async (req, res, next) => {
   try {
     const data = await invoiceService.listInvoices(pool, req.body, req.dataPermission);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('发票列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
@@ -75,13 +75,13 @@ router.get('/detail/:id', authenticateToken, async (req, res, next) => {
 });
 
 // 新增
-router.post('/add', authenticateToken, checkPermission('invoice:add'), validate(addSchema), async (req, res) => {
+router.post('/add', authenticateToken, checkPermission('invoice:add'), validate(addSchema), async (req, res, next) => {
   try {
     const result = await invoiceService.createInvoice(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '创建发票成功', data: result });
   } catch (error) {
     logger.error('新增发票失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '创建发票失败', data: null });
+    next(error);
   }
 });
 
@@ -106,7 +106,7 @@ router.post('/delete', authenticateToken, checkPermission('invoice:delete'), val
 });
 
 // 导出
-router.post('/export', authenticateToken, checkPermission('invoice:export'), checkDataPermission('invoice', 'create_by'), validate(exportSchema), async (req, res) => {
+router.post('/export', authenticateToken, checkPermission('invoice:export'), checkDataPermission('invoice', 'create_by'), validate(exportSchema), async (req, res, next) => {
   try {
     const buf = await invoiceService.exportInvoices(pool, req.body, req.dataPermission, req);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -114,7 +114,7 @@ router.post('/export', authenticateToken, checkPermission('invoice:export'), che
     res.send(buf);
   } catch (error) {
     logger.error('导出发票失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '导出失败', data: null });
+    next(error);
   }
 });
 

@@ -1,7 +1,7 @@
 <template>
   <div class="page-container">
     <div class="page-header">
-      <h2>知识库</h2>
+      <h2>销售资料</h2>
       <p class="page-desc">产品知识、销售话术、常见问题、文档模板一站式管理</p>
     </div>
 

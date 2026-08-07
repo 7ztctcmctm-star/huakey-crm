@@ -55,6 +55,7 @@ describe('销售目标模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ id: 2 }]]) // user exists check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // INSERT ON DUPLICATE KEY UPDATE
 
@@ -73,6 +74,7 @@ describe('销售目标模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // users
           { id: 1, real_name: '张三', dept_name: '销售部' },
           { id: 2, real_name: '李四', dept_name: '销售部' }
@@ -106,6 +108,7 @@ describe('销售目标模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 
       const res = await request(app)

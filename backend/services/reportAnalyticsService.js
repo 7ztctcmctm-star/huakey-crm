@@ -242,6 +242,7 @@ async function getSalesTrend(pool, params = {}) {
 async function getOverdueCustomers(pool, params = {}, userId, roleId) {
   const ROLES = require('../config/roles');
   const { getOverdueDays } = require('../utils/config');
+  const { POOL_STATUS } = require('../constants/poolStatus');
 
   const { page = 1, pageSize = 20 } = params;
   const safePageSize = Math.min(Math.max(1, parseInt(pageSize) || 20), 200);
@@ -251,7 +252,7 @@ async function getOverdueCustomers(pool, params = {}, userId, roleId) {
   const isAdmin = roleId === ROLES.ADMIN || roleId === ROLES.MANAGER;
   const isDeptManager = roleId === ROLES.MANAGER;
 
-  let whereClause = `WHERE c.pool_status = 0 AND c.deleted_at IS NULL AND c.owner_id IS NOT NULL
+  let whereClause = `WHERE c.pool_status = ? AND c.deleted_at IS NULL AND c.owner_id IS NOT NULL
     AND ((c.last_follow_time IS NULL AND c.create_time < NOW() - INTERVAL ${overdueDays} DAY)
       OR c.last_follow_time < NOW() - INTERVAL ${overdueDays} DAY)`;
 
@@ -263,7 +264,7 @@ async function getOverdueCustomers(pool, params = {}, userId, roleId) {
     }
   }
 
-  const queryParams = isAdmin ? [] : [userId];
+  const queryParams = isAdmin ? [POOL_STATUS.PRIVATE] : [POOL_STATUS.PRIVATE, userId];
 
   const [countResult] = await pool.query(
     `SELECT COUNT(*) as total FROM crm_customer c ${whereClause}`, queryParams

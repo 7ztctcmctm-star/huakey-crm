@@ -6,7 +6,9 @@
 let eventSource = null
 let reconnectTimer = null
 let reconnectAttempts = 0
+let stopped = false  // 标记是否被主动停止（登出时设为 true，禁止重连）
 const MAX_RECONNECT_DELAY = 30000
+const MAX_RECONNECT_ATTEMPTS = 10
 const messageCallbacks = new Set()
 
 /**
@@ -20,6 +22,7 @@ export function connectSSE(callbacks = {}) {
   if (callbacks.onMessage) messageCallbacks.add(callbacks.onMessage)
   if (eventSource) return
 
+  stopped = false
   const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1'
   const url = `${baseUrl}/sse/notifications`
 
@@ -44,7 +47,9 @@ export function connectSSE(callbacks = {}) {
   eventSource.onerror = (err) => {
     if (callbacks.onError) callbacks.onError(err)
     disconnectSSE()
-    scheduleReconnect(callbacks)
+    if (!stopped) {
+      scheduleReconnect(callbacks)
+    }
   }
 }
 
@@ -58,6 +63,10 @@ export function offMessage(callback) {
 
 function scheduleReconnect(callbacks) {
   if (reconnectTimer) return
+  if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+    console.warn('[SSE] 已达最大重连次数，停止重连')
+    return
+  }
   reconnectAttempts += 1
   const delay = Math.min(1000 * 2 ** reconnectAttempts, MAX_RECONNECT_DELAY)
   reconnectTimer = setTimeout(() => {
@@ -67,9 +76,10 @@ function scheduleReconnect(callbacks) {
 }
 
 /**
- * 断开 SSE 连接
+ * 断开 SSE 连接（主动停止，不触发重连）
  */
 export function disconnectSSE() {
+  stopped = true
   if (reconnectTimer) {
     clearTimeout(reconnectTimer)
     reconnectTimer = null
@@ -85,5 +95,6 @@ export function disconnectSSE() {
  */
 export function reconnectSSE(callbacks = {}) {
   disconnectSSE()
+  stopped = false
   connectSSE(callbacks)
 }

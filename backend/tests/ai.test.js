@@ -9,7 +9,16 @@ const mockPool = {
   getConnection: jest.fn().mockResolvedValue({ release: jest.fn() })
 };
 
-jest.mock('../config/database', () => mockPool);
+const mockReadOnlyPool = {
+  query: jest.fn()
+};
+
+jest.mock('../config/database', () => ({
+  query: mockPool.query.bind(mockPool),
+  getConnection: mockPool.getConnection.bind(mockPool),
+  readOnlyPool: mockReadOnlyPool,
+  isReadOnlyPoolAvailable: true
+}));
 
 jest.mock('../middleware/logger', () => ({
   logAction: jest.fn().mockResolvedValue(undefined),
@@ -89,6 +98,7 @@ describe('AI模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[ // list
           { id: 1, type: 'follow_up', ref_id: 1, suggestion: '建议跟进客户', confidence: 0.85 }

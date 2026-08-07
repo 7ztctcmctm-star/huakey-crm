@@ -2,7 +2,7 @@
  * 迁移 roundtrip 测试启动器 (Phase 8)
  *
  * 用法: node backend/tests/run-migration-test.js
- * 环境: 需要 docker-compose.ci.yml, DB_PORT=3307, DB_NAME=huakey_crm_test
+ * 环境: 需要 docker-compose.ci.yml, DB_NAME=huakey_crm_test
  */
 
 const { execSync } = require('child_process');
@@ -46,7 +46,7 @@ async function main() {
       cwd: path.join(ROOT, 'backend'),
       env: {
         ...process.env,
-        DB_PORT: '3307',
+        DB_PORT: '3306',
         DB_NAME: 'huakey_crm_test',
         DB_PASSWORD: 'test_root_pass',
         NODE_ENV: 'test',

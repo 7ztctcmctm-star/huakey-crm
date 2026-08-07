@@ -43,17 +43,17 @@ const clearSchema = Joi.object({
   days: Joi.number().integer().min(1).max(365).default(30)
 });
 
-router.post('/list', authenticateToken, checkPermission('system:log'), validate(listSchema), async (req, res) => {
+router.post('/list', authenticateToken, checkPermission('system:log'), validate(listSchema), async (req, res, next) => {
   try {
     const result = await logService.listLogs(pool, req.body);
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
     logger.error('查询日志失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
-router.get('/detail/:id', authenticateToken, async (req, res) => {
+router.get('/detail/:id', authenticateToken, async (req, res, next) => {
   try {
     const log = await logService.getLogDetail(pool, req.params.id);
     if (!log) {
@@ -62,41 +62,41 @@ router.get('/detail/:id', authenticateToken, async (req, res) => {
     res.json({ code: 200, message: '查询成功', data: log });
   } catch (error) {
     logger.error('查询日志详情失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
-router.get('/modules', authenticateToken, async (req, res) => {
+router.get('/modules', authenticateToken, async (req, res, next) => {
   try {
     const modules = await logService.getModules(pool);
     res.json({ code: 200, message: '查询成功', data: modules });
   } catch (error) {
     logger.error('查询模块失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
-router.post('/delete', authenticateToken, requireAdmin, validate(deleteSchema), async (req, res) => {
+router.post('/delete', authenticateToken, requireAdmin, validate(deleteSchema), async (req, res, next) => {
   try {
     const count = await logService.deleteLogs(pool, req.body.ids);
     res.json({ code: 200, message: `成功删除 ${count} 条日志`, data: null });
   } catch (error) {
     logger.error('删除日志失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '删除失败', data: null });
+    next(error);
   }
 });
 
-router.post('/clear', authenticateToken, requireAdmin, validate(clearSchema), async (req, res) => {
+router.post('/clear', authenticateToken, requireAdmin, validate(clearSchema), async (req, res, next) => {
   try {
     const count = await logService.clearLogs(pool, req.body.days);
     res.json({ code: 200, message: `成功清理 ${count} 条过期日志`, data: null });
   } catch (error) {
     logger.error('清理日志失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '清理失败', data: null });
+    next(error);
   }
 });
 
-router.post('/export', authenticateToken, checkPermission('log:export'), requireAdmin, validate(exportSchema), async (req, res) => {
+router.post('/export', authenticateToken, checkPermission('log:export'), requireAdmin, validate(exportSchema), async (req, res, next) => {
   try {
     const buf = await logService.exportLogs(pool, req.body);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -104,7 +104,7 @@ router.post('/export', authenticateToken, checkPermission('log:export'), require
     res.send(buf);
   } catch (error) {
     logger.error('导出日志失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '导出失败', data: null });
+    next(error);
   }
 });
 

@@ -7,7 +7,7 @@
 
 // --- 1. 设置环境变量（必须在任何 require 之前） ---
 process.env.DB_HOST = process.env.DB_HOST || '127.0.0.1';
-process.env.DB_PORT = process.env.DB_PORT || '3307';
+process.env.DB_PORT = process.env.DB_PORT || '3306';
 process.env.DB_USER = process.env.DB_USER || 'crm_test';
 process.env.DB_PASSWORD = process.env.DB_PASSWORD || 'test_pass';
 process.env.DB_NAME = process.env.DB_NAME || 'huakey_crm_test';
@@ -28,11 +28,20 @@ const path = require('path');
 // --- 2. 运行数据库迁移 ---
 function runMigrations() {
   const projectRoot = path.resolve(__dirname, '../../');
-  execSync('node database/migrations/run_migrations.js', {
-    cwd: projectRoot,
-    stdio: 'pipe',
-    env: { ...process.env }
-  });
+  try {
+    execSync('node database/migrations/run_migrations.js', {
+      cwd: projectRoot,
+      stdio: 'pipe',
+      env: { ...process.env }
+    });
+  } catch (err) {
+    // 输出迁移脚本的 stderr/stdout，便于诊断 CI 失败
+    console.error('[setup-integration] 迁移执行失败:');
+    if (err.stdout) console.error('[stdout]:', err.stdout.toString());
+    if (err.stderr) console.error('[stderr]:', err.stderr.toString());
+    console.error('[error]:', err.message);
+    throw err;
+  }
 }
 
 // --- 3. 获取 pool 和 app ---

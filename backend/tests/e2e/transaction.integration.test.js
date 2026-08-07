@@ -32,11 +32,17 @@ describe('事务回滚', () => {
     // 插入测试用户
     const hash = await bcrypt.hash(ADMIN.password, 10);
     await pool.query(
-      `INSERT INTO sys_user (username, password, real_name, role_id, status)
-       VALUES (?, ?, ?, 1, 1)
-       ON DUPLICATE KEY UPDATE password = VALUES(password), status = 1`,
+      `INSERT INTO sys_user (username, password, real_name, role_id, status, must_change_password)
+       VALUES (?, ?, ?, 1, 1, 0)
+       ON DUPLICATE KEY UPDATE password = VALUES(password), status = 1, must_change_password = 0`,
       [ADMIN.username, hash, ADMIN.real_name]
     );
+
+    // 查询实际用户 ID（避免硬编码 owner_id=1 导致外键约束失败）
+    const [userRows] = await pool.query(
+      'SELECT id FROM sys_user WHERE username = ?', [ADMIN.username]
+    );
+    const userId = userRows[0].id;
 
     // 登录（httpOnly Cookie 认证）
     const loginRes = await agent
@@ -48,10 +54,11 @@ describe('事务回滚', () => {
     const meRes = await agent.get('/api/v1/auth/me');
     expect(meRes.body.code).toBe(200);
 
-    // 创建测试客户（status=2 正式客户，用于合同测试）
+    // 创建测试客户（status='signed' 正式客户，用于合同测试）
     const [custResult] = await pool.query(
       `INSERT INTO crm_customer (company_name, contact_name, phone, status, owner_id)
-       VALUES ('事务测试公司', '李四', '13900139000', 2, 1)`
+       VALUES ('事务测试公司', '李四', '13900139000', 'signed', ?)`,
+      [userId]
     );
     customerId = custResult.insertId;
 
@@ -75,8 +82,9 @@ describe('事务回滚', () => {
 
   describe('报价事务', () => {
     test('引用不存在的产品 → 事务回滚，quote 表无新增', async () => {
-      // 记录操作前的 quote 数量
+      // 记录操作前的 quote / quote_item 数量（避免历史数据污染断言）
       const [before] = await pool.query('SELECT COUNT(*) as cnt FROM crm_quote');
+      const [beforeItem] = await pool.query('SELECT COUNT(*) as cnt FROM crm_quote_item');
 
       const res = await agent
         .post('/api/v1/quote/add')
@@ -94,10 +102,9 @@ describe('事务回滚', () => {
       const [after] = await pool.query('SELECT COUNT(*) as cnt FROM crm_quote');
       expect(after[0].cnt).toBe(before[0].cnt);
 
-      // 验证 quote_item 表也没有新增
+      // 验证 quote_item 表也没有新增（用 before/after 比较，兼容历史数据）
       const [items] = await pool.query('SELECT COUNT(*) as cnt FROM crm_quote_item');
-      // 数量不变（这里只检查总量，因为 before 中 quote_item 也是 0）
-      expect(items[0].cnt).toBe(0);
+      expect(items[0].cnt).toBe(beforeItem[0].cnt);
     });
 
     test('有效数据 → 事务提交，quote 和 quote_item 都有新增', async () => {

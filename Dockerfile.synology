@@ -17,7 +17,9 @@ WORKDIR /app
 
 # 安装后端依赖
 COPY backend/package.json backend/package-lock.json* ./
-RUN npm ci --production
+# 安装 mysql-client 以支持应用内数据库备份
+RUN apk add --no-cache mysql-client
+RUN npm ci --omit=dev
 
 # 复制后端代码
 COPY backend/ .
@@ -42,4 +44,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget -qO- http://localhost:5000/api/v1/health || exit 1
 
 # 先运行数据库迁移，再启动应用
-CMD ["sh", "-c", "node database/migrate.js && node app.js"]
+# exec 确保 node app.js 成为 PID 1 直接接收 SIGTERM，优雅停机代码得以执行
+CMD ["sh", "-c", "node database/migrate.js && exec node app.js"]

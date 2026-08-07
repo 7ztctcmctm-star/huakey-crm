@@ -7,6 +7,8 @@
 
 const ROLES = require('../config/roles');
 const { CUSTOMER_STATUS } = require('../constants/customerStatus');
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 
 /**
  * 线索数据权限子句构建
@@ -116,9 +118,7 @@ async function convertLead(pool, id, userId) {
       [id, CUSTOMER_STATUS.FOLLOWING]
     );
     if (rows.length === 0) {
-      const err = new Error('线索不存在或已分配');
-      err.code = 404;
-      throw err;
+      throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '线索不存在或已分配');
     }
 
     const lead = rows[0];
@@ -220,9 +220,7 @@ async function claimLead(pool, id, userId) {
     [id, CUSTOMER_STATUS.FOLLOWING]
   );
   if (rows.length === 0) {
-    const err = new Error('线索不存在或已被领取');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '线索不存在或已被领取');
   }
 
   const [userInfo] = await pool.query(
@@ -247,13 +245,11 @@ async function claimLead(pool, id, userId) {
  */
 async function markLeadLost(pool, id, userId) {
   const [rows] = await pool.query(
-    `SELECT id FROM crm_customer WHERE id = ? AND status = ? AND owner_id = ?`,
+    `SELECT id FROM crm_customer WHERE id = ? AND status = ? AND owner_id = ? AND deleted_at IS NULL`,
     [id, CUSTOMER_STATUS.FOLLOWING, userId]
   );
   if (rows.length === 0) {
-    const err = new Error('线索不存在或无权操作');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '线索不存在或无权操作');
   }
 
   await pool.query(

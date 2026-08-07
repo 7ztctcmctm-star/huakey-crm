@@ -106,6 +106,7 @@ describe('采购管理模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // list
           { id: 1, order_no: 'PO-260623-001', title: '6月采购单', status: '草稿' },
           { id: 2, order_no: 'PO-260623-002', title: '紧急采购', status: '已确认' }
@@ -129,6 +130,7 @@ describe('采购管理模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update status
 
       const res = await request(app)

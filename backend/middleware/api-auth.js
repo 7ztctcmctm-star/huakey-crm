@@ -9,7 +9,7 @@ const apiAuth = async (req, res, next) => {
 
   try {
     const [[key]] = await pool.query(
-      'SELECT * FROM crm_api_key WHERE api_key = ? AND deleted_at IS NULL',
+      'SELECT id, name, status, expires_at, permissions FROM crm_api_key WHERE api_key = ? AND deleted_at IS NULL',
       [apiKey]
     );
 

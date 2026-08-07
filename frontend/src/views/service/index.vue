@@ -329,7 +329,7 @@
     </el-dialog>
 
     <!-- FAQ查询弹窗 -->
-    <el-dialog v-model="faqVisible" title="查询知识库FAQ" width="500px">
+    <el-dialog v-model="faqVisible" title="查询销售资料FAQ" width="500px">
       <el-input v-model="faqKeyword" placeholder="搜索FAQ" clearable style="margin-bottom: 12px;" @input="fetchFaqs" />
       <div v-loading="faqLoading" style="max-height: 350px; overflow-y: auto;">
         <div v-for="item in faqList" :key="item.id" class="faq-item" @click="item._expanded = !item._expanded">
@@ -371,7 +371,7 @@ const loading = ref(false)
 const tableData = ref([])
 // [新增] 视图切换：全部/我的工单（非管理员默认显示我的工单）
 const currentUserId = computed(() => userInfo.value?.userId || userInfo.value?.id)
-const isAdmin = computed(() => userInfo.value?.roleId === 1 || userInfo.value?.roleId === 2 || userInfo.value?.manageAll)
+const isAdmin = computed(() => userInfo.value?.manageAll === true)
 const viewMode = ref(isAdmin.value ? 'all' : 'mine')
 const quickFilter = ref('')
 const selectedServiceRows = ref([])

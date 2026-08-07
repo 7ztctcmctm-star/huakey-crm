@@ -7,9 +7,36 @@ const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
 const { buildDataPermissionWhere } = require('../middleware/permission');
 /**
+ * 敏感字段中英文映射（导出表头 ↔ fieldPermissions.js 字段名）
+ */
+const FIELD_HEADER_MAP = {
+  amount: '合同金额'
+};
+
+/**
+ * 根据字段权限移除导出数据中的敏感列
+ * @param {Array} data - 导出数据
+ * @param {string[]} restrictedFields - 受限字段英文名列表
+ */
+function stripExportFields(data, restrictedFields) {
+  if (!restrictedFields || restrictedFields.length === 0 || !Array.isArray(data)) return data;
+  for (const row of data) {
+    for (const field of restrictedFields) {
+      // 同时删除英文原始字段 key 与中文表头 key，兼容不同导出格式
+      delete row[field];
+      const header = FIELD_HEADER_MAP[field];
+      if (header) {
+        delete row[header];
+      }
+    }
+  }
+  return data;
+}
+
+/**
  * 导出合同列表
  */
-async function exportContracts(pool, { keyword = '', status = '' }, dataPermission) {
+async function exportContracts(pool, { keyword = '', status = '' }, dataPermission, restrictedFields = []) {
   const { clause: permissionClause, params: permParams } = await buildDataPermissionWhere(dataPermission, 'c');
 
   let sql = `SELECT c.contract_no, cu.company_name as customer_name, c.amount,
@@ -42,6 +69,8 @@ async function exportContracts(pool, { keyword = '', status = '' }, dataPermissi
     '创建人': row.create_by_name || '',
     '备注': row.remark || ''
   }));
+
+  stripExportFields(exportData, restrictedFields);
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(exportData);

@@ -7,6 +7,12 @@ const {
   CUSTOMER_STATUS_PIPELINE,
   isValidCustomerStatus
 } = require('../constants/customerStatus');
+const {
+  POOL_STATUS,
+  BUSINESS_STATUS,
+  FORMAL_BUSINESS_STATUSES,
+  isValidBusinessStatus
+} = require('../constants/poolStatus');
 const { paginatedQuery } = require('../utils/pagination');
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
@@ -211,7 +217,7 @@ async function listCustomers(pool, params = {}, permission = null) {
     queryParams.push(overdueDays);
   }
   if (unassigned) {
-    whereClause += ' AND (c.owner_id IS NULL OR c.owner_id = 0 OR c.pool_status = 1)';
+    whereClause += ' AND c.owner_id IS NULL';
   }
   if (overdue_follow) {
     whereClause += ' AND c.last_follow_time IS NOT NULL AND DATEDIFF(NOW(), c.last_follow_time) > 7';
@@ -454,8 +460,8 @@ async function assignCustomer(pool, customerId, toUserId, operatorId, remark) {
   const fromUserId = customers[0].owner_id;
 
   await pool.query(
-    'UPDATE crm_customer SET owner_id = ?, pool_status = 0, protect_until = NULL WHERE id = ?',
-    [toUserId || null, customerId]
+    'UPDATE crm_customer SET owner_id = ?, pool_status = ?, protect_until = NULL WHERE id = ?',
+    [toUserId || null, POOL_STATUS.PRIVATE, customerId]
   );
 
   await pool.query(
@@ -480,26 +486,33 @@ async function batchAssignCustomers(pool, customerIds, toUserId, operatorId, rem
   try {
     await connection.beginTransaction();
 
-    let successCount = 0;
-    for (const customerId of customerIds) {
-      const [customers] = await connection.query(
-        'SELECT id, company_name, owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
-        [customerId]
-      );
-      if (customers.length === 0) continue;
-
+    // 批量查询所有客户（1次 SQL）
+    const placeholders = customerIds.map(() => '?').join(',');
+    const [allCustomers] = await connection.query(
+      `SELECT id, company_name, owner_id FROM crm_customer WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
+      customerIds
+    );
+    // 批量 UPDATE（1次 SQL）
+    const existingIds = allCustomers.map(c => c.id);
+    if (existingIds.length > 0) {
       await connection.query(
-        'UPDATE crm_customer SET owner_id = ?, pool_status = 0, protect_until = NULL WHERE id = ?',
-        [toUserId, customerId]
+        `UPDATE crm_customer SET owner_id = ?, pool_status = ?, protect_until = NULL WHERE id IN (${existingIds.map(() => '?').join(',')})`,
+        [toUserId, POOL_STATUS.PRIVATE, ...existingIds]
       );
 
+      // 批量 INSERT 分配日志（1次 SQL）
+      const logValues = [];
+      const logParams = [];
+      for (const c of allCustomers) {
+        logValues.push('(?, ?, ?, ?, ?)');
+        logParams.push(c.id, c.owner_id, toUserId, operatorId, remark || null);
+      }
       await connection.query(
-        `INSERT INTO crm_assign_log (customer_id, from_user_id, to_user_id, operator_id, remark) VALUES (?, ?, ?, ?, ?)`,
-        [customerId, customers[0].owner_id, toUserId, operatorId, remark || null]
+        `INSERT INTO crm_assign_log (customer_id, from_user_id, to_user_id, operator_id, remark) VALUES ${logValues.join(',')}`,
+        logParams
       );
-
-      successCount++;
     }
+    const successCount = allCustomers.length;
 
     await connection.commit();
     return { count: successCount };
@@ -529,7 +542,7 @@ async function claimCustomer(pool, customerId, userId) {
 
   const customer = customers[0];
 
-  if (customer.pool_status !== 1) {
+  if (customer.pool_status !== POOL_STATUS.SEA) {
     throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户不在公海中');
   }
 
@@ -542,8 +555,8 @@ async function claimCustomer(pool, customerId, userId) {
   protectUntil.setDate(protectUntil.getDate() + 7);
 
   await pool.query(
-    'UPDATE crm_customer SET pool_status = 0, owner_id = ?, protect_until = ?, last_follow_time = NOW() WHERE id = ?',
-    [userId, protectUntil, customerId]
+    'UPDATE crm_customer SET pool_status = ?, owner_id = ?, protect_until = ?, last_follow_time = NOW() WHERE id = ?',
+    [POOL_STATUS.PRIVATE, userId, protectUntil, customerId]
   );
 
   await pool.query(
@@ -570,8 +583,8 @@ async function releaseCustomer(pool, customerId, userId) {
   }
 
   await pool.query(
-    'UPDATE crm_customer SET pool_status = 1, owner_id = NULL, protect_until = NULL WHERE id = ?',
-    [customerId]
+    'UPDATE crm_customer SET pool_status = ?, owner_id = NULL, protect_until = NULL WHERE id = ?',
+    [POOL_STATUS.SEA, customerId]
   );
 
   await pool.query(
@@ -659,12 +672,12 @@ async function getNearRecycleCustomersList(pool, params = {}, permission = null)
 
   const [countResult] = await pool.query(
     `SELECT COUNT(*) as total FROM crm_customer c
-     WHERE c.pool_status = 0 AND c.deleted_at IS NULL AND c.owner_id IS NOT NULL
+     WHERE c.pool_status = ? AND c.deleted_at IS NULL AND c.owner_id IS NOT NULL
        AND c.status = 'following'
        AND (c.last_follow_time IS NULL AND c.create_time < NOW() - INTERVAL ? DAY
          OR c.last_follow_time < NOW() - INTERVAL ? DAY)
        AND ${permissionWhere}`,
-    [nearDays, nearDays, ...permParams]
+    [POOL_STATUS.PRIVATE, nearDays, nearDays, ...permParams]
   );
 
   const [list] = await pool.query(
@@ -674,14 +687,14 @@ async function getNearRecycleCustomersList(pool, params = {}, permission = null)
             u.real_name as owner_name
      FROM crm_customer c
      LEFT JOIN sys_user u ON c.owner_id = u.id
-     WHERE c.pool_status = 0 AND c.deleted_at IS NULL AND c.owner_id IS NOT NULL
+     WHERE c.pool_status = ? AND c.deleted_at IS NULL AND c.owner_id IS NOT NULL
        AND c.status = 'following'
        AND (c.last_follow_time IS NULL AND c.create_time < NOW() - INTERVAL ? DAY
          OR c.last_follow_time < NOW() - INTERVAL ? DAY)
        AND ${permissionWhere}
      ORDER BY overdue_days DESC
      LIMIT ? OFFSET ?`,
-    [nearDays, nearDays, ...permParams, pageSize, offset]
+    [POOL_STATUS.PRIVATE, nearDays, nearDays, ...permParams, pageSize, offset]
   );
 
   return {
@@ -695,6 +708,7 @@ async function getNearRecycleCustomersList(pool, params = {}, permission = null)
 /**
  * 潜客转化为正式客户（Prompt 4-1）
  * 将 customer_type 从 prospect 更新为 customer，lifecycle_status 置为 active
+ * 同步更新 business_status: lead → following
  * @param {object} pool
  * @param {number} id
  * @param {number} userId
@@ -702,7 +716,7 @@ async function getNearRecycleCustomersList(pool, params = {}, permission = null)
  */
 async function convertToCustomer(pool, id) {
   const [rows] = await pool.query(
-    'SELECT id, company_name, customer_type FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+    'SELECT id, company_name, customer_type, business_status FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [id]
   );
   if (rows.length === 0) {
@@ -717,11 +731,435 @@ async function convertToCustomer(pool, id) {
   try {
     await connection.beginTransaction();
     await connection.query(
-      'UPDATE crm_customer SET customer_type = ?, lifecycle_status = ? WHERE id = ?',
-      ['customer', 'active', id]
+      'UPDATE crm_customer SET customer_type = ?, lifecycle_status = ?, business_status = ? WHERE id = ?',
+      ['customer', 'active', BUSINESS_STATUS.FOLLOWING, id]
     );
     await connection.commit();
     return { id, company_name: customer.company_name };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+// ============================================================
+// Phase 2: 客户中心三页面查询 + 业务操作方法
+// ============================================================
+
+/**
+ * 查询潜客池列表（business_status='lead'）
+ * @param {object} pool
+ * @param {object} params - { page, pageSize, company_name, contact_name, phone, source, lead_level, owner_id, sort }
+ * @param {object} [permission] - { clause, params } 数据权限片段
+ * @returns {{ list: Array, total: number }}
+ */
+async function listLeads(pool, params = {}, permission = null) {
+  const {
+    page = 1, pageSize = 10,
+    company_name, contact_name, phone, source, lead_level, owner_id, sort
+  } = params;
+
+  const queryParams = [];
+  let permissionWhere = '1=1';
+  let permParams = [];
+  if (permission && permission.clause) {
+    permissionWhere = permission.clause;
+    permParams = permission.params || [];
+  }
+  queryParams.push(...permParams);
+
+  // 核心过滤：business_status='lead' + 未删除
+  let whereClause = `WHERE ${permissionWhere} AND c.business_status = ? AND c.deleted_at IS NULL`;
+  queryParams.push(BUSINESS_STATUS.LEAD);
+
+  if (owner_id !== undefined && owner_id !== null && owner_id !== '') {
+    whereClause += ' AND c.owner_id = ?';
+    queryParams.push(owner_id);
+  }
+  if (company_name) {
+    whereClause += ' AND c.company_name LIKE ?';
+    queryParams.push(`%${company_name}%`);
+  }
+  if (contact_name) {
+    whereClause += ' AND pc.name LIKE ?';
+    queryParams.push(`%${contact_name}%`);
+  }
+  if (phone) {
+    whereClause += ' AND pc.phone LIKE ?';
+    queryParams.push(`%${phone}%`);
+  }
+  if (source) {
+    if (SOURCE_PARENT_MAP[source]) {
+      const children = SOURCE_PARENT_MAP[source];
+      whereClause += ` AND c.source IN (${children.map(() => '?').join(',')})`;
+      queryParams.push(...children);
+    } else {
+      whereClause += ' AND c.source = ?';
+      queryParams.push(source);
+    }
+  }
+  if (lead_level) {
+    whereClause += ' AND c.lead_level = ?';
+    queryParams.push(lead_level);
+  }
+
+  const orderBy = SORT_MAP[sort] || 'c.create_time DESC';
+
+  const { list, total } = await paginatedQuery(pool, {
+    baseQuery: `SELECT
+      c.id, c.company_name,
+      pc.name as primary_contact_name, pc.phone as primary_contact_phone, pc.email as primary_contact_email,
+      c.address, c.industry, c.source, c.level, c.lead_level, c.follow_status,
+      c.owner_id, c.business_status, c.pool_status, c.remark,
+      c.create_time, c.last_follow_time, c.converted_at,
+      (SELECT f.next_time FROM crm_follow_up f
+       WHERE f.customer_id = c.id AND f.deleted_at IS NULL
+       ORDER BY f.create_time DESC LIMIT 1) as next_follow_time,
+      u.real_name as owner_name
+    FROM crm_customer c
+    LEFT JOIN sys_user u ON c.owner_id = u.id
+    LEFT JOIN crm_contact pc ON pc.customer_id = c.id AND pc.is_primary = 1 AND pc.deleted_at IS NULL
+    ${whereClause}`,
+    countQuery: `SELECT COUNT(DISTINCT c.id) as total
+      FROM crm_customer c
+      LEFT JOIN crm_contact pc ON pc.customer_id = c.id AND pc.is_primary = 1 AND pc.deleted_at IS NULL
+      ${whereClause}`,
+    params: queryParams,
+    page, pageSize, orderBy
+  });
+
+  return { list, total };
+}
+
+/**
+ * 查询正式客户列表（business_status IN following/quoted/negotiating/signed 且 pool_status='private'）
+ * @param {object} pool
+ * @param {object} params - { page, pageSize, company_name, contact_name, phone, source, level, business_status, owner_id, start_date, end_date, sort }
+ * @param {object} [permission] - { clause, params }
+ * @returns {{ list: Array, total: number }}
+ */
+async function listFormalCustomers(pool, params = {}, permission = null) {
+  const {
+    page = 1, pageSize = 10,
+    company_name, contact_name, phone, source, level, business_status, owner_id,
+    start_date, end_date, sort
+  } = params;
+
+  const queryParams = [];
+  let permissionWhere = '1=1';
+  let permParams = [];
+  if (permission && permission.clause) {
+    permissionWhere = permission.clause;
+    permParams = permission.params || [];
+  }
+  queryParams.push(...permParams);
+
+  // 核心过滤：正式客户状态 + private + 未删除
+  const formalPlaceholders = FORMAL_BUSINESS_STATUSES.map(() => '?').join(',');
+  let whereClause = `WHERE ${permissionWhere} AND c.business_status IN (${formalPlaceholders}) AND c.pool_status = ? AND c.deleted_at IS NULL`;
+  queryParams.push(...FORMAL_BUSINESS_STATUSES, POOL_STATUS.PRIVATE);
+
+  if (owner_id) {
+    whereClause += ' AND c.owner_id = ?';
+    queryParams.push(owner_id);
+  }
+  if (company_name) {
+    whereClause += ' AND c.company_name LIKE ?';
+    queryParams.push(`%${company_name}%`);
+  }
+  if (contact_name) {
+    whereClause += ' AND pc.name LIKE ?';
+    queryParams.push(`%${contact_name}%`);
+  }
+  if (phone) {
+    whereClause += ' AND pc.phone LIKE ?';
+    queryParams.push(`%${phone}%`);
+  }
+  if (source) {
+    if (SOURCE_PARENT_MAP[source]) {
+      const children = SOURCE_PARENT_MAP[source];
+      whereClause += ` AND c.source IN (${children.map(() => '?').join(',')})`;
+      queryParams.push(...children);
+    } else {
+      whereClause += ' AND c.source = ?';
+      queryParams.push(source);
+    }
+  }
+  if (level) {
+    whereClause += ' AND c.level = ?';
+    queryParams.push(level);
+  }
+  if (business_status && isValidBusinessStatus(business_status)) {
+    whereClause += ' AND c.business_status = ?';
+    queryParams.push(business_status);
+  }
+  if (start_date) {
+    whereClause += ' AND c.create_time >= ?';
+    queryParams.push(start_date);
+  }
+  if (end_date) {
+    whereClause += ' AND c.create_time < ?';
+    queryParams.push(end_date + ' 23:59:59');
+  }
+
+  const orderBy = SORT_MAP[sort] || 'c.create_time DESC';
+
+  const { list, total } = await paginatedQuery(pool, {
+    baseQuery: `SELECT
+      c.id, c.company_name,
+      pc.name as primary_contact_name, pc.phone as primary_contact_phone, pc.email as primary_contact_email,
+      c.address, c.industry, c.source, c.level,
+      c.owner_id, c.business_status, c.pool_status, c.remark,
+      c.create_time, c.update_time, c.last_follow_time, c.converted_at,
+      (SELECT COUNT(*) FROM crm_opportunity o WHERE o.customer_id = c.id AND o.deleted_at IS NULL) as opportunity_count,
+      (SELECT COUNT(*) FROM crm_contract ct WHERE ct.customer_id = c.id AND ct.deleted_at IS NULL) as contract_count,
+      (SELECT f.next_time FROM crm_follow_up f
+       WHERE f.customer_id = c.id AND f.deleted_at IS NULL
+       ORDER BY f.create_time DESC LIMIT 1) as next_follow_time,
+      u.real_name as owner_name
+    FROM crm_customer c
+    LEFT JOIN sys_user u ON c.owner_id = u.id
+    LEFT JOIN crm_contact pc ON pc.customer_id = c.id AND pc.is_primary = 1 AND pc.deleted_at IS NULL
+    ${whereClause}`,
+    countQuery: `SELECT COUNT(DISTINCT c.id) as total
+      FROM crm_customer c
+      LEFT JOIN crm_contact pc ON pc.customer_id = c.id AND pc.is_primary = 1 AND pc.deleted_at IS NULL
+      ${whereClause}`,
+    params: queryParams,
+    page, pageSize, orderBy
+  });
+
+  return { list, total };
+}
+
+/**
+ * 查询公海池列表（pool_status='sea' 且 business_status != 'lead'）
+ * @param {object} pool
+ * @param {object} params - { page, pageSize, company_name, industry, source, level, sort }
+ * @param {object} [permission] - { clause, params }
+ * @returns {{ list: Array, total: number }}
+ */
+async function listPoolCustomersNew(pool, params = {}, permission = null) {
+  const {
+    page = 1, pageSize = 10,
+    company_name, industry, source, level, sort
+  } = params;
+
+  const queryParams = [];
+  let permissionWhere = '1=1';
+  let permParams = [];
+  if (permission && permission.clause) {
+    permissionWhere = permission.clause;
+    permParams = permission.params || [];
+  }
+  queryParams.push(...permParams);
+
+  // 核心过滤：公海 + 排除 lead 客户 + 未删除
+  let whereClause = `WHERE ${permissionWhere} AND c.pool_status = ? AND c.business_status != ? AND c.deleted_at IS NULL`;
+  queryParams.push(POOL_STATUS.SEA, BUSINESS_STATUS.LEAD);
+
+  if (company_name) {
+    whereClause += ' AND c.company_name LIKE ?';
+    queryParams.push(`%${company_name}%`);
+  }
+  if (industry) {
+    whereClause += ' AND c.industry = ?';
+    queryParams.push(industry);
+  }
+  if (source) {
+    if (SOURCE_PARENT_MAP[source]) {
+      const children = SOURCE_PARENT_MAP[source];
+      whereClause += ` AND c.source IN (${children.map(() => '?').join(',')})`;
+      queryParams.push(...children);
+    } else {
+      whereClause += ' AND c.source = ?';
+      queryParams.push(source);
+    }
+  }
+  if (level) {
+    whereClause += ' AND c.level = ?';
+    queryParams.push(level);
+  }
+
+  const orderBy = SORT_MAP[sort] || 'c.create_time DESC';
+
+  const { list, total } = await paginatedQuery(pool, {
+    baseQuery: `SELECT
+      c.id, c.company_name,
+      pc.name as primary_contact_name, pc.phone as primary_contact_phone, pc.email as primary_contact_email,
+      c.industry, c.source, c.level, c.business_status, c.pool_status,
+      c.protect_until, c.last_follow_time, c.create_time, c.update_time,
+      (SELECT pl.create_time FROM crm_pool_log pl
+       WHERE pl.customer_id = c.id AND pl.action IN ('release', 'auto_release')
+       ORDER BY pl.create_time DESC LIMIT 1) as released_at,
+      (SELECT pl.from_user_id FROM crm_pool_log pl
+       WHERE pl.customer_id = c.id AND pl.action IN ('release', 'auto_release')
+       ORDER BY pl.create_time DESC LIMIT 1) as released_by_id,
+      pu.real_name as released_by_name,
+      u.real_name as owner_name
+    FROM crm_customer c
+    LEFT JOIN sys_user u ON c.owner_id = u.id
+    LEFT JOIN crm_contact pc ON pc.customer_id = c.id AND pc.is_primary = 1 AND pc.deleted_at IS NULL
+    LEFT JOIN sys_user pu ON pu.id = (
+      SELECT pl.from_user_id FROM crm_pool_log pl
+      WHERE pl.customer_id = c.id AND pl.action IN ('release', 'auto_release')
+      ORDER BY pl.create_time DESC LIMIT 1
+    )
+    ${whereClause}`,
+    countQuery: `SELECT COUNT(DISTINCT c.id) as total
+      FROM crm_customer c
+      ${whereClause}`,
+    params: queryParams,
+    page, pageSize, orderBy
+  });
+
+  return { list, total };
+}
+
+/**
+ * 潜客转正式客户（Phase 2 增强版）
+ * 将 business_status 从 lead 改为 following，同步 customer_type、lifecycle_status
+ * @param {object} pool
+ * @param {number} customerId
+ * @param {number} operatorId
+ * @returns {{ id: number, company_name: string, from_status: string, to_status: string }}
+ */
+async function convertLeadToCustomer(pool, customerId, operatorId) {
+  const [rows] = await pool.query(
+    'SELECT id, company_name, customer_type, business_status, owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+    [customerId]
+  );
+  if (rows.length === 0) {
+    throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);
+  }
+  const customer = rows[0];
+  if (customer.business_status !== BUSINESS_STATUS.LEAD) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户不是线索，无法转化');
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    await connection.query(
+      `UPDATE crm_customer
+       SET customer_type = ?, lifecycle_status = ?, business_status = ?, converted_at = NOW(), update_time = NOW()
+       WHERE id = ?`,
+      ['customer', 'active', BUSINESS_STATUS.FOLLOWING, customerId]
+    );
+    await connection.query(
+      `INSERT INTO crm_assign_log (customer_id, from_user_id, to_user_id, operator_id, remark)
+       VALUES (?, ?, ?, ?, '潜客转正式客户')`,
+      [customerId, customer.owner_id, customer.owner_id || operatorId, operatorId]
+    );
+    await connection.commit();
+    return {
+      id: customerId,
+      company_name: customer.company_name,
+      from_status: BUSINESS_STATUS.LEAD,
+      to_status: BUSINESS_STATUS.FOLLOWING
+    };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+/**
+ * 释放客户到公海（Phase 2 增强版）
+ * 仅限非 lead 客户，释放后 pool_status='sea', owner_id=NULL
+ * @param {object} pool
+ * @param {number} customerId
+ * @param {number} operatorId
+ * @param {string} [reason]
+ * @returns {{ id: number, company_name: string }}
+ */
+async function releaseCustomerToPool(pool, customerId, operatorId, _reason) {
+  const [rows] = await pool.query(
+    'SELECT id, company_name, business_status, owner_id, pool_status FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+    [customerId]
+  );
+  if (rows.length === 0) {
+    throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);
+  }
+  const customer = rows[0];
+  if (customer.business_status === BUSINESS_STATUS.LEAD) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '线索客户不能释放到公海，请使用"放弃"操作');
+  }
+  if (customer.pool_status === POOL_STATUS.SEA) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已在公海中');
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    await connection.query(
+      'UPDATE crm_customer SET pool_status = ?, owner_id = NULL, protect_until = NULL, update_time = NOW() WHERE id = ?',
+      [POOL_STATUS.SEA, customerId]
+    );
+    await connection.query(
+      `INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id)
+       VALUES (?, 'release', ?, NULL)`,
+      [customerId, customer.owner_id || operatorId]
+    );
+    await connection.commit();
+    return { id: customerId, company_name: customer.company_name };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+/**
+ * 领取公海客户（Phase 2 增强版）
+ * 从公海池认领客户，设置 owner_id、pool_status='private'、保护期
+ * @param {object} pool
+ * @param {number} customerId
+ * @param {number} userId
+ * @returns {{ id: number, company_name: string, protect_until: Date }}
+ */
+async function claimPoolCustomer(pool, customerId, userId) {
+  const [rows] = await pool.query(
+    'SELECT id, company_name, business_status, pool_status, protect_until, owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+    [customerId]
+  );
+  if (rows.length === 0) {
+    throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);
+  }
+  const customer = rows[0];
+  if (customer.pool_status !== POOL_STATUS.SEA) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户不在公海中');
+  }
+  if (customer.business_status === BUSINESS_STATUS.LEAD) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '线索客户请到潜客池认领');
+  }
+  if (customer.protect_until && new Date(customer.protect_until) > new Date()) {
+    const remainDays = Math.ceil((new Date(customer.protect_until) - new Date()) / (1000 * 60 * 60 * 24));
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, `该客户在保护期内，还需等待 ${remainDays} 天`, { protect_until: customer.protect_until });
+  }
+
+  const protectUntil = new Date();
+  protectUntil.setDate(protectUntil.getDate() + 7);
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    await connection.query(
+      'UPDATE crm_customer SET pool_status = ?, owner_id = ?, protect_until = ?, last_follow_time = NOW(), update_time = NOW() WHERE id = ?',
+      [POOL_STATUS.PRIVATE, userId, protectUntil, customerId]
+    );
+    await connection.query(
+      `INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id)
+       VALUES (?, 'claim', ?, ?)`,
+      [customerId, customer.owner_id, userId]
+    );
+    await connection.commit();
+    return { id: customerId, company_name: customer.company_name, protect_until: protectUntil };
   } catch (error) {
     await connection.rollback();
     throw error;
@@ -749,5 +1187,13 @@ module.exports = {
   clearStatusConfigCache,
   getOverdueCustomers,
   getNearRecycleCustomersList,
-  convertToCustomer
+  convertToCustomer,
+  // Phase 2: 三页面查询
+  listLeads,
+  listFormalCustomers,
+  listPoolCustomersNew,
+  // Phase 2: 三业务操作
+  convertLeadToCustomer,
+  releaseCustomerToPool,
+  claimPoolCustomer
 };

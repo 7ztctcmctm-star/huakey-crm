@@ -97,30 +97,32 @@ describe('opportunityService.createOpportunity', () => {
     ).rejects.toMatchObject({ code: 404002, message: '客户不存在' });
   });
 
-  it('客户不是正式客户(status!=2)应抛出 400', async () => {
-    mockPool.query.mockResolvedValueOnce([[{ id: 1, status: 1 }]]);
+  it('客户状态为 leads(潜客) 时应抛出 400', async () => {
+    mockPool.query.mockResolvedValueOnce([[{ id: 1, status: 'leads' }]]);
 
     await expect(
       opportunityService.createOpportunity(mockPool, { customer_id: 1, name: '商机A' }, 1)
     ).rejects.toMatchObject({ code: 400005 });
   });
 
-  it('创建成功应返回 { id: insertId }', async () => {
+  it('创建成功应返回 { id, opportunity_no }', async () => {
     mockPool.query
-      .mockResolvedValueOnce([[{ id: 1, status: 2 }]])   // 客户校验
-      .mockResolvedValueOnce([{ insertId: 100 }]);        // INSERT
+      .mockResolvedValueOnce([[{ id: 1, status: 'signed' }]])   // 客户校验
+      .mockResolvedValueOnce([[{ cnt: 0 }]])                       // generateOpportunityNo COUNT
+      .mockResolvedValueOnce([{ insertId: 100 }]);                  // INSERT
 
     const result = await opportunityService.createOpportunity(
       mockPool,
       { customer_id: 1, name: '新商机', expected_amount: 50000 },
       1
     );
-    expect(result).toEqual({ id: 100 });
+    expect(result).toEqual({ id: 100, opportunity_no: expect.stringMatching(/^OPP-\d{6}-001$/) });
   });
 
   it('未传 owner_id 时应使用 userId 作为默认负责人', async () => {
     mockPool.query
-      .mockResolvedValueOnce([[{ id: 1, status: 2 }]])
+      .mockResolvedValueOnce([[{ id: 1, status: 'signed' }]])
+      .mockResolvedValueOnce([[{ cnt: 0 }]])      // generateOpportunityNo COUNT
       .mockResolvedValueOnce([{ insertId: 101 }]);
 
     await opportunityService.createOpportunity(
@@ -129,14 +131,15 @@ describe('opportunityService.createOpportunity', () => {
       42
     );
 
-    const insertCall = mockPool.query.mock.calls[1];
+    const insertCall = mockPool.query.mock.calls[2];
     // owner_id 是 INSERT 的最后一个参数
     expect(insertCall[1]).toContain(42);
   });
 
   it('未传 expected_amount 时默认为 0', async () => {
     mockPool.query
-      .mockResolvedValueOnce([[{ id: 1, status: 2 }]])
+      .mockResolvedValueOnce([[{ id: 1, status: 'signed' }]])
+      .mockResolvedValueOnce([[{ cnt: 0 }]])      // generateOpportunityNo COUNT
       .mockResolvedValueOnce([{ insertId: 102 }]);
 
     await opportunityService.createOpportunity(
@@ -145,7 +148,7 @@ describe('opportunityService.createOpportunity', () => {
       1
     );
 
-    const insertCall = mockPool.query.mock.calls[1];
+    const insertCall = mockPool.query.mock.calls[2];
     expect(insertCall[1]).toContain(0);  // expected_amount 默认值
   });
 });

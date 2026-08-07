@@ -71,7 +71,7 @@
           <el-tag type="info" size="small">关联客户：{{ selectedEmail.customer_name }}</el-tag>
         </div>
       </div>
-      <div class="detail-body" v-html="sanitize(selectedEmail.body_html || selectedEmail.body_text || '(无内容)')"></div>
+      <div class="detail-body" v-safe-html="selectedEmail.body_html || selectedEmail.body_text || '(无内容)'"></div>
       <div v-if="selectedEmail.attachments?.length" class="detail-attachments">
         <div class="attachment-title">附件 ({{ selectedEmail.attachments.length }})</div>
         <div v-for="att in selectedEmail.attachments" :key="att.id" class="attachment-item">
@@ -106,7 +106,7 @@ import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
 import { getEmailList, getEmailStats, markEmailRead, getEmailDetail, toggleEmailStar, linkCustomerToEmail } from '@/api/tools'
 import { getCustomerList } from '@/api/customer'
-import { sanitize } from '@/utils/sanitize'
+// sanitize 通过 v-safe-html 指令应用，无需在此引入
 
 const router = useRouter()
 const loading = ref(false)

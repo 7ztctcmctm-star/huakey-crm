@@ -140,6 +140,10 @@ async function sendEmailAlert(context) {
  */
 function sendWebhook(payload) {
   return new Promise((resolve, reject) => {
+    if (!WEBHOOK_URL) {
+      logger.warn('[企业微信] Webhook 未配置，跳过发送');
+      return reject(new Error('企业微信 Webhook 未配置（WECHAT_WEBHOOK_URL 为空）'));
+    }
     const parsedUrl = new URL(WEBHOOK_URL);
     const data = JSON.stringify(payload);
 

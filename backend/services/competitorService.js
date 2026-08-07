@@ -17,7 +17,7 @@ async function listCompetitors(pool, params = {}) {
 
   const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total FROM crm_competitor c ${where}`, queryParams);
   const [rows] = await pool.query(`
-    SELECT c.*,
+    SELECT c.id, c.name, c.website, c.industry, c.scale, c.headquarters, c.strengths, c.weaknesses, c.products, c.price_range, c.market_share, c.description, c.status, c.create_by, c.create_time, c.update_time, c.deleted_at,
       (SELECT COUNT(*) FROM crm_competitor_encounter e WHERE e.competitor_id = c.id AND e.deleted_at IS NULL) as encounter_count,
       (SELECT COUNT(*) FROM crm_competitor_encounter e WHERE e.competitor_id = c.id AND e.encounter_type = 'won' AND e.deleted_at IS NULL) as win_count
     FROM crm_competitor c ${where} ORDER BY c.name LIMIT ? OFFSET ?
@@ -28,7 +28,7 @@ async function listCompetitors(pool, params = {}) {
 
 async function getCompetitor(pool, id) {
   const [[row]] = await pool.query(`
-    SELECT c.*,
+    SELECT c.id, c.name, c.website, c.industry, c.scale, c.headquarters, c.strengths, c.weaknesses, c.products, c.price_range, c.market_share, c.description, c.status, c.create_by, c.create_time, c.update_time, c.deleted_at,
       (SELECT COUNT(*) FROM crm_competitor_encounter e WHERE e.competitor_id = c.id AND e.deleted_at IS NULL) as encounter_count,
       (SELECT COUNT(*) FROM crm_competitor_encounter e WHERE e.competitor_id = c.id AND e.encounter_type = 'won' AND e.deleted_at IS NULL) as win_count
     FROM crm_competitor c WHERE c.id = ? AND c.deleted_at IS NULL
@@ -75,7 +75,7 @@ async function deleteCompetitor(pool, id) {
 
 async function getEncounters(pool, competitorId) {
   const [rows] = await pool.query(`
-    SELECT e.*, c.company_name as customer_name, u.real_name as create_by_name
+    SELECT e.id, e.competitor_id, e.customer_id, e.opportunity_id, e.encounter_type, e.our_price, e.their_price, e.win_reason, e.our_advantage, e.their_advantage, e.lesson_learned, e.encounter_date, e.create_by, e.create_time, c.company_name as customer_name, u.real_name as create_by_name
     FROM crm_competitor_encounter e
     LEFT JOIN crm_customer c ON e.customer_id = c.id
     LEFT JOIN sys_user u ON e.create_by = u.id
@@ -114,7 +114,7 @@ async function deleteEncounter(pool, id) {
 
 async function getIntel(pool, competitorId) {
   const [rows] = await pool.query(`
-    SELECT i.*, u.real_name as create_by_name
+    SELECT i.id, i.competitor_id, i.intel_type, i.title, i.content, i.source, i.importance, i.verified, i.create_by, i.create_time, u.real_name as create_by_name
     FROM crm_competitor_intel i LEFT JOIN sys_user u ON i.create_by = u.id
     WHERE i.competitor_id = ? AND i.deleted_at IS NULL ORDER BY i.importance DESC, i.create_time DESC
   `, [competitorId]);
@@ -173,7 +173,7 @@ async function getAnalysisOverview(pool) {
   `);
 
   const [recentEncounters] = await pool.query(`
-    SELECT e.*, c.name as competitor_name, cu.company_name as customer_name
+    SELECT e.id, e.competitor_id, e.customer_id, e.opportunity_id, e.encounter_type, e.our_price, e.their_price, e.win_reason, e.our_advantage, e.their_advantage, e.lesson_learned, e.encounter_date, e.create_by, e.create_time, c.name as competitor_name, cu.company_name as customer_name
     FROM crm_competitor_encounter e
     JOIN crm_competitor c ON e.competitor_id = c.id
     LEFT JOIN crm_customer cu ON e.customer_id = cu.id
@@ -188,7 +188,7 @@ async function getComparison(pool, ids) {
   const placeholders = ids.map(() => '?').join(',');
 
   const [competitors] = await pool.query(
-    `SELECT * FROM crm_competitor WHERE id IN (${placeholders}) AND deleted_at IS NULL`, ids
+    `SELECT id, name, website, industry, scale, headquarters, strengths, weaknesses, products, price_range, market_share, description, status, create_by, create_time, update_time, deleted_at FROM crm_competitor WHERE id IN (${placeholders}) AND deleted_at IS NULL`, ids
   );
 
   const [stats] = await pool.query(

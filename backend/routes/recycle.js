@@ -35,7 +35,7 @@ const TABLE_CONFIG = {
 };
 
 // 获取回收站列表
-router.post('/list', authenticateToken, checkPermission('recycle_bin:view'), validate(recycleListSchema), async (req, res) => {
+router.post('/list', authenticateToken, checkPermission('recycle_bin:view'), validate(recycleListSchema), async (req, res, next) => {
   const { module, page = 1, pageSize = 20, keyword } = req.body;
 
   if (!module || !TABLE_CONFIG[module]) {
@@ -45,7 +45,7 @@ router.post('/list', authenticateToken, checkPermission('recycle_bin:view'), val
       res.json({ code: 200, message: '查询成功', data: { stats } });
     } catch (error) {
       logger.error('查询回收站统计失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-      res.status(500).json({ code: 500, message: '查询失败', data: null });
+      next(error);
     }
     return;
   }
@@ -66,12 +66,12 @@ router.post('/list', authenticateToken, checkPermission('recycle_bin:view'), val
     });
   } catch (error) {
     logger.error('查询回收站列表失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 恢复记录
-router.post('/restore', authenticateToken, checkPermission('data:restore'), requireAdmin, validate(recycleActionSchema), async (req, res) => {
+router.post('/restore', authenticateToken, checkPermission('data:restore'), requireAdmin, validate(recycleActionSchema), async (req, res, next) => {
   try {
   const { module, id } = req.body;
 
@@ -90,16 +90,16 @@ router.post('/restore', authenticateToken, checkPermission('data:restore'), requ
     }
   } catch (error) {
     logger.error('恢复记录失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '恢复失败', data: null });
+    next(error);
   }
   } catch (error) {
     logger.error('恢复记录失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '恢复失败', data: null });
+    next(error);
   }
 });
 
 // 彻底删除
-router.post('/permanent-delete', authenticateToken, checkPermission('data:restore'), requireAdmin, validate(recycleActionSchema), async (req, res) => {
+router.post('/permanent-delete', authenticateToken, checkPermission('data:restore'), requireAdmin, validate(recycleActionSchema), async (req, res, next) => {
   try {
   const { module, id } = req.body;
 
@@ -118,11 +118,11 @@ router.post('/permanent-delete', authenticateToken, checkPermission('data:restor
     }
   } catch (error) {
     logger.error('彻底删除失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '删除失败', data: null });
+    next(error);
   }
   } catch (error) {
     logger.error('彻底删除失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '删除失败', data: null });
+    next(error);
   }
 });
 

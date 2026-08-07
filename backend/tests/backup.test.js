@@ -1,4 +1,4 @@
-﻿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -39,7 +39,7 @@ jest.mock('child_process', () => ({
 }));
 
 jest.mock('../services/permissionService', () => ({
-  getUserPermissions: jest.fn().mockResolvedValue(['backup:create', 'backup:restore']),
+  getUserPermissions: jest.fn().mockResolvedValue(['backup:add', 'backup:restore']),
   getMenuPermissions: jest.fn().mockResolvedValue([]),
   getDataPermissions: jest.fn().mockResolvedValue([])
 }));
@@ -64,6 +64,7 @@ describe('数据备份模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[{ id: 1, file_name: 'huakey_crm_full_2026-06-23.sql', status: 'success' }]]); // list
 
@@ -84,6 +85,7 @@ describe('数据备份模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert backup record
 
       const res = await request(app)
@@ -118,6 +120,7 @@ describe('数据备份模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ id: 1, status: 'success', file_path: '/tmp/test_backup.sql' }]]); // SELECT backup record
 
       const res = await request(app)
@@ -135,6 +138,7 @@ describe('数据备份模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ id: 1, file_path: '/tmp/test_backup.sql' }]]) // SELECT backup record
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // DELETE record
 

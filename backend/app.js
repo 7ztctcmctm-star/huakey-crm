@@ -38,7 +38,9 @@ if (isProduction) {
         fontSrc: ["'self'"],
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"],
-        // 不包含 upgradeInsecureRequests — HTTP 下会导致资源请求升级到 HTTPS 而失败
+        // helmet 8.x 默认会自动合并 upgrade-insecure-requests / base-uri / form-action / script-src-attr
+        // HTTP 部署下必须显式置 null 移除 upgrade-insecure-requests，否则浏览器会把所有 HTTP 资源升级为 HTTPS 导致加载失败
+        upgradeInsecureRequests: null,
       }
     },
     crossOriginOpenerPolicy: false,
@@ -83,9 +85,15 @@ const { metricsMiddleware, startPoolMetricsCollection } = require('./config/metr
 app.use(metricsMiddleware);
 
 // CORS 配置：生产环境必须显式设置 CORS_ORIGIN，开发环境限制为本地前端
-const corsOrigin = isProduction
+// 支持逗号分隔的多 Origin（如 https://a.example.com,https://b.example.com）
+const corsOriginRaw = isProduction
   ? process.env.CORS_ORIGIN
   : 'http://localhost:5173';
+
+// 解析逗号分隔的多 Origin；cors 中间件 origin 支持字符串/数组
+const corsOrigin = corsOriginRaw
+  ? corsOriginRaw.split(',').map(item => item.trim()).filter(Boolean)
+  : false;
 
 /**
  * 生产环境安全配置校验
@@ -100,12 +108,16 @@ function validateProductionSecurity() {
   };
 
   // CORS_ORIGIN 必须设置且不能指向本地开发地址
-  if (!corsOrigin) {
+  // corsOrigin 为数组（单个 Origin 时长度为 1），逐项校验
+  if (!corsOrigin || corsOrigin.length === 0) {
     fatal('生产环境必须设置 CORS_ORIGIN 环境变量');
   }
-  const lowerOrigin = corsOrigin.toLowerCase();
-  if (lowerOrigin.includes('localhost') || lowerOrigin.includes('127.0.0.1')) {
-    fatal('生产环境 CORS_ORIGIN 不能设置为 localhost 或 127.0.0.1');
+  const bannedLocal = corsOrigin.find(o => {
+    const lower = o.toLowerCase();
+    return lower.includes('localhost') || lower.includes('127.0.0.1');
+  });
+  if (bannedLocal) {
+    fatal(`生产环境 CORS_ORIGIN 不能设置为 localhost 或 127.0.0.1（当前值: ${bannedLocal}）`);
   }
 
   // 禁止生产环境跳过验证码
@@ -116,6 +128,11 @@ function validateProductionSecurity() {
   // 禁止生产环境开启 Swagger
   if (process.env.ENABLE_SWAGGER === 'true') {
     fatal('生产环境禁止设置 ENABLE_SWAGGER=true');
+  }
+
+  // 禁止生产环境关闭 TLS 证书校验
+  if (process.env.TLS_REJECT_UNAUTHORIZED === 'false') {
+    fatal('生产环境禁止设置 TLS_REJECT_UNAUTHORIZED=false');
   }
 
   // JWT_SECRET 必须为 64 字节 hex（128 字符）
@@ -140,8 +157,9 @@ app.use(cookieParser());
 const { csrfProtection } = require('./middleware/csrf');
 app.use(csrfProtection);
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+// JSON body 限制 1MB（文件上传走 multipart，不受此限制）
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // 加载日志中间件
 const { globalLogMiddleware } = require('./middleware/logger');
@@ -181,7 +199,6 @@ const targetRoutes = require('./routes/target');
 const permissionRoutes = require('./routes/permission');
 const recycleRoutes = require('./routes/recycle');
 const backupRoutes = require('./routes/backup');
-const followPlanRoutes = require('./routes/followPlan');
 const analysisRoutes = require('./routes/analysis');
 const integrationRoutes = require('./routes/integration');
 const uploadRoutes = require('./routes/upload');
@@ -246,22 +263,29 @@ apiRouter.get('/health', async (req, res) => {
     const [rows] = await pool.query('SELECT VERSION() AS v');
     dbOk = true;
     if (rows && rows[0]) mysqlVersion = 'MySQL ' + rows[0].v;
-  } catch { /* ok */ }
+  } catch (e) { console.error("[health] DB check failed:", e.message); }
 
-  // 检测Redis
+  // 检测Redis（仅当显式启用时才要求 Redis 可用）
   try {
     const { redis, REDIS_ENABLED } = require('./config/redis');
-    if (REDIS_ENABLED && redis) {
+    const redisEnabled = REDIS_ENABLED === 'true' || REDIS_ENABLED === true;
+    if (!redisEnabled) {
+      redisOk = true; // Redis 未启用，不视为故障
+    } else if (redis) {
       await redis.ping();
       redisOk = true;
     }
-  } catch { /* ok */ }
+  } catch (e) { console.error("[health] Redis check failed:", e.message); }
 
-  res.json({
-    code: 200,
-    message: '服务运行正常',
+  // 健康检查：DB 或核心依赖不可用时返回 503，触发容器编排层摘流/重启
+  const healthy = dbOk && redisOk;
+  const statusCode = healthy ? 200 : 503;
+
+  res.status(statusCode).json({
+    code: statusCode,
+    message: healthy ? '服务运行正常' : '服务降级（数据库或 Redis 不可用）',
     data: {
-      status: 'ok',
+      status: healthy ? 'ok' : 'degraded',
       version: pkg.version,
       nodeEnv: process.env.NODE_ENV || 'development',
       expressVersion: require('express/package.json').version,
@@ -283,6 +307,11 @@ apiRouter.use('/user', userRoutes);
 for (const { prefix, router } of registry.getAllRoutes()) {
   apiRouter.use(prefix, router);
 }
+
+// Phase 5：客户中心 API 独立化（旧 /customer/* 端点保留为兼容层，内部调用相同 controller）
+apiRouter.use('/leads', require('./routes/leads'));
+apiRouter.use('/pool', require('./routes/pool'));
+apiRouter.use('/customers', require('./routes/customers'));
 
 // 跟进记录路由
 apiRouter.use('/follow-up', followUpRoutes);
@@ -307,7 +336,7 @@ apiRouter.use('/target', targetRoutes);
 apiRouter.use('/permission', permissionRoutes);
 apiRouter.use('/recycle', recycleRoutes);
 apiRouter.use('/backup', backupRoutes);
-apiRouter.use('/follow-plan', followPlanRoutes);
+// [安全清理] /follow-plan 已合并到 /follow-up/plan/*，不再单独挂载
 apiRouter.use('/ai', aiRoutes);
 apiRouter.use('/analysis', analysisRoutes);
 apiRouter.use('/integration', integrationRoutes);

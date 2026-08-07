@@ -21,6 +21,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { User, ArrowDown } from '@element-plus/icons-vue'
 import { logout } from '@/api/auth'
 import { useUser } from '@/composables/useUser'
+import { disconnectSSE } from '@/utils/sse'
 
 const props = defineProps({
   userInfo: { type: Object, default: () => ({}) }
@@ -53,6 +54,7 @@ const handleLogout = () => {
       await logout()
     } catch (e) { /* 即使后端请求失败也继续登出 */ }
     clearUser()
+    disconnectSSE()
     ElMessage.success('退出登录成功')
     router.push('/login')
   }).catch(() => {})

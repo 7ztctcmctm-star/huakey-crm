@@ -62,7 +62,8 @@ async function getMovements(pool, params = {}) {
   );
 
   const [rows] = await pool.query(`
-    SELECT m.*, p.name as product_name, p.code as product_code, u.real_name as operator_name
+    SELECT m.id, m.product_id, m.movement_type, m.quantity, m.before_qty, m.after_qty, m.related_type, m.related_id, m.remark, m.operator_id, m.create_time,
+           p.name as product_name, p.code as product_code, u.real_name as operator_name
     FROM crm_stock_movement m
     JOIN crm_product p ON m.product_id = p.id
     LEFT JOIN sys_user u ON m.operator_id = u.id

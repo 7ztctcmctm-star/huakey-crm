@@ -46,7 +46,7 @@ const linkCustomerSchema = Joi.object({
 const emptySchema = Joi.object({});
 
 // 1. 配置邮件账号
-router.post('/account', authenticateToken, checkPermission('email'), validate(accountSchema), async (req, res) => {
+router.post('/account', authenticateToken, checkPermission('email'), validate(accountSchema), async (req, res, next) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ code: 400, message: '邮箱和密码不能为空', data: null });
@@ -55,23 +55,23 @@ router.post('/account', authenticateToken, checkPermission('email'), validate(ac
     res.json({ code: 200, message: '配置成功', data: result });
   } catch (error) {
     logger.error('[邮件] 配置账号失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 2. 我的邮件账号列表
-router.get('/accounts', authenticateToken, checkPermission('email'), async (req, res) => {
+router.get('/accounts', authenticateToken, checkPermission('email'), async (req, res, next) => {
   try {
     const rows = await emailService.listAccounts(pool, req.user.userId);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
     logger.error('[邮件] 查询账号失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 3. 删除账号
-router.delete('/account/:id', authenticateToken, checkPermission('email'), async (req, res) => {
+router.delete('/account/:id', authenticateToken, checkPermission('email'), async (req, res, next) => {
   try {
     await emailService.deleteAccount(pool, req.params.id, req.user.userId);
     res.json({ code: 200, message: '删除成功', data: null });
@@ -83,7 +83,7 @@ router.delete('/account/:id', authenticateToken, checkPermission('email'), async
 });
 
 // 4. 测试连接
-router.post('/account/:id/test', authenticateToken, checkPermission('email'), validate(emptySchema), async (req, res) => {
+router.post('/account/:id/test', authenticateToken, checkPermission('email'), validate(emptySchema), async (req, res, next) => {
   try {
     const results = await emailService.testConnection(pool, req.params.id, req.user.userId);
     res.json({ code: 200, message: results.smtp ? '连接测试成功' : 'SMTP连接失败', data: results });
@@ -95,30 +95,30 @@ router.post('/account/:id/test', authenticateToken, checkPermission('email'), va
 });
 
 // 5. 邮件列表
-router.get('/list', authenticateToken, checkPermission('email'), async (req, res) => {
+router.get('/list', authenticateToken, checkPermission('email'), async (req, res, next) => {
   try {
     const data = await emailService.listEmails(pool, req.query, req.user.userId);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[邮件] 查询邮件列表失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 6. 邮件详情
-router.get('/:id', authenticateToken, checkPermission('email'), async (req, res) => {
+router.get('/:id', authenticateToken, checkPermission('email'), async (req, res, next) => {
   try {
     const email = await emailService.getEmailDetail(pool, req.params.id);
     if (!email) return res.status(404).json({ code: 404, message: '邮件不存在', data: null });
     res.json({ code: 200, message: '查询成功', data: email });
   } catch (error) {
     logger.error('[邮件] 查询邮件详情失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 7. 发送邮件
-router.post('/send', authenticateToken, checkPermission('email:send'), validate(sendSchema), async (req, res) => {
+router.post('/send', authenticateToken, checkPermission('email:send'), validate(sendSchema), async (req, res, next) => {
   try {
     const { account_id, to, subject } = req.body;
     if (!account_id || !to || !subject) return res.status(400).json({ code: 400, message: '参数不完整', data: null });
@@ -128,12 +128,12 @@ router.post('/send', authenticateToken, checkPermission('email:send'), validate(
   } catch (error) {
     logger.error('[邮件] 发送失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     logger.error('[邮件] 发送失败:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '发送失败，请检查邮箱配置', data: null });
+    next(error);
   }
 });
 
 // 8. 回复邮件
-router.post('/reply/:id', authenticateToken, checkPermission('email:send'), validate(replySchema), async (req, res) => {
+router.post('/reply/:id', authenticateToken, checkPermission('email:send'), validate(replySchema), async (req, res, next) => {
   try {
     const { body_html, account_id } = req.body;
     const email = await emailService.getEmailDetail(pool, req.params.id);
@@ -153,23 +153,23 @@ router.post('/reply/:id', authenticateToken, checkPermission('email:send'), vali
     res.json({ code: 200, message: '回复成功', data: result });
   } catch (error) {
     logger.error('[邮件] 回复失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 9. 标记已读
-router.put('/:id/read', authenticateToken, checkPermission('email'), validate(emptySchema), async (req, res) => {
+router.put('/:id/read', authenticateToken, checkPermission('email'), validate(emptySchema), async (req, res, next) => {
   try {
     await emailService.markAsRead(pool, req.params.id);
     res.json({ code: 200, message: '已标记已读', data: null });
   } catch (error) {
     logger.error('[邮件] 标记已读失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 10. 标记星标
-router.put('/:id/star', authenticateToken, checkPermission('email'), validate(emptySchema), async (req, res) => {
+router.put('/:id/star', authenticateToken, checkPermission('email'), validate(emptySchema), async (req, res, next) => {
   try {
     const result = await emailService.toggleStar(pool, req.params.id);
     res.json({ code: 200, message: result.is_starred ? '已星标' : '已取消星标', data: result });
@@ -181,7 +181,7 @@ router.put('/:id/star', authenticateToken, checkPermission('email'), validate(em
 });
 
 // 11. 手动关联客户
-router.post('/:id/link-customer', authenticateToken, checkPermission('email'), validate(linkCustomerSchema), async (req, res) => {
+router.post('/:id/link-customer', authenticateToken, checkPermission('email'), validate(linkCustomerSchema), async (req, res, next) => {
   try {
     const { customer_id } = req.body;
     if (!customer_id) return res.status(400).json({ code: 400, message: '客户ID不能为空', data: null });
@@ -196,7 +196,7 @@ router.post('/:id/link-customer', authenticateToken, checkPermission('email'), v
 });
 
 // 12. 手动同步邮件
-router.post('/sync/:account_id', authenticateToken, checkPermission('email'), validate(emptySchema), async (req, res) => {
+router.post('/sync/:account_id', authenticateToken, checkPermission('email'), validate(emptySchema), async (req, res, next) => {
   try {
     await emailService.syncEmails(pool, req.params.account_id, req.user.userId);
     res.json({ code: 200, message: '同步完成（完整IMAP同步需配置IMAP服务）', data: null });
@@ -208,13 +208,13 @@ router.post('/sync/:account_id', authenticateToken, checkPermission('email'), va
 });
 
 // 13. 邮件统计
-router.get('/stats/overview', authenticateToken, checkPermission('email'), async (req, res) => {
+router.get('/stats/overview', authenticateToken, checkPermission('email'), async (req, res, next) => {
   try {
     const data = await emailService.getEmailStats(pool, req.user.userId);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[邮件] 统计查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 

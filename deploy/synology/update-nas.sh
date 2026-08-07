@@ -24,7 +24,8 @@ echo -e "${GREEN}========================================${NC}"
 # 1. 本地提交并推送
 echo -e "${YELLOW}[1/4] 推送本地代码到 Git...${NC}"
 cd "$(dirname "$0")/../.."
-git add .
+# 仅提交源代码变更，避免意外提交 .env 等敏感文件
+git add backend/ frontend/ database/ deploy/ scripts/ .gitignore docker-compose.yml package.json 2>/dev/null
 COMMIT_MSG="更新系统 $(date +%Y-%m-%d_%H:%M:%S)"
 git commit -m "$COMMIT_MSG" || echo "没有新的更改"
 git push origin main

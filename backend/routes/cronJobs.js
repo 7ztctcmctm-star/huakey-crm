@@ -24,7 +24,7 @@ const { generateReminders } = require('../scripts/generate_reminders');
 const logger = require('../config/logger');
 
 // 1. 每日评分任务（供应商评分 + 资质状态更新 + 到期检查）
-router.get('/daily-scoring', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/daily-scoring', authenticateToken, requireAdmin, async (req, res, next) => {
   try {
     await checkAllSuppliersScores();
     await updateQualificationStatus();
@@ -32,12 +32,12 @@ router.get('/daily-scoring', authenticateToken, requireAdmin, async (req, res) =
     res.json({ code: 200, message: '每日评分任务完成' });
   } catch (error) {
     logger.error('[Cron] 每日评分任务失败:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '评分任务执行失败' });
+    next(error);
   }
 });
 
 // 2. 清理过期日志（保留 90 天）
-router.get('/clean-logs', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/clean-logs', authenticateToken, requireAdmin, async (req, res, next) => {
   try {
     const cleaned = await cleanExpiredLogs(pool);
     res.json({
@@ -46,12 +46,12 @@ router.get('/clean-logs', authenticateToken, requireAdmin, async (req, res) => {
     });
   } catch (error) {
     logger.error('[Cron] 日志清理失败:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '日志清理失败' });
+    next(error);
   }
 });
 
 // 3. 公海自动回收
-router.get('/auto-release', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/auto-release', authenticateToken, requireAdmin, async (req, res, next) => {
   const AUTO_RELEASE_DAYS = parseInt(process.env.AUTO_RELEASE_DAYS) || 30;
   try {
     const released = await autoReleaseCustomers(pool, AUTO_RELEASE_DAYS);
@@ -61,18 +61,18 @@ router.get('/auto-release', authenticateToken, requireAdmin, async (req, res) =>
     });
   } catch (error) {
     logger.error('[Cron] 公海回收失败:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '公海回收执行失败' });
+    next(error);
   }
 });
 
 // 4. 跟进提醒生成
-router.get('/generate-reminders', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/generate-reminders', authenticateToken, requireAdmin, async (req, res, next) => {
   try {
     await generateReminders(pool);
     res.json({ code: 200, message: '跟进提醒生成完成' });
   } catch (error) {
     logger.error('[Cron] 提醒生成失败:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '提醒生成失败' });
+    next(error);
   }
 });
 

@@ -66,19 +66,19 @@ const confirmSchema = Joi.object({
 });
 
 // 获取工单列表
-router.post('/list', authenticateToken, checkPermission('service'), checkDataPermission('service', 'create_by'), validate(listSchema), async (req, res) => {
+router.post('/list', authenticateToken, checkPermission('service'), checkDataPermission('service', 'create_by'), validate(listSchema), async (req, res, next) => {
   try {
     const permissionClause = await serviceOrderService.buildServicePermissionClause(pool, req.dataPermission);
     const data = await serviceOrderService.listServiceOrders(pool, req.body, permissionClause);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 获取工单详情
-router.get('/detail/:id', authenticateToken, async (req, res) => {
+router.get('/detail/:id', authenticateToken, async (req, res, next) => {
   try {
     const data = await serviceOrderService.getServiceOrderDetail(pool, req.params.id);
     if (!data) {
@@ -92,12 +92,12 @@ router.get('/detail/:id', authenticateToken, async (req, res) => {
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 创建工单
-router.post('/add', authenticateToken, checkPermission('service:add'), validate(addSchema), async (req, res) => {
+router.post('/add', authenticateToken, checkPermission('service:add'), validate(addSchema), async (req, res, next) => {
   try {
     const result = await serviceOrderService.createServiceOrder(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '创建工单成功', data: result });
@@ -109,7 +109,7 @@ router.post('/add', authenticateToken, checkPermission('service:add'), validate(
 });
 
 // 更新工单
-router.post('/update', authenticateToken, checkPermission('service:edit'), validate(updateSchema), async (req, res) => {
+router.post('/update', authenticateToken, checkPermission('service:edit'), validate(updateSchema), async (req, res, next) => {
   try {
     await serviceOrderService.updateServiceOrder(pool, req.body, req.user);
     res.json({ code: 200, message: '修改工单成功', data: null });
@@ -121,7 +121,7 @@ router.post('/update', authenticateToken, checkPermission('service:edit'), valid
 });
 
 // 删除工单
-router.post('/delete', authenticateToken, checkPermission('service:delete'), validate(idSchema), async (req, res) => {
+router.post('/delete', authenticateToken, checkPermission('service:delete'), validate(idSchema), async (req, res, next) => {
   try {
     await serviceOrderService.deleteServiceOrder(pool, req.body.id, req.user);
     res.json({ code: 200, message: '删除工单成功', data: null });
@@ -133,7 +133,7 @@ router.post('/delete', authenticateToken, checkPermission('service:delete'), val
 });
 
 // 分配工程师
-router.post('/assign', authenticateToken, checkPermission('service:edit'), validate(assignSchema), async (req, res) => {
+router.post('/assign', authenticateToken, checkPermission('service:edit'), validate(assignSchema), async (req, res, next) => {
   try {
     const { id, assignee_id } = req.body;
     await serviceOrderService.assignServiceOrder(pool, id, assignee_id, req.user);
@@ -146,7 +146,7 @@ router.post('/assign', authenticateToken, checkPermission('service:edit'), valid
 });
 
 // 批量分配工程师
-router.post('/batch-assign', authenticateToken, checkPermission('service:edit'), validate(batchAssignSchema), async (req, res) => {
+router.post('/batch-assign', authenticateToken, checkPermission('service:edit'), validate(batchAssignSchema), async (req, res, next) => {
   try {
     const { ids, assignee_id } = req.body;
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
@@ -163,12 +163,12 @@ router.post('/batch-assign', authenticateToken, checkPermission('service:edit'),
     res.json({ code: 200, message: `已批量分配 ${result.count} 个工单`, data: result });
   } catch (error) {
     logger.error('批量分配工单错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '批量分配失败', data: null });
+    next(error);
   }
 });
 
 // 开始处理
-router.post('/start', authenticateToken, checkPermission('service:edit'), validate(idSchema), async (req, res) => {
+router.post('/start', authenticateToken, checkPermission('service:edit'), validate(idSchema), async (req, res, next) => {
   try {
     await serviceOrderService.startServiceOrder(pool, req.body.id, req.user);
     res.json({ code: 200, message: '开始处理', data: null });
@@ -180,7 +180,7 @@ router.post('/start', authenticateToken, checkPermission('service:edit'), valida
 });
 
 // 完成处理（提交结果）
-router.post('/finish', authenticateToken, checkPermission('service:edit'), validate(finishSchema), async (req, res) => {
+router.post('/finish', authenticateToken, checkPermission('service:edit'), validate(finishSchema), async (req, res, next) => {
   try {
     const { id, finish_desc } = req.body;
     await serviceOrderService.finishServiceOrder(pool, id, finish_desc, req.user);
@@ -193,7 +193,7 @@ router.post('/finish', authenticateToken, checkPermission('service:edit'), valid
 });
 
 // 客户确认
-router.post('/confirm', authenticateToken, checkPermission('service:edit'), validate(confirmSchema), async (req, res) => {
+router.post('/confirm', authenticateToken, checkPermission('service:edit'), validate(confirmSchema), async (req, res, next) => {
   try {
     const { id, satisfaction } = req.body;
     await serviceOrderService.confirmServiceOrder(pool, id, satisfaction, req.user);

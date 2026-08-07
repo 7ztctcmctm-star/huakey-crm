@@ -1,5 +1,6 @@
 const express = require('express');
 const pool = require('../config/database');
+const { authenticateToken } = require('../middleware/auth');
 const { validate, Joi } = require('../middleware/validate');
 const router = express.Router();
 
@@ -23,8 +24,8 @@ pool.query(`CREATE TABLE IF NOT EXISTS sys_client_perf (
   INDEX idx_time (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`).catch(() => {});
 
-// POST /api/metrics/client — 无需认证
-router.post('/client', validate(clientMetricSchema), async (req, res) => {
+// POST /api/metrics/client — 需认证，前端上报性能指标
+router.post('/client', authenticateToken, validate(clientMetricSchema), async (req, res, next) => {
   const { metric_type, value, rating, page_url } = req.body;
   if (!metric_type || typeof value !== 'number') {
     return res.status(400).json({ code: 400, message: '参数无效' });

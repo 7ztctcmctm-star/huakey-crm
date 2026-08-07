@@ -10,7 +10,7 @@ const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);
 
 app.get('/api', (req, res) => {
-  res.json({ code: 200, message: 'Step 3 OK', routes: ['/api/auth/login'] });
+  res.json({ code: 200, message: 'Step 3 OK', data: { routes: ['/api/auth/login'] } });
 });
 
 module.exports = app;

@@ -5,9 +5,9 @@ const multer = require('multer');
 const XLSX = require('xlsx');
 const path = require('path');
 const { validate, Joi } = require('../../middleware/validate');
-const logger = require('../../config/logger');
 const customerController = require('../../controllers/customerController');
 const importService = require('../../services/importService');
+const logger = require('../../config/logger');
 const { enqueue } = require('../../utils/queue');
 
 // 导入接口无额外 body 字段（文件由 multer 处理）
@@ -37,7 +37,7 @@ const upload = multer({
 const router = express.Router();
 
 // 下载导入模板
-router.get('/template', authenticateToken, (req, res) => {
+router.get('/template', authenticateToken, (req, res, next) => {
   try {
     const headers = ['公司名称', '联系人', '电话', '邮箱', '地址', '行业', '来源', '等级', '备注'];
     const example = ['华科科技有限公司', '张三', '13800138000', 'zhangsan@example.com', '北京市朝阳区', '科技', '展会', 'A', '示例客户'];
@@ -57,8 +57,7 @@ router.get('/template', authenticateToken, (req, res) => {
     res.setHeader('Content-Disposition', 'attachment; filename=customer_import_template.xlsx');
     res.send(buf);
   } catch (error) {
-    logger.error('生成模板错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '生成模板失败', data: null });
+    next(error);
   }
 });
 

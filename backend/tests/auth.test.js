@@ -37,6 +37,10 @@ app.use(express.json());
 const authRoutes = require('../routes/auth');
 app.use('/api/v1/auth', authRoutes);
 
+const { appErrorHandler, globalErrorHandler } = require('../middleware/errorHandler');
+app.use(appErrorHandler);
+app.use(globalErrorHandler);
+
 const generateToken = (user = { userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }) => {
   return jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
@@ -91,7 +95,11 @@ describe('认证模块', () => {
     it('应该返回400当旧密码错误', async () => {
       const token = generateToken();
       const hashedPassword = await bcrypt.hash('CorrectOldPass1', 10);
-      mockPool.query.mockResolvedValue([[{ password: hashedPassword }]]);
+      mockPool.query
+        .mockResolvedValueOnce([[]])  // blacklist check (empty = not blacklisted)
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ password: hashedPassword }]]); // get user password
 
       const res = await request(app)
         .post('/api/v1/auth/change-password')
@@ -119,6 +127,7 @@ describe('认证模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]])  // blacklist check (empty = not blacklisted)
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ password: hashedPassword }]])  // get user password
         .mockResolvedValueOnce([{ affectedRows: 1 }]);  // update password
 
@@ -146,7 +155,8 @@ describe('认证模块', () => {
       const token = generateToken();
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1, role_code: 'super_admin' }]]); // role query
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1, role_code: 'super_admin' }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]); // user status
       mockPool.getConnection.mockResolvedValueOnce({
         ...createMockConnection(),
         query: jest.fn().mockResolvedValueOnce([[{ must_change_password: 0 }]])
@@ -165,7 +175,8 @@ describe('认证模块', () => {
       const token = generateToken();
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1, role_code: 'super_admin' }]]); // role query
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1, role_code: 'super_admin' }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]); // user status
 
       const res = await request(app)
         .post('/api/v1/auth/force-change-password')
@@ -180,7 +191,8 @@ describe('认证模块', () => {
       const token = generateToken();
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1, role_code: 'super_admin' }]]); // role query
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1, role_code: 'super_admin' }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]); // user status
       mockPool.getConnection.mockResolvedValueOnce({
         ...createMockConnection(),
         query: jest.fn()

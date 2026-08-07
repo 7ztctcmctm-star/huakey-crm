@@ -111,19 +111,19 @@ const poolLogSchema = Joi.object({
 });
 
 // 认领公海客户
-router.post('/claim', authenticateToken, checkPermission('customer:pool'), validate(claimSchema), customerController.claim);
+router.post('/claim', authenticateToken, checkPermission('pool:claim'), validate(claimSchema), customerController.claim);
 
 // 批量认领公海客户
-router.post('/batch-claim', authenticateToken, checkPermission('customer:pool'), validate(batchClaimSchema), customerController.batchClaim);
+router.post('/batch-claim', authenticateToken, checkPermission('pool:claim'), validate(batchClaimSchema), customerController.batchClaim);
 
 // 释放客户到公海
-router.post('/release', authenticateToken, checkPermission('customer:pool'), validate(releaseSchema), customerController.release);
+router.post('/release', authenticateToken, checkPermission('customer:release'), validate(releaseSchema), customerController.release);
 
 // 批量释放客户到公海
-router.post('/batch-release', authenticateToken, checkPermission('customer:pool'), validate(batchReleaseSchema), customerController.batchRelease);
+router.post('/batch-release', authenticateToken, checkPermission('customer:release'), validate(batchReleaseSchema), customerController.batchRelease);
 
 // 获取公海操作日志
-router.post('/pool-log', authenticateToken, checkPermission('customer:pool'), validate(poolLogSchema), customerController.listPoolLogs);
+router.post('/pool-log', authenticateToken, checkPermission('pool:view'), validate(poolLogSchema), customerController.listPoolLogs);
 
 module.exports = router;
 module.exports.autoAssignOwner = autoAssignOwner;

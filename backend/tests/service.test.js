@@ -54,6 +54,7 @@ describe('售后模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]])  // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 1 }]])
         .mockResolvedValueOnce([[{ id: 1, order_no: 'SO-001', title: '测试工单', status: 1 }]]);
 

@@ -55,6 +55,7 @@ describe('自动化规则模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
@@ -73,6 +74,7 @@ describe('自动化规则模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // rules list
           { id: 1, rule_name: '按来源分配-官网', assign_type: 'by_source', priority: 10 },
           { id: 2, rule_name: '轮询分配', assign_type: 'round_robin', priority: 5 }
@@ -93,6 +95,7 @@ describe('自动化规则模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
@@ -111,6 +114,7 @@ describe('自动化规则模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // workflows list
           { id: 1, name: '新客户自动分配', trigger_event: 'customer_created', status: 1, today_runs: 3 },
           { id: 2, name: '商机停滞提醒', trigger_event: 'opportunity_stale', status: 1, today_runs: 0 }

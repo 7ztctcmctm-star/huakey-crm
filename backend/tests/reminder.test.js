@@ -45,6 +45,7 @@ describe('提醒系统模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[]]) // all reminders
         .mockResolvedValueOnce([[]]) // pre-warning
         .mockResolvedValueOnce([[]]) // notifications
@@ -67,6 +68,7 @@ describe('提醒系统模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 5 }]]) // count
         .mockResolvedValueOnce([[{ id: 1, company_name: '测试公司', overdue_days: 10 }]]); // list
 
@@ -100,6 +102,7 @@ describe('提醒系统模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ affectedRows: 1 }]);
 
       const res = await request(app)
@@ -117,6 +120,7 @@ describe('提醒系统模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ affectedRows: 3 }]) // reminders
         .mockResolvedValueOnce([{ affectedRows: 5 }]); // notifications
 
@@ -134,6 +138,7 @@ describe('提醒系统模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ affectedRows: 1 }]);
 
       const res = await request(app)
@@ -151,6 +156,7 @@ describe('提醒系统模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ id: 1, plan_date: '2025-01-01', plan_amount: 10000, paid_amount: 5000 }]]) // overdue
         .mockResolvedValueOnce([[{ id: 2, plan_date: '2025-06-25', plan_amount: 8000, paid_amount: 0 }]]); // upcoming
 
@@ -170,6 +176,7 @@ describe('提醒系统模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 10 }]]) // count
         .mockResolvedValueOnce([[{ id: 1, title: '测试通知', is_read: 0 }]]); // list
 

@@ -64,6 +64,7 @@ describe('采购比价模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ cnt: 0 }]]) // count
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
@@ -83,6 +84,7 @@ describe('采购比价模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[{ id: 1, title: '螺丝比价', status: 'draft', supplier_count: 0 }]]); // list
 
@@ -102,6 +104,7 @@ describe('采购比价模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[undefined]]); // comparison not found
 
       const res = await request(app)
@@ -118,6 +121,7 @@ describe('采购比价模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ id: 1 }]]) // comparison exists
         .mockResolvedValueOnce([[undefined]]) // no duplicate
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert quote
@@ -137,6 +141,7 @@ describe('采购比价模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ status: 'draft' }]]) // comparison
         .mockResolvedValueOnce([[{ id: 1 }]]) // valid supplier
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
@@ -156,6 +161,7 @@ describe('采购比价模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ status: 'draft' }]]) // comparison
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
 

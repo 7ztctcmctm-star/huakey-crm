@@ -5,6 +5,8 @@
 
 const ROLES = require('../config/roles');
 const sseManager = require('../utils/sseManager');
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 
 /**
  * 构建售后工单数据权限SQL
@@ -85,7 +87,9 @@ async function listServiceOrders(pool, params, permissionClause) {
   const offset = (Math.max(1, parseInt(page) || 1) - 1) * safePageSize;
 
   let sql = `
-    SELECT so.*, cu.company_name as customer_name, pc.name as customer_contact,
+    SELECT so.id, so.order_no, so.customer_id, so.contract_id, so.type, so.title, so.description, so.status, so.priority,
+           so.assignee_id, so.finish_time, so.finish_desc, so.satisfaction, so.create_by, so.create_time, so.deleted_at,
+           cu.company_name as customer_name, pc.name as customer_contact,
            pc.phone as customer_phone, c.contract_no,
            u1.real_name as assignee_name, u2.real_name as create_by_name,
            CASE WHEN so.status IN (1, 2) AND so.priority = 1 AND NOW() - INTERVAL 2 HOUR > so.create_time THEN 1
@@ -154,7 +158,9 @@ async function listServiceOrders(pool, params, permissionClause) {
  */
 async function getServiceOrderDetail(pool, id) {
   const [rows] = await pool.query(`
-    SELECT so.*, cu.company_name as customer_name, pc.name as customer_contact,
+    SELECT so.id, so.order_no, so.customer_id, so.contract_id, so.type, so.title, so.description, so.status, so.priority,
+           so.assignee_id, so.finish_time, so.finish_desc, so.satisfaction, so.create_by, so.create_time, so.deleted_at,
+           cu.company_name as customer_name, pc.name as customer_contact,
            pc.phone as customer_phone, cu.address as customer_address,
            c.contract_no, c.amount as contract_amount,
            u1.real_name as assignee_name, u2.real_name as create_by_name
@@ -179,10 +185,11 @@ async function getServiceOrderDetail(pool, id) {
 
   // 查询社媒沟通记录
   const [socialRecords] = await pool.query(
-    `SELECT sc.*, ct.name as contact_name
+    `SELECT sc.id, sc.customer_id, sc.contact_id, sc.platform, sc.direction, sc.content, sc.attachment_url, sc.message_time, sc.create_by, sc.create_time, sc.deleted_at,
+            ct.name as contact_name
      FROM crm_social_contact sc
      LEFT JOIN crm_contact ct ON sc.contact_id = ct.id
-     WHERE sc.customer_id = ?
+     WHERE sc.customer_id = ? AND sc.deleted_at IS NULL
      ORDER BY sc.message_time DESC LIMIT 20`, [order.customer_id]
   );
 
@@ -205,18 +212,14 @@ async function createServiceOrder(pool, params, userId) {
 
     // 校验客户必须是正式客户（status=2）
     const [customerCheck] = await connection.query(
-      'SELECT id, status FROM crm_customer WHERE id = ? AND status != 0',
+      'SELECT id, status FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
       [customer_id]
     );
     if (customerCheck.length === 0) {
-      const err = new Error('客户不存在');
-      err.code = 404;
-      throw err;
+      throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '客户不存在')
     }
-    if (customerCheck[0].status !== 2) {
-      const err = new Error('只能为正式客户创建售后工单');
-      err.code = 400;
-      throw err;
+    if (customerCheck[0].status !== 'signed') {
+      throw new AppError(ErrorCodes.VALIDATION_ERROR, '只能为已签约客户创建售后工单')
     }
 
     const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
@@ -258,14 +261,10 @@ async function updateServiceOrder(pool, params, user) {
 
   const [orders] = await pool.query('SELECT id, create_by, assignee_id FROM crm_service_order WHERE id = ? AND deleted_at IS NULL', [id]);
   if (orders.length === 0) {
-    const err = new Error('工单不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '工单不存在')
   }
   if (!(await canManageService(pool, user, orders[0]))) {
-    const err = new Error('无权修改该工单');
-    err.code = 403;
-    throw err;
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权修改该工单')
   }
 
   await pool.query(
@@ -290,14 +289,10 @@ async function updateServiceOrder(pool, params, user) {
 async function deleteServiceOrder(pool, id, user) {
   const [orders] = await pool.query('SELECT id, create_by, assignee_id FROM crm_service_order WHERE id = ? AND deleted_at IS NULL', [id]);
   if (orders.length === 0) {
-    const err = new Error('工单不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '工单不存在')
   }
   if (!(await canManageService(pool, user, orders[0]))) {
-    const err = new Error('无权删除该工单');
-    err.code = 403;
-    throw err;
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权删除该工单')
   }
 
   await pool.query('UPDATE crm_service_order SET deleted_at = NOW() WHERE id = ?', [id]);
@@ -313,14 +308,10 @@ async function deleteServiceOrder(pool, id, user) {
 async function assignServiceOrder(pool, id, assigneeId, user) {
   const [orders] = await pool.query('SELECT id, create_by, assignee_id FROM crm_service_order WHERE id = ? AND deleted_at IS NULL', [id]);
   if (orders.length === 0) {
-    const err = new Error('工单不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '工单不存在')
   }
   if (!(await canManageService(pool, user, orders[0]))) {
-    const err = new Error('无权操作该工单');
-    err.code = 403;
-    throw err;
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权操作该工单')
   }
 
   await pool.query(
@@ -378,14 +369,10 @@ async function batchAssignServiceOrders(pool, ids, assigneeId, userId) {
 async function startServiceOrder(pool, id, user) {
   const [orders] = await pool.query('SELECT id, create_by, assignee_id FROM crm_service_order WHERE id = ? AND deleted_at IS NULL', [id]);
   if (orders.length === 0) {
-    const err = new Error('工单不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '工单不存在')
   }
   if (!(await canManageService(pool, user, orders[0]))) {
-    const err = new Error('无权操作该工单');
-    err.code = 403;
-    throw err;
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权操作该工单')
   }
 
   await pool.query('UPDATE crm_service_order SET status = 3 WHERE id = ?', [id]);
@@ -401,14 +388,10 @@ async function startServiceOrder(pool, id, user) {
 async function finishServiceOrder(pool, id, finishDesc, user) {
   const [orders] = await pool.query('SELECT id, create_by, assignee_id FROM crm_service_order WHERE id = ? AND deleted_at IS NULL', [id]);
   if (orders.length === 0) {
-    const err = new Error('工单不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '工单不存在')
   }
   if (!(await canManageService(pool, user, orders[0]))) {
-    const err = new Error('无权操作该工单');
-    err.code = 403;
-    throw err;
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权操作该工单')
   }
 
   await pool.query(
@@ -427,14 +410,10 @@ async function finishServiceOrder(pool, id, finishDesc, user) {
 async function confirmServiceOrder(pool, id, satisfaction, user) {
   const [orders] = await pool.query('SELECT id, create_by, assignee_id FROM crm_service_order WHERE id = ? AND deleted_at IS NULL', [id]);
   if (orders.length === 0) {
-    const err = new Error('工单不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '工单不存在')
   }
   if (!(await canManageService(pool, user, orders[0]))) {
-    const err = new Error('无权操作该工单');
-    err.code = 403;
-    throw err;
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权操作该工单')
   }
 
   await pool.query(

@@ -2,6 +2,8 @@
  * 角色路由服务层
  * 职责：处理角色管理相关的业务逻辑
  */
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 
 /**
  * 查询角色列表
@@ -43,8 +45,8 @@ async function updateRole(pool, params, clearPermissionCache, clearAllPermission
   );
   // 修改角色后清除该角色所有用户的权限缓存
   const [users] = await pool.query('SELECT id FROM sys_user WHERE role_id = ?', [id]);
-  users.forEach(u => clearPermissionCache(u.id));
-  clearAllPermissionCache();
+  await Promise.all(users.map(u => clearPermissionCache(u.id)));
+  await clearAllPermissionCache();
 }
 
 /**
@@ -60,7 +62,7 @@ async function deleteRole(pool, id, clearPermissionCache, clearAllPermissionCach
   // 检查是否有用户关联该角色
   const [users] = await pool.query('SELECT COUNT(*) as cnt FROM sys_user WHERE role_id = ?', [id]);
   if (users[0].cnt > 0) {
-    throw new Error(`该角色下有 ${users[0].cnt} 个用户，无法删除`);
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, `该角色下有 ${users[0].cnt} 个用户，无法删除`);
   }
   await pool.query('DELETE FROM sys_role WHERE id=?', [id]);
   // 删除角色后清除该角色所有用户的权限缓存

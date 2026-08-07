@@ -18,116 +18,116 @@ const enhancedPredictionSchema = Joi.object({
 });
 
 // 1. 销售预测（仅管理员/经理）
-router.get('/prediction', authenticateToken, checkPermission('analysis'), requireManager, async (req, res) => {
+router.get('/prediction', authenticateToken, checkPermission('analysis'), requireManager, async (req, res, next) => {
   try {
     const data = await analysisService.getPrediction(pool);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[数据分析] 销售预测错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 2. 客户流失预警
-router.get('/churn-alert', authenticateToken, checkPermission('analysis'), requireManager, queryValidate(churnAlertSchema), async (req, res) => {
+router.get('/churn-alert', authenticateToken, checkPermission('analysis'), requireManager, queryValidate(churnAlertSchema), async (req, res, next) => {
   try {
     const { page = 1, pageSize = 20 } = req.query;
     const data = await analysisService.getChurnAlert(pool, { page, pageSize });
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[数据分析] 流失预警错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 3. 异常检测
-router.get('/anomaly', authenticateToken, checkPermission('analysis'), requireManager, async (req, res) => {
+router.get('/anomaly', authenticateToken, checkPermission('analysis'), requireManager, async (req, res, next) => {
   try {
     const data = await analysisService.getAnomaly(pool);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[数据分析] 异常检测错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 4. 客户评分
-router.get('/customer-score/:id', authenticateToken, checkPermission('analysis'), requireManager, async (req, res) => {
+router.get('/customer-score/:id', authenticateToken, checkPermission('analysis'), requireManager, async (req, res, next) => {
   try {
     const data = await analysisService.getCustomerScore(pool, req.params.id);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[数据分析] 客户评分错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 5. 赢单率分析
-router.get('/win-rate', authenticateToken, checkPermission('analysis'), requireManager, async (req, res) => {
+router.get('/win-rate', authenticateToken, checkPermission('analysis'), requireManager, async (req, res, next) => {
   try {
     const data = await analysisService.getWinRate(pool);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[数据分析] 赢单率分析错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 6. 销售漏斗
-router.get('/funnel', authenticateToken, checkPermission('analysis'), requireManager, async (req, res) => {
+router.get('/funnel', authenticateToken, checkPermission('analysis'), requireManager, async (req, res, next) => {
   try {
     const data = await analysisService.getFunnel(pool);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[数据分析] 销售漏斗错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 7. 客户价值评分 RFM
-router.get('/rfm', authenticateToken, checkPermission('analysis'), requireManager, async (req, res) => {
+router.get('/rfm', authenticateToken, checkPermission('analysis'), requireManager, async (req, res, next) => {
   try {
     const data = await analysisService.getRFM(pool);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[数据分析] RFM评分错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 8. 销售排行榜
-router.get('/ranking', authenticateToken, checkPermission('analysis'), requireManager, async (req, res) => {
+router.get('/ranking', authenticateToken, checkPermission('analysis'), requireManager, async (req, res, next) => {
   try {
     const data = await analysisService.getRanking(pool);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[数据分析] 销售排行榜错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // ============ 增强版销售预测 ============
 
-router.get('/prediction/enhanced', authenticateToken, checkPermission('analysis'), requireManager, queryValidate(enhancedPredictionSchema), async (req, res) => {
+router.get('/prediction/enhanced', authenticateToken, checkPermission('analysis'), requireManager, queryValidate(enhancedPredictionSchema), async (req, res, next) => {
   try {
     const monthsAhead = parseInt(req.query.months_ahead) || 3;
     const data = await analysisService.getEnhancedPrediction(pool, monthsAhead);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[分析] 增强预测失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // ============ 增强版智能建议 ============
 
-router.get('/suggestions/enhanced', authenticateToken, checkPermission('analysis'), requireManager, async (req, res) => {
+router.get('/suggestions/enhanced', authenticateToken, checkPermission('analysis'), requireManager, async (req, res, next) => {
   try {
     const data = await analysisService.getEnhancedSuggestions(pool);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[分析] 增强建议失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 

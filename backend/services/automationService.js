@@ -12,7 +12,9 @@ const sseManager = require('../utils/sseManager');
  */
 async function getWorkflows(pool) {
   const [rows] = await pool.query(`
-    SELECT w.*, u.real_name as create_by_name,
+    SELECT w.id, w.name, w.description, w.trigger_event, w.conditions, w.actions, w.status,
+           w.last_run_at, w.run_count, w.create_by, w.create_time, w.update_time, w.deleted_at,
+           u.real_name as create_by_name,
       (SELECT COUNT(*) FROM crm_workflow_log wl WHERE wl.rule_id = w.id AND wl.create_time >= CURDATE()) as today_runs
     FROM crm_workflow_rule w LEFT JOIN sys_user u ON w.create_by = u.id
     WHERE w.deleted_at IS NULL ORDER BY w.create_time DESC
@@ -137,7 +139,10 @@ async function executeActions(pool, ruleId, targetType, targetId, actions) {
  * 手动执行工作流
  */
 async function executeWorkflow(pool, { rule_id, target_type, target_id }) {
-  const [[rule]] = await pool.query('SELECT * FROM crm_workflow_rule WHERE id = ? AND deleted_at IS NULL', [rule_id]);
+  const [[rule]] = await pool.query(
+    'SELECT id, name, description, trigger_event, conditions, actions, status, last_run_at, run_count, create_by, create_time, update_time, deleted_at FROM crm_workflow_rule WHERE id = ? AND deleted_at IS NULL',
+    [rule_id]
+  );
   if (!rule) return null;
   return await executeActions(pool, rule.id, target_type, target_id, JSON.parse(rule.actions || '[]'));
 }
@@ -147,7 +152,8 @@ async function executeWorkflow(pool, { rule_id, target_type, target_id }) {
  */
 async function triggerWorkflow(pool, { event, target_type, target_id }) {
   const [rules] = await pool.query(
-    'SELECT * FROM crm_workflow_rule WHERE trigger_event = ? AND status = 1 AND deleted_at IS NULL', [event]
+    'SELECT id, name, description, trigger_event, conditions, actions, status, last_run_at, run_count, create_by, create_time, update_time, deleted_at FROM crm_workflow_rule WHERE trigger_event = ? AND status = 1 AND deleted_at IS NULL',
+    [event]
   );
 
   let triggered = 0;
@@ -157,7 +163,10 @@ async function triggerWorkflow(pool, { event, target_type, target_id }) {
       try {
         const conditions = JSON.parse(rule.conditions);
         if (conditions.length > 0 && target_type === 'customer') {
-          const [[target]] = await pool.query('SELECT * FROM crm_customer WHERE id = ?', [target_id]);
+          const [[target]] = await pool.query(
+            'SELECT id, company_name, status, owner_id, source, level, industry, address, last_follow_time, create_time, deleted_at FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+            [target_id]
+          );
           if (target) {
             for (const cond of conditions) {
               if (cond.operator === 'equals' && target[cond.field] !== cond.value) conditionsMet = false;
@@ -189,7 +198,9 @@ async function getWorkflowLogs(pool, { rule_id, page = 1, pageSize = 20 }) {
 
   const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total FROM crm_workflow_log wl ${where}`, params);
   const [rows] = await pool.query(`
-    SELECT wl.*, w.name as rule_name
+    SELECT wl.id, wl.rule_id, wl.trigger_event, wl.target_type, wl.target_id,
+           wl.action_type, wl.action_result, wl.action_detail, wl.create_time,
+           w.name as rule_name
     FROM crm_workflow_log wl JOIN crm_workflow_rule w ON wl.rule_id = w.id
     ${where} ORDER BY wl.create_time DESC LIMIT ? OFFSET ?
   `, [...params, parseInt(pageSize), offset]);
@@ -203,7 +214,7 @@ async function getWorkflowLogs(pool, { rule_id, page = 1, pageSize = 20 }) {
  * 查询分配规则列表
  */
 async function getAssignRules(pool) {
-  const [rows] = await pool.query('SELECT * FROM crm_assign_rule ORDER BY priority DESC, id');
+  const [rows] = await pool.query('SELECT id, rule_name, assign_type, source_value, region_value, user_ids, last_assigned_index, priority, is_active, create_time, update_time FROM crm_assign_rule ORDER BY priority DESC, id');
   return rows;
 }
 
@@ -253,11 +264,14 @@ async function applyAssignRule(pool, { customer_id, customer_ids }) {
   const ids = customer_ids || (customer_id ? [customer_id] : []);
   if (ids.length === 0) return [];
 
-  const [rules] = await pool.query('SELECT * FROM crm_assign_rule WHERE is_active = 1 ORDER BY priority DESC');
+  const [rules] = await pool.query('SELECT id, rule_name, assign_type, source_value, region_value, user_ids, last_assigned_index, priority, is_active, create_time, update_time FROM crm_assign_rule WHERE is_active = 1 ORDER BY priority DESC');
   const results = [];
 
   for (const cid of ids) {
-    const [[customer]] = await pool.query('SELECT * FROM crm_customer WHERE id = ? AND deleted_at IS NULL', [cid]);
+    const [[customer]] = await pool.query(
+      'SELECT id, company_name, status, owner_id, source, level, industry, address, last_follow_time, create_time, deleted_at FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+      [cid]
+    );
     if (!customer) { results.push({ id: cid, result: 'not_found' }); continue; }
 
     let assigned = false;
@@ -293,7 +307,7 @@ async function applyAssignRule(pool, { customer_id, customer_ids }) {
  * 查询智能提醒列表
  */
 async function getSmartReminders(pool) {
-  const [rows] = await pool.query('SELECT * FROM crm_smart_reminder WHERE deleted_at IS NULL ORDER BY create_time DESC');
+  const [rows] = await pool.query('SELECT id, name, reminder_type, config, notify_to, notify_method, status, last_run_at, create_by, create_time, update_time, deleted_at FROM crm_smart_reminder WHERE deleted_at IS NULL ORDER BY create_time DESC');
   return rows;
 }
 
@@ -339,7 +353,7 @@ async function deleteSmartReminder(pool, id) {
  * 执行智能提醒扫描
  */
 async function runSmartReminder(pool) {
-  const [rules] = await pool.query('SELECT * FROM crm_smart_reminder WHERE status = 1 AND deleted_at IS NULL');
+  const [rules] = await pool.query('SELECT id, name, reminder_type, config, notify_to, notify_method, status, last_run_at, create_by, create_time, update_time, deleted_at FROM crm_smart_reminder WHERE status = 1 AND deleted_at IS NULL');
   let totalFound = 0;
 
   for (const rule of rules) {
@@ -383,7 +397,7 @@ async function runSmartReminder(pool) {
         [matches] = await pool.query(`
           SELECT c.id, c.company_name, c.owner_id, c.last_follow_time,
                  DATEDIFF(CURDATE(), c.last_follow_time) as days_inactive
-          FROM crm_customer c WHERE c.deleted_at IS NULL AND c.status = 1
+          FROM crm_customer c WHERE c.deleted_at IS NULL AND c.status = 'following'
             AND c.last_follow_time < DATE_SUB(CURDATE(), INTERVAL ? DAY)
         `, [config.days_no_contact || 30]);
         break;
@@ -425,7 +439,8 @@ async function runSmartReminder(pool) {
  */
 async function getPendingReminders(pool, userId) {
   const [rows] = await pool.query(`
-    SELECT rl.*, sr.name as rule_name, sr.reminder_type
+    SELECT rl.id, rl.rule_id, rl.target_type, rl.target_id, rl.remind_date, rl.user_id, rl.status, rl.create_time,
+           sr.name as rule_name, sr.reminder_type
     FROM crm_smart_reminder_log rl
     JOIN crm_smart_reminder sr ON rl.rule_id = sr.id
     WHERE rl.user_id = ? AND rl.status = 'pending'

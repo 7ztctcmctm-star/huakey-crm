@@ -66,10 +66,15 @@ test.describe('报价 → 合同核心流程', () => {
     // Playwright 的 request fixture 在每个 hook 中独立，需重新登录使 token/header 匹配
     const { csrfToken } = await loginAsAdmin(request)
     // 按依赖逆序清理：合同 → 报价 → 产品 → 客户
-    if (contractId) await deleteContract(request, csrfToken, contractId)
-    if (quoteId) await deleteQuote(request, csrfToken, quoteId)
-    if (productId) await deleteProduct(request, csrfToken, productId)
-    if (customerId) await deleteCustomer(request, csrfToken, customerId)
+    // 每步独立 try/catch：报价单审批通过后 status=3（已确认），deleteQuote 会被后端拒绝，
+    // 不应因此阻塞后续产品/客户清理，留下少量测试报价单可接受（CI 每次重建库）。
+    const cleanup = async (label, fn) => {
+      try { await fn() } catch (e) { console.warn(`[afterAll] ${label} 清理失败（忽略）: ${e.message}`) }
+    }
+    await cleanup('合同', () => contractId && deleteContract(request, csrfToken, contractId))
+    await cleanup('报价', () => quoteId && deleteQuote(request, csrfToken, quoteId))
+    await cleanup('产品', () => productId && deleteProduct(request, csrfToken, productId))
+    await cleanup('客户', () => customerId && deleteCustomer(request, csrfToken, customerId))
   })
 
   test('应能新建报价单、审批通过后转为合同', async ({ authenticatedPage: page, request }, testInfo) => {
@@ -184,7 +189,8 @@ test.describe('报价 → 合同核心流程', () => {
     contractId = match ? parseInt(match[1], 10) : null
 
     // 验证合同详情页展示正确
-    await expect(page.locator('.contract-detail')).toBeVisible()
+    // 等待合同详情数据加载完成（API 返回后才渲染 el-descriptions）
+    await expect(page.locator('.contract-detail .el-descriptions')).toBeVisible({ timeout: 10000 })
     await expect(page.locator('.page-title')).toContainText('合同详情')
     await expect(page.locator('.contract-detail')).toContainText(customerName)
     await expect(page.locator('.contract-detail')).toContainText('999.99')

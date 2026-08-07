@@ -4,6 +4,7 @@
  */
 
 const { CUSTOMER_STATUS } = require('../constants/customerStatus');
+const { POOL_STATUS } = require('../constants/poolStatus');
 
 // ========== 分配规则 ==========
 
@@ -12,7 +13,7 @@ const { CUSTOMER_STATUS } = require('../constants/customerStatus');
  */
 async function getAssignRules(pool) {
   const [list] = await pool.query(
-    'SELECT * FROM crm_assign_rule ORDER BY priority DESC, id ASC'
+    'SELECT id, rule_name, assign_type, source_value, region_value, user_ids, last_assigned_index, priority, is_active, create_time, update_time FROM crm_assign_rule ORDER BY priority DESC, id ASC'
   );
   return list;
 }
@@ -103,8 +104,8 @@ async function applyRule(pool, operatorId) {
       const targetUser = salesUsers[i % salesUsers.length];
 
       await connection.query(
-        'UPDATE crm_customer SET owner_id = ?, pool_status = 0, protect_until = NULL WHERE id = ?',
-        [targetUser.id, customer.id]
+        'UPDATE crm_customer SET owner_id = ?, pool_status = ?, protect_until = NULL WHERE id = ?',
+        [targetUser.id, POOL_STATUS.PRIVATE, customer.id]
       );
 
       await connection.query(
@@ -134,7 +135,7 @@ async function applyRule(pool, operatorId) {
 async function autoAssignOwner(pool, customer) {
   try {
     const [rules] = await pool.query(
-      'SELECT * FROM crm_assign_rule WHERE is_active = 1 ORDER BY priority DESC'
+      'SELECT id, rule_name, assign_type, source_value, region_value, user_ids, last_assigned_index, priority, is_active, create_time, update_time FROM crm_assign_rule WHERE is_active = 1 ORDER BY priority DESC'
     );
     if (rules.length === 0) return null;
 
@@ -197,9 +198,9 @@ async function manualAssign(pool, customerId, toUserId, operatorId, remark) {
   const fromUserId = customer.owner_id;
 
   // 更新负责人（to_user_id 为 null 表示回收为无负责人）
-  // 回收时同步 pool_status=1 和 status=sea，分配时 pool_status=0
+  // 回收时同步 pool_status='sea' 和 status=sea，分配时 pool_status='private'
   const toUserIdValue = toUserId || null;
-  const poolStatus = toUserIdValue ? 0 : 1;
+  const poolStatus = toUserIdValue ? POOL_STATUS.PRIVATE : POOL_STATUS.SEA;
 
   let updateSql = 'UPDATE crm_customer SET owner_id = ?, pool_status = ?, protect_until = NULL';
   const updateParams = [toUserIdValue, poolStatus];
@@ -239,7 +240,7 @@ async function batchAssign(pool, customerIds, toUserId, operatorId, remark) {
       if (customers.length === 0) continue;
       const customer = customers[0];
 
-      const poolStatus = toUserId ? 0 : 1;
+      const poolStatus = toUserId ? POOL_STATUS.PRIVATE : POOL_STATUS.SEA;
       let updateSql = 'UPDATE crm_customer SET owner_id = ?, pool_status = ?, protect_until = NULL';
       const updateParams = [toUserId, poolStatus];
       if (!toUserId) {
@@ -293,7 +294,7 @@ async function getAssignLogs(pool, params) {
   const total = countResult[0].total;
 
   const [list] = await pool.query(
-    `SELECT al.*,
+    `SELECT al.id, al.customer_id, al.from_user_id, al.to_user_id, al.operator_id, al.remark, al.create_time,
       c.company_name,
       u1.real_name as from_user_name,
       u2.real_name as to_user_name,

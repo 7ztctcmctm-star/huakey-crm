@@ -55,6 +55,7 @@ describe('部门管理模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ insertId: 10 }]);
 
       const res = await request(app)
@@ -98,6 +99,7 @@ describe('部门管理模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ affectedRows: 1 }]);
 
       const res = await request(app)
@@ -128,6 +130,7 @@ describe('部门管理模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ cnt: 3 }]]); // children check
 
       const res = await request(app)
@@ -143,6 +146,7 @@ describe('部门管理模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ cnt: 0 }]])  // no children
         .mockResolvedValueOnce([[{ cnt: 5 }]]); // has users
 
@@ -159,6 +163,7 @@ describe('部门管理模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ cnt: 0 }]])  // no children
         .mockResolvedValueOnce([[{ cnt: 0 }]])  // no users
         .mockResolvedValueOnce([{ affectedRows: 1 }]);

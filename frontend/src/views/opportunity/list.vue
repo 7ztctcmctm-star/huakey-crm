@@ -436,20 +436,8 @@ const drawerData = ref(null)
 const drawerLoading = ref(false)
 const stageLogs = ref([])
 
-const handleViewDetail = async (row) => {
-  drawerVisible.value = true
-  drawerLoading.value = true
-  drawerData.value = null
-  stageLogs.value = []
-  try {
-    const [detailRes, logRes] = await Promise.all([
-      getOpportunityDetail(row.id),
-      getOpportunityStageLog(row.id)
-    ])
-    if (detailRes.code === 200) drawerData.value = detailRes.data
-    if (logRes.code === 200) stageLogs.value = logRes.data
-  } catch { ElMessage.error('加载详情失败') }
-  finally { drawerLoading.value = false }
+const handleViewDetail = (row) => {
+  router.push(`/opportunity/detail/${row.id}`)
 }
 
 const pushStageOptions = computed(() => {

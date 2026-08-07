@@ -3,6 +3,9 @@
  * 从 routes/contract.js 回款部分提取的业务逻辑，供路由层复用
  */
 
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
+
 /**
  * 重新计算回款计划的 paid_amount / status / overdue_days
  * @param {object} pool
@@ -117,9 +120,7 @@ async function recordPayment(pool, data) {
       [contract_id]
     );
     if (!contracts.length) {
-      const err = new Error('所属合同不存在');
-      err.code = 404;
-      throw err;
+      throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '所属合同不存在')
     }
 
     const [result] = await conn.query(
@@ -152,11 +153,9 @@ async function updatePayment(pool, data) {
   const { id, pay_date, pay_amount, pay_method, remark } = data;
 
   // 查找旧 plan_id 用于刷新
-  const [oldPayment] = await pool.query('SELECT plan_id, contract_id FROM crm_payment WHERE id = ?', [id]);
+  const [oldPayment] = await pool.query('SELECT plan_id, contract_id FROM crm_payment WHERE id = ? AND deleted_at IS NULL', [id]);
   if (!oldPayment.length) {
-    const err = new Error('回款记录不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '回款记录不存在')
   }
 
   await pool.query(
@@ -181,9 +180,7 @@ async function deletePayment(pool, paymentId) {
     [paymentId]
   );
   if (!payments.length) {
-    const err = new Error('回款记录不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '回款记录不存在')
   }
 
   await pool.query('UPDATE crm_payment SET deleted_at = NOW() WHERE id = ?', [paymentId]);

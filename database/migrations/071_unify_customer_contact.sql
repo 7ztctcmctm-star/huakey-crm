@@ -32,20 +32,27 @@ DEALLOCATE PREPARE add_idx_stmt;
 
 -- 4. 迁移历史数据：将 crm_customer 的联系人生成到 crm_contact
 --    只迁移未删除客户、且联系人姓名不为空的记录，默认标记为决策人和主联系人
+-- [幂等] 使用 NOT EXISTS 防止重复执行时产生重复联系人
 INSERT INTO crm_contact (customer_id, name, phone, email, is_decision, is_primary, create_time, update_time)
 SELECT
-  id,
-  NULLIF(TRIM(contact_name), ''),
-  NULLIF(TRIM(phone), ''),
-  NULLIF(TRIM(email), ''),
+  c.id,
+  NULLIF(TRIM(c.contact_name), ''),
+  NULLIF(TRIM(c.phone), ''),
+  NULLIF(TRIM(c.email), ''),
   1,
   1,
-  create_time,
-  update_time
-FROM crm_customer
-WHERE deleted_at IS NULL
-  AND (contact_name IS NOT NULL AND TRIM(contact_name) != '')
-ORDER BY id;
+  c.create_time,
+  c.update_time
+FROM crm_customer c
+WHERE c.deleted_at IS NULL
+  AND (c.contact_name IS NOT NULL AND TRIM(c.contact_name) != '')
+  AND NOT EXISTS (
+    SELECT 1 FROM crm_contact existing
+    WHERE existing.customer_id = c.id
+      AND existing.name = NULLIF(TRIM(c.contact_name), '')
+      AND existing.deleted_at IS NULL
+  )
+ORDER BY c.id;
 
 -- 5. 为已有联系人（本次迁移前存在的）补充主联系人标记：每个客户最多一个主联系人
 --    优先保留 is_decision=1 的，否则取 id 最小的一个

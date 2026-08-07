@@ -49,105 +49,105 @@ const alertConfigSchema = Joi.object({
 });
 
 // 库存列表
-router.get('/list', authenticateToken, queryValidate(inventoryListSchema), async (req, res) => {
+router.get('/list', authenticateToken, queryValidate(inventoryListSchema), async (req, res, next) => {
   try {
     const data = await inventoryService.listInventory(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[库存] 列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 库存变动记录
-router.get('/movements', authenticateToken, queryValidate(movementsSchema), async (req, res) => {
+router.get('/movements', authenticateToken, queryValidate(movementsSchema), async (req, res, next) => {
   try {
     const data = await inventoryService.getMovements(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[库存] 变动记录查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 入库
-router.post('/in', authenticateToken, checkPermission('purchase:add'), validate(stockInSchema), async (req, res) => {
+router.post('/in', authenticateToken, checkPermission('purchase:add'), validate(stockInSchema), async (req, res, next) => {
   try {
     const result = await inventoryService.stockIn(pool, req.body, req.user.userId);
     if (result.error) return res.status(result.status).json({ code: result.status, message: result.message, data: null });
     res.json({ code: 200, message: '入库成功', data: result });
   } catch (error) {
     logger.error('[库存] 入库失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 出库
-router.post('/out', authenticateToken, checkPermission('purchase:add'), validate(stockOutSchema), async (req, res) => {
+router.post('/out', authenticateToken, checkPermission('purchase:add'), validate(stockOutSchema), async (req, res, next) => {
   try {
     const result = await inventoryService.stockOut(pool, req.body, req.user.userId);
     if (result.error) return res.status(result.status).json({ code: result.status, message: result.message, data: null });
     res.json({ code: 200, message: '出库成功', data: result });
   } catch (error) {
     logger.error('[库存] 出库失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 库存调整（盘点）
-router.post('/adjust', authenticateToken, checkPermission('purchase:add'), validate(stockAdjustSchema), async (req, res) => {
+router.post('/adjust', authenticateToken, checkPermission('purchase:add'), validate(stockAdjustSchema), async (req, res, next) => {
   try {
     const result = await inventoryService.adjustStock(pool, req.body, req.user.userId);
     if (result.error) return res.status(result.status).json({ code: result.status, message: result.message, data: null });
     res.json({ code: 200, message: '调整成功', data: result });
   } catch (error) {
     logger.error('[库存] 调整失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 库存预警列表
-router.get('/alerts', authenticateToken, async (req, res) => {
+router.get('/alerts', authenticateToken, async (req, res, next) => {
   try {
     const rows = await inventoryService.getAlerts(pool);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
     logger.error('[库存] 预警查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 配置预警阈值
-router.put('/alert-config/:product_id', authenticateToken, validate(alertConfigSchema), async (req, res) => {
+router.put('/alert-config/:product_id', authenticateToken, validate(alertConfigSchema), async (req, res, next) => {
   try {
     const result = await inventoryService.updateAlertConfig(pool, req.params.product_id, req.body);
     if (result.error) return res.status(result.status).json({ code: result.status, message: result.message, data: null });
     res.json({ code: 200, message: '配置成功', data: null });
   } catch (error) {
     logger.error('[库存] 预警配置失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 库存统计
-router.get('/stats', authenticateToken, async (req, res) => {
+router.get('/stats', authenticateToken, async (req, res, next) => {
   try {
     const data = await inventoryService.getStats(pool);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[库存] 统计查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 产品分类列表
-router.get('/categories', authenticateToken, async (req, res) => {
+router.get('/categories', authenticateToken, async (req, res, next) => {
   try {
     const data = await inventoryService.getCategories(pool);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[库存] 分类查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 

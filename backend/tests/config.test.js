@@ -1,8 +1,10 @@
-﻿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
 process.env.JWT_SECRET = 'test_secret_key_for_unit_tests';
+// testNotification 要求 WECHAT_WEBHOOK_URL 已配置（sendText 已 mock，不会真实发送）
+process.env.WECHAT_WEBHOOK_URL = 'https://test.example.com/webhook';
 
 const mockPool = {
   query: jest.fn(),
@@ -64,6 +66,7 @@ describe('系统配置模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[
           { config_key: 'overdue_days', config_value: '30', description: '逾期天数' },
           { config_key: 'notify_enabled', config_value: 'true', description: '通知开关' }
@@ -98,6 +101,7 @@ describe('系统配置模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
 
       const res = await request(app)

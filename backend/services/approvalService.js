@@ -28,14 +28,15 @@ function validateTable(tableName) {
 
 async function listWorkflows(pool) {
   const [rows] = await pool.query(`
-    SELECT w.*, u.real_name as create_by_name,
+    SELECT w.id, w.name, w.type, w.description, w.status, w.create_by, w.create_time, w.update_time, w.deleted_at,
+      u.real_name as create_by_name,
       (SELECT COUNT(*) FROM crm_approval_step s WHERE s.workflow_id = w.id) as step_count
     FROM crm_approval_workflow w LEFT JOIN sys_user u ON w.create_by = u.id
     WHERE w.deleted_at IS NULL ORDER BY w.type, w.name
   `);
   if (rows.length > 0) {
     const ids = rows.map(r => r.id);
-    const [steps] = await pool.query('SELECT * FROM crm_approval_step WHERE workflow_id IN (?) ORDER BY workflow_id, step_order', [ids]);
+    const [steps] = await pool.query('SELECT id, workflow_id, step_order, step_name, approver_type, approver_id, is_required, create_time FROM crm_approval_step WHERE workflow_id IN (?) ORDER BY workflow_id, step_order', [ids]);
     rows.forEach(r => { r.steps = steps.filter(s => s.workflow_id === r.id); });
   }
   return rows;
@@ -93,10 +94,10 @@ async function deleteWorkflow(pool, id) {
 
 async function submitApproval(pool, businessType, businessId, userId) {
   const tableName = BUSINESS_TABLE_MAP[businessType];
-  if (!tableName) throw Object.assign(new Error('不支持的业务类型'), { code: 400 });
+  if (!tableName) throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '不支持的业务类型');
 
   const [bizRows] = await pool.query(`SELECT id, approval_status FROM ${validateTable(tableName)} WHERE id = ?`, [businessId]);
-  if (bizRows.length === 0) throw Object.assign(new Error('业务记录不存在'), { code: 404 });
+  if (bizRows.length === 0) throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '业务记录不存在');
 
   let actualType = businessType;
   if (businessType === 'quote' || businessType === 'contract') {
@@ -108,17 +109,17 @@ async function submitApproval(pool, businessType, businessId, userId) {
   }
 
   const [workflows] = await pool.query('SELECT id FROM crm_approval_workflow WHERE type = ? AND status = 1 AND deleted_at IS NULL LIMIT 1', [actualType]);
-  if (workflows.length === 0) throw Object.assign(new Error('未找到对应的审批流程'), { code: 400 });
+  if (workflows.length === 0) throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '未找到对应的审批流程');
 
-  const [steps] = await pool.query('SELECT * FROM crm_approval_step WHERE workflow_id = ? ORDER BY step_order LIMIT 1', [workflows[0].id]);
-  if (steps.length === 0) throw Object.assign(new Error('审批流程未配置步骤'), { code: 400 });
+  const [steps] = await pool.query('SELECT id, workflow_id, step_order, step_name, approver_type, approver_id, is_required FROM crm_approval_step WHERE workflow_id = ? ORDER BY step_order LIMIT 1', [workflows[0].id]);
+  if (steps.length === 0) throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '审批流程未配置步骤');
   const firstStep = steps[0];
 
   let approverId = firstStep.approver_id;
   if (firstStep.approver_type === 'manager') {
     const [user] = await pool.query('SELECT manager_id FROM sys_user WHERE id = ?', [userId]);
     if (user.length > 0 && user[0].manager_id) { approverId = user[0].manager_id; }
-    else throw Object.assign(new Error('未找到上级审批人'), { code: 400 });
+    else throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '未找到上级审批人');
   }
 
   const conn = await pool.getConnection();
@@ -136,14 +137,14 @@ async function approveRecord(pool, recordId, remark, userId, manageAll) {
   try {
     await conn.beginTransaction();
     // [安全] SELECT FOR UPDATE 锁定行，防止 TOCTOU 并发竞态
-    const [records] = await conn.query('SELECT * FROM crm_approval_record WHERE id = ? AND status = "pending" FOR UPDATE', [recordId]);
-    if (records.length === 0) throw Object.assign(new Error('审批记录不存在或已处理'), { code: 404 });
+    const [records] = await conn.query('SELECT id, workflow_id, business_type, business_id, step_id, step_order, approver_id, status FROM crm_approval_record WHERE id = ? AND status = "pending" FOR UPDATE', [recordId]);
+    if (records.length === 0) throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '审批记录不存在或已处理');
     const record = records[0];
-    if (record.approver_id !== userId && !manageAll) throw Object.assign(new Error('无权审批此记录'), { code: 403 });
+    if (record.approver_id !== userId && !manageAll) throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权审批此记录');
 
     await conn.query('UPDATE crm_approval_record SET status = "approved", remark = ? WHERE id = ?', [remark || null, recordId]);
 
-    const [nextSteps] = await conn.query('SELECT * FROM crm_approval_step WHERE workflow_id = ? AND step_order > ? ORDER BY step_order LIMIT 1', [record.workflow_id, record.step_order]);
+    const [nextSteps] = await conn.query('SELECT id, workflow_id, step_order, step_name, approver_type, approver_id, is_required FROM crm_approval_step WHERE workflow_id = ? AND step_order > ? ORDER BY step_order LIMIT 1', [record.workflow_id, record.step_order]);
     const tableName = BUSINESS_TABLE_MAP[record.business_type];
 
     if (nextSteps.length > 0) {
@@ -169,10 +170,10 @@ async function rejectRecord(pool, recordId, remark, userId, manageAll) {
   try {
     await conn.beginTransaction();
     // [安全] SELECT FOR UPDATE 锁定行，防止 TOCTOU 并发竞态
-    const [records] = await conn.query('SELECT * FROM crm_approval_record WHERE id = ? AND status = "pending" FOR UPDATE', [recordId]);
-    if (records.length === 0) throw Object.assign(new Error('审批记录不存在或已处理'), { code: 404 });
+    const [records] = await conn.query('SELECT id, workflow_id, business_type, business_id, step_id, step_order, approver_id, status FROM crm_approval_record WHERE id = ? AND status = "pending" FOR UPDATE', [recordId]);
+    if (records.length === 0) throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '审批记录不存在或已处理');
     const record = records[0];
-    if (record.approver_id !== userId && !manageAll) throw Object.assign(new Error('无权审批此记录'), { code: 403 });
+    if (record.approver_id !== userId && !manageAll) throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权审批此记录');
 
     await conn.query('UPDATE crm_approval_record SET status = "rejected", remark = ? WHERE id = ?', [remark || null, recordId]);
     const tableName = BUSINESS_TABLE_MAP[record.business_type];
@@ -183,13 +184,13 @@ async function rejectRecord(pool, recordId, remark, userId, manageAll) {
 
 async function withdrawApproval(pool, businessType, businessId, userId) {
   const tableName = BUSINESS_TABLE_MAP[businessType];
-  if (!tableName) throw Object.assign(new Error('不支持的业务类型'), { code: 400 });
+  if (!tableName) throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '不支持的业务类型');
 
-  const [records] = await pool.query('SELECT r.* FROM crm_approval_record r WHERE r.business_type = ? AND r.business_id = ? AND r.status = "pending"', [businessType, businessId]);
-  if (records.length === 0) throw Object.assign(new Error('没有待撤回的审批记录'), { code: 404 });
+  const [records] = await pool.query('SELECT r.id, r.workflow_id, r.business_type, r.business_id, r.step_id, r.step_order, r.approver_id, r.status FROM crm_approval_record r WHERE r.business_type = ? AND r.business_id = ? AND r.status = "pending"', [businessType, businessId]);
+  if (records.length === 0) throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '没有待撤回的审批记录');
 
   const [bizRows] = await pool.query(`SELECT create_by FROM ${validateTable(tableName)} WHERE id = ?`, [businessId]);
-  if (bizRows.length === 0 || bizRows[0].create_by !== userId) throw Object.assign(new Error('只能撤回自己提交的审批'), { code: 403 });
+  if (bizRows.length === 0 || bizRows[0].create_by !== userId) throw new AppError(ErrorCodes.PERMISSION_DENIED, '只能撤回自己提交的审批');
 
   const conn = await pool.getConnection();
   try {
@@ -204,7 +205,8 @@ async function withdrawApproval(pool, businessType, businessId, userId) {
 
 async function getApprovalDetail(pool, businessType, businessId) {
   const [records] = await pool.query(`
-    SELECT r.*, s.step_name, s.step_order, u.real_name as approver_name, w.name as workflow_name
+    SELECT r.id, r.workflow_id, r.business_type, r.business_id, r.step_id, r.step_order, r.approver_id, r.status, r.remark, r.create_time, r.update_time,
+      s.step_name, s.step_order, u.real_name as approver_name, w.name as workflow_name
     FROM crm_approval_record r
     JOIN crm_approval_step s ON r.step_id = s.id
     JOIN crm_approval_workflow w ON r.workflow_id = w.id
@@ -218,10 +220,10 @@ async function getApprovalDetail(pool, businessType, businessId) {
 async function getDetailWithHistory(pool, businessType, businessId) {
   let customerId = null;
   if (businessType === 'quote') {
-    const [[biz]] = await pool.query('SELECT customer_id FROM crm_quote WHERE id = ?', [businessId]);
+    const [[biz]] = await pool.query('SELECT customer_id FROM crm_quote WHERE id = ? AND deleted_at IS NULL', [businessId]);
     customerId = biz?.customer_id;
   } else if (businessType === 'contract') {
-    const [[biz]] = await pool.query('SELECT customer_id FROM crm_contract WHERE id = ?', [businessId]);
+    const [[biz]] = await pool.query('SELECT customer_id FROM crm_contract WHERE id = ? AND deleted_at IS NULL', [businessId]);
     customerId = biz?.customer_id;
   }
 
@@ -243,7 +245,8 @@ async function getDetailWithHistory(pool, businessType, businessId) {
 
 async function getMyPending(pool, userId) {
   const [rows] = await pool.query(`
-    SELECT r.*, w.name as workflow_name, w.type as business_type_name, s.step_name, u.real_name as submitter_name
+    SELECT r.id, r.workflow_id, r.business_type, r.business_id, r.step_id, r.step_order, r.approver_id, r.status, r.remark, r.create_time, r.update_time,
+      w.name as workflow_name, w.type as business_type_name, s.step_name, u.real_name as submitter_name
     FROM crm_approval_record r
     JOIN crm_approval_workflow w ON r.workflow_id = w.id
     JOIN crm_approval_step s ON r.step_id = s.id
@@ -301,14 +304,14 @@ async function batchApprove(pool, ids, remark, userId, manageAll) {
   for (const id of ids) {
     const conn = await pool.getConnection();
     try {
-      const [records] = await pool.query('SELECT * FROM crm_approval_record WHERE id = ? AND status = "pending"', [id]);
+      const [records] = await pool.query('SELECT id, workflow_id, business_type, business_id, step_id, step_order, approver_id, status FROM crm_approval_record WHERE id = ? AND status = "pending"', [id]);
       if (records.length === 0) { failed++; continue; }
       const record = records[0];
       if (record.approver_id !== userId && !manageAll) { failed++; continue; }
 
       await conn.beginTransaction();
       await conn.query('UPDATE crm_approval_record SET status = "approved", remark = ? WHERE id = ?', [remark || null, id]);
-      const [nextSteps] = await pool.query('SELECT * FROM crm_approval_step WHERE workflow_id = ? AND step_order > ? ORDER BY step_order LIMIT 1', [record.workflow_id, record.step_order]);
+      const [nextSteps] = await pool.query('SELECT id, workflow_id, step_order, step_name, approver_type, approver_id, is_required FROM crm_approval_step WHERE workflow_id = ? AND step_order > ? ORDER BY step_order LIMIT 1', [record.workflow_id, record.step_order]);
       const tableName = BUSINESS_TABLE_MAP[record.business_type];
 
       if (nextSteps.length > 0) {
@@ -334,7 +337,7 @@ async function batchReject(pool, ids, remark, userId, manageAll) {
   for (const id of ids) {
     const conn = await pool.getConnection();
     try {
-      const [records] = await pool.query('SELECT * FROM crm_approval_record WHERE id = ? AND status = "pending"', [id]);
+      const [records] = await pool.query('SELECT id, workflow_id, business_type, business_id, step_id, step_order, approver_id, status FROM crm_approval_record WHERE id = ? AND status = "pending"', [id]);
       if (records.length === 0) { failed++; continue; }
       const record = records[0];
       if (record.approver_id !== userId && !manageAll) { failed++; continue; }

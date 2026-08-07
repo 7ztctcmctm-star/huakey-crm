@@ -62,7 +62,8 @@ describe('定时任务模块', () => {
   function mockAdminAuth() {
     mockPool.query
       .mockResolvedValueOnce([[]])
-      .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1, role_code: 'super_admin' }]]);
+      .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1, role_code: 'super_admin' }]])
+      .mockResolvedValueOnce([[{ must_change_password: 0 }]]);
   }
 
   describe('GET /api/v1/cron/daily-scoring', () => {
@@ -107,9 +108,10 @@ describe('定时任务模块', () => {
       expect(mockConnection.query).toHaveBeenCalledTimes(3); // 1 SELECT + 1 UPDATE + 1 INSERT
 
       const updateCall = mockConnection.query.mock.calls[1];
-      expect(updateCall[0]).toMatch(/UPDATE crm_customer SET pool_status = 1/);
+      // 097 迁移后 pool_status 参数化（VARCHAR），不再是字面量 1
+      expect(updateCall[0]).toMatch(/UPDATE crm_customer SET pool_status = \?/);
       expect(updateCall[0]).toMatch(/WHERE id IN \(\?\)/);
-      expect(updateCall[1]).toEqual(['sea', [1, 2]]);
+      expect(updateCall[1]).toEqual(['sea', 'sea', [1, 2]]);
 
       const insertCall = mockConnection.query.mock.calls[2];
       expect(insertCall[0]).toMatch(/INSERT INTO crm_pool_log/);

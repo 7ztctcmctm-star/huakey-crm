@@ -162,7 +162,7 @@ async function getEmployeeCommission(pool, userId) {
   );
 
   const [records] = await pool.query(`
-    SELECT r.*, ru.real_name as user_name
+    SELECT r.id, r.user_id, r.rule_id, r.business_type, r.business_id, r.base_amount, r.commission_rate, r.commission_amount, r.period, r.status, r.remark, r.create_time, r.update_time, ru.real_name as user_name
     FROM crm_commission_record r
     JOIN sys_user ru ON r.user_id = ru.id
     WHERE r.user_id = ? ORDER BY r.period DESC, r.create_time DESC LIMIT 50
@@ -177,7 +177,7 @@ async function getEmployeeCommission(pool, userId) {
  * 查询佣金规则列表
  */
 async function getCommissionRules(pool) {
-  const [rows] = await pool.query('SELECT * FROM crm_commission_rule WHERE deleted_at IS NULL ORDER BY create_time DESC');
+  const [rows] = await pool.query('SELECT id, name, rule_type, apply_to, config, status, remark, create_by, create_time, update_time, deleted_at FROM crm_commission_rule WHERE deleted_at IS NULL ORDER BY create_time DESC');
   return rows;
 }
 
@@ -226,7 +226,7 @@ async function deleteCommissionRule(pool, id) {
  */
 async function calculateCommission(pool, { period, user_ids }) {
   const [[defaultRule]] = await pool.query(
-    "SELECT * FROM crm_commission_rule WHERE status = 1 AND deleted_at IS NULL AND apply_to = 'contract' ORDER BY id LIMIT 1"
+    "SELECT id, name, rule_type, apply_to, config, status, remark, create_by, create_time, update_time, deleted_at FROM crm_commission_rule WHERE status = 1 AND deleted_at IS NULL AND apply_to = 'contract' ORDER BY id LIMIT 1"
   );
 
   let userWhere = "WHERE u.status = 1 AND r.code IN ('sales', 'admin', 'super_admin')";
@@ -308,7 +308,8 @@ async function getCommissionRecords(pool, { period, user_id, status, page = 1, p
 
   const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total FROM crm_commission_record r ${where}`, params);
   const [rows] = await pool.query(`
-    SELECT r.*, u.real_name as user_name,
+    SELECT r.id, r.user_id, r.rule_id, r.business_type, r.business_id, r.base_amount, r.commission_rate, r.commission_amount, r.period, r.status, r.remark, r.create_time, r.update_time,
+           u.real_name as user_name,
       CASE WHEN r.business_type = 'contract' THEN c.contract_no ELSE CONCAT('回款#', r.business_id) END as business_no,
       COALESCE(cu.company_name, cu2.company_name) as customer_name
     FROM crm_commission_record r

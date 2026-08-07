@@ -12,7 +12,8 @@ async function getTemplates(pool, { page = 1, pageSize = 20 }) {
   const offset = (parseInt(page) - 1) * parseInt(pageSize);
   const [[{ total }]] = await pool.query('SELECT COUNT(*) as total FROM crm_survey_template WHERE deleted_at IS NULL');
   const [rows] = await pool.query(
-    'SELECT * FROM crm_survey_template WHERE deleted_at IS NULL ORDER BY is_system DESC, create_time DESC LIMIT ? OFFSET ?',
+    `SELECT id, name, description, survey_type, questions, is_system, create_by, create_time, update_time, deleted_at
+     FROM crm_survey_template WHERE deleted_at IS NULL ORDER BY is_system DESC, create_time DESC LIMIT ? OFFSET ?`,
     [parseInt(pageSize), offset]
   );
   return { list: rows, total, page: parseInt(page), pageSize: parseInt(pageSize) };
@@ -35,7 +36,11 @@ async function createTemplate(pool, data, userId) {
  * 更新模板
  */
 async function updateTemplate(pool, id, data) {
-  const [[existing]] = await pool.query('SELECT * FROM crm_survey_template WHERE id = ? AND deleted_at IS NULL', [id]);
+  const [[existing]] = await pool.query(
+    `SELECT id, name, description, survey_type, questions, is_system, create_by, create_time, update_time, deleted_at
+     FROM crm_survey_template WHERE id = ? AND deleted_at IS NULL`,
+    [id]
+  );
   if (!existing) return { error: 'not_found' };
   if (existing.is_system) return { error: 'system_template' };
 
@@ -94,7 +99,9 @@ async function getCampaigns(pool, { status = '' }) {
   const params = [];
   if (status) { where += ' AND c.status = ?'; params.push(status); }
   const [rows] = await pool.query(`
-    SELECT c.*, t.name as template_name, t.survey_type, u.real_name as create_by_name
+    SELECT c.id, c.name, c.template_id, c.status, c.target_type, c.target_ids, c.send_method, c.total_sent, c.total_responded,
+      c.start_date, c.end_date, c.create_by, c.create_time, c.update_time, c.deleted_at,
+      t.name as template_name, t.survey_type, u.real_name as create_by_name
     FROM crm_survey_campaign c
     JOIN crm_survey_template t ON c.template_id = t.id
     LEFT JOIN sys_user u ON c.create_by = u.id
@@ -108,7 +115,9 @@ async function getCampaigns(pool, { status = '' }) {
  */
 async function getCampaign(pool, id) {
   const [[row]] = await pool.query(`
-    SELECT c.*, t.name as template_name, t.survey_type, t.questions as template_questions
+    SELECT c.id, c.name, c.template_id, c.status, c.target_type, c.target_ids, c.send_method, c.total_sent, c.total_responded,
+      c.start_date, c.end_date, c.create_by, c.create_time, c.update_time, c.deleted_at,
+      t.name as template_name, t.survey_type, t.questions as template_questions
     FROM crm_survey_campaign c
     JOIN crm_survey_template t ON c.template_id = t.id
     WHERE c.id = ? AND c.deleted_at IS NULL
@@ -162,7 +171,7 @@ async function startCampaign(pool, id) {
   const [[campaign]] = await pool.query('SELECT target_type, target_ids FROM crm_survey_campaign WHERE id = ?', [id]);
   let totalSent = 0;
   if (campaign.target_type === 'all') {
-    const [[{ cnt }]] = await pool.query("SELECT COUNT(*) as cnt FROM crm_customer WHERE deleted_at IS NULL AND status = 1");
+    const [[{ cnt }]] = await pool.query("SELECT COUNT(*) as cnt FROM crm_customer WHERE deleted_at IS NULL AND status = 'following'");
     totalSent = cnt;
   } else if (campaign.target_ids) {
     try { totalSent = JSON.parse(campaign.target_ids).length; } catch { totalSent = 0; }
@@ -238,7 +247,8 @@ async function getCampaignResponses(pool, campaignId, { page = 1, pageSize = 20 
   const offset = (parseInt(page) - 1) * parseInt(pageSize);
   const [[{ total }]] = await pool.query('SELECT COUNT(*) as total FROM crm_survey_response WHERE campaign_id = ?', [campaignId]);
   const [rows] = await pool.query(`
-    SELECT r.*, c.company_name
+    SELECT r.id, r.campaign_id, r.customer_id, r.answers, r.nps_score, r.csat_score, r.respondent_name, r.respondent_contact, r.submitted_at,
+      c.company_name
     FROM crm_survey_response r
     LEFT JOIN crm_customer c ON r.customer_id = c.id
     WHERE r.campaign_id = ? ORDER BY r.submitted_at DESC LIMIT ? OFFSET ?
@@ -278,7 +288,9 @@ async function getAnalyticsOverview(pool) {
   `);
 
   const [[latest]] = await pool.query(`
-    SELECT c.*, t.survey_type FROM crm_survey_campaign c
+    SELECT c.id, c.name, c.template_id, c.status, c.target_type, c.target_ids, c.send_method, c.total_sent, c.total_responded,
+      c.start_date, c.end_date, c.create_by, c.create_time, c.update_time, c.deleted_at, t.survey_type
+    FROM crm_survey_campaign c
     JOIN crm_survey_template t ON c.template_id = t.id
     WHERE c.deleted_at IS NULL AND c.status = 'closed'
     ORDER BY c.create_time DESC LIMIT 1
@@ -307,7 +319,9 @@ async function getAnalyticsOverview(pool) {
  */
 async function getCampaignAnalytics(pool, campaignId) {
   const [[campaign]] = await pool.query(`
-    SELECT c.*, t.questions as template_questions, t.survey_type
+    SELECT c.id, c.name, c.template_id, c.status, c.target_type, c.target_ids, c.send_method, c.total_sent, c.total_responded,
+      c.start_date, c.end_date, c.create_by, c.create_time, c.update_time, c.deleted_at,
+      t.questions as template_questions, t.survey_type
     FROM crm_survey_campaign c JOIN crm_survey_template t ON c.template_id = t.id
     WHERE c.id = ? AND c.deleted_at IS NULL
   `, [campaignId]);
@@ -348,7 +362,7 @@ async function getCampaignAnalytics(pool, campaignId) {
     let ans = {};
     try { ans = JSON.parse(r.answers); } catch { /* */ }
     const texts = {};
-    textQuestions.forEach((q, idx) => {
+    textQuestions.forEach((q) => {
       const key = `q${questions.indexOf(q) + 1}_text`;
       if (ans[key]) texts[q.question] = ans[key];
     });

@@ -16,7 +16,8 @@ async function getReminders(pool, { status, page, pageSize }) {
 
   const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total FROM crm_payment_reminder r ${where}`, params);
   const [rows] = await pool.query(`
-    SELECT r.*, c.contract_no, cu.company_name as customer_name
+    SELECT r.id, r.contract_id, r.plan_id, r.customer_id, r.remind_date, r.remind_type, r.remind_days, r.amount, r.status, r.remark, r.create_time,
+           c.contract_no, cu.company_name as customer_name
     FROM crm_payment_reminder r
     JOIN crm_contract c ON r.contract_id = c.id
     JOIN crm_customer cu ON r.customer_id = cu.id
@@ -202,7 +203,8 @@ async function getReconciliationList(pool, { recon_type, status, page, pageSize 
 
   const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total FROM crm_reconciliation ${where}`, params);
   const [rows] = await pool.query(`
-    SELECT r.*, u.real_name as create_by_name
+    SELECT r.id, r.recon_no, r.recon_type, r.target_id, r.target_name, r.period_start, r.period_end, r.total_amount, r.paid_amount, r.unpaid_amount, r.status, r.detail_data, r.create_by, r.create_time,
+           u.real_name as create_by_name
     FROM crm_reconciliation r LEFT JOIN sys_user u ON r.create_by = u.id
     ${where} ORDER BY r.create_time DESC LIMIT ? OFFSET ?
   `, [...params, parseInt(pageSize), offset]);

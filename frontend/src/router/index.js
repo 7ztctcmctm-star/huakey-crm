@@ -57,22 +57,32 @@ const router = createRouter({
           meta: { title: '明日计划', permission: 'followup:tomorrow' }
         },
         {
-          path: 'customer/prospects',
-          name: 'ProspectPool',
-          component: () => import('../views/customer/List.vue'),
-          meta: { title: '潜客池', permission: 'customer:list' }
+          path: 'leads',
+          name: 'LeadsPool',
+          component: () => import('../views/leads/List.vue'),
+          meta: { title: '潜客池', permission: 'leads:view' }
         },
         {
           path: 'customer/list',
           name: 'CustomerList',
           component: () => import('../views/customer/List.vue'),
-          meta: { title: '正式客户', permission: 'customer:list' }
+          meta: { title: '正式客户', permission: 'customer:view' }
+        },
+        {
+          path: 'pool',
+          name: 'PublicPool',
+          component: () => import('../views/pool/List.vue'),
+          meta: { title: '公海池', permission: 'pool:view' }
+        },
+        {
+          path: 'customer/prospects',
+          redirect: '/leads'
         },
         {
           path: 'customer/detail/:id',
           name: 'CustomerDetail',
           component: () => import('../views/customer/Detail.vue'),
-          meta: { title: '客户详情' }
+          meta: { title: '客户详情', permission: 'customer:view' }
         },
         {
           path: 'customer/assign-rules',
@@ -85,6 +95,12 @@ const router = createRouter({
           name: 'Opportunity',
           component: () => import('../views/opportunity/list.vue'),
           meta: { title: '商机管理', permission: 'opportunity' }
+        },
+        {
+          path: 'opportunity/detail/:id',
+          name: 'OpportunityDetail',
+          component: () => import('../views/opportunity/Detail.vue'),
+          meta: { title: '商机详情', permission: 'opportunity:view' }
         },
         {
           path: 'product',
@@ -102,7 +118,7 @@ const router = createRouter({
           path: 'quotation/edit/:id?',
           name: 'QuotationEdit',
           component: () => import('../views/quotation/edit.vue'),
-          meta: { title: '报价单编辑' }
+          meta: { title: '报价单编辑', permission: 'quotation' }
         },
         {
           path: 'contract',
@@ -114,7 +130,7 @@ const router = createRouter({
           path: 'contract/detail/:id',
           name: 'ContractDetail',
           component: () => import('../views/contract/detail.vue'),
-          meta: { title: '合同详情' }
+          meta: { title: '合同详情', permission: 'contract' }
         },
         {
           path: 'payment',
@@ -174,7 +190,7 @@ const router = createRouter({
           path: 'supplier/detail/:id',
           name: 'SupplierDetail',
           component: () => import('../views/supplier/detail.vue'),
-          meta: { title: '供应商详情' }
+          meta: { title: '供应商详情', permission: 'supplier' }
         },
         {
           path: 'purchase/list',
@@ -186,7 +202,7 @@ const router = createRouter({
           path: 'purchase/detail/:id',
           name: 'PurchaseDetail',
           component: () => import('../views/purchase/detail.vue'),
-          meta: { title: '采购详情' }
+          meta: { title: '采购详情', permission: 'purchase' }
         },
         {
           path: 'purchase/requests',
@@ -390,7 +406,7 @@ const router = createRouter({
           path: 'team-dashboard',
           name: 'TeamDashboard',
           component: () => import('../views/TeamDashboard.vue'),
-          meta: { title: '团队看板', admin: true }
+          meta: { title: '团队看板', permission: 'team-dashboard', admin: true }
         },
         {
           path: 'analysis',
@@ -420,7 +436,7 @@ const router = createRouter({
           path: 'knowledge',
           name: 'Knowledge',
           component: () => import('../views/knowledge/index.vue'),
-          meta: { title: '知识库', permission: 'knowledge' }
+          meta: { title: '销售资料', permission: 'knowledge' }
         },
         {
           path: 'knowledge/products',
@@ -504,7 +520,7 @@ const router = createRouter({
           path: 'system/backup',
           name: 'SystemBackup',
           component: () => import('../views/system/backup.vue'),
-          meta: { title: '数据备份', permission: 'backup:create', admin: true }
+          meta: { title: '数据备份', permission: 'backup:add', admin: true }
         },
         {
           path: 'system/permission',
@@ -522,13 +538,13 @@ const router = createRouter({
           path: 'system/integration',
           name: 'SystemIntegration',
           component: () => import('../views/settings/integration.vue'),
-          meta: { title: '集成管理', admin: true }
+          meta: { title: '集成管理', permission: 'system:integration', admin: true }
         },
         {
           path: 'system/currency',
           name: 'SystemCurrency',
           component: () => import('../views/system/currency.vue'),
-          meta: { title: '货币管理', admin: true }
+          meta: { title: '货币管理', permission: 'system:currency', admin: true }
         }
       ]
     },
@@ -589,12 +605,8 @@ router.beforeEach(async (to, from, next) => {
       }
     }
 
-    // 防止死循环：如果目标已经是 /dashboard，跳到 /login
-    if (to.path === '/dashboard') {
-      next('/login')
-    } else {
-      next('/dashboard')
-    }
+    // 无权限访问：直接转到登录页（避免 /dashboard 重定向循环）
+    next('/login')
     return
   }
 
@@ -604,12 +616,8 @@ router.beforeEach(async (to, from, next) => {
     const hasAuth = user.manageAll || permissions.includes(to.meta.permission)
 
     if (!hasAuth) {
-      // 防止死循环：如果目标已经是 /dashboard，跳到 /login
-      if (to.path === '/dashboard') {
-        next('/login')
-      } else {
-        next('/dashboard')
-      }
+      // 无权限访问：转到登录页
+      next('/login')
       return
     }
   }

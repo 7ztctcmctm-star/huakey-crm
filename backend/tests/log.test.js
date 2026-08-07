@@ -42,6 +42,7 @@ describe('操作日志模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 100 }]])  // count query
         .mockResolvedValueOnce([[                     // data query
           { id: 1, module: 'auth', action: '登录', create_time: '2025-01-01' },
@@ -65,6 +66,7 @@ describe('操作日志模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 5 }]])
         .mockResolvedValueOnce([[{ id: 1, module: 'auth', action: '登录' }]]);
 
@@ -81,6 +83,7 @@ describe('操作日志模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 3 }]])
         .mockResolvedValueOnce([[{ id: 1, module: 'customer', action: '新增' }]]);
 
@@ -99,6 +102,7 @@ describe('操作日志模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[]]); // log not found
 
       const res = await request(app)
@@ -113,6 +117,7 @@ describe('操作日志模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[
           { id: 1, module: 'auth', action: '登录', method: 'POST', url: '/api/v1/auth/login', user_name: '管理员', ip_address: '127.0.0.1', status: 1, create_time: '2025-01-01 10:00:00' }
         ]]);
@@ -133,6 +138,7 @@ describe('操作日志模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ module: 'auth' }, { module: 'customer' }, { module: 'contract' }]]);
 
       const res = await request(app)

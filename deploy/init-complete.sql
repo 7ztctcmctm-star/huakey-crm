@@ -1144,6 +1144,8 @@ CREATE TABLE `crm_payment_plan` (
   `paid_amount` decimal(15,2) DEFAULT '0.00' COMMENT '已回金额',
   `overdue_days` int DEFAULT '0' COMMENT '逾期天数',
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   KEY `idx_payment_plan_contract` (`contract_id`),
   KEY `idx_payment_plan_date` (`plan_date`),

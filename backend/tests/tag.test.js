@@ -55,6 +55,7 @@ describe('标签管理模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ insertId: 5 }]); // insert tag
 
       const res = await request(app)
@@ -73,6 +74,7 @@ describe('标签管理模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // tag list
           { id: 1, name: 'VIP', color: '#ff0000', sort: 1 },
           { id: 2, name: '重点', color: '#00ff00', sort: 2 }
@@ -93,6 +95,7 @@ describe('标签管理模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ affectedRows: 1 }]) // delete customer_tag relations
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete tag
 

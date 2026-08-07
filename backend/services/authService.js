@@ -7,6 +7,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const svgCaptcha = require('svg-captcha');
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 const { getUserPermissions, getMenuPermissions, getDataPermissions } = require('./permissionService');
 const { getCache, setCache, delCache } = require('../config/redis');
 
@@ -26,45 +28,44 @@ function getCaptchaRedisKey(key) {
   return `${CAPTCHA_REDIS_PREFIX}${key}`;
 }
 
-function isMemoryCaptchaMode() {
-  // 生产环境且显式启用 Redis 时使用 Redis；否则使用内存（含测试、开发、Redis 未启用或故障降级）
-  return process.env.REDIS_ENABLED !== 'true' || process.env.NODE_ENV !== 'production';
-}
+const redisEnabled = () => process.env.REDIS_ENABLED === 'true';
 
 async function saveCaptcha(key, code) {
-  if (isMemoryCaptchaMode()) {
-    captchaStore.set(key, { code, expires: Date.now() + CAPTCHA_TTL_SECONDS * 1000 });
-    return;
+  const expires = Date.now() + CAPTCHA_TTL_SECONDS * 1000;
+  // [安全修复] Redis 启用时优先写入 Redis；失败降级到内存，避免登录完全中断
+  if (redisEnabled()) {
+    try {
+      await setCache(getCaptchaRedisKey(key), code, CAPTCHA_TTL_SECONDS);
+      return;
+    } catch { /* Redis 写入失败，降级到内存 */ }
   }
-  try {
-    await setCache(getCaptchaRedisKey(key), code, CAPTCHA_TTL_SECONDS);
-  } catch {
-    // Redis 写入失败降级到内存，避免登录完全中断
-    captchaStore.set(key, { code, expires: Date.now() + CAPTCHA_TTL_SECONDS * 1000 });
-  }
+  captchaStore.set(key, { code, expires });
 }
 
 async function loadCaptcha(key) {
-  // 优先检查内存（兼容 dev/SKIP_CAPTCHA 及 Redis 故障降级）
+  // [安全修复] Redis 启用时优先读取 Redis；失败降级到内存
+  if (redisEnabled()) {
+    try {
+      const code = await getCache(getCaptchaRedisKey(key));
+      if (code) return code;
+    } catch { /* Redis 读取失败，降级到内存 */ }
+  }
   const mem = captchaStore.get(key);
   if (mem) {
     if (mem.expires > Date.now()) return mem.code;
     captchaStore.delete(key);
   }
-  if (isMemoryCaptchaMode()) return null;
-  try {
-    return await getCache(getCaptchaRedisKey(key));
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 async function removeCaptcha(key) {
+  // 双删：内存 + Redis，避免 Redis 故障恢复后残留
   captchaStore.delete(key);
-  if (isMemoryCaptchaMode()) return;
-  try {
-    await delCache(getCaptchaRedisKey(key));
-  } catch { /* ok */ }
+  if (redisEnabled()) {
+    try {
+      await delCache(getCaptchaRedisKey(key));
+    } catch { /* ok */ }
+  }
 }
 
 /**
@@ -114,9 +115,7 @@ async function verifyCaptcha(captchaKey, captcha) {
  */
 async function login(pool, { username, password }) {
   if (!username || !password) {
-    const err = new Error('用户名和密码不能为空');
-    err.code = 400;
-    throw err;
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '用户名和密码不能为空');
   }
 
   const [users] = await pool.query(
@@ -133,18 +132,14 @@ async function login(pool, { username, password }) {
   );
 
   if (users.length === 0) {
-    const err = new Error('用户名或密码错误');
-    err.code = 401;
-    throw err;
+    throw new AppError(ErrorCodes.LOGIN_FAILED, '用户名或密码错误');
   }
 
   const user = users[0];
 
   const isValidPassword = await bcrypt.compare(password, user.password);
   if (!isValidPassword) {
-    const err = new Error('用户名或密码错误');
-    err.code = 401;
-    throw err;
+    throw new AppError(ErrorCodes.LOGIN_FAILED, '用户名或密码错误');
   }
 
   return user;
@@ -306,9 +301,7 @@ async function updateProfile(pool, userId, data) {
   if (email !== undefined) { updates.push('email = ?'); params.push(email); }
 
   if (updates.length === 0) {
-    const err = new Error('没有要更新的字段');
-    err.code = 400;
-    throw err;
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '没有要更新的字段');
   }
 
   params.push(userId);
@@ -324,28 +317,20 @@ async function updateProfile(pool, userId, data) {
  */
 async function changePassword(pool, userId, oldPassword, newPassword) {
   if (!oldPassword || !newPassword) {
-    const err = new Error('旧密码和新密码不能为空');
-    err.code = 400;
-    throw err;
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '旧密码和新密码不能为空');
   }
   if (!PASSWORD_PATTERN.test(newPassword)) {
-    const err = new Error(PASSWORD_MESSAGE);
-    err.code = 400;
-    throw err;
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, PASSWORD_MESSAGE);
   }
 
   const [users] = await pool.query('SELECT password FROM sys_user WHERE id = ?', [userId]);
   if (users.length === 0) {
-    const err = new Error('用户不存在');
-    err.code = 404;
-    throw err;
+    throw new AppError(ErrorCodes.USER_NOT_FOUND, '用户不存在');
   }
 
   const isValid = await bcrypt.compare(oldPassword, users[0].password);
   if (!isValid) {
-    const err = new Error('旧密码错误');
-    err.code = 400;
-    throw err;
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '旧密码错误');
   }
 
   const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -367,14 +352,10 @@ async function changePassword(pool, userId, oldPassword, newPassword) {
  */
 async function forceChangePassword(pool, userId, newPassword) {
   if (!newPassword) {
-    const err = new Error('新密码不能为空');
-    err.code = 400;
-    throw err;
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '新密码不能为空');
   }
   if (!PASSWORD_PATTERN.test(newPassword)) {
-    const err = new Error(PASSWORD_MESSAGE);
-    err.code = 400;
-    throw err;
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, PASSWORD_MESSAGE);
   }
 
   const connection = await pool.getConnection();
@@ -386,15 +367,11 @@ async function forceChangePassword(pool, userId, newPassword) {
       [userId]
     );
     if (users.length === 0) {
-      const err = new Error('用户不存在或已禁用');
-      err.code = 404;
-      throw err;
+      throw new AppError(ErrorCodes.USER_NOT_FOUND, '用户不存在或已禁用');
     }
 
     if (users[0].must_change_password !== 1) {
-      const err = new Error('当前账号无需强制修改密码');
-      err.code = 400;
-      throw err;
+      throw new AppError(ErrorCodes.VALIDATION_ERROR, '当前账号无需强制修改密码');
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -426,14 +403,10 @@ async function register(pool, data) {
   const { username, password, real_name } = data;
 
   if (!username || !password) {
-    const err = new Error('用户名和密码不能为空');
-    err.code = 400;
-    throw err;
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '用户名和密码不能为空');
   }
   if (!PASSWORD_PATTERN.test(password)) {
-    const err = new Error(PASSWORD_MESSAGE);
-    err.code = 400;
-    throw err;
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, PASSWORD_MESSAGE);
   }
 
   const [existingUsers] = await pool.query(
@@ -442,9 +415,7 @@ async function register(pool, data) {
   );
 
   if (existingUsers.length > 0) {
-    const err = new Error('用户名已存在');
-    err.code = 400;
-    throw err;
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '用户名已存在');
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -454,9 +425,10 @@ async function register(pool, data) {
   );
   const defaultRoleId = roles.length > 0 ? roles[0].id : 4;
 
+  // [v1.0.1 安全补丁] 注册用户强制首次登录改密
   const [result] = await pool.query(
-    `INSERT INTO sys_user (username, password, real_name, role_id, status)
-     VALUES (?, ?, ?, ?, 1)`,
+    `INSERT INTO sys_user (username, password, real_name, role_id, status, must_change_password)
+     VALUES (?, ?, ?, ?, 1, 1)`,
     [username, hashedPassword, real_name || null, defaultRoleId]
   );
 

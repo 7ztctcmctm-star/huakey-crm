@@ -41,7 +41,7 @@ const emptySchema = Joi.object({});
 // ============ 跟进提醒 API ============
 
 // 1. 获取当前用户的未读提醒列表
-router.get('/my-reminders', authenticateToken, checkPermission('reminder'), async (req, res) => {
+router.get('/my-reminders', authenticateToken, checkPermission('reminder'), async (req, res, next) => {
   try {
     const userId = req.user.userId;
     const overdueDays = await getOverdueDays();
@@ -54,12 +54,12 @@ router.get('/my-reminders', authenticateToken, checkPermission('reminder'), asyn
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('获取提醒错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 2. 获取所有逾期客户列表（老板看全局）
-router.post('/overdue-list', authenticateToken, checkPermission('reminder'), validate(paginationSchema), async (req, res) => {
+router.post('/overdue-list', authenticateToken, checkPermission('reminder'), validate(paginationSchema), async (req, res, next) => {
   try {
     const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
     const userId = req.user.userId;
@@ -71,47 +71,47 @@ router.post('/overdue-list', authenticateToken, checkPermission('reminder'), val
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('逾期列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 3. 标记提醒为已读
-router.post('/mark-read', authenticateToken, checkPermission('reminder'), validate(markReadSchema), async (req, res) => {
+router.post('/mark-read', authenticateToken, checkPermission('reminder'), validate(markReadSchema), async (req, res, next) => {
   try {
     const { reminder_id } = req.body;
     await reminderService.markAsRead(pool, reminder_id, req.user.userId);
     res.json({ code: 200, message: '已标记为已读', data: null });
   } catch (error) {
     logger.error('标记已读错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '操作失败', data: null });
+    next(error);
   }
 });
 
 // 4. 一键标记全部已读
-router.post('/mark-all-read', authenticateToken, checkPermission('reminder'), validate(emptySchema), async (req, res) => {
+router.post('/mark-all-read', authenticateToken, checkPermission('reminder'), validate(emptySchema), async (req, res, next) => {
   try {
     await reminderService.markAllAsRead(pool, req.user.userId, req.user.roleId);
     res.json({ code: 200, message: '全部已读', data: null });
   } catch (error) {
     logger.error('全部已读错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '操作失败', data: null });
+    next(error);
   }
 });
 
 // 5. 解除提醒（跟进后自动调用或手动解除）
-router.post('/dismiss', authenticateToken, checkPermission('reminder'), validate(dismissSchema), async (req, res) => {
+router.post('/dismiss', authenticateToken, checkPermission('reminder'), validate(dismissSchema), async (req, res, next) => {
   try {
     const { customer_id } = req.body;
     await reminderService.dismissReminder(pool, customer_id, req.user.userId);
     res.json({ code: 200, message: '提醒已解除', data: null });
   } catch (error) {
     logger.error('解除提醒错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '操作失败', data: null });
+    next(error);
   }
 });
 
 // 6. 获取逾期回款计划
-router.get('/payment-overdue', authenticateToken, checkPermission('reminder'), async (req, res) => {
+router.get('/payment-overdue', authenticateToken, checkPermission('reminder'), async (req, res, next) => {
   try {
     const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
     const userId = req.user.userId;
@@ -121,48 +121,48 @@ router.get('/payment-overdue', authenticateToken, checkPermission('reminder'), a
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('逾期回款查询错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 7. 标记通知已读（支持角色级和用户级通知）
-router.post('/notification-read', authenticateToken, checkPermission('reminder'), validate(notificationReadSchema), async (req, res) => {
+router.post('/notification-read', authenticateToken, checkPermission('reminder'), validate(notificationReadSchema), async (req, res, next) => {
   try {
     const { notification_id } = req.body;
     await reminderService.markNotificationRead(pool, notification_id, req.user.userId, req.user.roleId);
     res.json({ code: 200, message: '已标记为已读', data: null });
   } catch (error) {
     logger.error('[提醒] 标记已读失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '操作失败', data: null });
+    next(error);
   }
 });
 
 // 8. 处理通知（标记为已处理，跳转后调用）
-router.post('/notification-dismiss', authenticateToken, checkPermission('reminder'), validate(notificationDismissSchema), async (req, res) => {
+router.post('/notification-dismiss', authenticateToken, checkPermission('reminder'), validate(notificationDismissSchema), async (req, res, next) => {
   try {
     const { notification_id } = req.body;
     await reminderService.dismissNotification(pool, notification_id, req.user.roleId);
     res.json({ code: 200, message: '已处理', data: null });
   } catch (error) {
     logger.error('[提醒] 处理通知失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '操作失败', data: null });
+    next(error);
   }
 });
 
 // 9. 按业务ID批量解除通知（审批通过/拒绝时调用）
-router.post('/notification-dismiss-by-business', authenticateToken, checkPermission('reminder'), validate(notificationDismissByBusinessSchema), async (req, res) => {
+router.post('/notification-dismiss-by-business', authenticateToken, checkPermission('reminder'), validate(notificationDismissByBusinessSchema), async (req, res, next) => {
   try {
     const { business_type, business_id } = req.body;
     await reminderService.dismissNotificationByBusiness(pool, business_type, business_id);
     res.json({ code: 200, message: '通知已解除', data: null });
   } catch (error) {
     logger.error('[提醒] 批量解除通知失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '操作失败', data: null });
+    next(error);
   }
 });
 
 // 通知列表（分页）
-router.get('/notification-list', authenticateToken, checkPermission('reminder'), async (req, res) => {
+router.get('/notification-list', authenticateToken, checkPermission('reminder'), async (req, res, next) => {
   try {
     const { page = 1, pageSize = 20 } = req.query;
 
@@ -171,13 +171,13 @@ router.get('/notification-list', authenticateToken, checkPermission('reminder'),
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[提醒] 通知列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // ============ 通知中心下拉面板 ============
 
-router.get('/center', authenticateToken, checkPermission('reminder'), async (req, res) => {
+router.get('/center', authenticateToken, checkPermission('reminder'), async (req, res, next) => {
   try {
     const userId = req.user.userId;
 
@@ -220,18 +220,18 @@ router.get('/center', authenticateToken, checkPermission('reminder'), async (req
     });
   } catch (error) {
     logger.error('[提醒] 通知中心查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
 // 标记所有系统通知已读
-router.post('/center/mark-all-read', authenticateToken, checkPermission('reminder'), validate(emptySchema), async (req, res) => {
+router.post('/center/mark-all-read', authenticateToken, checkPermission('reminder'), validate(emptySchema), async (req, res, next) => {
   try {
     await reminderService.markCenterAllRead(pool, req.user.userId);
     res.json({ code: 200, message: '已全部标记为已读', data: null });
   } catch (error) {
     logger.error('[提醒] 标记已读失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '操作失败', data: null });
+    next(error);
   }
 });
 

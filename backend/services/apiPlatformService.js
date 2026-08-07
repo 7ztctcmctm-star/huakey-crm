@@ -35,7 +35,7 @@ async function regenerateKey(pool, id, newKey, newSecret) {
 // ============ Webhook CRUD ============
 
 async function listWebhooks(pool) {
-  const [rows] = await pool.query('SELECT * FROM crm_webhook WHERE deleted_at IS NULL ORDER BY create_time DESC');
+  const [rows] = await pool.query('SELECT id, name, url, events, secret, status, last_triggered_at, fail_count, create_by, create_time, update_time, deleted_at FROM crm_webhook WHERE deleted_at IS NULL ORDER BY create_time DESC');
   return rows;
 }
 
@@ -58,7 +58,7 @@ async function deleteWebhook(pool, id) {
 }
 
 async function getWebhookById(pool, id) {
-  const [[webhook]] = await pool.query('SELECT * FROM crm_webhook WHERE id = ? AND deleted_at IS NULL', [id]);
+  const [[webhook]] = await pool.query('SELECT id, name, url, events, secret, status, last_triggered_at, fail_count, create_by, create_time, update_time, deleted_at FROM crm_webhook WHERE id = ? AND deleted_at IS NULL', [id]);
   return webhook || null;
 }
 
@@ -66,7 +66,7 @@ async function getWebhookById(pool, id) {
 
 async function getWebhookLogs(pool, webhookId) {
   const [rows] = await pool.query(
-    'SELECT * FROM crm_webhook_log WHERE webhook_id = ? ORDER BY create_time DESC LIMIT 50',
+    'SELECT id, webhook_id, event_type, payload, response_status, response_body, status, create_time FROM crm_webhook_log WHERE webhook_id = ? ORDER BY create_time DESC LIMIT 50',
     [webhookId]
   );
   return rows;

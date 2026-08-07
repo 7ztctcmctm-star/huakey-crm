@@ -70,6 +70,7 @@ describe('采购计划模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ cnt: 0 }]]); // generatePlanNo count
 
       mockConnection.query
@@ -94,6 +95,7 @@ describe('采购计划模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 2 }]]) // count
         .mockResolvedValueOnce([[ // list
           { id: 1, plan_no: 'PP-20260701-001', name: '7月采购计划', status: 'draft' },
@@ -117,6 +119,7 @@ describe('采购计划模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ status: 'draft' }]]) // plan check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update status
 
@@ -135,6 +138,7 @@ describe('采购计划模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ status: 'draft' }]]) // plan check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 

@@ -1,5 +1,5 @@
 -- 086: 为所有非管理员角色补充缺失的权限
--- 问题: 销售/purchaser/hr/finance/engineer 角色登录后 Dashboard 大量 403
+-- 问题: 销售/purchase/hr/finance/engineer 角色登录后 Dashboard 大量 403
 -- 根因:
 --   1. customer:view 权限码在 sys_permission 中不存在（被多处路由引用但从未创建）
 --   2. 除 boss(id=1) / manager(id=2) 外，其他角色几乎没有权限分配
@@ -54,28 +54,28 @@ WHERE EXISTS (SELECT 1 FROM sys_permission WHERE code = 'system:user');
 -- 第二步: 公共权限 — 所有登录用户都需要（layout/HeaderBar/AiChat/NotificationBadge）
 -- ============================================================
 
--- 目标角色: sales, hr, purchaser, finance, engineer（boss/manager 已有或绕过）
-SET @common_roles = 'sales,hr,purchaser,finance,engineer';
+-- 目标角色: sales, hr, purchase, finance, engineer（boss/manager 已有或绕过）
+SET @common_roles = 'sales,hr,purchase,finance,engineer';
 
 -- 2a. dashboard — 首页
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE FIND_IN_SET(r.code, @common_roles) AND p.code = 'dashboard';
+WHERE FIND_IN_SET(r.code, @common_roles COLLATE utf8mb4_unicode_ci) AND p.code = 'dashboard';
 
 -- 2b. reminder — 提醒/通知中心（HeaderBar 通知角标）
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE FIND_IN_SET(r.code, @common_roles) AND p.code = 'reminder';
+WHERE FIND_IN_SET(r.code, @common_roles COLLATE utf8mb4_unicode_ci) AND p.code = 'reminder';
 
 -- 2c. ai — AI 助手（AiChat 浮动组件）
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE FIND_IN_SET(r.code, @common_roles) AND p.code = 'ai';
+WHERE FIND_IN_SET(r.code, @common_roles COLLATE utf8mb4_unicode_ci) AND p.code = 'ai';
 
 -- 2d. tag — 客户标签（CustomerFilter 筛选条件）
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE FIND_IN_SET(r.code, @common_roles) AND p.code = 'tag';
+WHERE FIND_IN_SET(r.code, @common_roles COLLATE utf8mb4_unicode_ci) AND p.code = 'tag';
 
 -- ============================================================
 -- 第三步: sales 角色 — SalesDashboard + 客户/商机/合同等
@@ -186,45 +186,45 @@ SELECT r.id, p.id FROM sys_role r, sys_permission p
 WHERE r.code = 'sales' AND p.code IN ('followup_template', 'contract_template');
 
 -- ============================================================
--- 第四步: purchaser/hr/finance/engineer — PurchaseDashboard 公共部分
+-- 第四步: purchase/hr/finance/engineer — PurchaseDashboard 公共部分
 -- ============================================================
 
-SET @purchase_dashboard_roles = 'purchaser,hr,finance,engineer';
+SET @purchase_dashboard_roles = 'purchase,hr,finance,engineer';
 
 -- 4a. purchase — 采购列表（PurchaseDashboard 核心调用 POST /purchase/list）
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE FIND_IN_SET(r.code, @purchase_dashboard_roles) AND p.code = 'purchase';
+WHERE FIND_IN_SET(r.code, @purchase_dashboard_roles COLLATE utf8mb4_unicode_ci) AND p.code = 'purchase';
 
 -- 4b. supplier — 供应商查看
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE FIND_IN_SET(r.code, @purchase_dashboard_roles) AND p.code = 'supplier';
+WHERE FIND_IN_SET(r.code, @purchase_dashboard_roles COLLATE utf8mb4_unicode_ci) AND p.code = 'supplier';
 
 -- 4c. product — 产品查看
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE FIND_IN_SET(r.code, @purchase_dashboard_roles) AND p.code = 'product';
+WHERE FIND_IN_SET(r.code, @purchase_dashboard_roles COLLATE utf8mb4_unicode_ci) AND p.code = 'product';
 
 -- 4d. service — 售后查看
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE FIND_IN_SET(r.code, @purchase_dashboard_roles) AND p.code = 'service';
+WHERE FIND_IN_SET(r.code, @purchase_dashboard_roles COLLATE utf8mb4_unicode_ci) AND p.code = 'service';
 
 -- 4e. report — 报表查看
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE FIND_IN_SET(r.code, @purchase_dashboard_roles) AND p.code = 'report';
+WHERE FIND_IN_SET(r.code, @purchase_dashboard_roles COLLATE utf8mb4_unicode_ci) AND p.code = 'report';
 
 -- ============================================================
--- 第五步: purchaser 角色专项权限
+-- 第五步: purchase 角色专项权限
 -- ============================================================
 
--- purchaser 已有 migration 085 分配的部分权限（supplier, purchase:add, customer:view, customer:list）
+-- purchase 已有 migration 085 分配的部分权限（supplier, purchase:add, customer:view, customer:list）
 -- 这里补全采购编辑和供应商编辑
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r, sys_permission p
-WHERE r.code = 'purchaser' AND p.code IN (
+WHERE r.code = 'purchase' AND p.code IN (
   'purchase:add', 'purchase:edit',
   'supplier:add', 'supplier:edit',
   'calendar'

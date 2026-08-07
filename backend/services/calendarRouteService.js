@@ -12,7 +12,8 @@ async function getEvents(pool, { start_date, end_date, event_type }) {
   if (event_type) { where += ' AND e.event_type = ?'; params.push(event_type); }
 
   const [rows] = await pool.query(`
-    SELECT e.*, c.company_name as customer_name, ct.name as contact_name, u.real_name as create_by_name
+    SELECT e.id, e.title, e.event_type, e.description, e.start_time, e.end_time, e.all_day, e.location, e.customer_id, e.contact_id, e.related_type, e.related_id, e.attendees, e.reminder_minutes, e.status, e.color, e.create_by, e.create_time, e.update_time, e.deleted_at,
+           c.company_name as customer_name, ct.name as contact_name, u.real_name as create_by_name
     FROM crm_calendar_event e
     LEFT JOIN crm_customer c ON e.customer_id = c.id
     LEFT JOIN crm_contact ct ON e.contact_id = ct.id
@@ -28,7 +29,8 @@ async function getEvents(pool, { start_date, end_date, event_type }) {
  */
 async function getEvent(pool, id) {
   const [[row]] = await pool.query(`
-    SELECT e.*, c.company_name as customer_name, ct.name as contact_name
+    SELECT e.id, e.title, e.event_type, e.description, e.start_time, e.end_time, e.all_day, e.location, e.customer_id, e.contact_id, e.related_type, e.related_id, e.attendees, e.reminder_minutes, e.status, e.color, e.create_by, e.create_time, e.update_time, e.deleted_at,
+           c.company_name as customer_name, ct.name as contact_name
     FROM crm_calendar_event e
     LEFT JOIN crm_customer c ON e.customer_id = c.id
     LEFT JOIN crm_contact ct ON e.contact_id = ct.id
@@ -111,7 +113,8 @@ async function completeEvent(pool, id) {
  */
 async function getToday(pool) {
   const [rows] = await pool.query(`
-    SELECT e.*, c.company_name as customer_name
+    SELECT e.id, e.title, e.event_type, e.description, e.start_time, e.end_time, e.all_day, e.location, e.customer_id, e.contact_id, e.related_type, e.related_id, e.attendees, e.reminder_minutes, e.status, e.color, e.create_by, e.create_time, e.update_time, e.deleted_at,
+           c.company_name as customer_name
     FROM crm_calendar_event e
     LEFT JOIN crm_customer c ON e.customer_id = c.id
     WHERE e.deleted_at IS NULL AND DATE(e.start_time) = CURDATE()
@@ -125,7 +128,8 @@ async function getToday(pool) {
  */
 async function getUpcoming(pool) {
   const [rows] = await pool.query(`
-    SELECT e.*, c.company_name as customer_name
+    SELECT e.id, e.title, e.event_type, e.description, e.start_time, e.end_time, e.all_day, e.location, e.customer_id, e.contact_id, e.related_type, e.related_id, e.attendees, e.reminder_minutes, e.status, e.color, e.create_by, e.create_time, e.update_time, e.deleted_at,
+           c.company_name as customer_name
     FROM crm_calendar_event e
     LEFT JOIN crm_customer c ON e.customer_id = c.id
     WHERE e.deleted_at IS NULL AND e.start_time BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 7 DAY)

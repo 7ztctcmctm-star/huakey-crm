@@ -78,7 +78,8 @@ async function listLogs(pool, params) {
   const total = countResult[0].total;
 
   const sql = `
-    SELECT l.*, u.real_name as user_name
+    SELECT l.id, l.module, l.action, l.method, l.url, l.params, l.changed_fields, l.old_value, l.new_value, l.ip_address, l.user_id, l.user_name, l.description, l.status, l.error_msg, l.create_time,
+           u.real_name as user_name
     FROM sys_log l
     LEFT JOIN sys_user u ON l.user_id = u.id
     WHERE ${whereClause}
@@ -104,7 +105,8 @@ async function listLogs(pool, params) {
  */
 async function getLogDetail(pool, id) {
   const [rows] = await pool.query(`
-    SELECT l.*, u.real_name as user_name
+    SELECT l.id, l.module, l.action, l.method, l.url, l.params, l.changed_fields, l.old_value, l.new_value, l.ip_address, l.user_id, l.user_name, l.description, l.status, l.error_msg, l.create_time,
+           u.real_name as user_name
     FROM sys_log l
     LEFT JOIN sys_user u ON l.user_id = u.id
     WHERE l.id = ?

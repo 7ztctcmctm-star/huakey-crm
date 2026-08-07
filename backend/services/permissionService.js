@@ -1,9 +1,74 @@
 ﻿const ROLES = require("../config/roles");
 const NodeCache = require("node-cache");
 const logger = require("../config/logger");
+const { redis, REDIS_ENABLED, getCache, setCache } = require("../config/redis");
 
-// 权限缓存，TL 5分钟
-const permissionCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
+// 本地内存缓存（单实例降级 / Redis 未启用时的主力缓存，Redis 启用时作为 L1 热缓存）
+const localCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
+const CACHE_TTL = 300; // 5 分钟
+
+/**
+ * 多级缓存读取：优先本地缓存 → Redis → DB
+ * Redis 启用时跨实例共享失效，Redis 未启用时仅依赖本地缓存
+ */
+async function cacheGet(key) {
+  // L1: 本地内存（最快，无网络开销）
+  let value = localCache.get(key);
+  if (value !== undefined) return value;
+
+  // L2: Redis（跨实例共享）
+  if (REDIS_ENABLED) {
+    value = await getCache(key);
+    if (value !== null) {
+      localCache.set(key, value, CACHE_TTL); // 回填 L1
+      return value;
+    }
+  }
+
+  return undefined; // 缓存未命中
+}
+
+/**
+ * 多级缓存写入：同时写入本地缓存和 Redis
+ */
+async function cacheSet(key, value) {
+  localCache.set(key, value, CACHE_TTL);
+  if (REDIS_ENABLED) {
+    await setCache(key, value, CACHE_TTL);
+  }
+}
+
+/**
+ * 多级缓存删除：本地 + Redis 同时清除
+ */
+async function cacheDel(key) {
+  localCache.del(key);
+  if (REDIS_ENABLED) {
+    try { await redis.del(key); } catch { /* ok */ }
+  }
+}
+
+/**
+ * 按前缀批量清除缓存（跨实例一致性）
+ * @param {string} prefix - 缓存键前缀
+ */
+async function cacheDelByPrefix(prefix) {
+  // 清除本地缓存
+  const localKeys = localCache.keys().filter(k => k.startsWith(prefix));
+  localCache.del(localKeys);
+
+  // 清除 Redis 缓存（跨实例）
+  if (REDIS_ENABLED && redis) {
+    try {
+      let cursor = '0';
+      do {
+        const [nextCursor, keys] = await redis.scan(cursor, 'MATCH', `${prefix}*`, 'COUNT', 100);
+        cursor = nextCursor;
+        if (keys.length > 0) await redis.del(...keys);
+      } while (cursor !== '0');
+    } catch { /* ok */ }
+  }
+}
 
 /**
  * 获取用户权限列表（合并角色权限 + 用户直接权限）
@@ -13,9 +78,9 @@ const permissionCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
 async function getUserPermissions(pool, userId, roleId) {
   const cacheKey = `permissions:${userId}`;
 
-  let permissions = permissionCache.get(cacheKey);
+  let permissions = await cacheGet(cacheKey);
 
-  if (!permissions) {
+  if (permissions === undefined) {
     // 合并角色权限（sys_role_permission）和用户直接权限（crm_user_permission）
     const [rows] = await pool.query(
       `SELECT DISTINCT p.code
@@ -33,7 +98,7 @@ async function getUserPermissions(pool, userId, roleId) {
     );
 
     permissions = rows.map(r => r.code);
-    permissionCache.set(cacheKey, permissions);
+    await cacheSet(cacheKey, permissions);
   }
 
   return permissions;
@@ -58,15 +123,18 @@ async function hasPermission(pool, userId, roleId, permissionCode) {
  * 清除用户权限缓存
  * @param {number} userId - 用户ID
  */
-function clearPermissionCache(userId) {
-  permissionCache.del(`permissions:${userId}`);
+async function clearPermissionCache(userId) {
+  await cacheDel(`permissions:${userId}`);
 }
 
 /**
  * 清除所有权限缓存
  */
-function clearAllPermissionCache() {
-  permissionCache.flushAll();
+async function clearAllPermissionCache() {
+  localCache.flushAll();
+  // 跨实例清除所有权限缓存
+  await cacheDelByPrefix('permissions:');
+  await cacheDelByPrefix('data_perms:');
 }
 
 /**
@@ -110,7 +178,7 @@ function buildMenuTree(permissions, parentId = 0) {
 async function getDataPermissions(pool, roleId) {
   const cacheKey = `data_perms:${roleId}`;
 
-  let configs = permissionCache.get(cacheKey);
+  let configs = await cacheGet(cacheKey);
   if (configs !== undefined) {
     return configs;
   }
@@ -123,7 +191,7 @@ async function getDataPermissions(pool, roleId) {
   );
 
   configs = rows;
-  permissionCache.set(cacheKey, configs);
+  await cacheSet(cacheKey, configs);
   return configs;
 }
 
@@ -157,7 +225,7 @@ async function addUserPermission(pool, userId, permissionId) {
       `INSERT IGNORE INTO crm_user_permission (user_id, permission_id) VALUES (?, ?)`,
       [userId, permissionId]
     );
-    clearPermissionCache(userId);
+    await clearPermissionCache(userId);
     return true;
   } catch (error) {
     logger.error("添加用户权限失败:", { userId, permissionId, error: error.message });
@@ -177,7 +245,7 @@ async function removeUserPermission(pool, userId, permissionId) {
       `DELETE FROM crm_user_permission WHERE user_id = ? AND permission_id = ?`,
       [userId, permissionId]
     );
-    clearPermissionCache(userId);
+    await clearPermissionCache(userId);
     return true;
   } catch (error) {
     logger.error("移除用户权限失败:", { userId, permissionId, error: error.message });
@@ -201,7 +269,7 @@ async function setUserPermissions(pool, userId, permissionIds) {
       await conn.query(`INSERT INTO crm_user_permission (user_id, permission_id) VALUES ?`, [values]);
     }
     await conn.commit();
-    clearPermissionCache(userId);
+    await clearPermissionCache(userId);
     return true;
   } catch (error) {
     await conn.rollback();

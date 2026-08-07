@@ -1,4 +1,4 @@
-﻿-- 回滚 022_phase3_supplier_purchase: 移除供应商评分增强字段 + 采购审批字段
+-- 回滚 022_phase3_supplier_purchase: 移除供应商评分增强字段 + 采购审批字段
 SET @db = DATABASE();
 
 -- 1. 供应商评分表：移除 Phase 3 添加的字段

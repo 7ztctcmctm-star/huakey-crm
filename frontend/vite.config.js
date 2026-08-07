@@ -30,6 +30,12 @@ export default defineConfig({
     }
   },
   build: {
+    // 生产构建剥离 console.log 和 debugger（保留 console.warn/error 用于故障排查）
+    minify: 'esbuild',
+    esbuild: {
+      drop: ['debugger'],
+      pure: ['console.log'],
+    },
     chunkSizeWarningLimit: 1200,
     rollupOptions: {
       output: {

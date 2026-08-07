@@ -127,7 +127,7 @@ async function searchContracts(req, res, next) {
     const { keyword } = req.query;
     const rows = await contractCrudService.searchContracts(pool, keyword);
     stripRestrictedFields(rows, req.restrictedFields);
-    res.json({ code: 200, data: rows });
+    res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
     logger.error('[合同] 合同搜索错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     next(error);
@@ -139,7 +139,9 @@ async function searchContracts(req, res, next) {
 async function approveContract(req, res, next) {
   try {
     const { id, approval_status, approval_remark } = req.body;
-    if (!req.user.manageAll && ![ROLES.ADMIN, ROLES.MANAGER].includes(req.user.roleId)) {
+    // 统一使用 manageAll + roleCode，禁止依赖固定数字 roleId（与 quoteController 保持一致）
+    // boss/manager 均由 sys_role.manage_all=1 标记 → manageAll=true
+    if (!req.user.manageAll && !ROLES.ADMIN_ROLE_CODES.has(req.user.roleCode)) {
       throw new AppError(ErrorCodes.PERMISSION_DENIED, '无审批权限');
     }
     if (!id || ![2, 3].includes(approval_status)) {
@@ -241,7 +243,7 @@ async function exportStatement(req, res, next) {
 
 async function exportContracts(req, res, next) {
   try {
-    const buf = await exportContractsService(pool, req.body, req.dataPermission);
+    const buf = await exportContractsService(pool, req.body, req.dataPermission, req.restrictedFields);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=contracts.xlsx');
     res.send(buf);

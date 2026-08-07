@@ -58,17 +58,90 @@ async function update(req, res, next) {
 
 async function updateStage(req, res, next) {
   try {
-    const { id, stage } = req.body;
+    const { id, stage, change_reason } = req.body;
     if (!id) return res.status(400).json({ code: 400, message: '商机ID不能为空', data: null });
 
     const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'o');
     const existing = await opportunityService.getOpportunityWithPermission(pool, id, { clause, params: permParams });
     if (!existing) return res.status(403).json({ code: 403, message: '无权修改该商机', data: null });
 
-    const result = await opportunityService.advanceStage(pool, id, stage, req.user.userId);
+    const result = await opportunityService.advanceStage(pool, id, stage, req.user.userId, { changeReason: change_reason });
     res.json({ code: 200, message: `阶段已从"${opportunityService.STAGE_MAP[result.oldStage]}"推进至"${result.stageName}"`, data: null });
   } catch (error) {
     logger.error('推进阶段错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    next(error);
+  }
+}
+
+/**
+ * v1.1: 阶段回退
+ */
+async function backwardStage(req, res, next) {
+  try {
+    const { id, stage, change_reason } = req.body;
+    if (!id) return res.status(400).json({ code: 400, message: '商机ID不能为空', data: null });
+
+    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'o');
+    const existing = await opportunityService.getOpportunityWithPermission(pool, id, { clause, params: permParams });
+    if (!existing) return res.status(403).json({ code: 403, message: '无权修改该商机', data: null });
+
+    const result = await opportunityService.backwardStage(pool, id, stage, req.user.userId, { changeReason: change_reason });
+    res.json({ code: 200, message: `阶段已从"${opportunityService.STAGE_MAP[result.oldStage]}"回退至"${result.stageName}"`, data: null });
+  } catch (error) {
+    logger.error('回退阶段错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    next(error);
+  }
+}
+
+/**
+ * v1.1: 获取商机来源字典
+ */
+async function getSources(req, res, next) {
+  try {
+    const list = await opportunityService.getSourceList(pool, true);
+    res.json({ code: 200, message: '获取商机来源列表成功', data: list });
+  } catch (error) {
+    logger.error('获取商机来源列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    next(error);
+  }
+}
+
+/**
+ * v1.1: 导出商机列表为 Excel
+ * 使用简单 CSV 导出（避免引入 exceljs 依赖），前端可直接下载
+ */
+async function exportOpportunities(req, res, next) {
+  try {
+    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'o');
+    // 导出最多 10000 条，避免内存溢出
+    const result = await opportunityService.listOpportunities(pool, { ...req.query, page: 1, pageSize: 10000 }, { clause, params: permParams });
+
+    // CSV 表头
+    const headers = ['商机编号', '商机名称', '客户名称', '阶段', '预计金额', '预计成交日', '赢单率', '负责人', '来源', '创建时间', '更新时间'];
+    const rows = result.list.map(item => [
+      item.opportunity_no || '',
+      item.name || '',
+      item.customer_name || '',
+      opportunityService.STAGE_MAP[item.stage] || '',
+      item.expected_amount || 0,
+      item.expected_date || '',
+      `${item.win_rate || 0}%`,
+      item.owner_name || '',
+      item.source_name || '',
+      item.create_time ? new Date(item.create_time).toLocaleString('zh-CN') : '',
+      item.update_time ? new Date(item.update_time).toLocaleString('zh-CN') : ''
+    ]);
+
+    // 生成 CSV（UTF-8 BOM 头，确保 Excel 正确识别中文）
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename=opportunities_${Date.now()}.csv`);
+    res.send('\ufeff' + csvContent);
+  } catch (error) {
+    logger.error('导出商机列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     next(error);
   }
 }
@@ -85,6 +158,9 @@ async function stageLog(req, res, next) {
 
 async function stageStats(req, res, next) {
   try {
+    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'o');
+    const existing = await opportunityService.getOpportunityWithPermission(pool, req.params.id, { clause, params: permParams });
+    if (!existing) return res.status(404).json({ code: 404, message: '商机不存在', data: null });
     const data = await opportunityService.getStageStats(pool, req.params.id);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
@@ -173,6 +249,9 @@ module.exports = {
   add,
   update,
   updateStage,
+  backwardStage,
+  getSources,
+  exportOpportunities,
   stageLog,
   stageStats,
   delete: remove,

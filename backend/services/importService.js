@@ -78,7 +78,7 @@ async function importPreview(pool, fileBuffer) {
 
   // 加载验证规则并验证
   const [rules] = await pool.query(
-    'SELECT * FROM sys_validation_rule WHERE table_name = ? AND is_active = 1',
+    'SELECT id, table_name, column_name, rule_type, rule_config, error_message, is_active, create_time FROM sys_validation_rule WHERE table_name = ? AND is_active = 1',
     ['crm_customer']
   );
   const validator = new DataValidator(rules);
@@ -126,7 +126,7 @@ async function batchImport(pool, customers, userId) {
 
   // 3. 数据验证
   const [rules] = await pool.query(
-    'SELECT * FROM sys_validation_rule WHERE table_name = ? AND is_active = 1',
+    'SELECT id, table_name, column_name, rule_type, rule_config, error_message, is_active, create_time FROM sys_validation_rule WHERE table_name = ? AND is_active = 1',
     ['crm_customer']
   );
   const validator = new DataValidator(rules);

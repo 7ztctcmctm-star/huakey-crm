@@ -6,7 +6,9 @@
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
 
-// 合同状态映射
+// 合同状态映射（统一权威定义，详见 docs/contract-status-definition.md）
+// 1=待执行(默认,新建)  2=执行中  3=已完成(终态,不可变更)  4=已取消(终态)
+// 注意: approval_status 独立管理审批流程 (1=待审批 2=已通过 3=已拒绝)
 const STATUS_MAP = { 1: '待执行', 2: '执行中', 3: '已完成', 4: '已取消' };
 
 // 回款状态子查询条件
@@ -45,7 +47,10 @@ async function listContracts(pool, params = {}, permission = null) {
   }
 
   // 查询
-  let sql = `SELECT c.*, cu.company_name as customer_name, u.real_name as create_by_name,
+  let sql = `SELECT c.id, c.contract_no, c.customer_id, c.opportunity_id, c.quote_id, c.amount, c.currency, c.exchange_rate,
+    c.sign_date, c.delivery_date, c.payment_terms, c.status, c.approval_status, c.approver_id, c.approval_remark,
+    c.remark, c.file_url, c.create_by, c.create_time, c.deleted_at,
+    cu.company_name as customer_name, u.real_name as create_by_name,
     (SELECT COALESCE(SUM(p.pay_amount), 0) FROM crm_payment p WHERE p.contract_id = c.id AND p.deleted_at IS NULL) as paid_amount,
     (SELECT COALESCE(SUM(pp.plan_amount), 0) FROM crm_payment_plan pp WHERE pp.contract_id = c.id) as plan_total,
     cur.symbol as currency_symbol
@@ -120,7 +125,10 @@ async function listContracts(pool, params = {}, permission = null) {
  */
 async function getContract(pool, contractId) {
   const [contract] = await pool.query(`
-    SELECT c.*, cu.company_name as customer_name, pc.name as contact, pc.phone, cu.address,
+    SELECT c.id, c.contract_no, c.customer_id, c.opportunity_id, c.quote_id, c.amount, c.currency, c.exchange_rate,
+      c.sign_date, c.delivery_date, c.payment_terms, c.status, c.approval_status, c.approver_id, c.approval_remark,
+      c.remark, c.file_url, c.create_by, c.create_time, c.deleted_at,
+      cu.company_name as customer_name, pc.name as contact, pc.phone, cu.address,
       u.real_name as create_by_name
     FROM crm_contract c
     LEFT JOIN crm_customer cu ON c.customer_id = cu.id
@@ -132,15 +140,17 @@ async function getContract(pool, contractId) {
   if (!contract.length) return null;
 
   const [plans] = await pool.query(
-    'SELECT * FROM crm_payment_plan WHERE contract_id = ? ORDER BY plan_date',
+    `SELECT id, contract_id, plan_date, plan_amount, status, remark, create_time, update_time
+     FROM crm_payment_plan WHERE contract_id = ? ORDER BY plan_date`,
     [contractId]
   );
 
   const [payments] = await pool.query(`
-    SELECT p.*, pp.plan_date, pp.plan_amount
+    SELECT p.id, p.contract_id, p.plan_id, p.pay_date, p.pay_amount, p.pay_method, p.remark, p.create_time, p.deleted_at,
+      pp.plan_date, pp.plan_amount
     FROM crm_payment p
     LEFT JOIN crm_payment_plan pp ON p.plan_id = pp.id
-    WHERE p.contract_id = ?
+    WHERE p.contract_id = ? AND p.deleted_at IS NULL
     ORDER BY p.pay_date DESC
   `, [contractId]);
 
@@ -172,14 +182,14 @@ async function createContract(pool, data, createBy) {
 
     // 校验客户必须是正式客户（status=2）
     const [customerCheck] = await connection.query(
-      'SELECT id, status, company_name FROM crm_customer WHERE id = ? AND status != 0',
+      'SELECT id, status, company_name FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
       [customer_id]
     );
     if (customerCheck.length === 0) {
       throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);
     }
-    if (customerCheck[0].status !== 2) {
-      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '只能为正式客户创建合同，请先将客户转化为正式客户');
+    if (customerCheck[0].status !== 'signed') {
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '只能为已签约客户创建合同，请先将客户转化为已签约状态');
     }
 
     // 4-3-4: 传入 opportunity_id 时校验商机存在且属于同一客户
@@ -291,7 +301,8 @@ async function updateContractStatus(pool, contractId, newStatus) {
  */
 async function getPaymentProgress(pool, contractId) {
   const [plans] = await pool.query(
-    'SELECT * FROM crm_payment_plan WHERE contract_id = ? ORDER BY plan_date',
+    `SELECT id, contract_id, plan_date, plan_amount, status, remark, create_time, update_time
+     FROM crm_payment_plan WHERE contract_id = ? ORDER BY plan_date`,
     [contractId]
   );
 

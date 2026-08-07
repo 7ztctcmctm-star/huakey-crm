@@ -30,8 +30,9 @@ const require = createRequire(resolve(backendRoot, 'package.json'))
 const mysql = require('mysql2/promise')
 
 // 强制使用测试数据库与测试友好配置，避免污染开发/生产数据
-process.env.NODE_ENV = 'development'
+process.env.NODE_ENV = 'test'
 process.env.SKIP_CAPTCHA = 'true'
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'e2e_test_secret_64_bytes_for_ci_environment_only_not_used_in_production_xxxx'
 process.env.DB_NAME = process.env.DB_NAME || 'huakey_crm_test'
 process.env.DB_HOST = process.env.DB_HOST || '127.0.0.1'
 process.env.DB_PORT = process.env.DB_PORT || '3306'
@@ -52,6 +53,8 @@ const DB_CONFIG = {
 }
 
 // E2E 测试是否清理测试库（默认开启，仅对以 _test 结尾的数据库名生效）
+// CI 已提前导入 init-complete.sql，跳过数据库初始化
+const SKIP_DB_SETUP = (process.env.SKIP_DB_SETUP || 'false').toLowerCase() === 'true'
 const E2E_CLEAN_DB = (process.env.E2E_CLEAN_DB || 'true').toLowerCase() === 'true'
 // 数据库管理账号（创建/删除库需要更高权限），默认回退到应用账号
 const DB_ADMIN_USER = process.env.MYSQL_ROOT_USER || process.env.DB_USER
@@ -215,11 +218,32 @@ async function initPermissions() {
 
 function startBackend() {
   console.log('[e2e-server] 启动后端服务...')
+  let stdout = ''
+  let stderr = ''
   const proc = spawn('npm', ['start'], {
     cwd: backendRoot,
-    stdio: 'inherit',
+    stdio: ['ignore', 'pipe', 'pipe'],
     shell: true,
     env: { ...process.env }
+  })
+  proc.stdout.on('data', (chunk) => {
+    const text = chunk.toString()
+    stdout += text
+    process.stdout.write(text)
+  })
+  proc.stderr.on('data', (chunk) => {
+    const text = chunk.toString()
+    stderr += text
+    process.stderr.write(text)
+  })
+  proc.on('exit', (code) => {
+    if (code !== 0 && code !== null) {
+      console.error(`[e2e-server] 后端进程异常退出 (exit code: ${code})`)
+      console.error(`[e2e-server] === 后端 stdout (最后 2000 字符) ===`)
+      console.error(stdout.slice(-2000))
+      console.error(`[e2e-server] === 后端 stderr (最后 2000 字符) ===`)
+      console.error(stderr.slice(-2000))
+    }
   })
   children.push(proc)
   return proc
@@ -260,24 +284,32 @@ process.on('SIGINT', () => {
 async function main() {
   console.log(`[e2e-server] 目标数据库: ${DB_CONFIG.database}@${DB_CONFIG.host}:${DB_CONFIG.port}`)
 
-  await ensureDatabase()
-
-  if (E2E_USE_MIGRATIONS) {
-    console.log('[e2e-server] 使用迁移方式初始化测试库')
-    await runMigrations()
-  } else if (SOURCE_DB) {
-    console.log(`[e2e-server] 使用克隆方式初始化测试库（源库: ${SOURCE_DB}）`)
-    await cloneDatabase()
-    // 克隆后执行迁移：源库可能缺少最新迁移，运行迁移可应用缺失的 schema 变更
-    //（迁移脚本自身使用 IF EXISTS 判断，可安全重入）
-    console.log('[e2e-server] 克隆完成，正在运行迁移以应用缺失的 schema 变更...')
-    await runMigrations()
+  if (SKIP_DB_SETUP) {
+    console.log('[e2e-server] SKIP_DB_SETUP=true，跳过数据库初始化（CI 已提前准备）')
   } else {
-    throw new Error('未配置 SOURCE_DB 且 E2E_USE_MIGRATIONS=false，无法初始化测试库')
-  }
+    await ensureDatabase()
 
-  await runSeedSql(resolve(databaseRoot, 'seeds/seed_test_data.sql'))
-  await initPermissions()
+    if (E2E_USE_MIGRATIONS) {
+      console.log('[e2e-server] 使用迁移方式初始化测试库')
+      await runMigrations()
+    } else if (SOURCE_DB) {
+      console.log(`[e2e-server] 使用克隆方式初始化测试库（源库: ${SOURCE_DB}）`)
+      await cloneDatabase()
+      console.log('[e2e-server] 克隆完成，正在运行迁移以应用缺失的 schema 变更...')
+      await runMigrations()
+    } else {
+      throw new Error('未配置 SOURCE_DB 且 E2E_USE_MIGRATIONS=false，无法初始化测试库')
+    }
+
+    await runSeedSql(resolve(databaseRoot, 'seeds/seed_test_data.sql'))
+    await initPermissions()
+
+    // 加载 Demo 种子数据（demo_admin / demo_sales / demo_purchase + 完整业务链）
+    // Playwright E2E 通过 .env.test 中的 E2E_ADMIN_USER=demo_admin 登录，需先 seed
+    // seed-demo.js 自带生产环境阻断 + 幂等保护，重复执行安全
+    console.log('[e2e-server] 加载 Demo 种子数据（demo_admin / demo_sales / demo_purchase）...')
+    await exec('node', ['scripts/seed-demo.js'], backendRoot)
+  }
 
   startBackend()
   await waitForPort(5000)

@@ -6,6 +6,7 @@ const bcrypt = require('bcryptjs');
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
 const { clearPermissionCache } = require('./permissionService');
+const { POOL_STATUS } = require('../constants/poolStatus');
 
 /**
  * 获取用户列表
@@ -68,13 +69,44 @@ async function addUser(pool, { username, password, real_name, phone, email, dept
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
+  // [v1.0.1 安全补丁] 强制新建用户首次登录改密
   const [result] = await pool.query(
-    `INSERT INTO sys_user (username, password, real_name, phone, email, dept_id, role_id, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+    `INSERT INTO sys_user (username, password, real_name, phone, email, dept_id, role_id, status, must_change_password)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1)`,
     [username, hashedPassword, real_name || null, phone || null, email || null, dept_id || null, role_id || null]
   );
 
   return { id: result.insertId };
+}
+
+/**
+ * 重置用户密码（管理员操作）
+ * 重置后必须强制改密，且清除该用户 /auth/me 缓存
+ * @param {object} pool
+ * @param {number} id - 目标用户 id
+ * @param {string} newPassword - 新密码（已通过 Joi 校验）
+ * @returns {{ id: number, username: string }}
+ */
+async function resetPassword(pool, id, newPassword) {
+  const [users] = await pool.query(
+    'SELECT id, username FROM sys_user WHERE id = ? AND deleted_at IS NULL',
+    [id]
+  );
+  if (users.length === 0) {
+    throw new AppError(ErrorCodes.USER_NOT_FOUND, '用户不存在或已删除');
+  }
+
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+  await pool.query(
+    `UPDATE sys_user
+     SET password = ?,
+         must_change_password = 1,
+         password_changed_at = NOW()
+     WHERE id = ?`,
+    [hashedPassword, id]
+  );
+
+  return { id: users[0].id, username: users[0].username };
 }
 
 /**
@@ -112,7 +144,7 @@ async function updateUser(pool, { id, real_name, phone, email, dept_id, role_id,
   );
 
   if (role_id !== undefined) {
-    clearPermissionCache(id);
+    await clearPermissionCache(id);
   }
 }
 
@@ -122,7 +154,7 @@ async function updateUser(pool, { id, real_name, phone, email, dept_id, role_id,
  * 级联规则：
  *   1. 用户账号 → 软删除（status=0, deleted_at=NOW()）
  *   2. 员工档案 → 自动设为离职（leave_date=NOW()）
- *   3. 名下客户 → 释放到公海池（pool_status=1, owner_id=NULL, protect_until=NULL）
+ *   3. 名下客户 → 释放到公海池（pool_status='sea', owner_id=NULL, protect_until=NULL）
  *   4. 名下商机 → 优先转移给直属上级 manager_id；无可用上级时 owner_id=NULL（待分配）
  *   5. 跟进记录 → 保留不动（归属客户，不归属用户）
  */
@@ -171,12 +203,12 @@ async function deleteUser(pool, { id }, currentUserId) {
     const [customerResult] = await connection.query(
       `UPDATE crm_customer
        SET owner_id = NULL,
-           pool_status = 1,
+           pool_status = ?,
            pool_type = 'public',
            protect_until = NULL,
            update_time = NOW()
-       WHERE owner_id = ? AND status != 0 AND deleted_at IS NULL`,
-      [id]
+       WHERE owner_id = ? AND deleted_at IS NULL`,
+      [POOL_STATUS.SEA, id]
     );
 
     // 4. 名下商机 → 优先转移给直属上级，无上级或上级不可用时再释放为待分配
@@ -231,5 +263,6 @@ module.exports = {
   addUser,
   updateUser,
   deleteUser,
-  getUserDetail
+  getUserDetail,
+  resetPassword
 };

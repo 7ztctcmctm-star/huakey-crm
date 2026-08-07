@@ -6,7 +6,7 @@ const { checkPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const requireAdmin = require('../middleware/admin');
 const { requireManager } = require('../middleware/admin');
-const { surveyRespondLimiter } = require('../middleware/rateLimiter');
+const { surveyRespondLimiter, surveyGlobalResponderLimiter } = require('../middleware/rateLimiter');
 const surveyService = require('../services/surveyService');
 const logger = require('../config/logger');
 
@@ -50,19 +50,19 @@ const emptySchema = Joi.object({});
 // ============ 模板管理 ============
 
 // 模板列表
-router.get('/templates', authenticateToken, checkPermission('survey'), async (req, res) => {
+router.get('/templates', authenticateToken, checkPermission('survey'), async (req, res, next) => {
   try {
     const { page, pageSize } = req.query;
     const result = await surveyService.getTemplates(pool, { page, pageSize });
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
     logger.error('[调查] 模板列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 创建模板
-router.post('/templates', authenticateToken, checkPermission('survey'), requireManager, validate(templateSchema), async (req, res) => {
+router.post('/templates', authenticateToken, checkPermission('survey'), requireManager, validate(templateSchema), async (req, res, next) => {
   try {
     const { name, questions } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ code: 400, message: '模板名称不能为空', data: null });
@@ -71,12 +71,12 @@ router.post('/templates', authenticateToken, checkPermission('survey'), requireM
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
     logger.error('[调查] 创建模板失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 更新模板
-router.put('/templates/:id', authenticateToken, checkPermission('survey'), requireManager, validate(templateUpdateSchema), async (req, res) => {
+router.put('/templates/:id', authenticateToken, checkPermission('survey'), requireManager, validate(templateUpdateSchema), async (req, res, next) => {
   try {
     const result = await surveyService.updateTemplate(pool, req.params.id, req.body);
     if (result.error === 'not_found') return res.status(404).json({ code: 404, message: '模板不存在', data: null });
@@ -85,12 +85,12 @@ router.put('/templates/:id', authenticateToken, checkPermission('survey'), requi
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
     logger.error('[调查] 更新模板失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 删除模板
-router.delete('/templates/:id', authenticateToken, checkPermission('survey'), requireManager, async (req, res) => {
+router.delete('/templates/:id', authenticateToken, checkPermission('survey'), requireManager, async (req, res, next) => {
   try {
     const result = await surveyService.deleteTemplate(pool, req.params.id);
     if (result.error === 'not_found') return res.status(404).json({ code: 404, message: '模板不存在', data: null });
@@ -98,50 +98,50 @@ router.delete('/templates/:id', authenticateToken, checkPermission('survey'), re
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     logger.error('[调查] 删除模板失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 初始化系统预设模板
-router.post('/templates/init', authenticateToken, checkPermission('survey'), requireAdmin, validate(emptySchema), async (req, res) => {
+router.post('/templates/init', authenticateToken, checkPermission('survey'), requireAdmin, validate(emptySchema), async (req, res, next) => {
   try {
     const result = await surveyService.initTemplates(pool);
     if (result.count > 0 && !result.count) return res.json({ code: 200, message: '预设模板已存在', data: { count: result.count } });
     res.json({ code: 200, message: '初始化成功', data: { count: result.count } });
   } catch (error) {
     logger.error('[调查] 初始化预设模板失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // ============ 活动管理 ============
 
 // 活动列表
-router.get('/campaigns', authenticateToken, checkPermission('survey'), async (req, res) => {
+router.get('/campaigns', authenticateToken, checkPermission('survey'), async (req, res, next) => {
   try {
     const { status } = req.query;
     const rows = await surveyService.getCampaigns(pool, { status });
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
     logger.error('[调查] 活动列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 活动详情
-router.get('/campaigns/:id', authenticateToken, checkPermission('survey'), async (req, res) => {
+router.get('/campaigns/:id', authenticateToken, checkPermission('survey'), async (req, res, next) => {
   try {
     const row = await surveyService.getCampaign(pool, req.params.id);
     if (!row) return res.status(404).json({ code: 404, message: '活动不存在', data: null });
     res.json({ code: 200, message: '查询成功', data: row });
   } catch (error) {
     logger.error('[调查] 活动详情查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 创建活动
-router.post('/campaigns', authenticateToken, checkPermission('survey'), requireManager, validate(campaignSchema), async (req, res) => {
+router.post('/campaigns', authenticateToken, checkPermission('survey'), requireManager, validate(campaignSchema), async (req, res, next) => {
   try {
     const { name, template_id } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ code: 400, message: '活动名称不能为空', data: null });
@@ -150,12 +150,12 @@ router.post('/campaigns', authenticateToken, checkPermission('survey'), requireM
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
     logger.error('[调查] 创建活动失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 更新活动
-router.put('/campaigns/:id', authenticateToken, checkPermission('survey'), requireManager, validate(campaignUpdateSchema), async (req, res) => {
+router.put('/campaigns/:id', authenticateToken, checkPermission('survey'), requireManager, validate(campaignUpdateSchema), async (req, res, next) => {
   try {
     const result = await surveyService.updateCampaign(pool, req.params.id, req.body);
     if (result.error === 'not_found') return res.status(404).json({ code: 404, message: '活动不存在', data: null });
@@ -164,12 +164,12 @@ router.put('/campaigns/:id', authenticateToken, checkPermission('survey'), requi
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
     logger.error('[调查] 更新活动失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 启动活动
-router.post('/campaigns/:id/start', authenticateToken, checkPermission('survey'), requireManager, validate(emptySchema), async (req, res) => {
+router.post('/campaigns/:id/start', authenticateToken, checkPermission('survey'), requireManager, validate(emptySchema), async (req, res, next) => {
   try {
     const result = await surveyService.startCampaign(pool, req.params.id);
     if (result.error === 'not_found') return res.status(404).json({ code: 404, message: '活动不存在', data: null });
@@ -177,12 +177,12 @@ router.post('/campaigns/:id/start', authenticateToken, checkPermission('survey')
     res.json({ code: 200, message: '活动已启动', data: { total_sent: result.total_sent } });
   } catch (error) {
     logger.error('[调查] 启动活动失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 关闭活动
-router.post('/campaigns/:id/close', authenticateToken, checkPermission('survey'), requireManager, validate(emptySchema), async (req, res) => {
+router.post('/campaigns/:id/close', authenticateToken, checkPermission('survey'), requireManager, validate(emptySchema), async (req, res, next) => {
   try {
     const result = await surveyService.closeCampaign(pool, req.params.id);
     if (result.error === 'not_found') return res.status(404).json({ code: 404, message: '活动不存在', data: null });
@@ -190,7 +190,7 @@ router.post('/campaigns/:id/close', authenticateToken, checkPermission('survey')
     res.json({ code: 200, message: '活动已关闭', data: null });
   } catch (error) {
     logger.error('[调查] 关闭活动失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
@@ -204,8 +204,8 @@ const respondSchema = Joi.object({
   respondent_contact: Joi.string().max(100).allow('', null)
 });
 
-// 提交回复（公开接口，不需要登录；启用 IP+campaign_id 限流防刷）
-router.post('/respond/:campaign_id', surveyRespondLimiter, validate(respondSchema), async (req, res) => {
+// 提交回复（公开接口，不需要登录；启用 IP 全局限流 + IP+campaign_id 限流防刷）
+router.post('/respond/:campaign_id', surveyGlobalResponderLimiter, surveyRespondLimiter, validate(respondSchema), async (req, res, next) => {
   try {
     const { campaign_id } = req.params;
     const result = await surveyService.submitResponse(pool, campaign_id, req.body);
@@ -214,44 +214,44 @@ router.post('/respond/:campaign_id', surveyRespondLimiter, validate(respondSchem
     res.json({ code: 200, message: '感谢您的反馈！', data: null });
   } catch (error) {
     logger.error('[调查] 提交回复失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 查看回复列表
-router.get('/campaigns/:id/responses', authenticateToken, checkPermission('survey'), async (req, res) => {
+router.get('/campaigns/:id/responses', authenticateToken, checkPermission('survey'), async (req, res, next) => {
   try {
     const { page, pageSize } = req.query;
     const result = await surveyService.getCampaignResponses(pool, req.params.id, { page, pageSize });
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
     logger.error('[调查] 回复列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // ============ 分析接口 ============
 
 // 整体满意度概览
-router.get('/analytics/overview', authenticateToken, checkPermission('survey'), async (req, res) => {
+router.get('/analytics/overview', authenticateToken, checkPermission('survey'), async (req, res, next) => {
   try {
     const result = await surveyService.getAnalyticsOverview(pool);
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
     logger.error('[调查] 满意度概览查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 单个活动分析
-router.get('/analytics/:campaign_id', authenticateToken, checkPermission('survey'), async (req, res) => {
+router.get('/analytics/:campaign_id', authenticateToken, checkPermission('survey'), async (req, res, next) => {
   try {
     const result = await surveyService.getCampaignAnalytics(pool, req.params.campaign_id);
     if (!result) return res.status(404).json({ code: 404, message: '活动不存在', data: null });
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
     logger.error('[调查] 活动分析查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 

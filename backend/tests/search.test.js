@@ -84,6 +84,7 @@ describe('全局搜索模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ id: 1, company_name: '测试公司', contact_name: '张三', phone: '13800138000', level: 'A' }]]) // customers
         .mockResolvedValueOnce([[]]) // contracts
         .mockResolvedValueOnce([[]]) // opportunities
@@ -104,6 +105,7 @@ describe('全局搜索模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[]]) // customers
         .mockResolvedValueOnce([[]]) // contracts
         .mockResolvedValueOnce([[]]) // opportunities

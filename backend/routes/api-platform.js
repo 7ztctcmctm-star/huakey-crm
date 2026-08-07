@@ -51,7 +51,7 @@ const generateKey = (prefix = '', length = 32) => {
 
 // ============ API密钥管理 ============
 
-router.get('/keys', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/keys', authenticateToken, requireAdmin, async (req, res, next) => {
   try {
     const rows = await svc.listKeys(pool);
     // 遮蔽api_key，只显示后4位
@@ -62,11 +62,11 @@ router.get('/keys', authenticateToken, requireAdmin, async (req, res) => {
     res.json({ code: 200, message: '查询成功', data: maskedKeys });
   } catch (error) {
     logger.error('[API平台] 密钥列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.post('/keys', authenticateToken, requireAdmin, validate(createKeySchema), async (req, res) => {
+router.post('/keys', authenticateToken, requireAdmin, validate(createKeySchema), async (req, res, next) => {
   try {
     const { name, permissions, rate_limit, expires_at } = req.body;
     if (!name) return res.status(400).json({ code: 400, message: '密钥名称不能为空', data: null });
@@ -79,11 +79,11 @@ router.post('/keys', authenticateToken, requireAdmin, validate(createKeySchema),
     res.json({ code: 200, message: '创建成功，请妥善保存密钥', data: { id: result.id, api_key: apiKey, api_secret: apiSecret } });
   } catch (error) {
     logger.error('[API平台] 创建密钥失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.put('/keys/:id', authenticateToken, requireAdmin, validate(updateKeySchema), async (req, res) => {
+router.put('/keys/:id', authenticateToken, requireAdmin, validate(updateKeySchema), async (req, res, next) => {
   try {
     const { name, permissions, rate_limit, status, expires_at } = req.body;
     const fields = [], values = [];
@@ -97,21 +97,21 @@ router.put('/keys/:id', authenticateToken, requireAdmin, validate(updateKeySchem
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
     logger.error('[API平台] 更新密钥失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.delete('/keys/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.delete('/keys/:id', authenticateToken, requireAdmin, async (req, res, next) => {
   try {
     await svc.deleteKey(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     logger.error('[API平台] 删除密钥失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.post('/keys/:id/regenerate', authenticateToken, requireAdmin, validate(emptySchema), async (req, res) => {
+router.post('/keys/:id/regenerate', authenticateToken, requireAdmin, validate(emptySchema), async (req, res, next) => {
   try {
     const newKey = generateKey('crm_', 32);
     const newSecret = generateKey('', 48);
@@ -119,13 +119,13 @@ router.post('/keys/:id/regenerate', authenticateToken, requireAdmin, validate(em
     res.json({ code: 200, message: '重新生成成功，请妥善保存', data: { api_key: newKey, api_secret: newSecret } });
   } catch (error) {
     logger.error('[API平台] 重新生成密钥失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // ============ Webhook管理 ============
 
-router.get('/webhooks', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/webhooks', authenticateToken, requireAdmin, async (req, res, next) => {
   try {
     const rows = await svc.listWebhooks(pool);
     // 遮蔽secret字段
@@ -136,11 +136,11 @@ router.get('/webhooks', authenticateToken, requireAdmin, async (req, res) => {
     res.json({ code: 200, message: '查询成功', data: maskedWebhooks });
   } catch (error) {
     logger.error('[API平台] Webhook列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.post('/webhooks', authenticateToken, requireAdmin, validate(createWebhookSchema), async (req, res) => {
+router.post('/webhooks', authenticateToken, requireAdmin, validate(createWebhookSchema), async (req, res, next) => {
   try {
     const { name, url, events, secret } = req.body;
     if (!name || !url || !events) return res.status(400).json({ code: 400, message: '参数不完整', data: null });
@@ -151,11 +151,11 @@ router.post('/webhooks', authenticateToken, requireAdmin, validate(createWebhook
     res.json({ code: 200, message: '创建成功', data: { id: result.id } });
   } catch (error) {
     logger.error('[API平台] 创建Webhook失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.put('/webhooks/:id', authenticateToken, requireAdmin, validate(updateWebhookSchema), async (req, res) => {
+router.put('/webhooks/:id', authenticateToken, requireAdmin, validate(updateWebhookSchema), async (req, res, next) => {
   try {
     const { name, url, events, status } = req.body;
     const fields = [], values = [];
@@ -168,25 +168,38 @@ router.put('/webhooks/:id', authenticateToken, requireAdmin, validate(updateWebh
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
     logger.error('[API平台] 更新Webhook失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.delete('/webhooks/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.delete('/webhooks/:id', authenticateToken, requireAdmin, async (req, res, next) => {
   try {
     await svc.deleteWebhook(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     logger.error('[API平台] 删除Webhook失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // 测试Webhook
-router.post('/webhooks/:id/test', authenticateToken, requireAdmin, validate(emptySchema), async (req, res) => {
+router.post('/webhooks/:id/test', authenticateToken, requireAdmin, validate(emptySchema), async (req, res, next) => {
   try {
     const webhook = await svc.getWebhookById(pool, req.params.id);
     if (!webhook) return res.status(404).json({ code: 404, message: 'Webhook不存在', data: null });
+
+    // SSRF 防护：校验 webhook URL 仅允许 http/https，拒绝内网/保留地址
+    const { URL } = require('url');
+    let parsedUrl;
+    try { parsedUrl = new URL(webhook.url); } catch { return res.status(400).json({ code: 400, message: 'Webhook URL 格式无效', data: null }); }
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+      return res.status(400).json({ code: 400, message: '仅支持 http/https 协议的 Webhook URL', data: null });
+    }
+    const blockedHosts = ['localhost', '127.0.0.1', '0.0.0.0', '::1', '169.254.169.254', 'metadata.google.internal'];
+    const hostname = parsedUrl.hostname.toLowerCase();
+    if (blockedHosts.includes(hostname) || hostname.match(/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/)) {
+      return res.status(400).json({ code: 400, message: '不允许请求内网地址', data: null });
+    }
 
     const payload = { event: 'test', timestamp: new Date().toISOString(), data: { message: '这是一条测试消息' } };
 
@@ -218,18 +231,18 @@ router.post('/webhooks/:id/test', authenticateToken, requireAdmin, validate(empt
     }
   } catch (error) {
     logger.error('[API平台] 测试Webhook失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
 // Webhook日志
-router.get('/webhooks/:id/logs', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/webhooks/:id/logs', authenticateToken, requireAdmin, async (req, res, next) => {
   try {
     const rows = await svc.getWebhookLogs(pool, req.params.id);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
     logger.error('[API平台] Webhook日志查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 

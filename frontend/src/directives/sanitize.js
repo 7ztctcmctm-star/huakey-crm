@@ -1,12 +1,12 @@
 import { sanitize } from '@/utils/sanitize';
 
 export const vSafeHtml = {
-  mounted(el, binding) {
-    el.innerHTML = sanitize(binding.value);
+  async mounted(el, binding) {
+    el.innerHTML = await sanitize(binding.value);
   },
-  updated(el, binding) {
+  async updated(el, binding) {
     if (binding.value !== binding.oldValue) {
-      el.innerHTML = sanitize(binding.value);
+      el.innerHTML = await sanitize(binding.value);
     }
   }
 };

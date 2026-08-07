@@ -41,6 +41,7 @@ describe('产品模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]])  // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 1 }]])
         .mockResolvedValueOnce([[{ id: 1, name: '测试产品', code: 'P001', price: 100 }]]);
 

@@ -370,7 +370,7 @@ const qualificationDeleteSchema = Joi.object({
 // 字段级权限：供应商敏感信息仅管理员可见
 router.use(checkFieldPermission('supplier'));
 
-const supplierListHandler = async (req, res) => {
+const supplierListHandler = async (req, res, next) => {
   try {
     const source = req.method === 'GET' ? req.query : req.body;
     const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 's');
@@ -379,14 +379,14 @@ const supplierListHandler = async (req, res) => {
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
     logger.error('[供应商] 供应商列表错误:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 };
 
 router.get('/list', authenticateToken, checkPermission('supplier'), checkDataPermission('supplier', 'owner_id'), cache(300), supplierListHandler);
 router.post('/list', authenticateToken, checkPermission('supplier'), checkDataPermission('supplier', 'owner_id'), cache(300), validate(listSchema), supplierListHandler);
 
-router.get('/detail/:id', authenticateToken, checkDataPermission('supplier', 'owner_id'), async (req, res) => {
+router.get('/detail/:id', authenticateToken, checkPermission('supplier'), checkDataPermission('supplier', 'owner_id'), async (req, res, next) => {
   try {
     const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 's');
     const data = await supplierService.getSupplier(pool, req.params.id, { clause, params: permParams });
@@ -395,11 +395,11 @@ router.get('/detail/:id', authenticateToken, checkDataPermission('supplier', 'ow
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[供应商] 供应商详情错误:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
-router.post('/add', authenticateToken, checkPermission('supplier:add'), validate(addSupplierSchema), async (req, res) => {
+router.post('/add', authenticateToken, checkPermission('supplier:add'), validate(addSupplierSchema), async (req, res, next) => {
   try {
     const result = await supplierService.createSupplier(pool, req.body, req.user.userId);
     await logAction(req, 'add', `新增供应商: ${req.body.name}`);
@@ -407,11 +407,11 @@ router.post('/add', authenticateToken, checkPermission('supplier:add'), validate
     res.json({ code: 200, message: '创建供应商成功', data: result });
   } catch (error) {
     logger.error('[供应商] 添加供应商错误:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '创建供应商失败', data: null });
+    next(error);
   }
 });
 
-router.post('/update', authenticateToken, checkPermission('supplier:edit'), validate(updateSupplierSchema), async (req, res) => {
+router.post('/update', authenticateToken, checkPermission('supplier:edit'), validate(updateSupplierSchema), async (req, res, next) => {
   const { id, ...updateFields } = req.body;
   try {
     const oldData = await supplierService.getSupplierForEdit(pool, id);
@@ -427,11 +427,11 @@ router.post('/update', authenticateToken, checkPermission('supplier:edit'), vali
     res.json({ code: 200, message: '修改供应商成功', data: null });
   } catch (error) {
     logger.error('[供应商] 更新供应商错误:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '修改供应商失败', data: null });
+    next(error);
   }
 });
 
-router.post('/delete', authenticateToken, checkPermission('supplier:delete'), validate(deleteSupplierSchema), async (req, res) => {
+router.post('/delete', authenticateToken, checkPermission('supplier:delete'), validate(deleteSupplierSchema), async (req, res, next) => {
   const { id } = req.body;
   try {
     const supplier = await supplierService.getSupplierForEdit(pool, id);
@@ -446,52 +446,52 @@ router.post('/delete', authenticateToken, checkPermission('supplier:delete'), va
     res.json({ code: 200, message: '删除供应商成功', data: null });
   } catch (error) {
     logger.error('[供应商] 删除供应商错误:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '删除供应商失败', data: null });
+    next(error);
   }
 });
 
-router.post('/contact/add', authenticateToken, checkPermission('supplier:edit'), validate(addContactSchema), async (req, res) => {
+router.post('/contact/add', authenticateToken, checkPermission('supplier:edit'), validate(addContactSchema), async (req, res, next) => {
   try {
     const result = await supplierService.addContact(pool, req.body);
     res.json({ code: 200, message: '添加联系人成功', data: result });
   } catch (error) {
     logger.error('[供应商] 添加联系人错误:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '添加联系人失败', data: null });
+    next(error);
   }
 });
 
-router.get('/options', authenticateToken, async (req, res) => {
+router.get('/options', authenticateToken, checkPermission('supplier'), async (req, res, next) => {
   try {
     const rows = await supplierService.getSupplierOptions(pool);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
     logger.error('[供应商] 查询供应商列表失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
-router.post('/rating/add', authenticateToken, checkPermission('supplier:edit'), validate(addRatingSchema), async (req, res) => {
+router.post('/rating/add', authenticateToken, checkPermission('supplier:edit'), validate(addRatingSchema), async (req, res, next) => {
   try {
     const result = await supplierService.addRating(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '评分成功', data: result });
   } catch (error) {
     logger.error('[供应商] 添加评分错误:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '评分失败', data: null });
+    next(error);
   }
 });
 
-router.post('/contact/update', authenticateToken, checkPermission('supplier:edit'), validate(updateContactSchema), async (req, res) => {
+router.post('/contact/update', authenticateToken, checkPermission('supplier:edit'), validate(updateContactSchema), async (req, res, next) => {
   try {
     const { id, ...fields } = req.body;
     await supplierService.updateContact(pool, id, fields);
     res.json({ code: 200, message: '修改联系人成功', data: null });
   } catch (error) {
     logger.error('[供应商] 更新联系人错误:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '修改联系人失败', data: null });
+    next(error);
   }
 });
 
-router.post('/contact/delete', authenticateToken, checkPermission('supplier:edit'), validate(contactDeleteSchema), async (req, res) => {
+router.post('/contact/delete', authenticateToken, checkPermission('supplier:edit'), validate(contactDeleteSchema), async (req, res, next) => {
   try {
     const { id } = req.body;
     if (!id) return res.status(400).json({ code: 400, message: '联系人ID不能为空', data: null });
@@ -499,32 +499,32 @@ router.post('/contact/delete', authenticateToken, checkPermission('supplier:edit
     res.json({ code: 200, message: '删除联系人成功', data: null });
   } catch (error) {
     logger.error('[供应商] 删除联系人错误:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '删除联系人失败', data: null });
+    next(error);
   }
 });
 
-router.post('/qualification/add', authenticateToken, checkPermission('supplier:edit'), validate(addQualificationSchema), async (req, res) => {
+router.post('/qualification/add', authenticateToken, checkPermission('supplier:edit'), validate(addQualificationSchema), async (req, res, next) => {
   try {
     const result = await supplierService.addQualification(pool, req.body);
     res.json({ code: 200, message: '添加资质成功', data: result });
   } catch (error) {
     logger.error('[供应商] 添加资质错误:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '添加资质失败', data: null });
+    next(error);
   }
 });
 
-router.post('/qualification/update', authenticateToken, checkPermission('supplier:edit'), validate(updateQualificationSchema), async (req, res) => {
+router.post('/qualification/update', authenticateToken, checkPermission('supplier:edit'), validate(updateQualificationSchema), async (req, res, next) => {
   try {
     const { id, ...fields } = req.body;
     await supplierService.updateQualification(pool, id, fields);
     res.json({ code: 200, message: '修改资质成功', data: null });
   } catch (error) {
     logger.error('[供应商] 更新资质错误:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '修改资质失败', data: null });
+    next(error);
   }
 });
 
-router.post('/qualification/delete', authenticateToken, checkPermission('supplier:edit'), validate(qualificationDeleteSchema), async (req, res) => {
+router.post('/qualification/delete', authenticateToken, checkPermission('supplier:edit'), validate(qualificationDeleteSchema), async (req, res, next) => {
   try {
     const { id } = req.body;
     if (!id) return res.status(400).json({ code: 400, message: '资质ID不能为空', data: null });
@@ -532,21 +532,21 @@ router.post('/qualification/delete', authenticateToken, checkPermission('supplie
     res.json({ code: 200, message: '删除资质成功', data: null });
   } catch (error) {
     logger.error('[供应商] 删除资质错误:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '删除资质失败', data: null });
+    next(error);
   }
 });
 
-router.get('/performance/:id', authenticateToken, async (req, res) => {
+router.get('/performance/:id', authenticateToken, checkPermission('supplier'), async (req, res, next) => {
   try {
     const data = await supplierService.getPerformance(pool, req.params.id);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[供应商] 绩效统计错误:', { error: error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 
-router.get('/ranking', authenticateToken, async (req, res) => {
+router.get('/ranking', authenticateToken, checkPermission('supplier'), async (req, res, next) => {
   try {
     const limit = parseInt(req.query.limit) || 20;
     const rows = await supplierService.getRanking(pool, limit);
@@ -554,11 +554,11 @@ router.get('/ranking', authenticateToken, async (req, res) => {
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
     logger.error('[供应商] 排行查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 
-router.get('/compare', authenticateToken, async (req, res) => {
+router.get('/compare', authenticateToken, checkPermission('supplier'), async (req, res, next) => {
   try {
     const ids = (req.query.ids || '').split(',').map(Number).filter(Boolean);
     if (ids.length === 0) return res.status(400).json({ code: 400, message: '请选择供应商', data: null });
@@ -566,7 +566,7 @@ router.get('/compare', authenticateToken, async (req, res) => {
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
     logger.error('[供应商] 对比查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '服务器内部错误', data: null });
+    next(error);
   }
 });
 

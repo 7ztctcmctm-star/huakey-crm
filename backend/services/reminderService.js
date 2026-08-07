@@ -287,7 +287,7 @@ async function getNotificationList(pool, userId, roleId, params = {}) {
   );
 
   const [rows] = await pool.query(
-    `SELECT * FROM crm_notification
+    `SELECT id, type, title, content, business_type, business_id, from_user_id, to_user_id, to_role_id, is_read, is_dismissed, create_time FROM crm_notification
      WHERE (to_user_id = ? OR to_role_id = ?) AND is_dismissed = 0
      ORDER BY is_read ASC, create_time DESC
      LIMIT ? OFFSET ?`,

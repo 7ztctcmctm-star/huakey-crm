@@ -53,6 +53,7 @@ describe('回收站模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ cnt: 5 }]]) // customer
         .mockResolvedValueOnce([[{ cnt: 2 }]]) // opportunity
         .mockResolvedValueOnce([[{ cnt: 1 }]]) // contract

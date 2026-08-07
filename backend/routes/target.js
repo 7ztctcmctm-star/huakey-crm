@@ -35,13 +35,13 @@ const targetDeleteSchema = Joi.object({
 });
 
 // 1. 获取销售目标列表（含达成率）
-router.post('/list', authenticateToken, validate(targetListSchema), async (req, res) => {
+router.post('/list', authenticateToken, validate(targetListSchema), async (req, res, next) => {
   try {
     const data = await targetService.listTargets(pool, req.body);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('获取销售目标错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(500).json({ code: 500, message: '查询失败', data: null });
+    next(error);
   }
 });
 

@@ -42,6 +42,7 @@ describe('问卷调查模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 2 }]]) // count
         .mockResolvedValueOnce([[ // list
           { id: 1, name: 'NPS调查', survey_type: 'nps', is_system: 1 },
@@ -65,6 +66,7 @@ describe('问卷调查模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ insertId: 3 }]); // insert
 
       const res = await request(app)
@@ -83,6 +85,7 @@ describe('问卷调查模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // campaigns list
           { id: 1, name: '6月满意度调查', status: 'active', template_name: 'NPS调查' },
           { id: 2, name: '客户回访', status: 'draft', template_name: '满意度调查' }
@@ -103,6 +106,7 @@ describe('问卷调查模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
       const res = await request(app)
@@ -121,6 +125,7 @@ describe('问卷调查模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ status: 'draft' }]]) // status check
         .mockResolvedValueOnce([[{ target_type: 'all', target_ids: null }]]) // campaign detail
         .mockResolvedValueOnce([[{ cnt: 50 }]]) // customer count

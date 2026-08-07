@@ -42,6 +42,7 @@ describe('财务增强模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ id: 1, company_name: '测试公司', contact_name: '张三', phone: '13800138000' }]]) // customer
         .mockResolvedValueOnce([[ // contracts
           { id: 1, contract_no: 'C-001', amount: 100000, sign_date: '2026-01-15', status: 2 }
@@ -70,6 +71,7 @@ describe('财务增强模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[ // list
           { id: 1, recon_no: 'RC-20260623-001', recon_type: 'customer', target_name: '测试公司', total_amount: 100000 }
@@ -92,6 +94,7 @@ describe('财务增强模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 500000 }]]) // income
         .mockResolvedValueOnce([[{ total: 300000 }]]) // cost
         .mockResolvedValueOnce([[ // cost structure
@@ -129,6 +132,7 @@ describe('财务增强模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ today_pending: 3 }]]) // today pending
         .mockResolvedValueOnce([[{ upcoming: 5 }]]) // upcoming
         .mockResolvedValueOnce([[{ overdue: 2 }]]) // overdue

@@ -6,7 +6,7 @@ const { execSync } = require('child_process');
 
 try {
   execSync(
-    'npx jest tests/e2e/ --forceExit --testTimeout=30000 --testPathPattern=e2e',
+    'npx jest tests/e2e/ --config jest.integration.config.js --forceExit',
     {
       stdio: 'inherit',
       cwd: __dirname + '/..'

@@ -337,8 +337,9 @@ const currentBreadcrumb = computed(() => {
     .map(r => ({ name: r.meta.title }))
 })
 
-const isAdmin = computed(() => props.userInfo.manageAll === true || props.userInfo.roleId === 1)
-const isBoss = computed(() => props.userInfo.viewAll === true || props.userInfo.roleId === 1)
+// 统一使用 manageAll/viewAll，禁止依赖固定数字 roleId
+const isAdmin = computed(() => props.userInfo.manageAll === true)
+const isBoss = computed(() => props.userInfo.viewAll === true)
 
 const recentVisits = ref(getVisits())
 watch(() => route.path, () => { recentVisits.value = getVisits() })

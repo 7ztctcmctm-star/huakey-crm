@@ -30,6 +30,8 @@ test.describe('报价审批工作流', () => {
   test.beforeAll(async ({ request }) => {
     const login = await loginAsAdmin(request)
     csrfToken = login.csrfToken
+    // 动态获取 admin 用户 ID，避免硬编码 approver_id 导致外键约束失败
+    const adminUserId = login.userId
 
     const customerName = uniqueName('E2E审批客户')
     const productName = uniqueName('E2E审批产品')
@@ -79,7 +81,7 @@ test.describe('报价审批工作流', () => {
       name: uniqueName('E2E报价审批流程'),
       type: 'quote',
       steps: [
-        { step_name: '经理审批', approver_type: 'user', approver_id: 1, is_required: true }
+        { step_name: '经理审批', approver_type: 'user', approver_id: adminUserId, is_required: true }
       ]
     })
     if (workflowRes.code !== 200) {

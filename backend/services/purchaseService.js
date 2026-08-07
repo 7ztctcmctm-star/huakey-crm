@@ -14,7 +14,7 @@ async function listPlans(pool, params = {}) {
 
   const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total FROM crm_purchase_plan p ${where}`, queryParams);
   const [rows] = await pool.query(`
-    SELECT p.*, u.real_name as create_by_name
+    SELECT p.id, p.plan_no, p.name, p.status, p.total_amount, p.remark, p.create_by, p.approved_by, p.approved_at, p.create_time, p.update_time, p.deleted_at, u.real_name as create_by_name
     FROM crm_purchase_plan p
     LEFT JOIN sys_user u ON p.create_by = u.id
     ${where} ORDER BY p.create_time DESC LIMIT ? OFFSET ?
@@ -25,7 +25,7 @@ async function listPlans(pool, params = {}) {
 
 async function getPlan(pool, id) {
   const [[plan]] = await pool.query(`
-    SELECT p.*, u.real_name as create_by_name, a.real_name as approved_by_name
+    SELECT p.id, p.plan_no, p.name, p.status, p.total_amount, p.remark, p.create_by, p.approved_by, p.approved_at, p.create_time, p.update_time, p.deleted_at, u.real_name as create_by_name, a.real_name as approved_by_name
     FROM crm_purchase_plan p
     LEFT JOIN sys_user u ON p.create_by = u.id
     LEFT JOIN sys_user a ON p.approved_by = a.id
@@ -34,7 +34,7 @@ async function getPlan(pool, id) {
   if (!plan) return null;
 
   const [items] = await pool.query(`
-    SELECT i.*, p.name as product_name, p.code as product_code, p.unit, s.name as supplier_name
+    SELECT i.id, i.plan_id, i.product_id, i.supplier_id, i.quantity, i.unit_price, i.amount, i.reason, i.status, i.create_time, p.name as product_name, p.code as product_code, p.unit, s.name as supplier_name
     FROM crm_purchase_plan_item i
     JOIN crm_product p ON i.product_id = p.id
     LEFT JOIN crm_supplier s ON i.supplier_id = s.id
@@ -71,10 +71,16 @@ async function createPlan(pool, data, userId) {
     );
     const planId = result.insertId;
 
-    for (const item of items) {
+    // 批量 INSERT plan items（单次 SQL）
+    if (items.length > 0) {
+      const placeholders = items.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
+      const params = [];
+      items.forEach(item => {
+        params.push(planId, item.product_id, item.supplier_id || null, item.quantity, item.unit_price || null, item.amount, item.reason || null);
+      });
       await conn.query(
-        'INSERT INTO crm_purchase_plan_item (plan_id, product_id, supplier_id, quantity, unit_price, amount, reason) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [planId, item.product_id, item.supplier_id || null, item.quantity, item.unit_price || null, item.amount, item.reason || null]
+        `INSERT INTO crm_purchase_plan_item (plan_id, product_id, supplier_id, quantity, unit_price, amount, reason) VALUES ${placeholders}`,
+        params
       );
     }
 
@@ -113,11 +119,16 @@ async function updatePlan(pool, id, data) {
 
     if (items) {
       await conn.query('DELETE FROM crm_purchase_plan_item WHERE plan_id = ?', [id]);
-      for (const item of items) {
-        const amount = (item.quantity || 0) * (item.unit_price || 0);
+      if (items.length > 0) {
+        const placeholders = items.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
+        const params = [];
+        items.forEach(item => {
+          const amount = (item.quantity || 0) * (item.unit_price || 0);
+          params.push(id, item.product_id, item.supplier_id || null, item.quantity, item.unit_price || null, amount, item.reason || null);
+        });
         await conn.query(
-          'INSERT INTO crm_purchase_plan_item (plan_id, product_id, supplier_id, quantity, unit_price, amount, reason) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [id, item.product_id, item.supplier_id || null, item.quantity, item.unit_price || null, amount, item.reason || null]
+          `INSERT INTO crm_purchase_plan_item (plan_id, product_id, supplier_id, quantity, unit_price, amount, reason) VALUES ${placeholders}`,
+          params
         );
       }
     }
@@ -157,27 +168,34 @@ async function approvePlan(pool, id, userId) {
 async function autoGenerate(pool, userId, supplierId = null) {
   const conn = await pool.getConnection();
   try {
-    let where = 'WHERE p.deleted_at IS NULL AND sa.alert_enabled = 1 AND p.stock < sa.min_qty';
     const queryParams = [];
+    let supplierFilter = '';
     if (supplierId) {
-      where += ' AND EXISTS (SELECT 1 FROM crm_purchase_item pi JOIN crm_purchase_order po ON pi.order_id = po.id WHERE pi.product_id = p.id AND po.supplier_id = ? AND po.deleted_at IS NULL)';
+      supplierFilter = 'AND EXISTS (SELECT 1 FROM crm_purchase_item pi JOIN crm_purchase_order po ON pi.order_id = po.id WHERE pi.product_id = p.id AND po.supplier_id = ? AND po.deleted_at IS NULL)';
       queryParams.push(supplierId);
     }
 
+    // [性能修复] 使用窗口函数一次性取每个产品最近一笔采购，避免 N+1 子查询
     const [lowStockProducts] = await pool.query(`
+      WITH latest_purchase AS (
+        SELECT
+          pi.product_id,
+          po.supplier_id,
+          pi.unit_price,
+          ROW_NUMBER() OVER (PARTITION BY pi.product_id ORDER BY po.create_time DESC) as rn
+        FROM crm_purchase_item pi
+        JOIN crm_purchase_order po ON pi.order_id = po.id
+        WHERE po.deleted_at IS NULL
+      )
       SELECT p.id, p.name, p.stock, sa.min_qty, sa.max_qty,
              (sa.max_qty - p.stock) as suggest_qty,
-             (SELECT po.supplier_id FROM crm_purchase_item pi
-              JOIN crm_purchase_order po ON pi.order_id = po.id
-              WHERE pi.product_id = p.id AND po.deleted_at IS NULL
-              ORDER BY po.create_time DESC LIMIT 1) as last_supplier_id,
-             (SELECT pi.unit_price FROM crm_purchase_item pi
-              JOIN crm_purchase_order po ON pi.order_id = po.id
-              WHERE pi.product_id = p.id AND po.deleted_at IS NULL
-              ORDER BY po.create_time DESC LIMIT 1) as last_price
+             lp.supplier_id as last_supplier_id,
+             lp.unit_price as last_price
       FROM crm_product p
       JOIN crm_stock_alert sa ON p.id = sa.product_id
-      ${where}
+      LEFT JOIN latest_purchase lp ON lp.product_id = p.id AND lp.rn = 1
+      WHERE p.deleted_at IS NULL AND sa.alert_enabled = 1 AND p.stock < sa.min_qty
+        ${supplierFilter}
       ORDER BY (p.stock - sa.min_qty) ASC
     `, queryParams);
 
@@ -194,10 +212,16 @@ async function autoGenerate(pool, userId, supplierId = null) {
     );
     const planId = result.insertId;
 
-    for (const p of lowStockProducts) {
+    if (lowStockProducts.length > 0) {
+      const placeholders = lowStockProducts.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
+      const params = [];
+      lowStockProducts.forEach(p => {
+        params.push(planId, p.id, p.last_supplier_id || null, p.suggest_qty, p.last_price || null,
+          (p.suggest_qty || 0) * (p.last_price || 0), `库存不足（当前${p.stock}，最低${p.min_qty}）`);
+      });
       await conn.query(
-        'INSERT INTO crm_purchase_plan_item (plan_id, product_id, supplier_id, quantity, unit_price, amount, reason) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [planId, p.id, p.last_supplier_id || null, p.suggest_qty, p.last_price || null, (p.suggest_qty || 0) * (p.last_price || 0), `库存不足（当前${p.stock}，最低${p.min_qty}）`]
+        `INSERT INTO crm_purchase_plan_item (plan_id, product_id, supplier_id, quantity, unit_price, amount, reason) VALUES ${placeholders}`,
+        params
       );
     }
 
@@ -220,12 +244,12 @@ async function getPlanStats(pool) {
 async function convertToPurchase(pool, planId, userId) {
   const conn = await pool.getConnection();
   try {
-    const [[plan]] = await conn.query('SELECT * FROM crm_purchase_plan WHERE id = ? AND deleted_at IS NULL', [planId]);
+    const [[plan]] = await conn.query('SELECT id, plan_no, name, status, total_amount, remark, create_by, approved_by, approved_at, create_time, update_time, deleted_at FROM crm_purchase_plan WHERE id = ? AND deleted_at IS NULL', [planId]);
     if (!plan) return { error: '计划不存在', code: 404 };
     if (plan.status !== 'approved') return { error: '只有已批准的计划可以转采购单', code: 400 };
 
     const [items] = await conn.query(
-      'SELECT pi.*, p.name as product_name FROM crm_purchase_plan_item pi LEFT JOIN crm_product p ON pi.product_id = p.id WHERE pi.plan_id = ?',
+      'SELECT pi.id, pi.plan_id, pi.product_id, pi.supplier_id, pi.quantity, pi.unit_price, pi.amount, pi.reason, pi.status, pi.create_time, p.name as product_name FROM crm_purchase_plan_item pi LEFT JOIN crm_product p ON pi.product_id = p.id WHERE pi.plan_id = ?',
       [planId]
     );
     if (items.length === 0) return { error: '计划无明细', code: 400 };
@@ -257,13 +281,26 @@ async function convertToPurchase(pool, planId, userId) {
       const orderId = orderResult.insertId;
       createdOrderIds.push(orderId);
 
-      for (const item of groupItems) {
+      // [性能修复] 批量插入采购单项，避免循环单条 INSERT
+      const itemValues = groupItems.map(item => [
+        orderId, item.product_id, item.product_name, item.quantity, item.unit,
+        item.unit_price, item.amount, item.reason
+      ]);
+      if (itemValues.length > 0) {
         await conn.query(
           `INSERT INTO crm_purchase_item (order_id, product_id, product_name, quantity, unit, unit_price, amount, remark)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [orderId, item.product_id, item.product_name, item.quantity, item.unit, item.unit_price, item.amount, item.reason]
+           VALUES ${itemValues.map(() => '(?,?,?,?,?,?,?,?)').join(',')}`,
+          itemValues.flat()
         );
-        await conn.query('UPDATE crm_purchase_plan_item SET status = "ordered" WHERE id = ?', [item.id]);
+      }
+
+      // [性能修复] 批量更新计划明细状态
+      const planItemIds = groupItems.map(item => item.id);
+      if (planItemIds.length > 0) {
+        await conn.query(
+          'UPDATE crm_purchase_plan_item SET status = "ordered" WHERE id IN (?)',
+          [planItemIds]
+        );
       }
     }
 
@@ -290,7 +327,7 @@ async function listPurchases(pool, params = {}, permission = null) {
     permParams = permission.params || [];
   }
 
-  let sql = `SELECT po.*, s.name as supplier_name, u.real_name as owner_name
+  let sql = `SELECT po.id, po.order_no, po.supplier_id, po.title, po.type, po.expected_date, po.payment_terms, po.delivery_address, po.remark, po.total_amount, po.tax_rate, po.tax_amount, po.total_with_tax, po.status, po.actual_date, po.owner_id, po.create_by, po.create_time, po.update_time, po.deleted_at, s.name as supplier_name, u.real_name as owner_name
     FROM crm_purchase_order po
     LEFT JOIN crm_supplier s ON po.supplier_id = s.id
     LEFT JOIN sys_user u ON po.owner_id = u.id
@@ -330,7 +367,7 @@ async function getPurchase(pool, id, permission = null) {
   }
 
   const [orders] = await pool.query(`
-    SELECT po.*, s.name as supplier_name, s.contact_person, s.contact_phone,
+    SELECT po.id, po.order_no, po.supplier_id, po.title, po.type, po.expected_date, po.payment_terms, po.delivery_address, po.remark, po.total_amount, po.tax_rate, po.tax_amount, po.total_with_tax, po.status, po.actual_date, po.owner_id, po.create_by, po.create_time, po.update_time, po.deleted_at, s.name as supplier_name, s.contact_person, s.contact_phone,
            u.real_name as owner_name, ub.real_name as create_by_name
     FROM crm_purchase_order po
     LEFT JOIN crm_supplier s ON po.supplier_id = s.id
@@ -347,7 +384,7 @@ async function getPurchase(pool, id, permission = null) {
   );
 
   const [receipts] = await pool.query(`
-    SELECT pr.*, u.real_name as operator_name
+    SELECT pr.id, pr.order_id, pr.item_id, pr.receipt_no, pr.quantity, pr.quality_check, pr.quality_result, pr.defect_desc, pr.warehouse, pr.remark, pr.operator_id, pr.receive_time, pr.create_time, u.real_name as operator_name
     FROM crm_purchase_receipt pr
     LEFT JOIN sys_user u ON pr.operator_id = u.id
     WHERE pr.order_id = ?
@@ -355,7 +392,7 @@ async function getPurchase(pool, id, permission = null) {
   `, [id]);
 
   const [payments] = await pool.query(`
-    SELECT pp.*, u.real_name as payer_name
+    SELECT pp.id, pp.order_id, pp.amount, pp.pay_method, pp.pay_date, pp.remark, pp.payer_id, pp.create_time, u.real_name as payer_name
     FROM crm_purchase_payment pp
     LEFT JOIN sys_user u ON pp.payer_id = u.id
     WHERE pp.order_id = ?

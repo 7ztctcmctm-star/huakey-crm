@@ -48,6 +48,9 @@ async function updateConfigs(pool, configs) {
  * 测试企业微信通知
  */
 async function testNotification() {
+  if (!process.env.WECHAT_WEBHOOK_URL) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '企业微信 Webhook 未配置，请先在 .env 或系统设置中配置 WECHAT_WEBHOOK_URL', 400);
+  }
   await notification.sendText('🔔 CRM 通知测试\n\n如果您收到这条消息，说明企业微信通知配置成功！');
 }
 

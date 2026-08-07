@@ -42,6 +42,7 @@ describe('外部集成模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[ // integration list
           { id: 1, type: 'email', name: '邮件服务', status: 'active', config: '{"host":"smtp.qq.com","user":"test@qq.com","pass":"oldpassword","from":"test@qq.com"}' },
           { id: 2, type: 'sms', name: '短信服务', status: 'inactive', config: '{}' }
@@ -77,6 +78,7 @@ describe('外部集成模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ config: '{"host":"smtp.qq.com","port":465,"user":"test@qq.com","pass":"password","from":"test@qq.com"}' }]]) // email config
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert email log
 
@@ -104,6 +106,7 @@ describe('外部集成模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[ // list
           { id: 1, to_email: 'client@example.com', subject: '报价单', status: 'sent', sender_name: '张三' }
