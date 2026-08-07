@@ -139,7 +139,9 @@ async function searchContracts(req, res, next) {
 async function approveContract(req, res, next) {
   try {
     const { id, approval_status, approval_remark } = req.body;
-    if (!req.user.manageAll && ![ROLES.ADMIN, ROLES.MANAGER].includes(req.user.roleId)) {
+    // 统一使用 manageAll + roleCode，禁止依赖固定数字 roleId（与 quoteController 保持一致）
+    // boss/manager 均由 sys_role.manage_all=1 标记 → manageAll=true
+    if (!req.user.manageAll && !ROLES.ADMIN_ROLE_CODES.has(req.user.roleCode)) {
       throw new AppError(ErrorCodes.PERMISSION_DENIED, '无审批权限');
     }
     if (!id || ![2, 3].includes(approval_status)) {
