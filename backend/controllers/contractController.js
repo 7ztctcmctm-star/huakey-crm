@@ -10,6 +10,7 @@ const { logFieldChanges } = require('../utils/fieldLog');
 const { simpleApproveContract } = require('../services/approvalService');
 const contractService = require('../services/contractService');
 const contractCrudService = require('../services/contractCrudService');
+const opportunityService = require('../services/opportunityService');
 const contractPaymentService = require('../services/contractPaymentService');
 const {
   exportContracts: exportContractsService,
@@ -58,6 +59,17 @@ async function createContract(req, res, next) {
 
   try {
     const result = await contractService.createContract(pool, req.body, req.user.userId);
+
+    // [P1] 合同关联商机时自动推进商机到成交(stage 5)，复用已有状态机逻辑
+    // 不阻塞主流程：商机推进失败仅记录日志，合同保留（与 createContractNotification 模式一致）
+    const oppId = req.body.opportunity_id;
+    if (oppId) {
+      try {
+        await opportunityService.advanceStage(pool, oppId, 5, req.user.userId, { changeReason: '创建合同自动推进成交' });
+      } catch (oppErr) {
+        logger.warn('[合同] 商机自动推进到成交失败:', { opportunity_id: oppId, error: oppErr.message });
+      }
+    }
     await logAction(req, 'add', `新增合同: ${result.contract_no}`);
 
     // 通知审批人（不影响主流程）
