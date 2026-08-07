@@ -313,10 +313,51 @@ async function downloadPaymentImportTemplate(req, res, next) {
   }
 }
 
+/**
+ * 取消合同（Phase 5.4 合同取消工作流）
+ * 1. contractService.cancelContract: status→4 + 记录 cancel_reason/cancel_action
+ * 2. 基于 cancel_action 联动 Opportunity (复用 advanceStage)
+ *    - customer_cancelled → stage 6, reopen_negotiation → stage 4, keep_won → 不动
+ * 3. 联动失败记录日志，不阻塞合同取消（方案B）
+ */
+async function cancelContract(req, res, next) {
+  const { id, cancel_reason, cancel_action } = req.body;
+
+  try {
+    const result = await contractService.cancelContract(pool, id, cancel_reason, cancel_action, req.user.userId);
+    await logAction(req, 'update', `取消合同: ${result.contract_no}`);
+
+    const oppId = result.opportunity_id;
+    if (oppId) {
+      let targetStage = null;
+      if (cancel_action === 'customer_cancelled') {
+        targetStage = 6;
+      } else if (cancel_action === 'reopen_negotiation') {
+        targetStage = 4;
+      }
+      if (targetStage !== null) {
+        try {
+          await opportunityService.advanceStage(pool, oppId, targetStage, req.user.userId, {
+            changeReason: cancel_action === 'customer_cancelled' ? '合同取消-客户取消' : '合同取消-重新谈判'
+          });
+        } catch (oppErr) {
+          logger.warn('[合同] 取消联动商机失败:', { opportunity_id: oppId, action: cancel_action, error: oppErr.message });
+        }
+      }
+    }
+
+    res.json({ code: 200, message: '合同取消成功', data: result });
+  } catch (error) {
+    logger.error('[合同] 取消合同失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    next(error);
+  }
+}
+
 module.exports = {
   listContracts,
   getContractDetail,
   createContract,
+  cancelContract,
   updateContract,
   deleteContract,
   getOpportunityList,

@@ -294,6 +294,55 @@ async function updateContractStatus(pool, contractId, newStatus) {
 }
 
 /**
+ * 取消合同（Phase 5.4 合同取消工作流）
+ * Contract status -> 4 (已取消), 记录 cancel_reason + cancel_action
+ * cancel_action 联动在 controller 层调用 opportunityService.advanceStage
+ * 幂等: 已取消(status=4)的合同不允许重复取消
+ * @param {object} pool
+ * @param {number} contractId
+ * @param {string} cancelReason - 取消原因(必填)
+ * @param {string} cancelAction - 取消动作(customer_cancelled/reopen_negotiation/keep_won/其他)
+ * @param {number} userId - 操作人
+ * @returns {object} { id, contract_no, cancel_reason, cancel_action }
+ */
+async function cancelContract(pool, contractId, cancelReason, cancelAction, userId) {
+  const [contracts] = await pool.query(
+    'SELECT id, contract_no, status, opportunity_id FROM crm_contract WHERE id = ? AND deleted_at IS NULL',
+    [contractId]
+  );
+  if (!contracts.length) {
+    throw new AppError(ErrorCodes.CONTRACT_NOT_FOUND);
+  }
+  if (contracts[0].status === 4) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '合同已取消，不可重复操作');
+  }
+  if (contracts[0].status === 3) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '已完成的合同不能取消');
+  }
+  if (!cancelReason || !cancelReason.trim()) {
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '取消合同必须填写取消原因');
+  }
+  const validActions = ['customer_cancelled', 'reopen_negotiation', 'keep_won'];
+  if (cancelAction && !validActions.includes(cancelAction)) {
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, 'cancel_action 值无效');
+  }
+
+  await pool.query(
+    'UPDATE crm_contract SET status = 4, cancel_reason = ?, cancel_action = ? WHERE id = ?',
+    [cancelReason.trim(), cancelAction || null, contractId]
+  );
+
+  return {
+    id: contractId,
+    contract_no: contracts[0].contract_no,
+    status: 4,
+    cancel_reason: cancelReason.trim(),
+    cancel_action: cancelAction || null,
+    opportunity_id: contracts[0].opportunity_id
+  };
+}
+
+/**
  * 回款进度计算：统计指定合同的回款完成率
  * @param {object} pool
  * @param {number} contractId
@@ -331,5 +380,6 @@ module.exports = {
   createContract,
   calculateAmount,
   updateContractStatus,
+  cancelContract,
   getPaymentProgress
 };

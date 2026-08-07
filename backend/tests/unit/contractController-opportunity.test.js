@@ -10,18 +10,26 @@ const jwt = require('jsonwebtoken');
 process.env.JWT_SECRET = 'test_secret_opp_advance';
 
 // Mock opportunityService - 验证 advanceStage 调用
-const mockAdvanceStage = jest.fn();
+const oppService = jest.requireActual('../../services/opportunityService');
+const contractService = jest.requireActual('../../services/contractService');
+
 jest.mock('../../services/opportunityService', () => ({
-  advanceStage: (...args) => mockAdvanceStage(...args)
+  ...jest.requireActual('../../services/opportunityService'),
+  advanceStage: jest.fn()
 }));
-const mockCreateContract = jest.fn().mockResolvedValue({ id: 500, contract_no: 'CON-TEST-001' });
 jest.mock('../../services/contractService', () => ({
-  createContract: (...args) => mockCreateContract(...args)
+  ...jest.requireActual('../../services/contractService'),
+  createContract: jest.fn()
 }));
-// mock contractCrudService.createContractNotification
 jest.mock('../../services/contractCrudService', () => ({
   createContractNotification: jest.fn().mockResolvedValue(undefined)
 }));
+
+const oppMock = require('../../services/opportunityService');
+const contractMock = require('../../services/contractService');
+const mockAdvanceStage = oppMock.advanceStage;
+const mockCreateContract = contractMock.createContract;
+mockCreateContract.mockResolvedValue({ id: 500, contract_no: 'CON-TEST-001' });
 
 const mockPool = {
   query: jest.fn(),
