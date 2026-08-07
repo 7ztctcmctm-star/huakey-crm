@@ -84,6 +84,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.synology
+    # 镜像 tag: 默认 latest, 发布时可用 APP_IMAGE=crm-stack-app:v1.x.x 指定版本
+    image: ${APP_IMAGE:-crm-stack-app:latest}
     container_name: huakey-app
     restart: unless-stopped
     init: true
