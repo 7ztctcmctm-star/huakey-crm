@@ -62,7 +62,7 @@ describe('用户管理模块', () => {
       const res = await request(app)
         .post('/api/v1/user/add')
         .set('Authorization', `Bearer ${token}`)
-        .send({ password: 'Pass123' });
+        .send({ password: 'Test@12345' });
 
       expect(res.status).toBe(400);
       expect(res.body.code).toBe(400);
@@ -93,7 +93,7 @@ describe('用户管理模块', () => {
       const res = await request(app)
         .post('/api/v1/user/add')
         .set('Authorization', `Bearer ${token}`)
-        .send({ username: 'existing_user', password: 'Pass123' });
+        .send({ username: 'existing_user', password: 'Test@12345' });
 
       expect(res.status).toBe(400);
       expect(res.body.message).toContain('已存在');
@@ -111,7 +111,7 @@ describe('用户管理模块', () => {
       const res = await request(app)
         .post('/api/v1/user/add')
         .set('Authorization', `Bearer ${token}`)
-        .send({ username: 'newuser', password: 'Pass123', real_name: '新用户' });
+        .send({ username: 'newuser', password: 'Test@12345', real_name: '新用户' });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);

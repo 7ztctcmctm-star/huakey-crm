@@ -4,6 +4,8 @@ import request from '@/utils/request'
 export const getUserList = (params) => request.post('/user/list', params)
 export const saveUser = (data, id) => id ? request.post('/user/update', data) : request.post('/user/add', data)
 export const deleteUser = (id) => request.post('/user/delete', { id })
+// [v1.0.1 安全补丁] 管理员重置用户密码
+export const resetUserPassword = (data) => request.post('/user/reset-password', data)
 
 // ============ 角色管理 ============
 export const getRoleList = (params) => request.post('/role/list', params)

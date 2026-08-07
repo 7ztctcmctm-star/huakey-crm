@@ -17,9 +17,10 @@
             <el-tag :type="row.status === 1 ? 'success' : 'danger'">{{ row.status === 1 ? '启用' : '禁用' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="160">
+        <el-table-column label="操作" width="230">
           <template #default="{ row }">
             <el-button type="primary" link :icon="Edit" @click="handleEdit(row)">编辑</el-button>
+            <el-button type="warning" link :icon="Key" @click="handleReset(row)">重置密码</el-button>
             <el-button type="danger" link :icon="Delete" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -67,15 +68,34 @@
         <el-button type="primary" :loading="submitLoading" @click="handleSubmit">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- [v1.0.1 安全补丁] 重置密码对话框 -->
+    <el-dialog v-model="resetVisible" title="重置密码" width="460px">
+      <el-alert type="warning" :closable="false" show-icon style="margin-bottom: 16px">
+        重置后用户「{{ resetTarget.username }}」下次登录需立即修改密码
+      </el-alert>
+      <el-form ref="resetFormRef" :model="resetForm" :rules="resetRules" label-width="100px">
+        <el-form-item label="新密码" prop="new_password">
+          <el-input v-model="resetForm.new_password" type="password" show-password placeholder="至少8位，含大小写字母和数字" />
+        </el-form-item>
+        <el-form-item label="确认密码" prop="confirm_password">
+          <el-input v-model="resetForm.confirm_password" type="password" show-password placeholder="再次输入新密码" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="resetVisible = false">取消</el-button>
+        <el-button type="primary" :loading="resetLoading" @click="handleResetSubmit">确认重置</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Edit, Delete } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, Key } from '@element-plus/icons-vue'
 import request from '@/utils/request'
-import { getUserList, deleteUser, getDeptList, getRoleList, saveUser } from '@/api/system'
+import { getUserList, deleteUser, getDeptList, getRoleList, saveUser, resetUserPassword } from '@/api/system'
 
 const loading = ref(false)
 const tableData = ref([])
@@ -97,6 +117,26 @@ const passwordValidator = (rule, value, callback) => {
   callback()
 }
 const rules = { username: [{ required: true, message: '请输入用户名', trigger: 'blur' }], password: [{ required: true, validator: passwordValidator, trigger: 'blur' }] }
+
+// [v1.0.1 安全补丁] 重置密码相关状态
+const resetVisible = ref(false)
+const resetLoading = ref(false)
+const resetFormRef = ref(null)
+const resetTarget = ref({ id: null, username: '' })
+const resetForm = reactive({ new_password: '', confirm_password: '' })
+const resetRules = {
+  new_password: [{ required: true, validator: passwordValidator, trigger: 'blur' }],
+  confirm_password: [
+    { required: true, message: '请再次输入新密码', trigger: 'blur' },
+    {
+      validator: (rule, value, callback) => {
+        if (value !== resetForm.new_password) return callback(new Error('两次输入的密码不一致'))
+        callback()
+      },
+      trigger: 'blur'
+    }
+  ]
+}
 
 const fetchList = async () => {
   loading.value = true
@@ -132,6 +172,26 @@ const handleSubmit = async () => {
       const res = await saveUser(data, isEdit.value ? editId.value : null)
       if (res.code === 200) { ElMessage.success(isEdit.value ? '修改成功' : '新增成功'); dialogVisible.value = false; fetchList() }
     } finally { submitLoading.value = false }
+  })
+}
+
+// [v1.0.1 安全补丁] 重置密码
+const handleReset = (row) => {
+  resetTarget.value = { id: row.id, username: row.username }
+  resetForm.new_password = ''
+  resetForm.confirm_password = ''
+  resetVisible.value = true
+}
+
+const handleResetSubmit = async () => {
+  if (!resetFormRef.value) return
+  await resetFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    resetLoading.value = true
+    try {
+      const res = await resetUserPassword({ id: resetTarget.value.id, new_password: resetForm.new_password })
+      if (res.code === 200) { ElMessage.success(res.message || '重置成功'); resetVisible.value = false }
+    } finally { resetLoading.value = false }
   })
 }
 
