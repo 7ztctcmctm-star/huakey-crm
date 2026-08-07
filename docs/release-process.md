@@ -94,3 +94,71 @@ APP_IMAGE=crm-stack-app:v1.x.x docker compose -f docker-compose.synology.yml up 
 ---
 
 *本规范为 HuakeyCRM 发布流程权威定义。*
+
+---
+
+## 5. 可执行命令清单（Dry Run 验证通过）
+
+以下命令按 Release v1.x.x 顺序执行：
+
+### Step 1 — Git Tag
+```bash
+cd /volume1/docker/crm-stack
+git fetch origin
+git tag -a v1.x.x -m "Release v1.x.x" <commit>
+git push origin v1.x.x
+```
+
+### Step 2 — CI Green
+- GitHub Actions ci.yml: backend-test / frontend-build / security-scan 全绿
+
+### Step 3 — Docker Build（带版本 tag）
+```bash
+cd /volume1/docker/crm-stack
+git pull origin main
+docker compose -f docker-compose.synology.yml build app
+docker tag crm-stack-app:latest crm-stack-app:v1.x.x
+```
+
+### Step 4 — DB Backup
+```bash
+cd /volume1/docker/crm-stack
+bash deploy/nas-backup.sh        # 每日自动备份
+# 或 Phase 0 快照方式:
+tar czpf backup/prod-before-v1.x.x-$(date +%Y%m%d).tar.gz backend/ frontend/ database/ deploy/ nginx/ docs/ docker-compose.synology.yml Dockerfile.synology
+sha256sum backup/prod-before-v1.x.x-*.tar.gz
+```
+
+### Step 5 — Migration Dry Run（只读预演）
+```bash
+# 比对已执行 vs 代码迁移最高版本
+docker exec huakey-mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" huakey_crm -e "SELECT MAX(version) FROM schema_migrations;"
+ls database/migrations/*.sql | sed -E "s/.*\/([0-9]+)_.*/\1/" | sort -n | tail -1
+# 人工确认无破坏性 SQL（DROP/TRUNCATE 需审查）
+```
+
+### Step 6 — Deploy
+```bash
+APP_IMAGE=crm-stack-app:v1.x.x docker compose -f docker-compose.synology.yml up -d app
+```
+
+### Step 7 — Health Check
+```bash
+curl -sk https://crm.huakey.local/api/v1/health   # 期望 200 + db:true
+docker ps --format "{{.Names}} {{.Status}}" | grep huakey-app   # healthy
+```
+
+### Step 8 — Rollback Point
+```bash
+git rev-parse HEAD
+docker inspect huakey-app --format "{{.Image}}"
+# 记录到 docs/release-history.md
+```
+
+### Rollback 命令
+```bash
+git checkout <prev-tag>
+docker compose -f docker-compose.synology.yml build app
+docker compose -f docker-compose.synology.yml up -d app
+# 完整回滚: tar xzf backup/prod-baseline-freeze-*/prod-snapshot.tar.gz -C /
+```
