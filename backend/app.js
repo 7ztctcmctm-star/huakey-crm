@@ -318,6 +318,7 @@ apiRouter.use('/follow-up', followUpRoutes);
 apiRouter.use('/opportunity', opportunityRoutes);
 // product 已通过 registry 挂载
 apiRouter.use('/quote', quoteRoutes);
+apiRouter.use('/analytics', require('./routes/analytics'));
 apiRouter.use('/contract', contractRoutes);
 apiRouter.use('/service', serviceRoutes);
 apiRouter.use('/supplier', supplierRoutes);
