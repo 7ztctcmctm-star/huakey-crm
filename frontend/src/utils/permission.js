@@ -9,8 +9,8 @@ export function hasPermission(permissionCode) {
   const { userInfo } = useUser()
   const permissions = userInfo.value?.permissions || []
 
-  // 超级管理员拥有所有权限
-  if (userInfo.value?.roleId === 1 || userInfo.value?.manageAll) {
+  // manageAll 用户（super_admin/boss/manager）拥有所有权限
+  if (userInfo.value?.manageAll) {
     return true
   }
 

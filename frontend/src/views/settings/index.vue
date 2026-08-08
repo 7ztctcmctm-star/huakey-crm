@@ -150,7 +150,7 @@ const stats = reactive({ userCount: 0, customerCount: 0, opportunityCount: 0, co
 const statsLoading = ref(false)
 
 // 业务配置
-const isAdmin = computed(() => userInfo.value?.roleId === 1 || userInfo.value?.roleId === 2)
+const isAdmin = computed(() => userInfo.value?.manageAll === true)
 const configLoading = ref(false)
 const configSaving = ref(false)
 const overdueDays = ref(15)

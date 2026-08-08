@@ -562,8 +562,9 @@ const loading = ref(false)
 
 // 权限
 const { userInfo } = useUser()
-const isBoss = computed(() => userInfo.value?.manageAll === true || userInfo.value?.roleId === 1)
-const isManager = computed(() => userInfo.value?.roleId === 2)
+// 统一使用 manageAll/roleCode，禁止依赖固定数字 roleId
+const isBoss = computed(() => userInfo.value?.manageAll === true)
+const isManager = computed(() => userInfo.value?.roleCode === 'admin')
 const salesUsers = ref([])
 
 const fetchSalesUsers = async () => {

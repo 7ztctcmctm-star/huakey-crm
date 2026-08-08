@@ -225,7 +225,7 @@ const submitLoading = ref(false)
 const formRef = ref(null)
 const editId = ref(null)
 
-const isAdmin = computed(() => userInfo.value?.manageAll || userInfo.value?.roleId === 1)
+const isAdmin = computed(() => userInfo.value?.manageAll === true)
 
 // 价格表相关
 const priceDialogVisible = ref(false)
