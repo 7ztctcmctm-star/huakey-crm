@@ -46,6 +46,8 @@
       </el-col>
     </el-row>
   </div>
+
+  <SalesAnalytics />
 </template>
 
 <script setup>
@@ -53,6 +55,7 @@ import { ref, reactive, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import { Trophy } from '@element-plus/icons-vue'
 import StatsCards from '@/components/dashboard/StatsCards.vue'
+import SalesAnalytics from '@/components/dashboard/SalesAnalytics.vue'
 import { formatAmount } from '@/composables/useFormat'
 import { getReportOverview, getReportQuickStats, getReportTodayTasks, getReportOverdueStats } from '@/api/report'
 import { getFollowUpTaskStats } from '@/api/customer'
