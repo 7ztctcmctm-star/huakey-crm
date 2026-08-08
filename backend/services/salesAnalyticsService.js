@@ -16,6 +16,18 @@ const ROLES = require('../config/roles');
  * @param {string} ownerColumn - 归属列名
  * @returns {{ where: string, params: Array }}
  */
+/**
+ * 构建部门范围 SQL: 本部门 + 所有子部门 (递归 CTE, MySQL 8 支持)
+ * 与 middleware/permission.js getSubDeptIds 语义一致
+ */
+function buildDeptScopeSql() {
+  return `WITH RECURSIVE dept_tree AS (
+    SELECT id FROM sys_dept WHERE id = (SELECT dept_id FROM sys_user WHERE id = ?)
+    UNION ALL
+    SELECT d.id FROM sys_dept d JOIN dept_tree t ON d.parent_id = t.id
+  ) SELECT id FROM dept_tree`;
+}
+
 function buildScope(user, ownerColumn = 'owner_id') {
   const where = [];
   const params = [];
@@ -23,8 +35,8 @@ function buildScope(user, ownerColumn = 'owner_id') {
     return { where: '', params };
   }
   if (user.roleCode === ROLES.ROLE_CODES.ADMIN) {
-    // manager: 本部门+子部门
-    where.push(`${ownerColumn} IN (SELECT id FROM sys_user WHERE dept_id = (SELECT dept_id FROM sys_user WHERE id = ?))`);
+    // manager: 本部门+子部门 (递归, 与 checkDataPermission 的 dept_and_sub 一致)
+    where.push(`${ownerColumn} IN (SELECT id FROM sys_user WHERE dept_id IN (SELECT id FROM (${buildDeptScopeSql()}) d))`);
     params.push(user.userId);
   } else {
     where.push(`${ownerColumn} = ?`);
