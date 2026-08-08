@@ -1,14 +1,13 @@
 /**
- * errorHandler.enhanced.js —— 增强版统一错误处理
+ * @module middleware/errorHandler
+ * @description 增强版统一错误处理中间件
  *
- * 重构要点（对照评审报告 M2、M3）：
- * 1. appErrorHandler 与 globalErrorHandler 职责互斥，不再重复处理 AppError/Joi
- *    - appErrorHandler：只处理“已知错误”（AppError + Joi），快速响应后终止
- *    - globalErrorHandler：只兜底“未知错误”，记录 + 告警 + 500 响应
- * 2. 告警只在 statusCode >= 500 时触发（4xx 是客户端问题，告警会淹没真实故障）
- * 3. 兜底映射常见 DB 错误（ER_DUP_ENTRY → 409），避免 controller 到处 catch
+ * 双层架构：
+ * - appErrorHandler：处理已知错误（AppError + Joi），快速响应终止
+ * - globalErrorHandler：兜底未知错误，记日志 + 告警 + 500 响应
  *
- * 使用：直接覆盖 backend/middleware/errorHandler.js
+ * 告警策略：仅 statusCode >= 500 触发告警，4xx 不告警
+ * DB 错误映射：ER_DUP_ENTRY → 409，避免 controller 到处 catch
  */
 
 const AppError = require('../errors/AppError')
@@ -24,6 +23,12 @@ const DB_ERROR_MAP = {
 /**
  * 处理已知错误：AppError + Joi 校验错误
  * 命中即响应并终止链路；未知错误透传给 globalErrorHandler
+ *
+ * @param {Error} err - 错误对象
+ * @param {import('express').Request} req - Express 请求对象
+ * @param {import('express').Response} res - Express 响应对象
+ * @param {import('express').NextFunction} next - Express next 函数
+ * @returns {void}
  */
 function appErrorHandler(err, req, res, next) {
   // 1. AppError：业务层主动抛出的领域错误
@@ -49,6 +54,12 @@ function appErrorHandler(err, req, res, next) {
  * - 映射已知 DB 错误
  * - 记录结构化日志 + 仅 5xx 告警
  * - 不向客户端泄露堆栈
+ *
+ * @param {Error} err - 错误对象
+ * @param {import('express').Request} req - Express 请求对象
+ * @param {import('express').Response} res - Express 响应对象
+ * @param {import('express').NextFunction} _next - Express next 函数（未使用）
+ * @returns {void}
  */
 // eslint-disable-next-line no-unused-vars
 function globalErrorHandler(err, req, res, _next) {

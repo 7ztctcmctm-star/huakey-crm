@@ -1,8 +1,15 @@
 /**
+ * @module utils/sseManager
+ * @description SSE 连接管理器（单例）
+ *
+ * 按 userId 分组管理多个客户端连接，支持单用户多端登录。
+ * 用于实时消息推送、通知、数据变更通知等场景。
+ */
+
+/**
  * SSE 连接管理器
  * 按 userId 分组管理多个客户端连接，支持单用户多端登录
  */
-
 class SseManager {
   constructor() {
     /** @type {Map<number, Set<import('http').ServerResponse>>} */

@@ -1,12 +1,15 @@
 /**
- * 通用分页查询工具
- * 将 SELECT COUNT(*) + SELECT ... LIMIT/OFFSET 模式统一封装
+ * @module utils/pagination
+ * @description 通用分页查询工具
+ *
+ * 封装 SELECT COUNT(*) + SELECT ... LIMIT/OFFSET 模式，
+ * 统一分页参数处理和返回格式。
  */
 
 /**
  * 执行分页查询
- * @param {object} pool - 数据库连接池
- * @param {object} options
+ * @param {import('mysql2/promise').Pool} pool - 数据库连接池
+ * @param {object} options - 查询选项
  * @param {string} options.baseQuery - 列表查询 SQL（不含 ORDER BY / LIMIT / OFFSET）
  * @param {string} options.countQuery - 计数查询 SQL
  * @param {Array} [options.params=[]] - 同时绑定到 countQuery 和 baseQuery 的参数

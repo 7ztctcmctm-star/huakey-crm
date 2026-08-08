@@ -1,6 +1,14 @@
 /**
- * 统一业务错误码枚举
+ * @module errors/codes
+ * @description 统一业务错误码枚举
+ *
  * 格式：HTTP_STATUS * 1000 + 自增序号
+ * 用于 AppError 构造函数的 errorDef 参数
+ */
+
+/**
+ * 统一业务错误码枚举
+ * @type {Record<string, {code: number, httpStatus: number, message: string}>}
  */
 const ErrorCodes = {
   // 认证 401xxx

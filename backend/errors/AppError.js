@@ -1,6 +1,13 @@
 /**
+ * @module errors/AppError
+ * @description 统一业务异常类
+ *
+ * 使用方式：throw new AppError(ErrorCodes.LOGIN_FAILED, '用户名或密码错误');
+ * 所有业务层错误均通过 AppError 抛出，由 errorHandler 中间件统一捕获。
+ */
+
+/**
  * 统一业务异常类
- * 使用: throw new AppError(ErrorCodes.LOGIN_FAILED, '用户名或密码错误');
  */
 class AppError extends Error {
   /**

@@ -1,3 +1,19 @@
+/**
+ * @module middleware/auth
+ * @description JWT 认证中间件
+ *
+ * 职责：
+ * - 从 Cookie 或 Authorization Header 提取 JWT Token
+ * - 校验 Token 签名、有效期、黑名单状态
+ * - 从 DB 实时查询用户角色权限（不依赖 JWT payload 过期值）
+ * - 注入 req.user 供后续中间件和路由使用
+ *
+ * 安全设计：
+ * - Token 传递仅限 Cookie 和 Authorization Header，禁止 URL query
+ * - Token 黑名单：登出时写入 SHA-256 哈希，过期自动清理
+ * - 强制改密：must_change_password=1 时仅允许访问白名单路径
+ */
+
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const pool = require('../config/database');
@@ -10,7 +26,12 @@ if (!JWT_SECRET) {
   logger.error('错误: JWT_SECRET 环境变量未设置，请在 .env 文件中配置');
   process.exit(1);
 }
-// 从请求中获取 token（仅 Cookie 或 Authorization header，禁止 URL query string）
+
+/**
+ * 从请求中获取 Token（仅 Cookie 或 Authorization header，禁止 URL query string）
+ * @param {import('express').Request} req - Express 请求对象
+ * @returns {string|null} Token 字符串，未找到返回 null
+ */
 const getTokenFromRequest = (req) => {
   if (req.cookies && req.cookies.token) return req.cookies.token;
   const authHeader = req.headers.authorization;
@@ -18,6 +39,22 @@ const getTokenFromRequest = (req) => {
   return null;
 };
 
+/**
+ * JWT 认证中间件
+ *
+ * 验证流程：
+ * 1. 提取 Token（Cookie 优先，其次 Authorization Header）
+ * 2. jwt.verify 校验签名与有效期
+ * 3. 检查 Token 黑名单（sys_token_blacklist，SHA-256 哈希比对）
+ * 4. 从 DB 查询最新角色权限（sys_role），不依赖 JWT payload 过期值
+ * 5. 查询 must_change_password 状态，首次登录强制改密
+ * 6. 注入 req.user: { userId, username, roleId, roleCode, viewAll, manageAll, mustChangePassword }
+ *
+ * @param {import('express').Request} req - Express 请求对象
+ * @param {import('express').Response} res - Express 响应对象
+ * @param {import('express').NextFunction} next - Express next 函数
+ * @returns {void}
+ */
 const authenticateToken = (req, res, next) => {
   const token = getTokenFromRequest(req);
 
@@ -124,6 +161,17 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+/**
+ * 签发 JWT Token
+ * @param {object} user - 用户对象
+ * @param {number} user.id - 用户 ID
+ * @param {string} user.username - 用户名
+ * @param {number} user.role_id - 角色 ID
+ * @param {string} [user.role_code] - 角色 code
+ * @param {number} [user.view_all] - 全局查看权限 (0/1)
+ * @param {number} [user.manage_all] - 全局管理权限 (0/1)
+ * @returns {string} JWT Token（有效期由 JWT_EXPIRES_IN 控制，默认 7d）
+ */
 const generateToken = (user) => {
   const payload = {
     userId: user.id,
