@@ -75,8 +75,12 @@
 ### 2.1 Commit Hash
 
 ```
-（待 git commit 后填充）
+9e37a8b1529ff56a3f66282819d37e4f5b14fa10
+（short: 9e37a8b）
 ```
+
+**Commit 统计**: 9 files changed, 325 insertions(+), 14 deletions(-)
+**lint-staged**: 自动触发 ESLint `--max-warnings=0` 检查通过
 
 ### 2.2 Commit Message
 
@@ -122,13 +126,21 @@ P2: 前端新增 resetUserPassword API + 重置密码按钮
 | 准备项 | 状态 |
 |--------|------|
 | 发布分支已创建 | ✅ |
-| 代码已提交 | ⏳ 待执行 |
+| 代码已提交 (9e37a8b) | ✅ |
 | 测试全部通过 | ✅ |
 | Checklist 文档已生成 | ✅ |
 | 工作区无关修改已隔离 | ✅ |
 
 ---
 
-## 5. 下一步
+## 5. 发布完成状态
 
-执行 Step 2 生产备份 → Step 3 部署 → Step 4 验证 → Step 5 发布报告。
+| 阶段 | 状态 |
+|------|------|
+| Step 1 发布前检查 | ✅ 完成 |
+| Step 2 生产备份 | ✅ 完成 |
+| Step 3 部署流程 | ✅ 完成 |
+| Step 4 发布验证 | ✅ 完成 |
+| Step 5 发布报告 | ✅ 完成 (见 [crm-v1.0.1-production-release-report.md](file:///c:/huakey-crm/docs/crm-v1.0.1-production-release-report.md)) |
+
+**最终状态**: HuakeyCRM v1.0.1 Production Status — **READY**

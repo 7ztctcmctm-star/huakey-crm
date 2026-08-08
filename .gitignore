@@ -92,6 +92,8 @@ backend/.dev-token.txt
 scripts/__pycache__/
 
 # One-off data migration/debug scripts (contain NAS credentials or temp logic)
+backend/tmp_*.js
+deploy/_scan*.sh
 scripts/debug_*.py
 scripts/import_*.py
 scripts/copy_to_nas.py
