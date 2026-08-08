@@ -50,6 +50,8 @@
 
     <SalesChart @quick-action="handleQuickAction" />
 
+    <SalesAnalytics />
+
     <QuickFollowDialog v-model="quickFollowVisible" @success="fetchTodayTasks" />
     <BatchFollowDialog v-model="batchFollowVisible" @success="fetchTodayTasks" />
   </div>
@@ -63,6 +65,7 @@ import { ElMessage } from 'element-plus'
 import StatsCards from '@/components/dashboard/StatsCards.vue'
 import PendingTasks from '@/components/dashboard/PendingTasks.vue'
 import SalesChart from '@/components/dashboard/SalesChart.vue'
+import SalesAnalytics from '@/components/dashboard/SalesAnalytics.vue'
 import QuickFollowDialog from '@/components/dashboard/QuickFollowDialog.vue'
 import BatchFollowDialog from '@/components/dashboard/BatchFollowDialog.vue'
 import { formatAmount } from '@/composables/useFormat'
