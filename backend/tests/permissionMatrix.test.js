@@ -208,7 +208,7 @@ describe('权限矩阵测试', () => {
   describe('POST /api/v1/user/add — 仅 ADMIN 可访问', () => {
     const endpoint = (app) => request(app)
       .post('/api/v1/user/add')
-      .send({ username: 'testuser', password: 'Pass123' });
+      .send({ username: 'testuser', password: 'Pass1234' });
 
     it('ADMIN → 200', async () => {
       setupAdminMocks();

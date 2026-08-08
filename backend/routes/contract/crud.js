@@ -149,6 +149,12 @@ const deleteContractSchema = Joi.object({
   id: Joi.number().integer().positive().required()
 });
 
+const cancelContractSchema = Joi.object({
+  id: Joi.number().integer().positive().required(),
+  cancel_reason: Joi.string().max(500).required(),
+  cancel_action: Joi.string().valid('customer_cancelled', 'reopen_negotiation', 'keep_won').required()
+});
+
 // --- Routes ---
 
 router.post('/list', authenticateToken, cache(60), checkPermission('contract'), checkDataPermission('contract', 'create_by'), validate(listSchema), contractController.listContracts);
@@ -160,6 +166,8 @@ router.post('/add', authenticateToken, checkPermission('contract:add'), validate
 router.post('/update', authenticateToken, checkPermission('contract:edit'), validate(updateContractSchema), contractController.updateContract);
 
 router.post('/delete', authenticateToken, checkPermission('contract:delete'), validate(deleteContractSchema), contractController.deleteContract);
+
+router.post('/cancel', authenticateToken, checkPermission('contract:edit'), validate(cancelContractSchema), contractController.cancelContract);
 
 router.get('/opportunity-list', authenticateToken, checkDataPermission('opportunity', 'owner_id'), contractController.getOpportunityList);
 

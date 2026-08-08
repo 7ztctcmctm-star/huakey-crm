@@ -11,6 +11,7 @@ const { simpleApproveContract } = require('../services/approvalService');
 const contractService = require('../services/contractService');
 const contractCrudService = require('../services/contractCrudService');
 const contractPaymentService = require('../services/contractPaymentService');
+const opportunityService = require('../services/opportunityService');
 const {
   exportContracts: exportContractsService,
   exportPayments: exportPaymentsService,
@@ -130,6 +131,37 @@ async function searchContracts(req, res, next) {
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
     logger.error('[合同] 合同搜索错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    next(error);
+  }
+}
+
+// ==================== Cancel ====================
+
+async function cancelContract(req, res, next) {
+  try {
+    const { id, cancel_reason, cancel_action } = req.body;
+
+    const result = await contractService.cancelContract(pool, {
+      id,
+      cancel_reason,
+      cancel_action,
+      userId: req.user.userId
+    });
+
+    // 联动商机阶段
+    if (cancel_action && result.opportunity_id) {
+      if (cancel_action === 'customer_cancelled') {
+        await opportunityService.advanceStage(pool, result.opportunity_id, 6, req.user.userId, { changeReason: '合同取消-客户取消' });
+      } else if (cancel_action === 'reopen_negotiation') {
+        await opportunityService.advanceStage(pool, result.opportunity_id, 4, req.user.userId, { changeReason: '合同取消-重新谈判' });
+      }
+      // keep_won: 不推进商机
+    }
+
+    await logAction(req, 'update', `取消合同: ${result.contract_no}, 原因: ${cancel_reason}`);
+    res.json({ code: 200, message: '合同已取消', data: result });
+  } catch (error) {
+    logger.error('[合同] 取消合同错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     next(error);
   }
 }
@@ -309,6 +341,7 @@ module.exports = {
   deleteContract,
   getOpportunityList,
   searchContracts,
+  cancelContract,
   approveContract,
   addPayment,
   updatePayment,

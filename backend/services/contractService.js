@@ -294,6 +294,44 @@ async function updateContractStatus(pool, contractId, newStatus) {
 }
 
 /**
+ * 合同取消工作流：status→4(已取消) + 联动商机阶段
+ * @param {object} pool
+ * @param {object} params - { id, cancel_reason, cancel_action, userId }
+ * @returns {object} 合同信息（含 opportunity_id）
+ */
+async function cancelContract(pool, { id, cancel_reason, cancel_action, userId: _userId }) {
+  const [rows] = await pool.query(
+    'SELECT id, contract_no, status, opportunity_id FROM crm_contract WHERE id = ? AND deleted_at IS NULL',
+    [id]
+  );
+  if (!rows.length) {
+    throw new AppError(ErrorCodes.CONTRACT_NOT_FOUND, '合同不存在');
+  }
+
+  const contract = rows[0];
+  if (contract.status === 4) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '合同已取消，不可重复取消');
+  }
+  if (contract.status === 3) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '已完成的合同不能取消');
+  }
+
+  await pool.query(
+    'UPDATE crm_contract SET status = 4, remark = CONCAT(IFNULL(remark, ""), "[取消]", ?), update_time = NOW() WHERE id = ?',
+    [cancel_reason, id]
+  );
+
+  return {
+    id: contract.id,
+    contract_no: contract.contract_no,
+    status: 4,
+    cancel_reason,
+    cancel_action,
+    opportunity_id: contract.opportunity_id
+  };
+}
+
+/**
  * 回款进度计算：统计指定合同的回款完成率
  * @param {object} pool
  * @param {number} contractId
@@ -331,5 +369,6 @@ module.exports = {
   createContract,
   calculateAmount,
   updateContractStatus,
+  cancelContract,
   getPaymentProgress
 };
