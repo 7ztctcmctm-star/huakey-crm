@@ -40,15 +40,16 @@ log "=========================================="
 log "备份文件: $(basename "$LATEST")"
 log "备份大小: $(stat -c%s "$LATEST") bytes"
 
-# 辅助函数：执行 SQL（用 MYSQL_PDD 环境变量，不需 -p 参数）
+# 辅助函数：执行 SQL（用 MYSQL_PWD 环境变量，不需 -p 参数）
+# 注意：docker exec 需 -e MYSQL_PWD 传递密码，否则容器内 mysql 以匿名身份认证失败
 run_sql() {
-  $DOCKER exec -i "$MYSQL_CONTAINER" mysql -u root 2>/dev/null <<EOF
+  $DOCKER exec -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" -i "$MYSQL_CONTAINER" mysql -u root 2>/dev/null <<EOF
 $1
 EOF
 }
 
 run_sql_silent() {
-  $DOCKER exec -i "$MYSQL_CONTAINER" mysql -u root -s -N 2>/dev/null <<EOF
+  $DOCKER exec -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" -i "$MYSQL_CONTAINER" mysql -u root -s -N 2>/dev/null <<EOF
 $1
 EOF
 }
