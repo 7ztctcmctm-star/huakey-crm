@@ -37,6 +37,10 @@ backend/uploads/*
 # Docker
 docker/data/
 
+# SSL 证书（NAS 生产证书，禁止入仓库）
+nginx/certs/*
+!nginx/certs/.gitkeep
+
 # Backup files
 database/backups/
 

@@ -167,7 +167,10 @@ services:
     networks:
       - crm-network
 
-  # ---- HTTPS 反向代理 ----
+  # ---- HTTPS 反向代理（容器层，8443 端口）----
+  # 生产架构：DSM nginx (80/443) → huakey-nginx (8443) → app (5000)
+  # DSM nginx 做 SSL 终端 (crm.huakey.local)，容器 nginx 在 8443 做二级反代
+  # 主机 80/443 由 DSM 自带 nginx 占用，禁止在此声明 80:80 / 443:443
   nginx:
     image: nginx:alpine
     container_name: huakey-nginx
