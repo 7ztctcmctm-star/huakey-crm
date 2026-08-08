@@ -6,10 +6,10 @@
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
 
-// 合同状态映射（与 API 合约一致: routes/contract/crud.js Joi schema）
-// 1=执行中(默认)  2=已完结  3=已终止(不可变更/不可删除)  4=已取消
+// 合同状态映射（统一权威定义，详见 docs/contract-status-definition.md）
+// 1=待执行(默认,新建)  2=执行中  3=已完成(终态,不可变更)  4=已取消(终态)
 // 注意: approval_status 独立管理审批流程 (1=待审批 2=已通过 3=已拒绝)
-const STATUS_MAP = { 1: '执行中', 2: '已完结', 3: '已终止', 4: '已取消' };
+const STATUS_MAP = { 1: '待执行', 2: '执行中', 3: '已完成', 4: '已取消' };
 
 // 回款状态子查询条件
 const PAYMENT_STATUS_CLAUSE = {
@@ -286,7 +286,7 @@ async function updateContractStatus(pool, contractId, newStatus) {
   }
 
   if (contracts[0].status === 3 && newStatus !== 3) {
-    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '已终止的合同不能变更状态');
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '已完成的合同不能变更状态');
   }
 
   await pool.query('UPDATE crm_contract SET status = ? WHERE id = ?', [newStatus, contractId]);

@@ -22,7 +22,7 @@ const router = express.Router();
  *               page: { type: integer, example: 1 }
  *               pageSize: { type: integer, example: 20 }
  *               keyword: { type: string }
- *               status: { type: integer, enum: [1, 2, 3, 4], description: '1=执行中 2=已完结 3=已终止 4=已取消' }
+ *               status: { type: integer, enum: [1, 2, 3, 4], description: '1=待执行 2=执行中 3=已完成 4=已取消' }
  *               customer_id: { type: integer }
  *               approval_status: { type: integer, enum: [1, 2, 3] }
  *               payment_status: { type: string, enum: [overdue, partial, completed, pending] }
