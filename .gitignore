@@ -11,6 +11,9 @@ node_modules/
 .env.secrets
 .env.synology
 
+# E2E 测试账号（demo 凭据不入库，模板见 .env.test.example）
+.env.test
+
 # Build outputs
 dist/
 build/

@@ -66,7 +66,7 @@ const authenticateToken = (req, res, next) => {
     });
   }
 
-  jwt.verify(token, JWT_SECRET, async (err, user) => {
+  jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }, async (err, user) => {
     if (err) {
       if (err.name === 'TokenExpiredError') {
         return res.status(401).json({

@@ -7,11 +7,13 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 // ------------------------------------------------------------
 // 加载 .env.test（E2E 测试账号配置），避免在测试代码中硬编码账号密码
-// 查找顺序：frontend/../.env.test（仓库根目录）
+// 查找顺序：frontend/../.env.test（本机，不入库）→ .env.test.example（模板回退）
 // 仅设置尚未存在的 env 变量，不覆盖 CI 已显式注入的值
 // ------------------------------------------------------------
 function loadEnvTest() {
-  const envPath = resolve(__dirname, '..', '.env.test')
+  const localPath = resolve(__dirname, '..', '.env.test')
+  const examplePath = resolve(__dirname, '..', '.env.test.example')
+  const envPath = existsSync(localPath) ? localPath : examplePath
   if (!existsSync(envPath)) return
   const raw = readFileSync(envPath, 'utf8')
   for (const line of raw.split(/\r?\n/)) {

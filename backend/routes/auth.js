@@ -350,7 +350,7 @@ router.post('/refresh', validate(refreshSchema), async (req, res, next) => {
     // 验证 token 签名，允许已过期
     let decoded;
     try {
-      decoded = jwt.verify(oldToken, JWT_SECRET, { ignoreExpiration: true });
+      decoded = jwt.verify(oldToken, JWT_SECRET, { ignoreExpiration: true, algorithms: ['HS256'] });
     } catch (err) {
       return res.status(401).json({ code: 401, message: '无效的访问令牌', data: null });
     }
