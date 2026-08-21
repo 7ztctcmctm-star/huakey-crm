@@ -66,7 +66,7 @@ async function addFollowUp(pool, params, userId) {
     [customer_id]
   );
 
-  // 自动推进客户状态：new / sea -> following（可通过 advance_status=false 手动覆盖）
+  // 自动推进客户状态：lead / sea / 旧版 new -> following（可通过 advance_status=false 手动覆盖）
   const advanceStatus = params.advance_status !== false;
   if (advanceStatus) {
     const [customerRows] = await pool.query(
@@ -75,7 +75,8 @@ async function addFollowUp(pool, params, userId) {
     );
     if (customerRows.length > 0) {
       const currentStatus = customerRows[0].status;
-      if (currentStatus === CUSTOMER_STATUS.SEA || currentStatus === 'new') {
+      // 旧版 'new' 仅兼容存量数据，新状态机统一使用 lead/sea
+      if (currentStatus === 'new' || [CUSTOMER_STATUS.SEA, CUSTOMER_STATUS.LEAD].includes(currentStatus)) {
         try {
           await customerService.transitionStatus(
             pool,

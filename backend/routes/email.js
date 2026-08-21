@@ -59,6 +59,17 @@ router.post('/account', authenticateToken, checkPermission('email'), validate(ac
   }
 });
 
+const updateAccountSchema = Joi.object({
+  email: Joi.string().email().max(200).allow('', null),
+  password: Joi.string().max(500).allow('', null),
+  display_name: Joi.string().max(100).allow('', null),
+  imap_host: Joi.string().max(200).allow('', null),
+  imap_port: Joi.number().integer().min(1).max(65535).allow(null),
+  smtp_host: Joi.string().max(200).allow('', null),
+  smtp_port: Joi.number().integer().min(1).max(65535).allow(null),
+  use_ssl: Joi.number().integer().valid(0, 1).allow(null)
+});
+
 // 2. 我的邮件账号列表
 router.get('/accounts', authenticateToken, checkPermission('email'), async (req, res, next) => {
   try {
@@ -67,6 +78,18 @@ router.get('/accounts', authenticateToken, checkPermission('email'), async (req,
   } catch (error) {
     logger.error('[邮件] 查询账号失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     next(error);
+  }
+});
+
+// 2.5 更新账号
+router.put('/account/:id', authenticateToken, checkPermission('email'), validate(updateAccountSchema), async (req, res, next) => {
+  try {
+    const result = await emailService.updateAccount(pool, req.params.id, req.body, req.user.userId);
+    res.json({ code: 200, message: '更新成功', data: result });
+  } catch (error) {
+    logger.error('[邮件] 更新账号失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    const status = error.code && typeof error.code === 'number' ? error.code : 500;
+    res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
   }
 });
 

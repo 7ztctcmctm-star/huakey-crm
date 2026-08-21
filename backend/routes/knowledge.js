@@ -776,7 +776,7 @@ router.put('/scripts/:id', authenticateToken, validate(scriptUpdateSchema), asyn
   }
 });
 
-router.delete('/scripts/:id', authenticateToken, async (req, res, next) => {
+router.delete('/scripts/:id', authenticateToken, checkPermission('knowledge'), async (req, res, next) => {
   try {
     await knowledgeService.deleteScript(pool, req.params.id);
     await invalidateCache(['cache:*:/api/knowledge/*']);
@@ -844,7 +844,7 @@ router.put('/faqs/:id', authenticateToken, validate(faqUpdateSchema), async (req
   }
 });
 
-router.delete('/faqs/:id', authenticateToken, async (req, res, next) => {
+router.delete('/faqs/:id', authenticateToken, checkPermission('knowledge'), async (req, res, next) => {
   try {
     await knowledgeService.deleteFaq(pool, req.params.id);
     await invalidateCache(['cache:*:/api/knowledge/*']);
@@ -921,7 +921,7 @@ router.put('/documents/:id', authenticateToken, validate(documentUpdateSchema), 
   }
 });
 
-router.delete('/documents/:id', authenticateToken, async (req, res, next) => {
+router.delete('/documents/:id', authenticateToken, checkPermission('knowledge'), async (req, res, next) => {
   try {
     const filePath = await knowledgeService.getDocumentFilePath(pool, req.params.id);
     if (filePath) {

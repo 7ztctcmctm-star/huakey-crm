@@ -102,7 +102,7 @@ router.get('/sales-funnel', authenticateToken, checkPermission('report'), create
 });
 
 // 业绩统计
-router.get('/performance', authenticateToken, queryValidate(dateRangeQuerySchema), async (req, res, next) => {
+router.get('/performance', authenticateToken, checkPermission('report'), queryValidate(dateRangeQuerySchema), async (req, res, next) => {
   try {
     const data = await reportAnalyticsService.getPerformance(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
@@ -113,7 +113,7 @@ router.get('/performance', authenticateToken, queryValidate(dateRangeQuerySchema
 });
 
 // 客户统计
-router.get('/customer', authenticateToken, queryValidate(dateRangeQuerySchema), async (req, res, next) => {
+router.get('/customer', authenticateToken, checkPermission('report'), queryValidate(dateRangeQuerySchema), async (req, res, next) => {
   try {
     const data = await reportAnalyticsService.getCustomerStats(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
@@ -124,7 +124,7 @@ router.get('/customer', authenticateToken, queryValidate(dateRangeQuerySchema), 
 });
 
 // 回款统计
-router.get('/payment', authenticateToken, queryValidate(dateRangeQuerySchema), async (req, res, next) => {
+router.get('/payment', authenticateToken, checkPermission('report'), queryValidate(dateRangeQuerySchema), async (req, res, next) => {
   try {
     const data = await reportAnalyticsService.getPaymentStats(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
@@ -135,9 +135,55 @@ router.get('/payment', authenticateToken, queryValidate(dateRangeQuerySchema), a
 });
 
 // 销售趋势
-router.get('/sales-trend', authenticateToken, queryValidate(dateRangeQuerySchema), async (req, res, next) => {
+router.get('/sales-trend', authenticateToken, checkPermission('report'), queryValidate(dateRangeQuerySchema), async (req, res, next) => {
   try {
     const data = await reportAnalyticsService.getSalesTrend(pool, req.query);
+    res.json({ code: 200, message: '查询成功', data });
+  } catch (error) {
+    logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    next(error);
+  }
+});
+
+// === 仪表盘销售分析（前端 api/analytics.js，Phase 5.5.2） ===
+
+// 销售总览
+router.get('/analytics/sales/overview', authenticateToken, checkPermission('report'), createCache(300, (req) => `report:analytics-overview:${req.user.userId}`), async (req, res, next) => {
+  try {
+    const data = await reportAnalyticsService.getAnalyticsOverview(pool, req.query);
+    res.json({ code: 200, message: '查询成功', data });
+  } catch (error) {
+    logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    next(error);
+  }
+});
+
+// 销售漏斗
+router.get('/analytics/sales/funnel', authenticateToken, checkPermission('report'), createCache(600, (req) => `report:analytics-funnel:${req.user.userId}`), async (req, res, next) => {
+  try {
+    const data = await reportAnalyticsService.getAnalyticsFunnel(pool, req.query);
+    res.json({ code: 200, message: '查询成功', data });
+  } catch (error) {
+    logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    next(error);
+  }
+});
+
+// 合同收入
+router.get('/analytics/contract/revenue', authenticateToken, checkPermission('report'), createCache(300, (req) => `report:analytics-revenue:${req.user.userId}`), async (req, res, next) => {
+  try {
+    const data = await reportAnalyticsService.getContractRevenue(pool, req.query);
+    res.json({ code: 200, message: '查询成功', data });
+  } catch (error) {
+    logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    next(error);
+  }
+});
+
+// 回款情况
+router.get('/analytics/payment/collection', authenticateToken, checkPermission('report'), createCache(300, (req) => `report:analytics-collection:${req.user.userId}`), async (req, res, next) => {
+  try {
+    const data = await reportAnalyticsService.getAnalyticsPaymentCollection(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });

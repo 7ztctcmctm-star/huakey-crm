@@ -30,6 +30,9 @@ function getCaptchaRedisKey(key) {
 
 const redisEnabled = () => process.env.REDIS_ENABLED === 'true';
 
+// 惰性清理计数：每 32 次写入触发一次过期项清理，防止未验证的 key 无界增长
+let captchaCleanupCounter = 0;
+
 async function saveCaptcha(key, code) {
   const expires = Date.now() + CAPTCHA_TTL_SECONDS * 1000;
   // [安全修复] Redis 启用时优先写入 Redis；失败降级到内存，避免登录完全中断
@@ -38,6 +41,13 @@ async function saveCaptcha(key, code) {
       await setCache(getCaptchaRedisKey(key), code, CAPTCHA_TTL_SECONDS);
       return;
     } catch { /* Redis 写入失败，降级到内存 */ }
+  }
+  // 周期性惰性清理过期项（内存 DoS 防护：攻击者高频请求但从不验证时，key 仍会过期回收）
+  if (++captchaCleanupCounter % 32 === 0) {
+    const now = Date.now();
+    for (const [k, v] of captchaStore) {
+      if (v.expires <= now) captchaStore.delete(k);
+    }
   }
   captchaStore.set(key, { code, expires });
 }

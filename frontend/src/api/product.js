@@ -12,11 +12,15 @@ export const deleteProductPrice = (id) => request.delete(`/product/price/${id}`)
 
 // ============ 库存管理 ============
 export const getInventoryList = (params) => request.get('/inventory/list', { params })
-export const addInventory = (data) => request.post('/inventory/add', data)
-export const updateInventory = (data) => request.post('/inventory/update', data)
-export const deleteInventory = (id) => request.post('/inventory/delete', { id })
+export const updateInventory = ({ id, ...data }) => request.put(`/inventory/alert-config/${id}`, data)
 export const getInventoryMovements = (params) => request.get('/inventory/movements', { params })
-export const addInventoryMovement = (data) => request.post('/inventory/movement/add', data)
+export const addInventoryMovement = (data) => {
+  const { movement_type, ...rest } = data
+  // 按出入库类型分派到后端实际端点（adjust 需 new_qty 字段）
+  if (movement_type === 'adjust') return request.post('/inventory/adjust', rest)
+  if (movement_type === 'out') return request.post('/inventory/out', rest)
+  return request.post('/inventory/in', rest)
+}
 export const getInventoryAlerts = () => request.get('/inventory/alerts')
 export const getInventoryStats = () => request.get('/inventory/stats')
 export const getInventoryCategories = () => request.get('/inventory/categories')
