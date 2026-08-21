@@ -4,6 +4,16 @@
 -- ------------------------------------------------------
 -- Server version	8.0.46
 
+-- ⚠️⚠️⚠️ 警告（2026-08-18 审计）⚠️⚠️⚠️
+-- 本文件是早期快照（crm_customer.status 仍为 TINYINT、pool_status 为 TINYINT、
+-- 缺少 business_status / old_status_int / must_change_password 等字段），
+-- 与 database/migrations/ 下的 001~107 迁移存在结构性漂移。
+--
+-- 仅可用于【全新环境的最小基线导入】。导入后必须执行：
+--   cd database/migrations && node run_migrations.js
+-- 以补齐 070/089/097 等迁移引入的字段与配置。
+-- 禁止在本文件上手工改表结构；结构变更一律通过新增迁移文件实施。
+
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;

@@ -104,11 +104,11 @@ const loginForm = reactive({
 const loginRules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 20, message: '用户名长度应为3-20个字符', trigger: 'blur' }
+    { min: 2, max: 50, message: '用户名长度应为2-50个字符', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, max: 20, message: '密码长度应为6-20个字符', trigger: 'blur' }
+    { min: 6, max: 200, message: '密码长度应为6-200个字符', trigger: 'blur' }
   ],
   captcha: [
     { required: true, message: '请输入验证码', trigger: 'blur' }

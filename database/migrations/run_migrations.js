@@ -106,7 +106,12 @@ async function migrateUp(pool) {
     const sql = normalizeMigrationSql(rawSql)
 
     try {
+      // 事务包裹：单文件迁移原子执行。注意：MySQL 8 部分 DDL（如多数 ALTER/CREATE）
+      // 会隐式提交当前事务，此类迁移的事务包裹无法回滚已提交的 DDL，但能保证
+      // 纯 DML 迁移的原子性，且 DDL 迁移失败时仍会中断执行（不会记录版本号导致跳过）
+      await pool.query('START TRANSACTION')
       await pool.query(sql)
+      await pool.query('COMMIT')
       await pool.query(
         'INSERT IGNORE INTO schema_migrations (version, name) VALUES (?, ?)',
         [version, file]
@@ -114,6 +119,7 @@ async function migrateUp(pool) {
       console.log(`  ✓ ${file} 执行成功`)
       ran++
     } catch (err) {
+      try { await pool.query('ROLLBACK') } catch (rollbackErr) { /* 连接可能已断开 */ }
       console.error(`  ✗ ${file} 执行失败: ${err.message}`)
       process.exit(1)
     }

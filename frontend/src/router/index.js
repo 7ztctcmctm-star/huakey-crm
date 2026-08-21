@@ -605,8 +605,8 @@ router.beforeEach(async (to, from, next) => {
       }
     }
 
-    // 无权限访问：直接转到登录页（避免 /dashboard 重定向循环）
-    next('/login')
+    // 无权限访问：跳 404 页（避免误判为掉线）
+    next({ name: 'NotFound' })
     return
   }
 
@@ -616,8 +616,8 @@ router.beforeEach(async (to, from, next) => {
     const hasAuth = user.manageAll || permissions.includes(to.meta.permission)
 
     if (!hasAuth) {
-      // 无权限访问：转到登录页
-      next('/login')
+      // 无权限访问：跳 404 页（避免误判为掉线）
+      next({ name: 'NotFound' })
       return
     }
   }

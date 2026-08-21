@@ -1,7 +1,6 @@
 import request from '@/utils/request'
 
 // ============ 提醒/通知 ============
-export const getNotifications = (params) => request.get('/reminder/notifications', { params })
 export const markNotificationRead = (id) => request.post('/reminder/notification-read', { id })
 export const markAllRead = () => request.post('/reminder/mark-all-read')
 export const getReminderCenter = () => request.get('/reminder/center')
