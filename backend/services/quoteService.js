@@ -251,7 +251,7 @@ async function updateQuote(pool, data, permission = null) {
 
     const [quotes] = await connection.query(
       `SELECT q.id, q.quote_no, q.customer_id, q.amount, q.discount, q.final_amount, q.valid_days, q.remark, q.status, q.approval_status,
-        q.opportunity_id, q.create_by, q.create_time, q.update_time, q.deleted_at
+        q.opportunity_id, q.create_by, q.create_time, q.deleted_at
        FROM crm_quote q WHERE ${whereParts.join(' AND ')}`,
       whereParams
     );
