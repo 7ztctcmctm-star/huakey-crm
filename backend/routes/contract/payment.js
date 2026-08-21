@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../../middleware/auth');
-const { checkPermission } = require('../../middleware/permission');
+const { checkPermission, checkDataPermission } = require('../../middleware/permission');
 const { validate, Joi } = require('../../middleware/validate');
 const contractController = require('../../controllers/contractController');
 
@@ -58,22 +58,22 @@ const statementExportSchema = Joi.object({
 
 // --- Routes ---
 
-router.post('/payment/add', authenticateToken, checkPermission('contract'), validate(paymentAddSchema), contractController.addPayment);
+router.post('/payment/add', authenticateToken, checkPermission('contract'), checkDataPermission('contract', 'create_by'), validate(paymentAddSchema), contractController.addPayment);
 
-router.post('/payment/update', authenticateToken, checkPermission('contract'), validate(paymentUpdateSchema), contractController.updatePayment);
+router.post('/payment/update', authenticateToken, checkPermission('contract'), checkDataPermission('contract', 'create_by'), validate(paymentUpdateSchema), contractController.updatePayment);
 
-router.post('/payment/delete', authenticateToken, checkPermission('contract'), validate(paymentDeleteSchema), contractController.deletePayment);
+router.post('/payment/delete', authenticateToken, checkPermission('contract'), checkDataPermission('contract', 'create_by'), validate(paymentDeleteSchema), contractController.deletePayment);
 
 // 回款管理：回款列表 + 逾期未回款
-router.post('/payment/list', authenticateToken, checkPermission('contract'), validate(paymentListSchema), contractController.listPayments);
+router.post('/payment/list', authenticateToken, checkPermission('contract'), checkDataPermission('contract', 'create_by'), validate(paymentListSchema), contractController.listPayments);
 
 // 回款合并视图（计划+记录）
-router.post('/payment/merged', authenticateToken, checkPermission('contract'), validate(paymentMergedSchema), contractController.getMergedPayments);
+router.post('/payment/merged', authenticateToken, checkPermission('contract'), checkDataPermission('contract', 'create_by'), validate(paymentMergedSchema), contractController.getMergedPayments);
 
 // 客户对账汇总
-router.post('/payment/summary', authenticateToken, checkPermission('contract'), validate(paymentSummarySchema), contractController.getPaymentSummary);
+router.post('/payment/summary', authenticateToken, checkPermission('contract'), checkDataPermission('contract', 'create_by'), validate(paymentSummarySchema), contractController.getPaymentSummary);
 
 // 对账单导出
-router.post('/payment/statement-export', authenticateToken, checkPermission('contract'), validate(statementExportSchema), contractController.exportStatement);
+router.post('/payment/statement-export', authenticateToken, checkPermission('contract'), checkDataPermission('contract', 'create_by'), validate(statementExportSchema), contractController.exportStatement);
 
 module.exports = router;

@@ -73,7 +73,8 @@ async function createContract(req, res, next) {
 
 async function updateContract(req, res, next) {
   try {
-    const oldData = await contractCrudService.updateContract(pool, req.body);
+    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'c');
+    const oldData = await contractCrudService.updateContract(pool, req.body, { clause, params: permParams });
     await logAction(req, 'update', `修改合同: ID=${req.body.id}`);
 
     if (oldData) {
@@ -102,7 +103,8 @@ async function deleteContract(req, res, next) {
   const { id } = req.body;
 
   try {
-    const result = await contractCrudService.deleteContract(pool, id, req.user);
+    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'c');
+    const result = await contractCrudService.deleteContract(pool, id, req.user, { clause, params: permParams });
     await logAction(req, 'delete', `删除合同: ID=${id}`);
     await invalidateCache(['cache:*:/api/contract/*']);
     res.json({ code: 200, message: result.message, data: null });
@@ -126,7 +128,8 @@ async function getOpportunityList(req, res, next) {
 async function searchContracts(req, res, next) {
   try {
     const { keyword } = req.query;
-    const rows = await contractCrudService.searchContracts(pool, keyword);
+    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'c');
+    const rows = await contractCrudService.searchContracts(pool, keyword, { clause, params: permParams });
     stripRestrictedFields(rows, req.restrictedFields);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
@@ -141,11 +144,13 @@ async function cancelContract(req, res, next) {
   try {
     const { id, cancel_reason, cancel_action } = req.body;
 
+    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'c');
     const result = await contractService.cancelContract(pool, {
       id,
       cancel_reason,
       cancel_action,
-      userId: req.user.userId
+      userId: req.user.userId,
+      permission: { clause, params: permParams }
     });
 
     // 联动商机阶段
@@ -226,7 +231,8 @@ async function deletePayment(req, res, next) {
 
 async function listPayments(req, res, next) {
   try {
-    const result = await contractPaymentService.listPayments(pool, req.body);
+    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'c');
+    const result = await contractPaymentService.listPayments(pool, req.body, { clause, params: permParams });
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
     logger.error('[合同] 查询回款列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -236,7 +242,8 @@ async function listPayments(req, res, next) {
 
 async function getMergedPayments(req, res, next) {
   try {
-    const result = await contractPaymentService.getMergedPayments(pool, req.body);
+    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'c');
+    const result = await contractPaymentService.getMergedPayments(pool, req.body, { clause, params: permParams });
     res.json({ code: 200, message: '查询成功', data: { list: result.list, total: result.total } });
   } catch (error) {
     logger.error('[合同] 合并回款视图查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -247,7 +254,8 @@ async function getMergedPayments(req, res, next) {
 async function getPaymentSummary(req, res, next) {
   try {
     const { page = 1, pageSize = 20 } = req.body;
-    const result = await contractPaymentService.getSummary(pool);
+    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'c');
+    const result = await contractPaymentService.getSummary(pool, { clause, params: permParams });
     res.json({
       code: 200, message: '查询成功',
       data: { list: [], total: 0, page: parseInt(page), pageSize: parseInt(pageSize), summary: result }
@@ -260,7 +268,8 @@ async function getPaymentSummary(req, res, next) {
 
 async function exportStatement(req, res, next) {
   try {
-    const { buffer } = await contractPaymentService.getStatementExport(pool, req.body);
+    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'c');
+    const { buffer } = await contractPaymentService.getStatementExport(pool, req.body, { clause, params: permParams });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=statement.xlsx');
     res.send(buffer);

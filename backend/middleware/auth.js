@@ -106,7 +106,7 @@ const authenticateToken = (req, res, next) => {
           [user.roleId]
         ),
         pool.query(
-          'SELECT must_change_password FROM sys_user WHERE id = ?',
+          'SELECT must_change_password, status FROM sys_user WHERE id = ? AND deleted_at IS NULL',
           [user.userId]
         )
       ]);
@@ -125,6 +125,16 @@ const authenticateToken = (req, res, next) => {
       const userRows = Array.isArray(userResult) && Array.isArray(userResult[0]) ? userResult[0] : [];
       const freshRole = roleRows[0] || {};
       const freshUser = userRows[0] || {};
+
+      // 已被禁用（status=0，含软删除）的用户，已签发 JWT 立即失效。
+      // 仅当 DB 明确返回用户行时校验：mock/测试环境查询无结果时保持放行（与 must_change_password 判断一致）
+      if (freshUser.status !== undefined && freshUser.status !== 1) {
+        return res.status(401).json({
+          code: 401,
+          message: '账号不存在或已被禁用，请联系管理员',
+          data: null
+        });
+      }
 
       // roleCode 优先使用 DB 新鲜值，fallback 到 JWT 中的值
       const roleCode = freshRole.role_code || user.roleCode || '';

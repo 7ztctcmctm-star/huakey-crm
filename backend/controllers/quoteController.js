@@ -51,7 +51,8 @@ async function update(req, res, next) {
     const { id } = req.body;
     if (!id) return res.status(400).json({ code: 400, message: '报价单ID不能为空', data: null });
 
-    const result = await quoteService.updateQuote(pool, req.body);
+    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'q');
+    const result = await quoteService.updateQuote(pool, req.body, { clause, params: permParams });
 
     await logFieldChanges(req, {
       module: MODULE_NAME,

@@ -197,12 +197,16 @@ async function deletePayment(pool, paymentId) {
  * @param {object} params - { page, pageSize, keyword }
  * @returns {{ list: Array, total: number }}
  */
-async function getOverduePayments(pool, params = {}) {
+async function getOverduePayments(pool, params = {}, permission = null) {
   const { page = 1, pageSize = 20, keyword } = params;
   const offset = (page - 1) * pageSize;
   const queryParams = [];
 
   let where = 'WHERE pp.plan_date < CURRENT_DATE AND c.deleted_at IS NULL';
+  if (permission && permission.clause && permission.clause !== '1=1') {
+    where += ` AND ${permission.clause}`;
+    queryParams.push(...(permission.params || []));
+  }
   if (keyword) {
     where += ' AND (c.contract_no LIKE ? OR cu.company_name LIKE ?)';
     queryParams.push(`%${keyword}%`, `%${keyword}%`);
@@ -249,12 +253,16 @@ async function getOverduePayments(pool, params = {}) {
  * @param {object} params - { page, pageSize, keyword, start_date, end_date }
  * @returns {{ list: Array, total: number }}
  */
-async function getMergedPayments(pool, params = {}) {
+async function getMergedPayments(pool, params = {}, permission = null) {
   const { page = 1, pageSize = 20, keyword, start_date, end_date } = params;
   const offset = (page - 1) * pageSize;
   const queryParams = [];
 
   let where = 'WHERE pp.deleted_at IS NULL';
+  if (permission && permission.clause && permission.clause !== '1=1') {
+    where += ` AND ${permission.clause}`;
+    queryParams.push(...(permission.params || []));
+  }
   if (keyword) {
     where += ' AND (c.contract_no LIKE ? OR cu.company_name LIKE ?)';
     queryParams.push(`%${keyword}%`, `%${keyword}%`);
@@ -298,18 +306,31 @@ async function getMergedPayments(pool, params = {}) {
  * @param {object} pool
  * @returns {{ month_plan_total: number, month_paid_total: number, month_rate: number }}
  */
-async function getMonthlySummary(pool) {
+async function getMonthlySummary(pool, permission = null) {
   const now = new Date();
   const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
   const monthEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-31`;
 
+  let permissionClause = '1=1';
+  let permParams = [];
+  if (permission && permission.clause) {
+    permissionClause = permission.clause;
+    permParams = permission.params || [];
+  }
+
   const [[planTotal]] = await pool.query(
-    "SELECT COALESCE(SUM(plan_amount), 0) as total FROM crm_payment_plan WHERE plan_date BETWEEN ? AND ? AND deleted_at IS NULL",
-    [monthStart, monthEnd]
+    `SELECT COALESCE(SUM(pp.plan_amount), 0) as total
+     FROM crm_payment_plan pp
+     JOIN crm_contract c ON pp.contract_id = c.id
+     WHERE pp.plan_date BETWEEN ? AND ? AND pp.deleted_at IS NULL AND ${permissionClause}`,
+    [monthStart, monthEnd, ...permParams]
   );
   const [[paidTotal]] = await pool.query(
-    "SELECT COALESCE(SUM(pay_amount), 0) as total FROM crm_payment WHERE pay_date BETWEEN ? AND ? AND deleted_at IS NULL",
-    [monthStart, monthEnd]
+    `SELECT COALESCE(SUM(p.pay_amount), 0) as total
+     FROM crm_payment p
+     JOIN crm_contract c ON p.contract_id = c.id
+     WHERE p.pay_date BETWEEN ? AND ? AND p.deleted_at IS NULL AND ${permissionClause}`,
+    [monthStart, monthEnd, ...permParams]
   );
 
   const planVal = parseFloat(planTotal.total) || 0;

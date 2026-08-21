@@ -318,13 +318,13 @@ router.post('/list', authenticateToken, checkPermission('quotation'), checkDataP
 router.get('/detail/:id', authenticateToken, checkDataPermission('quote', 'create_by'), quoteController.detail);
 
 // 4. 修改报价单
-router.post('/update', authenticateToken, checkPermission('quotation:edit'), validate(updateQuoteSchema), quoteController.update);
+router.post('/update', authenticateToken, checkPermission('quotation:edit'), checkDataPermission('quote', 'create_by'), validate(updateQuoteSchema), quoteController.update);
 
 // 5. 删除报价单
-router.post('/delete', authenticateToken, checkPermission('quotation:delete'), validate(idOnlySchema), quoteController.remove);
+router.post('/delete', authenticateToken, checkPermission('quotation:delete'), checkDataPermission('quote', 'create_by'), validate(idOnlySchema), quoteController.remove);
 
 // 6. 报价转合同
-router.post('/to-contract', authenticateToken, checkPermission('quotation:edit'), validate(idOnlySchema), quoteController.toContract);
+router.post('/to-contract', authenticateToken, checkPermission('quotation:edit'), checkDataPermission('quote', 'create_by'), validate(idOnlySchema), quoteController.toContract);
 
 // 审批报价单（仅管理员）
 router.post('/approve', authenticateToken, validate(approveQuoteSchema), quoteController.approve);

@@ -372,17 +372,25 @@ async function getCustomerDetail(pool, customerId, permission) {
  * 客户360度视图（含联系人、标签、跟进、商机、报价、合同、回款、工单、评分）
  * @param {object} pool
  * @param {number} customerId
+ * @param {object} [permission] - 数据权限 { clause, params }（buildDataPermissionWhere 产物），无权限时主查询过滤
  * @returns {object} { customer, contacts, tags, scoreLogs, stats, followRecords, opportunities, quotes, contracts, payments, serviceOrders }
  * @throws {Error} 404 客户不存在
  */
-async function getCustomer360(pool, customerId) {
+async function getCustomer360(pool, customerId, permission = null) {
+  const whereParts = ['c.id = ?', 'c.deleted_at IS NULL'];
+  const whereParams = [customerId];
+  if (permission && permission.clause && permission.clause !== '1=1') {
+    whereParts.push(permission.clause);
+    whereParams.push(...(permission.params || []));
+  }
+
   const [[customer]] = await pool.query(`
     SELECT c.id, c.company_name, c.contact_name, c.phone, c.email, c.address, c.industry, c.source, c.level, c.lead_level, c.follow_status, c.converted_at, c.owner_id, c.status, c.customer_type, c.lifecycle_status, c.original_lead_id, c.score, c.remark, c.create_time, c.update_time, c.deleted_at, c.pool_status, c.pool_type, c.protect_until, c.last_follow_time, c.old_status_int,
            u.real_name as owner_name
     FROM crm_customer c
     LEFT JOIN sys_user u ON c.owner_id = u.id
-    WHERE c.id = ? AND c.deleted_at IS NULL
-  `, [customerId]);
+    WHERE ${whereParts.join(' AND ')}
+  `, whereParams);
 
   if (!customer) {
     throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);

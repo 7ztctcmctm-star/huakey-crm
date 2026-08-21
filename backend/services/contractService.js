@@ -299,13 +299,20 @@ async function updateContractStatus(pool, contractId, newStatus) {
  * @param {object} params - { id, cancel_reason, cancel_action, userId }
  * @returns {object} 合同信息（含 opportunity_id）
  */
-async function cancelContract(pool, { id, cancel_reason, cancel_action, userId: _userId }) {
+async function cancelContract(pool, { id, cancel_reason, cancel_action, userId: _userId, permission }) {
+  // 数据权限过滤：仅允许取消数据范围内（含归属人）的合同
+  const whereParts = ['c.id = ?', 'c.deleted_at IS NULL'];
+  const whereParams = [id];
+  if (permission && permission.clause && permission.clause !== '1=1') {
+    whereParts.push(permission.clause);
+    whereParams.push(...(permission.params || []));
+  }
   const [rows] = await pool.query(
-    'SELECT id, contract_no, status, opportunity_id FROM crm_contract WHERE id = ? AND deleted_at IS NULL',
-    [id]
+    `SELECT c.id, c.contract_no, c.status, c.opportunity_id FROM crm_contract c WHERE ${whereParts.join(' AND ')}`,
+    whereParams
   );
   if (!rows.length) {
-    throw new AppError(ErrorCodes.CONTRACT_NOT_FOUND, '合同不存在');
+    throw new AppError(ErrorCodes.CONTRACT_NOT_FOUND, '合同不存在或无权操作');
   }
 
   const contract = rows[0];
