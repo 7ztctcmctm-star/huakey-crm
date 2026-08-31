@@ -3,7 +3,8 @@
  * 用法: node database/migrate.js
  *
  * 按文件名顺序执行 database/migrations/ 下所有 .sql 文件
- * 每个文件在独立事务中执行，失败时跳过继续（幂等文件可重复执行）
+ * 每个文件以 multipleStatements 一次性执行（迁移文件本身须幂等、可重复执行）
+ * 任一迁移失败即终止启动（fail-fast），避免带病 schema 上线
  *
  * 跨库兼容（v1.0 发布阻塞修复）：
  *   历史迁移文件大量使用 `USE huakey_crm;` 与 `table_schema='huakey_crm'` 硬编码，

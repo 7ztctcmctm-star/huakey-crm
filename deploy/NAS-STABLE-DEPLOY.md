@@ -19,8 +19,10 @@
 │   ├── migrations/
 │   ├── backups/
 │   └── backup.sh
+├── nginx/
+│   └── nginx.conf                 # 容器层 HTTPS 反代（8443）
+├── nginx/certs/                   # 容器层 SSL 证书（server.crt / server.key，不入仓库）
 ├── deploy/
-│   ├── nginx-synology.conf
 │   └── init-complete.sql
 └── uploads/                      # 首次手动创建
 ```
@@ -204,14 +206,14 @@ docker compose -f docker-compose.synology.yml --env-file .env up -d
 ## 7. 验证部署
 
 ```bash
-# 后端健康检查
-curl -s http://localhost:6789/api/health
+# 后端健康检查（app 容器内直连）
+curl -s http://localhost:5000/api/v1/health
 
-# 验证码接口
-curl -s http://localhost:6789/api/auth/captcha
+# 通过容器 nginx 8443（HTTPS）
+curl -sk https://localhost:8443/api/v1/health
 
-# 前端页面
-curl -I http://localhost/
+# 通过内网域名（需 DSM nginx 已配置 443 反代）
+curl -sk https://crm.huakey.local/api/v1/health
 
 # 容器全绿
 docker compose -f docker-compose.synology.yml ps
