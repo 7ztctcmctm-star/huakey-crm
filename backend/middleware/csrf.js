@@ -19,7 +19,10 @@ const SKIP_CSRF_PATHS = new Set([
   '/api/v1/auth/login',
   '/api/v1/auth/refresh',
   '/api/v1/auth/logout',
-  '/api/v1/auth/register'
+  '/api/v1/auth/register',
+  // 客户端性能指标上报：前端用 navigator.sendBeacon 发送，无法携带 X-CSRF-Token 头；
+  // 该接口仅做性能指标落库（无副作用），予以豁免
+  '/api/v1/metrics/client'
 ]);
 
 function generateCsrfToken() {

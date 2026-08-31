@@ -121,6 +121,9 @@ async function runReport(pool, id, { page = 1, pageSize = 20, filters = {} }) {
   try {
     const filterConfig = JSON.parse(config.filter_config || '[]');
     for (const f of filterConfig) {
+      // [安全修复] 校验 filter_config 的 field 必须命中数据源白名单，防止存储型 SQL 注入
+      // 与上方 selectParts 的 allowedFields 校验保持一致，杜绝 f.field 直接拼接进 SQL
+      if (!f || !allowedFields.includes(f.field)) continue;
       const val = filters[f.field];
       if (val !== undefined && val !== '') {
         if (f.type === 'select') { where += ` AND ${src.alias}.${f.field} = ?`; params.push(val); }

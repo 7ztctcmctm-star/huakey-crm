@@ -179,7 +179,7 @@ async function logout(pool, token) {
 
   try {
     const JWT_SECRET = process.env.JWT_SECRET;
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
 
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const expireAt = new Date(decoded.exp * 1000);
