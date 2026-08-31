@@ -7,7 +7,8 @@
  * - ROLES (数字ID) 逐步弃用，保留向后兼容
  * - ROLE_CODES (字符串code) 为新标准，对应 sys_role.code 字段
  * - 所有新代码应使用 ROLE_CODES 进行角色判断
- * - 名映射: ROLES.ADMIN=1->code='super_admin', ROLES.MANAGER=2->code='admin'
+ * - 现库映射: id1->'boss', id2->'manager', id3->'sales', id4->'hr',
+ *   id5->'purchase', id6->'finance', id11->'engineer'
  */
 const ROLES = {
   ADMIN: 1,       // 系统管理员/老板
@@ -24,9 +25,10 @@ const ROLES = {
  * 用于替代数字 ID 硬编码，不受 role_id 重排影响
  */
 const ROLE_CODES = {
-  SUPER_ADMIN: 'super_admin',   // 超管 (原 ROLES.ADMIN=1)
-  ADMIN: 'admin',               // 管理员/部门经理 (原 ROLES.MANAGER=2)
+  SUPER_ADMIN: 'super_admin',   // 超管 [遗留 code，现库已不存在]
+  ADMIN: 'admin',               // 管理员 [遗留 code，现库已不存在]
   BOSS: 'boss',                 // 老板
+  MANAGER: 'manager',           // 部门经理 (原 ROLES.MANAGER=2，现库实际 code)
   SALES: 'sales',               // 销售
   HR: 'hr',                     // 人力
   PURCHASE: 'purchase',         // 采购

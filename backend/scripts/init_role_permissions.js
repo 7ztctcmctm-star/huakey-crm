@@ -27,9 +27,6 @@ const MENU_PERMISSIONS = [
   { code: 'customer', name: '客户管理', icon: 'UserFilled', sort: 2 },
   { code: 'customer:list', name: '客户列表', path: '/customer/list', sort: 1 },
   { code: 'pool', name: '公海池', path: '/pool', sort: 2 },
-  { code: 'pool:view', name: '查看公海', parent: 'pool' },
-  { code: 'pool:claim', name: '认领公海', parent: 'pool' },
-  { code: 'customer:release', name: '释放到公海', parent: 'customer' },
   { code: 'followup:calendar', name: '跟进日历', path: '/followup/calendar', sort: 4 },
   { code: 'followup:template', name: '跟进模板', path: '/followup/template', sort: 5 },
   { code: 'opportunity', name: '商机管理', path: '/opportunity', icon: 'TrendCharts', sort: 3 },
@@ -89,6 +86,9 @@ const BUTTON_PERMISSIONS = [
   { code: 'customer:import', name: '导入客户', parent: 'customer' },
   { code: 'customer:export', name: '导出客户', parent: 'customer' },
   { code: 'customer:list', name: '客户列表查看', parent: 'customer' },
+  { code: 'pool:view', name: '查看公海', parent: 'pool' },
+  { code: 'pool:claim', name: '认领公海', parent: 'pool' },
+  { code: 'customer:release', name: '释放到公海', parent: 'customer' },
   { code: 'opportunity:add', name: '新增商机', parent: 'opportunity' },
   { code: 'opportunity:edit', name: '编辑商机', parent: 'opportunity' },
   { code: 'opportunity:delete', name: '删除商机', parent: 'opportunity' },
@@ -132,6 +132,19 @@ const BUTTON_PERMISSIONS = [
   { code: 'product:view', name: '查看产品', parent: 'product' },
   { code: 'data_quality:check', name: '数据质量检查', parent: 'system' },
   { code: 'file:upload', name: '文件上传', parent: 'file' },
+  // 补全此前路由使用但未定义/未授予任何角色的权限码
+  { code: 'competitor:view', name: '查看竞品', parent: 'competitor' },
+  { code: 'competitor:add', name: '新增竞品', parent: 'competitor' },
+  { code: 'competitor:edit', name: '编辑竞品', parent: 'competitor' },
+  { code: 'competitor:delete', name: '删除竞品', parent: 'competitor' },
+  { code: 'email:send', name: '发送邮件', parent: 'email' },
+  { code: 'leads:view', name: '查看潜客', parent: 'customer' },
+  { code: 'leads:convert', name: '转化潜客', parent: 'customer' },
+  { code: 'finance', name: '财务增强', parent: 'report' },
+  { code: 'recycle_bin:view', name: '查看回收站', parent: 'system' },
+  { code: 'data:restore', name: '数据恢复', parent: 'system' },
+  { code: 'log:export', name: '导出日志', parent: 'system:log' },
+  { code: 'purchase:approve', name: '采购审批', parent: 'purchase' },
 ];
 
 // 各角色拥有的权限码（菜单 + 按钮）
@@ -154,11 +167,14 @@ const ROLE_PERMISSIONS = {
     'supplier:add', 'supplier:edit', 'supplier:delete',
     'purchase:add', 'purchase:edit', 'purchase:delete', 'purchase:request', 'purchase:comparison',
     'service:add', 'service:edit', 'service:delete',
-    'invoice:add', 'invoice:edit', 'invoice:delete', 'invoice:export',
     'system:user:add', 'system:user:edit', 'system:user:delete',
     'system:role:add', 'system:role:edit', 'system:role:delete', 'system:role:permission',
     'approval:approve', 'backup:add', 'backup:restore',
-    'file', 'file:upload'
+    'file', 'file:upload',
+    'search', 'tag', 'contract_template', 'data_quality:check', 'log:export',
+    'recycle_bin:view', 'data:restore', 'finance',
+    'competitor:view', 'competitor:add', 'competitor:edit', 'competitor:delete',
+    'email:send', 'leads:view', 'leads:convert', 'purchase:approve'
   ],
   manager: [
     'dashboard', 'customer', 'customer:list', 'pool', 'pool:view', 'pool:claim', 'customer:release', 'followup:calendar', 'followup:template',
@@ -173,9 +189,11 @@ const ROLE_PERMISSIONS = {
     'supplier:add', 'supplier:edit', 'supplier:delete',
     'purchase:add', 'purchase:edit', 'purchase:delete', 'purchase:request', 'purchase:comparison',
     'service:add', 'service:edit', 'service:delete',
-    'invoice:add', 'invoice:edit', 'invoice:delete', 'invoice:export',
     'approval:approve',
-    'file', 'file:upload'
+    'file', 'file:upload',
+    'search', 'tag', 'contract_template', 'data_quality:check',
+    'competitor:view', 'competitor:add', 'competitor:edit', 'competitor:delete',
+    'email:send', 'leads:view', 'leads:convert', 'purchase:approve'
   ],
   sales: [
     'dashboard', 'customer', 'customer:list', 'pool', 'pool:view', 'pool:claim', 'followup:calendar', 'followup:template',
@@ -186,33 +204,38 @@ const ROLE_PERMISSIONS = {
     'quotation:add', 'quotation:edit', 'quotation:delete',
     'contract:add', 'contract:edit', 'contract:delete',
     'approval:approve',
-    'file', 'file:upload'
+    'file', 'file:upload',
+    'search', 'tag', 'email:send', 'leads:view', 'leads:convert'
   ],
   hr: [
     'dashboard', 'hr', 'calendar', 'knowledge', 'email', 'notification', 'survey',
     'system:user', 'system:dept', 'system:log',
     'system:user:add', 'system:user:edit', 'system:user:delete',
-    'file', 'file:upload'
+    'file', 'file:upload',
+    'search', 'tag', 'email:send'
   ],
   purchase: [
     'dashboard', 'supplier', 'purchase', 'product', 'calendar', 'knowledge', 'email', 'notification', 'survey',
     'supplier:add', 'supplier:edit', 'supplier:delete',
     'purchase:add', 'purchase:edit', 'purchase:delete', 'purchase:request', 'purchase:comparison',
     'product:add', 'product:edit', 'product:delete',
-    'file', 'file:upload'
+    'file', 'file:upload',
+    'search', 'tag', 'email:send', 'purchase:approve'
   ],
   finance: [
     'dashboard', 'contract', 'payment', 'payment:view', 'invoice', 'report', 'calendar', 'knowledge',
     'email', 'notification', 'survey',
     'contract:view', 'contract:edit',
     'invoice:add', 'invoice:edit', 'invoice:delete', 'invoice:export',
-    'file', 'file:upload'
+    'file', 'file:upload',
+    'search', 'tag', 'email:send', 'finance'
   ],
   engineer: [
     'dashboard', 'service', 'product', 'knowledge', 'calendar', 'email', 'notification', 'survey',
     'service:add', 'service:edit', 'service:delete',
     'product:view',
-    'file', 'file:upload'
+    'file', 'file:upload',
+    'search', 'tag', 'email:send'
   ]
 };
 
@@ -221,12 +244,12 @@ const DATA_PERMISSIONS = {
   boss: {
     customer: 'all', opportunity: 'all', contract: 'all', supplier: 'all', purchase: 'all',
     quotation: 'all', service: 'all', finance: 'all', approval: 'all', knowledge: 'all',
-    competitor: 'all', report: 'all', invoice: 'all', survey: 'all', product: 'all'
+    competitor: 'all', report: 'all', survey: 'all', product: 'all'
   },
   manager: {
     customer: 'dept_and_sub', opportunity: 'dept_and_sub', contract: 'dept_and_sub',
     quotation: 'dept_and_sub', supplier: 'dept_and_sub', purchase: 'dept_and_sub',
-    service: 'dept_and_sub', invoice: 'dept_and_sub', report: 'dept_and_sub',
+    service: 'dept_and_sub', report: 'dept_and_sub',
     approval: 'dept_and_sub', knowledge: 'dept_and_sub', survey: 'dept_and_sub',
     product: 'dept_and_sub'
   },
@@ -238,7 +261,7 @@ const DATA_PERMISSIONS = {
     system: 'all', knowledge: 'dept', survey: 'dept'
   },
   purchase: {
-    supplier: 'dept', purchase: 'dept', product: 'dept', invoice: 'dept'
+    supplier: 'dept', purchase: 'dept', product: 'dept'
   },
   finance: {
     contract: 'all', payment: 'all', invoice: 'all', report: 'all', finance: 'all',
@@ -269,6 +292,13 @@ async function main() {
       [p.name, p.code, parentId]
     );
   }
+
+  // 2b. 规范化历史类型：098 迁移曾以 type='api' 写入以下操作码，
+  //     统一为 button（操作按钮权限）；权限校验按 code 匹配，类型不影响功能
+  await pool.query(
+    `UPDATE sys_permission SET type = 'button'
+     WHERE code IN ('pool:view', 'pool:claim', 'customer:release', 'leads:view', 'leads:convert')`
+  );
 
   // 3. 获取角色映射
   const [roles] = await pool.query('SELECT id, code FROM sys_role');
@@ -367,6 +397,10 @@ async function main() {
   }
 
   await pool.end();
+
+  // 显式退出：config/database → utils/alert 中的 5 分钟 setInterval 会挂住事件循环，
+  // 不退出会导致 docker exec 等调用方永远等待
+  process.exit(0);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });

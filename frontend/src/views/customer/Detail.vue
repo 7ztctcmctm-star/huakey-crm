@@ -564,7 +564,8 @@ const loading = ref(false)
 const { userInfo } = useUser()
 // 统一使用 manageAll/roleCode，禁止依赖固定数字 roleId
 const isBoss = computed(() => userInfo.value?.manageAll === true)
-const isManager = computed(() => userInfo.value?.roleCode === 'admin')
+// 部门经理 code 现为 'manager'（'admin' 为历史遗留 code，保留兼容）
+const isManager = computed(() => ['manager', 'admin'].includes(userInfo.value?.roleCode || ''))
 const salesUsers = ref([])
 
 const fetchSalesUsers = async () => {

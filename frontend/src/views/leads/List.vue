@@ -55,7 +55,9 @@
           </template>
         </el-table-column>
         <el-table-column prop="industry" label="行业" width="120" show-overflow-tooltip />
-        <el-table-column prop="create_time" label="创建时间" width="160" />
+        <el-table-column prop="create_time" label="创建时间" width="160">
+          <template #default="{ row }">{{ formatTime(row.create_time) }}</template>
+        </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="handleConvert(row)" v-permission="'leads:convert'">转为正式</el-button>
@@ -98,6 +100,7 @@ import CustomerFormDialog from '@/views/customer/components/CustomerFormDialog.v
 import { getLeadsPool, convertLeadToFormal } from '@/api/leads'
 import { addCustomer } from '@/api/customer'
 import { SOURCE_SEARCH_OPTIONS } from '@/constants/source'
+import { formatTime } from '@/composables/useFormat'
 
 const router = useRouter()
 

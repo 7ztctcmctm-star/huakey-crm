@@ -129,8 +129,8 @@ const switchViewMode = () => {
 // 统一使用 manageAll/roleCode，禁止依赖固定数字 roleId
 // super_admin/boss 由 sys_role.manage_all=1 标记 → manageAll=true
 const isBoss = computed(() => userInfo.value?.manageAll === true)
-// manager 对应 roleCode='admin'
-const isManager = computed(() => userInfo.value?.roleCode === 'admin')
+// 部门经理 code 现为 'manager'（'admin' 为历史遗留 code，保留兼容）
+const isManager = computed(() => ['manager', 'admin'].includes(userInfo.value?.roleCode || ''))
 const selectedRows = ref([])
 const batchNewOwnerId = ref('')
 const salesUsers = ref([])

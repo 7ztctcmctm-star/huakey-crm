@@ -60,7 +60,7 @@ const checkDataPermission = (module, ownerColumn = 'owner_id') => {
 
       // 超级管理员直接通过
       if (ADMIN_ROLE_CODES.has(req.user.roleCode) || req.user.manageAll) {
-        req.dataPermission = { type: 'all', ownerColumn };
+        req.dataPermission = { type: 'all', ownerColumn, module };
         return next();
       }
 
@@ -70,12 +70,13 @@ const checkDataPermission = (module, ownerColumn = 'owner_id') => {
 
       if (!config) {
         // 默认只能看自己的数据
-        req.dataPermission = { type: 'self', userId, ownerColumn };
+        req.dataPermission = { type: 'self', userId, ownerColumn, module };
       } else {
         req.dataPermission = {
           type: config.data_scope,
           userId,
           ownerColumn,
+          module,
           customDeptIds: config.custom_dept_ids
         };
       }
@@ -131,7 +132,13 @@ const buildDataPermissionWhere = async (dataPermission, tableAlias = 't') => {
     }
 
     case 'self':
-      return { clause: `(${column} = ? OR (${column} IS NULL AND ${tableAlias}.status IN ('lead', 'sea')))`, params: [userId] };
+      // 公海兜底（owner 为空且 status 为 lead/sea）仅适用于 customer 模块；
+      // 其他模块（opportunity/quote/contract/report/approval 等）没有该语义，
+      // 且部分表没有 status 列（如 crm_opportunity），硬拼会导致 Unknown column 500
+      if (dataPermission.module === 'customer') {
+        return { clause: `(${column} = ? OR (${column} IS NULL AND ${tableAlias}.status IN ('lead', 'sea')))`, params: [userId] };
+      }
+      return { clause: `${column} = ?`, params: [userId] };
 
     case 'custom':
       if (customDeptIds) {

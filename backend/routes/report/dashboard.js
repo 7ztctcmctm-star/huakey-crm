@@ -8,7 +8,7 @@ const pool = require('../../config/database');
 const logger = require('../../config/logger');
 
 // 概览数据（首页仪表盘）
-router.get('/overview', authenticateToken, checkPermission('report'), createCache(600, (req) => `report:overview:${req.user.userId}`), async (req, res, next) => {
+router.get('/overview', authenticateToken, checkPermission('dashboard'), createCache(600, (req) => `report:overview:${req.user.userId}`), async (req, res, next) => {
   try {
     const data = await dashboardService.getOverview(pool, req.user.userId, req.user.roleId);
     res.json({ code: 200, message: '查询成功', data });
@@ -19,7 +19,7 @@ router.get('/overview', authenticateToken, checkPermission('report'), createCach
 });
 
 // 今日待办
-router.get('/today-tasks', authenticateToken, checkPermission('report'), cache(30), async (req, res, next) => {
+router.get('/today-tasks', authenticateToken, checkPermission('dashboard'), cache(30), async (req, res, next) => {
   try {
     const data = await dashboardService.getTodayTasks(pool, req.user.userId, req.user.roleId);
     res.json({ code: 200, message: '查询成功', data });
@@ -30,7 +30,7 @@ router.get('/today-tasks', authenticateToken, checkPermission('report'), cache(3
 });
 
 // 快捷操作统计
-router.get('/quick-stats', authenticateToken, checkPermission('report'), cache(120), async (req, res, next) => {
+router.get('/quick-stats', authenticateToken, checkPermission('dashboard'), cache(120), async (req, res, next) => {
   try {
     const data = await dashboardService.getQuickStats(pool, req.user.userId, req.user.roleId);
     res.json({ code: 200, message: '查询成功', data });
@@ -41,7 +41,7 @@ router.get('/quick-stats', authenticateToken, checkPermission('report'), cache(1
 });
 
 // 逾期统计（仪表盘用）
-router.get('/overdue-stats', authenticateToken, checkPermission('report'), async (req, res, next) => {
+router.get('/overdue-stats', authenticateToken, checkPermission('dashboard'), async (req, res, next) => {
   try {
     const data = await dashboardService.getOverdueStats(pool, req.user.userId, req.user.roleId);
     res.json({ code: 200, message: '查询成功', data });

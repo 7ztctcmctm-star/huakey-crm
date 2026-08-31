@@ -17,7 +17,8 @@ const { userInfo } = useUser()
 
 const dashboardType = computed(() => {
   const rc = userInfo.value?.roleCode || ''
-  if (['super_admin', 'admin', 'boss'].includes(rc)) return 'manager'
+  // 'manager' 为现库部门经理 code；'admin'/'super_admin' 为历史遗留 code，保留兼容
+  if (['super_admin', 'admin', 'boss', 'manager'].includes(rc)) return 'manager'
   if (['purchase', 'hr', 'finance', 'engineer'].includes(rc)) return 'purchase'
   return 'sales'
 })

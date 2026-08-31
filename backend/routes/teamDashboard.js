@@ -22,7 +22,7 @@ const urgeFollowupSchema = Joi.object({
 // 老板团队跟单全景视图 API
 
 // 1. 团队总览卡片数据
-router.get('/overview', authenticateToken, checkPermission('team'), async (req, res, next) => {
+router.get('/overview', authenticateToken, checkPermission('team-dashboard'), async (req, res, next) => {
   try {
     const isBoss = req.user.viewAll || ROLES.ADMIN_ROLE_CODES.has(req.user.roleCode);
     const { startDate, endDate } = req.query;
@@ -37,7 +37,7 @@ router.get('/overview', authenticateToken, checkPermission('team'), async (req, 
 });
 
 // 2. 每个销售的实况卡片
-router.get('/sales-breakdown', authenticateToken, checkPermission('team'), async (req, res, next) => {
+router.get('/sales-breakdown', authenticateToken, checkPermission('team-dashboard'), async (req, res, next) => {
   try {
     const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
     const data = await teamDashboardService.getSalesBreakdown(pool, {
@@ -51,7 +51,7 @@ router.get('/sales-breakdown', authenticateToken, checkPermission('team'), async
 });
 
 // 3. 下钻：某个销售的逾期未跟进客户明细
-router.post('/sales-overdue-customers', authenticateToken, checkPermission('team'), validate(salesDrilldownSchema), async (req, res, next) => {
+router.post('/sales-overdue-customers', authenticateToken, checkPermission('team-dashboard'), validate(salesDrilldownSchema), async (req, res, next) => {
   try {
     const { user_id, page = 1, pageSize = 20 } = req.body;
     if (!user_id) {
@@ -66,7 +66,7 @@ router.post('/sales-overdue-customers', authenticateToken, checkPermission('team
 });
 
 // 4. 下钻：某个销售的所有客户列表
-router.post('/sales-customers', authenticateToken, checkPermission('team'), validate(salesDrilldownSchema), async (req, res, next) => {
+router.post('/sales-customers', authenticateToken, checkPermission('team-dashboard'), validate(salesDrilldownSchema), async (req, res, next) => {
   try {
     const { user_id, page = 1, pageSize = 20 } = req.body;
     if (!user_id) {
@@ -81,7 +81,7 @@ router.post('/sales-customers', authenticateToken, checkPermission('team'), vali
 });
 
 // 5. 催办：主管对销售员的逾期客户发起跟进催促
-router.post('/urge-followup', authenticateToken, checkPermission('team'), validate(urgeFollowupSchema), async (req, res, next) => {
+router.post('/urge-followup', authenticateToken, checkPermission('team-dashboard'), validate(urgeFollowupSchema), async (req, res, next) => {
   try {
     const { customer_id, user_id } = req.body;
     const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
@@ -112,7 +112,7 @@ router.post('/urge-followup', authenticateToken, checkPermission('team'), valida
 });
 
 // 6. 获取待审批列表（报价+合同，供团队看板直接审批）
-router.get('/pending-approvals', authenticateToken, checkPermission('team'), async (req, res, next) => {
+router.get('/pending-approvals', authenticateToken, checkPermission('team-dashboard'), async (req, res, next) => {
   try {
     const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
     if (!isBoss) {
@@ -127,7 +127,7 @@ router.get('/pending-approvals', authenticateToken, checkPermission('team'), asy
 });
 
 // 8. 卡住的商机（阶段停留超过N天未推进）
-router.get('/stuck-opportunities', authenticateToken, checkPermission('team'), async (req, res, next) => {
+router.get('/stuck-opportunities', authenticateToken, checkPermission('team-dashboard'), async (req, res, next) => {
   try {
     const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
     if (!isBoss) {
