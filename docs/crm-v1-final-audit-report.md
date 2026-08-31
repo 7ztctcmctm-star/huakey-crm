@@ -17,10 +17,10 @@
 | 全量用户权限（维度八） | ✅ 体系健康：路由 86 码/前端 43 码全部有定义、无用户级越权、数据权限矩阵与代码一致 |
 | 历史问题闭环 | ✅ 2026-08-18 审计 11 项高危全部闭环；上轮最终审计 22 项中 19 项闭环 |
 | 数据库 | ✅ 禁用语法清零、schema_migrations 107 条与迁移文件结构吻合 |
-| 备份灾备 | 🔴 **MySQL 每日备份正常，但 uploads/config/证书备份自 08-06/08-07 起停摆** |
-| 交付一致性 | 🔴 **生产正在运行未提交的工作区代码**（含高危修复），Git 与生产脱节 |
+| 备份灾备 | ✅ **已修复（2026-08-31）**：backup 服务重写为三合一调度器，MySQL/uploads/config+证书 每日 02:00/02:30/02:45 全覆盖，已在生产验证 |
+| 交付一致性 | ✅ **已修复（2026-08-31）**：全部 34 个文件变更分 5 批提交并推送（36c525b…a6950b0），Git 与生产一致 |
 
-**综合结论**：代码与安全层面达到交付条件，权限体系经全量核对健康。但存在 **2 项 P0 交付风险**（生产代码未入库、灾备缺口）与 **1 项 P1 配置未生效**（nginx 新 TLS 配置未 reload），须在本次发版闭环前处理。
+**综合结论**：代码与安全层面达到交付条件，权限体系经全量核对健康。审计发现的 2 项 P0（生产代码未入库、灾备缺口）与 P1 配置项已于 2026-08-31 全部修复（详见 §九 修复执行记录）。剩余待办为人工确认项（NAS 密码轮换、休眠账号治理）。
 
 ---
 
@@ -149,17 +149,17 @@ DB 中定义存在但无任何角色授予且无路由/前端使用的 12 个权
 
 ---
 
-## 六、上线/发版前必做动作清单
+## 六、上线/发版前必做动作清单（含修复执行状态）
 
-- [ ] **P0** 提交并推送全部 29+3 工作区变更（含 customReportService.test.js 与 sync-prod.bat）
-- [ ] **P0** 修复备份调度（huakey-backup 容器），验证 uploads/config/证书备份恢复每日执行
-- [ ] **P1** `docker exec huakey-nginx nginx -s reload` 并复验 HSTS 头生效
-- [ ] **P1** 人工确认 NAS 密码已轮换；未轮换则立即轮换 + 文档脱敏
-- [ ] **P1** 确认 04:00 MySQL 备份的 DSM 调度任务归属（与修复后的备份体系统一）
-- [ ] **P1** 清理 temp-deploy 容器
-- [ ] **P1** 13 个休眠账号在职确认/禁用
-- [ ] **P2** NAS 上 `.env.secrets` 权限 600 复核
-- [ ] **P2** 推动客户归属分配与业务数据录入（商机→报价→合同链路）
+- [x] **P0** 提交并推送全部工作区变更 ✅ 2026-08-31 完成（5 个提交，见 §九）
+- [x] **P0** 修复备份调度 ✅ 2026-08-31 完成（container-backup.sh 三合一调度器，--once 双轮验证通过）
+- [x] **P1** nginx reload 并复验 HSTS ✅ 2026-08-31 完成（另补 XFO 去重，见 §九 勘误）
+- [ ] **P1** 人工确认 NAS 密码已轮换；未轮换则立即轮换 + 文档脱敏 ⏳ 待人工
+- [x] **P1** 确认 04:00 MySQL 备份的调度归属 ✅ 已查明：宿主机 `/etc/cron.d/crm-backup` → `/usr/local/bin/crm-backup.sh`（root 属主），保留为 MySQL 双保险
+- [x] **P1** temp-deploy 容器处置 ✅ 2026-08-31 已停止（Exited 0，restart=no）；其数据卷 `huakey-crm-deploy_mysql-data`（旧部署布局的数据库）保留，是否删除待人工确认
+- [ ] **P1** 13 个休眠账号在职确认/禁用 ⏳ 待人工（业务决策）
+- [x] **P2** NAS 上 `.env.secrets` 权限 600 复核 ✅ 已验证（`-rw------- syadmin users`）
+- [ ] **P2** 推动客户归属分配与业务数据录入 ⏳ 待业务（商机→报价→合同链路）
 
 ---
 
@@ -189,4 +189,44 @@ ssh nas-crm "ls -lt /volume1/docker/crm-stack/database/backups/ | head"
 
 ---
 
-*本报告基于 2026-08-31 对 `fix/v1.0.1-security-patch` 工作区、生产容器与生产库（只读）的实测结果。上轮报告：[crm-v1.0.1-final-pre-launch-audit.md](./crm-v1.0.1-final-pre-launch-audit.md)。*
+## 九、修复执行记录（2026-08-31）
+
+审计完成后当日执行的修复，全部已在生产环境验证：
+
+### 9.1 P0-2 备份调度修复
+
+| 项 | 内容 |
+|---|---|
+| 根因 | backup 服务基于 mysql:8.0 镜像执行 `crond -f`，镜像内无 crond 命令 → 容器自部署起无限崩溃（exit 127），uploads/config/证书备份从未执行 |
+| 04:00 MySQL 备份归属（已查明） | 宿主机 `/etc/cron.d/crm-backup` → `/usr/local/bin/crm-backup.sh`（root 属主，2026-07-20 创建），独立于崩溃容器持续运行 |
+| 修复 | 新增 [deploy/backup/container-backup.sh](../deploy/backup/container-backup.sh)：纯 shell 定点等待循环（无 crond 依赖），每日 02:00 MySQL（复用 database/backup.sh）/ 02:30 uploads / 02:45 配置+证书；重写 compose backup 服务挂载（uploads volume + 关键配置文件只读挂载 + localtime） |
+| 验证 | 两轮 `--once` 手动执行：MySQL dump 617KB、uploads 归档（4 文件）、config 归档（8 文件，含 .env.secrets + 4 证书 + nginx.conf + compose）全部生成；config 目录 700/归档 600、全部 MySQL dump 收紧 600；容器稳定 Up、调度器等待 02:00；宿主机 04:00 任务保留为双保险 |
+| 限制说明 | DSM 层 nginx 反代配置（/usr/local/etc/nginx/conf.d/）在容器可见范围外，不在自动备份内（该文件可按 docs/crm-v1-internal-domain-deployment.md 重建） |
+
+### 9.2 P0-1 提交与推送
+
+| 提交 | 内容 |
+|---|---|
+| `36c525b` fix(security) | SQL 注入修复 + 4 个回归用例 + logout HS256 + csrf 豁免 |
+| `50d30f3` fix(rbac) | 权限码/角色码对齐（17 文件） |
+| `3b66f70` fix(backup) | backup 服务重写 + container-backup.sh |
+| `3caeab4` fix(deploy) | nginx XFO 去重 + Dockerfile 竞态 + CORS 模板 + sync-prod.bat |
+| `a6950b0` docs | 两份审计报告 |
+
+已推送 `origin/fix/v1.0.1-security-patch`（bb651a6..a6950b0，共 11 个提交）。
+
+### 9.3 P1-3 勘误与加固
+
+- **勘误**：审计时判定"nginx 未加载新配置（无 HSTS）"系**误判**——验证时 `head -14` 截断了响应头（nginx 的 add_header 追加在 28 行头部列表的第 21 行），HSTS 实际自 nginx 容器启动起已生效。
+- **本轮已完成**：`nginx -t` + `nginx -s reload` 复核；发现 X-Frame-Options 重复（helmet SAMEORIGIN 在前削弱 nginx DENY），补 `proxy_hide_header X-Frame-Options` 后 XFO 唯一为 DENY。
+- **端到端验证**：`curl --resolve crm.huakey.local:443:127.0.0.1` 走完整链路（DSM 443 → 容器 8443 → app:5000），health 正常（v1.5.1，db/redis ok），HSTS 贯穿生效。注：NAS 本机不解析 crm.huakey.local（DSM DNS 不回环应答），本机测试需用 --resolve 或 localhost:8443。
+
+### 9.4 其他完成项
+
+- **temp-deploy**：已 `docker stop`（Exited 0，restart=no 不复活）；数据卷 `huakey-crm-deploy_mysql-data` 保留（旧部署布局的历史数据库，是否删除待人工确认）
+- **.env.secrets 权限**：验证为 `-rw------- syadmin users`（600）✅
+- **compose 旧版备份**：NAS 上 `docker-compose.synology.yml.bak.20260831`（修改前快照）
+
+---
+
+*本报告基于 2026-08-31 对 `fix/v1.0.1-security-patch` 工作区、生产容器与生产库（只读）的实测结果；§九 修复记录为同日执行并验证。上轮报告：[crm-v1.0.1-final-pre-launch-audit.md](./crm-v1.0.1-final-pre-launch-audit.md)。*
