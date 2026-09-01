@@ -1,16 +1,17 @@
 FROM node:22-alpine
 
-# 安全基线：刷新 OS 包（OpenSSL 等 alpine CVE 修复）并升级镜像内捆绑 npm
-# （官方 node 镜像捆绑的 npm 工具链依赖存在 CRITICAL CVE，如 tar/pacote/brace-expansion）
-RUN apk upgrade --no-cache && \
-    npm install -g npm@latest && \
-    rm -rf /root/.npm
+# 安全基线：刷新 alpine OS 包（OpenSSL 等 CVE 修复）
+RUN apk upgrade --no-cache
 
 WORKDIR /app
 COPY package.json package-lock.json* ./
-# --allow-remote=root: npm 12 默认禁止 remote tarball；root 仅放行 package.json 显式声明的 URL 依赖
-# （xlsx 走 SheetJS 官方 CDN，registry 版本停更且有已知漏洞）
-RUN npm ci --omit=dev --allow-remote=root
+RUN npm ci --omit=dev
+
+# 运行时仅需 node：移除 npm 工具链，消除其捆绑依赖的 CVE 暴露面
+# （npm 12.0.2 的 tar/ip-address/brace-expansion 仍带 CRITICAL CVE，官方尚未修复；
+#   应用启动为 node app.js，不依赖 npm/npx）
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /root/.npm
+
 COPY . .
 RUN addgroup -S nodejs && adduser -S nodejs -G nodejs && chown -R nodejs:nodejs /app
 USER nodejs
