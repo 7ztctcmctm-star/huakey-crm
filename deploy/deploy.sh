@@ -130,7 +130,8 @@ done
 echo ""
 echo "[8/12] 等待 App 容器完成数据库迁移..."
 for i in $(seq 1 60); do
-    if docker logs huakey-app 2>&1 | grep -q "服务已启动"; then
+    # [fix 2026-09-01] 日志格式早已改为 "[服务器] 启动成功"，旧关键字 "服务已启动" 永不匹配导致部署假失败
+    if docker logs huakey-app 2>&1 | grep -q "启动成功"; then
         echo "  ✓ App 服务已启动（第 $i 次检查）"
         break
     fi
