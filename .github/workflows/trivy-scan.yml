@@ -22,6 +22,7 @@ jobs:
   scan-images:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
           - dockerfile: "backend/Dockerfile"
