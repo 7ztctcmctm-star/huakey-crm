@@ -47,7 +47,7 @@ jobs:
 
       - name: Run Trivy vulnerability scanner
         id: trivy
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: "crm-scan:${{ steps.vars.outputs.tag }}"
           format: "sarif"
