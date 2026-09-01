@@ -8,7 +8,8 @@ RUN apk upgrade --no-cache && \
 
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev
+# --allow-remote: npm 12 默认禁止 remote tarball 依赖，xlsx 走 SheetJS 官方 CDN（registry 版本停更且有漏洞）
+RUN npm ci --omit=dev --allow-remote
 COPY . .
 RUN addgroup -S nodejs && adduser -S nodejs -G nodejs && chown -R nodejs:nodejs /app
 USER nodejs
