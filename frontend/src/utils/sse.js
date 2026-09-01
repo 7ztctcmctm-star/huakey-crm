@@ -23,6 +23,7 @@ export function connectSSE(callbacks = {}) {
   if (eventSource) return
 
   stopped = false
+  ensureVisibilitySelfHeal()
   const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1'
   const url = `${baseUrl}/sse/notifications`
 
@@ -46,7 +47,14 @@ export function connectSSE(callbacks = {}) {
 
   eventSource.onerror = (err) => {
     if (callbacks.onError) callbacks.onError(err)
-    disconnectSSE()
+    // [fix] 仅关闭连接，不走 disconnectSSE（它会置 stopped=true，
+    // 使下方 if (!stopped) 恒为 false，重连逻辑成为死代码——
+    // 任何一次网络抖动后通知将静默失联直到刷新页面）。
+    // stopped 专用于登出时的主动断开。
+    if (eventSource) {
+      eventSource.close()
+      eventSource = null
+    }
     if (!stopped) {
       scheduleReconnect(callbacks)
     }
@@ -97,4 +105,22 @@ export function reconnectSSE(callbacks = {}) {
   disconnectSSE()
   stopped = false
   connectSSE(callbacks)
+}
+
+// [fix] 可见性自愈：用户回到页面（休眠唤醒/切换标签页回来）时，
+// 若连接已断且非登出主动停止，立即重置退避计数并恢复连接。
+// 同时兜底重连次数耗尽（MAX_RECONNECT_ATTEMPTS）后不再自愈的问题。
+// 惰性注册：仅在首次 connectSSE（登录后布局挂载）时注册，
+// 避免登录页未认证状态下对 401 空转重连。
+let visibilitySelfHealRegistered = false
+
+function ensureVisibilitySelfHeal() {
+  if (visibilitySelfHealRegistered || typeof document === 'undefined') return
+  visibilitySelfHealRegistered = true
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && !eventSource && !stopped) {
+      reconnectAttempts = 0
+      connectSSE({})
+    }
+  })
 }
