@@ -96,8 +96,12 @@ beforeAll(async () => {
 
   await adminPool.end();
 
-  // 先运行全部正向迁移，建立完整 schema
+  // 进入"迁移链重放态"：深回滚到最老测试版本后全量重放。
+  // 背景：init-complete 基线快照与迁移链终态存在历史漂移（列注释/字符集等），
+  // 以基线态为对比基准必然失败；roundtrip 的本意是验证 down→up 的往返保真，
+  // 故 before/after 统一取迁移链重放态（CI 基线导入 + 全版本标记后，runMigration 为空操作）
   try {
+    runMigration('--rollback 002');
     runMigration();
   } catch (err) {
     console.warn(`[migration-roundtrip] 迁移执行失败: ${err.message}，跳过往返测试`);
@@ -112,7 +116,7 @@ beforeAll(async () => {
     database: DB_NAME,
     multipleStatements: true
   });
-}, 60000);
+}, 300000);
 
 afterAll(async () => {
   if (pool) await pool.end();
@@ -124,6 +128,23 @@ afterAll(async () => {
 async function getTableSchema(tableName) {
   const [rows] = await pool.query(`SHOW CREATE TABLE \`${tableName}\``);
   return rows[0]?.['Create Table'] || '';
+}
+
+/**
+ * 规范化表结构 DDL 用于对比：
+ * SHOW CREATE TABLE 中 KEY/CONSTRAINT 的显示顺序 = 索引创建顺序，
+ * down→up 重放后索引重建顺序天然可能与首轮不同（如 008/021 分批加的 deleted_at 索引），
+ * 属 DDL 固有现象而非结构漂移。故列定义保持原序，键定义统一排序后对比。
+ */
+function normalizeTableSchema(ddl) {
+  if (!ddl) return ddl;
+  const lines = ddl.split('\n');
+  const closingIdx = lines.findIndex(l => l.trim().startsWith(') ENGINE'));
+  if (closingIdx === -1) return ddl;
+  const body = lines.slice(1, closingIdx).map(l => l.trim().replace(/,$/, ''));
+  const cols = body.filter(l => l.startsWith('`'));
+  const keys = body.filter(l => /^(UNIQUE KEY|KEY|FULLTEXT KEY|SPATIAL KEY|PRIMARY KEY|CONSTRAINT)/.test(l)).sort();
+  return [lines[0], ...cols, ...keys, lines[closingIdx]].join('\n');
 }
 
 
@@ -194,11 +215,11 @@ describe('数据库迁移 roundtrip 测试', () => {
       // 3. 重新执行所有正向迁移
       runMigration();
 
-      // 4. 对比关键表结构
+      // 4. 对比关键表结构（规范化后：键定义排序，消除 down→up 索引重建顺序差异）
       for (const table of KEY_TABLES) {
         if (schemasBefore[table]) {
           const schemaAfter = await getTableSchema(table);
-          expect(schemaAfter).toBe(schemasBefore[table]);
+          expect(normalizeTableSchema(schemaAfter)).toBe(normalizeTableSchema(schemasBefore[table]));
         }
       }
     }, 120000);

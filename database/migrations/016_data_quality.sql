@@ -91,5 +91,4 @@ INSERT IGNORE INTO sys_permission (name, code, type, parent_id, sort) VALUES
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT 1, id FROM sys_permission WHERE code = 'data_quality:check';
 
--- 8. 记录迁移版本
-INSERT IGNORE INTO schema_migrations (version, name) VALUES ('016', '基础数据质量保障');
+-- 8. 迁移版本由 run_migrations.js 统一以文件名注册（内嵌中文自注册破坏 rollback 的 down 文件定位）

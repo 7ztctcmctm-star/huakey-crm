@@ -57,5 +57,5 @@ SET @idx_exists = (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABL
 SET @sql = IF(@idx_exists = 0, 'ALTER TABLE crm_customer ADD INDEX idx_customer_deleted_at (deleted_at)', 'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- 记录迁移版本
-INSERT IGNORE INTO schema_migrations (version, name) VALUES ('017', '性能优化索引');
+-- 迁移版本由 run_migrations.js 统一以文件名注册（英文 name 用于定位 _down.sql，
+-- 内嵌中文自注册会覆盖文件名导致 rollback 拼不出 down 文件路径，破坏往返对称性）

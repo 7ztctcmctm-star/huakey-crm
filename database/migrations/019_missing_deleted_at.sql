@@ -85,5 +85,4 @@ SET @col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_S
 SET @sql = IF(@tbl_exists > 0 AND @col_exists = 0, 'ALTER TABLE crm_supplier_rating ADD COLUMN deleted_at DATETIME DEFAULT NULL COMMENT ''软删除时间''', 'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- 记录迁移版本
-INSERT IGNORE INTO schema_migrations (version, name) VALUES ('019', '补充缺失的deleted_at软删除字段');
+-- 迁移版本由 run_migrations.js 统一以文件名注册（内嵌中文自注册破坏 rollback 的 down 文件定位）
