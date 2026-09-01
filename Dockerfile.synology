@@ -21,7 +21,11 @@ WORKDIR /app
 # 安装后端依赖
 COPY backend/package.json backend/package-lock.json* ./
 # 安装 mysql-client 以支持应用内数据库备份
-RUN apk add --no-cache mysql-client
+# 安全基线：apk upgrade 刷新 OS 包（OpenSSL 等 alpine CVE 修复），升级镜像内捆绑 npm
+# （官方 node 镜像捆绑的 npm 工具链依赖存在 CRITICAL CVE，如 tar/pacote/brace-expansion）
+RUN apk upgrade --no-cache && \
+    apk add --no-cache mysql-client && \
+    npm install -g npm@latest
 RUN rm -rf /root/.npm /tmp/npm-cache && \
     ( npm ci --omit=dev --no-audit --no-fund --cache /tmp/npm-cache || \
       npm ci --omit=dev --no-audit --no-fund --cache /tmp/npm-cache )
