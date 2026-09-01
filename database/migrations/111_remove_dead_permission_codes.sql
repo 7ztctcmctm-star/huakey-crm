@@ -1,5 +1,7 @@
 -- ============================================================
--- 109: 清理死权限码（终审报告 §3.4 / P2-1）
+-- 111: 清理死权限码（终审报告 §3.4 / P2-1）
+-- 注：原编号 109，因生产库已应用未入库的 109_follow_up_opportunity
+--     （migrate.js 按数字前缀去重，109 版本号已被占用），改号为 111。
 -- ============================================================
 -- 背景：
 --   八维度终审审计确认以下权限码在 DB 中定义存在，但既无路由
@@ -55,7 +57,7 @@ WHERE code IN (
 );
 
 -- 3. 验证：死码应已删除（应为 0 行）
-SELECT '=== 109 验证：死码残留（应为 0）===' AS info;
+SELECT '=== 111 验证：死码残留（应为 0）===' AS info;
 SELECT code FROM sys_permission
 WHERE code IN (
   'approval:view', 'customer:manage', 'followup_template',
@@ -65,7 +67,7 @@ WHERE code IN (
 );
 
 -- 4. 验证：leads 容器菜单及其活子节点应保留
-SELECT '=== 109 验证：leads 菜单树应完整保留 ===' AS info;
+SELECT '=== 111 验证：leads 菜单树应完整保留 ===' AS info;
 SELECT p.code, p.name, p.type, p.is_visible
 FROM sys_permission p
 WHERE p.code = 'leads'

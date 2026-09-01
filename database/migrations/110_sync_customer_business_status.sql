@@ -1,5 +1,7 @@
 -- ============================================================
--- 108: crm_customer.status / business_status 存量对账（NI-3 终局修复）
+-- 110: crm_customer.status / business_status 存量对账（NI-3 终局修复）
+-- 注：原编号 108，因生产库已应用未入库的 108_contract_cancel_fields
+--     （migrate.js 按数字前缀去重，108 版本号已被占用），改号为 110。
 -- ============================================================
 -- 背景：
 --   NI-3（docs/crm-v1-known-issues.md）：历史上部分写路径更新 status
@@ -46,7 +48,7 @@ WHERE status IN ('sea', 'paused')
   AND deleted_at IS NULL;
 
 -- 验证一：剩余不一致行数（应为 0）
-SELECT '=== 108 对账后剩余漂移行数（应为 0）===' AS info;
+SELECT '=== 110 对账后剩余漂移行数（应为 0）===' AS info;
 SELECT COUNT(*) AS remaining_drift
 FROM crm_customer
 WHERE deleted_at IS NULL
@@ -56,7 +58,7 @@ WHERE deleted_at IS NULL
   );
 
 -- 验证二：status × business_status 交叉分布（供人工复核）
-SELECT '=== 108 对账后 status × business_status 分布 ===' AS info;
+SELECT '=== 110 对账后 status × business_status 分布 ===' AS info;
 SELECT status, business_status, COUNT(*) AS cnt
 FROM crm_customer
 WHERE deleted_at IS NULL

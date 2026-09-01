@@ -1,5 +1,5 @@
 -- ============================================================
--- 108_down: 回滚 status / business_status 对账
+-- 110_down: 回滚 status / business_status 对账
 -- ============================================================
 -- 说明：
 --   - 本迁移为纯数据修正（无 DDL），回滚不恢复旧值——旧值本身就是
@@ -12,7 +12,7 @@
 -- ============================================================
 
 -- 复核：当前 status × business_status 分布
-SELECT '=== 108_down 复核：status × business_status 分布（无数据回滚）===' AS info;
+SELECT '=== 110_down 复核：status × business_status 分布（无数据回滚）===' AS info;
 SELECT status, business_status, COUNT(*) AS cnt
 FROM crm_customer
 WHERE deleted_at IS NULL

@@ -1,5 +1,5 @@
 -- ============================================================
--- 109_down: 回滚死权限码清理
+-- 111_down: 回滚死权限码清理
 -- ============================================================
 -- 说明：
 --   - 本迁移删除的 11 个权限码均无功能性使用，回滚无业务意义；
@@ -57,7 +57,7 @@ SELECT '查看评分', 'scoring:view', 'button', 0, 0, 1
 FROM dual WHERE NOT EXISTS (SELECT 1 FROM sys_permission WHERE code = 'scoring:view');
 
 -- 复核
-SELECT '=== 109_down 复核：已恢复的死码定义 ===' AS info;
+SELECT '=== 111_down 复核：已恢复的死码定义 ===' AS info;
 SELECT code, name, type FROM sys_permission
 WHERE code IN (
   'approval:view', 'customer:manage', 'followup_template',
