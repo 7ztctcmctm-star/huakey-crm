@@ -67,11 +67,10 @@ const MENU_PERMISSIONS = [
   { code: 'settings', name: '系统设置', path: '/settings', icon: 'Setting', sort: 28 },
   // 历史遗留菜单权限（与现有数据对齐）
   { code: 'invoice', name: '发票管理', path: '/invoice', icon: 'Document', sort: 29 },
-  { code: 'reminder', name: '提醒中心', path: '/reminder', icon: 'Bell', sort: 30 },
+  // [109 迁移] reminder / followup_template 为死权限码已清理，不再种入
   { code: 'search', name: '全局搜索', path: '/search', icon: 'Search', sort: 31 },
   { code: 'tag', name: '标签管理', path: '/tags', icon: 'CollectionTag', sort: 32 },
   { code: 'contract_template', name: '合同模板', path: '/contract/template', icon: 'DocumentCopy', sort: 33 },
-  { code: 'followup_template', name: '跟进模板（旧）', path: '/followup/template', icon: 'ChatDotRound', sort: 34 },
   { code: 'schedule:view', name: '日程查看', path: '/calendar', icon: 'Calendar', sort: 35 },
   { code: 'file', name: '附件管理', icon: 'Folder', sort: 36 },
 ];
