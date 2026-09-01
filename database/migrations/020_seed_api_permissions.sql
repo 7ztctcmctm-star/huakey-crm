@@ -228,4 +228,4 @@ AND NOT EXISTS (SELECT 1 FROM sys_permission WHERE code = 'api:system:restore');
 -- 人事管理模块菜单权限
 INSERT INTO sys_permission (name, code, type, parent_id, path, sort)
 SELECT '人事管理', 'hr', 'menu', 0, '/hr', 10
-AND NOT EXISTS (SELECT 1 FROM sys_permission WHERE code = 'hr');
+WHERE NOT EXISTS (SELECT 1 FROM sys_permission WHERE code = 'hr');

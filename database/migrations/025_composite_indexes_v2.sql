@@ -40,7 +40,9 @@ SET @sql = IF(@idx_exists = 0, 'ALTER TABLE crm_follow_up ADD INDEX idx_follow_c
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- crm_sales_target: 看板目标达成率 (user_id + year + month 精确匹配)
+-- 顺序兼容：该表由 034 建表迁移创建，025 早于 034 重放时表尚不存在，跳过
+SET @tbl_exists = (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=@db AND TABLE_NAME='crm_sales_target');
 SET @idx_exists = (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='crm_sales_target' AND INDEX_NAME='idx_target_user_year_month');
-SET @sql = IF(@idx_exists = 0, 'ALTER TABLE crm_sales_target ADD INDEX idx_target_user_year_month (user_id, year, month)', 'SELECT 1');
+SET @sql = IF(@tbl_exists > 0 AND @idx_exists = 0, 'ALTER TABLE crm_sales_target ADD INDEX idx_target_user_year_month (user_id, year, month)', 'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 

@@ -48,7 +48,7 @@ SET @drop_sql3 = IF(@constraint_exists3 > 0 AND @fk_name3 IS NOT NULL,
   'SELECT 1');
 PREPARE stmt FROM @drop_sql3; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
-SET @add_sql3 = IF(@constraint_exists3 > 0,
+SET @add_sql3 = IF(@constraint_exists3 > 0 AND @fk_name3 IS NOT NULL,
   'ALTER TABLE crm_customer_tag MODIFY COLUMN customer_id INT NULL, ADD CONSTRAINT fk_customer_tag_customer FOREIGN KEY (customer_id) REFERENCES crm_customer(id) ON DELETE SET NULL',
   'SELECT 1');
 PREPARE stmt FROM @add_sql3; EXECUTE stmt; DEALLOCATE PREPARE stmt;
@@ -65,7 +65,7 @@ SET @drop_sql4 = IF(@constraint_exists4 > 0 AND @fk_name4 IS NOT NULL,
   'SELECT 1');
 PREPARE stmt FROM @drop_sql4; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
-SET @add_sql4 = IF(@constraint_exists4 > 0,
+SET @add_sql4 = IF(@constraint_exists4 > 0 AND @fk_name4 IS NOT NULL,
   'ALTER TABLE crm_customer_score_log MODIFY COLUMN customer_id INT NULL, ADD CONSTRAINT fk_score_log_customer FOREIGN KEY (customer_id) REFERENCES crm_customer(id) ON DELETE SET NULL',
   'SELECT 1');
 PREPARE stmt FROM @add_sql4; EXECUTE stmt; DEALLOCATE PREPARE stmt;

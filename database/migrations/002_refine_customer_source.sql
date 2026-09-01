@@ -18,7 +18,7 @@ SET @constraint_exists = (
     AND CONSTRAINT_TYPE = 'CHECK'
 );
 SET @sql = IF(@constraint_exists > 0,
-  'ALTER TABLE crm_customer DROP CHECK CONSTRAINT chk_customer_source',
+  'ALTER TABLE crm_customer DROP CHECK chk_customer_source',
   'SELECT 1');
 PREPARE stmt FROM @sql;
 EXECUTE stmt;
