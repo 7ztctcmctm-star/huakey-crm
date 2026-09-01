@@ -168,9 +168,10 @@ describe('客户全生命周期 - 端到端流程', () => {
 
   // Step 3: 创建商机
   it('Step 3: POST /api/v1/opportunity/add — 创建商机', async () => {
-    // opportunityService.createOpportunity: 2 次 pool.query
+    // opportunityService.createOpportunity: 3 次 pool.query
     mockPool.query
       .mockResolvedValueOnce([[{ id: 100, status: 'signed' }]])   // 客户校验
+      .mockResolvedValueOnce([[{ cnt: 0 }]])                        // generateOpportunityNo
       .mockResolvedValueOnce([{ insertId: 300 }]);          // INSERT
 
     const res = await request(app)

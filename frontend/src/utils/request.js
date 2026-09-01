@@ -164,24 +164,24 @@ request.interceptors.response.use(
   }
 )
 
-// 封装GET请求
-export const get = (url, params = {}) => {
-  return request.get(url, { params })
+// 封装GET请求（config 透传，支持 responseType: 'blob' 等）
+export const get = (url, params = {}, config = {}) => {
+  return request.get(url, { params, ...config })
 }
 
-// 封装POST请求
-export const post = (url, data = {}) => {
-  return request.post(url, data)
+// 封装POST请求（config 透传，支持 responseType: 'blob' 等）
+export const post = (url, data = {}, config = {}) => {
+  return request.post(url, data, config)
 }
 
 // 封装PUT请求
-export const put = (url, data = {}) => {
-  return request.put(url, data)
+export const put = (url, data = {}, config = {}) => {
+  return request.put(url, data, config)
 }
 
 // 封装DELETE请求
-export const del = (url, params = {}) => {
-  return request.delete(url, { params })
+export const del = (url, params = {}, config = {}) => {
+  return request.delete(url, { params, ...config })
 }
 
 // 导出axios实例

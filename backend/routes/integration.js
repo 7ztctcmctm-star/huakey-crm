@@ -57,7 +57,7 @@ router.post('/test', authenticateToken, checkPermission('system'), validate(empt
 });
 
 // 发送邮件
-router.post('/send-email', authenticateToken, validate(sendTestEmailSchema), async (req, res, next) => {
+router.post('/send-email', authenticateToken, checkPermission('system'), validate(sendTestEmailSchema), async (req, res, next) => {
   try {
     await integrationService.sendTestEmail(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '邮件发送成功', data: null });

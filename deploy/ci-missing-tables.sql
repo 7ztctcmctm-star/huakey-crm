@@ -425,3 +425,424 @@ SET @s095_12 = IF(@c095_12 = 0,
   "ALTER TABLE crm_approval_workflow ADD COLUMN is_demo TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Demo数据标识: 0=真实 1=Demo'",
   'SELECT 1');
 PREPARE stmt095_12 FROM @s095_12; EXECUTE stmt095_12; DEALLOCATE PREPARE stmt095_12;
+
+-- ============================================
+-- 补充 096-104 迁移引入的列级/表级变更
+-- （096 采购审批 / 097 customer business_status / 102-104 opportunity 扩展）
+-- init-complete 与上述 056-095 段均未含这些列，缺列会导致对应模块查询报错。
+-- 全部幂等：基于 information_schema 判断，重复执行安全。
+-- ============================================
+
+-- 096: crm_purchase_request 审批字段
+SET @c096_1 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_purchase_request' AND COLUMN_NAME = 'applicant_id');
+SET @s096_1 = IF(@c096_1 = 0,
+  "ALTER TABLE crm_purchase_request ADD COLUMN applicant_id INT NOT NULL DEFAULT 0 COMMENT '申请人'",
+  'SELECT 1');
+PREPARE stmt096_1 FROM @s096_1; EXECUTE stmt096_1; DEALLOCATE PREPARE stmt096_1;
+
+SET @c096_2 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_purchase_request' AND COLUMN_NAME = 'expected_amount');
+SET @s096_2 = IF(@c096_2 = 0,
+  "ALTER TABLE crm_purchase_request ADD COLUMN expected_amount DECIMAL(12,2) NULL DEFAULT NULL COMMENT '预计金额'",
+  'SELECT 1');
+PREPARE stmt096_2 FROM @s096_2; EXECUTE stmt096_2; DEALLOCATE PREPARE stmt096_2;
+
+SET @c096_3 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_purchase_request' AND COLUMN_NAME = 'reason');
+SET @s096_3 = IF(@c096_3 = 0,
+  "ALTER TABLE crm_purchase_request ADD COLUMN reason TEXT NULL COMMENT '采购原因'",
+  'SELECT 1');
+PREPARE stmt096_3 FROM @s096_3; EXECUTE stmt096_3; DEALLOCATE PREPARE stmt096_3;
+
+SET @c096_4 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_purchase_request' AND COLUMN_NAME = 'approved_by');
+SET @s096_4 = IF(@c096_4 = 0,
+  "ALTER TABLE crm_purchase_request ADD COLUMN approved_by INT NULL DEFAULT NULL COMMENT '审批人'",
+  'SELECT 1');
+PREPARE stmt096_4 FROM @s096_4; EXECUTE stmt096_4; DEALLOCATE PREPARE stmt096_4;
+
+SET @c096_5 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_purchase_request' AND COLUMN_NAME = 'approved_at');
+SET @s096_5 = IF(@c096_5 = 0,
+  "ALTER TABLE crm_purchase_request ADD COLUMN approved_at DATETIME NULL DEFAULT NULL COMMENT '审批时间'",
+  'SELECT 1');
+PREPARE stmt096_5 FROM @s096_5; EXECUTE stmt096_5; DEALLOCATE PREPARE stmt096_5;
+
+SET @c096_6 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_purchase_request' AND COLUMN_NAME = 'reject_reason');
+SET @s096_6 = IF(@c096_6 = 0,
+  "ALTER TABLE crm_purchase_request ADD COLUMN reject_reason TEXT NULL COMMENT '驳回原因'",
+  'SELECT 1');
+PREPARE stmt096_6 FROM @s096_6; EXECUTE stmt096_6; DEALLOCATE PREPARE stmt096_6;
+
+SET @c096_7 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_purchase_request' AND COLUMN_NAME = 'created_at');
+SET @s096_7 = IF(@c096_7 = 0,
+  "ALTER TABLE crm_purchase_request ADD COLUMN created_at DATETIME NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'",
+  'SELECT 1');
+PREPARE stmt096_7 FROM @s096_7; EXECUTE stmt096_7; DEALLOCATE PREPARE stmt096_7;
+
+SET @c096_8 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_purchase_request' AND COLUMN_NAME = 'updated_at');
+SET @s096_8 = IF(@c096_8 = 0,
+  "ALTER TABLE crm_purchase_request ADD COLUMN updated_at DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'",
+  'SELECT 1');
+PREPARE stmt096_8 FROM @s096_8; EXECUTE stmt096_8; DEALLOCATE PREPARE stmt096_8;
+
+-- 096: crm_purchase_comparison 扩展字段
+SET @c096_9 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_purchase_comparison' AND COLUMN_NAME = 'comparison_no');
+SET @s096_9 = IF(@c096_9 = 0,
+  "ALTER TABLE crm_purchase_comparison ADD COLUMN comparison_no VARCHAR(50) NULL DEFAULT NULL COMMENT '比价单号'",
+  'SELECT 1');
+PREPARE stmt096_9 FROM @s096_9; EXECUTE stmt096_9; DEALLOCATE PREPARE stmt096_9;
+
+SET @c096_10 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_purchase_comparison' AND COLUMN_NAME = 'product_name');
+SET @s096_10 = IF(@c096_10 = 0,
+  "ALTER TABLE crm_purchase_comparison ADD COLUMN product_name VARCHAR(200) NULL DEFAULT NULL COMMENT '产品名称'",
+  'SELECT 1');
+PREPARE stmt096_10 FROM @s096_10; EXECUTE stmt096_10; DEALLOCATE PREPARE stmt096_10;
+
+SET @c096_11 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_purchase_comparison' AND COLUMN_NAME = 'quantity');
+SET @s096_11 = IF(@c096_11 = 0,
+  "ALTER TABLE crm_purchase_comparison ADD COLUMN quantity DECIMAL(10,2) NULL DEFAULT NULL COMMENT '数量'",
+  'SELECT 1');
+PREPARE stmt096_11 FROM @s096_11; EXECUTE stmt096_11; DEALLOCATE PREPARE stmt096_11;
+
+SET @c096_12 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_purchase_comparison' AND COLUMN_NAME = 'unit');
+SET @s096_12 = IF(@c096_12 = 0,
+  "ALTER TABLE crm_purchase_comparison ADD COLUMN unit VARCHAR(20) NULL DEFAULT NULL COMMENT '单位'",
+  'SELECT 1');
+PREPARE stmt096_12 FROM @s096_12; EXECUTE stmt096_12; DEALLOCATE PREPARE stmt096_12;
+
+SET @c096_13 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_purchase_comparison' AND COLUMN_NAME = 'selected_supplier_id');
+SET @s096_13 = IF(@c096_13 = 0,
+  "ALTER TABLE crm_purchase_comparison ADD COLUMN selected_supplier_id INT NULL DEFAULT NULL COMMENT '选中供应商'",
+  'SELECT 1');
+PREPARE stmt096_13 FROM @s096_13; EXECUTE stmt096_13; DEALLOCATE PREPARE stmt096_13;
+
+SET @c096_14 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_purchase_comparison' AND COLUMN_NAME = 'created_by');
+SET @s096_14 = IF(@c096_14 = 0,
+  "ALTER TABLE crm_purchase_comparison ADD COLUMN created_by INT NOT NULL DEFAULT 0 COMMENT '创建人'",
+  'SELECT 1');
+PREPARE stmt096_14 FROM @s096_14; EXECUTE stmt096_14; DEALLOCATE PREPARE stmt096_14;
+
+SET @c096_15 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_purchase_comparison' AND COLUMN_NAME = 'created_at');
+SET @s096_15 = IF(@c096_15 = 0,
+  "ALTER TABLE crm_purchase_comparison ADD COLUMN created_at DATETIME NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'",
+  'SELECT 1');
+PREPARE stmt096_15 FROM @s096_15; EXECUTE stmt096_15; DEALLOCATE PREPARE stmt096_15;
+
+SET @c096_16 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_purchase_comparison' AND COLUMN_NAME = 'updated_at');
+SET @s096_16 = IF(@c096_16 = 0,
+  "ALTER TABLE crm_purchase_comparison ADD COLUMN updated_at DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'",
+  'SELECT 1');
+PREPARE stmt096_16 FROM @s096_16; EXECUTE stmt096_16; DEALLOCATE PREPARE stmt096_16;
+
+-- 096: crm_purchase_comparison_item
+SET @c096_17 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_purchase_comparison_item' AND COLUMN_NAME = 'payment_terms');
+SET @s096_17 = IF(@c096_17 = 0,
+  "ALTER TABLE crm_purchase_comparison_item ADD COLUMN payment_terms VARCHAR(200) NULL DEFAULT NULL COMMENT '付款条件'",
+  'SELECT 1');
+PREPARE stmt096_17 FROM @s096_17; EXECUTE stmt096_17; DEALLOCATE PREPARE stmt096_17;
+
+SET @c096_18 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_purchase_comparison_item' AND COLUMN_NAME = 'created_at');
+SET @s096_18 = IF(@c096_18 = 0,
+  "ALTER TABLE crm_purchase_comparison_item ADD COLUMN created_at DATETIME NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'",
+  'SELECT 1');
+PREPARE stmt096_18 FROM @s096_18; EXECUTE stmt096_18; DEALLOCATE PREPARE stmt096_18;
+
+-- 096: 软删除列（090 迁移的 purchase 表补充，与 090 语义一致）
+SET @c096_19 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_purchase_request' AND COLUMN_NAME = 'deleted_at');
+SET @s096_19 = IF(@c096_19 = 0,
+  "ALTER TABLE crm_purchase_request ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL COMMENT '软删除时间'",
+  'SELECT 1');
+PREPARE stmt096_19 FROM @s096_19; EXECUTE stmt096_19; DEALLOCATE PREPARE stmt096_19;
+
+SET @c096_20 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_purchase_comparison' AND COLUMN_NAME = 'deleted_at');
+SET @s096_20 = IF(@c096_20 = 0,
+  "ALTER TABLE crm_purchase_comparison ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL COMMENT '软删除时间'",
+  'SELECT 1');
+PREPARE stmt096_20 FROM @s096_20; EXECUTE stmt096_20; DEALLOCATE PREPARE stmt096_20;
+
+SET @c096_21 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_purchase_comparison_item' AND COLUMN_NAME = 'deleted_at');
+SET @s096_21 = IF(@c096_21 = 0,
+  "ALTER TABLE crm_purchase_comparison_item ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL COMMENT '软删除时间'",
+  'SELECT 1');
+PREPARE stmt096_21 FROM @s096_21; EXECUTE stmt096_21; DEALLOCATE PREPARE stmt096_21;
+
+-- 097: crm_customer business_status + pool_status 枚举化
+SET @c097_1 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_customer' AND COLUMN_NAME = 'business_status');
+SET @s097_1 = IF(@c097_1 = 0,
+  "ALTER TABLE crm_customer ADD COLUMN business_status VARCHAR(32) NOT NULL DEFAULT 'lead' COMMENT '业务生命周期: lead/following/quoted/negotiating/signed/lost'",
+  'SELECT 1');
+PREPARE stmt097_1 FROM @s097_1; EXECUTE stmt097_1; DEALLOCATE PREPARE stmt097_1;
+
+SET @c097_2 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_customer' AND COLUMN_NAME = 'pool_status' AND DATA_TYPE = 'tinyint');
+SET @s097_2 = IF(@c097_2 > 0,
+  "ALTER TABLE crm_customer MODIFY COLUMN pool_status VARCHAR(8) NOT NULL DEFAULT 'private' COMMENT '资源归属: private=私有 sea=公海'",
+  'SELECT 1');
+PREPARE stmt097_2 FROM @s097_2; EXECUTE stmt097_2; DEALLOCATE PREPARE stmt097_2;
+
+-- 102: crm_opportunity 扩展字段
+SET @c102_1 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_opportunity' AND COLUMN_NAME = 'lost_reason');
+SET @s102_1 = IF(@c102_1 = 0,
+  "ALTER TABLE crm_opportunity ADD COLUMN lost_reason VARCHAR(500) NULL DEFAULT NULL COMMENT '输单原因'",
+  'SELECT 1');
+PREPARE stmt102_1 FROM @s102_1; EXECUTE stmt102_1; DEALLOCATE PREPARE stmt102_1;
+
+-- 103: crm_opportunity_stage_log 扩展
+SET @c103_1 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_opportunity_stage_log' AND COLUMN_NAME = 'opportunity_id');
+SET @s103_1 = IF(@c103_1 = 0,
+  "ALTER TABLE crm_opportunity_stage_log ADD COLUMN opportunity_id INT NULL DEFAULT NULL COMMENT '商机ID'",
+  'SELECT 1');
+PREPARE stmt103_1 FROM @s103_1; EXECUTE stmt103_1; DEALLOCATE PREPARE stmt103_1;
+
+SET @c103_2 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_opportunity_stage_log' AND COLUMN_NAME = 'from_stage');
+SET @s103_2 = IF(@c103_2 = 0,
+  "ALTER TABLE crm_opportunity_stage_log ADD COLUMN from_stage TINYINT NOT NULL DEFAULT 0 COMMENT '原阶段'",
+  'SELECT 1');
+PREPARE stmt103_2 FROM @s103_2; EXECUTE stmt103_2; DEALLOCATE PREPARE stmt103_2;
+
+SET @c103_3 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_opportunity_stage_log' AND COLUMN_NAME = 'to_stage');
+SET @s103_3 = IF(@c103_3 = 0,
+  "ALTER TABLE crm_opportunity_stage_log ADD COLUMN to_stage TINYINT NOT NULL DEFAULT 0 COMMENT '目标阶段'",
+  'SELECT 1');
+PREPARE stmt103_3 FROM @s103_3; EXECUTE stmt103_3; DEALLOCATE PREPARE stmt103_3;
+
+SET @c103_4 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_opportunity_stage_log' AND COLUMN_NAME = 'changed_by');
+SET @s103_4 = IF(@c103_4 = 0,
+  "ALTER TABLE crm_opportunity_stage_log ADD COLUMN changed_by INT NULL DEFAULT NULL COMMENT '操作人'",
+  'SELECT 1');
+PREPARE stmt103_4 FROM @s103_4; EXECUTE stmt103_4; DEALLOCATE PREPARE stmt103_4;
+
+SET @c103_5 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_opportunity_stage_log' AND COLUMN_NAME = 'create_time');
+SET @s103_5 = IF(@c103_5 = 0,
+  "ALTER TABLE crm_opportunity_stage_log ADD COLUMN create_time DATETIME NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'",
+  'SELECT 1');
+PREPARE stmt103_5 FROM @s103_5; EXECUTE stmt103_5; DEALLOCATE PREPARE stmt103_5;
+
+-- 104: crm_opportunity_source 表 + opportunity_no/source_id
+CREATE TABLE IF NOT EXISTS crm_opportunity_source (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(50) NOT NULL COMMENT '来源名称',
+  code VARCHAR(30) NOT NULL COMMENT '来源代码',
+  sort_order INT DEFAULT 0 COMMENT '排序',
+  is_active TINYINT(1) DEFAULT 1 COMMENT '是否启用',
+  create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_source_code (code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='商机来源字典表';
+
+SET @c104_1 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_opportunity' AND COLUMN_NAME = 'opportunity_no');
+SET @s104_1 = IF(@c104_1 = 0,
+  "ALTER TABLE crm_opportunity ADD COLUMN opportunity_no VARCHAR(32) NULL DEFAULT NULL COMMENT '商机编号'",
+  'SELECT 1');
+PREPARE stmt104_1 FROM @s104_1; EXECUTE stmt104_1; DEALLOCATE PREPARE stmt104_1;
+
+SET @c104_2 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_opportunity' AND COLUMN_NAME = 'source_id');
+SET @s104_2 = IF(@c104_2 = 0,
+  "ALTER TABLE crm_opportunity ADD COLUMN source_id INT NULL DEFAULT NULL COMMENT '商机来源ID'",
+  'SELECT 1');
+PREPARE stmt104_2 FROM @s104_2; EXECUTE stmt104_2; DEALLOCATE PREPARE stmt104_2;
+
+SET @c104_3 = (SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_opportunity' AND INDEX_NAME = 'uk_opportunity_no');
+SET @s104_3 = IF(@c104_3 = 0,
+  "ALTER TABLE crm_opportunity ADD UNIQUE INDEX uk_opportunity_no (opportunity_no)",
+  'SELECT 1');
+PREPARE stmt104_3 FROM @s104_3; EXECUTE stmt104_3; DEALLOCATE PREPARE stmt104_3;
+
+SET @c104_4 = (SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_opportunity' AND INDEX_NAME = 'idx_source_id');
+SET @s104_4 = IF(@c104_4 = 0,
+  "ALTER TABLE crm_opportunity ADD INDEX idx_source_id (source_id)",
+  'SELECT 1');
+PREPARE stmt104_4 FROM @s104_4; EXECUTE stmt104_4; DEALLOCATE PREPARE stmt104_4;
+
+-- ============================================
+-- 补充 070/072/090/091 引入的软删除与评分规则列
+-- （090 软删除 / 072 scoring_rule / 070 old_status_int / supplier 扩展）
+-- ============================================
+
+-- 090: 多表软删除 deleted_at
+SET @c090_1 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_attachment' AND COLUMN_NAME = 'deleted_at');
+SET @s090_1 = IF(@c090_1 = 0,
+  "ALTER TABLE crm_attachment ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL COMMENT '软删除时间'",
+  'SELECT 1');
+PREPARE stmt090_1 FROM @s090_1; EXECUTE stmt090_1; DEALLOCATE PREPARE stmt090_1;
+
+SET @c090_2 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_competitor_encounter' AND COLUMN_NAME = 'deleted_at');
+SET @s090_2 = IF(@c090_2 = 0,
+  "ALTER TABLE crm_competitor_encounter ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL COMMENT '软删除时间'",
+  'SELECT 1');
+PREPARE stmt090_2 FROM @s090_2; EXECUTE stmt090_2; DEALLOCATE PREPARE stmt090_2;
+
+SET @c090_3 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_competitor_intel' AND COLUMN_NAME = 'deleted_at');
+SET @s090_3 = IF(@c090_3 = 0,
+  "ALTER TABLE crm_competitor_intel ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL COMMENT '软删除时间'",
+  'SELECT 1');
+PREPARE stmt090_3 FROM @s090_3; EXECUTE stmt090_3; DEALLOCATE PREPARE stmt090_3;
+
+SET @c090_4 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contract_template' AND COLUMN_NAME = 'deleted_at');
+SET @s090_4 = IF(@c090_4 = 0,
+  "ALTER TABLE crm_contract_template ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL COMMENT '软删除时间'",
+  'SELECT 1');
+PREPARE stmt090_4 FROM @s090_4; EXECUTE stmt090_4; DEALLOCATE PREPARE stmt090_4;
+
+SET @c090_5 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_currency' AND COLUMN_NAME = 'deleted_at');
+SET @s090_5 = IF(@c090_5 = 0,
+  "ALTER TABLE crm_currency ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL COMMENT '软删除时间'",
+  'SELECT 1');
+PREPARE stmt090_5 FROM @s090_5; EXECUTE stmt090_5; DEALLOCATE PREPARE stmt090_5;
+
+SET @c090_6 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_email_account' AND COLUMN_NAME = 'deleted_at');
+SET @s090_6 = IF(@c090_6 = 0,
+  "ALTER TABLE crm_email_account ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL COMMENT '软删除时间'",
+  'SELECT 1');
+PREPARE stmt090_6 FROM @s090_6; EXECUTE stmt090_6; DEALLOCATE PREPARE stmt090_6;
+
+SET @c090_7 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_product_price' AND COLUMN_NAME = 'deleted_at');
+SET @s090_7 = IF(@c090_7 = 0,
+  "ALTER TABLE crm_product_price ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL COMMENT '软删除时间'",
+  'SELECT 1');
+PREPARE stmt090_7 FROM @s090_7; EXECUTE stmt090_7; DEALLOCATE PREPARE stmt090_7;
+
+SET @c090_8 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_score_rule' AND COLUMN_NAME = 'deleted_at');
+SET @s090_8 = IF(@c090_8 = 0,
+  "ALTER TABLE crm_score_rule ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL COMMENT '软删除时间'",
+  'SELECT 1');
+PREPARE stmt090_8 FROM @s090_8; EXECUTE stmt090_8; DEALLOCATE PREPARE stmt090_8;
+
+SET @c090_9 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_social_contact' AND COLUMN_NAME = 'deleted_at');
+SET @s090_9 = IF(@c090_9 = 0,
+  "ALTER TABLE crm_social_contact ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL COMMENT '软删除时间'",
+  'SELECT 1');
+PREPARE stmt090_9 FROM @s090_9; EXECUTE stmt090_9; DEALLOCATE PREPARE stmt090_9;
+
+SET @c090_10 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_tag' AND COLUMN_NAME = 'deleted_at');
+SET @s090_10 = IF(@c090_10 = 0,
+  "ALTER TABLE crm_tag ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL COMMENT '软删除时间'",
+  'SELECT 1');
+PREPARE stmt090_10 FROM @s090_10; EXECUTE stmt090_10; DEALLOCATE PREPARE stmt090_10;
+
+-- 070: crm_customer old_status_int（旧版数值状态备份）
+SET @c070_1 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_customer' AND COLUMN_NAME = 'old_status_int');
+SET @s070_1 = IF(@c070_1 = 0,
+  "ALTER TABLE crm_customer ADD COLUMN old_status_int TINYINT NULL DEFAULT NULL COMMENT '旧版数值状态备份'",
+  'SELECT 1');
+PREPARE stmt070_1 FROM @s070_1; EXECUTE stmt070_1; DEALLOCATE PREPARE stmt070_1;
+
+-- 091: crm_notification link_url
+SET @c091_1 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_notification' AND COLUMN_NAME = 'link_url');
+SET @s091_1 = IF(@c091_1 = 0,
+  "ALTER TABLE crm_notification ADD COLUMN link_url VARCHAR(500) NULL DEFAULT NULL COMMENT '跳转链接'",
+  'SELECT 1');
+PREPARE stmt091_1 FROM @s091_1; EXECUTE stmt091_1; DEALLOCATE PREPARE stmt091_1;
+
+-- 072: crm_scoring_rule 评分规则字段
+SET @c072_1 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_scoring_rule' AND COLUMN_NAME = 'category');
+SET @s072_1 = IF(@c072_1 = 0,
+  "ALTER TABLE crm_scoring_rule ADD COLUMN category VARCHAR(20) NOT NULL DEFAULT 'general' COMMENT '规则分类'",
+  'SELECT 1');
+PREPARE stmt072_1 FROM @s072_1; EXECUTE stmt072_1; DEALLOCATE PREPARE stmt072_1;
+
+SET @c072_2 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_scoring_rule' AND COLUMN_NAME = 'rule_name');
+SET @s072_2 = IF(@c072_2 = 0,
+  "ALTER TABLE crm_scoring_rule ADD COLUMN rule_name VARCHAR(100) NOT NULL DEFAULT '' COMMENT '规则名称'",
+  'SELECT 1');
+PREPARE stmt072_2 FROM @s072_2; EXECUTE stmt072_2; DEALLOCATE PREPARE stmt072_2;
+
+SET @c072_3 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_scoring_rule' AND COLUMN_NAME = 'min_score');
+SET @s072_3 = IF(@c072_3 = 0,
+  "ALTER TABLE crm_scoring_rule ADD COLUMN min_score DECIMAL(3,1) NOT NULL DEFAULT 1.0 COMMENT '最低分'",
+  'SELECT 1');
+PREPARE stmt072_3 FROM @s072_3; EXECUTE stmt072_3; DEALLOCATE PREPARE stmt072_3;
+
+SET @c072_4 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_scoring_rule' AND COLUMN_NAME = 'max_score');
+SET @s072_4 = IF(@c072_4 = 0,
+  "ALTER TABLE crm_scoring_rule ADD COLUMN max_score DECIMAL(3,1) NOT NULL DEFAULT 5.0 COMMENT '最高分'",
+  'SELECT 1');
+PREPARE stmt072_4 FROM @s072_4; EXECUTE stmt072_4; DEALLOCATE PREPARE stmt072_4;
+
+SET @c072_5 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_scoring_rule' AND COLUMN_NAME = 'weight');
+SET @s072_5 = IF(@c072_5 = 0,
+  "ALTER TABLE crm_scoring_rule ADD COLUMN weight DECIMAL(4,2) NOT NULL DEFAULT 1.00 COMMENT '权重'",
+  'SELECT 1');
+PREPARE stmt072_5 FROM @s072_5; EXECUTE stmt072_5; DEALLOCATE PREPARE stmt072_5;
+
+SET @c072_6 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_scoring_rule' AND COLUMN_NAME = 'sort_order');
+SET @s072_6 = IF(@c072_6 = 0,
+  "ALTER TABLE crm_scoring_rule ADD COLUMN sort_order INT NULL DEFAULT 0 COMMENT '排序'",
+  'SELECT 1');
+PREPARE stmt072_6 FROM @s072_6; EXECUTE stmt072_6; DEALLOCATE PREPARE stmt072_6;
+
+-- supplier contact/qualification 扩展（create_by/update_time）
+SET @c091_2 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_supplier_contact' AND COLUMN_NAME = 'create_by');
+SET @s091_2 = IF(@c091_2 = 0,
+  "ALTER TABLE crm_supplier_contact ADD COLUMN create_by INT NULL DEFAULT NULL COMMENT '创建人'",
+  'SELECT 1');
+PREPARE stmt091_2 FROM @s091_2; EXECUTE stmt091_2; DEALLOCATE PREPARE stmt091_2;
+
+SET @c091_3 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_supplier_contact' AND COLUMN_NAME = 'update_time');
+SET @s091_3 = IF(@c091_3 = 0,
+  "ALTER TABLE crm_supplier_contact ADD COLUMN update_time DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'",
+  'SELECT 1');
+PREPARE stmt091_3 FROM @s091_3; EXECUTE stmt091_3; DEALLOCATE PREPARE stmt091_3;
+
+SET @c091_4 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_supplier_qualification' AND COLUMN_NAME = 'create_by');
+SET @s091_4 = IF(@c091_4 = 0,
+  "ALTER TABLE crm_supplier_qualification ADD COLUMN create_by INT NULL DEFAULT NULL COMMENT '创建人'",
+  'SELECT 1');
+PREPARE stmt091_4 FROM @s091_4; EXECUTE stmt091_4; DEALLOCATE PREPARE stmt091_4;
+
+SET @c091_5 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_supplier_qualification' AND COLUMN_NAME = 'update_time');
+SET @s091_5 = IF(@c091_5 = 0,
+  "ALTER TABLE crm_supplier_qualification ADD COLUMN update_time DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'",
+  'SELECT 1');
+PREPARE stmt091_5 FROM @s091_5; EXECUTE stmt091_5; DEALLOCATE PREPARE stmt091_5;

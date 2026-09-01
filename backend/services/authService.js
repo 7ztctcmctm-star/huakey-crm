@@ -30,6 +30,9 @@ function getCaptchaRedisKey(key) {
 
 const redisEnabled = () => process.env.REDIS_ENABLED === 'true';
 
+// 惰性清理计数：每 32 次写入触发一次过期项清理，防止未验证的 key 无界增长
+let captchaCleanupCounter = 0;
+
 async function saveCaptcha(key, code) {
   const expires = Date.now() + CAPTCHA_TTL_SECONDS * 1000;
   // [安全修复] Redis 启用时优先写入 Redis；失败降级到内存，避免登录完全中断
@@ -38,6 +41,13 @@ async function saveCaptcha(key, code) {
       await setCache(getCaptchaRedisKey(key), code, CAPTCHA_TTL_SECONDS);
       return;
     } catch { /* Redis 写入失败，降级到内存 */ }
+  }
+  // 周期性惰性清理过期项（内存 DoS 防护：攻击者高频请求但从不验证时，key 仍会过期回收）
+  if (++captchaCleanupCounter % 32 === 0) {
+    const now = Date.now();
+    for (const [k, v] of captchaStore) {
+      if (v.expires <= now) captchaStore.delete(k);
+    }
   }
   captchaStore.set(key, { code, expires });
 }
@@ -169,7 +179,7 @@ async function logout(pool, token) {
 
   try {
     const JWT_SECRET = process.env.JWT_SECRET;
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
 
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const expireAt = new Date(decoded.exp * 1000);
@@ -184,23 +194,18 @@ async function logout(pool, token) {
   }
 }
 
-// [性能优化] /auth/me 内存缓存，TTL 30秒，避免每次页面刷新都执行3个权限查询
-const meCache = new Map();
-const ME_CACHE_TTL = 30 * 1000; // 30秒
+// [安全修复] 2026-08-18：移除 /auth/me 30 秒内存缓存。
+// 原缓存导致用户被禁用/改密/权限变更后最长 30 秒仍返回旧信息；
+// 底层权限查询（getUserPermissions/getDataPermissions）本身有 node-cache 5 分钟缓存，
+// 且前端 useUser 单例已避免重复调用，直接查库的成本可控。
 
 /**
- * 获取当前用户信息（含权限），带短TTL内存缓存
+ * 获取当前用户信息（含权限），实时查询
  * @param {object} pool
  * @param {number} userId
  * @returns {object|null}
  */
 async function getMe(pool, userId) {
-  // 检查缓存
-  const cached = meCache.get(userId);
-  if (cached && cached.expires > Date.now()) {
-    return cached.data;
-  }
-
   const [users] = await pool.query(
     `SELECT u.id, u.username, u.real_name, u.phone, u.email,
             u.dept_id, u.role_id, u.status,
@@ -241,22 +246,16 @@ async function getMe(pool, userId) {
     dataPermissions
   };
 
-  // 写入缓存
-  meCache.set(userId, { data: result, expires: Date.now() + ME_CACHE_TTL });
-
   return result;
 }
 
 /**
  * 清除指定用户的 /auth/me 缓存（权限变更后调用）
- * @param {number} userId
+ * 注：/auth/me 缓存已移除（2026-08-18 安全修复），此函数保留为空操作以兼容调用方
+ * @param {number} _userId
  */
-function clearMeCache(userId) {
-  if (userId) {
-    meCache.delete(userId);
-  } else {
-    meCache.clear();
-  }
+function clearMeCache(_userId) {
+  // no-op: 无缓存可清
 }
 
 /**

@@ -80,23 +80,27 @@ async function deletePayment(pool, paymentId, user) {
  * @param {object} params - { page, pageSize, tab, keyword, start_date, end_date }
  * @returns {{ list: Array, total: number, summary?: object }}
  */
-async function listPayments(pool, params = {}) {
+async function listPayments(pool, params = {}, permission = null) {
   const { page = 1, pageSize = 20, tab = 'all', keyword, start_date, end_date } = params;
   const offset = (page - 1) * pageSize;
   const queryParams = [];
 
   if (tab === 'overdue') {
-    const result = await paymentService.getOverduePayments(pool, { page, pageSize, keyword });
+    const result = await paymentService.getOverduePayments(pool, { page, pageSize, keyword }, permission);
     return { list: result.list, total: result.total, page: parseInt(page), pageSize: parseInt(pageSize) };
   }
 
   if (tab === 'summary') {
-    const summary = await paymentService.getMonthlySummary(pool);
+    const summary = await paymentService.getMonthlySummary(pool, permission);
     return { list: [], total: 0, page: 1, pageSize: 1, summary };
   }
 
   // tab === 'all'
   let where = 'WHERE p.deleted_at IS NULL';
+  if (permission && permission.clause && permission.clause !== '1=1') {
+    where += ` AND ${permission.clause}`;
+    queryParams.push(...(permission.params || []));
+  }
   if (keyword) {
     where += ' AND (c.contract_no LIKE ? OR cu.company_name LIKE ?)';
     queryParams.push(`%${keyword}%`, `%${keyword}%`);
@@ -139,8 +143,8 @@ async function listPayments(pool, params = {}) {
  * @param {object} params - { page, pageSize, keyword, start_date, end_date }
  * @returns {{ list: Array, total: number }}
  */
-async function getMergedPayments(pool, params = {}) {
-  return paymentService.getMergedPayments(pool, params);
+async function getMergedPayments(pool, params = {}, permission = null) {
+  return paymentService.getMergedPayments(pool, params, permission);
 }
 
 /**
@@ -149,11 +153,15 @@ async function getMergedPayments(pool, params = {}) {
  * @param {object} params - { keyword, start_date, end_date }
  * @returns {Buffer} XLSX buffer
  */
-async function exportPayments(pool, params = {}) {
+async function exportPayments(pool, params = {}, permission = null) {
   const { keyword, start_date, end_date } = params;
   const queryParams = [];
 
   let where = 'WHERE p.deleted_at IS NULL';
+  if (permission && permission.clause && permission.clause !== '1=1') {
+    where += ` AND ${permission.clause}`;
+    queryParams.push(...(permission.params || []));
+  }
   if (keyword) {
     where += ' AND (c.contract_no LIKE ? OR cu.company_name LIKE ?)';
     queryParams.push(`%${keyword}%`, `%${keyword}%`);
@@ -192,8 +200,8 @@ async function exportPayments(pool, params = {}) {
  * @param {object} pool
  * @returns {{ month_plan_total: number, month_paid_total: number, month_rate: number }}
  */
-async function getSummary(pool) {
-  return paymentService.getMonthlySummary(pool);
+async function getSummary(pool, permission = null) {
+  return paymentService.getMonthlySummary(pool, permission);
 }
 
 /**
@@ -202,11 +210,15 @@ async function getSummary(pool) {
  * @param {object} params - { keyword, start_date, end_date }
  * @returns {Buffer} XLSX buffer
  */
-async function getStatementExport(pool, params = {}) {
+async function getStatementExport(pool, params = {}, permission = null) {
   const { keyword, start_date, end_date } = params;
 
   let where = 'WHERE c.deleted_at IS NULL AND c.status IN (1,2,3)';
   const queryParams = [];
+  if (permission && permission.clause && permission.clause !== '1=1') {
+    where += ` AND ${permission.clause}`;
+    queryParams.push(...(permission.params || []));
+  }
   if (keyword) {
     where += ' AND cu.company_name LIKE ?';
     queryParams.push(`%${keyword}%`);

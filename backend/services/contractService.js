@@ -294,51 +294,47 @@ async function updateContractStatus(pool, contractId, newStatus) {
 }
 
 /**
- * 取消合同（Phase 5.4 合同取消工作流）
- * Contract status -> 4 (已取消), 记录 cancel_reason + cancel_action
- * cancel_action 联动在 controller 层调用 opportunityService.advanceStage
- * 幂等: 已取消(status=4)的合同不允许重复取消
+ * 合同取消工作流：status→4(已取消) + 联动商机阶段
  * @param {object} pool
- * @param {number} contractId
- * @param {string} cancelReason - 取消原因(必填)
- * @param {string} cancelAction - 取消动作(customer_cancelled/reopen_negotiation/keep_won/其他)
- * @param {number} userId - 操作人
- * @returns {object} { id, contract_no, cancel_reason, cancel_action }
+ * @param {object} params - { id, cancel_reason, cancel_action, userId }
+ * @returns {object} 合同信息（含 opportunity_id）
  */
-async function cancelContract(pool, contractId, cancelReason, cancelAction, userId) {
-  const [contracts] = await pool.query(
-    'SELECT id, contract_no, status, opportunity_id FROM crm_contract WHERE id = ? AND deleted_at IS NULL',
-    [contractId]
+async function cancelContract(pool, { id, cancel_reason, cancel_action, userId: _userId, permission }) {
+  // 数据权限过滤：仅允许取消数据范围内（含归属人）的合同
+  const whereParts = ['c.id = ?', 'c.deleted_at IS NULL'];
+  const whereParams = [id];
+  if (permission && permission.clause && permission.clause !== '1=1') {
+    whereParts.push(permission.clause);
+    whereParams.push(...(permission.params || []));
+  }
+  const [rows] = await pool.query(
+    `SELECT c.id, c.contract_no, c.status, c.opportunity_id FROM crm_contract c WHERE ${whereParts.join(' AND ')}`,
+    whereParams
   );
-  if (!contracts.length) {
-    throw new AppError(ErrorCodes.CONTRACT_NOT_FOUND);
+  if (!rows.length) {
+    throw new AppError(ErrorCodes.CONTRACT_NOT_FOUND, '合同不存在或无权操作');
   }
-  if (contracts[0].status === 4) {
-    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '合同已取消，不可重复操作');
+
+  const contract = rows[0];
+  if (contract.status === 4) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '合同已取消，不可重复取消');
   }
-  if (contracts[0].status === 3) {
+  if (contract.status === 3) {
     throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '已完成的合同不能取消');
-  }
-  if (!cancelReason || !cancelReason.trim()) {
-    throw new AppError(ErrorCodes.VALIDATION_ERROR, '取消合同必须填写取消原因');
-  }
-  const validActions = ['customer_cancelled', 'reopen_negotiation', 'keep_won'];
-  if (cancelAction && !validActions.includes(cancelAction)) {
-    throw new AppError(ErrorCodes.VALIDATION_ERROR, 'cancel_action 值无效');
   }
 
   await pool.query(
-    'UPDATE crm_contract SET status = 4, cancel_reason = ?, cancel_action = ? WHERE id = ?',
-    [cancelReason.trim(), cancelAction || null, contractId]
+    'UPDATE crm_contract SET status = 4, remark = CONCAT(IFNULL(remark, ""), "[取消]", ?), update_time = NOW() WHERE id = ?',
+    [cancel_reason, id]
   );
 
   return {
-    id: contractId,
-    contract_no: contracts[0].contract_no,
+    id: contract.id,
+    contract_no: contract.contract_no,
     status: 4,
-    cancel_reason: cancelReason.trim(),
-    cancel_action: cancelAction || null,
-    opportunity_id: contracts[0].opportunity_id
+    cancel_reason,
+    cancel_action,
+    opportunity_id: contract.opportunity_id
   };
 }
 

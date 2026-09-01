@@ -22,14 +22,16 @@
 --   预期: 非零（如有被删除的商机）或零（如无），但不应报错。
 -- ============================================================
 
-USE huakey_crm;
+-- 不使用 USE 语句：依赖 migrate.js 连接的默认数据库（DATABASE()），
+-- 使迁移在 huakey_crm / huakey_crm_test 等任意目标库均能正确应用。
 
 -- 1. 确认两个 FK 均存在（诊断查询，非破坏性）
+--    注意：information_schema.REFERENTIAL_CONSTRAINTS 使用 CONSTRAINT_SCHEMA（非 TABLE_SCHEMA）
 SELECT
   CONSTRAINT_NAME,
   DELETE_RULE
 FROM information_schema.REFERENTIAL_CONSTRAINTS
-WHERE TABLE_SCHEMA = 'huakey_crm'
+WHERE CONSTRAINT_SCHEMA = DATABASE()
   AND TABLE_NAME = 'crm_opportunity_stage_log'
   AND CONSTRAINT_NAME IN ('fk_stage_log_opportunity', 'fk_stagelog_opp');
 
@@ -37,7 +39,7 @@ WHERE TABLE_SCHEMA = 'huakey_crm'
 --    保留 ON DELETE SET NULL 的 FK（060 创建）
 SET @fk_exists := (
   SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
-  WHERE TABLE_SCHEMA = 'huakey_crm'
+  WHERE TABLE_SCHEMA = DATABASE()
     AND TABLE_NAME = 'crm_opportunity_stage_log'
     AND CONSTRAINT_NAME = 'fk_stage_log_opportunity'
     AND CONSTRAINT_TYPE = 'FOREIGN KEY'
@@ -55,7 +57,7 @@ DEALLOCATE PREPARE stmt;
 -- 3. 验证: 确保 SET NULL 版本仍然存在
 SET @fk_null_exists := (
   SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
-  WHERE TABLE_SCHEMA = 'huakey_crm'
+  WHERE TABLE_SCHEMA = DATABASE()
     AND TABLE_NAME = 'crm_opportunity_stage_log'
     AND CONSTRAINT_NAME = 'fk_stagelog_opp'
     AND CONSTRAINT_TYPE = 'FOREIGN KEY'

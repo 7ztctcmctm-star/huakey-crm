@@ -844,6 +844,76 @@ async function getSupplierPerformance(pool, params = {}) {
   };
 }
 
+/**
+ * 销售总览（仪表盘）
+ * @returns {object} { opportunity_amount }
+ */
+async function getAnalyticsOverview(pool) {
+  const [rows] = await pool.query(`
+    SELECT COALESCE(SUM(expected_amount), 0) as amount
+    FROM crm_opportunity
+    WHERE deleted_at IS NULL
+  `);
+  return { opportunity_amount: rows[0]?.amount?.toString() || '0.00' };
+}
+
+/**
+ * 销售漏斗（仪表盘结构：stages + win_rate）
+ * @returns {object} { stages: [{ stage_name, count, amount }], win_rate }
+ */
+async function getAnalyticsFunnel(pool, params = {}) {
+  const funnel = await getSalesFunnel(pool, params);
+  const total = funnel.reduce((s, r) => s + (Number(r.count) || 0), 0);
+  const won = funnel.find(r => r.stage === '成交')?.count || 0;
+  return {
+    stages: funnel.map(r => ({ stage_name: r.stage, count: r.count, amount: r.amount })),
+    win_rate: total > 0 ? ((won / total) * 100).toFixed(1) : 0
+  };
+}
+
+/**
+ * 合同收入（按状态聚合）
+ * 状态: 1=草稿 2=生效中 3=已完成 4=已取消
+ * @returns {object} { total_amount, active_amount, completed_amount, cancelled_amount }
+ */
+async function getContractRevenue(pool) {
+  const [rows] = await pool.query(`
+    SELECT
+      COALESCE(SUM(c.amount), 0) as total_amount,
+      COALESCE(SUM(CASE WHEN c.status = 2 THEN c.amount ELSE 0 END), 0) as active_amount,
+      COALESCE(SUM(CASE WHEN c.status = 3 THEN c.amount ELSE 0 END), 0) as completed_amount,
+      COALESCE(SUM(CASE WHEN c.status = 4 THEN c.amount ELSE 0 END), 0) as cancelled_amount
+    FROM crm_contract c
+    WHERE c.deleted_at IS NULL
+  `);
+  const r = rows[0];
+  return {
+    total_amount: r.total_amount?.toString() || '0.00',
+    active_amount: r.active_amount?.toString() || '0.00',
+    completed_amount: r.completed_amount?.toString() || '0.00',
+    cancelled_amount: r.cancelled_amount?.toString() || '0.00'
+  };
+}
+
+/**
+ * 回款情况（仪表盘结构）
+ * @returns {object} { receivable_amount, received_amount, outstanding_amount, overdue_amount, collection_rate }
+ */
+async function getAnalyticsPaymentCollection(pool, params = {}) {
+  const stats = await getPaymentStats(pool, params);
+  const receivable = parseFloat(stats.plan_amount) || 0;
+  const received = parseFloat(stats.pay_amount) || 0;
+  const outstanding = Math.max(receivable - received, 0);
+  const rate = receivable > 0 ? ((received / receivable) * 100).toFixed(1) : 0;
+  return {
+    receivable_amount: stats.plan_amount,
+    received_amount: stats.pay_amount,
+    outstanding_amount: outstanding.toFixed(2),
+    overdue_amount: stats.overdue_amount,
+    collection_rate: rate
+  };
+}
+
 module.exports = {
   getSalesFunnel,
   getPerformance,
@@ -858,5 +928,9 @@ module.exports = {
   exportFinance,
   getBusinessDashboard,
   getPurchaseCost,
-  getSupplierPerformance
+  getSupplierPerformance,
+  getAnalyticsOverview,
+  getAnalyticsFunnel,
+  getContractRevenue,
+  getAnalyticsPaymentCollection
 };

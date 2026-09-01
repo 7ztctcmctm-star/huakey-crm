@@ -41,7 +41,7 @@ const emptySchema = Joi.object({});
 // ============ 跟进提醒 API ============
 
 // 1. 获取当前用户的未读提醒列表
-router.get('/my-reminders', authenticateToken, checkPermission('reminder'), async (req, res, next) => {
+router.get('/my-reminders', authenticateToken, checkPermission('notification'), async (req, res, next) => {
   try {
     const userId = req.user.userId;
     const overdueDays = await getOverdueDays();
@@ -59,7 +59,7 @@ router.get('/my-reminders', authenticateToken, checkPermission('reminder'), asyn
 });
 
 // 2. 获取所有逾期客户列表（老板看全局）
-router.post('/overdue-list', authenticateToken, checkPermission('reminder'), validate(paginationSchema), async (req, res, next) => {
+router.post('/overdue-list', authenticateToken, checkPermission('notification'), validate(paginationSchema), async (req, res, next) => {
   try {
     const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
     const userId = req.user.userId;
@@ -76,7 +76,7 @@ router.post('/overdue-list', authenticateToken, checkPermission('reminder'), val
 });
 
 // 3. 标记提醒为已读
-router.post('/mark-read', authenticateToken, checkPermission('reminder'), validate(markReadSchema), async (req, res, next) => {
+router.post('/mark-read', authenticateToken, checkPermission('notification'), validate(markReadSchema), async (req, res, next) => {
   try {
     const { reminder_id } = req.body;
     await reminderService.markAsRead(pool, reminder_id, req.user.userId);
@@ -88,7 +88,7 @@ router.post('/mark-read', authenticateToken, checkPermission('reminder'), valida
 });
 
 // 4. 一键标记全部已读
-router.post('/mark-all-read', authenticateToken, checkPermission('reminder'), validate(emptySchema), async (req, res, next) => {
+router.post('/mark-all-read', authenticateToken, checkPermission('notification'), validate(emptySchema), async (req, res, next) => {
   try {
     await reminderService.markAllAsRead(pool, req.user.userId, req.user.roleId);
     res.json({ code: 200, message: '全部已读', data: null });
@@ -99,7 +99,7 @@ router.post('/mark-all-read', authenticateToken, checkPermission('reminder'), va
 });
 
 // 5. 解除提醒（跟进后自动调用或手动解除）
-router.post('/dismiss', authenticateToken, checkPermission('reminder'), validate(dismissSchema), async (req, res, next) => {
+router.post('/dismiss', authenticateToken, checkPermission('notification'), validate(dismissSchema), async (req, res, next) => {
   try {
     const { customer_id } = req.body;
     await reminderService.dismissReminder(pool, customer_id, req.user.userId);
@@ -111,7 +111,7 @@ router.post('/dismiss', authenticateToken, checkPermission('reminder'), validate
 });
 
 // 6. 获取逾期回款计划
-router.get('/payment-overdue', authenticateToken, checkPermission('reminder'), async (req, res, next) => {
+router.get('/payment-overdue', authenticateToken, checkPermission('notification'), async (req, res, next) => {
   try {
     const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
     const userId = req.user.userId;
@@ -126,7 +126,7 @@ router.get('/payment-overdue', authenticateToken, checkPermission('reminder'), a
 });
 
 // 7. 标记通知已读（支持角色级和用户级通知）
-router.post('/notification-read', authenticateToken, checkPermission('reminder'), validate(notificationReadSchema), async (req, res, next) => {
+router.post('/notification-read', authenticateToken, checkPermission('notification'), validate(notificationReadSchema), async (req, res, next) => {
   try {
     const { notification_id } = req.body;
     await reminderService.markNotificationRead(pool, notification_id, req.user.userId, req.user.roleId);
@@ -138,7 +138,7 @@ router.post('/notification-read', authenticateToken, checkPermission('reminder')
 });
 
 // 8. 处理通知（标记为已处理，跳转后调用）
-router.post('/notification-dismiss', authenticateToken, checkPermission('reminder'), validate(notificationDismissSchema), async (req, res, next) => {
+router.post('/notification-dismiss', authenticateToken, checkPermission('notification'), validate(notificationDismissSchema), async (req, res, next) => {
   try {
     const { notification_id } = req.body;
     await reminderService.dismissNotification(pool, notification_id, req.user.roleId);
@@ -150,7 +150,7 @@ router.post('/notification-dismiss', authenticateToken, checkPermission('reminde
 });
 
 // 9. 按业务ID批量解除通知（审批通过/拒绝时调用）
-router.post('/notification-dismiss-by-business', authenticateToken, checkPermission('reminder'), validate(notificationDismissByBusinessSchema), async (req, res, next) => {
+router.post('/notification-dismiss-by-business', authenticateToken, checkPermission('notification'), validate(notificationDismissByBusinessSchema), async (req, res, next) => {
   try {
     const { business_type, business_id } = req.body;
     await reminderService.dismissNotificationByBusiness(pool, business_type, business_id);
@@ -162,7 +162,7 @@ router.post('/notification-dismiss-by-business', authenticateToken, checkPermiss
 });
 
 // 通知列表（分页）
-router.get('/notification-list', authenticateToken, checkPermission('reminder'), async (req, res, next) => {
+router.get('/notification-list', authenticateToken, checkPermission('notification'), async (req, res, next) => {
   try {
     const { page = 1, pageSize = 20 } = req.query;
 
@@ -177,7 +177,7 @@ router.get('/notification-list', authenticateToken, checkPermission('reminder'),
 
 // ============ 通知中心下拉面板 ============
 
-router.get('/center', authenticateToken, checkPermission('reminder'), async (req, res, next) => {
+router.get('/center', authenticateToken, checkPermission('notification'), async (req, res, next) => {
   try {
     const userId = req.user.userId;
 
@@ -225,7 +225,7 @@ router.get('/center', authenticateToken, checkPermission('reminder'), async (req
 });
 
 // 标记所有系统通知已读
-router.post('/center/mark-all-read', authenticateToken, checkPermission('reminder'), validate(emptySchema), async (req, res, next) => {
+router.post('/center/mark-all-read', authenticateToken, checkPermission('notification'), validate(emptySchema), async (req, res, next) => {
   try {
     await reminderService.markCenterAllRead(pool, req.user.userId);
     res.json({ code: 200, message: '已全部标记为已读', data: null });

@@ -234,7 +234,8 @@ const statusTagType = (status) => {
 const approvalMap = { 1: '待审批', 2: '已通过', 3: '已拒绝' }
 const approvalTagType = (s) => ({ 1: 'warning', 2: 'success', 3: 'danger' }[s] || 'info')
 // 判断当前用户是否为管理员（可审批）
-const isAdmin = computed(() => userInfo.value?.roleId === 1 || userInfo.value?.roleId === 2 || userInfo.value?.manageAll)
+// 统一使用 manageAll（super_admin/boss/manager 均由 sys_role.manage_all=1 标记），禁止依赖固定数字 roleId
+const isAdmin = computed(() => userInfo.value?.manageAll === true)
 
 
 // 搜索表单

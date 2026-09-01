@@ -146,14 +146,13 @@ describe('contractCrudService', () => {
       expect(conn.release).toHaveBeenCalled();
     });
 
-    it('旧数据不存在时应返回 null', async () => {
+    it('旧数据不存在时应抛 CONTRACT_NOT_FOUND（数据权限修复：越权/不存在不可更新）', async () => {
       const pool = createMockPool();
       pool.query.mockResolvedValueOnce([[]]);
       const conn = createMockConn();
       pool.getConnection.mockResolvedValue(conn);
 
-      const oldData = await contractCrudService.updateContract(pool, { id: 1, customer_id: 2, amount: 200, sign_date: '', delivery_date: '', payment_terms: '', status: 1, remark: '' });
-      expect(oldData).toBeNull();
+      await expect(contractCrudService.updateContract(pool, { id: 1, customer_id: 2, amount: 200, sign_date: '', delivery_date: '', payment_terms: '', status: 1, remark: '' })).rejects.toThrow('合同不存在');
     });
 
     it('异常时应回滚', async () => {

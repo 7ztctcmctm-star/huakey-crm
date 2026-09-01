@@ -48,13 +48,13 @@ const router = createRouter({
           path: 'follow-up/today',
           name: 'TodayTasks',
           component: () => import('../views/follow-up/TodayTasks.vue'),
-          meta: { title: '今日待跟进', permission: 'followup:today' }
+          meta: { title: '今日待跟进', permission: 'followup:calendar' }
         },
         {
           path: 'follow-up/tomorrow',
           name: 'TomorrowTasks',
           component: () => import('../views/follow-up/TomorrowTasks.vue'),
-          meta: { title: '明日计划', permission: 'followup:tomorrow' }
+          meta: { title: '明日计划', permission: 'followup:calendar' }
         },
         {
           path: 'leads',
@@ -418,13 +418,13 @@ const router = createRouter({
           path: 'scoring/rules',
           name: 'ScoringRules',
           component: () => import('../views/scoring/rules.vue'),
-          meta: { title: '评分规则', permission: 'scoring:view' }
+          meta: { title: '评分规则', permission: 'scoring' }
         },
         {
           path: 'scoring/ranking',
           name: 'ScoringRanking',
           component: () => import('../views/scoring/ranking.vue'),
-          meta: { title: '评分排行', permission: 'scoring:view' }
+          meta: { title: '评分排行', permission: 'scoring' }
         },
         {
           path: 'ai-suggestions',
@@ -490,19 +490,19 @@ const router = createRouter({
           path: 'approval/workflow',
           name: 'ApprovalWorkflow',
           component: () => import('../views/approval/workflow.vue'),
-          meta: { title: '审批流程', permission: 'approval:view', admin: true }
+          meta: { title: '审批流程', permission: 'approval', admin: true }
         },
         {
           path: 'approval/pending',
           name: 'ApprovalPending',
           component: () => import('../views/approval/pending.vue'),
-          meta: { title: '我的待审批', permission: 'approval:view' }
+          meta: { title: '我的待审批', permission: 'approval' }
         },
         {
           path: 'approval/submitted',
           name: 'ApprovalSubmitted',
           component: () => import('../views/approval/submitted.vue'),
-          meta: { title: '我的审批', permission: 'approval:view' }
+          meta: { title: '我的审批', permission: 'approval' }
         },
         {
           path: 'system/dept',
@@ -526,7 +526,7 @@ const router = createRouter({
           path: 'system/permission',
           name: 'SystemPermission',
           component: () => import('../views/system/permission.vue'),
-          meta: { title: '权限管理', permission: 'permission:view', admin: true }
+          meta: { title: '权限管理', permission: 'system:permission', admin: true }
         },
         {
           path: 'system/tags',
@@ -605,8 +605,8 @@ router.beforeEach(async (to, from, next) => {
       }
     }
 
-    // 无权限访问：直接转到登录页（避免 /dashboard 重定向循环）
-    next('/login')
+    // 无权限访问：跳 404 页（避免误判为掉线）
+    next({ name: 'NotFound' })
     return
   }
 
@@ -616,8 +616,8 @@ router.beforeEach(async (to, from, next) => {
     const hasAuth = user.manageAll || permissions.includes(to.meta.permission)
 
     if (!hasAuth) {
-      // 无权限访问：转到登录页
-      next('/login')
+      // 无权限访问：跳 404 页（避免误判为掉线）
+      next({ name: 'NotFound' })
       return
     }
   }

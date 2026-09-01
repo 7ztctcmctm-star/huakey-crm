@@ -46,17 +46,4 @@ export const permissionAllDirective = {
  * 使用方式：
  * v-permission:disabled="'customer:add'"
  */
-export const permissionDisabledDirective = {
-  mounted(el, binding) {
-    const { value, arg } = binding
-
-    if (!value) return
-
-    const hasAuth = Array.isArray(value) ? hasAnyPermission(value) : hasPermission(value)
-
-    if (!hasAuth && arg === 'disabled') {
-      el.disabled = true
-      el.classList.add('is-disabled')
-    }
-  }
-}
+// v-permission:disabled 已废弃（零使用，且对非表单元素无效），不再注册

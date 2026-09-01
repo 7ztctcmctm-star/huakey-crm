@@ -229,7 +229,8 @@ async function calculateCommission(pool, { period, user_ids }) {
     "SELECT id, name, rule_type, apply_to, config, status, remark, create_by, create_time, update_time, deleted_at FROM crm_commission_rule WHERE status = 1 AND deleted_at IS NULL AND apply_to = 'contract' ORDER BY id LIMIT 1"
   );
 
-  let userWhere = "WHERE u.status = 1 AND r.code IN ('sales', 'admin', 'super_admin')";
+  // 佣金计算范围：销售 + 部门经理 + 老板（旧 code admin/super_admin 现库已不存在，对齐为 manager/boss）
+  let userWhere = "WHERE u.status = 1 AND r.code IN ('sales', 'manager', 'boss')";
   const userParams = [];
   if (user_ids && user_ids.length > 0) {
     userWhere += ` AND u.id IN (${user_ids.map(() => '?').join(',')})`;

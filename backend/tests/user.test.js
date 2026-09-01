@@ -62,7 +62,7 @@ describe('用户管理模块', () => {
       const res = await request(app)
         .post('/api/v1/user/add')
         .set('Authorization', `Bearer ${token}`)
-        .send({ password: 'Test@12345' });
+        .send({ password: 'Pass1234' });
 
       expect(res.status).toBe(400);
       expect(res.body.code).toBe(400);
@@ -93,7 +93,7 @@ describe('用户管理模块', () => {
       const res = await request(app)
         .post('/api/v1/user/add')
         .set('Authorization', `Bearer ${token}`)
-        .send({ username: 'existing_user', password: 'Test@12345' });
+        .send({ username: 'existing_user', password: 'Pass1234' });
 
       expect(res.status).toBe(400);
       expect(res.body.message).toContain('已存在');
@@ -111,7 +111,7 @@ describe('用户管理模块', () => {
       const res = await request(app)
         .post('/api/v1/user/add')
         .set('Authorization', `Bearer ${token}`)
-        .send({ username: 'newuser', password: 'Test@12345', real_name: '新用户' });
+        .send({ username: 'newuser', password: 'Pass1234', real_name: '新用户' });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
@@ -209,6 +209,42 @@ describe('用户管理模块', () => {
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
       expect(mockConnection.commit).toHaveBeenCalled();
+    });
+  });
+
+  // [v1.0.1 安全补丁] 重置密码接口测试
+  describe('POST /api/v1/user/reset-password', () => {
+    it('应该返回400当新密码不满足密码策略(少于8位)', async () => {
+      const token = generateToken();
+      mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
+      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+
+      const res = await request(app)
+        .post('/api/v1/user/reset-password')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ id: 2, new_password: 'Pass123' }); // 7 位，应被拒绝
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe(400);
+    });
+
+    it('应该返回200当正常重置密码', async () => {
+      const token = generateToken();
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 2, username: 'targetuser' }]]) // user exists
+        .mockResolvedValueOnce([{ affectedRows: 1 }]); // UPDATE password
+
+      const res = await request(app)
+        .post('/api/v1/user/reset-password')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ id: 2, new_password: 'Pass1234' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.code).toBe(200);
+      expect(res.body.message).toContain('targetuser');
     });
   });
 });

@@ -63,11 +63,14 @@ async function selectFirstOptionByLabel(page, labelText) {
 
 /**
  * 在客户列表中根据公司名称搜索并等待结果出现。
+ * 潜客池（/leads）与正式客户列表（/customer/list）容器类名不同：
+ *  - 潜客池: .leads-pool（无分配规则时新客户为 lead，出现在此处）
+ *  - 正式列表: .customer-list（转正后的客户）
  */
-async function searchCustomer(page, companyName) {
-  const searchInput = page.locator('.customer-list input[placeholder*="公司名称"]').first()
+async function searchCustomer(page, companyName, container = '.customer-list') {
+  const searchInput = page.locator(`${container} input[placeholder*="公司名称"]`).first()
   await searchInput.fill(companyName)
-  const searchBtn = page.locator('.customer-list button:has-text("搜索")').first()
+  const searchBtn = page.locator(`${container} button:has-text("搜索")`).first()
   await searchBtn.click()
   await page.waitForTimeout(1200)
 }
@@ -87,26 +90,25 @@ test.describe('客户管理 CRUD', () => {
     const { csrfToken } = await loginAsAdmin(request)
     const createRes = await createCustomer(request, csrfToken, { companyName })
     expect(createRes.code).toBe(200)
+    const customerId = createRes.data?.id
 
-    await page.goto('/customer/list')
-    await page.locator('.customer-list').waitFor({ state: 'visible', timeout: 10000 })
+    // 无分配规则（crm_assign_rule 为空）环境下新建客户为 lead，出现在潜客池（/leads）
+    await page.goto('/leads')
+    await page.locator('.leads-pool').waitFor({ state: 'visible', timeout: 10000 })
     await disableAnimations(page)
 
-    await searchCustomer(page, companyName)
-    await expect(page.locator('.el-table__row').filter({ hasText: companyName })).toBeVisible()
+    // 在潜客池搜索并验证出现
+    await searchCustomer(page, companyName, '.leads-pool')
+    await expect(page.locator('.leads-pool .el-table__row').filter({ hasText: companyName })).toBeVisible()
 
-    // 清理：删除测试数据
-    const row = page.locator('.el-table__row', { hasText: companyName })
-    const moreBtn = row.locator('button:has-text("更多")')
-    await moreBtn.click()
-    await page.locator('.el-dropdown-menu__item:has-text("删除")').click()
-    await page.locator('.el-message-box__btns .el-button--primary:has-text("确定")').click()
-    await page.waitForTimeout(1000)
-
-    await expect(page.locator('.el-table__row').filter({ hasText: companyName })).not.toBeVisible()
+    // 清理：通过 API 删除测试数据（潜客池行内无删除按钮，走正式客户删除接口）
+    if (customerId) {
+      const delRes = await deleteCustomer(request, csrfToken, customerId)
+      expect(delRes.code).toBe(200)
+    }
   })
 
-  test('应能通过 UI 新增客户', async ({ authenticatedPage: page }, testInfo) => {
+  test('应能通过 UI 新增客户', async ({ authenticatedPage: page, request }, testInfo) => {
     test.skip(
       testInfo.project.name.includes('iPhone') ||
       testInfo.project.name.includes('Mobile Chrome') ||
@@ -116,12 +118,13 @@ test.describe('客户管理 CRUD', () => {
     const companyName = uniqueCompanyName()
     await ensureDesktopViewport(page)
 
-    await page.goto('/customer/list')
-    await page.locator('.customer-list').waitFor({ state: 'visible', timeout: 10000 })
+    // 潜客池（/leads）提供"新增潜客"，提交后无分配规则时新客户为 lead 留在潜客池
+    await page.goto('/leads')
+    await page.locator('.leads-pool').waitFor({ state: 'visible', timeout: 10000 })
     await disableAnimations(page)
 
-    // 打开新增弹窗
-    await page.locator('.customer-list button:has-text("新增客户")').click()
+    // 打开新增弹窗（潜客池复用 CustomerFormDialog，弹窗标题为"新增客户"）
+    await page.locator('.leads-pool button:has-text("新增潜客")').click()
     await expect(page.locator('.el-dialog:has-text("新增客户")')).toBeVisible({ timeout: 5000 })
 
     // 填写表单（按 label 定位）
@@ -139,17 +142,21 @@ test.describe('客户管理 CRUD', () => {
     await expect(page.locator('.el-dialog:has-text("新增客户")')).not.toBeVisible({ timeout: 10000 })
     await page.waitForTimeout(1200)
 
-    // 搜索并验证
-    await searchCustomer(page, companyName)
-    await expect(page.locator('.el-table__row').filter({ hasText: companyName })).toBeVisible()
+    // 在潜客池搜索并验证出现
+    await searchCustomer(page, companyName, '.leads-pool')
+    await expect(page.locator('.leads-pool .el-table__row').filter({ hasText: companyName })).toBeVisible()
 
-    // 清理
-    const row = page.locator('.el-table__row', { hasText: companyName })
-    const moreBtn = row.locator('button:has-text("更多")')
-    await moreBtn.click({ force: true })
-    await page.locator('.el-dropdown-menu__item:has-text("删除")').click({ force: true })
-    await page.locator('.el-message-box__btns .el-button--primary:has-text("确定")').click({ force: true })
-    await page.waitForTimeout(1000)
+    // 清理：通过 API 删除测试数据（进入详情页取客户 id）
+    const { csrfToken } = await loginAsAdmin(request)
+    const row = page.locator('.leads-pool .el-table__row', { hasText: companyName })
+    const detailLink = row.locator('a, .el-link').first()
+    await detailLink.click()
+    await page.waitForURL(/\/customer\/detail\//)
+    const idMatch = page.url().match(/\/customer\/detail\/(\d+)/)
+    if (idMatch) {
+      const delRes = await deleteCustomer(request, csrfToken, Number(idMatch[1]))
+      expect(delRes.code).toBe(200)
+    }
   })
 
   test('应能编辑客户备注', async ({ authenticatedPage: page, request }, testInfo) => {
@@ -164,19 +171,20 @@ test.describe('客户管理 CRUD', () => {
     const { csrfToken } = await loginAsAdmin(request)
     const createRes = await createCustomer(request, csrfToken, { companyName })
     expect(createRes.code).toBe(200)
+    const customerId = createRes.data?.id
 
-    await page.goto('/customer/list')
-    await page.locator('.customer-list').waitFor({ state: 'visible', timeout: 10000 })
+    // 无分配规则环境下新建客户为 lead，在潜客池（/leads）中编辑
+    await page.goto('/leads')
+    await page.locator('.leads-pool').waitFor({ state: 'visible', timeout: 10000 })
     await disableAnimations(page)
 
-    // 搜索
-    await searchCustomer(page, companyName)
+    // 在潜客池搜索
+    await searchCustomer(page, companyName, '.leads-pool')
 
-    // 编辑
-    const row = page.locator('.el-table__row', { hasText: companyName })
-    const moreBtn = row.locator('button:has-text("更多")')
-    await moreBtn.click({ force: true })
-    await page.locator('.el-dropdown-menu__item:has-text("编辑")').click({ force: true })
+    // 点击编辑（潜客池行内"编辑"按钮，复用 CustomerFormDialog）
+    const row = page.locator('.leads-pool .el-table__row', { hasText: companyName })
+    const editBtn = row.locator('button:has-text("编辑")')
+    await editBtn.click({ force: true })
 
     await expect(page.locator('.el-dialog:has-text("编辑客户")')).toBeVisible({ timeout: 5000 })
     await fillByLabel(page, '备注', 'E2E 自动测试备注')
@@ -185,11 +193,10 @@ test.describe('客户管理 CRUD', () => {
     await editSubmitBtn.click({ force: true })
     await expect(page.locator('.el-dialog:has-text("编辑客户")')).not.toBeVisible({ timeout: 10000 })
 
-    // 清理
-    await page.waitForTimeout(1200)
-    await searchCustomer(page, companyName)
-    await moreBtn.click({ force: true })
-    await page.locator('.el-dropdown-menu__item:has-text("删除")').click({ force: true })
-    await page.locator('.el-message-box__btns .el-button--primary:has-text("确定")').click({ force: true })
+    // 清理：通过 API 删除测试数据
+    if (customerId) {
+      const delRes = await deleteCustomer(request, csrfToken, customerId)
+      expect(delRes.code).toBe(200)
+    }
   })
 })

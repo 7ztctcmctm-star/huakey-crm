@@ -84,8 +84,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.synology
-    # 镜像 tag: 默认 latest, 发布时可用 APP_IMAGE=crm-stack-app:v1.x.x 指定版本
-    image: ${APP_IMAGE:-crm-stack-app:latest}
     container_name: huakey-app
     restart: unless-stopped
     init: true
@@ -123,8 +121,8 @@ services:
       ALERT_ENABLED: ${ALERT_ENABLED:-false}
       WECHAT_WEBHOOK_URL: ${WECHAT_WEBHOOK_URL:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
-    ports:
-      - "6789:5000"
+    expose:
+      - "5000"
     depends_on:
       mysql:
         condition: service_healthy
@@ -144,32 +142,44 @@ services:
     networks:
       - crm-network
 
-  # ---- 数据库自动备份（每日凌晨 2:00，Phase 10 P1-2）----
-  # mysql:8.0 镜像内置 busybox crond，无需额外安装
-  # 备份脚本通过 volume 挂载注入，与 app 容器共享 ./database/backups 目录
+  # ---- 自动备份（容器内调度：02:00 MySQL / 02:30 uploads / 02:45 配置+证书）----
+  # mysql:8.0 镜像无 crond（原 crond -f 方案导致容器无限崩溃，2026-08-31 审计修复），
+  # 改用 deploy/backup/container-backup.sh 内置定点等待循环，零外部依赖。
+  # 宿主机 /etc/cron.d/crm-backup 每日 04:00 另有一份 MySQL 备份兜底（双保险）。
+  # 手动验证：docker exec huakey-backup sh /container-backup.sh --once
   backup:
     image: mysql:8.0
     container_name: huakey-backup
     restart: unless-stopped
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        echo "0 2 * * * /backup.sh >> /var/log/backup.log 2>&1" > /etc/crontabs/root
-        crond -f -l 2
+    entrypoint: ["/bin/sh", "/container-backup.sh"]
     volumes:
+      - ./deploy/backup/container-backup.sh:/container-backup.sh:ro
       - ./database/backup.sh:/backup.sh:ro
       - ./database/backups:/backups
+      # uploads 文件备份源（app-uploads named volume 只读）
+      - app-uploads:/uploads:ro
+      # 配置备份源（宿主机关键文件只读挂载，最小暴露面）
+      - ./.env:/stack/.env:ro
+      - ./.env.secrets:/stack/.env.secrets:ro
+      - ./docker-compose.synology.yml:/stack/docker-compose.synology.yml:ro
+      - ./nginx:/stack/nginx:ro
+      # 时区与宿主机保持一致，保证 02:00/02:30/02:45 为本地时间
+      - /etc/localtime:/etc/localtime:ro
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       DATABASE: ${DB_NAME:-huakey_crm}
-    mem_limit: 64m
+      TZ: ${TZ:-Asia/Shanghai}
+    mem_limit: 128m
     depends_on:
       mysql:
         condition: service_healthy
     networks:
       - crm-network
 
-  # ---- HTTPS 反向代理 ----
+  # ---- HTTPS 反向代理（容器层，8443 端口）----
+  # 生产架构：DSM nginx (80/443) → huakey-nginx (8443) → app (5000)
+  # DSM nginx 做 SSL 终端 (crm.huakey.local)，容器 nginx 在 8443 做二级反代
+  # 主机 80/443 由 DSM 自带 nginx 占用，禁止在此声明 80:80 / 443:443
   nginx:
     image: nginx:alpine
     container_name: huakey-nginx

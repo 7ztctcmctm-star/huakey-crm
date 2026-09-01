@@ -6,7 +6,6 @@ export const getReportPayment = (params) => request.get('/report/payment', { par
 export const getReportPerformance = (params) => request.get('/report/performance', { params })
 export const getReportCustomerAnalysis = (params) => request.get('/report/customer', { params })
 export const getReportOverview = () => request.get('/report/overview')
-export const getReportDashboardStats = () => request.get('/report/dashboard-stats')
 export const getReportBusiness = (params) => request.get('/report/business', { params })
 export const getReportFinance = (params) => request.get('/report/finance', { params })
 export const getReportOverdue = (params) => request.post('/report/overdue', params)

@@ -110,8 +110,8 @@ router.post('/batch-add', authenticateToken, checkPermission('customer:edit'), v
   }
 });
 
-// 2. 获取客户的跟进记录列表
-router.post('/list', authenticateToken, checkPermission('followup:calendar'), checkDataPermission('followup', 'create_by'), validate(followUpListSchema), async (req, res, next) => {
+// 2. 获取客户的跟进记录列表（持有跟进日历权限或客户查看权限任一即可，保证客户详情页跟进历史对 customer:view 角色可用）
+router.post('/list', authenticateToken, checkPermission(['followup:calendar', 'customer:view']), checkDataPermission('followup', 'create_by'), validate(followUpListSchema), async (req, res, next) => {
   try {
     const { customer_id, page = 1, pageSize = 20 } = req.body;
     if (!customer_id) {

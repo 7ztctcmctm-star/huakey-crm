@@ -37,7 +37,7 @@
       <template #header>
         <div class="card-header">
           <span>公海池（共 {{ total }} 条）</span>
-          <el-button type="text" disabled v-if="total === 0">暂无公海客户</el-button>
+          <el-button link disabled v-if="total === 0">暂无公海客户</el-button>
         </div>
       </template>
 

@@ -58,6 +58,31 @@ function legacyStatusToCode(legacyStatus) {
 }
 
 /**
+ * 将 status 映射为 business_status（保持两个状态字段同步）
+ * business_status 枚举不含 sea/paused（迁移 097 规则）：
+ *   sea/paused → following，其余状态码直接对应
+ * @param {string} status
+ * @returns {string|null}
+ */
+function mapStatusToBusinessStatus(status) {
+  if (!status) return null;
+  switch (status) {
+    case CUSTOMER_STATUS.SEA:
+    case CUSTOMER_STATUS.PAUSED:
+      return BUSINESS_STATUS.FOLLOWING;
+    case BUSINESS_STATUS.LEAD:
+    case BUSINESS_STATUS.FOLLOWING:
+    case BUSINESS_STATUS.QUOTED:
+    case BUSINESS_STATUS.NEGOTIATING:
+    case BUSINESS_STATUS.SIGNED:
+    case BUSINESS_STATUS.LOST:
+      return status;
+    default:
+      return null;
+  }
+}
+
+/**
  * 加载客户状态配置
  */
 async function loadStatusConfig(pool) {
@@ -376,11 +401,14 @@ async function transitionStatus(pool, customerId, toCode, operatorId, reason) {
     throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该状态流转需要填写原因');
   }
 
+  // 同步更新 business_status，保持 status 与业务生命周期字段一致
+  // （sea/paused 不在 business_status 枚举，映射为 following）
+  const bizStatus = mapStatusToBusinessStatus(toCode);
   await pool.query(
     `UPDATE crm_customer
-     SET status = ?, update_time = NOW()
+     SET status = ?, business_status = COALESCE(?, business_status), update_time = NOW()
      WHERE id = ?`,
-    [toCode, customerId]
+    [toCode, bizStatus, customerId]
   );
 
   return { id: customerId, status: toCode, from_status: customer.status };
@@ -731,8 +759,8 @@ async function convertToCustomer(pool, id) {
   try {
     await connection.beginTransaction();
     await connection.query(
-      'UPDATE crm_customer SET customer_type = ?, lifecycle_status = ?, business_status = ? WHERE id = ?',
-      ['customer', 'active', BUSINESS_STATUS.FOLLOWING, id]
+      'UPDATE crm_customer SET customer_type = ?, lifecycle_status = ?, business_status = ?, status = ? WHERE id = ?',
+      ['customer', 'active', BUSINESS_STATUS.FOLLOWING, CUSTOMER_STATUS.FOLLOWING, id]
     );
     await connection.commit();
     return { id, company_name: customer.company_name };
@@ -1044,9 +1072,9 @@ async function convertLeadToCustomer(pool, customerId, operatorId) {
     await connection.beginTransaction();
     await connection.query(
       `UPDATE crm_customer
-       SET customer_type = ?, lifecycle_status = ?, business_status = ?, converted_at = NOW(), update_time = NOW()
+       SET customer_type = ?, lifecycle_status = ?, business_status = ?, status = ?, converted_at = NOW(), update_time = NOW()
        WHERE id = ?`,
-      ['customer', 'active', BUSINESS_STATUS.FOLLOWING, customerId]
+      ['customer', 'active', BUSINESS_STATUS.FOLLOWING, CUSTOMER_STATUS.FOLLOWING, customerId]
     );
     await connection.query(
       `INSERT INTO crm_assign_log (customer_id, from_user_id, to_user_id, operator_id, remark)

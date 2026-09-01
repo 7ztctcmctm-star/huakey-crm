@@ -234,18 +234,26 @@ async function getQuote(pool, id, permission = null) {
 
 const STATUS_MAP = { 1: '草稿', 2: '已发送', 3: '已确认', 4: '已失效' };
 
-async function updateQuote(pool, data) {
+async function updateQuote(pool, data, permission = null) {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
 
     const { id, customer_id, items, discount, valid_days, remark, status } = data;
 
+    // 数据权限过滤：仅允许修改数据范围内（含归属人）的报价单
+    const whereParts = ['q.id = ?', 'q.deleted_at IS NULL'];
+    const whereParams = [id];
+    if (permission && permission.clause && permission.clause !== '1=1') {
+      whereParts.push(permission.clause);
+      whereParams.push(...(permission.params || []));
+    }
+
     const [quotes] = await connection.query(
-      `SELECT id, quote_no, customer_id, amount, discount, final_amount, valid_days, remark, status, approval_status,
-        opportunity_id, create_by, create_time, update_time, deleted_at
-       FROM crm_quote WHERE id = ? AND deleted_at IS NULL`,
-      [id]
+      `SELECT q.id, q.quote_no, q.customer_id, q.amount, q.discount, q.final_amount, q.valid_days, q.remark, q.status, q.approval_status,
+        q.opportunity_id, q.create_by, q.create_time, q.deleted_at
+       FROM crm_quote q WHERE ${whereParts.join(' AND ')}`,
+      whereParams
     );
     if (quotes.length === 0) throw new AppError(ErrorCodes.QUOTE_NOT_FOUND);
 

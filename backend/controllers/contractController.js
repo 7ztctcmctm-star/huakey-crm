@@ -10,8 +10,8 @@ const { logFieldChanges } = require('../utils/fieldLog');
 const { simpleApproveContract } = require('../services/approvalService');
 const contractService = require('../services/contractService');
 const contractCrudService = require('../services/contractCrudService');
-const opportunityService = require('../services/opportunityService');
 const contractPaymentService = require('../services/contractPaymentService');
+const opportunityService = require('../services/opportunityService');
 const {
   exportContracts: exportContractsService,
   exportPayments: exportPaymentsService,
@@ -59,17 +59,6 @@ async function createContract(req, res, next) {
 
   try {
     const result = await contractService.createContract(pool, req.body, req.user.userId);
-
-    // [P1] 合同关联商机时自动推进商机到成交(stage 5)，复用已有状态机逻辑
-    // 不阻塞主流程：商机推进失败仅记录日志，合同保留（与 createContractNotification 模式一致）
-    const oppId = req.body.opportunity_id;
-    if (oppId) {
-      try {
-        await opportunityService.advanceStage(pool, oppId, 5, req.user.userId, { changeReason: '创建合同自动推进成交' });
-      } catch (oppErr) {
-        logger.warn('[合同] 商机自动推进到成交失败:', { opportunity_id: oppId, error: oppErr.message });
-      }
-    }
     await logAction(req, 'add', `新增合同: ${result.contract_no}`);
 
     // 通知审批人（不影响主流程）
@@ -84,7 +73,8 @@ async function createContract(req, res, next) {
 
 async function updateContract(req, res, next) {
   try {
-    const oldData = await contractCrudService.updateContract(pool, req.body);
+    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'c');
+    const oldData = await contractCrudService.updateContract(pool, req.body, { clause, params: permParams });
     await logAction(req, 'update', `修改合同: ID=${req.body.id}`);
 
     if (oldData) {
@@ -113,7 +103,8 @@ async function deleteContract(req, res, next) {
   const { id } = req.body;
 
   try {
-    const result = await contractCrudService.deleteContract(pool, id, req.user);
+    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'c');
+    const result = await contractCrudService.deleteContract(pool, id, req.user, { clause, params: permParams });
     await logAction(req, 'delete', `删除合同: ID=${id}`);
     await invalidateCache(['cache:*:/api/contract/*']);
     res.json({ code: 200, message: result.message, data: null });
@@ -137,11 +128,45 @@ async function getOpportunityList(req, res, next) {
 async function searchContracts(req, res, next) {
   try {
     const { keyword } = req.query;
-    const rows = await contractCrudService.searchContracts(pool, keyword);
+    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'c');
+    const rows = await contractCrudService.searchContracts(pool, keyword, { clause, params: permParams });
     stripRestrictedFields(rows, req.restrictedFields);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
     logger.error('[合同] 合同搜索错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    next(error);
+  }
+}
+
+// ==================== Cancel ====================
+
+async function cancelContract(req, res, next) {
+  try {
+    const { id, cancel_reason, cancel_action } = req.body;
+
+    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'c');
+    const result = await contractService.cancelContract(pool, {
+      id,
+      cancel_reason,
+      cancel_action,
+      userId: req.user.userId,
+      permission: { clause, params: permParams }
+    });
+
+    // 联动商机阶段
+    if (cancel_action && result.opportunity_id) {
+      if (cancel_action === 'customer_cancelled') {
+        await opportunityService.advanceStage(pool, result.opportunity_id, 6, req.user.userId, { changeReason: '合同取消-客户取消' });
+      } else if (cancel_action === 'reopen_negotiation') {
+        await opportunityService.advanceStage(pool, result.opportunity_id, 4, req.user.userId, { changeReason: '合同取消-重新谈判' });
+      }
+      // keep_won: 不推进商机
+    }
+
+    await logAction(req, 'update', `取消合同: ${result.contract_no}, 原因: ${cancel_reason}`);
+    res.json({ code: 200, message: '合同已取消', data: result });
+  } catch (error) {
+    logger.error('[合同] 取消合同错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     next(error);
   }
 }
@@ -206,7 +231,8 @@ async function deletePayment(req, res, next) {
 
 async function listPayments(req, res, next) {
   try {
-    const result = await contractPaymentService.listPayments(pool, req.body);
+    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'c');
+    const result = await contractPaymentService.listPayments(pool, req.body, { clause, params: permParams });
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
     logger.error('[合同] 查询回款列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -216,7 +242,8 @@ async function listPayments(req, res, next) {
 
 async function getMergedPayments(req, res, next) {
   try {
-    const result = await contractPaymentService.getMergedPayments(pool, req.body);
+    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'c');
+    const result = await contractPaymentService.getMergedPayments(pool, req.body, { clause, params: permParams });
     res.json({ code: 200, message: '查询成功', data: { list: result.list, total: result.total } });
   } catch (error) {
     logger.error('[合同] 合并回款视图查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -227,7 +254,8 @@ async function getMergedPayments(req, res, next) {
 async function getPaymentSummary(req, res, next) {
   try {
     const { page = 1, pageSize = 20 } = req.body;
-    const result = await contractPaymentService.getSummary(pool);
+    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'c');
+    const result = await contractPaymentService.getSummary(pool, { clause, params: permParams });
     res.json({
       code: 200, message: '查询成功',
       data: { list: [], total: 0, page: parseInt(page), pageSize: parseInt(pageSize), summary: result }
@@ -240,7 +268,8 @@ async function getPaymentSummary(req, res, next) {
 
 async function exportStatement(req, res, next) {
   try {
-    const { buffer } = await contractPaymentService.getStatementExport(pool, req.body);
+    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'c');
+    const { buffer } = await contractPaymentService.getStatementExport(pool, req.body, { clause, params: permParams });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=statement.xlsx');
     res.send(buffer);
@@ -313,55 +342,15 @@ async function downloadPaymentImportTemplate(req, res, next) {
   }
 }
 
-/**
- * 取消合同（Phase 5.4 合同取消工作流）
- * 1. contractService.cancelContract: status→4 + 记录 cancel_reason/cancel_action
- * 2. 基于 cancel_action 联动 Opportunity (复用 advanceStage)
- *    - customer_cancelled → stage 6, reopen_negotiation → stage 4, keep_won → 不动
- * 3. 联动失败记录日志，不阻塞合同取消（方案B）
- */
-async function cancelContract(req, res, next) {
-  const { id, cancel_reason, cancel_action } = req.body;
-
-  try {
-    const result = await contractService.cancelContract(pool, id, cancel_reason, cancel_action, req.user.userId);
-    await logAction(req, 'update', `取消合同: ${result.contract_no}`);
-
-    const oppId = result.opportunity_id;
-    if (oppId) {
-      let targetStage = null;
-      if (cancel_action === 'customer_cancelled') {
-        targetStage = 6;
-      } else if (cancel_action === 'reopen_negotiation') {
-        targetStage = 4;
-      }
-      if (targetStage !== null) {
-        try {
-          await opportunityService.advanceStage(pool, oppId, targetStage, req.user.userId, {
-            changeReason: cancel_action === 'customer_cancelled' ? '合同取消-客户取消' : '合同取消-重新谈判'
-          });
-        } catch (oppErr) {
-          logger.warn('[合同] 取消联动商机失败:', { opportunity_id: oppId, action: cancel_action, error: oppErr.message });
-        }
-      }
-    }
-
-    res.json({ code: 200, message: '合同取消成功', data: result });
-  } catch (error) {
-    logger.error('[合同] 取消合同失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    next(error);
-  }
-}
-
 module.exports = {
   listContracts,
   getContractDetail,
   createContract,
-  cancelContract,
   updateContract,
   deleteContract,
   getOpportunityList,
   searchContracts,
+  cancelContract,
   approveContract,
   addPayment,
   updatePayment,

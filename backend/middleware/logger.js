@@ -80,11 +80,12 @@ async function logAction({ module, action, method, url, params, ipAddress, userI
 }
 
 function getIpAddress(req) {
-  return req.headers['x-forwarded-for'] ||
-         req.headers['x-real-ip'] ||
+  // [安全修复] 不再直接读取客户端可控的 x-forwarded-for 原始头。
+  // Express 的 req.ip 已按 trust proxy 配置解析：生产 trust proxy=1 时取
+  // 可信代理追加的 XFF 最右侧值，开发/直连时取 socket 地址。
+  return req.ip ||
          req.connection?.remoteAddress ||
          req.socket?.remoteAddress ||
-         req.ip ||
          '0.0.0.0';
 }
 
@@ -265,7 +266,7 @@ function createRouteLogger(moduleName) {
       method: req.method,
       url: req.originalUrl,
       params: req.method === 'GET' ? req.query : req.body,
-      ipAddress: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || '0.0.0.0',
+      ipAddress: getIpAddress(req),
       userId: req.user?.userId || req.user?.id || null,
       userName: req.user?.real_name || req.user?.username || null,
       description, status, errorMsg

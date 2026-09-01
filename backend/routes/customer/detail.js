@@ -226,7 +226,7 @@ router.post('/delete', authenticateToken, checkPermission('customer:delete'), va
 router.get('/detail/:id', authenticateToken, checkDataPermission('customer', 'owner_id'), customerController.detail);
 
 // 5.5 客户360度视图
-router.get('/:id/360', authenticateToken, checkPermission('customer:list'), customerController.view360);
+router.get('/:id/360', authenticateToken, checkPermission('customer:list'), checkDataPermission('customer', 'owner_id'), customerController.view360);
 
 // 6. 导出客户列表
 router.post('/export', authenticateToken, checkPermission('customer:list'), checkDataPermission('customer', 'owner_id'), validate(exportCustomersSchema), customerController.exportCustomers);

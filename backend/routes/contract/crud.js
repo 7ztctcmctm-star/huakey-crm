@@ -152,7 +152,7 @@ const deleteContractSchema = Joi.object({
 const cancelContractSchema = Joi.object({
   id: Joi.number().integer().positive().required(),
   cancel_reason: Joi.string().max(500).required(),
-  cancel_action: Joi.string().valid('customer_cancelled', 'reopen_negotiation', 'keep_won').allow(null, '')
+  cancel_action: Joi.string().valid('customer_cancelled', 'reopen_negotiation', 'keep_won').required()
 });
 
 // --- Routes ---
@@ -163,14 +163,15 @@ router.get('/detail/:id', authenticateToken, checkDataPermission('contract', 'cr
 
 router.post('/add', authenticateToken, checkPermission('contract:add'), validate(addContractSchema), contractController.createContract);
 
-router.post('/update', authenticateToken, checkPermission('contract:edit'), validate(updateContractSchema), contractController.updateContract);
+router.post('/update', authenticateToken, checkPermission('contract:edit'), checkDataPermission('contract', 'create_by'), validate(updateContractSchema), contractController.updateContract);
 
-router.post('/delete', authenticateToken, checkPermission('contract:delete'), validate(deleteContractSchema), contractController.deleteContract);
-router.post('/cancel', authenticateToken, checkPermission('contract:edit'), validate(cancelContractSchema), contractController.cancelContract);
+router.post('/delete', authenticateToken, checkPermission('contract:delete'), checkDataPermission('contract', 'create_by'), validate(deleteContractSchema), contractController.deleteContract);
+
+router.post('/cancel', authenticateToken, checkPermission('contract:edit'), checkDataPermission('contract', 'create_by'), validate(cancelContractSchema), contractController.cancelContract);
 
 router.get('/opportunity-list', authenticateToken, checkDataPermission('opportunity', 'owner_id'), contractController.getOpportunityList);
 
 // 合同搜索（轻量级，供快速回款录入选择合同）
-router.get('/search', authenticateToken, contractController.searchContracts);
+router.get('/search', authenticateToken, checkPermission('contract'), checkDataPermission('contract', 'create_by'), contractController.searchContracts);
 
 module.exports = router;

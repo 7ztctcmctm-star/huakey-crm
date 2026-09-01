@@ -11,6 +11,9 @@ node_modules/
 .env.secrets
 .env.synology
 
+# E2E 测试账号（demo 凭据不入库，模板见 .env.test.example）
+.env.test
+
 # Build outputs
 dist/
 build/
@@ -37,8 +40,15 @@ backend/uploads/*
 # Docker
 docker/data/
 
+# SSL 证书（NAS 生产证书，禁止入仓库）
+nginx/certs/*
+!nginx/certs/.gitkeep
+
 # Backup files
 database/backups/
+
+# 本地运维配置（含 NAS 凭据，禁止入库）
+scripts/config_local.py
 
 # Runtime logs
 backend/logs/
@@ -92,6 +102,8 @@ backend/.dev-token.txt
 scripts/__pycache__/
 
 # One-off data migration/debug scripts (contain NAS credentials or temp logic)
+backend/tmp_*.js
+deploy/_scan*.sh
 scripts/debug_*.py
 scripts/import_*.py
 scripts/copy_to_nas.py
@@ -102,16 +114,3 @@ scripts/prepare_import_sql.py
 scripts/verify_import.py
 scripts/analyze_backup.py
 scripts/import_to_nas.bat
-
-# ===== 生产安全规则（nginx 配置恢复时重新添加）=====
-
-# Production private keys (DO NOT COMMIT)
-nginx/certs/*.key
-
-# Backup files
-*.bak.*
-*.bak
-
-# Environment backups (may contain real credentials)
-.env.bak.*
-.env.secrets.bak.*

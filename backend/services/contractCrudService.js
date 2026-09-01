@@ -141,18 +141,31 @@ async function createContractNotification(pool, contractId, contractNo, amount, 
  * 更新合同（事务保护，含回款计划）
  * @param {object} pool
  * @param {object} data - { id, customer_id, opportunity_id, amount, sign_date, delivery_date, payment_terms, status, remark, plans, delete_plan_ids }
+ * @param {object} [permission] - 数据权限 { clause, params }
  * @returns {object|null} oldData - 旧合同数据，用于字段变更日志
  */
-async function updateContract(pool, data) {
+async function updateContract(pool, data, permission = null) {
   const { id, customer_id, opportunity_id, amount, sign_date, delivery_date, payment_terms, status, remark, plans, delete_plan_ids } = data;
   const connection = await pool.getConnection();
 
   try {
+    // 数据权限过滤：仅允许修改数据范围内（含归属人）的合同
+    const whereParts = ['c.id=?', 'c.deleted_at IS NULL'];
+    const whereParams = [id];
+    if (permission && permission.clause && permission.clause !== '1=1') {
+      whereParts.push(permission.clause);
+      whereParams.push(...(permission.params || []));
+    }
+
     const [oldRows] = await pool.query(
-      'SELECT customer_id, opportunity_id, amount, sign_date, delivery_date, payment_terms, status, remark FROM crm_contract WHERE id=? AND deleted_at IS NULL',
-      [id]
+      `SELECT c.customer_id, c.opportunity_id, c.amount, c.sign_date, c.delivery_date, c.payment_terms, c.status, c.remark
+       FROM crm_contract c WHERE ${whereParts.join(' AND ')}`,
+      whereParams
     );
     const oldData = oldRows.length > 0 ? oldRows[0] : null;
+    if (!oldData) {
+      throw new AppError(ErrorCodes.CONTRACT_NOT_FOUND, '合同不存在或无权操作');
+    }
 
     await connection.beginTransaction();
 
@@ -197,10 +210,20 @@ async function updateContract(pool, data) {
  * @param {object} pool
  * @param {number} id
  * @param {object} user - { manageAll, roleId, userId }
+ * @param {object} [permission] - 数据权限 { clause, params }
  * @returns {{ code: number, message: string }}
  */
-async function deleteContract(pool, id, user) {
-  const [contract] = await pool.query('SELECT status, create_by FROM crm_contract WHERE id=? AND deleted_at IS NULL', [id]);
+async function deleteContract(pool, id, user, permission = null) {
+  const whereParts = ['c.id=?', 'c.deleted_at IS NULL'];
+  const whereParams = [id];
+  if (permission && permission.clause && permission.clause !== '1=1') {
+    whereParts.push(permission.clause);
+    whereParams.push(...(permission.params || []));
+  }
+  const [contract] = await pool.query(
+    `SELECT c.status, c.create_by FROM crm_contract c WHERE ${whereParts.join(' AND ')}`,
+    whereParams
+  );
   if (!contract.length) {
     throw new AppError(ErrorCodes.CONTRACT_NOT_FOUND);
   }
@@ -224,19 +247,27 @@ async function deleteContract(pool, id, user) {
  * 合同搜索（轻量级）
  * @param {object} pool
  * @param {string} keyword
+ * @param {object} [permission] - 数据权限 { clause, params }
  * @returns {Array}
  */
-async function searchContracts(pool, keyword) {
+async function searchContracts(pool, keyword, permission = null) {
   if (!keyword || keyword.length < 1) return [];
+
+  let permissionClause = '1=1';
+  let permParams = [];
+  if (permission && permission.clause) {
+    permissionClause = permission.clause;
+    permParams = permission.params || [];
+  }
 
   const [rows] = await pool.query(
     `SELECT c.id, c.contract_no, cu.company_name, c.amount
      FROM crm_contract c
      JOIN crm_customer cu ON c.customer_id = cu.id
-     WHERE c.deleted_at IS NULL AND c.status IN (1, 2)
+     WHERE c.deleted_at IS NULL AND c.status IN (1, 2) AND ${permissionClause}
        AND (c.contract_no LIKE ? OR cu.company_name LIKE ?)
      ORDER BY c.create_time DESC LIMIT 20`,
-    [`%${keyword}%`, `%${keyword}%`]
+    [...permParams, `%${keyword}%`, `%${keyword}%`]
   );
   return rows;
 }

@@ -96,6 +96,17 @@ const authLimiter = createRateLimiter({
   }
 });
 
+// [安全修复] 验证码获取限流：生产环境15分钟内60次，开发环境1000次（防止验证码内存/CPU DoS）
+const captchaLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: isProduction ? 60 : 1000,
+  message: {
+    code: 429,
+    message: '验证码获取过于频繁，请15分钟后再试',
+    data: null
+  }
+});
+
 // [安全修复] 公开调查回复限流：按 IP + campaign_id 维度，生产环境15分钟内10次，开发环境100次
 const surveyRespondLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
@@ -132,6 +143,7 @@ const surveyGlobalResponderLimiter = createRateLimiter({
 module.exports = {
   createRateLimiter,
   apiLimiter,
+  captchaLimiter,
   authLimiter,
   surveyRespondLimiter,
   surveyGlobalResponderLimiter,

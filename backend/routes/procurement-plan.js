@@ -85,7 +85,7 @@ router.put('/:id', authenticateToken, validate(updatePlanSchema), async (req, re
 });
 
 // 删除计划
-router.delete('/:id', authenticateToken, async (req, res, next) => {
+router.delete('/:id', authenticateToken, checkPermission('purchase'), async (req, res, next) => {
   try {
     const result = await purchaseService.deletePlan(pool, req.params.id);
     if (result.error) return res.status(result.code).json({ code: result.code, message: result.error, data: null });

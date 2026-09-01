@@ -68,6 +68,39 @@ async function createAccount(pool, params, userId) {
 }
 
 /**
+ * 更新邮件账号（仅限本人账号，password 可选更新）
+ * @param {object} pool
+ * @param {number} id
+ * @param {object} params - { email, password, display_name, imap_host, imap_port, smtp_host, smtp_port, use_ssl }
+ * @param {number} userId
+ * @returns {{ id: number }}
+ */
+async function updateAccount(pool, id, params, userId) {
+  const { email, password, display_name, imap_host, imap_port, smtp_host, smtp_port, use_ssl } = params;
+
+  const [existing] = await pool.query('SELECT id FROM crm_email_account WHERE id = ? AND user_id = ? AND deleted_at IS NULL', [id, userId]);
+  if (existing.length === 0) {
+    throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '账号不存在');
+  }
+
+  const updates = ['display_name = ?', 'imap_host = ?', 'imap_port = ?', 'smtp_host = ?', 'smtp_port = ?', 'use_ssl = ?'];
+  const values = [
+    display_name || null,
+    imap_host || null,
+    imap_port || null,
+    smtp_host || null,
+    smtp_port || null,
+    use_ssl !== undefined ? use_ssl : 1
+  ];
+  if (email) { updates.push('email = ?'); values.push(email); }
+  if (password) { updates.push('password_encrypted = ?'); values.push(encrypt(password)); }
+  values.push(id);
+
+  await pool.query(`UPDATE crm_email_account SET ${updates.join(', ')} WHERE id = ?`, values);
+  return { id };
+}
+
+/**
  * 获取用户的邮件账号列表
  * @param {object} pool
  * @param {number} userId
@@ -366,6 +399,7 @@ module.exports = {
   encrypt,
   decrypt,
   createAccount,
+  updateAccount,
   listAccounts,
   deleteAccount,
   testConnection,

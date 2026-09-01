@@ -109,7 +109,8 @@ async function detail(req, res, next) {
 
 async function view360(req, res, next) {
   try {
-    const data = await customerDetailService.getCustomer360(pool, req.params.id)
+    const { clause, params } = await buildDataPermissionWhere(req.dataPermission, 'c')
+    const data = await customerDetailService.getCustomer360(pool, req.params.id, { clause, params })
     res.json({ code: 200, message: '查询成功', data })
   } catch (error) {
     next(error)

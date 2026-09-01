@@ -1,6 +1,20 @@
+/**
+ * @module utils/softDelete
+ * @description 软删除工具
+ *
+ * 提供统一的软删除/恢复/彻底删除/已删除列表查询功能。
+ * 安全设计：表名白名单防 SQL 注入，标识符正则校验。
+ *
+ * 允许的表：crm_customer, crm_opportunity, crm_contract, crm_quote,
+ * crm_supplier, crm_purchase_order, crm_service_order, crm_product
+ */
+
 const pool = require('../config/database');
 
-// 表名白名单，防止 SQL 注入
+/**
+ * 表名白名单，防止 SQL 注入
+ * @type {string[]}
+ */
 const ALLOWED_TABLES = [
   'crm_customer',
   'crm_opportunity',

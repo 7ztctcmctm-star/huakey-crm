@@ -8,7 +8,7 @@ const { checkPermission } = require('../middleware/permission');
 const { generateCsrfToken, setCsrfCookie } = require('../middleware/csrf');
 const { logAction, getIpAddress } = require('../middleware/logger');
 const authService = require('../services/authService');
-const { authLimiter } = require('../middleware/rateLimiter');
+const { authLimiter, captchaLimiter } = require('../middleware/rateLimiter');
 const logger = require('../config/logger');
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -118,8 +118,8 @@ const forceChangePasswordSchema = Joi.object({
 const logoutSchema = Joi.object({});
 const refreshSchema = Joi.object({});
 
-// 0. 获取验证码
-router.get('/captcha', async (req, res, next) => {
+// 0. 获取验证码（独立限流，防止内存/CPU DoS）
+router.get('/captcha', captchaLimiter, async (req, res, next) => {
   const { key, svg } = await authService.getCaptcha();
   res.json({ code: 200, message: 'success', data: { key, svg } });
 });
@@ -350,7 +350,7 @@ router.post('/refresh', validate(refreshSchema), async (req, res, next) => {
     // 验证 token 签名，允许已过期
     let decoded;
     try {
-      decoded = jwt.verify(oldToken, JWT_SECRET, { ignoreExpiration: true });
+      decoded = jwt.verify(oldToken, JWT_SECRET, { ignoreExpiration: true, algorithms: ['HS256'] });
     } catch (err) {
       return res.status(401).json({ code: 401, message: '无效的访问令牌', data: null });
     }

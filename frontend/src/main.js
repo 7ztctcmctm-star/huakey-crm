@@ -1,9 +1,8 @@
 import { createApp } from 'vue'
-import { createPinia } from 'pinia'
 import '@/styles/apple.css'
 import App from './App.vue'
 import router from '@/router/index.js'
-import { permissionDirective, permissionAllDirective, permissionDisabledDirective } from '@/directives/permission'
+import { permissionDirective, permissionAllDirective } from '@/directives/permission'
 import { vSafeHtml } from '@/directives/sanitize'
 import { initPerfume } from '@/utils/perfume'
 
@@ -13,13 +12,11 @@ import 'element-plus/theme-chalk/src/message-box.scss'
 
 const app = createApp(App)
 
-app.use(createPinia())
 app.use(router)
 
 // 注册权限指令
 app.directive('permission', permissionDirective)
 app.directive('permission-all', permissionAllDirective)
-app.directive('permission-disabled', permissionDisabledDirective)
 app.directive('safe-html', vSafeHtml)
 
 // Vue全局错误处理

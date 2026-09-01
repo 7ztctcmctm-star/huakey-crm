@@ -21,7 +21,7 @@ const templateUpdateSchema = Joi.object({
 });
 
 // 获取所有模板
-router.get('/', authenticateToken, checkPermission('followup_template'), async (req, res, next) => {
+router.get('/', authenticateToken, checkPermission('followup:template'), async (req, res, next) => {
   try {
     const rows = await templateService.listTemplates(pool);
     res.json({ code: 200, message: '查询成功', data: rows });
@@ -32,7 +32,7 @@ router.get('/', authenticateToken, checkPermission('followup_template'), async (
 });
 
 // 创建模板（仅管理员/经理）
-router.post('/', authenticateToken, checkPermission('followup_template'), requireManager, validate(templateCreateSchema), async (req, res, next) => {
+router.post('/', authenticateToken, checkPermission('followup:template'), requireManager, validate(templateCreateSchema), async (req, res, next) => {
   try {
     const id = await templateService.createTemplate(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '创建成功', data: { id } });
@@ -46,7 +46,7 @@ router.post('/', authenticateToken, checkPermission('followup_template'), requir
 });
 
 // 更新模板（仅管理员）
-router.put('/:id', authenticateToken, checkPermission('followup_template'), requireAdmin, validate(templateUpdateSchema), async (req, res, next) => {
+router.put('/:id', authenticateToken, checkPermission('followup:template'), requireAdmin, validate(templateUpdateSchema), async (req, res, next) => {
   try {
     await templateService.updateTemplate(pool, req.params.id, req.body, req.user.userId);
     res.json({ code: 200, message: '更新成功', data: null });
@@ -66,7 +66,7 @@ router.put('/:id', authenticateToken, checkPermission('followup_template'), requ
 });
 
 // 删除模板（仅管理员）
-router.delete('/:id', authenticateToken, checkPermission('followup_template'), requireAdmin, async (req, res, next) => {
+router.delete('/:id', authenticateToken, checkPermission('followup:template'), requireAdmin, async (req, res, next) => {
   try {
     await templateService.deleteTemplate(pool, req.params.id, req.user.userId);
     res.json({ code: 200, message: '删除成功', data: null });

@@ -88,7 +88,7 @@ async function applyRule(pool, operatorId) {
     const [salesUsers] = await connection.query(
       `SELECT u.id FROM sys_user u
        LEFT JOIN sys_role r ON u.role_id = r.id
-       WHERE u.status = 1 AND r.code IN ('sales_manager', 'sales', 'tech')
+       WHERE u.status = 1 AND r.code IN ('sales') -- 旧码 sales_manager/tech 现库已不存在，自动分配仅面向 sales
        ORDER BY u.id`
     );
 
@@ -322,7 +322,7 @@ async function getSalesUsers(pool) {
      FROM sys_user u
      LEFT JOIN sys_dept d ON u.dept_id = d.id
      LEFT JOIN sys_role r ON u.role_id = r.id
-     WHERE u.status = 1 AND r.code IN ('sales_manager', 'sales', 'tech')
+     WHERE u.status = 1 AND r.code IN ('sales') -- 旧码 sales_manager/tech 现库已不存在，下拉仅列 sales
      ORDER BY d.name, u.real_name`
   );
   return users;
