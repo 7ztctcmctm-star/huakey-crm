@@ -14,6 +14,10 @@ on:
     - cron: "0 2 * * 1"
   workflow_dispatch:
 
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
   scan-images:
     runs-on: ubuntu-latest
@@ -42,7 +46,8 @@ jobs:
           tags: "crm-scan:${{ steps.vars.outputs.tag }}"
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@v0.36.0
+        id: trivy
+        uses: aquasecurity/trivy-action@0.36.0
         with:
           image-ref: "crm-scan:${{ steps.vars.outputs.tag }}"
           format: "sarif"
@@ -50,8 +55,10 @@ jobs:
           severity: "CRITICAL,HIGH"
           exit-code: "1"
 
+      # Trivy 发现漏洞 exit 1 时 SARIF 已生成，此条件确保门禁失败时结果仍上传至 Security tab
       - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
+        if: ${{ !cancelled() && steps.trivy.outcome != 'skipped' }}
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: "trivy-results.sarif"
 
@@ -73,6 +80,6 @@ jobs:
           skip-dirs: "node_modules,.git,dist,uploads,database/backups"
 
       - name: Upload filesystem scan results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: "trivy-fs-results.sarif"
