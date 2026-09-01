@@ -71,6 +71,24 @@ export async function loginAsAdmin(request) {
 }
 
 /**
+ * 查询潜客池客户列表（按公司名搜索，用于 E2E 清理时取客户 id）
+ * @param {import('@playwright/test').APIRequestContext} request
+ * @param {string} csrfToken
+ * @param {string} companyName
+ */
+export async function listLeadsPoolCustomers(request, csrfToken, companyName) {
+  const res = await request.post('/api/v1/leads', {
+    data: {
+      page: 1,
+      pageSize: 20,
+      company_name: companyName
+    },
+    headers: { 'X-CSRF-Token': csrfToken }
+  })
+  return res.json()
+}
+
+/**
  * 创建测试客户
  * @param {import('@playwright/test').APIRequestContext} request
  * @param {string} csrfToken

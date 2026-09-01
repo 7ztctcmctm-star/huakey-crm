@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures/auth.js'
-import { loginAsAdmin, createCustomer, deleteCustomer } from './fixtures/api-helpers.js'
+import { loginAsAdmin, createCustomer, deleteCustomer, listLeadsPoolCustomers } from './fixtures/api-helpers.js'
 
 // 生成唯一公司名称，避免并发或重复运行冲突
 function uniqueCompanyName(prefix = 'E2E测试客户') {
@@ -146,17 +146,14 @@ test.describe('客户管理 CRUD', () => {
     await searchCustomer(page, companyName, '.leads-pool')
     await expect(page.locator('.leads-pool .el-table__row').filter({ hasText: companyName })).toBeVisible()
 
-    // 清理：通过 API 删除测试数据（进入详情页取客户 id）
+    // 清理：通过 API 按公司名查询客户 id 后删除（比点行内链接跳详情页更稳）
     const { csrfToken } = await loginAsAdmin(request)
-    const row = page.locator('.leads-pool .el-table__row', { hasText: companyName })
-    const detailLink = row.locator('a, .el-link').first()
-    await detailLink.click()
-    await page.waitForURL(/\/customer\/detail\//)
-    const idMatch = page.url().match(/\/customer\/detail\/(\d+)/)
-    if (idMatch) {
-      const delRes = await deleteCustomer(request, csrfToken, Number(idMatch[1]))
-      expect(delRes.code).toBe(200)
-    }
+    const listRes = await listLeadsPoolCustomers(request, csrfToken, companyName)
+    expect(listRes.code).toBe(200)
+    const target = (listRes.data?.list || []).find(c => c.company_name === companyName)
+    expect(target).toBeTruthy()
+    const delRes = await deleteCustomer(request, csrfToken, target.id)
+    expect(delRes.code).toBe(200)
   })
 
   test('应能编辑客户备注', async ({ authenticatedPage: page, request }, testInfo) => {
