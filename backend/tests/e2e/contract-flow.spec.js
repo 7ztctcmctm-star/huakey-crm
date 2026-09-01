@@ -270,6 +270,8 @@ describe('Contract Center v1 — 业务链集成测试', () => {
         .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0 }]])     // auth: role
         .mockResolvedValueOnce([[{ must_change_password: 0 }]])         // auth: user
         .mockResolvedValueOnce([[{ code: 'contract:delete' }]])          // checkPermission
+        // checkDataPermission: getDataPermissions → 无配置（type=self，不查库即可构建 WHERE）
+        .mockResolvedValueOnce([[]])
         // deleteContract: SELECT contract → create_by=1 (admin创建的合同，不是sales的)
         .mockResolvedValueOnce([[{ id: 500, status: 1, create_by: 1 }]]);
 
@@ -314,7 +316,7 @@ describe('Contract Center v1 — 业务链集成测试', () => {
   describe('边界场景', () => {
     const adminToken = generateSuperAdminToken();
 
-    it('已终止合同 (status=3) 不能删除', async () => {
+    it('已完成合同 (status=3) 不能删除', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]])
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])
@@ -328,8 +330,9 @@ describe('Contract Center v1 — 业务链集成测试', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ id: 500 });
 
+      // 状态语义以 docs/contract-status-definition.md 为准：3=已完成（终态）
       expect(res.status).toBe(400);
-      expect(res.body.message).toContain('已终止');
+      expect(res.body.message).toContain('已完成');
     });
 
     it('合同不存在时应返回 404', async () => {
