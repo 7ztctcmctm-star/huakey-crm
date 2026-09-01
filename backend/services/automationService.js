@@ -105,6 +105,22 @@ async function executeActions(pool, ruleId, targetType, targetId, actions) {
             break;
           }
           await pool.query(`UPDATE crm_customer SET ${action.params.field} = ? WHERE id = ?`, [action.params.value, targetId]);
+          // 更新 status 时同步 business_status（sea/paused 映射为 following，与 mapStatusToBusinessStatus 规则一致）
+          if (action.params.field === 'status') {
+            await pool.query(
+              `UPDATE crm_customer
+               SET business_status = CASE ?
+                 WHEN 'lead' THEN 'lead'
+                 WHEN 'quoted' THEN 'quoted'
+                 WHEN 'negotiating' THEN 'negotiating'
+                 WHEN 'signed' THEN 'signed'
+                 WHEN 'lost' THEN 'lost'
+                 ELSE 'following'
+               END
+               WHERE id = ?`,
+              [action.params.value, targetId]
+            );
+          }
           detail = `更新字段${action.params.field}=${action.params.value}`;
           break;
         }

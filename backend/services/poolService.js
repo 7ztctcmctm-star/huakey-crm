@@ -12,7 +12,7 @@
 
 const ROLES = require('../config/roles')
 const { CUSTOMER_STATUS } = require('../constants/customerStatus')
-const { POOL_STATUS } = require('../constants/poolStatus')
+const { POOL_STATUS, BUSINESS_STATUS } = require('../constants/poolStatus')
 const AppError = require('../errors/AppError')
 const ErrorCodes = require('../errors/codes')
 
@@ -119,9 +119,10 @@ async function claimCustomer(pool, customer_id, userId, user) {
   const protectUntil = isLead ? null : new Date()
   if (protectUntil) protectUntil.setDate(protectUntil.getDate() + 7)
 
+  // 认领即开始跟进：status/business_status 必须同步（否则线索认领后 business_status 残留 'lead' 卡在线索池）
   await pool.query(
-    'UPDATE crm_customer SET pool_status = ?, owner_id = ?, protect_until = ?, status = ?, last_follow_time = NOW() WHERE id = ?',
-    [POOL_STATUS.PRIVATE, userId, protectUntil, CUSTOMER_STATUS.FOLLOWING, customer_id]
+    'UPDATE crm_customer SET pool_status = ?, owner_id = ?, protect_until = ?, status = ?, business_status = ?, last_follow_time = NOW() WHERE id = ?',
+    [POOL_STATUS.PRIVATE, userId, protectUntil, CUSTOMER_STATUS.FOLLOWING, BUSINESS_STATUS.FOLLOWING, customer_id]
   )
 
   await pool.query(
@@ -174,9 +175,10 @@ async function batchClaimCustomers(pool, customer_ids, userId, user) {
       const protectUntil = new Date(now)
       protectUntil.setDate(protectUntil.getDate() + 7)
 
+      // 与单条认领保持一致：status/business_status 同步
       await connection.query(
-        'UPDATE crm_customer SET pool_status = ?, owner_id = ?, protect_until = ?, status = ?, last_follow_time = NOW() WHERE id = ?',
-        [POOL_STATUS.PRIVATE, userId, protectUntil, CUSTOMER_STATUS.FOLLOWING, customerId]
+        'UPDATE crm_customer SET pool_status = ?, owner_id = ?, protect_until = ?, status = ?, business_status = ?, last_follow_time = NOW() WHERE id = ?',
+        [POOL_STATUS.PRIVATE, userId, protectUntil, CUSTOMER_STATUS.FOLLOWING, BUSINESS_STATUS.FOLLOWING, customerId]
       )
       await connection.query(
         `INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id) VALUES (?, 'claim', ?, ?)`,

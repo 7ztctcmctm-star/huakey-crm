@@ -374,7 +374,7 @@ async function convertToContract(pool, quoteId, userId) {
   try {
     const [[quote]] = await conn.query(
       `SELECT id, quote_no, customer_id, amount, discount, final_amount, valid_days, remark, status, approval_status,
-        opportunity_id, create_by, create_time, update_time, deleted_at
+        opportunity_id, create_by, create_time, deleted_at
        FROM crm_quote WHERE id = ? AND deleted_at IS NULL`,
       [quoteId]
     );
