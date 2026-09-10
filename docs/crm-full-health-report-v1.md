@@ -112,7 +112,7 @@ deploy/docker-compose.prod.yml:10   container_name: crm-prod-mysql
 
 | 编号 | 问题 | 证据 | 影响 |
 |------|------|------|------|
-| **P1-1** | **金额用 JS 浮点数计算** | `quoteService.js:61,62,76,294,295,308`（`quantity * unitPrice`、`totalAmount * (1 - disc)`） | 违反任务书 §18「必须避免 JS 浮点数误差」。折扣相乘与累加会累积误差，报价/合同金额可能与实际不符 |
+| ~~**P1-1**~~ **✅ 已修复** | **金额用 JS 浮点数计算** | **已实测复现**（非推断）：① 折扣 `1.50×(1-0.15)` → JS **1.27** / 精确 **1.28**（`1-0.15` 浮点值为 0.84999999999999997780）；② 4 位小数单价 `0.1450×1` → JS **0.14** / 精确 **0.15**。**误差直接写入 DECIMAL 列**。对照组（2 位单价×整数数量）无缺陷——这正是它长期未被发现的原因 | 已修复：新增 `backend/utils/money.js`（BigInt 标度运算 + half-up），替换 quoteService 5 处、purchaseService 4 处；新增 16 个用例（含"先断言原写法确实算错"的锁定用例） |
 | ~~**P1-2**~~ **✅ 已修复** | **`/ai/query` 绕过数据范围控制** | `backend/routes/ai.js:166` 原直接 `executeReadOnlyQuery`，全文件无 `buildDataPermissionWhere`。**权限可行性经实测补证**：`086_fix_sales_permissions.sql:58,70-73` 将 `ai` 权限授予 `sales,hr,purchase,finance,engineer` → **生产环境中 sales 确实能借此读出全库客户** | 已修复：路由挂载 `checkDataPermission` + 敏感表守卫（27 张表，依据 `information_schema` 实测），非全局数据范围账号触及敏感表一律拒绝 |
 | **P1-3** | **迁移编号断裂 064 / 065 缺失** | `database/migrations/` 中 `063_*` 后直接 `066_*` | 违反任务书 §30 迁移可追溯性；且 `111_*.sql` 注释自曝生产曾应用未入库的 109 → **仓库与产线版本错位** |
 | ~~**P1-4**~~ **✅ 已修复** | **前后端分页参数错配** | 前端 13 处发 `page_size`，后端 36 处用 `pageSize`（`page_size` 出现 0 次）。**且带 Joi 校验的接口 `stripUnknown:true` 会静默丢弃该参数** → 分页回落默认值 | 已修复：前端 13 处统一改名（11 文件）；构建通过 + 单测 44/44 通过 |
@@ -125,6 +125,8 @@ deploy/docker-compose.prod.yml:10   container_name: crm-prod-mysql
 | **P1-11** | **前端空 catch 吞掉异常** | 全项目 `catch {}` 空块 **10 处**（已复核） | 违反任务书 §13「网络请求错误」检查项。API 失败用户无任何提示 |
 | **P1-12** | **E2E 缺营收主链路** | `frontend/e2e/` 9 个 spec，覆盖 login/customer/leads/quotation/approval/opportunity/navigation/responsive/cross-browser | 缺失：**采购→入库、收款/回款、报表看板、合同全生命周期、客户公海回收**——营收主链路无自动化防护 |
 | **P1-13** | **测试库的权限数据不具代表性**（核验 P1-2 时发现） | E2E 自举导入 `init-complete.sql` 后**把所有迁移标记为已执行** → 迁移 `086_fix_sales_permissions.sql` 从未真正运行 → 测试库里只有 `boss` 有 `ai` 权限，且**没有 `sales` 角色** | 影响更广：**当前所有依赖权限/角色的测试都跑在不具代表性的数据集上**，「测试通过」不能代表生产行为。核验 P1-2 时，若只看测试库会误判为「不可利用」——实际生产可利用 |
+| **P1-14** | **行小计与表头合计的舍入口径不一致**（核验 P1-1 时发现） | 每行各自舍入后求和（`0.34×3 = 1.02`），而表头由原始值一次舍入（`1.005 → 1.01`），**可能相差 1 分**。实测：单价 0.335 × 3 件 → 行小计之和 1.02，表头 1.01 | 属**舍入策略**问题而非浮点问题（`SUM(行小计) ≠ 表头`会让对账困惑）。**需产品确认取哪种口径**（按行舍入后汇总 / 按总额一次舍入），确认后再改 |
+| **P1-15** | **`contractService.calculateAmount` 是死代码** | 定义并导出（`contractService.js:245,377`），但全项目**无任何调用**（routes / controllers / 前端均无） | 其 `remaining = amount - paidAmount` 浮点相减当前**零影响**，但属潜在陷阱：后来者若直接调用会踩坑。建议清理或补测试后再启用 |
 
 ---
 
@@ -184,7 +186,7 @@ deploy/docker-compose.prod.yml:10   container_name: crm-prod-mysql
 | 等级 | 数量 | 编号 |
 |------|------|------|
 | **P0** | **3** | P0-1 公海竞态 · P0-2 测试/生产共用 JWT · P0-3 备份容器名错配 |
-| **P1** | **12** | P1-1 ~ P1-12 |
+| **P1** | **15** | P1-1 ~ P1-12（原始）+ P1-13 / P1-14 / P1-15（核验过程中新发现）。其中 **P1-1、P1-2、P1-4 已修复** |
 | **P2** | **11** | P2-1 ~ P2-11 |
 | **P3** | **8** | P3-1 ~ P3-8 |
 | **合计** | **34** | |
