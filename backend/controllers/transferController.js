@@ -89,4 +89,14 @@ async function byCustomer(req, res, next) {
   }
 }
 
-module.exports = { create, accept, reject, myPending, byCustomer };
+/** 可转移的接收人候选（排除自己） */
+async function candidates(req, res, next) {
+  try {
+    const data = await transferService.listTransferCandidates(pool, req.user.userId);
+    res.json({ code: 200, message: '查询成功', data });
+  } catch (error) {
+    next(error);
+  }
+}
+
+module.exports = { create, accept, reject, myPending, byCustomer, candidates };

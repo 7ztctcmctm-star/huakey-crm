@@ -280,6 +280,24 @@ async function listMyPending(pool, userId, params = {}) {
   return { list: rows, total: cnt[0].total, page, pageSize };
 }
 
+/**
+ * 可转移的接收人候选列表。
+ *
+ * 为什么不复用 /user/list：该接口要求 `system:user` 权限，普通销售没有，
+ * 会导致销售无法选择接收人 —— 而转移的主角恰恰是销售。
+ * 故提供本接口，仅要求 `customer:transfer` 权限，只回传必要字段。
+ */
+async function listTransferCandidates(pool, excludeUserId) {
+  const [rows] = await pool.query(
+    `SELECT id, real_name, username
+       FROM sys_user
+      WHERE deleted_at IS NULL AND status = 1 AND id <> ?
+      ORDER BY real_name ASC, id ASC`,
+    [excludeUserId || 0]
+  );
+  return rows;
+}
+
 /** 某客户的转移记录（含历史） */
 async function listByCustomer(pool, customerId) {
   const [rows] = await pool.query(
@@ -303,5 +321,6 @@ module.exports = {
   rejectTransfer,
   expireTransfers,
   listMyPending,
-  listByCustomer
+  listByCustomer,
+  listTransferCandidates
 };

@@ -72,7 +72,10 @@ const router = createRouter({
           path: 'pool',
           name: 'PublicPool',
           component: () => import('../views/pool/List.vue'),
-          meta: { title: '公海池', permission: 'pool:view' }
+          // 【2026-09-10】按产品决策由「公海池」改名为「客户总览」：
+          // 同一页面承载两半 —— 待认领（原公海池语义）+ 全部客户（含负责人）。
+          // path 与权限码保持 pool:* 不变（改名会波及已发通知中的链接与权限数据）。
+          meta: { title: '客户总览', permission: 'pool:view' }
         },
         {
           path: 'customer/prospects',

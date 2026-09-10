@@ -133,4 +133,12 @@ router.post('/transfer/by-customer',
   transferController.byCustomer
 );
 
+// 可转移的接收人候选（销售也需要，故不复用需 system:user 权限的 /user/list）
+router.post('/transfer/candidates',
+  authenticateToken,
+  checkPermission('customer:transfer'),
+  validate(Joi.object({})),
+  transferController.candidates
+);
+
 module.exports = router;

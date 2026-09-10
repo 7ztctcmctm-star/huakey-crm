@@ -112,6 +112,19 @@ function startAllCronJobs(pool) {
     }, 'token-blacklist-cleanup');
   }, { timezone: 'Asia/Shanghai' }));
 
+  // 3.5 每日 00:45 — 客户转移申请超期回流
+  // 规则：超过 3 天未处理的 pending 申请置为 expired，**客户归属不变**（仍归原负责人）。
+  // 见 transferService.EXPIRE_DAYS；不接此任务则「超 3 天自动回流」不会发生。
+  _cronTasks.push(cron.schedule('45 0 * * *', () => {
+    executeWithRetry(async () => {
+      const { expireTransfers } = require('../services/transferService');
+      const result = await expireTransfers(pool);
+      if (result.expired > 0) {
+        logger.info(`[客户转移] 已回流 ${result.expired} 条超期申请`);
+      }
+    }, 'transfer-expire');
+  }, { timezone: 'Asia/Shanghai' }));
+
   // 4. 每日 01:00 — 公海池自动回收（含释放前 1 天通知）
   _cronTasks.push(cron.schedule('0 1 * * *', () => {
     logger.info('[公海回收] 开始检查超期未跟进客户...');

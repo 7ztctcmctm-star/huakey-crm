@@ -25,6 +25,14 @@
             <el-option label="已签约" value="signed" />
           </el-select>
         </el-form-item>
+        <el-form-item label="查看范围">
+          <!-- 客户总览：一个页面两半 —— 「待认领」即原公海池（owner_id 为空），
+               「全部客户」用于老板看清客户在谁手上、进行到哪个阶段 -->
+          <el-radio-group v-model="scope" @change="handleScopeChange">
+            <el-radio-button value="pending">待认领</el-radio-button>
+            <el-radio-button value="all">全部客户</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleSearch">搜索</el-button>
           <el-button @click="handleReset">重置</el-button>
@@ -36,8 +44,10 @@
     <el-card class="table-card">
       <template #header>
         <div class="card-header">
-          <span>公海池（共 {{ total }} 条）</span>
-          <el-button link disabled v-if="total === 0">暂无公海客户</el-button>
+          <span>客户总览（共 {{ total }} 条）</span>
+          <el-button link disabled v-if="total === 0">
+            {{ scope === 'pending' ? '暂无待认领客户' : '暂无客户' }}
+          </el-button>
         </div>
       </template>
 
@@ -59,11 +69,34 @@
             <el-tag :type="statusTagType(row.business_status)" size="small">{{ statusLabel(row.business_status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="released_by_name" label="释放人" width="100" />
-        <el-table-column prop="released_at" label="释放时间" width="160" />
-        <el-table-column label="操作" width="150" fixed="right">
+        <!-- 客户总览核心：负责人。老板据此一眼看清「客户在谁手上」 -->
+        <el-table-column prop="owner_name" label="负责人" width="110" align="center">
           <template #default="{ row }">
-            <el-button type="success" link size="small" @click="handleClaim(row)" v-permission="'pool:claim'">认领</el-button>
+            <span v-if="row.owner_name">{{ row.owner_name }}</span>
+            <el-tag v-else type="warning" size="small">待认领</el-tag>
+          </template>
+        </el-table-column>
+        <!-- 释放人 / 释放时间仅「待认领」视图有意义 -->
+        <el-table-column v-if="scope === 'pending'" prop="released_by_name" label="释放人" width="100" />
+        <el-table-column v-if="scope === 'pending'" prop="released_at" label="释放时间" width="160" />
+        <el-table-column label="操作" width="170" fixed="right">
+          <template #default="{ row }">
+            <el-button
+              v-if="!row.owner_id"
+              type="success"
+              link
+              size="small"
+              @click="handleClaim(row)"
+              v-permission="'pool:claim'"
+            >认领</el-button>
+            <el-button
+              v-else
+              type="primary"
+              link
+              size="small"
+              @click="handleTransfer(row)"
+              v-permission="'customer:transfer'"
+            >转移</el-button>
             <el-button type="info" link size="small" @click="goDetail(row)">详情</el-button>
           </template>
         </el-table-column>
@@ -82,6 +115,39 @@
         />
       </div>
     </el-card>
+
+    <!-- 客户转移弹窗（双方同意制：需接收人同意才生效，不可撤回，超 3 天自动回流） -->
+    <el-dialog v-model="transferDialogVisible" title="转移客户" width="480px" :close-on-click-modal="false">
+      <el-alert
+        type="info"
+        :closable="false"
+        show-icon
+        title="转移需对方同意后才生效；对方 3 天内未处理将自动失效。"
+        style="margin-bottom: 16px"
+      />
+      <el-form label-width="80px">
+        <el-form-item label="客户">
+          <span>{{ transferRow.company_name }}</span>
+        </el-form-item>
+        <el-form-item label="接收人">
+          <el-select v-model="transferForm.to_user_id" placeholder="请选择接收人" style="width: 100%" filterable>
+            <el-option
+              v-for="u in candidates"
+              :key="u.id"
+              :label="u.real_name || u.username"
+              :value="u.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="转移原因">
+          <el-input v-model="transferForm.reason" type="textarea" :rows="3" maxlength="500" show-word-limit placeholder="请说明转移原因（选填）" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="transferDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="transferSubmitting" @click="submitTransfer">发出转移申请</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -90,9 +156,13 @@ import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getPoolList, claimPoolCustomer } from '@/api/pool'
+import { getPoolList, claimPoolCustomer, createTransfer, getTransferCandidates } from '@/api/pool'
+import { getCustomerList } from '@/api/customer'
 
 const router = useRouter()
+
+// 查看范围：pending = 待认领（原「公海池」语义）；all = 全部客户（老板看归属用）
+const scope = ref('pending')
 
 const levelOptions = [
   { label: 'A级 - 重点客户', value: 'A' },
@@ -155,16 +225,73 @@ const fetchList = async () => {
     if (searchForm.level) params.level = searchForm.level
     if (searchForm.business_status) params.business_status = searchForm.business_status
 
-    const res = await getPoolList(params)
+    // 两种视图走不同接口（均已带后端数据范围控制）：
+    //   pending → /pool：只返回无负责人客户（原「公海池」）
+    //   all     → /customers/list：返回全量客户，含 owner_name，供老板看清归属
+    const res = scope.value === 'pending' ? await getPoolList(params) : await getCustomerList(params)
+
     if (res.code === 200) {
-      tableData.value = res.data.list
-      total.value = res.data.total
+      tableData.value = res.data.list || []
+      total.value = res.data.total || 0
     }
   } catch (error) {
-    ElMessage.error('加载公海池列表失败')
-    reportError('获取公海池列表失败:', error)
+    const label = scope.value === 'pending' ? '待认领客户' : '客户'
+    ElMessage.error(`加载${label}列表失败`)
+    reportError(`获取${label}列表失败:`, error)
   } finally {
     loading.value = false
+  }
+}
+
+/** 切换查看范围时回到第 1 页重新拉取 */
+const handleScopeChange = () => {
+  searchForm.page = 1
+  fetchList()
+}
+
+// ==================== 客户转移（双方同意制） ====================
+const transferDialogVisible = ref(false)
+const transferRow = ref({})
+const transferSubmitting = ref(false)
+const candidates = ref([])
+const transferForm = reactive({ to_user_id: null, reason: '' })
+
+/** 打开转移弹窗并加载接收人候选 */
+const handleTransfer = async (row) => {
+  transferRow.value = row
+  transferForm.to_user_id = null
+  transferForm.reason = ''
+  transferDialogVisible.value = true
+  try {
+    const res = await getTransferCandidates()
+    if (res.code === 200) candidates.value = res.data || []
+  } catch (error) {
+    reportWarn('获取接收人候选失败:', error)
+  }
+}
+
+/** 提交转移申请 */
+const submitTransfer = async () => {
+  if (!transferForm.to_user_id) {
+    ElMessage.warning('请选择接收人')
+    return
+  }
+  transferSubmitting.value = true
+  try {
+    const res = await createTransfer({
+      customer_id: transferRow.value.id,
+      to_user_id: transferForm.to_user_id,
+      reason: transferForm.reason
+    })
+    if (res.code === 200) {
+      ElMessage.success(res.message || '转移申请已发出，等待对方同意')
+      transferDialogVisible.value = false
+    }
+  } catch (error) {
+    ElMessage.error('发起转移失败')
+    reportError('发起客户转移失败:', error)
+  } finally {
+    transferSubmitting.value = false
   }
 }
 
