@@ -316,12 +316,31 @@ refs/ 被删除  →  HEAD、分支全部失效，所有提交变为「不可达
 
 ### 9.7 待决事项
 
-| 优先级 | 事项 | 说明 |
+| 优先级 | 事项 | 状态 |
 |---|---|---|
-| **高** | **push 到远端** | 当前 20 个提交仍未 push。这是两次事故的共同教训。fast-forward，无需 force |
-| 高 | 钩子兼容性验证 | 需在干净环境复现「lint-staged 运行 + 提交」，确认与 `node-safe-delete-shim` 沙箱守卫的相互影响 |
-| 中 | 清理两个仓库的冗余 | 恢复仓库现已落后 1 个提交，可保留作副本或在其上继续 |
-| 低 | 清理 pack 孤儿残留 | `.git/objects/pack/tmp_pack_La3H5q`（未完成的临时 pack） |
+| **高** | **push 到远端** | ✅ **已完成（2026-09-10 15:33）**：`5550f53..2a7e6da main -> main`，fast-forward，已用 `git ls-remote` 复核远端 = 本地 = `2a7e6da`，未推送提交 0 |
+| 高 | 钩子兼容性验证 | ⏳ 待做。需在干净环境复现「lint-staged 运行 + 提交」，确认与 `node-safe-delete-shim` 沙箱守卫的相互影响 |
+| 中 | 清理两个仓库的冗余 | ⏳ `huakey-crm-recovered-2026-09-10` 现落后 1 个提交，可保留作副本 |
+| 低 | 清理 pack 孤儿残留 | ⏳ `.git/objects/pack/tmp_pack_La3H5q`（未完成的临时 pack） |
+
+### 9.8 补充观察：`.git/refs/remotes/` 下的写入未能落盘
+
+push 成功后出现一个值得记录的现象：
+
+- `git fetch origin main` **报告**了 `5550f53..2a7e6da main -> origin/main`
+- `git update-ref refs/remotes/origin/main <sha>` **返回成功（exit 0）**
+- 但 `.git/refs/remotes/origin/main` **始终不存在**，`git rev-parse origin/main`
+  一直返回旧值（来自 `packed-refs`），`git status` 报 `ahead 21`
+
+最终以 `mkdir -p .git/refs/remotes/origin` + 直接写文件的方式补齐，状态随即正确
+（`## main...origin/main`，未推送 0）。
+
+**同一时期还出现过**：push 时 stderr 报
+`error: could not lock config file .../PortableGit/versions/1.2.0/etc/gitconfig: File exists`（不影响 push 成功）。
+
+> 这两条现象指向「本环境的文件系统守卫会干扰 git 对 `config` / 松散引用的写入」这一**猜想**，
+> 与 §五、§9.3 的根因问题同源。**明确标注为猜想，未验证。**
+> 影响面：仅造成本地远程追踪引用不同步，**不影响远端内容与提交正确性**。
 
 ---
 
