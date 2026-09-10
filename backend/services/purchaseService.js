@@ -3,6 +3,11 @@
  * 从 routes/procurement-plan.js 和 routes/purchase.js 提取
  */
 
+// 【P1-1】金额一律走 money 工具，禁止原生浮点运算。
+// 注意：crm_purchase_item.unit_price 为 DECIMAL(12,4)，4 位小数单价用原生
+// 浮点乘法会偏差 1 分（实测 0.1450 × 1 → 0.14，应为 0.15）。
+const money = require('../utils/money');
+
 // ==================== 采购计划 ====================
 
 async function listPlans(pool, params = {}) {
@@ -60,9 +65,10 @@ async function createPlan(pool, data, userId) {
     const planNo = await generatePlanNo(pool);
     let totalAmount = 0;
     items.forEach(item => {
-      const amount = (item.quantity || 0) * (item.unit_price || 0);
+      // 【P1-1】精确金额运算
+      const amount = money.mul(item.quantity || 0, item.unit_price || 0);
       item.amount = amount;
-      totalAmount += amount;
+      totalAmount = money.add(totalAmount, amount);
     });
 
     const [result] = await conn.query(
@@ -108,7 +114,8 @@ async function updatePlan(pool, id, data) {
 
     let totalAmount = 0;
     if (items) {
-      items.forEach(item => { totalAmount += (item.quantity || 0) * (item.unit_price || 0); });
+      // 【P1-1】精确金额运算
+      items.forEach(item => { totalAmount = money.add(totalAmount, money.mul(item.quantity || 0, item.unit_price || 0)); });
       fields.push('total_amount = ?'); values.push(totalAmount);
     }
 
@@ -204,7 +211,8 @@ async function autoGenerate(pool, userId, supplierId = null) {
     await conn.beginTransaction();
     const planNo = await generatePlanNo(pool);
     let totalAmount = 0;
-    lowStockProducts.forEach(p => { totalAmount += (p.suggest_qty || 0) * (p.last_price || 0); });
+    // 【P1-1】精确金额运算
+    lowStockProducts.forEach(p => { totalAmount = money.add(totalAmount, money.mul(p.suggest_qty || 0, p.last_price || 0)); });
 
     const [result] = await conn.query(
       'INSERT INTO crm_purchase_plan (plan_no, name, total_amount, remark, create_by) VALUES (?, ?, ?, ?, ?)',
@@ -419,9 +427,12 @@ async function createPurchase(pool, data, userId) {
     const itemValues = [];
 
     for (const item of data.items) {
-      const discountAmount = (item.unit_price * item.quantity * (item.discount_rate || 0)) / 100;
-      const amount = Number((item.unit_price * item.quantity - discountAmount).toFixed(2));
-      totalAmount += amount;
+      // 【P1-1】精确金额运算：先得原价，再按折扣率减免，最后相减。
+      // 原写法虽已 toFixed(2)，但那无法纠正已偏掉的浮点尾数。
+      const grossAmount = money.mul(item.unit_price, item.quantity);
+      const discountAmount = money.percentOf(grossAmount, item.discount_rate || 0);
+      const amount = money.sub(grossAmount, discountAmount);
+      totalAmount = money.add(totalAmount, amount);
 
       itemValues.push([
         null, item.product_name, item.product_spec || null,
@@ -431,8 +442,9 @@ async function createPurchase(pool, data, userId) {
     }
 
     const taxRate = data.tax_rate !== undefined ? parseFloat(data.tax_rate) : 13;
-    const taxAmount = Number((totalAmount * taxRate / 100).toFixed(2));
-    const totalWithTax = Number((totalAmount + taxAmount).toFixed(2));
+    // 【P1-1】税额与含税合计走精确计算
+    const taxAmount = money.percentOf(totalAmount, taxRate);
+    const totalWithTax = money.add(totalAmount, taxAmount);
 
     const [result] = await connection.query(
       `INSERT INTO crm_purchase_order (order_no, supplier_id, title, type, expected_date, payment_terms, delivery_address, remark, total_amount, tax_rate, tax_amount, total_with_tax, owner_id, create_by)

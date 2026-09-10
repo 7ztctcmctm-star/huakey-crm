@@ -7,6 +7,8 @@ const logger = require('../config/logger');
 const opportunityService = require('../services/opportunityService');
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
+// 【P1-1】金额一律走 money 工具，禁止原生浮点运算（详见 utils/money.js 的缺陷说明）
+const money = require('../utils/money');
 
 async function generateQuoteNo(connection) {
   const now = new Date();
@@ -58,8 +60,9 @@ async function createQuote(pool, data, userId) {
       const product = products[0];
       const quantity = item.quantity || 1;
       const unitPrice = item.unit_price || product.price;
-      const totalPrice = quantity * unitPrice;
-      totalAmount += totalPrice;
+      // 【P1-1】精确金额运算：单价可为 4 位小数，原生浮点会偏差 1 分
+      const totalPrice = money.mul(quantity, unitPrice);
+      totalAmount = money.add(totalAmount, totalPrice);
 
       validatedItems.push({
         product_id: item.product_id,
@@ -73,7 +76,9 @@ async function createQuote(pool, data, userId) {
     }
 
     const disc = discount || 0;
-    const finalAmount = totalAmount * (1 - disc);
+    // 【P1-1】折扣必须精确计算：原生 `totalAmount * (1 - disc)` 在 15% 折扣下
+    // 会因 `1 - 0.15` 的浮点表示偏小而少算 1 分（实测 1.50 → 1.27，应为 1.28）
+    const finalAmount = money.applyDiscount(totalAmount, disc);
     const quoteNo = await generateQuoteNo(connection);
     const currency = data.currency || 'CNY';
     const exchangeRate = data.exchange_rate || 1.0000;
@@ -291,8 +296,9 @@ async function updateQuote(pool, data, permission = null) {
         const product = products[0];
         const quantity = item.quantity || 1;
         const unitPrice = item.unit_price || product.price;
-        const totalPrice = quantity * unitPrice;
-        totalAmount += totalPrice;
+        // 【P1-1】同上：精确金额运算
+        const totalPrice = money.mul(quantity, unitPrice);
+        totalAmount = money.add(totalAmount, totalPrice);
 
         await connection.query(
           `INSERT INTO crm_quote_item (quote_id, product_id, product_name, product_code, quantity, unit_price, total_price, remark)
@@ -305,7 +311,8 @@ async function updateQuote(pool, data, permission = null) {
       updates.push('amount = ?');
       updates.push('final_amount = ?');
       updateParams.push(totalAmount);
-      updateParams.push(totalAmount * (1 - disc));
+      // 【P1-1】同 createQuote：折扣走精确计算
+      updateParams.push(money.applyDiscount(totalAmount, disc));
     }
 
     if (updates.length > 0) {
