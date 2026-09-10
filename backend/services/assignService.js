@@ -71,11 +71,13 @@ async function deleteRule(pool, id) {
 async function applyRule(pool, operatorId) {
   const connection = await pool.getConnection();
   try {
-    // 获取公海可分配客户（无负责人且不在保护期）
+    // 获取公海可分配客户（无负责人即可分配）
+    // 【2026-09-10 产品决策】保护期已下线：原条件
+    // `AND (protect_until IS NULL OR protect_until < NOW())` 在 protect_until 恒为 NULL
+    // 后恒真，属无效条件，故移除（行为不变）。
     const [customers] = await connection.query(
       `SELECT id, owner_id FROM crm_customer
        WHERE deleted_at IS NULL AND owner_id IS NULL
-         AND (protect_until IS NULL OR protect_until < NOW())
        ORDER BY create_time ASC
        LIMIT 500`
     );
