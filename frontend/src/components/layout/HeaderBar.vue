@@ -11,7 +11,7 @@
           <Expand v-else />
         </el-icon>
       </el-button>
-      <el-breadcrumb separator="/">
+      <el-breadcrumb separator="/" class="hide-mobile">
         <el-breadcrumb-item :to="{ path: '/dashboard' }">首页</el-breadcrumb-item>
         <el-breadcrumb-item v-for="item in currentBreadcrumb" :key="item.name">
           {{ item.name }}
@@ -24,12 +24,12 @@
       <!-- 最近访问 -->
       <el-popover placement="bottom-start" :width="300" trigger="click" popper-class="recent-visit-popover">
         <template #reference>
-          <el-button link class="recent-visit-btn" title="最近访问">
+          <el-button link class="recent-visit-btn hide-mobile" title="最近访问">
             <el-icon :size="18"><Clock /></el-icon>
           </el-button>
         </template>
         <div style="font-size:14px;font-weight:600;margin-bottom:8px">最近访问</div>
-        <div v-if="recentVisits.length === 0" style="text-align:center;padding:20px;color:#909399;font-size:13px">暂无访问记录</div>
+        <div v-if="recentVisits.length === 0" style="text-align:center;padding:20px;color:var(--color-text-secondary);font-size:13px">暂无访问记录</div>
         <div v-for="item in recentVisits" :key="item.type + item.id" class="recent-visit-item" @click="goToVisit(item)">
           <el-tag size="small" :type="item.type === 'customer' ? 'primary' : 'success'" style="margin-right:8px">{{ getVisitTypeLabel(item.type) }}</el-tag>
           <span class="recent-visit-name">{{ item.name }}</span>
@@ -83,7 +83,7 @@
             </template>
           </el-table-column>
         </el-table>
-        <div v-if="todayList.length === 0" style="text-align:center;padding:20px;color:#909399">今天没有待跟进的客户</div>
+        <div v-if="todayList.length === 0" style="text-align:center;padding:20px;color:var(--color-text-secondary)">今天没有待跟进的客户</div>
       </el-tab-pane>
       <el-tab-pane :label="`明日待跟进 (${upcomingList.length})`" name="upcoming">
         <el-table :data="upcomingList" stripe border max-height="400">
@@ -105,7 +105,7 @@
             </template>
           </el-table-column>
         </el-table>
-        <div v-if="upcomingList.length === 0" style="text-align:center;padding:20px;color:#909399">明天没有待跟进的客户</div>
+        <div v-if="upcomingList.length === 0" style="text-align:center;padding:20px;color:var(--color-text-secondary)">明天没有待跟进的客户</div>
       </el-tab-pane>
       <el-tab-pane label="逾期跟进" name="follow">
         <el-table :data="reminderList" stripe border max-height="400" v-loading="reminderLoading">
@@ -146,11 +146,11 @@
             </template>
           </el-table-column>
         </el-table>
-        <div v-if="preWarningList.length === 0" style="text-align:center;padding:20px;color:#909399">暂无接近逾期的客户</div>
+        <div v-if="preWarningList.length === 0" style="text-align:center;padding:20px;color:var(--color-text-secondary)">暂无接近逾期的客户</div>
       </el-tab-pane>
       <el-tab-pane :label="`回款提醒 (${paymentOverdueList.length + paymentUpcomingList.length})`" name="payment">
         <div v-if="paymentUpcomingList.length > 0" style="margin-bottom: 16px">
-          <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #e6a23c">即将到期</div>
+          <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px; color: var(--color-warning)">即将到期</div>
           <el-table :data="paymentUpcomingList" stripe border max-height="200">
             <el-table-column prop="customer_name" label="客户名称" min-width="140" show-overflow-tooltip />
             <el-table-column prop="contract_no" label="合同编号" width="140" />
@@ -170,8 +170,8 @@
             </el-table-column>
           </el-table>
         </div>
-        <div v-if="paymentUpcomingList.length === 0" style="text-align:center;padding:10px;color:#909399;font-size:13px">近期无即将到期的回款</div>
-        <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #f56c6c">已逾期</div>
+        <div v-if="paymentUpcomingList.length === 0" style="text-align:center;padding:10px;color:var(--color-text-secondary);font-size:13px">近期无即将到期的回款</div>
+        <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px; color: var(--color-danger)">已逾期</div>
         <el-table :data="paymentOverdueList" stripe border max-height="250" v-loading="paymentOverdueLoading">
           <el-table-column prop="customer_name" label="客户名称" min-width="140" show-overflow-tooltip />
           <el-table-column prop="contract_no" label="合同编号" width="140" />
@@ -190,7 +190,7 @@
             </template>
           </el-table-column>
         </el-table>
-        <div v-if="paymentOverdueList.length === 0" style="text-align:center;padding:10px;color:#909399;font-size:13px">暂无逾期回款</div>
+        <div v-if="paymentOverdueList.length === 0" style="text-align:center;padding:10px;color:var(--color-text-secondary);font-size:13px">暂无逾期回款</div>
       </el-tab-pane>
       <el-tab-pane :label="`审批待办 (${pendingApprovals.length})`" name="approval">
         <el-table :data="pendingApprovals" stripe border max-height="400">
@@ -214,7 +214,7 @@
             </template>
           </el-table-column>
         </el-table>
-        <div v-if="pendingApprovals.length === 0" style="text-align:center;padding:20px;color:#909399">暂无待审批事项</div>
+        <div v-if="pendingApprovals.length === 0" style="text-align:center;padding:20px;color:var(--color-text-secondary)">暂无待审批事项</div>
       </el-tab-pane>
       <el-tab-pane :label="`催办通知 (${urgeNotifications.length})`" name="urge">
         <el-table :data="urgeNotifications" stripe border max-height="400">
@@ -231,7 +231,7 @@
             </template>
           </el-table-column>
         </el-table>
-        <div v-if="urgeNotifications.length === 0" style="text-align:center;padding:20px;color:#909399">暂无催办通知</div>
+        <div v-if="urgeNotifications.length === 0" style="text-align:center;padding:20px;color:var(--color-text-secondary)">暂无催办通知</div>
       </el-tab-pane>
       <el-tab-pane :label="`新工单 (${newServiceNotifications.length})`" name="newService">
         <el-table :data="newServiceNotifications" stripe border max-height="400">
@@ -248,7 +248,7 @@
             </template>
           </el-table-column>
         </el-table>
-        <div v-if="newServiceNotifications.length === 0" style="text-align:center;padding:20px;color:#909399">暂无新工单</div>
+        <div v-if="newServiceNotifications.length === 0" style="text-align:center;padding:20px;color:var(--color-text-secondary)">暂无新工单</div>
       </el-tab-pane>
       <el-tab-pane :label="`超时工单 (${overdueServices.length})`" name="overdueService">
         <el-table :data="overdueServices" stripe border max-height="400">
@@ -271,7 +271,7 @@
             </template>
           </el-table-column>
         </el-table>
-        <div v-if="overdueServices.length === 0" style="text-align:center;padding:20px;color:#909399">暂无超时工单</div>
+        <div v-if="overdueServices.length === 0" style="text-align:center;padding:20px;color:var(--color-text-secondary)">暂无超时工单</div>
       </el-tab-pane>
     </el-tabs>
     <template #footer>

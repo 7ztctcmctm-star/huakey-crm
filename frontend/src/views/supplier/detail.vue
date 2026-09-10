@@ -8,7 +8,7 @@
     <template v-if="supplier">
       <el-row :gutter="24">
         <el-col :span="16">
-          <el-card shadow="hover" class="info-card">
+          <el-card class="info-card">
             <template #header>
               <div class="card-header">
                 <span>基本信息</span>
@@ -35,7 +35,7 @@
             </el-descriptions>
           </el-card>
 
-          <el-card shadow="hover" class="info-card mt-20">
+          <el-card class="info-card mt-20">
             <template #header><span>联系信息</span></template>
             <el-descriptions :column="2" border size="default">
               <el-descriptions-item label="主要联系人">{{ supplier.contact_person || '-' }}</el-descriptions-item>
@@ -48,7 +48,7 @@
           </el-card>
 
           <!-- 联系人列表 -->
-          <el-card shadow="hover" class="info-card mt-20">
+          <el-card class="info-card mt-20">
             <template #header>
               <div class="card-header">
                 <span>联系人 ({{ contacts.length }})</span>
@@ -87,7 +87,7 @@
 
         <el-col :span="8">
           <!-- 资质证照 -->
-          <el-card shadow="hover" class="info-card">
+          <el-card class="info-card">
             <template #header>
               <div class="card-header">
                 <span>资质证照 ({{ qualifications.length }})</span>
@@ -107,11 +107,11 @@
                 </div>
               </div>
             </div>
-            <el-empty v-else description="暂无资质证照" :image-size="60" />
+            <EmptyState v-else title="暂无资质证照" compact />
           </el-card>
 
           <!-- 评分记录 -->
-          <el-card shadow="hover" class="info-card mt-20">
+          <el-card class="info-card mt-20">
             <template #header>
               <div class="card-header">
                 <span>近期评分</span>
@@ -127,11 +127,11 @@
                 </div>
               </div>
             </div>
-            <el-empty v-else description="暂无评分记录" :image-size="60" />
+            <EmptyState v-else title="暂无评分记录" compact />
           </el-card>
 
           <!-- 绩效统计 -->
-          <el-card shadow="hover" class="info-card mt-20" v-if="performance">
+          <el-card class="info-card mt-20" v-if="performance">
             <template #header><span>绩效统计</span></template>
             <el-descriptions :column="1" border size="small">
               <el-descriptions-item label="采购单数">{{ performance.order_count }}单</el-descriptions-item>
@@ -155,7 +155,7 @@
           </el-card>
 
           <!-- 关联客户 -->
-          <el-card shadow="hover" class="info-card mt-20">
+          <el-card class="info-card mt-20">
             <template #header><span>关联客户 ({{ relatedCustomers.length }})</span></template>
             <div v-if="relatedCustomers.length > 0" class="customer-list">
               <div v-for="item in relatedCustomers" :key="item.id" class="customer-item">
@@ -167,7 +167,7 @@
                 </el-tag>
               </div>
             </div>
-            <el-empty v-else description="暂无关联客户" :image-size="60" />
+            <EmptyState v-else title="暂无关联客户" compact />
           </el-card>
         </el-col>
       </el-row>
@@ -281,6 +281,8 @@
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -356,7 +358,7 @@ const fetchDetail = async () => {
       relatedCustomers.value = res.data.relatedCustomers || [];
     }
   } catch (error) {
-    console.error('获取供应商详情失败:', error);
+    reportError('获取供应商详情失败:', error);
   } finally {
     loading.value = false;
   }
@@ -372,7 +374,7 @@ const fetchPerformance = async () => {
   try {
     const res = await getSupplierPerformance(id);
     if (res.code === 200) performance.value = res.data;
-  } catch (e) { console.error(e); }
+  } catch (e) { reportError(e); }
 };
 
 const openRatingDialog = () => {
@@ -392,7 +394,7 @@ const handleRatingSubmit = async () => {
         fetchDetail();
         fetchPerformance();
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { reportError(e); }
     finally { ratingLoading.value = false; }
   });
 };
@@ -419,7 +421,7 @@ const handleContactSubmit = async () => {
         const res = await addSupplierContact({ supplier_id: route.params.id, ...contactForm });
         if (res.code === 200) { ElMessage.success('添加成功'); showContactDialog.value = false; fetchDetail(); }
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { reportError(e); }
     finally { contactLoading.value = false; }
   });
 };
@@ -428,7 +430,7 @@ const deleteContact = async (id) => {
   try {
     const res = await deleteSupplierContact(id);
     if (res.code === 200) { ElMessage.success('删除成功'); fetchDetail(); }
-  } catch (e) { console.error(e); }
+  } catch (e) { reportError(e); }
 };
 
 const openQualDialog = (row) => {
@@ -453,7 +455,7 @@ const handleQualSubmit = async () => {
         const res = await addQualification({ supplier_id: route.params.id, ...qualForm });
         if (res.code === 200) { ElMessage.success('添加成功'); showQualDialog.value = false; fetchDetail(); }
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { reportError(e); }
     finally { qualLoading.value = false; }
   });
 };
@@ -462,7 +464,7 @@ const deleteQualification = async (id) => {
   try {
     const res = await deleteQualificationApi(id);
     if (res.code === 200) { ElMessage.success('删除成功'); fetchDetail(); }
-  } catch (e) { console.error(e); }
+  } catch (e) { reportError(e); }
 };
 
 onMounted(() => {

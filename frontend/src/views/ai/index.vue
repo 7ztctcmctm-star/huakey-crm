@@ -15,9 +15,9 @@
 
     <div v-loading="loading">
       <div v-if="suggestions.length === 0 && !loading" class="empty-state">
-        <el-empty description="暂无AI建议，点击「生成建议」开始扫描">
+        <EmptyState title="暂无AI建议，点击「生成建议」开始扫描">
           <el-button type="primary" @click="handleGenerate" :loading="generating">生成建议</el-button>
-        </el-empty>
+        </EmptyState>
       </div>
 
       <div v-else class="suggestion-list">
@@ -44,6 +44,8 @@
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -66,7 +68,7 @@ const fetchSuggestions = async () => {
     const params = filterType.value ? `?type=${filterType.value}` : ''
     const res = await getAiSuggestions(params)
     if (res.code === 200) suggestions.value = res.data.list
-  } catch (e) { console.error(e) }
+  } catch (e) { reportError(e) }
   finally { loading.value = false }
 }
 
@@ -78,7 +80,7 @@ const handleGenerate = async () => {
       ElMessage.success(res.message)
       fetchSuggestions()
     }
-  } catch (e) { console.error(e) }
+  } catch (e) { reportError(e) }
   finally { generating.value = false }
 }
 
@@ -90,7 +92,7 @@ const handleFeedback = async (id, isAccepted) => {
       if (item) item.is_accepted = isAccepted
       ElMessage.success(isAccepted === 1 ? '已采纳' : '已忽略')
     }
-  } catch (e) { console.error(e) }
+  } catch (e) { reportError(e) }
 }
 
 const goToRef = (item) => {

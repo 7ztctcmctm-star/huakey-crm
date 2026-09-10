@@ -3,7 +3,7 @@
     <div class="page-header"><h2>供应商评估排行</h2></div>
 
     <!-- 排名表格 -->
-    <el-card shadow="never" style="margin-bottom:20px">
+    <el-card style="margin-bottom:20px">
       <template #header><span class="card-title">综合排名</span></template>
       <el-table :data="rankingList" stripe border v-loading="loading">
         <el-table-column label="排名" width="70" align="center">
@@ -34,7 +34,7 @@
     </el-card>
 
     <!-- 供应商对比 -->
-    <el-card shadow="never">
+    <el-card>
       <template #header>
         <div class="compare-header">
           <span class="card-title">供应商对比</span>
@@ -46,16 +46,18 @@
         </div>
       </template>
       <div ref="radarRef" class="chart-container" v-if="compareIds.length > 0"></div>
-      <el-empty v-else description="请选择供应商进行对比" :image-size="60" />
+      <EmptyState v-else title="请选择供应商进行对比" compact />
     </el-card>
   </div>
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, onMounted, nextTick } from 'vue'
 import request from '@/utils/request'
 import { getSupplierRanking, getSupplierCompare } from '@/api/product'
 import echarts from '@/composables/useECharts'
+import { chartPalette } from '@/utils/chartTheme'
 
 const loading = ref(false)
 const rankingList = ref([])
@@ -126,7 +128,7 @@ onMounted(() => { fetchRanking() })
 .card-title { font-size: 15px; font-weight: 600; }
 .compare-header { display: flex; justify-content: space-between; align-items: center; }
 .chart-container { height: 380px; }
-.rank-badge { display: inline-block; width: 24px; height: 24px; line-height: 24px; text-align: center; border-radius: 50%; font-size: 13px; font-weight: 600; color: #909399; background: #f5f5f5; }
+.rank-badge { display: inline-block; width: 24px; height: 24px; line-height: 24px; text-align: center; border-radius: 50%; font-size: 13px; font-weight: 600; color: var(--color-text-secondary); background: #f5f5f5; }
 .rank-badge.top { color: #fff; background: linear-gradient(135deg, #f5a623, #f7c948); }
 .score-value { font-size: 16px; font-weight: 700; color: var(--color-accent); }
 .link-text { color: var(--color-accent); cursor: pointer; }

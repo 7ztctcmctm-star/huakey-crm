@@ -20,7 +20,7 @@
           <el-button v-if="!t.is_system" type="danger" link size="small" @click="handleDelete(t)">删除</el-button>
         </div>
       </div>
-      <el-empty v-if="!loading && list.length === 0" description="暂无模板" />
+      <EmptyState v-if="!loading && list.length === 0" title="暂无模板" />
     </div>
 
     <!-- 新增/编辑弹窗 -->
@@ -71,6 +71,7 @@
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Delete } from '@element-plus/icons-vue'
@@ -159,8 +160,8 @@ onMounted(() => { fetchList() })
 .preview-q-text { font-size: 14px; margin-bottom: 8px; }
 .preview-nps { display: flex; gap: 4px; }
 .nps-num { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-size: 12px; font-weight: 600; }
-.nps-detractor { background: #fee2e2; color: #dc2626; }
-.nps-passive { background: #fef3c7; color: #d97706; }
-.nps-promoter { background: #d1fae5; color: #059669; }
+.nps-detractor { background: #fee2e2; color: var(--color-danger); }
+.nps-passive { background: #fef3c7; color: var(--color-warning); }
+.nps-promoter { background: var(--color-success-bg); color: var(--color-success); }
 .preview-rating { display: flex; gap: 4px; }
 </style>

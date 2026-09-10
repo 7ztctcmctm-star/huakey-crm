@@ -67,6 +67,7 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -134,7 +135,7 @@ const handleSubmit = async () => {
       ElMessage.error(res.message || '修改密码失败')
     }
   } catch (error) {
-    console.error('强制修改密码错误:', error)
+    reportError('强制修改密码错误:', error)
     ElMessage.error(error?.response?.data?.message || '修改密码失败')
   } finally {
     loading.value = false

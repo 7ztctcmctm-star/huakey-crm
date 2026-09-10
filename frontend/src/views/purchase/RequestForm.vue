@@ -4,7 +4,7 @@
       <h2>{{ isEdit ? '编辑采购申请' : '新建采购申请' }}</h2>
     </div>
 
-    <el-card shadow="never" style="max-width: 720px">
+    <el-card style="max-width: 720px">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="申请标题" prop="title">
           <el-input v-model="form.title" placeholder="请输入申请标题" maxlength="200" show-word-limit />
@@ -30,6 +30,7 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { reactive, ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -68,7 +69,7 @@ const fetchDepts = async () => {
       deptOptions.value = res.data || []
     }
   } catch (error) {
-    console.error('获取部门失败:', error)
+    reportError('获取部门失败:', error)
   }
 }
 
@@ -84,7 +85,7 @@ const submitForm = async () => {
       router.push('/purchase/requests')
     }
   } catch (error) {
-    console.error('创建采购申请失败:', error)
+    reportError('创建采购申请失败:', error)
     ElMessage.error(error?.response?.data?.message || '创建失败')
   } finally {
     submitting.value = false

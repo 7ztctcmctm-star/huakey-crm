@@ -192,6 +192,7 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -267,7 +268,7 @@ const fetchList = async () => {
       total.value = res.data.total;
     }
   } catch (error) {
-    console.error('获取供应商列表失败:', error);
+    reportError('获取供应商列表失败:', error);
   } finally {
     loading.value = false;
   }
@@ -320,7 +321,7 @@ const handleSubmit = async () => {
         fetchList();
       }
     } catch (error) {
-      console.error('提交失败:', error);
+      reportError('提交失败:', error);
     } finally {
       submitLoading.value = false;
     }
@@ -341,7 +342,7 @@ const handleDelete = async (row) => {
       fetchList();
     }
   } catch (error) {
-    if (error !== 'cancel') console.error('删除失败:', error);
+    if (error !== 'cancel') reportError('删除失败:', error);
   }
 };
 

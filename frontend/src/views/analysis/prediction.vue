@@ -11,13 +11,13 @@
     </div>
 
     <!-- 预测对比图 -->
-    <el-card shadow="never" style="margin-bottom:20px">
+    <el-card style="margin-bottom:20px">
       <template #header><span class="card-title">预测对比</span></template>
       <div ref="chartRef" class="chart-container"></div>
     </el-card>
 
     <!-- 预测表格 -->
-    <el-card shadow="never" style="margin-bottom:20px">
+    <el-card style="margin-bottom:20px">
       <template #header><span class="card-title">预测数据</span></template>
       <el-table :data="predictions" stripe border>
         <el-table-column prop="month" label="月份" width="100" />
@@ -39,7 +39,7 @@
     <!-- 模型说明 -->
     <el-row :gutter="16">
       <el-col :span="8">
-        <el-card shadow="never">
+        <el-card>
           <template #header><span class="card-title">移动平均法</span></template>
           <p class="model-desc">基于最近N个月的平均值预测。适合短期预测，对波动不敏感。</p>
           <div class="model-param">窗口大小：{{ models.moving_avg?.window || '-' }} 个月</div>
@@ -47,7 +47,7 @@
         </el-card>
       </el-col>
       <el-col :span="8">
-        <el-card shadow="never">
+        <el-card>
           <template #header><span class="card-title">线性回归法</span></template>
           <p class="model-desc">用最小二乘法拟合趋势直线。适合识别增长/下降趋势。</p>
           <div class="model-param">斜率：{{ models.linear_regression?.slope || '-' }}（每月变化）</div>
@@ -55,7 +55,7 @@
         </el-card>
       </el-col>
       <el-col :span="8">
-        <el-card shadow="never">
+        <el-card>
           <template #header><span class="card-title">季节性分析</span></template>
           <p class="model-desc">识别周期性规律（如年底旺季）。需要至少12个月数据。</p>
           <div class="model-param">是否有季节性：{{ models.seasonal?.has_seasonal ? '是' : '否（数据不足）' }}</div>
@@ -66,6 +66,7 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, onMounted, nextTick, watch } from 'vue'
 import { getPredictionEnhanced } from '@/api/report'
 import echarts from '@/composables/useECharts'
@@ -88,7 +89,7 @@ const fetchData = async () => {
       await nextTick()
       renderChart()
     }
-  } catch (e) { console.error('[prediction] 获取预测数据失败:', e) }
+  } catch (e) { reportError('[prediction] 获取预测数据失败:', e) }
   finally { loading.value = false }
 }
 
@@ -113,10 +114,10 @@ const renderChart = () => {
     xAxis: { type: 'category', data: allMonths, axisLabel: { rotate: 45, fontSize: 10 } },
     yAxis: { type: 'value', axisLabel: { formatter: v => v >= 10000 ? (v / 10000) + '万' : v } },
     series: [
-      { name: '实际', type: 'line', data: [...histAmounts, ...new Array(predMonths.length).fill(null)], itemStyle: { color: '#1d1d1f' }, lineWidth: 2 },
-      { name: '移动平均', type: 'line', data: maData, itemStyle: { color: '#0071e3' }, lineStyle: { type: 'dashed' } },
-      { name: '线性回归', type: 'line', data: lrData, itemStyle: { color: '#34c759' }, lineStyle: { type: 'dashed' } },
-      { name: '季节性', type: 'line', data: seasonData, itemStyle: { color: '#ff9500' }, lineStyle: { type: 'dashed' } },
+      { name: '实际', type: 'line', data: [...histAmounts, ...new Array(predMonths.length).fill(null)], itemStyle: { color: chartColors.text }, lineWidth: 2 },
+      { name: '移动平均', type: 'line', data: maData, itemStyle: { color: chartColors.primary }, lineStyle: { type: 'dashed' } },
+      { name: '线性回归', type: 'line', data: lrData, itemStyle: { color: chartColors.secondary }, lineStyle: { type: 'dashed' } },
+      { name: '季节性', type: 'line', data: seasonData, itemStyle: { color: chartColors.tertiary }, lineStyle: { type: 'dashed' } },
       { name: '置信区间', type: 'line', data: confHigh, itemStyle: { color: 'transparent' }, areaStyle: { opacity: 0 }, lineStyle: { width: 0 } }
     ]
   })

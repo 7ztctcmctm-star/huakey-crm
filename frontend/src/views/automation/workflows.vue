@@ -13,7 +13,7 @@
     </div>
 
     <!-- 规则列表 -->
-    <el-card shadow="never">
+    <el-card>
       <el-table :data="list" stripe border v-loading="loading">
         <el-table-column prop="name" label="规则名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="trigger_event" label="触发事件" width="130" align="center">
@@ -43,7 +43,7 @@
     </el-card>
 
     <!-- 日志 -->
-    <el-card shadow="never" style="margin-top:20px">
+    <el-card style="margin-top:20px">
       <template #header><span class="card-title">执行日志</span></template>
       <el-table :data="logs" stripe size="small" v-loading="logsLoading">
         <el-table-column prop="rule_name" label="规则" min-width="140" />
@@ -197,7 +197,7 @@ onMounted(() => { fetchList(); fetchLogs() })
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); }
 .page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); }
 .stat-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: var(--space-4); }
-.stat-card { background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); text-align: center; }
+
 .stat-value { font-size: 28px; font-weight: 700; color: var(--color-text); }
 .stat-label { font-size: 13px; color: var(--color-text-tertiary); margin-top: 4px; }
 .card-title { font-size: 15px; font-weight: 600; }

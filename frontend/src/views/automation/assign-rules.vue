@@ -8,7 +8,7 @@
       </div>
     </div>
 
-    <el-card shadow="never">
+    <el-card>
       <el-table :data="list" stripe border v-loading="loading">
         <el-table-column prop="rule_name" label="规则名称" min-width="160" />
         <el-table-column prop="assign_type" label="分配方式" width="100" align="center">

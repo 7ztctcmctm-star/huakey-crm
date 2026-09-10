@@ -157,7 +157,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleGlobalKeydown))
 .search-hint {
   text-align: center;
   padding: 20px;
-  color: #909399;
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
@@ -167,7 +167,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleGlobalKeydown))
 
 .search-group-title {
   font-size: 12px;
-  color: #909399;
+  color: var(--color-text-secondary);
   padding: 4px 8px;
   font-weight: 600;
 }
@@ -180,26 +180,26 @@ onUnmounted(() => document.removeEventListener('keydown', handleGlobalKeydown))
 }
 
 .search-item:hover {
-  background: #f5f7fa;
+  background: var(--color-bg-secondary);
 }
 
 .search-item-name {
   display: block;
   font-size: 14px;
-  color: #303133;
+  color: var(--color-text);
 }
 
 .search-item-sub {
   display: block;
   font-size: 12px;
-  color: #909399;
+  color: var(--color-text-secondary);
   margin-top: 2px;
 }
 
 .search-shortcut-hint {
   font-size: 11px;
-  color: #c0c4cc;
-  background: #f5f7fa;
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-secondary);
   padding: 2px 6px;
   border-radius: 3px;
 }

@@ -45,7 +45,7 @@
       </div>
 
       <div v-else class="fill-error">
-        <el-empty description="调查活动不存在或已关闭" />
+        <EmptyState title="调查活动不存在或已关闭" />
       </div>
     </div>
 
@@ -59,6 +59,7 @@
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -135,7 +136,7 @@ onMounted(() => { fetchCampaign() })
   font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;
   background: #fff;
 }
-.nps-btn:hover { border-color: #0071e3; }
+.nps-btn:hover { border-color: var(--color-accent); }
 .nps-btn.active { color: #fff; border-color: transparent; }
 .nps-detractor.active { background: #f56c6c; }
 .nps-passive.active { background: #e6a23c; }

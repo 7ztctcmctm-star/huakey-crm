@@ -20,7 +20,7 @@
 .logo-icon {
   width: 32px;
   height: 32px;
-  background: linear-gradient(135deg, #409EFF, #67C23A);
+  background: linear-gradient(135deg, var(--color-accent), var(--color-success));
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -28,7 +28,7 @@
 }
 
 .logo-text {
-  color: #fff;
+  color: var(--color-text-on-accent);
   font-size: 18px;
   font-weight: bold;
 }
@@ -36,6 +36,6 @@
 .logo-title {
   font-size: 18px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-text);
 }
 </style>

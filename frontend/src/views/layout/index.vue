@@ -1,7 +1,17 @@
 <template>
   <el-container class="layout-container">
-    <!-- 左侧边栏 -->
-    <Sidebar :is-collapse="isCollapse" :user-info="userInfo" />
+    <!-- 左侧边栏：移动端转为抽屉式覆盖层，折叠态强制展开以便完整显示菜单 -->
+    <Sidebar
+      :is-collapse="isMobile ? false : isCollapse"
+      :is-mobile="isMobile"
+      :mobile-open="mobileMenuOpen"
+      :user-info="userInfo"
+    />
+    <div
+      v-if="isMobile && mobileMenuOpen"
+      class="sidebar-backdrop"
+      @click="mobileMenuOpen = false"
+    />
 
     <el-container direction="vertical">
       <!-- 顶部栏 -->
@@ -38,7 +48,9 @@
       <el-main class="main-content">
         <router-view v-slot="{ Component }">
           <keep-alive :include="['Dashboard', 'CustomerList', 'TeamDashboard']">
-            <component :is="Component" />
+            <transition name="fade-slide" mode="out-in">
+              <component :is="Component" />
+            </transition>
           </keep-alive>
         </router-view>
       </el-main>
@@ -53,8 +65,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { getMyReminders, getPaymentOverdue, markAllRead, markNotificationRead } from '@/api/tools'
 import { useUser } from '@/composables/useUser'
 import AiChat from '@/components/AiChat.vue'
@@ -63,10 +75,23 @@ import Sidebar from '@/components/layout/Sidebar.vue'
 import HeaderBar from '@/components/layout/HeaderBar.vue'
 
 const router = useRouter()
+const route = useRoute()
 const { userInfo } = useUser()
 
-// 菜单折叠状态
+// 菜单折叠状态（桌面端）
 const isCollapse = ref(false)
+
+// ===== 移动端适配 =====
+// 断点须与 apple.css 的 @media (max-width: 768px) 保持一致
+const MOBILE_QUERY = '(max-width: 768px)'
+const isMobile = ref(false)
+const mobileMenuOpen = ref(false)
+
+const syncIsMobile = (matches) => {
+  isMobile.value = matches
+  // 切回桌面端时收起抽屉，避免残留覆盖层挡住内容
+  if (!matches) mobileMenuOpen.value = false
+}
 
 const showReminderDialog = ref(false)
 const showRecycleBin = ref(false)
@@ -197,12 +222,41 @@ fetchReminders()
 fetchPaymentOverdue()
 const reminderTimer = setInterval(fetchReminders, 2 * 60 * 1000)
 
-onMounted(() => {})
+let mobileMediaQuery = null
+const onMediaChange = (e) => syncIsMobile(e.matches)
+
+onMounted(() => {
+  // 监听移动端断点（保留 addListener 回退，兼容旧版 Safari）
+  mobileMediaQuery = window.matchMedia(MOBILE_QUERY)
+  syncIsMobile(mobileMediaQuery.matches)
+  if (mobileMediaQuery.addEventListener) {
+    mobileMediaQuery.addEventListener('change', onMediaChange)
+  } else {
+    mobileMediaQuery.addListener(onMediaChange)
+  }
+})
+
 onUnmounted(() => {
   clearInterval(reminderTimer)
+  if (!mobileMediaQuery) return
+  if (mobileMediaQuery.removeEventListener) {
+    mobileMediaQuery.removeEventListener('change', onMediaChange)
+  } else {
+    mobileMediaQuery.removeListener(onMediaChange)
+  }
+})
+
+// 移动端点击菜单跳转后自动收起抽屉
+watch(() => route.fullPath, () => {
+  if (mobileMenuOpen.value) mobileMenuOpen.value = false
 })
 
 const toggleCollapse = () => {
+  // 移动端顶栏按钮切换的是抽屉，而非折叠
+  if (isMobile.value) {
+    mobileMenuOpen.value = !mobileMenuOpen.value
+    return
+  }
   isCollapse.value = !isCollapse.value
 }
 </script>
@@ -210,6 +264,14 @@ const toggleCollapse = () => {
 <style scoped>
 .layout-container {
   height: 100vh;
+}
+
+/* 移动端抽屉遮罩，层级低于侧边栏（2001） */
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: var(--overlay-backdrop);
 }
 
 .main-content {

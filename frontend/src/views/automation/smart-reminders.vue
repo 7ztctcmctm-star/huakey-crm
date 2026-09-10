@@ -14,7 +14,7 @@
     <el-tabs v-model="activeTab">
       <!-- 提醒规则 -->
       <el-tab-pane label="提醒规则" name="rules">
-        <el-card shadow="never">
+        <el-card>
           <div class="toolbar"><el-button type="primary" :icon="Plus" @click="handleCreateRule">新增规则</el-button></div>
           <el-table :data="rules" stripe border>
             <el-table-column prop="name" label="规则名称" min-width="160" />
@@ -45,7 +45,7 @@
 
       <!-- 待处理提醒 -->
       <el-tab-pane label="待处理提醒" name="pending">
-        <el-card shadow="never">
+        <el-card>
           <el-table :data="pendingList" stripe border v-loading="pendingLoading">
             <el-table-column prop="rule_name" label="规则" width="140" />
             <el-table-column prop="reminder_type" label="类型" width="120" align="center">
@@ -60,7 +60,7 @@
               </template>
             </el-table-column>
           </el-table>
-          <el-empty v-if="!pendingLoading && pendingList.length === 0" description="暂无待处理提醒" :image-size="60" />
+          <EmptyState v-if="!pendingLoading && pendingList.length === 0" title="暂无待处理提醒" compact />
         </el-card>
       </el-tab-pane>
     </el-tabs>
@@ -98,6 +98,7 @@
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
@@ -204,7 +205,7 @@ onMounted(() => { fetchRules(); fetchPending() })
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); }
 .page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); }
 .stat-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: var(--space-4); }
-.stat-card { background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); text-align: center; }
+
 .stat-value { font-size: 28px; font-weight: 700; color: var(--color-text); }
 .stat-label { font-size: 13px; color: var(--color-text-tertiary); margin-top: 4px; }
 .toolbar { margin-bottom: var(--space-4); }

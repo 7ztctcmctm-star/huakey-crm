@@ -16,7 +16,7 @@
     </el-result>
 
     <!-- 空白态 -->
-    <el-empty v-else-if="empty" :description="emptyText || '暂无数据'" />
+    <EmptyState v-else-if="empty" :title="emptyText || '暂无数据'" />
 
     <!-- 正常态 -->
     <slot v-else />
@@ -24,6 +24,8 @@
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
+
 defineProps({
   /** 是否加载中 */
   loading: { type: Boolean, default: false },

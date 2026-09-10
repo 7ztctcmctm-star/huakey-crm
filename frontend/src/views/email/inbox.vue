@@ -46,7 +46,7 @@
           </div>
           <el-icon v-if="item.has_attachments" class="attachment-icon"><Paperclip /></el-icon>
         </div>
-        <el-empty v-if="!loading && emailList.length === 0" description="暂无邮件" />
+        <EmptyState v-if="!loading && emailList.length === 0" title="暂无邮件" />
       </div>
       <div class="list-footer">
         <el-pagination size="small" layout="prev, pager, next" :total="total" v-model:current-page="page" :page-size="pageSize" @current-change="fetchList" />
@@ -82,7 +82,7 @@
       </div>
     </div>
     <div class="email-detail empty" v-else>
-      <el-empty description="选择一封邮件查看" />
+      <EmptyState title="选择一封邮件查看" />
     </div>
 
     <!-- 关联客户弹窗 -->
@@ -99,6 +99,7 @@
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Edit, Setting, Search, Star, Paperclip, RefreshRight, Connection, Document } from '@element-plus/icons-vue'
@@ -246,9 +247,9 @@ onMounted(() => {
 .item-body { flex: 1; min-width: 0; }
 .item-sender { font-size: 13px; color: #303133; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .email-item.unread .item-sender { font-weight: 600; }
-.item-subject { font-size: 12px; color: #909399; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item-subject { font-size: 12px; color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .item-time { font-size: 11px; color: #c0c4cc; margin-top: 2px; }
-.attachment-icon { color: #909399; font-size: 14px; }
+.attachment-icon { color: var(--color-text-secondary); font-size: 14px; }
 .list-footer { padding: 8px 12px; border-top: 1px solid #ebeef5; display: flex; justify-content: center; }
 .email-detail { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .email-detail.empty { display: flex; align-items: center; justify-content: center; }
@@ -259,7 +260,7 @@ onMounted(() => {
 .linked-customer { margin-top: 8px; }
 .detail-body { flex: 1; padding: 20px; overflow-y: auto; font-size: 14px; line-height: 1.8; color: #303133; }
 .detail-attachments { padding: 12px 20px; border-top: 1px solid #ebeef5; }
-.attachment-title { font-size: 13px; color: #909399; margin-bottom: 8px; }
+.attachment-title { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 8px; }
 .attachment-item { display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 4px 0; }
 .att-size { color: #c0c4cc; margin-left: auto; }
 </style>

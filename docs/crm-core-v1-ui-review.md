@@ -118,29 +118,29 @@
 |--------|------|----------|
 | P0 | 0 | — |
 | P1 | 0 | — |
-| P2 | 6 | 记入 v1.1 backlog（部分需 UAT 浏览器验证） |
-| P3 | 5 | 记入 v1.1 backlog |
+| P2 | 6 | 已全部修复（UI-Q-02/CT-01 按审计文档/代码语义假设修复，需 UAT 验证） |
+| P3 | 5 | 已全部修复 |
 
 ### P2 问题清单（v1.1 backlog）
 
 | ID | 模块 | 问题 |
 |----|------|------|
-| UI-C-01 | Customer | isBoss/isManager 硬编码 roleId，boss 角色可能失效 |
-| UI-O-01 | Opportunity | 推进弹窗缺少 change_reason 输入 |
-| UI-Q-01 | Quote | isAdmin 判断 boss 可能无法审批 |
-| UI-Q-02 | Quote | discount 折扣显示语义待确认 |
-| UI-CT-01 | Contract | status 文档与代码定义不一致 |
-| UI-CT-03 | Contract | 新增合同未校验 opportunity/customer 一致性 |
+| UI-C-01 | Customer | isBoss/isManager 硬编码 roleId，boss 角色可能失效 | ✅ 已修复：List/Detail 均改为 `manageAll === true` / `roleCode` 判断 |
+| UI-O-01 | Opportunity | 推进弹窗缺少 change_reason 输入 | ✅ 已修复：弹窗新增变更原因文本域，API 透传 `change_reason` |
+| UI-Q-01 | Quote | isAdmin 判断 boss 可能无法审批 | ✅ 已修复：`isAdmin` 已改为 `manageAll === true` |
+| UI-Q-02 | Quote | discount 折扣显示语义待确认 | ✅ 已按假设修复：根据 `edit.vue` 中 `discountAmount = totalAmount * discount` 推断 `discount` 为折扣率（0~1），列表/详情统一显示为“X折” |
+| UI-CT-01 | Contract | status 文档与代码定义不一致 | ✅ 已按假设修复：以审计文档为准，前端状态映射统一为 `1=执行中 2=已完结 3=已终止 4=已取消` |
+| UI-CT-03 | Contract | 新增合同未校验 opportunity/customer 一致性 | ✅ 已修复：客户变更时联动刷新商机下拉，并增加自定义校验规则 |
 
 ### P3 问题清单（v1.1 backlog）
 
 | ID | 模块 | 问题 |
 |----|------|------|
-| UI-O-02 | Opportunity | winRateColor 三档同色 |
-| UI-O-03 | Opportunity | API 调用分散两个文件 |
-| UI-Q-03 | Quote | 无独立 api/quotation.js |
-| UI-Q-04 | Quote | 操作列按钮过多 |
-| UI-CT-02 | Contract | 同 UI-Q-01 |
+| UI-O-02 | Opportunity | winRateColor 三档同色 | ✅ 已修复：按 >=70% success / >=40% warning / <40% danger 分档 |
+| UI-O-03 | Opportunity | API 调用分散两个文件 | ✅ 已修复：商机相关 API 统一收敛到 `api/opportunity.js`，移除 `api/customer.js` 中的商机函数 |
+| UI-Q-03 | Quote | 无独立 api/quotation.js | ✅ 已修复：新建 `api/quotation.js`，报价相关 API 从 `api/contract.js` 迁移 |
+| UI-Q-04 | Quote | 操作列按钮过多 | ✅ 已修复：操作列收敛为 查看/编辑 + 更多下拉 |
+| UI-CT-02 | Contract | 同 UI-Q-01 | ✅ 已修复：`isAdmin` 已改为 `manageAll === true` |
 
 ---
 

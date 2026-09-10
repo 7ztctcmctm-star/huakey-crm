@@ -6,7 +6,7 @@
     </div>
 
     <!-- 搜索栏 -->
-    <el-card shadow="never" class="search-card">
+    <el-card class="search-card">
       <el-form :model="search" inline @keyup.enter="fetchList">
         <el-form-item><el-input v-model="search.keyword" placeholder="搜索产品名称/型号" clearable style="width:220px" /></el-form-item>
         <el-form-item>
@@ -23,7 +23,7 @@
       <div v-for="item in list" :key="item.id" class="product-card" @click="handleView(item)">
         <div class="product-image">
           <img v-if="getFirstImage(item)" :src="getFirstImage(item)" />
-          <div v-else class="product-placeholder"><el-icon :size="40" color="#d2d2d7"><Box /></el-icon></div>
+          <div v-else class="product-placeholder"><el-icon :size="40" color="var(--color-tertiary)"><Box /></el-icon></div>
         </div>
         <div class="product-info">
           <div class="product-name">{{ item.name }}</div>
@@ -38,7 +38,7 @@
           <el-button type="danger" link :icon="Delete" @click="handleDelete(item)" />
         </div>
       </div>
-      <el-empty v-if="!loading && list.length === 0" description="暂无产品" />
+      <EmptyState v-if="!loading && list.length === 0" title="暂无产品" />
     </div>
 
     <div class="pagination"><el-pagination v-model:current-page="page" v-model:page-size="pageSize" :total="total" :page-sizes="[12,24,48]" layout="total,sizes,prev,pager,next" @size-change="fetchList" @current-change="fetchList" /></div>
@@ -88,6 +88,7 @@
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, Box } from '@element-plus/icons-vue'
@@ -172,11 +173,11 @@ onMounted(() => { fetchList(); fetchCategories() })
 
 .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; }
 .product-card {
-  background: #fff; border-radius: 16px; overflow: hidden; cursor: pointer;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06); transition: transform 0.2s, box-shadow 0.2s;
+  background: var(--color-bg); border-radius: 16px; overflow: hidden; cursor: pointer;
+  box-shadow: var(--shadow-md); transition: transform 0.2s, box-shadow 0.2s;
   position: relative;
 }
-.product-card:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+.product-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 .product-image { height: 160px; background: #f5f5f7; display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .product-image img { width: 100%; height: 100%; object-fit: cover; }
 .product-placeholder { color: #d2d2d7; }

@@ -29,7 +29,7 @@
     </div>
 
     <!-- 搜索区域 -->
-    <el-card class="search-card" shadow="never">
+    <el-card class="search-card">
       <el-form :model="searchForm" inline @keyup.enter="handleSearch">
         <el-form-item label="商机名称">
           <el-input v-model="searchForm.name" placeholder="请输入商机名称" clearable />
@@ -50,19 +50,20 @@
     </el-card>
 
     <!-- 表格 -->
-    <el-card class="table-card" shadow="never">
+    <el-card class="table-card">
       <div class="toolbar">
         <el-button type="primary" :icon="Plus" @click="handleAdd" v-permission="'opportunity:add'">新增商机</el-button>
       </div>
 
+      <TableSkeleton v-if="loading" :rows="8" :cols="7" />
       <el-table
-        v-loading="loading"
+        v-show="!loading"
         :data="tableData"
-        stripe
-        border
         style="width: 100%"
-        :header-cell-style="{ background: 'var(--color-bg)', color: 'var(--color-text)' }"
       >
+        <template #empty>
+          <EmptyState title="暂无商机" description="从客户详情创建商机后即可在此跟踪" />
+        </template>
         <el-table-column prop="name" label="商机名称" min-width="180" show-overflow-tooltip />
         <el-table-column prop="customer_name" label="客户名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="expected_amount" label="预计金额" width="130" align="right">
@@ -77,7 +78,7 @@
         </el-table-column>
         <el-table-column prop="stage" label="阶段" width="110" align="center">
           <template #default="{ row }">
-            <el-tag :type="stageTagType(row.stage)" effect="dark" size="default">
+            <el-tag :type="stageTagType(row.stage)" effect="light" size="default">
               {{ stageMap[row.stage] || '未知' }}
             </el-tag>
           </template>
@@ -99,7 +100,7 @@
             <el-tag
               v-if="row.stage < 5"
               :type="stagnantTagType(row.stagnant_days)"
-              effect="dark"
+              effect="light"
               size="default"
             >
               {{ row.stagnant_days }}天
@@ -112,12 +113,19 @@
             {{ formatTime(row.update_time) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="280" fixed="right">
+        <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link :icon="View" @click="handleViewDetail(row)">详情</el-button>
             <el-button v-if="row.stage < 5" type="success" link :icon="ArrowUp" @click="handlePushStage(row)" v-permission="'opportunity:edit'">推进</el-button>
-            <el-button type="primary" link :icon="Edit" @click="handleEdit(row)" v-permission="'opportunity:edit'">编辑</el-button>
-            <el-button type="danger" link :icon="Delete" @click="handleDelete(row)" v-permission="'opportunity:delete'">删除</el-button>
+            <el-dropdown trigger="click" @command="(cmd) => handleMore(row, cmd)">
+              <el-button link type="primary">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item v-permission="'opportunity:edit'" command="edit">编辑</el-dropdown-item>
+                  <el-dropdown-item v-permission="'opportunity:delete'" command="delete" divided class="text-danger">删除</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </template>
         </el-table-column>
       </el-table>
@@ -241,7 +249,7 @@
     <el-dialog v-model="pushDialogVisible" title="推进阶段" width="450px" :close-on-click-modal="false">
       <el-form label-width="80px">
         <el-form-item label="当前阶段">
-          <el-tag :type="stageTagType(pushRow.stage)" effect="dark">
+          <el-tag :type="stageTagType(pushRow.stage)" effect="light">
             {{ stageMap[pushRow.stage] || '未知' }}
           </el-tag>
         </el-form-item>
@@ -254,6 +262,16 @@
               :value="item.value"
             />
           </el-select>
+        </el-form-item>
+        <el-form-item label="变更原因">
+          <el-input
+            v-model="pushChangeReason"
+            type="textarea"
+            :rows="3"
+            placeholder="请填写阶段推进原因（选填）"
+            maxlength="200"
+            show-word-limit
+          />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -276,7 +294,7 @@
           <el-descriptions-item label="预计金额">¥{{ formatAmount(drawerData.expected_amount) }}</el-descriptions-item>
           <el-descriptions-item label="预计成交日">{{ formatDate(drawerData.expected_date) }}</el-descriptions-item>
           <el-descriptions-item label="当前阶段">
-            <el-tag :type="stageTagType(drawerData.stage)" effect="dark" size="small">{{ stageMap[drawerData.stage] }}</el-tag>
+            <el-tag :type="stageTagType(drawerData.stage)" effect="light" size="small">{{ stageMap[drawerData.stage] }}</el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="赢单率">{{ drawerData.win_rate }}%</el-descriptions-item>
           <el-descriptions-item label="创建时间" :span="2">{{ formatTime(drawerData.create_time) }}</el-descriptions-item>
@@ -291,31 +309,34 @@
             :timestamp="formatTime(log.changed_at)"
             placement="top"
           >
-            <el-tag size="small" :type="stageTagType(log.from_stage)">{{ stageMap[log.from_stage] || '初始' }}</el-tag>
+            <el-tag size="small" :type="stageTagType(log.from_stage)" effect="light">{{ stageMap[log.from_stage] || '初始' }}</el-tag>
             <span style="margin: 0 8px; color: var(--color-text-tertiary)">→</span>
-            <el-tag size="small" :type="stageTagType(log.to_stage)">{{ stageMap[log.to_stage] }}</el-tag>
+            <el-tag size="small" :type="stageTagType(log.to_stage)" effect="light">{{ stageMap[log.to_stage] }}</el-tag>
             <div style="margin-top: 4px; color: var(--color-text-tertiary); font-size: 12px">
               <span>{{ log.changed_by_name }}</span>
               <span v-if="log.hours_in_stage"> · 停留 {{ formatHours(log.hours_in_stage) }}</span>
             </div>
-            <div v-if="log.change_reason" style="margin-top: 2px; color: #666; font-size: 13px">
+            <div v-if="log.change_reason" style="margin-top: 2px; color: var(--color-text-secondary); font-size: 13px">
               原因：{{ log.change_reason }}
             </div>
           </el-timeline-item>
         </el-timeline>
-        <el-empty v-else description="暂无阶段变更记录" />
+        <EmptyState v-else title="暂无阶段变更记录" />
       </div>
     </el-drawer>
   </div>
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh, Plus, Edit, Delete, ArrowUp, View } from '@element-plus/icons-vue'
+import { Search, Refresh, Plus, ArrowUp, View, ArrowDown } from '@element-plus/icons-vue'
 import request from '@/utils/request'
-import { getOpportunityList, addOpportunity, updateOpportunity, deleteOpportunity, updateOpportunityStage, getSalesFunnel, getOpportunityDetail, getOpportunityStageLog } from '@/api/customer'
+import { getOpportunityList, addOpportunity, updateOpportunity, deleteOpportunity, updateOpportunityStage, getSalesFunnel, getOpportunityDetail, getOpportunityStageLog } from '@/api/opportunity'
 import { getUserList } from '@/api/system'
 import { getCustomerList } from '@/api/customer'
 import { formatTime, formatAmount } from '@/composables/useFormat'
@@ -349,9 +370,9 @@ const stageTagType = (stage) => {
 }
 
 const winRateColor = (rate) => {
-  if (rate >= 70) return 'var(--color-accent)'
-  if (rate >= 40) return 'var(--color-accent)'
-  return 'var(--color-accent)'
+  if (rate >= 70) return 'var(--color-success)'
+  if (rate >= 40) return 'var(--color-warning)'
+  return 'var(--color-danger)'
 }
 
 // P0-2: 商机停滞天数颜色预警
@@ -428,6 +449,7 @@ const userOptions = ref([])
 const pushDialogVisible = ref(false)
 const pushRow = ref({})
 const pushTargetStage = ref(null)
+const pushChangeReason = ref('')
 const pushLoading = ref(false)
 
 // 详情抽屉
@@ -456,7 +478,7 @@ const fetchFunnel = async () => {
       funnelFailed.value = res.data.failed
     }
   } catch (error) {
-    console.error('获取漏斗失败:', error)
+    reportError('获取漏斗失败:', error)
   }
 }
 
@@ -478,7 +500,7 @@ const fetchList = async () => {
       total.value = res.data.total
     }
   } catch (error) {
-    ElMessage.error('加载商机列表失败'); console.error('获取商机列表失败:', error)
+    ElMessage.error('加载商机列表失败')
   } finally {
     loading.value = false
   }
@@ -509,7 +531,7 @@ const searchCustomers = async (query) => {
       customerOptions.value = res.data.list
     }
   } catch (error) {
-    console.error('搜索客户失败:', error)
+    reportError('搜索客户失败:', error)
   } finally {
     customerLoading.value = false
   }
@@ -522,7 +544,7 @@ const fetchUsers = async () => {
       userOptions.value = res.data.list
     }
   } catch (error) {
-    console.error('获取用户列表失败:', error)
+    reportError('获取用户列表失败:', error)
   }
 }
 
@@ -616,7 +638,7 @@ const handleSubmit = async () => {
         fetchFunnel()
       }
     } catch (error) {
-      console.error('提交失败:', error)
+      reportError('提交失败:', error)
     } finally {
       submitLoading.value = false
     }
@@ -628,6 +650,7 @@ const handlePushStage = (row) => {
   const nextStage = row.stage + 1
   const validOptions = stageOptions.filter(item => item.value > row.stage && item.value !== 6)
   pushTargetStage.value = validOptions.some(o => o.value === nextStage) ? nextStage : null
+  pushChangeReason.value = ''
   pushDialogVisible.value = true
 }
 
@@ -645,12 +668,13 @@ const handlePushConfirm = async () => {
       { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
     )
   } catch {
+    // 用户取消推进
     return
   }
 
   pushLoading.value = true
   try {
-    const res = await updateOpportunityStage(pushRow.value.id, pushTargetStage.value)
+    const res = await updateOpportunityStage(pushRow.value.id, pushTargetStage.value, pushChangeReason.value)
     if (res.code === 200) {
       ElMessage.success(res.message)
       pushDialogVisible.value = false
@@ -658,7 +682,7 @@ const handlePushConfirm = async () => {
       fetchFunnel()
     }
   } catch (error) {
-    console.error('推进失败:', error)
+    reportError('推进失败:', error)
   } finally {
     pushLoading.value = false
   }
@@ -682,9 +706,18 @@ const handleDelete = (row) => {
         fetchFunnel()
       }
     } catch (error) {
-      console.error('删除失败:', error)
+      reportError('删除失败:', error)
     }
   })
+}
+
+// 更多操作下拉
+const handleMore = (row, cmd) => {
+  const actions = {
+    edit: handleEdit,
+    delete: handleDelete
+  }
+  actions[cmd]?.(row)
 }
 
 const createQuoteFromOpportunity = (data) => {

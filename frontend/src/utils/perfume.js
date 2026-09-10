@@ -1,4 +1,5 @@
 import { onFCP, onLCP, onCLS, onINP, onTTFB } from 'web-vitals';
+import { reportError, reportWarn } from '@/utils/error'
 
 const isProd = import.meta.env.PROD;
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1';
@@ -13,7 +14,7 @@ function sendMetric(name, value, rating) {
       timestamp: new Date().toISOString()
     })], { type: 'application/json' }));
   } else if (rating !== 'good') {
-    console.warn(`[Perf] ${name}: ${value} (${rating})`);
+    reportWarn(`[Perf] ${name}: ${value} (${rating})`);
   }
 }
 

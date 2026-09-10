@@ -21,11 +21,4 @@ export const getMergedPayments = (params) => request.post('/contract/payment/mer
 export const exportPayments = (params) => request.post('/contract/payment/export', params, { responseType: 'blob' })
 export const exportPaymentStatement = (params) => request.post('/contract/payment/statement-export', params, { responseType: 'blob' })
 
-// ============ 报价管理 ============
-export const getQuoteList = (params) => request.post('/quote/list', params)
-export const addQuote = (data) => request.post('/quote/add', data)
-export const updateQuote = (data) => request.post('/quote/update', data)
-export const deleteQuote = (id) => request.post('/quote/delete', { id })
-export const approveQuote = (data) => request.post('/quote/approve', data)
-export const quoteToContract = (id) => request.post('/quote/to-contract', { id })
-export const getQuoteDetail = (id) => request.get(`/quote/detail/${id}`)
+

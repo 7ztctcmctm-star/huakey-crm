@@ -19,7 +19,7 @@
         <el-icon :size="48"><UploadFilled /></el-icon>
         <div style="margin-top:8px">将Excel文件拖拽到此处，或<em>点击上传</em></div>
         <template #tip>
-          <div style="margin-top:8px;color:#909399">支持 .xlsx / .xls 格式，表头需包含"公司名称"列</div>
+          <div style="margin-top:8px;color: var(--color-text-secondary)">支持 .xlsx / .xls 格式，表头需包含"公司名称"列</div>
         </template>
       </el-upload>
       <el-progress v-if="uploadProgress > 0 && uploadProgress < 100" :percentage="uploadProgress" style="margin-top:12px" />

@@ -4,7 +4,7 @@
       <h2>权限管理</h2>
     </div>
 
-    <el-card shadow="never">
+    <el-card>
       <div class="toolbar">
         <el-button type="primary" :icon="Plus" @click="handleAdd(0)">新增权限</el-button>
       </div>

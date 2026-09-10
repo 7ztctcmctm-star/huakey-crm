@@ -13,7 +13,7 @@
     </div>
 
     <!-- NPS 分析 -->
-    <el-card v-if="campaign.survey_type === 'nps' || hasNps" shadow="never" class="section-card">
+    <el-card v-if="campaign.survey_type === 'nps' || hasNps" class="section-card">
       <template #header><span class="card-title">NPS 分析</span></template>
       <el-row :gutter="20">
         <el-col :span="6">
@@ -34,7 +34,7 @@
     </el-card>
 
     <!-- CSAT 分析 -->
-    <el-card v-if="campaign.survey_type === 'csat' || hasCsat" shadow="never" class="section-card">
+    <el-card v-if="campaign.survey_type === 'csat' || hasCsat" class="section-card">
       <template #header><span class="card-title">CSAT 满意度分析</span></template>
       <el-row :gutter="20">
         <el-col :span="6">
@@ -139,7 +139,7 @@ const renderCharts = () => {
       series: [{
         type: 'bar', data: csatData.value.distribution.map(v => ({
           value: v,
-          itemStyle: { color: '#0071e3' }
+          itemStyle: { color: chartColors.primary }
         })),
         barWidth: '40%'
       }]
@@ -161,8 +161,8 @@ onMounted(() => { fetchData() })
 .big-number { text-align: center; margin-bottom: 20px; }
 .big-value { font-size: 48px; font-weight: 800; }
 .big-value.good { color: #059669; }
-.big-value.ok { color: #d97706; }
-.big-value.bad { color: #dc2626; }
+.big-value.ok { color: var(--color-warning); }
+.big-value.bad { color: var(--color-danger); }
 .big-label { font-size: 13px; color: var(--color-text-tertiary); margin-top: 4px; }
 
 .nps-breakdown { margin-top: 16px; }

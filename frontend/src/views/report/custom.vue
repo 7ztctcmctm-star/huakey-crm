@@ -8,7 +8,7 @@
     <el-row :gutter="20">
       <!-- 左侧：报表列表 -->
       <el-col :span="7">
-        <el-card shadow="never" class="list-card">
+        <el-card class="list-card">
           <div v-for="item in reportList" :key="item.id" class="report-item" :class="{ active: currentId === item.id }" @click="selectReport(item)">
             <div class="report-name">{{ item.name }}</div>
             <div class="report-meta">
@@ -21,14 +21,14 @@
               <el-button type="danger" link size="small" @click.stop="handleDelete(item)">删除</el-button>
             </div>
           </div>
-          <el-empty v-if="reportList.length === 0" description="暂无报表" :image-size="60" />
+          <EmptyState v-if="reportList.length === 0" title="暂无报表" compact />
         </el-card>
       </el-col>
 
       <!-- 右侧：配置+预览 -->
       <el-col :span="17">
         <!-- 配置区域 -->
-        <el-card shadow="never" class="config-card">
+        <el-card class="config-card">
           <template #header><span class="card-title">{{ isEditing ? '编辑报表' : '新建报表' }}</span></template>
           <el-form :model="form" label-width="90px">
             <el-row :gutter="16">
@@ -61,7 +61,7 @@
         </el-card>
 
         <!-- 预览区域 -->
-        <el-card v-if="resultData" shadow="never" style="margin-top:16px">
+        <el-card v-if="resultData" style="margin-top:16px">
           <template #header><span class="card-title">查询结果（{{ resultData.total }} 条）</span></template>
           <el-table :data="resultData.list" stripe border size="small" max-height="400">
             <el-table-column v-for="col in resultColumns" :key="col" :prop="col" :label="col" min-width="120" show-overflow-tooltip />
@@ -76,6 +76,7 @@
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
@@ -183,7 +184,7 @@ onMounted(() => { fetchList(); fetchFields() })
 .list-card { min-height: 500px; }
 .report-item { padding: 12px; border-bottom: 1px solid var(--color-border); cursor: pointer; transition: background 0.15s; }
 .report-item:hover { background: var(--color-bg-secondary); }
-.report-item.active { background: #f0f7ff; border-left: 3px solid #0071e3; }
+.report-item.active { background: var(--color-accent-bg); border-left: 3px solid var(--color-accent); }
 .report-name { font-size: 14px; font-weight: 600; color: var(--color-text); margin-bottom: 6px; }
 .report-meta { display: flex; gap: 6px; margin-bottom: 6px; }
 .report-actions { display: flex; gap: 8px; }

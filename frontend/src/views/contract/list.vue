@@ -2,15 +2,16 @@
   <div class="page-container">
     <div class="page-header"><h2>合同管理</h2></div>
 
-    <el-card shadow="never" class="search-card">
+    <el-card class="search-card">
       <el-form :model="searchForm" inline @keyup.enter="handleSearch">
         <el-form-item label="关键词">
           <el-input v-model="searchForm.keyword" placeholder="合同编号/客户名称" clearable style="width:200px" />
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="searchForm.status" placeholder="全部" clearable style="width:140px">
-            <el-option label="待执行" :value="1" /><el-option label="执行中" :value="2" />
-            <el-option label="已完成" :value="3" /><el-option label="已取消" :value="4" />
+            <!-- 合同状态以审计文档为准：1=执行中 2=已完结 3=已终止 4=已取消 -->
+            <el-option label="执行中" :value="1" /><el-option label="已完结" :value="2" />
+            <el-option label="已终止" :value="3" /><el-option label="已取消" :value="4" />
           </el-select>
         </el-form-item>
         <el-form-item label="审批">
@@ -21,7 +22,7 @@
         <el-form-item label="回款">
           <el-select v-model="searchForm.payment_status" placeholder="全部" clearable style="width:140px">
             <el-option label="已逾期" value="overdue">
-              <span style="color: #dc2626; font-weight: bold">已逾期</span>
+              <span style="color: var(--color-danger); font-weight: 600">已逾期</span>
             </el-option>
             <el-option label="部分回款" value="partial" /><el-option label="已回清" value="completed" /><el-option label="待回款" value="pending" />
           </el-select>
@@ -33,11 +34,13 @@
       </el-form>
     </el-card>
 
-    <el-card shadow="never">
+    <el-card>
       <div class="toolbar"><el-button type="primary" :icon="Plus" @click="handleCreate" v-permission="'contract:add'">新增合同</el-button><el-button type="warning" :icon="Download" :loading="exportLoading" @click="handleExport" v-permission="'contract'">导出Excel</el-button></div>
-      <el-table v-loading="loading" :data="tableData" stripe border
-        :row-class-name="tableRowClassName"
-        :header-cell-style="{ background: 'var(--color-bg)', color: 'var(--color-text-secondary)' }">
+      <TableSkeleton v-if="loading" :rows="8" :cols="7" />
+      <el-table v-show="!loading" :data="tableData" style="width: 100%" :row-class-name="tableRowClassName">
+        <template #empty>
+          <EmptyState title="暂无合同" description="报价通过审批后可转为合同" />
+        </template>
         <el-table-column prop="contract_no" label="合同编号" width="160" />
         <el-table-column prop="customer_name" label="客户名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="amount" label="合同金额" width="130" align="right">
@@ -54,16 +57,23 @@
         <el-table-column prop="approval_status" label="审批状态" width="100" align="center">
           <template #default="{ row }"><el-tag :type="approvalTagType(row.approval_status)" size="small">{{ approvalMap[row.approval_status] || '未知' }}</el-tag></template>
         </el-table-column>
-        <el-table-column label="操作" width="320" fixed="right">
+        <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link :icon="View" @click="handleView(row)">查看</el-button>
             <el-button type="primary" link :icon="Edit" @click="handleEdit(row)" v-permission="'contract:edit'">编辑</el-button>
             <el-button v-if="row.approval_status === 2" type="warning" link @click="openQuickPay(row)" v-permission="'contract:edit'">回款</el-button>
-            <el-button type="danger" link :icon="Delete" @click="handleDelete(row)" v-permission="'contract:delete'">删除</el-button>
-            <el-button v-if="row.approval_status === 0" type="warning" link @click="handleSubmitApproval(row)">提交审批</el-button>
-            <el-button v-if="row.approval_status === 1 && isAdmin" type="success" link @click="handleApprove(row)">通过</el-button>
-            <el-button v-if="row.approval_status === 1 && isAdmin" type="danger" link @click="handleReject(row)">拒绝</el-button>
-            <el-button v-if="row.approval_status === 1" type="info" link @click="handleWithdrawApproval(row)">撤回</el-button>
+            <el-dropdown trigger="click" @command="(cmd) => handleMore(row, cmd)">
+              <el-button link type="primary">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item v-if="row.approval_status === 0" command="submitApproval">提交审批</el-dropdown-item>
+                  <el-dropdown-item v-if="row.approval_status === 1 && isAdmin" command="approve">通过</el-dropdown-item>
+                  <el-dropdown-item v-if="row.approval_status === 1 && isAdmin" command="reject">拒绝</el-dropdown-item>
+                  <el-dropdown-item v-if="row.approval_status === 1" command="withdrawApproval">撤回</el-dropdown-item>
+                  <el-dropdown-item v-permission="'contract:delete'" command="delete" divided>删除</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </template>
         </el-table-column>
       </el-table>
@@ -92,7 +102,7 @@
         </el-form-item>
         <el-row :gutter="16">
           <el-col :span="12"><el-form-item label="合同金额" prop="amount"><el-input-number v-model="form.amount" :min="0" :precision="2" style="width:100%" controls-position="right" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="状态"><el-select v-model="form.status" style="width:100%"><el-option label="待执行" :value="1" /><el-option label="执行中" :value="2" /><el-option label="已完成" :value="3" /><el-option label="已取消" :value="4" /></el-select></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="状态"><el-select v-model="form.status" style="width:100%"><!-- 合同状态以审计文档为准：1=执行中 2=已完结 3=已终止 4=已取消 --><el-option label="执行中" :value="1" /><el-option label="已完结" :value="2" /><el-option label="已终止" :value="3" /><el-option label="已取消" :value="4" /></el-select></el-form-item></el-col>
         </el-row>
         <el-row :gutter="16">
           <el-col :span="12"><el-form-item label="签订日期"><el-date-picker v-model="form.sign_date" type="date" placeholder="选择日期" style="width:100%" value-format="YYYY-MM-DD" /></el-form-item></el-col>
@@ -143,10 +153,13 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { reportError, reportWarn } from '@/utils/error'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Refresh, View, Edit, Delete, Download, Coin } from '@element-plus/icons-vue'
+import { Plus, Search, Refresh, View, Edit, Download, Coin, ArrowDown } from '@element-plus/icons-vue'
 import { getContractList, getContractDetail, addContract, updateContract, deleteContract, approveContract, exportContracts, getContractOpportunityList, getContractTemplates, addPayment, searchContract } from '@/api/contract'
 import { getCustomerList } from '@/api/customer'
 import { submitApproval, withdrawApproval } from '@/api/tools'
@@ -162,7 +175,20 @@ const formVisible = ref(false), isEdit = ref(false), saveLoading = ref(false), f
 const customerOptions = ref([]), opportunityOptions = ref([])
 const templateOptions = ref([]), selectedTemplate = ref(null)
 const form = reactive({ customer_id: null, opportunity_id: null, amount: 0, sign_date: '', delivery_date: '', payment_terms: '', status: 1, remark: '', plans: [] })
-const rules = { customer_id: [{ required: true, message: '请选择客户', trigger: 'change' }], amount: [{ required: true, message: '请输入合同金额', trigger: 'blur' }] }
+const rules = {
+  customer_id: [{ required: true, message: '请选择客户', trigger: 'change' }],
+  amount: [{ required: true, message: '请输入合同金额', trigger: 'blur' }],
+  opportunity_id: [{
+    validator: (rule, value, callback) => {
+      if (!value) return callback()
+      if (!form.customer_id) return callback(new Error('请先选择客户'))
+      const valid = opportunityOptions.value.some(o => o.id === value)
+      if (!valid) return callback(new Error('所选商机不属于当前客户'))
+      callback()
+    },
+    trigger: 'change'
+  }]
+}
 
 // 快速回款
 const quickPayVisible = ref(false), quickPayLoading = ref(false), quickPayFormRef = ref(null)
@@ -174,8 +200,9 @@ const quickPayRules = {
 }
 
 const fmt = (v) => { const n = Number(v); if (isNaN(n)) return '0.00'; return n.toLocaleString('zh-CN', { minimumFractionDigits: 2 }) }
-const statusType = (s) => ({ 1: 'info', 2: '', 3: 'success', 4: 'danger' }[s] || 'info')
-const statusText = (s) => ({ 1: '待执行', 2: '执行中', 3: '已完成', 4: '已取消' }[s] || '未知')
+// 合同状态以审计文档为准：1=执行中 2=已完结 3=已终止 4=已取消
+const statusType = (s) => ({ 1: '', 2: 'success', 3: 'danger', 4: 'info' }[s] || 'info')
+const statusText = (s) => ({ 1: '执行中', 2: '已完结', 3: '已终止', 4: '已取消' }[s] || '未知')
 // 审批状态
 const approvalMap = { 1: '待审批', 2: '已通过', 3: '已拒绝' }
 const approvalTagType = (s) => ({ 1: 'warning', 2: 'success', 3: 'danger' }[s] || 'info')
@@ -188,7 +215,29 @@ const fetchList = async () => {
   finally { loading.value = false }
 }
 const fetchCustomers = async () => { try { const r = await getCustomerList({ page: 1, pageSize: 200 }); if (r.code === 200) customerOptions.value = r.data.list } catch { /**/ } }
-const fetchOpportunities = async () => { try { const r = await getContractOpportunityList(); if (r.code === 200) opportunityOptions.value = r.data } catch { /**/ } }
+const fetchOpportunities = async (customerId = null) => {
+  try {
+    const r = await getContractOpportunityList(customerId)
+    if (r.code === 200) {
+      opportunityOptions.value = r.data || []
+    }
+  } catch { /**/ }
+}
+
+// 客户变更时，重新加载关联商机并清空已选商机（若不在新列表中）
+watch(() => form.customer_id, async (newCustomerId) => {
+  if (!newCustomerId) {
+    opportunityOptions.value = []
+    form.opportunity_id = null
+    return
+  }
+  const prevOpportunityId = form.opportunity_id
+  await fetchOpportunities(newCustomerId)
+  const stillValid = opportunityOptions.value.some(o => o.id === prevOpportunityId)
+  if (!stillValid) {
+    form.opportunity_id = null
+  }
+})
 
 // P0-3: 逾期回款行高亮
 const tableRowClassName = ({ row }) => {
@@ -207,7 +256,12 @@ const handleView = (row) => {
 
 // P2-4: 合同模板
 const fetchTemplates = async () => {
-  try { const res = await getContractTemplates(); if (res.code === 200) templateOptions.value = res.data; } catch {}
+  try {
+    const res = await getContractTemplates()
+    if (res.code === 200) templateOptions.value = res.data
+  } catch (e) {
+    reportWarn('获取合同模板失败:', e)
+  }
 }
 const applyTemplate = (templateId) => {
   if (!templateId) { resetForm(); return }
@@ -348,7 +402,7 @@ const handleSubmitApproval = (row) => {
     try {
       const res = await submitApproval({ business_type: 'contract', business_id: row.id })
       if (res.code === 200) { ElMessage.success('已提交审批'); fetchList() }
-    } catch (error) { console.error('提交审批失败:', error) }
+    } catch (error) { reportError('提交审批失败:', error) }
   }).catch(() => {})
 }
 
@@ -362,14 +416,25 @@ const handleWithdrawApproval = (row) => {
     try {
       const res = await withdrawApproval('contract', row.id)
       if (res.code === 200) { ElMessage.success('审批已撤回'); fetchList() }
-    } catch (error) { console.error('撤回审批失败:', error) }
+    } catch (error) { reportError('撤回审批失败:', error) }
   }).catch(() => {})
+}
+
+// 更多操作下拉
+const handleMore = (row, cmd) => {
+  const actions = {
+    submitApproval: handleSubmitApproval,
+    approve: handleApprove,
+    reject: handleReject,
+    withdrawApproval: handleWithdrawApproval,
+    delete: handleDelete
+  }
+  actions[cmd]?.(row)
 }
 
 onMounted(() => {
   fetchList()
   fetchCustomers()
-  fetchOpportunities()
   // 首页快捷按钮 ?action=add 或从商机跳转过来
   if (route.query.action === 'add' && !route.query.customer_id) {
     handleCreate()
@@ -397,6 +462,6 @@ onMounted(() => {
 .pagination { display: flex; justify-content: flex-end; margin-top: var(--space-5); }
 /* P0-3: 逾期回款行高亮 */
 :deep(.overdue-payment-row) { background-color: var(--color-danger-bg) !important; }
-:deep(.overdue-payment-row):hover { background-color: rgba(255, 69, 58, 0.12) !important; }
-:deep(.overdue-payment-row) td { border-bottom-color: rgba(255, 69, 58, 0.2) !important; }
+:deep(.overdue-payment-row):hover { background-color: var(--color-danger-bg) !important; }
+:deep(.overdue-payment-row) td { border-bottom-color: var(--color-danger-bg) !important; }
 </style>

@@ -159,6 +159,37 @@ async function runSeedSql(filePath) {
   }
 }
 
+/**
+ * 确保基础 schema 存在（仅迁移模式需要）。
+ *
+ * 背景：database/migrations/001_init_baseline.sql 只是「基线标记」——它仅仅创建
+ * schema_migrations 追踪表，业务表依赖更早执行的 init.sql / business_tables.sql。
+ * 因此空库上直接跑迁移链会在 002 因缺表失败，并留下
+ * 「001 已记录、业务表却不存在」的死局：后续每次运行都会跳过 001、再次死在 002。
+ * 故迁移模式下先导入 deploy/init-complete.sql 作为最小基线。
+ */
+async function ensureBaseSchema() {
+  let hasBase = false
+  const pool = await mysql.createPool(DB_CONFIG)
+  try {
+    const [rows] = await pool.query(
+      "SELECT COUNT(*) AS n FROM information_schema.tables WHERE table_schema = ? AND table_name = 'crm_customer'",
+      [DB_CONFIG.database]
+    )
+    hasBase = Number(rows[0].n) > 0
+  } finally {
+    await pool.end()
+  }
+
+  if (hasBase) {
+    console.log('[e2e-server] 基础 schema 已存在，跳过基线导入')
+    return
+  }
+
+  console.log('[e2e-server] 未检测到基础 schema，导入 deploy/init-complete.sql 作为最小基线...')
+  await runSeedSql(resolve(databaseRoot, '../deploy/init-complete.sql'))
+}
+
 async function cloneDatabase() {
   if (!SOURCE_DB) {
     throw new Error('未配置 SOURCE_DB，无法克隆测试库。请设置 SOURCE_DB 或使用 E2E_USE_MIGRATIONS=true')
@@ -291,6 +322,7 @@ async function main() {
 
     if (E2E_USE_MIGRATIONS) {
       console.log('[e2e-server] 使用迁移方式初始化测试库')
+      await ensureBaseSchema()
       await runMigrations()
     } else if (SOURCE_DB) {
       console.log(`[e2e-server] 使用克隆方式初始化测试库（源库: ${SOURCE_DB}）`)

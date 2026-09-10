@@ -39,11 +39,13 @@
         </div>
       </el-timeline-item>
     </el-timeline>
-    <el-empty v-else description="暂无销售时间轴数据" />
+    <EmptyState v-else title="暂无销售时间轴数据" />
   </div>
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getOpportunityTimeline } from '@/api/opportunity'
@@ -97,7 +99,7 @@ const fetchTimeline = async () => {
       events.value = res.data
     }
   } catch (error) {
-    console.error('获取时间轴失败:', error)
+    reportError('获取时间轴失败:', error)
     ElMessage.error('获取时间轴失败')
   } finally {
     loading.value = false

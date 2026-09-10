@@ -4,8 +4,8 @@
       <h2>采购审批</h2>
     </div>
 
-    <el-card shadow="never">
-      <el-table :data="list" stripe v-loading="loading" style="width: 100%">
+    <el-card>
+      <el-table :data="list" v-loading="loading" style="width: 100%">
         <el-table-column prop="request_no" label="申请编号" width="160" />
         <el-table-column prop="title" label="标题" min-width="180" show-overflow-tooltip />
         <el-table-column prop="applicant_name" label="申请人" width="120" />
@@ -40,6 +40,7 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { reactive, ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getPurchaseRequestList, approvePurchaseRequest, rejectPurchaseRequest } from '@/api/purchaseRequest'
@@ -71,7 +72,7 @@ const fetchList = async () => {
       pagination.total = res.data.total || 0
     }
   } catch (error) {
-    console.error('获取审批列表失败:', error)
+    reportError('获取审批列表失败:', error)
     ElMessage.error('加载失败')
   } finally {
     loading.value = false

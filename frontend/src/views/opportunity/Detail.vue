@@ -4,7 +4,7 @@
 
     <div v-if="detail" class="detail-content">
       <!-- 基本信息 -->
-      <el-card class="info-card" shadow="never">
+      <el-card class="info-card">
         <template #header>
           <span class="card-title">基本信息</span>
         </template>
@@ -27,7 +27,7 @@
       </el-card>
 
       <!-- 销售时间轴 -->
-      <el-card class="timeline-card" shadow="never">
+      <el-card class="timeline-card">
         <template #header>
           <span class="card-title">销售时间轴</span>
         </template>
@@ -47,11 +47,11 @@
             </div>
           </el-timeline-item>
         </el-timeline>
-        <el-empty v-else description="暂无时间轴数据" />
+        <EmptyState v-else title="暂无时间轴数据" />
       </el-card>
 
       <!-- 阶段变更日志 -->
-      <el-card class="stage-log-card" shadow="never">
+      <el-card class="stage-log-card">
         <template #header>
           <span class="card-title">阶段变更日志</span>
         </template>
@@ -78,13 +78,14 @@
             </template>
           </el-table-column>
         </el-table>
-        <el-empty v-else description="暂无阶段变更记录" />
+        <EmptyState v-else title="暂无阶段变更记录" />
       </el-card>
     </div>
   </div>
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -209,7 +210,7 @@ onMounted(loadDetail)
 }
 
 .timeline-user {
-  color: #909399;
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 </style>

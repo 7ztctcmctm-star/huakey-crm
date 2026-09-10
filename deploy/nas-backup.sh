@@ -37,10 +37,18 @@ docker exec huakey-mysql mysqldump \
   "$DB_NAME" 2>/dev/null | gzip > "$BACKUP_FILE"
 
 # 验证备份文件
+# 仅检查「非空」无法发现截断或损坏的 gzip——那样会得到一个「看似成功但不可还原」的备份，
+# 直到真正需要恢复时才会暴露。故追加 gzip 完整性校验。
 if [ ! -s "$BACKUP_FILE" ]; then
   echo "[ERROR] 备份文件为空，备份失败！"
   exit 1
 fi
+
+if ! gzip -t "$BACKUP_FILE" 2>/dev/null; then
+  echo "[ERROR] 备份文件完整性校验失败（gzip -t），文件可能已损坏：$BACKUP_FILE"
+  exit 1
+fi
+echo "  ✓ 备份文件完整性校验通过"
 
 FILE_SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] 每日备份完成: $BACKUP_FILE ($FILE_SIZE)"

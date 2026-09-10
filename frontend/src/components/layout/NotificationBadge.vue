@@ -55,7 +55,7 @@
               </div>
             </div>
           </div>
-          <el-empty v-if="!notifyLoading && !hasTodoItems" description="暂无待办" :image-size="48" />
+          <EmptyState v-if="!notifyLoading && !hasTodoItems" title="暂无待办" compact />
         </div>
         <!-- 系统Tab -->
         <div v-if="notifyTab === 'system'">
@@ -67,7 +67,7 @@
               <div class="notify-time">{{ item.time }}</div>
             </div>
           </div>
-          <el-empty v-if="!notifyLoading && centerData.system?.length === 0" description="暂无通知" :image-size="48" />
+          <EmptyState v-if="!notifyLoading && centerData.system?.length === 0" title="暂无通知" compact />
         </div>
       </div>
       <div class="notify-footer">
@@ -79,6 +79,7 @@
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Bell } from '@element-plus/icons-vue'
@@ -155,21 +156,21 @@ onUnmounted(() => {
   display: flex;
   gap: 16px;
   margin-bottom: 12px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--color-border);
   padding-bottom: 8px;
 }
 
 .notify-tab {
   cursor: pointer;
   font-size: 14px;
-  color: #909399;
+  color: var(--color-text-secondary);
   padding-bottom: 4px;
 }
 
 .notify-tab.active {
-  color: #303133;
+  color: var(--color-text);
   font-weight: 600;
-  border-bottom: 2px solid #409eff;
+  border-bottom: 2px solid var(--color-accent);
 }
 
 .notify-body {
@@ -183,7 +184,7 @@ onUnmounted(() => {
 
 .notify-group-title {
   font-size: 12px;
-  color: #909399;
+  color: var(--color-text-secondary);
   margin-bottom: 4px;
   font-weight: 600;
 }
@@ -199,7 +200,7 @@ onUnmounted(() => {
 }
 
 .notify-item:hover {
-  background: #f5f7fa;
+  background: var(--color-bg-secondary);
 }
 
 .notify-item.read {
@@ -210,13 +211,13 @@ onUnmounted(() => {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #409eff;
+  background: var(--color-accent);
   margin-top: 6px;
   flex-shrink: 0;
 }
 
 .notify-dot.warn {
-  background: #e6a23c;
+  background: var(--color-warning);
 }
 
 .notify-dot.hide {
@@ -230,13 +231,13 @@ onUnmounted(() => {
 
 .notify-title {
   font-size: 13px;
-  color: #303133;
+  color: var(--color-text);
   line-height: 1.4;
 }
 
 .notify-desc {
   font-size: 12px;
-  color: #909399;
+  color: var(--color-text-secondary);
   margin-top: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -245,7 +246,7 @@ onUnmounted(() => {
 
 .notify-time {
   font-size: 11px;
-  color: #c0c4cc;
+  color: var(--color-text-tertiary);
   margin-top: 2px;
 }
 
@@ -254,6 +255,6 @@ onUnmounted(() => {
   justify-content: space-between;
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--color-border);
 }
 </style>

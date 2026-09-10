@@ -7,36 +7,36 @@
     <!-- 统计卡片 -->
     <el-row :gutter="16" style="margin-bottom: 16px;">
       <el-col :span="6">
-        <el-card shadow="never" class="stat-card">
-          <div class="stat-value" style="color: #0071e3;">¥{{ fmt(monthPlanTotal) }}</div>
+        <el-card class="stat-card">
+          <div class="stat-value text-accent">¥{{ fmt(monthPlanTotal) }}</div>
           <div class="stat-label">本月应回款</div>
         </el-card>
       </el-col>
       <el-col :span="6">
-        <el-card shadow="never" class="stat-card">
-          <div class="stat-value" style="color: #34c759;">¥{{ fmt(monthPaidTotal) }}</div>
+        <el-card class="stat-card">
+          <div class="stat-value text-success">¥{{ fmt(monthPaidTotal) }}</div>
           <div class="stat-label">本月已回款</div>
         </el-card>
       </el-col>
       <el-col :span="6">
-        <el-card shadow="never" class="stat-card">
-          <div class="stat-value" style="color: #ff9500;">{{ monthRate }}%</div>
+        <el-card class="stat-card">
+          <div class="stat-value text-warning">{{ monthRate }}%</div>
           <div class="stat-label">回款率</div>
         </el-card>
       </el-col>
       <el-col :span="6">
-        <el-card shadow="never" class="stat-card">
-          <div class="stat-value" style="color: #dc2626;">{{ overdueCount }}笔</div>
+        <el-card class="stat-card">
+          <div class="stat-value text-danger">{{ overdueCount }}笔</div>
           <div class="stat-label">逾期未回款</div>
         </el-card>
       </el-col>
     </el-row>
 
     <!-- Tab切换 -->
-    <el-card shadow="never">
+    <el-card>
       <el-tabs v-model="activeTab" @tab-change="handleTabChange">
         <el-tab-pane label="回款总览" name="merged">
-          <el-table v-loading="loading" :data="mergedData" stripe border style="width: 100%">
+          <el-table v-loading="loading" :data="mergedData" style="width: 100%">
             <el-table-column prop="contract_no" label="合同编号" width="140" />
             <el-table-column prop="company_name" label="客户名称" min-width="140" show-overflow-tooltip />
             <el-table-column prop="plan_amount" label="计划金额" width="120" align="right">
@@ -48,7 +48,7 @@
             </el-table-column>
             <el-table-column prop="unpaid_amount" label="未回款" width="120" align="right">
               <template #default="{ row }">
-                <span :style="{ color: row.unpaid_amount > 0 ? '#dc2626' : '#34c759', fontWeight: 600 }">¥{{ fmt(row.unpaid_amount) }}</span>
+                <span :class="row.unpaid_amount > 0 ? 'text-danger font-semibold' : 'text-success font-semibold'">¥{{ fmt(row.unpaid_amount) }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="plan_status" label="状态" width="90" align="center">
@@ -61,7 +61,7 @@
           </el-table>
         </el-tab-pane>
         <el-tab-pane label="全部回款" name="all">
-          <el-table v-loading="loading" :data="tableData" stripe border style="width: 100%">
+          <el-table v-loading="loading" :data="tableData" style="width: 100%">
             <el-table-column prop="contract_no" label="合同编号" width="160" />
             <el-table-column prop="company_name" label="客户名称" min-width="160" show-overflow-tooltip />
             <el-table-column prop="pay_date" label="回款日期" width="120" />
@@ -74,7 +74,7 @@
         </el-tab-pane>
 
         <el-tab-pane label="逾期未回款" name="overdue">
-          <el-table v-loading="loading" :data="tableData" stripe border style="width: 100%">
+          <el-table v-loading="loading" :data="tableData" style="width: 100%">
             <el-table-column prop="contract_no" label="合同编号" width="160" />
             <el-table-column prop="company_name" label="客户名称" min-width="160" show-overflow-tooltip />
             <el-table-column prop="plan_date" label="计划日期" width="120" />
@@ -86,7 +86,7 @@
             </el-table-column>
             <el-table-column prop="remain_amount" label="未回款" width="130" align="right">
               <template #default="{ row }">
-                <span style="color: #dc2626; font-weight: 600;">¥{{ fmt(row.remain_amount) }}</span>
+                <span class="text-danger font-semibold">¥{{ fmt(row.remain_amount) }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="overdue_days" label="逾期天数" width="100" align="center">
@@ -106,18 +106,18 @@
           <div style="margin-bottom: 12px; text-align: right;">
             <el-button type="warning" :loading="statementExportLoading" @click="handleStatementExport">导出对账单</el-button>
           </div>
-          <el-table v-loading="summaryLoading" :data="summaryData" stripe border style="width: 100%">
+          <el-table v-loading="summaryLoading" :data="summaryData" style="width: 100%">
             <el-table-column prop="company_name" label="客户名称" min-width="180" show-overflow-tooltip />
             <el-table-column prop="contract_count" label="合同数" width="80" align="center" />
             <el-table-column label="合同总额" width="140" align="right">
               <template #default="{ row }">¥{{ fmt(row.total_amount) }}</template>
             </el-table-column>
             <el-table-column label="已回款" width="140" align="right">
-              <template #default="{ row }" style="color: #16a34a;">¥{{ fmt(row.paid_amount) }}</template>
+              <template #default="{ row }"><span class="text-success">¥{{ fmt(row.paid_amount) }}</span></template>
             </el-table-column>
             <el-table-column label="未回款" width="140" align="right">
               <template #default="{ row }">
-                <span :style="{ color: parseFloat(row.outstanding_amount) > 0 ? '#dc2626' : '#16a34a', fontWeight: 600 }">¥{{ fmt(row.outstanding_amount) }}</span>
+                <span :class="parseFloat(row.outstanding_amount) > 0 ? 'text-danger font-semibold' : 'text-success font-semibold'">¥{{ fmt(row.outstanding_amount) }}</span>
               </template>
             </el-table-column>
             <el-table-column label="回款率" width="100" align="center">

@@ -3,7 +3,7 @@
     <div class="page-header"><h2>产品管理</h2></div>
 
     <!-- 搜索区域 -->
-    <el-card shadow="never" class="search-card">
+    <el-card class="search-card">
       <el-form :model="searchForm" inline @keyup.enter="handleSearch">
         <el-form-item label="关键词">
           <el-input v-model="searchForm.keyword" placeholder="产品名称/编码" clearable style="width:200px" />
@@ -26,7 +26,7 @@
       </el-form>
     </el-card>
 
-    <el-card shadow="never" class="table-card">
+    <el-card class="table-card">
       <div class="toolbar">
         <el-button type="primary" :icon="Plus" @click="handleAdd" v-permission="'product:add'">新增产品</el-button>
       </div>
@@ -203,6 +203,7 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, Search, Refresh } from '@element-plus/icons-vue'
@@ -265,7 +266,7 @@ const fetchList = async () => {
       tableData.value = res.data.list
       total.value = res.data.total
     }
-  } catch (e) { console.error(e) }
+  } catch (e) { reportError(e) }
   finally { loading.value = false }
 }
 
@@ -324,7 +325,7 @@ const handleSubmit = async () => {
         dialogVisible.value = false
         fetchList()
       }
-    } catch (e) { console.error(e) }
+    } catch (e) { reportError(e) }
     finally { submitLoading.value = false }
   })
 }

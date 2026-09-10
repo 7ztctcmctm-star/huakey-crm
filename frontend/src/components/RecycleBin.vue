@@ -47,6 +47,7 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
@@ -101,7 +102,7 @@ const fetchStats = async () => {
         fetchList()
       }
     }
-  } catch (e) { console.error('[RecycleBin] 加载回收站失败:', e) }
+  } catch (e) { reportError('[RecycleBin] 加载回收站失败:', e) }
 }
 
 const handleModuleChange = (val) => {
@@ -125,7 +126,7 @@ const fetchList = async () => {
       deletedList.value = res.data.list || []
       total.value = res.data.total || 0
     }
-  } catch (e) { console.error('[RecycleBin] 加载列表失败:', e) }
+  } catch (e) { reportError('[RecycleBin] 加载列表失败:', e) }
   finally { loading.value = false }
 }
 
@@ -138,7 +139,7 @@ const handleRestore = async (row) => {
       fetchList()
       fetchStats()
     }
-  } catch (e) { if (e !== 'cancel') console.error(e) }
+  } catch (e) { if (e !== 'cancel') reportError(e) }
 }
 
 const handlePermanentDelete = async (row) => {
@@ -150,7 +151,7 @@ const handlePermanentDelete = async (row) => {
       fetchList()
       fetchStats()
     }
-  } catch (e) { if (e !== 'cancel') console.error(e) }
+  } catch (e) { if (e !== 'cancel') reportError(e) }
 }
 </script>
 

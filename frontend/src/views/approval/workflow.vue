@@ -109,6 +109,7 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, View } from '@element-plus/icons-vue'
@@ -153,7 +154,7 @@ const fetchList = async () => {
   try {
     const res = await getApprovalWorkflows()
     if (res.code === 200) tableData.value = res.data
-  } catch (e) { console.error('[workflow] 获取流程列表失败:', e) }
+  } catch (e) { reportError('[workflow] 获取流程列表失败:', e) }
   finally { loading.value = false }
 }
 
@@ -165,7 +166,7 @@ const fetchUsersAndRoles = async () => {
     ])
     if (uRes.code === 200) userList.value = uRes.data
     if (rRes.code === 200) roleList.value = rRes.data.list || []
-  } catch (e) { console.error('[workflow] 获取用户和角色失败:', e) }
+  } catch (e) { reportError('[workflow] 获取用户和角色失败:', e) }
 }
 
 const handleAdd = () => {
@@ -193,7 +194,7 @@ const handleDelete = (row) => {
   ElMessageBox.confirm(`确定删除流程 "${row.name}" 吗？`, '提示', { type: 'warning' }).then(async () => {
     const res = await deleteApprovalWorkflow(row.id)
     if (res.code === 200) { ElMessage.success('已删除'); fetchList() }
-  }).catch(e => console.error('[workflow] 删除流程失败:', e))
+  }).catch(e => reportError('[workflow] 删除流程失败:', e))
 }
 
 const handleToggleStatus = async (row) => {

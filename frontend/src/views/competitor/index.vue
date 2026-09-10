@@ -16,15 +16,15 @@
     <!-- 图表 -->
     <el-row :gutter="16" style="margin-bottom:20px">
       <el-col :span="14">
-        <el-card shadow="never"><template #header><span class="card-title">交锋次数对比</span></template><div ref="encounterChartRef" class="chart-md"></div></el-card>
+        <el-card><template #header><span class="card-title">交锋次数对比</span></template><div ref="encounterChartRef" class="chart-md"></div></el-card>
       </el-col>
       <el-col :span="10">
-        <el-card shadow="never"><template #header><span class="card-title">赢单/丢单原因</span></template><div ref="reasonChartRef" class="chart-md"></div></el-card>
+        <el-card><template #header><span class="card-title">赢单/丢单原因</span></template><div ref="reasonChartRef" class="chart-md"></div></el-card>
       </el-col>
     </el-row>
 
     <!-- 竞争对手列表 -->
-    <el-card shadow="never">
+    <el-card>
       <template #header><span class="card-title">竞争对手列表</span></template>
       <el-table :data="list" stripe border v-loading="loading">
         <el-table-column prop="name" label="名称" min-width="140">
@@ -123,8 +123,8 @@ const renderCharts = () => {
       xAxis: { type: 'value' },
       yAxis: { type: 'category', data: s.encounter_by_comp.map(c => c.name).reverse() },
       series: [
-        { name: '赢单', type: 'bar', stack: 'total', data: s.encounter_by_comp.map(c => parseInt(c.wins) || 0).reverse(), itemStyle: { color: '#34c759' } },
-        { name: '丢单', type: 'bar', stack: 'total', data: s.encounter_by_comp.map(c => parseInt(c.losses) || 0).reverse(), itemStyle: { color: '#f56c6c' } }
+        { name: '赢单', type: 'bar', stack: 'total', data: s.encounter_by_comp.map(c => parseInt(c.wins) || 0).reverse(), itemStyle: { color: chartColors.secondary } },
+        { name: '丢单', type: 'bar', stack: 'total', data: s.encounter_by_comp.map(c => parseInt(c.losses) || 0).reverse(), itemStyle: { color: chartColors.quaternary } }
       ]
     })
   }
@@ -175,7 +175,7 @@ onMounted(() => { fetchList(); fetchStats() })
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); }
 .page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); }
 .stat-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: var(--space-4); }
-.stat-card { background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); text-align: center; }
+
 .stat-value { font-size: 28px; font-weight: 700; color: var(--color-text); }
 .stat-label { font-size: 13px; color: var(--color-text-tertiary); margin-top: 4px; }
 .card-title { font-size: 15px; font-weight: 600; }

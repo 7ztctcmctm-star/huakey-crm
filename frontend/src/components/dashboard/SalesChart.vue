@@ -1,7 +1,7 @@
 <template>
   <el-row :gutter="24" style="margin-top: 24px">
     <el-col :span="12">
-      <el-card shadow="never">
+      <el-card>
         <template #header>
           <div class="section-header">
             <span class="section-title">
@@ -11,43 +11,43 @@
         </template>
         <div class="quick-actions">
           <div class="action-item" @click="$emit('quick-action', 'add_customer')">
-            <div class="action-icon" style="background: #eff6ff; color: #1a56db">
+            <div class="action-icon" style="background: var(--color-accent-bg); color: var(--color-accent)">
               <el-icon :size="24"><Plus /></el-icon>
             </div>
             <span>新建客户</span>
           </div>
           <div class="action-item" @click="$emit('quick-action', 'add_follow')">
-            <div class="action-icon" style="background: #eff6ff; color: #1a56db">
+            <div class="action-icon" style="background: var(--color-accent-bg); color: var(--color-accent)">
               <el-icon :size="24"><ArrowDown /></el-icon>
             </div>
             <span>添加跟进</span>
           </div>
           <div class="action-item" @click="$emit('quick-action', 'add_opportunity')">
-            <div class="action-icon" style="background: #eff6ff; color: #1a56db">
+            <div class="action-icon" style="background: var(--color-accent-bg); color: var(--color-accent)">
               <el-icon :size="24"><Star /></el-icon>
             </div>
             <span>新建商机</span>
           </div>
           <div class="action-item" @click="$emit('quick-action', 'add_contract')">
-            <div class="action-icon" style="background: #eff6ff; color: #dc2626">
+            <div class="action-icon" style="background: var(--color-danger-bg); color: var(--color-danger)">
               <el-icon :size="24"><Document /></el-icon>
             </div>
             <span>新建合同</span>
           </div>
           <div class="action-item" @click="$emit('quick-action', 'add_service')">
-            <div class="action-icon" style="background: #eff6ff; color: #1a56db">
+            <div class="action-icon" style="background: var(--color-accent-bg); color: var(--color-accent)">
               <el-icon :size="24"><Service /></el-icon>
             </div>
             <span>创建工单</span>
           </div>
           <div class="action-item" @click="$emit('quick-action', 'report')">
-            <div class="action-icon" style="background: #eff6ff; color: #1a56db">
+            <div class="action-icon" style="background: var(--color-accent-bg); color: var(--color-accent)">
               <el-icon :size="24"><Histogram /></el-icon>
             </div>
             <span>数据报表</span>
           </div>
           <div class="action-item" @click="$emit('quick-action', 'batch_follow')">
-            <div class="action-icon" style="background: #f0fdf4; color: #16a34a">
+            <div class="action-icon" style="background: var(--color-success-bg); color: var(--color-success)">
               <el-icon :size="24"><List /></el-icon>
             </div>
             <span>批量跟进</span>
@@ -57,7 +57,7 @@
     </el-col>
 
     <el-col :span="12">
-      <el-card shadow="never">
+      <el-card>
         <template #header>
           <div class="section-header">
             <span class="section-title">
@@ -72,7 +72,7 @@
 
   <el-row :gutter="24" style="margin-top: 24px">
     <el-col :span="14">
-      <el-card shadow="never">
+      <el-card>
         <template #header>
           <div class="section-header">
             <span class="section-title">
@@ -84,7 +84,7 @@
       </el-card>
     </el-col>
     <el-col :span="10">
-      <el-card shadow="never">
+      <el-card>
         <template #header>
           <div class="section-header">
             <span class="section-title">
@@ -99,7 +99,7 @@
 
   <el-row :gutter="24" style="margin-top: 24px">
     <el-col :span="14">
-      <el-card shadow="never">
+      <el-card>
         <template #header>
           <div class="section-header">
             <span class="section-title">
@@ -111,7 +111,7 @@
       </el-card>
     </el-col>
     <el-col :span="10">
-      <el-card shadow="never">
+      <el-card>
         <template #header>
           <div class="section-header">
             <span class="section-title">
@@ -171,7 +171,7 @@ const fetchPerformanceRank = async () => {
   try {
     const res = await getReportPerformance()
     if (res.code === 200) performanceRank.value = res.data.filter(item => item.contract_amount > 0).slice(0, 5)
-  } catch (error) { console.error('获取业绩排行失败:', error) }
+  } catch (error) { /* log ignored */ }
   finally { rankLoading.value = false }
 }
 
@@ -179,7 +179,7 @@ const fetchSalesTrend = async () => {
   try {
     const res = await getReportSalesTrend()
     if (res.code === 200) renderTrendChart(res.data)
-  } catch (error) { console.error('获取销售趋势失败:', error) }
+  } catch (error) { /* log ignored */ }
 }
 
 const renderTrendChart = (data) => {
@@ -193,11 +193,11 @@ const renderTrendChart = (data) => {
     series: [{
       name: '销售额', type: 'line', smooth: true, data: amounts,
       areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-        { offset: 0, color: 'rgba(26, 86, 219, 0.15)' },
-        { offset: 1, color: 'rgba(26, 86, 219, 0.03)' }
+        { offset: 0, color: 'rgba(0, 113, 227, 0.15)' },
+        { offset: 1, color: 'rgba(0, 113, 227, 0.03)' }
       ])},
-      lineStyle: { color: '#1a56db', width: 2 },
-      itemStyle: { color: '#1a56db' }
+      lineStyle: { color: 'var(--color-accent)', width: 2 },
+      itemStyle: { color: 'var(--color-accent)' }
     }]
   })
 }
@@ -206,7 +206,7 @@ const fetchCustomerSource = async () => {
   try {
     const res = await getReportCustomerAnalysis()
     if (res.code === 200) renderSourceChart(res.data.source_dist)
-  } catch (error) { console.error('获取客户来源失败:', error) }
+  } catch (error) { /* log ignored */ }
 }
 
 const renderSourceChart = (data) => {
@@ -221,7 +221,7 @@ const renderSourceChart = (data) => {
       labelLine: { show: false },
       data: data.map((item) => ({
         value: item.count, name: item.source || '未知',
-        itemStyle: { color: PARENT_SOURCE_COLORS[item.source] || 'var(--color-text-tertiary)' }
+        itemStyle: { color: PARENT_SOURCE_COLORS[item.source] || '#aeaeb2' }
       }))
     }]
   })
@@ -231,7 +231,7 @@ const fetchSalesFunnel = async () => {
   try {
     const res = await getReportSalesFunnel()
     if (res.code === 200) renderFunnelChart(res.data)
-  } catch (error) { console.error('获取销售漏斗失败:', error) }
+  } catch (error) { /* log ignored */ }
 }
 
 const renderFunnelChart = (data) => {
@@ -248,7 +248,7 @@ const renderFunnelChart = (data) => {
       data: data.map((item, index) => ({
         value: item.count, name: item.stage,
         itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-          { offset: 0, color: ['#1a56db', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#94a3b8'][index] },
+          { offset: 0, color: ['#0071e3', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#86868b'][index] },
           { offset: 1, color: ['#dbeafe', '#bfdbfe', '#93c5fd', '#60a5fa', '#e2e8f0', '#cbd5e1'][index] }
         ])}
       }))

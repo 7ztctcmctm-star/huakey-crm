@@ -14,7 +14,7 @@
     </div>
 
     <!-- 基本信息 -->
-    <el-card shadow="never" style="margin-bottom:20px">
+    <el-card style="margin-bottom:20px">
       <template #header><span class="card-title">基本信息</span></template>
       <el-descriptions :column="3" border>
         <el-descriptions-item label="计划编号">{{ plan.plan_no }}</el-descriptions-item>
@@ -30,7 +30,7 @@
     </el-card>
 
     <!-- 计划明细 -->
-    <el-card shadow="never">
+    <el-card>
       <template #header><span class="card-title">计划明细（{{ (plan.items || []).length }} 项）</span></template>
       <el-table :data="plan.items || []" stripe border>
         <el-table-column prop="product_name" label="产品名称" min-width="160" />

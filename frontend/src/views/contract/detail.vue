@@ -5,7 +5,7 @@
       <span class="page-title">合同详情 — {{ detail.contract_no }}</span>
     </div>
 
-    <el-card shadow="never" v-loading="loading">
+    <el-card v-loading="loading">
       <el-descriptions :column="2" border>
         <el-descriptions-item label="合同编号">{{ detail.contract_no }}</el-descriptions-item>
         <el-descriptions-item label="客户">{{ detail.customer_name }}</el-descriptions-item>
@@ -21,7 +21,7 @@
       </el-descriptions>
     </el-card>
 
-    <el-card shadow="never" style="margin-top: 16px">
+    <el-card style="margin-top: 16px">
       <template #header><span class="card-title">回款计划</span></template>
       <el-table :data="detail.plans || []" border size="small">
         <el-table-column prop="plan_date" label="计划日期" width="120" />
@@ -36,7 +36,7 @@
             <el-progress
               :percentage="row.plan_amount > 0 ? Math.round((row.paid_amount || 0) / row.plan_amount * 100) : 0"
               :stroke-width="10"
-              :color="(row.paid_amount || 0) >= row.plan_amount ? '#67c23a' : (row.status === 'overdue' ? '#f56c6c' : '#409eff')"
+              :color="(row.paid_amount || 0) >= row.plan_amount ? 'var(--color-success)' : (row.status === 'overdue' ? 'var(--color-danger)' : 'var(--color-accent)')"
             />
           </template>
         </el-table-column>
@@ -47,13 +47,13 @@
         </el-table-column>
         <el-table-column prop="overdue_days" label="逾期天数" width="100" align="center">
           <template #default="{ row }">
-            <span v-if="row.overdue_days > 0" style="color: #f56c6c">{{ row.overdue_days }}天</span>
+            <span v-if="row.overdue_days > 0" class="text-danger">{{ row.overdue_days }}天</span>
             <span v-else>-</span>
           </template>
         </el-table-column>
         <el-table-column prop="remark" label="备注" />
       </el-table>
-      <el-empty v-if="!detail.plans || detail.plans.length === 0" description="暂无回款计划" :image-size="60" />
+      <EmptyState v-if="!detail.plans || detail.plans.length === 0" title="暂无回款计划" compact />
       <div v-if="detail.plans && detail.plans.length > 0" class="plan-summary">
         <span>总计划: ¥{{ fmt(planTotal) }}</span>
         <span>总已回: ¥{{ fmt(planPaid) }}</span>
@@ -63,7 +63,7 @@
           <el-progress
             :percentage="planRate"
             :stroke-width="12"
-            :color="planRate >= 100 ? '#67c23a' : planRate >= 60 ? '#e6a23c' : '#f56c6c'"
+            :color="planRate >= 100 ? 'var(--color-success)' : planRate >= 60 ? 'var(--color-warning)' : 'var(--color-danger)'"
             style="width: 120px; display: inline-flex; vertical-align: middle;"
           />
           <span style="margin-left: 4px; font-weight: 600;">{{ planRate }}%</span>
@@ -71,7 +71,7 @@
       </div>
     </el-card>
 
-    <el-card shadow="never" style="margin-top: 16px">
+    <el-card style="margin-top: 16px">
       <template #header>
         <div class="card-header">
           <span class="card-title">回款记录</span>
@@ -94,7 +94,7 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!detail.payments || detail.payments.length === 0" description="暂无回款记录" :image-size="60" />
+      <EmptyState v-if="!detail.payments || detail.payments.length === 0" title="暂无回款记录" compact />
     </el-card>
 
     <!-- 登记回款 -->
@@ -122,6 +122,7 @@
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -149,8 +150,9 @@ const fmt = (v) => {
   if (isNaN(n)) return '0.00'
   return n.toLocaleString('zh-CN', { minimumFractionDigits: 2 })
 }
-const statusType = (s) => ({ 1: 'info', 2: '', 3: 'success', 4: 'danger' }[s] || 'info')
-const statusText = (s) => ({ 1: '待执行', 2: '执行中', 3: '已完成', 4: '已取消' }[s] || '未知')
+// 合同状态以审计文档为准：1=执行中 2=已完结 3=已终止 4=已取消
+const statusType = (s) => ({ 1: '', 2: 'success', 3: 'danger', 4: 'info' }[s] || 'info')
+const statusText = (s) => ({ 1: '执行中', 2: '已完结', 3: '已终止', 4: '已取消' }[s] || '未知')
 const planStatusType = (s) => ({ pending: 'info', partial: 'warning', completed: 'success', overdue: 'danger' }[s] || 'info')
 const planStatusText = (s) => ({ pending: '待回款', partial: '部分回款', completed: '已完成', overdue: '已逾期' }[s] || '未知')
 

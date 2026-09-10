@@ -1,3 +1,4 @@
+import { reportError, reportWarn } from '@/utils/error'
 /**
  * 最近访问记录（localStorage）
  * 在客户/合同详情页 onMounted 时调用 recordVisit
@@ -24,7 +25,7 @@ export function recordVisit(type, id, name) {
     // 截断
     const trimmed = filtered.slice(0, MAX_ITEMS)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed))
-  } catch (e) { console.error('[useRecentVisit] 保存最近访问失败:', e) }
+  } catch (e) { reportError('[useRecentVisit] 保存最近访问失败:', e) }
 }
 
 /**

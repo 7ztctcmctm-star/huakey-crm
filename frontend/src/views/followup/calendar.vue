@@ -6,7 +6,7 @@
     </div>
 
     <!-- 视图切换 Tabs -->
-    <el-card shadow="never" style="margin-bottom: 12px;">
+    <el-card style="margin-bottom: 12px;">
       <el-tabs v-model="viewMode">
         <el-tab-pane label="日历视图" name="calendar" />
         <el-tab-pane label="计划列表" name="plan" />
@@ -14,7 +14,7 @@
     </el-card>
 
     <!-- 日历视图 -->
-    <el-card v-if="viewMode === 'calendar'" shadow="never">
+    <el-card v-if="viewMode === 'calendar'">
       <el-calendar v-model="currentDate">
         <template #dateCell="{ data }">
           <div class="calendar-cell" @click="handleClick(data)">
@@ -41,7 +41,7 @@
     </el-card>
 
     <!-- 计划列表视图 -->
-    <el-card v-else shadow="never">
+    <el-card v-else>
       <el-table :data="planList" stripe border v-loading="planLoading">
         <el-table-column prop="company_name" label="客户名称" min-width="150" show-overflow-tooltip>
           <template #default="{ row }">
@@ -66,13 +66,13 @@
           </template>
         </el-table-column>
       </el-table>
-      <div v-if="planList.length === 0" style="text-align:center;padding:40px;color:#909399">暂无跟进计划</div>
+      <div v-if="planList.length === 0" style="text-align:center;padding:40px;color: var(--color-text-secondary)">暂无跟进计划</div>
     </el-card>
 
     <!-- 当日详情弹窗 -->
     <el-dialog v-model="dayDialogVisible" :title="selectedDate + ' 跟进记录'" width="600px">
       <template v-if="dayRecords.length === 0">
-        <el-empty description="当日无跟进记录" />
+        <EmptyState title="当日无跟进记录" />
       </template>
       <el-timeline v-else>
         <el-timeline-item
@@ -100,6 +100,7 @@
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'

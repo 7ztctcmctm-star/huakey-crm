@@ -4,7 +4,7 @@
       <h2>数据备份</h2>
     </div>
 
-    <el-card shadow="never">
+    <el-card>
       <div class="toolbar">
         <el-button type="primary" :icon="Download" :loading="createLoading" @click="handleCreate">创建备份</el-button>
       </div>

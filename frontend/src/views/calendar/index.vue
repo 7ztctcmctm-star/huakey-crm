@@ -19,7 +19,7 @@
     <el-row :gutter="16">
       <!-- 日历主体 -->
       <el-col :span="18">
-        <el-card shadow="never" class="calendar-card">
+        <el-card class="calendar-card">
           <!-- 月视图 -->
           <div v-if="viewMode === 'month'" class="month-grid">
             <div class="month-header" v-for="d in weekDays" :key="d">{{ d }}</div>
@@ -56,7 +56,7 @@
 
       <!-- 右侧面板 -->
       <el-col :span="6">
-        <el-card shadow="never">
+        <el-card>
           <template #header><span class="card-title">{{ selectedDateLabel }}</span></template>
           <div v-if="selectedEvents.length > 0">
             <div v-for="evt in selectedEvents" :key="evt.id" class="side-event" @click="handleView(evt)">
@@ -65,7 +65,7 @@
               <el-tag :type="eventTypeTag[evt.event_type]" size="small">{{ eventTypeName[evt.event_type] }}</el-tag>
             </div>
           </div>
-          <el-empty v-else description="当天无日程" :image-size="60" />
+          <EmptyState v-else title="当天无日程" compact />
         </el-card>
       </el-col>
     </el-row>
@@ -104,6 +104,7 @@
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
@@ -111,10 +112,11 @@ import request from '@/utils/request'
 import { getCalendarEvents, addCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from '@/api/tools'
 import { getCustomerList } from '@/api/customer'
 import { formatTime } from '@/composables/useFormat'
+import { chartColors, presetColors as getPresetColors } from '@/utils/chartTheme'
 
 const eventTypeName = { meeting: '会议', followup: '跟进', task: '任务', reminder: '提醒' }
 const eventTypeTag = { meeting: '', followup: 'success', task: 'warning', reminder: 'info' }
-const presetColors = ['#2563EB', '#059669', '#D97706', '#DC2626', '#7C3AED', '#0891B2']
+const presetColors = getPresetColors(6)
 const weekDays = ['日', '一', '二', '三', '四', '五', '六']
 const hours = Array.from({ length: 12 }, (_, i) => i + 8)
 
@@ -128,7 +130,7 @@ const editId = ref(null)
 const saveLoading = ref(false)
 const customerOptions = ref([])
 
-const form = reactive({ title: '', event_type: 'meeting', description: '', start_time: '', end_time: '', location: '', customer_id: null, color: '#2563EB' })
+const form = reactive({ title: '', event_type: 'meeting', description: '', start_time: '', end_time: '', location: '', customer_id: null, color: chartColors.primary })
 
 const headerLabel = computed(() => {
   const d = currentDate.value
@@ -245,19 +247,19 @@ const handleCreate = () => {
   isEdit.value = false; editId.value = null
   const now = new Date()
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours() + 1, 0)
-  Object.assign(form, { title: '', event_type: 'meeting', description: '', start_time: start.toISOString().slice(0, 19).replace('T', ' '), end_time: '', location: '', customer_id: null, color: '#2563EB' })
+  Object.assign(form, { title: '', event_type: 'meeting', description: '', start_time: start.toISOString().slice(0, 19).replace('T', ' '), end_time: '', location: '', customer_id: null, color: chartColors.primary })
   dialogVisible.value = true
 }
 
 const handleCreateAt = (date, hour) => {
   isEdit.value = false; editId.value = null
-  Object.assign(form, { title: '', event_type: 'meeting', description: '', start_time: `${date} ${String(hour).padStart(2, '0')}:00:00`, end_time: '', location: '', customer_id: null, color: '#2563EB' })
+  Object.assign(form, { title: '', event_type: 'meeting', description: '', start_time: `${date} ${String(hour).padStart(2, '0')}:00:00`, end_time: '', location: '', customer_id: null, color: chartColors.primary })
   dialogVisible.value = true
 }
 
 const handleView = (evt) => {
   isEdit.value = true; editId.value = evt.id
-  Object.assign(form, { title: evt.title, event_type: evt.event_type, description: evt.description || '', start_time: evt.start_time, end_time: evt.end_time || '', location: evt.location || '', customer_id: evt.customer_id, color: evt.color || '#2563EB' })
+  Object.assign(form, { title: evt.title, event_type: evt.event_type, description: evt.description || '', start_time: evt.start_time, end_time: evt.end_time || '', location: evt.location || '', customer_id: evt.customer_id, color: evt.color || chartColors.primary })
   dialogVisible.value = true
 }
 
@@ -296,10 +298,10 @@ onMounted(() => { fetchEvents(); fetchCustomers() })
 .month-header { padding: 8px; text-align: center; font-size: 12px; font-weight: 600; color: var(--color-text-tertiary); background: var(--color-bg-secondary); }
 .month-cell { min-height: 90px; padding: 4px; border: 1px solid var(--color-border); cursor: pointer; transition: background 0.15s; }
 .month-cell:hover { background: var(--color-bg-secondary); }
-.month-cell.today { background: #f0f7ff; }
+.month-cell.today { background: var(--color-accent-bg); }
 .month-cell.other { opacity: 0.4; }
 .cell-date { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
-.cell-event { font-size: 11px; color: #fff; padding: 1px 4px; border-radius: 3px; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.cell-event { font-size: 11px; color: var(--color-text-on-accent); padding: 1px 4px; border-radius: 3px; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .cell-more { font-size: 11px; color: var(--color-text-tertiary); text-align: center; }
 
 /* 周/日视图 */
@@ -312,7 +314,7 @@ onMounted(() => { fetchEvents(); fetchCustomers() })
 .time-row { display: flex; border-bottom: 1px solid var(--color-border); min-height: 40px; }
 .time-cell { flex: 1; border-left: 1px solid var(--color-border); padding: 2px; cursor: pointer; min-height: 40px; }
 .time-cell:hover { background: var(--color-bg-secondary); }
-.time-event { font-size: 11px; color: #fff; padding: 2px 4px; border-radius: 3px; margin-bottom: 2px; cursor: pointer; }
+.time-event { font-size: 11px; color: var(--color-text-on-accent); padding: 2px 4px; border-radius: 3px; margin-bottom: 2px; cursor: pointer; }
 
 /* 右侧面板 */
 .side-event { padding: 8px 0; border-bottom: 1px solid var(--color-border); cursor: pointer; }

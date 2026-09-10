@@ -7,7 +7,7 @@
     <el-row :gutter="24">
       <!-- 基本信息卡片 -->
       <el-col :span="14">
-        <el-card shadow="never" v-loading="loading">
+        <el-card v-loading="loading">
           <template #header>
             <div class="card-header">
               <span class="card-title">基本信息</span>
@@ -49,7 +49,7 @@
 
       <!-- 修改密码 -->
       <el-col :span="10">
-        <el-card shadow="never">
+        <el-card>
           <template #header>
             <span class="card-title">修改密码</span>
           </template>
@@ -74,6 +74,7 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -130,7 +131,7 @@ const fetchProfile = async () => {
       Object.assign(profile, res.data)
     }
   } catch (e) {
-    console.error('获取个人信息失败:', e)
+    reportError('获取个人信息失败:', e)
   } finally {
     loading.value = false
   }
@@ -165,7 +166,7 @@ const saveProfile = async () => {
         fetchProfile()
       }
     } catch (e) {
-      console.error('更新失败:', e)
+      reportError('更新失败:', e)
     } finally {
       saveLoading.value = false
     }
@@ -187,7 +188,7 @@ const changePassword = async () => {
         router.push('/login')
       }
     } catch (e) {
-      console.error('修改密码失败:', e)
+      reportError('修改密码失败:', e)
     } finally {
       passwordLoading.value = false
     }

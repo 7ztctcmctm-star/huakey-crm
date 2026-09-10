@@ -5,7 +5,7 @@
       <p class="page-desc">查看所有待办和系统通知</p>
     </div>
 
-    <el-card shadow="never">
+    <el-card>
       <div class="toolbar">
         <el-radio-group v-model="activeTab" @change="handleTabChange">
           <el-radio-button value="todo">待办通知</el-radio-button>
@@ -31,7 +31,7 @@
                 </template>
               </el-table-column>
             </el-table>
-            <el-empty v-if="approvals.length === 0" description="暂无待审批" />
+            <EmptyState v-if="approvals.length === 0" title="暂无待审批" />
           </el-tab-pane>
 
           <el-tab-pane :label="`催办通知 (${urges.length})`" name="urges">
@@ -47,7 +47,7 @@
                 </template>
               </el-table-column>
             </el-table>
-            <el-empty v-if="urges.length === 0" description="暂无催办通知" />
+            <EmptyState v-if="urges.length === 0" title="暂无催办通知" />
           </el-tab-pane>
 
           <el-tab-pane :label="`工单通知 (${services.length})`" name="services">
@@ -63,7 +63,7 @@
                 </template>
               </el-table-column>
             </el-table>
-            <el-empty v-if="services.length === 0" description="暂无工单通知" />
+            <EmptyState v-if="services.length === 0" title="暂无工单通知" />
           </el-tab-pane>
         </el-tabs>
       </div>
@@ -89,11 +89,11 @@
           <el-table-column label="操作" width="120">
             <template #default="{ row }">
               <el-button v-if="!row.is_read" type="primary" link @click="markRead(row)">标为已读</el-button>
-              <span v-else style="color:#909399;font-size:12px">已读</span>
+              <span v-else style="color: var(--color-text-secondary);font-size:12px">已读</span>
             </template>
           </el-table-column>
         </el-table>
-        <el-empty v-if="!loading && systemNotifications.length === 0" description="暂无系统通知" />
+        <EmptyState v-if="!loading && systemNotifications.length === 0" title="暂无系统通知" />
         <div v-if="systemTotal > pageSize" style="margin-top:16px;display:flex;justify-content:flex-end">
           <el-pagination layout="prev, pager, next" :total="systemTotal" :page-size="pageSize" v-model:current-page="page" @current-change="fetchSystemNotifications" />
         </div>
@@ -103,6 +103,7 @@
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -221,6 +222,6 @@ onUnmounted(() => {
 .page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); }
 .page-desc { margin: var(--space-1) 0 0; font-size: 13px; color: var(--color-text-tertiary); }
 .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.unread-dot { width: 8px; height: 8px; border-radius: 50%; background: #0071e3; }
+.unread-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-accent); }
 .unread-dot.read { background: transparent; }
 </style>

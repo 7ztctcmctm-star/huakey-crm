@@ -28,7 +28,7 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && tableData.length === 0" description="暂无待审批" />
+      <EmptyState v-if="!loading && tableData.length === 0" title="暂无待审批" />
     </el-card>
 
     <!-- 审批弹窗 -->
@@ -39,8 +39,8 @@
         </el-form-item>
       </el-form>
       <!-- 客户历史 -->
-      <div v-if="customerHistory" style="margin-top: 12px; border-top: 1px solid #f0f0f0; padding-top: 12px;">
-        <div style="font-weight: 600; margin-bottom: 8px; font-size: 14px;">客户历史</div>
+      <div v-if="customerHistory" class="customer-history">
+        <div class="customer-history-title">客户历史</div>
         <el-descriptions :column="2" size="small" border>
           <el-descriptions-item label="客户名称">{{ customerHistory.customer?.company_name || '-' }}</el-descriptions-item>
           <el-descriptions-item label="等级">{{ customerHistory.customer?.level || '-' }}</el-descriptions-item>
@@ -51,8 +51,8 @@
           <el-descriptions-item label="回款总额">¥{{ Number(customerHistory.stats?.total_paid || 0).toLocaleString() }}</el-descriptions-item>
         </el-descriptions>
         <div v-if="customerHistory.follows?.length" style="margin-top: 8px;">
-          <div style="font-size: 12px; color: #86868b; margin-bottom: 4px;">最近跟进</div>
-          <div v-for="f in customerHistory.follows" :key="f.create_time" style="font-size: 12px; color: #1d1d1f; padding: 2px 0;">
+          <div class="follow-label">最近跟进</div>
+          <div v-for="f in customerHistory.follows" :key="f.create_time" class="follow-item">
             <el-tag size="small" style="margin-right: 4px;">{{ f.follow_type }}</el-tag>{{ f.content }}
           </div>
         </div>
@@ -66,6 +66,8 @@
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getMyPending, getApprovalDetail, approveRequest, rejectRequest, batchApprove, batchReject } from '@/api/tools'
@@ -99,7 +101,7 @@ const fetchList = async () => {
   try {
     const res = await getMyPending()
     if (res.code === 200) tableData.value = res.data
-  } catch (e) { console.error('[pending] 获取待审批列表失败:', e) }
+  } catch (e) { reportError('[pending] 获取待审批列表失败:', e) }
   finally { loading.value = false }
 }
 
@@ -143,7 +145,7 @@ const handleBatchApprove = () => {
     const ids = selectedRows.value.map(r => r.id)
     const res = await batchApprove(ids)
     if (res.code === 200) { ElMessage.success(res.message); fetchList() }
-  }).catch(e => console.error('[pending] 批量通过失败:', e))
+  }).catch(e => reportError('[pending] 批量通过失败:', e))
 }
 
 const handleBatchReject = () => {
@@ -151,7 +153,7 @@ const handleBatchReject = () => {
     const ids = selectedRows.value.map(r => r.id)
     const res = await batchReject(ids, value || '批量驳回')
     if (res.code === 200) { ElMessage.success(res.message); fetchList() }
-  }).catch(e => console.error('[pending] 批量驳回失败:', e))
+  }).catch(e => reportError('[pending] 批量驳回失败:', e))
 }
 
 onMounted(() => { fetchList() })
@@ -162,4 +164,8 @@ onMounted(() => { fetchList() })
 .page-header { margin-bottom: var(--space-5); }
 .page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); letter-spacing: -0.02em; }
 .page-desc { margin: var(--space-1) 0 0; font-size: 13px; color: var(--color-text-tertiary); }
+.customer-history { margin-top: var(--space-3); border-top: 1px solid var(--color-border); padding-top: var(--space-3); }
+.customer-history-title { font-weight: 600; margin-bottom: var(--space-2); font-size: 14px; }
+.follow-label { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 4px; }
+.follow-item { font-size: 12px; color: var(--color-text); padding: 2px 0; }
 </style>

@@ -7,7 +7,7 @@
       </el-button>
     </div>
 
-    <el-card shadow="never" class="filter-card">
+    <el-card class="filter-card">
       <el-form :inline="true" :model="filters" @submit.prevent="handleSearch">
         <el-form-item label="状态">
           <el-select v-model="filters.status" placeholder="全部状态" clearable style="width: 140px">
@@ -26,8 +26,8 @@
       </el-form>
     </el-card>
 
-    <el-card shadow="never" style="margin-top: 24px">
-      <el-table :data="list" stripe v-loading="loading" style="width: 100%">
+    <el-card style="margin-top: 24px">
+      <el-table :data="list" v-loading="loading" style="width: 100%">
         <el-table-column prop="comparison_no" label="比价单号" width="160" />
         <el-table-column prop="title" label="标题" min-width="160" show-overflow-tooltip />
         <el-table-column prop="product_name" label="产品" min-width="140" show-overflow-tooltip />
@@ -89,6 +89,7 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { reactive, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -151,7 +152,7 @@ const fetchList = async () => {
       pagination.total = res.data.total || 0
     }
   } catch (error) {
-    console.error('获取比价单列表失败:', error)
+    reportError('获取比价单列表失败:', error)
     ElMessage.error('加载失败')
   } finally {
     loading.value = false
@@ -191,7 +192,7 @@ const handleCreate = async () => {
       fetchList()
     }
   } catch (error) {
-    console.error('创建比价单失败:', error)
+    reportError('创建比价单失败:', error)
     ElMessage.error(error?.response?.data?.message || '创建失败')
   } finally {
     createSubmitting.value = false

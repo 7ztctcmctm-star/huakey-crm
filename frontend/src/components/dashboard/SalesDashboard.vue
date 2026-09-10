@@ -18,7 +18,7 @@
 
     <el-row :gutter="24" style="margin-top: 16px">
       <el-col :span="24">
-        <el-card shadow="never">
+        <el-card>
           <template #header>
             <div class="section-header">
               <span class="section-title">
@@ -58,6 +58,7 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, computed, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import { TrendCharts } from '@element-plus/icons-vue'
@@ -121,14 +122,14 @@ const fetchOverview = async () => {
   try {
     const res = await getReportOverview()
     if (res.code === 200) Object.assign(overview, res.data)
-  } catch (e) { console.error('获取概览失败:', e) }
+  } catch (e) { reportError('获取概览失败:', e) }
 }
 
 const fetchQuickStats = async () => {
   try {
     const res = await getReportQuickStats()
     if (res.code === 200) Object.assign(quickStats, res.data)
-  } catch (e) { console.error('获取快捷统计失败:', e) }
+  } catch (e) { reportError('获取快捷统计失败:', e) }
 }
 
 const fetchTodayTasks = async () => {
@@ -137,7 +138,7 @@ const fetchTodayTasks = async () => {
   try {
     const res = await getReportTodayTasks()
     if (res.code === 200) Object.assign(todayTasks, res.data)
-  } catch (e) { console.error('获取今日待办失败:', e) }
+  } catch (e) { reportError('获取今日待办失败:', e) }
   finally { followLoading.value = false; serviceLoading.value = false }
 }
 

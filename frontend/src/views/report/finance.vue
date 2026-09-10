@@ -21,13 +21,13 @@
     </div>
 
     <!-- 收入趋势 -->
-    <el-card shadow="never" class="chart-card">
+    <el-card class="chart-card">
       <template #header><span class="card-title">收入趋势（近12个月）</span></template>
       <div ref="trendChartRef" class="chart-container"></div>
     </el-card>
 
     <!-- 应收账款 -->
-    <el-card shadow="never">
+    <el-card>
       <template #header><span class="card-title">应收账款</span></template>
       <el-table :data="receivables" stripe border v-loading="loading">
         <el-table-column prop="contract_no" label="合同编号" width="150" />
@@ -39,7 +39,7 @@
           <template #default="{ row }">¥{{ fmtMoney(row.paid_amount) }}</template>
         </el-table-column>
         <el-table-column prop="unpaid_amount" label="未回款" width="120" align="right">
-          <template #default="{ row }"><span style="color:#f56c6c;font-weight:600">¥{{ fmtMoney(row.unpaid_amount) }}</span></template>
+          <template #default="{ row }"><span class="text-danger font-semibold">¥{{ fmtMoney(row.unpaid_amount) }}</span></template>
         </el-table-column>
         <el-table-column prop="overdue_days" label="逾期天数" width="100" align="center" sortable>
           <template #default="{ row }">
@@ -104,8 +104,8 @@ const renderTrendChart = () => {
     xAxis: { type: 'category', data: trend.map(t => t.month) },
     yAxis: { type: 'value', axisLabel: { formatter: (v) => v >= 10000 ? (v / 10000) + '万' : v } },
     series: [
-      { name: '合同金额', type: 'line', smooth: true, data: trend.map(t => t.contract_amount), itemStyle: { color: '#0071e3' } },
-      { name: '回款金额', type: 'line', smooth: true, data: trend.map(t => t.payment_amount), itemStyle: { color: '#34c759' } }
+      { name: '合同金额', type: 'line', smooth: true, data: trend.map(t => t.contract_amount), itemStyle: { color: chartColors.primary } },
+      { name: '回款金额', type: 'line', smooth: true, data: trend.map(t => t.payment_amount), itemStyle: { color: chartColors.secondary } }
     ]
   })
 }
@@ -126,7 +126,7 @@ onMounted(() => { fetchData() })
 .header-actions { display: flex; gap: 12px; align-items: center; }
 
 .stat-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: var(--space-4); }
-.stat-card { background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+.stat-card { background: var(--color-bg); border-radius: var(--radius-lg); padding: var(--space-5); box-shadow: var(--shadow-md); }
 .stat-label { font-size: 13px; color: var(--color-text-tertiary); margin-bottom: 8px; }
 .stat-value { font-size: 28px; font-weight: 700; color: var(--color-text); }
 

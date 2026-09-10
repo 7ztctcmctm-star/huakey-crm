@@ -22,27 +22,27 @@
     <!-- 第二行：利润趋势 + 成本结构 -->
     <el-row :gutter="20" style="margin-bottom:20px">
       <el-col :span="14">
-        <el-card shadow="never"><template #header><span class="card-title">利润趋势（近12个月）</span></template><div ref="profitTrendRef" class="chart-container"></div></el-card>
+        <el-card><template #header><span class="card-title">利润趋势（近12个月）</span></template><div ref="profitTrendRef" class="chart-container"></div></el-card>
       </el-col>
       <el-col :span="10">
-        <el-card shadow="never"><template #header><span class="card-title">成本结构</span></template><div ref="costStructRef" class="chart-container"></div></el-card>
+        <el-card><template #header><span class="card-title">成本结构</span></template><div ref="costStructRef" class="chart-container"></div></el-card>
       </el-col>
     </el-row>
 
     <!-- 第三行：账龄 + 现金流 -->
     <el-row :gutter="20" style="margin-bottom:20px">
       <el-col :span="12">
-        <el-card shadow="never"><template #header><span class="card-title">应收账款账龄</span></template><div ref="agingRef" class="chart-container"></div></el-card>
+        <el-card><template #header><span class="card-title">应收账款账龄</span></template><div ref="agingRef" class="chart-container"></div></el-card>
       </el-col>
       <el-col :span="12">
-        <el-card shadow="never"><template #header><span class="card-title">现金流趋势</span></template><div ref="cashFlowRef" class="chart-container"></div></el-card>
+        <el-card><template #header><span class="card-title">现金流趋势</span></template><div ref="cashFlowRef" class="chart-container"></div></el-card>
       </el-col>
     </el-row>
 
     <!-- 第四行：收款效率 -->
     <el-row :gutter="20">
       <el-col :span="8">
-        <el-card shadow="never">
+        <el-card>
           <template #header><span class="card-title">收款效率</span></template>
           <div class="efficiency-card">
             <div class="eff-value">{{ data.collection?.avg_days || 0 }}</div>
@@ -51,7 +51,7 @@
         </el-card>
       </el-col>
       <el-col :span="16">
-        <el-card shadow="never"><template #header><span class="card-title">回款率趋势</span></template><div ref="collectionRef" class="chart-container"></div></el-card>
+        <el-card><template #header><span class="card-title">回款率趋势</span></template><div ref="collectionRef" class="chart-container"></div></el-card>
       </el-col>
     </el-row>
   </div>
@@ -62,6 +62,7 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import { Download } from '@element-plus/icons-vue'
 import { getFinanceAnalysis } from '@/api/hr'
 import echarts from '@/composables/useECharts'
+import { chartColors } from '@/utils/chartTheme'
 
 const period = ref('year')
 const data = ref({ profit: {}, costStructure: [], aging: [], cashFlow: [], collection: { avg_days: 0, trend: [] } })
@@ -116,9 +117,9 @@ const renderCharts = () => {
       xAxis: { type: 'category', data: d.cashFlow.map(c => c.month) },
       yAxis: { type: 'value', axisLabel: { formatter: v => v >= 10000 ? (v/10000)+'万' : v } },
       series: [
-        { name: '收入', type: 'line', smooth: true, data: d.cashFlow.map(c => c.inflow), itemStyle: { color: '#0071e3' } },
-        { name: '成本', type: 'line', smooth: true, data: d.cashFlow.map(c => c.outflow), itemStyle: { color: '#f56c6c' } },
-        { name: '利润', type: 'line', smooth: true, data: d.cashFlow.map(c => c.inflow - c.outflow), itemStyle: { color: '#34c759' }, lineStyle: { type: 'dashed' } }
+        { name: '收入', type: 'line', smooth: true, data: d.cashFlow.map(c => c.inflow), itemStyle: { color: chartColors.primary } },
+        { name: '成本', type: 'line', smooth: true, data: d.cashFlow.map(c => c.outflow), itemStyle: { color: chartColors.quaternary } },
+        { name: '利润', type: 'line', smooth: true, data: d.cashFlow.map(c => c.inflow - c.outflow), itemStyle: { color: chartColors.secondary }, lineStyle: { type: 'dashed' } }
       ]
     })
   }
@@ -140,7 +141,7 @@ const renderCharts = () => {
       grid: { left: 60, right: 20, top: 20, bottom: 30 },
       xAxis: { type: 'category', data: d.aging.map(a => a.label) },
       yAxis: { type: 'value', axisLabel: { formatter: v => v >= 10000 ? (v/10000)+'万' : v } },
-      series: [{ type: 'bar', data: d.aging.map(a => ({ value: a.amount, itemStyle: { color: a.label === '90+' ? '#f56c6c' : a.label === '61-90' ? '#e6a23c' : '#0071e3' } })), barWidth: '50%' }]
+      series: [{ type: 'bar', data: d.aging.map(a => ({ value: a.amount, itemStyle: { color: a.label === '90+' ? chartColors.quaternary : a.label === '61-90' ? chartColors.tertiary : chartColors.primary } })), barWidth: '50%' }]
     })
   }
 
@@ -154,8 +155,8 @@ const renderCharts = () => {
       xAxis: { type: 'category', data: d.cashFlow.map(c => c.month) },
       yAxis: { type: 'value', axisLabel: { formatter: v => v >= 10000 ? (v/10000)+'万' : v } },
       series: [
-        { name: '流入', type: 'bar', data: d.cashFlow.map(c => c.inflow), itemStyle: { color: '#34c759' } },
-        { name: '流出', type: 'bar', data: d.cashFlow.map(c => c.outflow), itemStyle: { color: '#f56c6c' } }
+        { name: '流入', type: 'bar', data: d.cashFlow.map(c => c.inflow), itemStyle: { color: chartColors.secondary } },
+        { name: '流出', type: 'bar', data: d.cashFlow.map(c => c.outflow), itemStyle: { color: chartColors.quaternary } }
       ]
     })
   }
@@ -168,7 +169,7 @@ const renderCharts = () => {
       grid: { left: 50, right: 20, top: 20, bottom: 30 },
       xAxis: { type: 'category', data: d.collection.trend.map(t => t.month) },
       yAxis: { type: 'value', max: 100, axisLabel: { formatter: '{value}%' } },
-      series: [{ type: 'line', smooth: true, data: d.collection.trend.map(t => t.contract_amount > 0 ? Math.round(t.paid_amount / t.contract_amount * 100) : 0), areaStyle: { opacity: 0.15 }, itemStyle: { color: '#0071e3' } }]
+      series: [{ type: 'line', smooth: true, data: d.collection.trend.map(t => t.contract_amount > 0 ? Math.round(t.paid_amount / t.contract_amount * 100) : 0), areaStyle: { opacity: 0.15 }, itemStyle: { color: chartColors.primary } }]
     })
   }
 }
@@ -190,10 +191,10 @@ onMounted(() => { fetchData() })
 .page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); }
 .header-actions { display: flex; gap: 12px; align-items: center; }
 .stat-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
-.stat-card { background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+.stat-card { background: var(--color-bg); border-radius: var(--radius-lg); padding: var(--space-5); box-shadow: var(--shadow-md); }
 .stat-label { font-size: 13px; color: var(--color-text-tertiary); margin-bottom: 8px; }
 .stat-value { font-size: 28px; font-weight: 700; color: var(--color-text); }
-.stat-value.danger { color: #f56c6c; }
+.stat-value.danger { color: var(--color-danger); }
 .card-title { font-size: 15px; font-weight: 600; }
 .chart-container { height: 280px; }
 .efficiency-card { text-align: center; padding: 20px 0; }

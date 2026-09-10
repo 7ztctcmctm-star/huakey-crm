@@ -16,7 +16,7 @@
     <el-row :gutter="20">
       <!-- 左侧信息 -->
       <el-col :span="10">
-        <el-card shadow="never">
+        <el-card>
           <template #header><span class="card-title">调查信息</span></template>
           <el-descriptions :column="1" border size="small">
             <el-descriptions-item label="调查名称">{{ campaign.name }}</el-descriptions-item>
@@ -32,7 +32,7 @@
         </el-card>
 
         <!-- 回复链接 -->
-        <el-card v-if="campaign.status === 'active'" shadow="never" style="margin-top:16px">
+        <el-card v-if="campaign.status === 'active'" style="margin-top:16px">
           <template #header><span class="card-title">调查链接</span></template>
           <div class="share-link">
             <el-input :model-value="shareLink" readonly>
@@ -45,7 +45,7 @@
 
       <!-- 右侧回复列表 -->
       <el-col :span="14">
-        <el-card shadow="never">
+        <el-card>
           <template #header><span class="card-title">回复列表（{{ responseTotal }}）</span></template>
           <el-table :data="responses" stripe size="small">
             <el-table-column prop="respondent_name" label="回复人" width="100" />
@@ -158,9 +158,9 @@ onMounted(() => { fetchDetail(); fetchResponses() })
 .card-title { font-size: 15px; font-weight: 600; }
 .share-link { margin-top: 8px; }
 .share-tip { font-size: 12px; color: var(--color-text-tertiary); margin-top: 8px; }
-.nps-detractor { color: #dc2626; font-weight: 600; }
-.nps-passive { color: #d97706; font-weight: 600; }
-.nps-promoter { color: #059669; font-weight: 600; }
+.nps-detractor { color: var(--color-danger); font-weight: 600; }
+.nps-passive { color: var(--color-warning); font-weight: 600; }
+.nps-promoter { color: var(--color-success); font-weight: 600; }
 .answer-item { margin-bottom: 12px; }
 .answer-key { font-size: 13px; color: var(--color-text-tertiary); margin-bottom: 2px; }
 .answer-val { font-size: 14px; color: var(--color-text); }

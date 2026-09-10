@@ -79,6 +79,7 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -123,7 +124,7 @@ const refreshCaptcha = async () => {
       captchaKey.value = res.data.key
     }
   } catch {
-    console.error('获取验证码失败')
+    reportError('获取验证码失败')
   }
 }
 
@@ -171,7 +172,7 @@ const handleLogin = async () => {
       loginForm.captcha = ''
     }
   } catch (error) {
-    console.error('登录错误:', error)
+    reportError('登录错误:', error)
     refreshCaptcha()
     loginForm.captcha = ''
   } finally {

@@ -10,13 +10,13 @@
     <!-- 销售预测 -->
     <el-row :gutter="24">
       <el-col :span="16">
-        <el-card shadow="never">
+        <el-card>
           <template #header><span class="section-title">销售预测（移动平均法）</span></template>
           <div ref="predictionChartRef" class="chart-container"></div>
         </el-card>
       </el-col>
       <el-col :span="8">
-        <el-card shadow="never">
+        <el-card>
           <template #header><span class="section-title">赢单率分析</span></template>
           <div ref="winRateChartRef" class="chart-container"></div>
         </el-card>
@@ -26,13 +26,13 @@
     <!-- 异常检测 + 流失预警 -->
     <el-row :gutter="24" style="margin-top: 24px">
       <el-col :span="12">
-        <el-card shadow="never">
+        <el-card>
           <template #header><span class="section-title">异常检测（近30天合同金额）</span></template>
           <div ref="anomalyChartRef" class="chart-container"></div>
         </el-card>
       </el-col>
       <el-col :span="12">
-        <el-card shadow="never">
+        <el-card>
           <template #header>
             <div class="card-header-row">
               <span class="section-title">客户流失预警</span>
@@ -63,13 +63,13 @@
     <!-- 销售漏斗 + RFM分类汇总 -->
     <el-row :gutter="24" style="margin-top: 24px">
       <el-col :span="12">
-        <el-card shadow="never">
+        <el-card>
           <template #header><span class="section-title">销售漏斗</span></template>
           <div ref="funnelChartRef" class="chart-container"></div>
         </el-card>
       </el-col>
       <el-col :span="12">
-        <el-card shadow="never">
+        <el-card>
           <template #header><span class="section-title">RFM 客户价值分类</span></template>
           <div ref="rfmChartRef" class="chart-container"></div>
         </el-card>
@@ -79,7 +79,7 @@
     <!-- RFM 客户明细 -->
     <el-row :gutter="24" style="margin-top: 24px">
       <el-col :span="24">
-        <el-card shadow="never">
+        <el-card>
           <template #header><span class="section-title">RFM 客户价值明细（Top 20）</span></template>
           <el-table :data="rfmData.list.slice(0, 20)" stripe border size="small" max-height="400" v-loading="rfmLoading" empty-text="暂无数据">
             <el-table-column type="index" label="#" width="50" />
@@ -106,7 +106,7 @@
     <!-- 销售排行榜 -->
     <el-row :gutter="24" style="margin-top: 24px">
       <el-col :span="24">
-        <el-card shadow="never">
+        <el-card>
           <template #header><span class="section-title">销售排行榜（赢单金额 Top 10）</span></template>
           <div ref="rankingChartRef" class="chart-container"></div>
         </el-card>
@@ -116,11 +116,13 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, onMounted } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
 import { getPrediction, getWinRate, getAnomaly, getAnalysisFunnel, getRfm, getAnalysisRanking, getChurnAlert } from '@/api/report'
 import request from '@/utils/request'
 import { useChart } from '@/composables/useChart'
+import { chartColors, chartPalette, alpha } from '@/utils/chartTheme'
 
 const loading = ref(false)
 const churnLoading = ref(false)
@@ -149,7 +151,7 @@ const fetchPrediction = async () => {
   try {
     const res = await getPrediction()
     if (res.code === 200) renderPredictionChart(res.data)
-  } catch (e) { console.error('获取预测数据失败:', e) }
+  } catch (e) { reportError('获取预测数据失败:', e) }
 }
 
 const renderPredictionChart = (data) => {
@@ -174,16 +176,16 @@ const renderPredictionChart = (data) => {
         type: 'line',
         data: fullHistory,
         smooth: true,
-        itemStyle: { color: '#2563eb' },
-        areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(37,99,235,0.3)' }, { offset: 1, color: 'rgba(37,99,235,0.02)' }]) }
+        itemStyle: { color: chartColors.primary },
+        areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: alpha(chartColors.primary, 0.3) }, { offset: 1, color: alpha(chartColors.primary, 0.02) }]) }
       },
       {
         name: '预测数据',
         type: 'line',
         data: predictionAmounts,
         smooth: true,
-        lineStyle: { type: 'dashed', color: '#f59e0b' },
-        itemStyle: { color: '#f59e0b' }
+        lineStyle: { type: 'dashed', color: chartColors.septenary },
+        itemStyle: { color: chartColors.septenary }
       }
     ]
   })
@@ -194,13 +196,13 @@ const fetchWinRate = async () => {
   try {
     const res = await getWinRate()
     if (res.code === 200) renderWinRateChart(res.data)
-  } catch (e) { console.error('获取赢单率失败:', e) }
+  } catch (e) { reportError('获取赢单率失败:', e) }
 }
 
 const renderWinRateChart = (data) => {
   const names = data.map(d => d.name)
   const counts = data.map(d => d.count)
-  const stageColors = ['#94a3b8', '#60a5fa', '#3b82f6', '#2563eb', '#67c23a', '#f56c6c']
+  const stageColors = [chartColors.neutral, chartColors.primary, chartColors.primary, chartColors.primary, chartColors.secondary, chartColors.quaternary]
 
   initChart('winRateChartRef', {
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
@@ -224,7 +226,7 @@ const fetchAnomaly = async () => {
   try {
     const res = await getAnomaly()
     if (res.code === 200) renderAnomalyChart(res.data)
-  } catch (e) { console.error('获取异常数据失败:', e) }
+  } catch (e) { reportError('获取异常数据失败:', e) }
 }
 
 const renderAnomalyChart = (data) => {
@@ -242,14 +244,14 @@ const renderAnomalyChart = (data) => {
       data: amounts.map((v, i) => ({
         value: v,
         itemStyle: {
-          color: data.daily[i].is_anomaly ? '#f56c6c' : '#3b82f6',
+          color: data.daily[i].is_anomaly ? chartColors.quaternary : chartColors.primary,
           borderRadius: [2, 2, 0, 0]
         }
       })),
       barWidth: '60%',
       markLine: {
         silent: true,
-        lineStyle: { color: '#f59e0b', type: 'dashed' },
+        lineStyle: { color: chartColors.septenary, type: 'dashed' },
         data: [{ yAxis: mean, label: { formatter: '均值: ¥{c}' } }]
       }
     }]
@@ -264,7 +266,7 @@ const fetchChurnAlert = async () => {
     if (res.code === 200) {
       churnData.value = res.data
     }
-  } catch (e) { console.error('获取流失预警失败:', e) }
+  } catch (e) { reportError('获取流失预警失败:', e) }
   finally { churnLoading.value = false }
 }
 
@@ -278,11 +280,11 @@ const fetchFunnel = async () => {
   try {
     const res = await getAnalysisFunnel()
     if (res.code === 200) renderFunnelChart(res.data)
-  } catch (e) { console.error('获取漏斗数据失败:', e) }
+  } catch (e) { reportError('获取漏斗数据失败:', e) }
 }
 
 const renderFunnelChart = (data) => {
-  const colors = ['#0071e3', '#34aadc', '#5ac8fa', '#ff9f0a', '#30d158', '#ff453a']
+  const colors = chartPalette()
   initChart('funnelChartRef', {
     tooltip: { trigger: 'item', formatter: '{b}: {c}个' },
     series: [{
@@ -312,12 +314,12 @@ const fetchRfm = async () => {
       rfmData.value = res.data
       renderRfmChart(res.data.summary)
     }
-  } catch (e) { console.error('获取RFM数据失败:', e) }
+  } catch (e) { reportError('获取RFM数据失败:', e) }
   finally { rfmLoading.value = false }
 }
 
 const renderRfmChart = (summary) => {
-  const levelColors = { A: '#30d158', B: '#0071e3', C: '#ff9f0a', D: '#86868b' }
+  const levelColors = { A: chartColors.secondary, B: chartColors.primary, C: chartColors.tertiary, D: chartColors.neutral }
   initChart('rfmChartRef', {
     tooltip: { trigger: 'item', formatter: '{b}: {c}个 ({d}%)' },
     legend: { bottom: 10, data: ['A (优质)', 'B (良好)', 'C (一般)', 'D (流失)'] },
@@ -342,7 +344,7 @@ const fetchRanking = async () => {
   try {
     const res = await getAnalysisRanking()
     if (res.code === 200) renderRankingChart(res.data)
-  } catch (e) { console.error('获取排行榜数据失败:', e) }
+  } catch (e) { reportError('获取排行榜数据失败:', e) }
 }
 
 const renderRankingChart = (data) => {
@@ -356,7 +358,7 @@ const renderRankingChart = (data) => {
       type: 'bar',
       data: top10.map((d, i) => ({
         value: d.win_amount,
-        itemStyle: { color: i === 0 ? '#0071e3' : i < 3 ? '#34aadc' : '#86868b', borderRadius: [4, 4, 0, 0] }
+        itemStyle: { color: i === 0 ? chartColors.primary : i < 3 ? chartColors.senary : chartColors.neutral, borderRadius: [4, 4, 0, 0] }
       })),
       barWidth: '50%',
       label: { show: true, position: 'top', formatter: p => p.value > 0 ? '¥' + (p.value / 10000).toFixed(1) + '万' : '' }

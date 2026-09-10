@@ -7,7 +7,7 @@
 
     <template v-if="order">
       <!-- 基本信息 -->
-      <el-card shadow="hover" class="info-card">
+      <el-card class="info-card">
         <template #header>
           <div class="card-header">
             <span>{{ order.order_no }}</span>
@@ -36,9 +36,9 @@
       </el-card>
 
       <!-- 采购明细 -->
-      <el-card shadow="hover" class="info-card mt-20">
+      <el-card class="info-card mt-20">
         <template #header><span>采购明细 ({{ items.length }}项)</span></template>
-        <el-table :data="items" border stripe size="default" show-summary :summary-method="getSummary">
+        <el-table :data="items" size="default" show-summary :summary-method="getSummary">
           <el-table-column type="index" label="#" width="50" />
           <el-table-column prop="product_name" label="产品名称" min-width="150" />
           <el-table-column prop="product_spec" label="规格型号" width="120" />
@@ -65,9 +65,9 @@
       <el-row :gutter="24">
         <!-- 入库记录 -->
         <el-col :span="12">
-          <el-card shadow="hover" class="info-card mt-20">
+          <el-card class="info-card mt-20">
             <template #header><span>入库记录 ({{ receipts.length }})</span></template>
-            <el-table :data="receipts" border stripe size="small" max-height="300" empty-text="暂无入库记录">
+            <el-table :data="receipts" size="small" max-height="300" empty-text="暂无入库记录">
               <el-table-column prop="receipt_no" label="入库单号" width="150" />
               <el-table-column prop="quantity" label="数量" width="80" align="right" />
               <el-table-column prop="quality_result" label="质检结果" width="90" align="center">
@@ -84,11 +84,11 @@
 
         <!-- 付款记录 -->
         <el-col :span="12">
-          <el-card shadow="hover" class="info-card mt-20">
+          <el-card class="info-card mt-20">
             <template #header>
               <span>付款记录 ({{ payments.length }})</span>
             </template>
-            <el-table :data="payments" border stripe size="small" max-height="300" empty-text="暂无付款记录">
+            <el-table :data="payments" size="small" max-height="300" empty-text="暂无付款记录">
               <el-table-column label="编号" width="80" align="center">
                 <template #default="{ row }">{{ row.id }}</template>
               </el-table-column>
@@ -181,6 +181,7 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -242,7 +243,7 @@ const fetchDetail = async () => {
       receipts.value = res.data.receipts || [];
       payments.value = res.data.payments || [];
     }
-  } catch (e) { console.error(e); }
+  } catch (e) { reportError(e); }
   finally { loading.value = false; }
 };
 
@@ -262,7 +263,7 @@ const handleStatusChange = async (command) => {
     }
     const res = await updatePurchaseStatus({ id: route.params.id, status: command, approveRemark });
     if (res.code === 200) { ElMessage.success('更新成功'); fetchDetail(); }
-  } catch (e) { if (e !== 'cancel') console.error(e); }
+  } catch (e) { if (e !== 'cancel') reportError(e); }
 };
 
 const handleReceiptSubmit = async () => {
@@ -273,7 +274,7 @@ const handleReceiptSubmit = async () => {
       receiptForm.order_id = route.params.id;
       const res = await addReceipt(receiptForm);
       if (res.code === 200) { ElMessage.success('入库成功'); showReceiptDialog.value = false; fetchDetail(); }
-    } catch (e) { console.error(e); }
+    } catch (e) { reportError(e); }
     finally { receiptLoading.value = false; }
   });
 };
@@ -293,7 +294,7 @@ const handlePaymentSubmit = async () => {
         remark: paymentForm.remark || undefined
       });
       if (res.code === 200) { ElMessage.success('付款登记成功'); showPaymentDialog.value = false; fetchDetail(); }
-    } catch (e) { console.error(e); }
+    } catch (e) { reportError(e); }
     finally { paymentLoading.value = false; }
   });
 };

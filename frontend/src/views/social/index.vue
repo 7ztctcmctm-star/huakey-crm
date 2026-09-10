@@ -16,7 +16,7 @@
     </div>
 
     <!-- 筛选 -->
-    <el-card shadow="never" class="search-card">
+    <el-card class="search-card">
       <el-form :model="search" inline @keyup.enter="fetchList">
         <el-form-item>
           <el-select v-model="search.customer_id" filterable clearable placeholder="选择客户" style="width:200px">
@@ -33,7 +33,7 @@
     </el-card>
 
     <!-- 列表 -->
-    <el-card shadow="never">
+    <el-card>
       <el-table :data="list" stripe border v-loading="loading">
         <el-table-column prop="customer_name" label="客户" min-width="140" show-overflow-tooltip />
         <el-table-column prop="contact_name" label="联系人" width="100" />
@@ -44,7 +44,7 @@
         </el-table-column>
         <el-table-column prop="direction" label="方向" width="60" align="center">
           <template #default="{ row }">
-            <span :style="{ color: row.direction === 'in' ? '#34c759' : '#0071e3' }">{{ row.direction === 'in' ? '← 收' : '→ 发' }}</span>
+            <span :class="row.direction === 'in' ? 'text-success' : 'text-accent'">{{ row.direction === 'in' ? '← 收' : '→ 发' }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="content" label="内容摘要" min-width="200" show-overflow-tooltip />

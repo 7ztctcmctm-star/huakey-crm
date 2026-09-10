@@ -11,18 +11,18 @@
     <el-row :gutter="20">
       <!-- 左侧：组织树 -->
       <el-col :span="14">
-        <el-card shadow="never" class="tree-card">
+        <el-card class="tree-card">
           <template #header><span class="card-title">组织架构</span></template>
           <div v-if="treeData.tree && treeData.tree.length > 0" class="org-tree">
             <OrgNode v-for="node in treeData.tree" :key="node.id" :node="node" :depth="0" :selected-id="selectedDeptId" @select="handleSelectDept" />
           </div>
-          <el-empty v-else description="暂无部门数据" :image-size="60" />
+          <EmptyState v-else title="暂无部门数据" compact />
         </el-card>
       </el-col>
 
       <!-- 右侧：部门员工 -->
       <el-col :span="10">
-        <el-card shadow="never">
+        <el-card>
           <template #header>
             <div class="card-header">
               <span class="card-title">{{ selectedDeptName || '选择部门' }} {{ selectedDeptEmployees.length > 0 ? `(${selectedDeptEmployees.length}人)` : '' }}</span>
@@ -38,9 +38,9 @@
                 </div>
               </div>
             </div>
-            <el-empty v-else description="该部门暂无员工" :image-size="60" />
+            <EmptyState v-else title="该部门暂无员工" compact />
           </div>
-          <el-empty v-else description="点击左侧部门查看员工" :image-size="60" />
+          <EmptyState v-else title="点击左侧部门查看员工" compact />
         </el-card>
       </el-col>
     </el-row>
@@ -48,6 +48,7 @@
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, onMounted, h, defineComponent } from 'vue'
 import request from '@/utils/request'
 import { getOrgTree, getOrgTreeEmployees } from '@/api/hr'
@@ -144,7 +145,7 @@ onMounted(() => { fetchTree() })
 .card-header { display: flex; justify-content: space-between; align-items: center; }
 .emp-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--color-border); }
 .emp-item:last-child { border-bottom: none; }
-.emp-avatar { width: 36px; height: 36px; border-radius: 50%; background: #0071e3; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; flex-shrink: 0; }
+.emp-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--color-accent); color: var(--color-bg); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; flex-shrink: 0; }
 .emp-name { font-size: 14px; font-weight: 600; color: var(--color-text); }
 .emp-meta { font-size: 12px; color: var(--color-text-tertiary); margin-top: 2px; }
 </style>

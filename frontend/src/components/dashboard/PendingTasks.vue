@@ -1,7 +1,7 @@
 <template>
   <el-row :gutter="24" style="margin-top: 16px">
     <el-col :span="24">
-      <el-card shadow="never" class="todo-card" :class="{ 'has-overdue': overdueCount > 0 }">
+      <el-card class="todo-card" :class="{ 'has-overdue': overdueCount > 0 }">
         <template #header>
           <div class="section-header">
             <span class="section-title">
@@ -39,7 +39,7 @@
                 </div>
               </div>
             </div>
-            <el-empty v-else description="今日没有待跟进任务" :image-size="60" />
+            <EmptyState v-else title="今日没有待跟进任务" compact />
           </el-tab-pane>
           <el-tab-pane label="待处理工单" name="service">
             <div v-if="serviceLoading" v-loading="serviceLoading" style="min-height: 100px" />
@@ -55,7 +55,7 @@
                 </div>
               </div>
             </div>
-            <el-empty v-else description="没有待处理工单" :image-size="60" />
+            <EmptyState v-else title="没有待处理工单" compact />
           </el-tab-pane>
         </el-tabs>
       </el-card>
@@ -64,6 +64,7 @@
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref } from 'vue'
 import { Bell } from '@element-plus/icons-vue'
 
@@ -163,7 +164,7 @@ const isOverdue = (nextTime) => {
 }
 
 .todo-item.overdue:hover {
-  background: rgba(255, 69, 58, 0.12);
+  background: var(--color-danger-bg);
 }
 
 .todo-item-left {

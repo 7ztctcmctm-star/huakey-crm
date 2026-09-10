@@ -1,5 +1,9 @@
 <template>
-  <el-aside :width="isCollapse ? '64px' : '230px'" class="sidebar">
+  <el-aside
+    :width="isMobile ? '230px' : (isCollapse ? '64px' : '230px')"
+    class="sidebar"
+    :class="{ 'sidebar--mobile': isMobile, 'sidebar--open': isMobile && mobileOpen }"
+  >
     <div class="logo">
       <template v-if="!isCollapse">
         <img src="/logo.png" alt="Huakey" class="logo-img" />
@@ -14,8 +18,6 @@
       :collapse-transition="false"
       router
       background-color="transparent"
-      text-color="rgba(255,255,255,0.7)"
-      active-text-color="#fff"
     >
       <el-menu-item index="/dashboard">
         <el-icon><HomeFilled /></el-icon>
@@ -259,7 +261,11 @@ import {
 
 const props = defineProps({
   isCollapse: { type: Boolean, default: false },
-  userInfo: { type: Object, default: () => ({}) }
+  userInfo: { type: Object, default: () => ({}) },
+  /** 移动端：侧边栏转为抽屉式覆盖层 */
+  isMobile: { type: Boolean, default: false },
+  /** 移动端抽屉是否展开 */
+  mobileOpen: { type: Boolean, default: false }
 })
 
 const route = useRoute()

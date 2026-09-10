@@ -21,8 +21,8 @@
     </div>
 
     <!-- 列表 -->
-    <el-card shadow="never">
-      <el-table :data="list" stripe border v-loading="loading">
+    <el-card>
+      <el-table :data="list" v-loading="loading">
         <el-table-column prop="customer_name" label="客户名称" min-width="150" show-overflow-tooltip />
         <el-table-column prop="contract_no" label="合同编号" width="150" />
         <el-table-column prop="amount" label="应回款" width="120" align="right">
@@ -38,8 +38,8 @@
         <el-table-column prop="remind_date" label="提醒日期" width="110" />
         <el-table-column label="距到期" width="100" align="center">
           <template #default="{ row }">
-            <span v-if="row.remind_days >= 0" style="color:#e6a23c">{{ row.remind_days }}天</span>
-            <span v-else style="color:#f56c6c">逾期{{ Math.abs(row.remind_days) }}天</span>
+            <span v-if="row.remind_days >= 0" class="text-warning">{{ row.remind_days }}天</span>
+            <span v-else class="text-danger">逾期{{ Math.abs(row.remind_days) }}天</span>
           </template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="90" align="center">
@@ -118,7 +118,7 @@ onMounted(() => { fetchList(); fetchSummary() })
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); }
 .page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); }
 .stat-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: var(--space-4); }
-.stat-card { background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); text-align: center; }
+
 .stat-value { font-size: 28px; font-weight: 700; color: var(--color-text); }
 .stat-value.warning { color: #e6a23c; }
 .stat-value.danger { color: #f56c6c; }

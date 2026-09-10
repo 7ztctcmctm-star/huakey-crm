@@ -8,7 +8,7 @@
     <el-row :gutter="24">
       <!-- 系统信息 -->
       <el-col :span="12">
-        <el-card shadow="never">
+        <el-card>
           <template #header><span class="card-title">系统信息</span></template>
           <el-descriptions :column="1" border>
             <el-descriptions-item label="系统名称">铧旗CRM系统</el-descriptions-item>
@@ -27,7 +27,7 @@
 
       <!-- 服务状态 -->
       <el-col :span="12">
-        <el-card shadow="never">
+        <el-card>
           <template #header><span class="card-title">服务状态</span></template>
           <el-descriptions :column="1" border>
             <el-descriptions-item label="API 服务">
@@ -56,7 +56,7 @@
     <el-row :gutter="24" style="margin-top: 24px;">
       <!-- 统计概览 -->
       <el-col :span="8">
-        <el-card shadow="never" v-loading="statsLoading">
+        <el-card v-loading="statsLoading">
           <template #header><span class="card-title">数据概览</span></template>
           <el-descriptions :column="1" border>
             <el-descriptions-item label="用户总数">{{ stats.userCount }}</el-descriptions-item>
@@ -70,7 +70,7 @@
 
       <!-- 业务设置 -->
       <el-col :span="8">
-        <el-card shadow="never" v-loading="configLoading">
+        <el-card v-loading="configLoading">
           <template #header>
             <div class="card-header-row">
               <span class="card-title">业务设置</span>
@@ -88,7 +88,7 @@
 
       <!-- 关于 -->
       <el-col :span="8">
-        <el-card shadow="never">
+        <el-card>
           <template #header><span class="card-title">关于</span></template>
           <div class="about-section">
             <p>铧旗CRM系统是一款面向中小企业的客户关系管理系统，支持客户管理、商机跟踪、报价、合同、售后服务等全流程管理。</p>
@@ -111,7 +111,7 @@
     <!-- 消息通知 -->
     <el-row :gutter="24" style="margin-top: 24px;">
       <el-col :span="24">
-        <el-card shadow="never">
+        <el-card>
           <template #header><span class="card-title">消息通知</span></template>
           <el-descriptions :column="2" border size="small">
             <el-descriptions-item label="企业微信通知">
@@ -137,7 +137,7 @@ import request from '@/utils/request'
 import { getConfigList, updateConfig, testNotification, getHealth } from '@/api/system'
 import { getUserList } from '@/api/system'
 import { getCustomerList } from '@/api/customer'
-import { getOpportunityList } from '@/api/customer'
+import { getOpportunityList } from '@/api/opportunity'
 import { getContractList } from '@/api/contract'
 import { getServiceList } from '@/api/system'
 import { version as appVersion } from '../../../package.json'

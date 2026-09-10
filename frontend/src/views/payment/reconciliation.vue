@@ -11,7 +11,7 @@
 
     <!-- 客户对账 -->
     <template v-if="activeType === 'customer'">
-      <el-card shadow="never" class="search-card">
+      <el-card class="search-card">
         <el-form inline>
           <el-form-item label="客户">
             <el-select v-model="custForm.customer_id" filterable placeholder="选择客户" style="width:240px">
@@ -26,7 +26,7 @@
       </el-card>
 
       <template v-if="custData">
-        <el-card shadow="never" style="margin-top:16px">
+        <el-card style="margin-top:16px">
           <template #header><span class="card-title">客户信息</span></template>
           <el-descriptions :column="3" border size="small">
             <el-descriptions-item label="客户名称">{{ custData.customer.company_name }}</el-descriptions-item>
@@ -37,9 +37,9 @@
 
         <el-row :gutter="16" style="margin-top:16px">
           <el-col :span="16">
-            <el-card shadow="never">
+            <el-card>
               <template #header><span class="card-title">合同明细</span></template>
-              <el-table :data="custData.contracts" stripe size="small" border>
+              <el-table :data="custData.contracts" size="small">
                 <el-table-column prop="contract_no" label="合同编号" width="150" />
                 <el-table-column prop="amount" label="合同金额" width="120" align="right">
                   <template #default="{ row }">¥{{ Number(row.amount).toLocaleString() }}</template>
@@ -56,7 +56,7 @@
             </el-card>
           </el-col>
           <el-col :span="8">
-            <el-card shadow="never">
+            <el-card>
               <template #header><span class="card-title">汇总</span></template>
               <div class="summary-item"><span>合同总额</span><span class="summary-value">¥{{ Number(custData.summary.total_amount).toLocaleString() }}</span></div>
               <div class="summary-item"><span>已回款</span><span class="summary-value success">¥{{ Number(custData.summary.paid_amount).toLocaleString() }}</span></div>
@@ -67,9 +67,9 @@
           </el-col>
         </el-row>
 
-        <el-card shadow="never" style="margin-top:16px">
+        <el-card style="margin-top:16px">
           <template #header><span class="card-title">回款记录</span></template>
-          <el-table :data="custData.payments" stripe size="small" border>
+          <el-table :data="custData.payments" size="small">
             <el-table-column prop="contract_no" label="合同编号" width="150" />
             <el-table-column prop="pay_amount" label="回款金额" width="120" align="right">
               <template #default="{ row }">¥{{ Number(row.pay_amount).toLocaleString() }}</template>
@@ -83,7 +83,7 @@
 
     <!-- 供应商对账 -->
     <template v-if="activeType === 'supplier'">
-      <el-card shadow="never" class="search-card">
+      <el-card class="search-card">
         <el-form inline>
           <el-form-item label="供应商">
             <el-select v-model="suppForm.supplier_id" filterable placeholder="选择供应商" style="width:240px">
@@ -98,7 +98,7 @@
       </el-card>
 
       <template v-if="suppData">
-        <el-card shadow="never" style="margin-top:16px">
+        <el-card style="margin-top:16px">
           <template #header><span class="card-title">供应商信息</span></template>
           <el-descriptions :column="3" border size="small">
             <el-descriptions-item label="供应商">{{ suppData.supplier.name }}</el-descriptions-item>
@@ -109,9 +109,9 @@
 
         <el-row :gutter="16" style="margin-top:16px">
           <el-col :span="16">
-            <el-card shadow="never">
+            <el-card>
               <template #header><span class="card-title">采购单明细</span></template>
-              <el-table :data="suppData.orders" stripe size="small" border>
+              <el-table :data="suppData.orders" size="small">
                 <el-table-column prop="order_no" label="采购单号" width="150" />
                 <el-table-column prop="total_amount" label="金额" width="120" align="right">
                   <template #default="{ row }">¥{{ Number(row.total_amount).toLocaleString() }}</template>
@@ -122,7 +122,7 @@
             </el-card>
           </el-col>
           <el-col :span="8">
-            <el-card shadow="never">
+            <el-card>
               <template #header><span class="card-title">汇总</span></template>
               <div class="summary-item"><span>采购总额</span><span class="summary-value">¥{{ Number(suppData.summary.total_amount).toLocaleString() }}</span></div>
               <div class="summary-item"><span>已付款</span><span class="summary-value success">¥{{ Number(suppData.summary.paid_amount).toLocaleString() }}</span></div>
@@ -137,8 +137,8 @@
 
     <!-- 历史对账单 -->
     <template v-if="activeType === 'history'">
-      <el-card shadow="never">
-        <el-table :data="historyList" stripe border v-loading="historyLoading">
+      <el-card>
+        <el-table :data="historyList" v-loading="historyLoading">
           <el-table-column prop="recon_no" label="对账单号" width="160" />
           <el-table-column prop="recon_type" label="类型" width="90" align="center">
             <template #default="{ row }"><el-tag size="small" :type="row.recon_type==='customer'?'primary':'success'">{{ row.recon_type==='customer'?'客户':'供应商' }}</el-tag></template>
@@ -151,7 +151,7 @@
             <template #default="{ row }">¥{{ Number(row.total_amount).toLocaleString() }}</template>
           </el-table-column>
           <el-table-column prop="unpaid_amount" label="未付" width="120" align="right">
-            <template #default="{ row }"><span style="color:#f56c6c">¥{{ Number(row.unpaid_amount).toLocaleString() }}</span></template>
+            <template #default="{ row }"><span class="text-danger font-semibold">¥{{ Number(row.unpaid_amount).toLocaleString() }}</span></template>
           </el-table-column>
           <el-table-column prop="status" label="状态" width="80" align="center">
             <template #default="{ row }"><el-tag size="small" :type="row.status==='confirmed'?'success':row.status==='disputed'?'danger':'info'">{{ {draft:'草稿',confirmed:'已确认',disputed:'有异议'}[row.status] }}</el-tag></template>
@@ -304,6 +304,6 @@ onMounted(() => { fetchOptions() })
 .summary-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--color-border); font-size: 14px; }
 .summary-item:last-of-type { border-bottom: none; }
 .summary-value { font-weight: 600; }
-.summary-value.success { color: #34c759; }
-.summary-value.danger { color: #f56c6c; }
+.summary-value.success { color: var(--color-success); }
+.summary-value.danger { color: var(--color-danger); }
 </style>

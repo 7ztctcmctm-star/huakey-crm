@@ -1,5 +1,5 @@
 <template>
-  <el-card shadow="never">
+  <el-card>
     <template #header>
       <div class="quality-header">
         <span>数据质量检查</span>
@@ -10,22 +10,22 @@
     </template>
 
     <div v-if="!report && !checking" class="quality-empty">
-      <el-empty description="暂无检查记录" :image-size="60">
+      <EmptyState title="暂无检查记录" compact>
         <el-button type="primary" size="small" @click="runCheck">立即检查</el-button>
-      </el-empty>
+      </EmptyState>
     </div>
 
     <template v-else-if="report">
       <el-descriptions :column="2" border size="small">
         <el-descriptions-item label="总记录数">{{ report.total_count }}</el-descriptions-item>
         <el-descriptions-item label="重复记录">
-          <span :style="{ color: report.duplicate_count > 0 ? '#e6a23c' : '' }">{{ report.duplicate_count }}</span>
+          <span :style="{ color: report.duplicate_count > 0 ? 'var(--color-warning)' : '' }">{{ report.duplicate_count }}</span>
         </el-descriptions-item>
         <el-descriptions-item label="无效记录">
-          <span :style="{ color: report.invalid_count > 0 ? '#f56c6c' : '' }">{{ report.invalid_count }}</span>
+          <span :style="{ color: report.invalid_count > 0 ? 'var(--color-danger)' : '' }">{{ report.invalid_count }}</span>
         </el-descriptions-item>
         <el-descriptions-item label="缺失关键字段">
-          <span :style="{ color: report.missing_count > 0 ? '#f56c6c' : '' }">{{ report.missing_count }}</span>
+          <span :style="{ color: report.missing_count > 0 ? 'var(--color-danger)' : '' }">{{ report.missing_count }}</span>
         </el-descriptions-item>
         <el-descriptions-item label="质量评分" :span="2">
           <div class="score-row">
@@ -67,6 +67,7 @@
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { qualityCheck, qualityReport } from '@/api/dataQuality'
@@ -79,9 +80,9 @@ const report = ref(null)
 const checking = ref(false)
 
 const scoreColor = [
-  { color: '#f56c6c', percentage: 60 },
-  { color: '#e6a23c', percentage: 80 },
-  { color: '#67c23a', percentage: 100 }
+  { color: 'var(--color-danger)', percentage: 60 },
+  { color: 'var(--color-warning)', percentage: 80 },
+  { color: 'var(--color-success)', percentage: 100 }
 ]
 
 const scoreLabel = computed(() => {
@@ -98,7 +99,7 @@ const fetchReport = async () => {
     if (res.code === 200 && res.data) {
       report.value = res.data
     }
-  } catch (e) { console.error('[DataQualityCheck] 获取质量报告失败:', e) }
+  } catch (e) { /* log ignored */ }
 }
 
 const runCheck = async () => {

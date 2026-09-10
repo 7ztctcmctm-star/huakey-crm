@@ -11,7 +11,7 @@
       <el-check-tag v-for="s in scenes" :key="s" :checked="search.scene===s" @change="search.scene=s;fetchList()">{{ s }}</el-check-tag>
     </div>
 
-    <el-card shadow="never" class="search-card">
+    <el-card class="search-card">
       <el-form inline @keyup.enter="fetchList">
         <el-form-item><el-input v-model="search.keyword" placeholder="搜索话术标题/内容" clearable style="width:260px" /></el-form-item>
         <el-form-item><el-button type="primary" @click="fetchList">搜索</el-button></el-form-item>
@@ -20,7 +20,7 @@
 
     <!-- 话术列表 -->
     <div class="script-list" v-loading="loading">
-      <el-card v-for="item in list" :key="item.id" shadow="hover" class="script-card">
+      <el-card v-for="item in list" :key="item.id" class="script-card">
         <div class="script-header">
           <div class="script-title">{{ item.title }}</div>
           <div class="script-actions">
@@ -33,7 +33,7 @@
         </div>
         <div class="script-content">{{ item.content }}</div>
       </el-card>
-      <el-empty v-if="!loading && list.length === 0" description="暂无话术" />
+      <EmptyState v-if="!loading && list.length === 0" title="暂无话术" />
     </div>
 
     <!-- 新增/编辑弹窗 -->
@@ -54,6 +54,7 @@
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete } from '@element-plus/icons-vue'

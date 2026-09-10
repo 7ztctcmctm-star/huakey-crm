@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import router from '../router'
+import { reportError, reportWarn } from '@/utils/error'
 
 // token 续期状态：避免多个 401 请求同时触发续期
 let isRefreshing = false
@@ -60,7 +61,7 @@ request.interceptors.request.use(
     return config
   },
   (error) => {
-    console.error('请求错误:', error)
+    reportError('请求错误:', error)
     return Promise.reject(error)
   }
 )
@@ -72,7 +73,7 @@ request.interceptors.response.use(
     return response.data
   },
   async (error) => {
-    console.error('响应错误:', error)
+    reportError('响应错误:', error)
 
     if (error.response) {
       const { status, data } = error.response

@@ -170,10 +170,13 @@ test.describe('报价 → 合同核心流程', () => {
     await page.waitForTimeout(1200)
 
     // 对目标行点击“转合同”
+    // 注意：操作列已收敛为「查看/编辑 + 更多下拉」，转合同在菜单内而非行内按钮；
+    // 且 el-dropdown-menu 会 teleport 到 body，故须用页面级定位
     const row = page.locator('.quotation-list .el-table__row').filter({ hasText: customerName }).first()
-    const convertBtn = row.locator('button:has-text("转合同")')
-    await convertBtn.scrollIntoViewIfNeeded()
-    await convertBtn.click({ force: true })
+    await row.locator('button:has-text("更多")').click()
+    const convertItem = page.locator('.el-dropdown-menu__item:visible', { hasText: '转合同' })
+    await convertItem.waitFor({ state: 'visible', timeout: 5000 })
+    await convertItem.click()
 
     // 确认弹窗
     const confirmBox = page.locator('.el-message-box__btns .el-button--primary:has-text("确定")')

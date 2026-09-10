@@ -14,14 +14,30 @@
   --color-accent-hover: #0077ED;
   --color-accent-active: #006edb;
   --color-accent-bg: rgba(0, 113, 227, 0.08);
-  --color-success: #30d158;
-  --color-success-bg: rgba(48, 209, 88, 0.08);
-  --color-warning: #ff9f0a;
-  --color-warning-bg: rgba(255, 159, 10, 0.08);
-  --color-danger: #ff453a;
-  --color-danger-bg: rgba(255, 69, 58, 0.08);
+  --color-success: #2aa85c;
+  --color-success-bg: rgba(42, 168, 92, 0.08);
+  --color-warning: #d97706;
+  --color-warning-bg: rgba(217, 119, 6, 0.08);
+  --color-danger: #dc2626;
+  --color-danger-bg: rgba(220, 38, 38, 0.08);
+  --color-purple: #af52de;
+  --color-purple-bg: rgba(175, 82, 222, 0.08);
+  --color-cyan: #06b6d4;
+  --color-cyan-bg: rgba(6, 182, 212, 0.08);
+  --color-orange: #f97316;
+  --color-orange-bg: rgba(249, 115, 22, 0.08);
   --color-border: rgba(0, 0, 0, 0.06);
   --color-border-strong: rgba(0, 0, 0, 0.1);
+
+  /* Chart Palette */
+  --chart-color-1: var(--color-accent);
+  --chart-color-2: var(--color-success);
+  --chart-color-3: var(--color-warning);
+  --chart-color-4: var(--color-danger);
+  --chart-color-5: var(--color-purple);
+  --chart-color-6: var(--color-cyan);
+  --chart-color-7: var(--color-orange);
+  --chart-color-8: var(--color-text-secondary);
   --color-text: #1d1d1f;
   --color-text-secondary: #86868b;
   --color-text-tertiary: #aeaeb2;
@@ -48,6 +64,13 @@
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
   --shadow-md: 0 2px 12px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.12);
+
+  /* Skeleton */
+  --skeleton-base: rgba(0, 0, 0, 0.05);
+  --skeleton-highlight: rgba(0, 0, 0, 0.09);
+
+  /* Overlay */
+  --overlay-backdrop: rgba(0, 0, 0, 0.35);
 
   /* Transitions */
   --ease-out: cubic-bezier(0.25, 0.1, 0.25, 1);
@@ -179,11 +202,12 @@ h1, h2, h3, h4, h5, h6 {
   border: 1px solid var(--color-border) !important;
   box-shadow: var(--shadow-sm) !important;
   background: var(--color-bg) !important;
-  transition: box-shadow var(--duration) var(--ease-out);
+  transition: box-shadow var(--duration) var(--ease-out), transform var(--duration) var(--ease-out);
 }
 
 .el-card:hover {
   box-shadow: var(--shadow-md) !important;
+  transform: translateY(-2px);
 }
 
 .el-card + .el-card {
@@ -214,8 +238,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .stat-card:hover {
-  box-shadow: var(--shadow-md) !important;
-  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg) !important;
+  transform: translateY(-4px);
 }
 
 .stat-card .stat-body {
@@ -234,6 +258,7 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: -0.03em;
   line-height: 1.1;
   color: var(--color-text);
+  font-variant-numeric: tabular-nums;
 }
 
 .stat-card .stat-label {
@@ -251,6 +276,10 @@ h1, h2, h3, h4, h5, h6 {
 
 .stat-card .stat-trend.up {
   color: var(--color-success);
+}
+
+.stat-card .stat-trend.down {
+  color: var(--color-danger);
 }
 
 /* ===== Tables ===== */
@@ -497,12 +526,12 @@ h1, h2, h3, h4, h5, h6 {
 
 .el-tag--warning {
   background: var(--color-warning-bg) !important;
-  color: #b36b00 !important;
+  color: var(--color-warning) !important;
 }
 
 .el-tag--danger {
   background: var(--color-danger-bg) !important;
-  color: #c9302c !important;
+  color: var(--color-danger) !important;
 }
 
 .el-tag--primary {
@@ -719,12 +748,12 @@ h1, h2, h3, h4, h5, h6 {
 
 .el-alert--warning {
   background: var(--color-warning-bg) !important;
-  color: #b36b00 !important;
+  color: var(--color-warning) !important;
 }
 
 .el-alert--error {
   background: var(--color-danger-bg) !important;
-  color: #c9302c !important;
+  color: var(--color-danger) !important;
 }
 
 /* ===== Badge ===== */
@@ -798,12 +827,12 @@ h1, h2, h3, h4, h5, h6 {
 
 .el-message--warning {
   background: var(--color-bg) !important;
-  color: #b36b00 !important;
+  color: var(--color-warning) !important;
 }
 
 .el-message--error {
   background: var(--color-bg) !important;
-  color: #c9302c !important;
+  color: var(--color-danger) !important;
 }
 
 /* ===== MessageBox ===== */
@@ -916,12 +945,28 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--color-danger);
 }
 
+.font-medium {
+  font-weight: 500;
+}
+
+.font-semibold {
+  font-weight: 600;
+}
+
+.font-bold {
+  font-weight: 700;
+}
+
 .bg-primary {
   background: var(--color-bg);
 }
 
 .bg-secondary {
   background: var(--color-bg-secondary);
+}
+
+.font-tabular {
+  font-variant-numeric: tabular-nums;
 }
 
 /* ===== Status Dot ===== */
@@ -951,6 +996,13 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ===== Responsive ===== */
+/* 平板：统计卡片两列 */
+@media (max-width: 1024px) {
+  .stat-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
 @media (max-width: 768px) {
   :root {
     --space-5: 16px;
@@ -962,7 +1014,7 @@ h1, h2, h3, h4, h5, h6 {
   }
 
   .stat-card .stat-value {
-    font-size: 28px;
+    font-size: 32px;
   }
 
   .page-header h2 {
@@ -988,4 +1040,110 @@ h1, h2, h3, h4, h5, h6 {
   .el-table__body-wrapper td.el-table__cell {
     height: 48px;
   }
+
+  /* 侧边栏转为抽屉式覆盖层：230px 固定宽度会挤占小屏内容区 */
+  .sidebar--mobile {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 2001;
+    transform: translateX(-100%);
+    transition: transform var(--duration) var(--ease-out);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .sidebar--mobile.sidebar--open {
+    transform: translateX(0);
+  }
+
+  /* 详情抽屉改为近全宽，覆盖组件上 size="500px" / "700px" 的内联宽度 */
+  .el-drawer.rtl,
+  .el-drawer.ltr {
+    width: 92% !important;
+  }
+
+  .el-drawer.ttb,
+  .el-drawer.btt {
+    height: 92% !important;
+  }
+
+  /* 统计卡片：手机单列 */
+  .stat-cards {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  /* 顶栏窄屏收敛：实测 375px 下原布局宽 432px，溢出 57px。
+     保留「汉堡 + 搜索 + 通知 + 头像」，隐藏次要入口。 */
+  .el-header {
+    padding: 0 var(--space-3) !important;
+  }
+
+  .header-right .recycle-btn,
+  .header-right .boss-dashboard-btn {
+    display: none !important;
+  }
+
+  /* 全局搜索收窄，保留可用但不再撑破布局 */
+  .global-search-input {
+    width: 110px !important;
+  }
+}
+
+/* ===== Dialog / Drawer Scale Animation ===== */
+.dialog-fade-enter-active,
+.dialog-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.dialog-fade-enter-active .el-dialog,
+.dialog-fade-leave-active .el-dialog {
+  transition: transform 0.25s cubic-bezier(0.25, 0.1, 0.25, 1), opacity 0.2s ease;
+}
+
+.dialog-fade-enter-from .el-dialog,
+.dialog-fade-leave-to .el-dialog {
+  transform: scale(0.96);
+  opacity: 0;
+}
+
+.dialog-fade-enter-to .el-dialog,
+.dialog-fade-leave-from .el-dialog {
+  transform: scale(1);
+  opacity: 1;
+}
+
+.drawer-fade-enter-active .el-drawer,
+.drawer-fade-leave-active .el-drawer {
+  transition: transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1), opacity 0.25s ease;
+}
+
+.drawer-fade-enter-from .el-drawer.rtl,
+.drawer-fade-leave-to .el-drawer.rtl {
+  transform: translateX(100%) scale(0.98);
+  opacity: 0;
+}
+
+.drawer-fade-enter-from .el-drawer.ltr,
+.drawer-fade-leave-to .el-drawer.ltr {
+  transform: translateX(-100%) scale(0.98);
+  opacity: 0;
+}
+
+.drawer-fade-enter-from .el-drawer.ttb,
+.drawer-fade-leave-to .el-drawer.ttb {
+  transform: translateY(-100%) scale(0.98);
+  opacity: 0;
+}
+
+.drawer-fade-enter-from .el-drawer.btt,
+.drawer-fade-leave-to .el-drawer.btt {
+  transform: translateY(100%) scale(0.98);
+  opacity: 0;
+}
+
+.drawer-fade-enter-to .el-drawer,
+.drawer-fade-leave-from .el-drawer {
+  transform: translate(0) scale(1);
+  opacity: 1;
 }

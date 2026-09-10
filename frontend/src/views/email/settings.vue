@@ -8,7 +8,7 @@
         </div>
       </template>
 
-      <el-table :data="accounts" v-loading="loading" stripe border :header-cell-style="{ background: '#fafafa' }">
+      <el-table :data="accounts" v-loading="loading" stripe border>
         <el-table-column prop="email" label="邮箱地址" min-width="200" />
         <el-table-column prop="display_name" label="显示名称" width="140" />
         <el-table-column prop="imap_host" label="IMAP服务器" width="180" />
@@ -28,7 +28,7 @@
         </el-table-column>
       </el-table>
 
-      <el-empty v-if="!loading && accounts.length === 0" description="暂无邮箱配置，点击上方按钮添加" />
+      <EmptyState v-if="!loading && accounts.length === 0" title="暂无邮箱配置，点击上方按钮添加" />
     </el-card>
 
     <!-- 添加邮箱弹窗 -->
@@ -66,6 +66,7 @@
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/utils/request'

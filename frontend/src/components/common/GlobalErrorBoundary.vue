@@ -9,6 +9,7 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, onErrorCaptured } from 'vue';
 import { useRouter } from 'vue-router';
 
@@ -17,7 +18,7 @@ const errorMessage = ref('');
 const router = useRouter();
 
 onErrorCaptured((err, instance, info) => {
-  console.error('[ErrorBoundary]', err.message, info);
+  reportError('[ErrorBoundary]', err.message, info);
   hasError.value = true;
   errorMessage.value = err?.message || '未知错误';
   return false;

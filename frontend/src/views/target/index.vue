@@ -8,7 +8,7 @@
       </div>
     </div>
 
-    <el-card shadow="never">
+    <el-card>
       <el-table v-loading="loading" :data="tableData" stripe border>
         <el-table-column prop="real_name" label="销售姓名" width="120" />
         <el-table-column prop="dept_name" label="部门" width="120" />

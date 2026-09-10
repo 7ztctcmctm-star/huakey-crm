@@ -21,38 +21,38 @@
     <!-- 顶部总览卡片 -->
     <el-row :gutter="16" class="overview-row">
       <el-col :span="4">
-        <el-card shadow="hover" class="stat-card">
+        <el-card class="stat-card">
           <div class="stat-num">{{ overview.total_customers }}</div>
           <div class="stat-label">团队总客户数</div>
         </el-card>
       </el-col>
       <el-col :span="4">
-        <el-card shadow="hover" class="stat-card">
+        <el-card class="stat-card">
           <div class="stat-num green">{{ overview.week_new }}</div>
           <div class="stat-label">本周新增</div>
         </el-card>
       </el-col>
       <el-col :span="4">
-        <el-card shadow="hover" class="stat-card">
+        <el-card class="stat-card">
           <div class="stat-num blue">{{ overview.active_opportunities }}</div>
           <div class="stat-label">活跃商机数</div>
           <div class="stat-sub">共 ¥{{ formatAmount(overview.active_opportunity_amount) }}</div>
         </el-card>
       </el-col>
       <el-col :span="4">
-        <el-card shadow="hover" class="stat-card">
+        <el-card class="stat-card">
           <div class="stat-num" :class="{ red: overview.overdue_count > 0 }">{{ overview.overdue_count }}</div>
           <div class="stat-label">即将逾期任务</div>
         </el-card>
       </el-col>
       <el-col :span="4">
-        <el-card shadow="hover" class="stat-card">
+        <el-card class="stat-card">
           <div class="stat-num green">¥{{ formatAmount(overview.contract_amount) }}</div>
           <div class="stat-label">合同额</div>
         </el-card>
       </el-col>
       <el-col :span="4">
-        <el-card shadow="hover" class="stat-card">
+        <el-card class="stat-card">
           <div class="stat-num blue">¥{{ formatAmount(overview.payment_amount) }}</div>
           <div class="stat-label">回款额</div>
         </el-card>
@@ -60,7 +60,7 @@
     </el-row>
 
     <!-- 卡住商机区域 -->
-    <el-card shadow="never" class="stuck-card" v-if="stuckList.length > 0">
+    <el-card class="stuck-card" v-if="stuckList.length > 0">
       <template #header>
         <span class="card-title stuck-title">
           商机长期未推进（超过{{ stuckDays }}天）
@@ -93,7 +93,7 @@
     </el-card>
 
     <!-- 待审批区域 -->
-    <el-card shadow="never" class="pending-card" v-if="pendingApprovals.length > 0">
+    <el-card class="pending-card" v-if="pendingApprovals.length > 0">
       <template #header>
         <span class="card-title">待审批 <el-badge :value="pendingApprovals.length" :max="99" /></span>
       </template>
@@ -123,7 +123,7 @@
     </el-card>
 
     <!-- 销售实况卡片列表 -->
-    <el-card shadow="never" class="table-card" v-loading="loading">
+    <el-card class="table-card" v-loading="loading">
       <template #header>
         <span class="card-title">销售实况</span>
       </template>
@@ -171,7 +171,7 @@
             <el-progress
               :percentage="row.target_achievement"
               :stroke-width="12"
-              :color="row.target_achievement >= 100 ? '#67c23a' : row.target_achievement >= 60 ? '#e6a23c' : '#f56c6c'"
+              :color="row.target_achievement >= 100 ? chartColors.secondary : row.target_achievement >= 60 ? chartColors.tertiary : chartColors.quaternary"
               :format="() => `${row.target_achievement}%`"
             />
           </template>
@@ -187,13 +187,13 @@
     <!-- 图表区域 -->
     <el-row :gutter="16" style="margin-top: 16px">
       <el-col :span="12">
-        <el-card shadow="never">
+        <el-card>
           <template #header><span class="card-title">销售合同额排行</span></template>
           <div ref="contractChartRef" class="chart-container"></div>
         </el-card>
       </el-col>
       <el-col :span="12">
-        <el-card shadow="never">
+        <el-card>
           <template #header><span class="card-title">目标达成率</span></template>
           <div ref="targetChartRef" class="chart-container"></div>
         </el-card>
@@ -260,13 +260,15 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, onMounted, onActivated } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getTeamOverview, getSalesBreakdown, getStuckOpportunities, getPendingApprovals, getSalesCustomers, getSalesOverdueCustomers, urgeFollowup as urgeFollowupApi } from '@/api/system'
-import { approveQuote } from '@/api/contract'
+import { approveQuote } from '@/api/quotation'
 import { approveContract } from '@/api/contract'
 import { formatTime, formatAmount } from '@/composables/useFormat'
 import { useChart } from '@/composables/useChart'
+import { chartColors, alpha } from '@/utils/chartTheme'
 
 const { refs: { contractChartRef, targetChartRef }, echarts, initChart } = useChart('contractChartRef', 'targetChartRef')
 
@@ -341,7 +343,7 @@ const fetchOverview = async () => {
   try {
     const res = await getTeamOverview(getDateParams())
     if (res.code === 200) Object.assign(overview, res.data)
-  } catch (e) { console.error('获取概览失败:', e) }
+  } catch (e) { reportError('获取概览失败:', e) }
 }
 
 const fetchSalesBreakdown = async () => {
@@ -353,7 +355,7 @@ const fetchSalesBreakdown = async () => {
       renderContractChart(res.data)
       renderTargetChart(res.data)
     }
-  } catch (e) { console.error('获取销售实况失败:', e) }
+  } catch (e) { reportError('获取销售实况失败:', e) }
   finally { loading.value = false }
 }
 
@@ -372,8 +374,8 @@ const renderContractChart = (data) => {
       barWidth: '60%',
       itemStyle: {
         color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-          { offset: 0, color: '#2563eb' },
-          { offset: 1, color: '#60a5fa' }
+          { offset: 0, color: chartColors.primary },
+          { offset: 1, color: alpha(chartColors.primary, 0.45) }
         ]),
         borderRadius: [0, 4, 4, 0]
       }
@@ -395,7 +397,7 @@ const renderTargetChart = (data) => {
         type: 'bar',
         data: achievements.map(v => ({
           value: v,
-          itemStyle: { color: v >= 100 ? '#67c23a' : v >= 60 ? '#e6a23c' : '#f56c6c', borderRadius: [0, 4, 4, 0] }
+          itemStyle: { color: v >= 100 ? chartColors.secondary : v >= 60 ? chartColors.tertiary : chartColors.quaternary, borderRadius: [0, 4, 4, 0] }
         })),
         barWidth: '60%',
         label: { show: true, position: 'right', formatter: '{c}%' }
@@ -405,7 +407,7 @@ const renderTargetChart = (data) => {
         markLine: {
           silent: true,
           symbol: 'none',
-          lineStyle: { color: '#f56c6c', type: 'dashed' },
+          lineStyle: { color: chartColors.quaternary, type: 'dashed' },
           data: [{ xAxis: 100, label: { formatter: '100%', position: 'end' } }]
         }
       }
@@ -441,7 +443,7 @@ const loadCustomerDetail = async () => {
       customerDetailList.value = res.data.list
       customerTotal.value = res.data.total
     }
-  } catch (e) { console.error('加载客户列表失败:', e) }
+  } catch (e) { reportError('加载客户列表失败:', e) }
   finally { customerDetailLoading.value = false }
 }
 
@@ -473,7 +475,7 @@ const loadOverdueDetail = async () => {
       overdueDetailList.value = res.data.list
       overdueTotal.value = res.data.total
     }
-  } catch (e) { console.error('加载逾期客户失败:', e) }
+  } catch (e) { reportError('加载逾期客户失败:', e) }
   finally { overdueDetailLoading.value = false }
 }
 

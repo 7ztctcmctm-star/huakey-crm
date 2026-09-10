@@ -23,7 +23,7 @@
     </div>
 
     <!-- 顶部客户信息 -->
-    <el-card class="hero-card" shadow="never" v-loading="loading">
+    <el-card class="hero-card" v-loading="loading">
       <div class="hero-content">
         <!-- 行动卡：下次跟进 / 逾期 / 快捷入口 -->
         <div class="action-card" v-if="customer.id">
@@ -93,7 +93,7 @@
     </div>
 
     <!-- 主内容区：标签页 -->
-    <el-card class="tab-card" shadow="never">
+    <el-card class="tab-card">
       <el-tabs v-model="activeTab">
         <el-tab-pane label="跟进记录" name="follow">
           <div class="tab-toolbar">
@@ -112,7 +112,7 @@
               placement="top"
               :color="followTypeColor(item.follow_type)"
             >
-              <el-card shadow="hover" class="follow-card">
+              <el-card class="follow-card">
                 <div class="follow-header">
                   <el-tag :type="followTypeTag(item.follow_type)" size="small">{{ item.follow_type || '电话' }}</el-tag>
                   <el-tag v-if="item.is_plan" type="warning" size="small">计划</el-tag>
@@ -137,7 +137,7 @@
               </el-card>
             </el-timeline-item>
           </el-timeline>
-          <el-empty v-else description="暂无跟进记录" />
+          <EmptyState v-else title="暂无跟进记录" />
         </el-tab-pane>
 
         <el-tab-pane label="联系人" name="contact">
@@ -188,7 +188,7 @@
               <template #default="{ row }">{{ formatTime(row.create_time) }}</template>
             </el-table-column>
           </el-table>
-          <el-empty v-if="!quoteLoading && quoteList.length === 0" description="暂无报价记录" />
+          <EmptyState v-if="!quoteLoading && quoteList.length === 0" title="暂无报价记录" />
         </el-tab-pane>
 
         <el-tab-pane label="合同记录" name="contract">
@@ -208,7 +208,7 @@
             </el-table-column>
             <el-table-column prop="create_by_name" label="创建人" width="100" />
           </el-table>
-          <el-empty v-if="!contractLoading && contractList.length === 0" description="暂无合同记录" />
+          <EmptyState v-if="!contractLoading && contractList.length === 0" title="暂无合同记录" />
         </el-tab-pane>
 
         <el-tab-pane label="回款记录" name="payment">
@@ -221,7 +221,7 @@
             <el-table-column prop="pay_date" label="回款日期" width="120" />
             <el-table-column prop="remark" label="备注" min-width="160" show-overflow-tooltip />
           </el-table>
-          <el-empty v-if="!paymentLoading && paymentList.length === 0" description="暂无回款记录" />
+          <EmptyState v-if="!paymentLoading && paymentList.length === 0" title="暂无回款记录" />
         </el-tab-pane>
 
         <el-tab-pane label="商机记录" name="opportunity">
@@ -246,12 +246,12 @@
             </el-table-column>
             <el-table-column prop="owner_name" label="负责人" width="100" />
           </el-table>
-          <el-empty v-if="!opportunityLoading && opportunityList.length === 0" description="暂无商机记录" />
+          <EmptyState v-if="!opportunityLoading && opportunityList.length === 0" title="暂无商机记录" />
         </el-tab-pane>
 
         <el-tab-pane label="销售漏斗" name="sales-funnel">
           <div v-if="opportunityList.length === 0" class="tab-toolbar">
-            <el-empty description="暂无商机，无法展示销售漏斗" />
+            <EmptyState title="暂无商机，无法展示销售漏斗" />
           </div>
           <div v-else>
             <div class="funnel-selector">
@@ -288,7 +288,7 @@
               <template #default="{ row }">{{ formatTime(row.create_time) }}</template>
             </el-table-column>
           </el-table>
-          <el-empty v-if="!serviceLoading && serviceList.length === 0" description="暂无服务工单" />
+          <EmptyState v-if="!serviceLoading && serviceList.length === 0" title="暂无服务工单" />
         </el-tab-pane>
 
         <el-tab-pane label="评分记录" name="score">
@@ -303,7 +303,7 @@
             <el-table-column prop="rule_name" label="评分规则" min-width="160" />
             <el-table-column prop="score" label="得分" width="80" align="center">
               <template #default="{ row }">
-                <span :style="{ color: row.score > 0 ? '#67C23A' : '#F56C6C' }">{{ row.score > 0 ? '+' : '' }}{{ row.score }}</span>
+                <span :style="{ color: row.score > 0 ? 'var(--color-success)' : 'var(--color-danger)' }">{{ row.score > 0 ? '+' : '' }}{{ row.score }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="total_score" label="总分" width="80" align="center" />
@@ -312,7 +312,7 @@
               <template #default="{ row }">{{ formatTime(row.create_time) }}</template>
             </el-table-column>
           </el-table>
-          <el-empty v-if="scoreLogs.length === 0" description="暂无评分记录" />
+          <EmptyState v-if="scoreLogs.length === 0" title="暂无评分记录" />
         </el-tab-pane>
 
         <el-tab-pane label="邮件" name="email">
@@ -329,15 +329,15 @@
             <el-table-column prop="subject" label="主题" min-width="200" show-overflow-tooltip />
             <el-table-column prop="is_read" label="状态" width="70" align="center">
               <template #default="{ row }">
-                <span v-if="!row.is_read" style="color:#409eff;font-weight:bold">●</span>
-                <span v-else style="color:#c0c4cc">○</span>
+                <span v-if="!row.is_read" style="color:var(--color-accent);font-weight:bold">●</span>
+                <span v-else style="color:var(--color-text-tertiary)">○</span>
               </template>
             </el-table-column>
             <el-table-column prop="created_at" label="时间" width="160">
               <template #default="{ row }">{{ formatTime(row.received_at || row.sent_at || row.created_at) }}</template>
             </el-table-column>
           </el-table>
-          <el-empty v-if="emailList.length === 0 && !emailLoading" description="暂无关联邮件" />
+          <EmptyState v-if="emailList.length === 0 && !emailLoading" title="暂无关联邮件" />
         </el-tab-pane>
       </el-tabs>
     </el-card>
@@ -453,7 +453,7 @@
           <div class="script-preview">{{ (item.content || '').slice(0, 80) }}{{ (item.content || '').length > 80 ? '...' : '' }}</div>
           <div class="script-meta">使用 {{ item.usage_count || 0 }} 次 · {{ item.scene || '通用' }}</div>
         </div>
-        <el-empty v-if="!scriptLoading && scriptList.length === 0" description="暂无话术" :image-size="48" />
+        <EmptyState v-if="!scriptLoading && scriptList.length === 0" title="暂无话术" compact />
       </div>
     </el-dialog>
 
@@ -540,6 +540,8 @@
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -741,7 +743,7 @@ const fetchDetail = async () => {
       recordVisit('customer', parseInt(id), customer.company_name)
     }
   } catch (error) {
-    console.error('获取客户360视图失败:', error)
+    reportError('获取客户360视图失败:', error)
   } finally {
     loading.value = false
   }
@@ -759,7 +761,7 @@ const handleRelease = () => {
     try {
       const res = await releaseCustomer(customer.id)
       if (res.code === 200) { ElMessage.success('已释放到公海'); fetchDetail() }
-    } catch (e) { console.error('释放失败:', e) }
+    } catch (e) { reportError('释放失败:', e) }
   }).catch(() => {})
 }
 
@@ -896,7 +898,7 @@ const handleContactSubmit = async () => {
       if (isContactEdit.value) { data.id = contactEditId.value; res = await updateContact(data) }
       else { data.customer_id = customer.id; res = await addContact(data) }
       if (res.code === 200) { ElMessage.success(isContactEdit.value ? '修改成功' : '新增成功'); contactDialogVisible.value = false; fetchDetail() }
-    } catch (error) { console.error('提交联系人失败:', error) }
+    } catch (error) { reportError('提交联系人失败:', error) }
     finally { contactSubmitLoading.value = false }
   })
 }
@@ -906,7 +908,7 @@ const handleContactDelete = (row) => {
     try {
       const res = await deleteContact(row.id)
       if (res.code === 200) { ElMessage.success('删除成功'); fetchDetail() }
-    } catch (error) { console.error('删除联系人失败:', error) }
+    } catch (error) { reportError('删除联系人失败:', error) }
   }).catch(() => {})
 }
 
@@ -942,7 +944,7 @@ const followRules = {
   content: [{ required: true, message: '请输入跟进内容', trigger: 'blur' }]
 }
 const followTypeTag = (type) => ({ '电话': 'warning', '拜访': '', '微信': 'success', '邮件': 'info', '其他': '' }[type] || '')
-const followTypeColor = (type) => ({ '电话': 'var(--color-accent)', '拜访': 'var(--color-accent)', '微信': 'var(--color-accent)', '邮件': 'var(--color-text-tertiary)', '其他': '#B3B3B3' }[type] || 'var(--color-accent)')
+const followTypeColor = (type) => ({ '电话': 'var(--color-accent)', '拜访': 'var(--color-accent)', '微信': 'var(--color-accent)', '邮件': 'var(--color-text-tertiary)', '其他': 'var(--color-text-tertiary)' }[type] || 'var(--color-accent)')
 
 const handleFollowAdd = () => {
   isFollowEdit.value = false; followEditId.value = null
@@ -1032,7 +1034,7 @@ const handleFollowSubmit = async () => {
           }).catch(() => {})
         }
       }
-    } catch (error) { console.error('提交跟进记录失败:', error) }
+    } catch (error) { reportError('提交跟进记录失败:', error) }
     finally { followSubmitLoading.value = false }
   })
 }
@@ -1040,7 +1042,7 @@ const handleFollowSubmit = async () => {
 const handleFollowDelete = (item) => {
   ElMessageBox.confirm('确定要删除该跟进记录吗？', '删除确认', { type: 'warning' }).then(async () => {
     try { const res = await deleteFollowUp(item.id); if (res.code === 200) { ElMessage.success('删除成功'); fetchDetail() } }
-    catch (error) { console.error('删除跟进记录失败:', error) }
+    catch (error) { reportError('删除跟进记录失败:', error) }
   }).catch(() => {})
 }
 
@@ -1115,10 +1117,10 @@ onMounted(() => { fetchDetail(); fetchSalesUsers() })
   white-space: nowrap;
 }
 .text-danger {
-  color: #e85c5c;
+  color: var(--color-danger);
 }
 .text-danger .el-icon {
-  color: #e85c5c;
+  color: var(--color-danger);
 }
 .hero-right { flex-shrink: 0; }
 .hero-name {
@@ -1186,9 +1188,9 @@ onMounted(() => { fetchDetail(); fetchSalesUsers() })
 @media (max-width: 768px) {
   .stats-row { grid-template-columns: repeat(2, 1fr); }
 }
-.script-card { padding: 12px; border: 1px solid #f0f0f0; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
-.script-card:hover { border-color: #0071e3; background: #f5f7fa; }
+.script-card { padding: 12px; border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
+.script-card:hover { border-color: var(--color-accent); background: var(--color-bg-secondary); }
 .script-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
-.script-preview { font-size: 12px; color: #86868b; line-height: 1.5; }
-.script-meta { font-size: 11px; color: #aeaeb2; margin-top: 4px; }
+.script-preview { font-size: 12px; color: var(--color-text-secondary); line-height: 1.5; }
+.script-meta { font-size: 11px; color: var(--color-text-tertiary); margin-top: 4px; }
 </style>

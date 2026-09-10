@@ -33,7 +33,7 @@
           </template>
         </el-table-column>
       </el-table>
-      <div v-if="!loading && tableData.length === 0" style="text-align:center;padding:40px;color:#909399">
+      <div v-if="!loading && tableData.length === 0" style="text-align:center;padding:40px;color: var(--color-text-secondary)">
         暂无评分数据，请先
         <el-button type="primary" link @click="goToRules">配置评分规则</el-button>
         并计算评分
@@ -79,7 +79,7 @@ onMounted(() => { fetchRanking() })
 .page-desc { margin: var(--space-1) 0 0; font-size: 13px; color: var(--color-text-tertiary); }
 .rank-badge {
   display: inline-block; width: 24px; height: 24px; line-height: 24px; text-align: center;
-  border-radius: 50%; font-size: 13px; font-weight: 600; color: #909399; background: #f5f5f5;
+  border-radius: 50%; font-size: 13px; font-weight: 600; color: var(--color-text-secondary); background: #f5f5f5;
 }
 .rank-badge.top { color: #fff; background: linear-gradient(135deg, #f5a623, #f7c948); }
 .score-value { font-size: 18px; font-weight: 700; color: var(--color-accent); }

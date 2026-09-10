@@ -5,7 +5,7 @@
       <el-button @click="goBack">返回</el-button>
     </div>
 
-    <el-card shadow="never" v-if="comparison">
+    <el-card v-if="comparison">
       <template #header>
         <div class="card-header">
           <span class="section-title">{{ comparison.comparison_no }} · {{ comparison.title }}</span>
@@ -22,7 +22,7 @@
       </el-descriptions>
     </el-card>
 
-    <el-card shadow="never" style="margin-top: 24px">
+    <el-card style="margin-top: 24px">
       <template #header>
         <div class="card-header">
           <span class="section-title">供应商报价对比</span>
@@ -33,7 +33,7 @@
       </template>
 
       <el-radio-group v-if="items.length > 0" v-model="selectedSupplierId" style="width: 100%">
-        <el-table :data="items" stripe style="width: 100%" :row-class-name="rowClassName">
+        <el-table :data="items" style="width: 100%" :row-class-name="rowClassName">
           <el-table-column width="60" align="center">
             <template #default="{ row }">
               <el-radio :value="row.supplier_id" :disabled="comparison?.status !== 'draft'">
@@ -58,7 +58,7 @@
         </el-table>
       </el-radio-group>
 
-      <el-empty v-else description="暂无供应商报价" />
+      <EmptyState v-else title="暂无供应商报价" />
 
       <div v-if="comparison?.status === 'draft' && items.length > 0" class="action-bar">
         <el-button type="success" @click="handleSelectSupplier" :disabled="!selectedSupplierId">
@@ -101,6 +101,8 @@
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
+import { reportError, reportWarn } from '@/utils/error'
 import { reactive, ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -172,7 +174,7 @@ const fetchSuppliers = async () => {
       supplierOptions.value = res.data || []
     }
   } catch (error) {
-    console.error('获取供应商失败:', error)
+    reportError('获取供应商失败:', error)
   }
 }
 
@@ -186,7 +188,7 @@ const fetchDetail = async () => {
       selectedSupplierId.value = comparison.value.selected_supplier_id || null
     }
   } catch (error) {
-    console.error('获取比价详情失败:', error)
+    reportError('获取比价详情失败:', error)
     ElMessage.error('加载失败')
   } finally {
     loading.value = false
@@ -207,7 +209,7 @@ const handleAddQuote = async () => {
       fetchDetail()
     }
   } catch (error) {
-    console.error('添加报价失败:', error)
+    reportError('添加报价失败:', error)
     ElMessage.error(error?.response?.data?.message || '添加失败')
   } finally {
     quoteSubmitting.value = false
@@ -222,7 +224,7 @@ const handleSelectSupplier = async () => {
       fetchDetail()
     }
   } catch (error) {
-    console.error('选择供应商失败:', error)
+    reportError('选择供应商失败:', error)
     ElMessage.error(error?.response?.data?.message || '选择失败')
   }
 }
@@ -235,7 +237,7 @@ const handleAutoSelect = async () => {
       fetchDetail()
     }
   } catch (error) {
-    console.error('自动选择失败:', error)
+    reportError('自动选择失败:', error)
     ElMessage.error(error?.response?.data?.message || '选择失败')
   }
 }

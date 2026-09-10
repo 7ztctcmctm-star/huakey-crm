@@ -10,7 +10,7 @@
     </div>
 
     <!-- 基本信息 -->
-    <el-card shadow="never" style="margin-bottom:16px">
+    <el-card style="margin-bottom:16px">
       <el-descriptions :column="4" border size="small">
         <el-descriptions-item label="规模">{{ {large:'大型',medium:'中型',small:'小型',micro:'微型'}[competitor.scale] || '-' }}</el-descriptions-item>
         <el-descriptions-item label="总部">{{ competitor.headquarters || '-' }}</el-descriptions-item>
@@ -28,7 +28,7 @@
     <el-tabs v-model="activeTab">
       <!-- 交锋记录 -->
       <el-tab-pane label="交锋记录" name="encounters">
-        <el-card shadow="never">
+        <el-card>
           <div class="toolbar"><el-button type="primary" :icon="Plus" @click="handleCreateEncounter">新增交锋记录</el-button></div>
           <el-table :data="encounters" stripe border>
             <el-table-column prop="encounter_date" label="日期" width="110" />
@@ -58,7 +58,7 @@
 
       <!-- 情报中心 -->
       <el-tab-pane label="情报中心" name="intel">
-        <el-card shadow="never">
+        <el-card>
           <div class="toolbar"><el-button type="primary" :icon="Plus" @click="handleCreateIntel">新增情报</el-button></div>
           <div v-for="item in intelList" :key="item.id" class="intel-card" :class="'intel-' + item.importance">
             <div class="intel-header">
@@ -73,7 +73,7 @@
               <el-button type="danger" link size="small" @click="handleDeleteIntel(item)">删除</el-button>
             </div>
           </div>
-          <el-empty v-if="intelList.length === 0" description="暂无情报" :image-size="60" />
+          <EmptyState v-if="intelList.length === 0" title="暂无情报" compact />
         </el-card>
       </el-tab-pane>
 
@@ -81,17 +81,17 @@
       <el-tab-pane label="优劣势分析" name="swot">
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-card shadow="never">
-              <template #header><span style="color:#34c759;font-weight:600">优势</span></template>
+            <el-card>
+              <template #header><span class="text-success" style="font-weight:600">优势</span></template>
               <div v-for="(s, idx) in strengths" :key="idx" class="swot-item strength">{{ s }}</div>
-              <el-empty v-if="strengths.length === 0" description="暂无数据" :image-size="40" />
+              <EmptyState v-if="strengths.length === 0" title="暂无数据" compact />
             </el-card>
           </el-col>
           <el-col :span="12">
-            <el-card shadow="never">
-              <template #header><span style="color:#f56c6c;font-weight:600">劣势</span></template>
+            <el-card>
+              <template #header><span class="text-danger" style="font-weight:600">劣势</span></template>
               <div v-for="(w, idx) in weaknesses" :key="idx" class="swot-item weakness">{{ w }}</div>
-              <el-empty v-if="weaknesses.length === 0" description="暂无数据" :image-size="40" />
+              <EmptyState v-if="weaknesses.length === 0" title="暂无数据" compact />
             </el-card>
           </el-col>
         </el-row>
@@ -147,6 +147,7 @@
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -251,9 +252,9 @@ onMounted(() => { fetchDetail(); fetchEncounters(); fetchIntel(); fetchCustomers
 .toolbar { margin-bottom: var(--space-4); }
 
 .intel-card { padding: 16px; border: 1px solid var(--color-border); border-radius: 12px; margin-bottom: 12px; }
-.intel-high { border-left: 4px solid #f56c6c; }
-.intel-medium { border-left: 4px solid #e6a23c; }
-.intel-low { border-left: 4px solid #909399; }
+.intel-high { border-left: 4px solid var(--color-danger); }
+.intel-medium { border-left: 4px solid var(--color-warning); }
+.intel-low { border-left: 4px solid var(--color-text-secondary); }
 .intel-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .intel-source { font-size: 12px; color: var(--color-text-tertiary); }
 .intel-time { font-size: 12px; color: var(--color-text-tertiary); margin-left: auto; }
@@ -262,6 +263,6 @@ onMounted(() => { fetchDetail(); fetchEncounters(); fetchIntel(); fetchCustomers
 .intel-actions { text-align: right; }
 
 .swot-item { padding: 8px 12px; margin-bottom: 8px; border-radius: 8px; font-size: 14px; }
-.strength { background: #f0fdf4; color: #166534; }
-.weakness { background: #fef2f2; color: #991b1b; }
+.strength { background: var(--color-success-bg); color: var(--color-success); }
+.weakness { background: var(--color-danger-bg); color: var(--color-danger); }
 </style>

@@ -1,6 +1,6 @@
 <template>
   <div class="quotation-edit">
-    <el-card shadow="never">
+    <el-card>
       <div class="page-header">
         <h2>{{ isEdit ? '编辑报价单' : '新建报价单' }}</h2>
         <div class="header-actions">
@@ -193,7 +193,7 @@
 
           <!-- 空状态 -->
           <div v-if="formData.items.length === 0" class="empty-state">
-            <el-icon :size="48" color="#ccc"><ShoppingCart /></el-icon>
+            <el-icon :size="48" color="var(--color-text-tertiary)"><ShoppingCart /></el-icon>
             <p>暂无产品，请点击上方按钮添加产品</p>
           </div>
         </div>
@@ -286,12 +286,13 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Plus, Delete, ShoppingCart } from '@element-plus/icons-vue'
 import request from '@/utils/request'
-import { getQuoteList, addQuote, updateQuote, deleteQuote, approveQuote, quoteToContract, getQuoteDetail } from '@/api/contract'
+import { getQuoteList, addQuote, updateQuote, deleteQuote, approveQuote, quoteToContract, getQuoteDetail } from '@/api/quotation'
 import { getCustomerList, getCustomerDetail } from '@/api/customer'
 import { getProductList, getProductCategories } from '@/api/product'
 import { getCurrencyList } from '@/api/system'
@@ -391,7 +392,7 @@ const searchCustomers = async (query) => {
       customerOptions.value = res.data.list
     }
   } catch (error) {
-    console.error('搜索客户失败:', error)
+    reportError('搜索客户失败:', error)
   } finally {
     customerLoading.value = false
   }
@@ -409,7 +410,7 @@ const handleCustomerChange = async () => {
       customerInfo.value = res.data.customer
     }
   } catch (error) {
-    console.error('获取客户详情失败:', error)
+    reportError('获取客户详情失败:', error)
   }
 }
 
@@ -430,7 +431,7 @@ const fetchProducts = async () => {
       productTotal.value = res.data.total
     }
   } catch (error) {
-    console.error('获取产品列表失败:', error)
+    reportError('获取产品列表失败:', error)
   } finally {
     productLoading.value = false
   }
@@ -444,7 +445,7 @@ const fetchCategories = async () => {
       categories.value = res.data
     }
   } catch (error) {
-    console.error('获取产品分类失败:', error)
+    reportError('获取产品分类失败:', error)
   }
 }
 
@@ -530,7 +531,7 @@ const fetchQuoteDetail = async () => {
       await handleCustomerChange()
     }
   } catch (error) {
-    console.error('获取报价单详情失败:', error)
+    reportError('获取报价单详情失败:', error)
   }
 }
 
@@ -577,7 +578,7 @@ const handleSubmit = async () => {
       router.push('/quotation')
     }
   } catch (error) {
-    console.error('提交失败:', error)
+    reportError('提交失败:', error)
     ElMessage.error('提交失败')
   } finally {
     submitLoading.value = false
@@ -594,7 +595,9 @@ const fetchCurrencyList = async () => {
   try {
     const res = await getCurrencyList()
     if (res.code === 200) currencyList.value = res.data
-  } catch {}
+  } catch (e) {
+    reportWarn('获取货币列表失败:', e)
+  }
 }
 
 onMounted(() => {

@@ -542,7 +542,10 @@ async function getOpportunityWithPermission(pool, id, permission = null) {
  */
 async function getStageLog(pool, opportunityId) {
   const [logs] = await pool.query(
-    `SELECT l.id, l.from_stage, l.to_stage, l.change_reason, l.changed_at, l.create_time,
+    // 注意：本表的时间列名为 changed_at，不存在 create_time。
+    // 历史上迁移 011 曾用 create_time 建列，后续 schema 已统一为 changed_at，
+    // 但此处查询未同步更新，导致 SELECT 引用不存在的列、接口恒定返回 500。
+    `SELECT l.id, l.from_stage, l.to_stage, l.change_reason, l.changed_at,
       u.real_name as changed_by_name,
       TIMESTAMPDIFF(HOUR, l.changed_at,
         COALESCE(

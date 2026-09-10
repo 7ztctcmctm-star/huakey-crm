@@ -1,3 +1,4 @@
+import { reportError, reportWarn } from '@/utils/error'
 /**
  * SSE 实时通知客户端
  * 自动携带 token，支持重连与心跳，支持多组件同时监听
@@ -41,7 +42,7 @@ export function connectSSE(callbacks = {}) {
       const payload = JSON.parse(event.data)
       messageCallbacks.forEach(cb => cb(payload))
     } catch (e) {
-      console.error('[SSE] 消息解析失败:', e)
+      reportError('[SSE] 消息解析失败:', e)
     }
   }
 
@@ -72,7 +73,7 @@ export function offMessage(callback) {
 function scheduleReconnect(callbacks) {
   if (reconnectTimer) return
   if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-    console.warn('[SSE] 已达最大重连次数，停止重连')
+    reportWarn('[SSE] 已达最大重连次数，停止重连')
     return
   }
   reconnectAttempts += 1

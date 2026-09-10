@@ -5,7 +5,7 @@
       <el-button type="primary" :icon="Upload" @click="handleUpload">上传文档</el-button>
     </div>
 
-    <el-card shadow="never" class="search-card">
+    <el-card class="search-card">
       <el-form :model="search" inline @keyup.enter="fetchList">
         <el-form-item><el-input v-model="search.keyword" placeholder="搜索文档名称" clearable style="width:220px" /></el-form-item>
         <el-form-item>

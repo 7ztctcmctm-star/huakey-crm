@@ -10,7 +10,7 @@
         </div>
       </template>
 
-      <el-table :data="list" v-loading="loading" stripe border :header-cell-style="{ background: '#fafafa' }">
+      <el-table :data="list" v-loading="loading" stripe border :header-cell-style="{ background: 'var(--color-bg-secondary)' }">
         <el-table-column prop="code" label="货币代码" width="100" />
         <el-table-column prop="name" label="货币名称" width="120" />
         <el-table-column prop="symbol" label="符号" width="80" align="center">

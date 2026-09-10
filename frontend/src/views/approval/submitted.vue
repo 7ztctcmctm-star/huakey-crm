@@ -21,9 +21,9 @@
           <template #default="{ row }">
             <template v-if="row.approval_history && row.approval_history.length > 0">
               <div v-for="(h, idx) in row.approval_history" :key="idx" class="history-step">
-                <el-icon v-if="h.status === 'approved'" style="color:#67C23A"><SuccessFilled /></el-icon>
-                <el-icon v-else-if="h.status === 'rejected'" style="color:#F56C6C"><CircleCloseFilled /></el-icon>
-                <el-icon v-else style="color:#909399"><Clock /></el-icon>
+                <el-icon v-if="h.status === 'approved'" class="text-success"><SuccessFilled /></el-icon>
+                <el-icon v-else-if="h.status === 'rejected'" class="text-danger"><CircleCloseFilled /></el-icon>
+                <el-icon v-else style="color: var(--color-text-secondary)"><Clock /></el-icon>
                 <span>{{ h.step_name }}: {{ h.approver || '-' }}</span>
                 <span v-if="h.remark" class="history-remark">（{{ h.remark }}）</span>
               </div>
@@ -35,12 +35,14 @@
           <template #default="{ row }">{{ formatTime(row.create_time) }}</template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && tableData.length === 0" description="暂无审批记录" />
+      <EmptyState v-if="!loading && tableData.length === 0" title="暂无审批记录" />
     </el-card>
   </div>
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, onMounted } from 'vue'
 import { SuccessFilled, CircleCloseFilled, Clock } from '@element-plus/icons-vue'
 import { getMySubmitted } from '@/api/tools'
@@ -66,7 +68,7 @@ const fetchList = async () => {
         return row
       })
     }
-  } catch (e) { console.error('[submitted] 获取已提交列表失败:', e) }
+  } catch (e) { reportError('[submitted] 获取已提交列表失败:', e) }
   finally { loading.value = false }
 }
 

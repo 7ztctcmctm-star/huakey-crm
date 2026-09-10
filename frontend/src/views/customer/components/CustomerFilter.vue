@@ -1,6 +1,6 @@
 <template>
   <!-- 快捷Tab -->
-  <el-card shadow="never" style="margin-bottom: 12px;">
+  <el-card style="margin-bottom: 12px;">
     <el-radio-group :model-value="activeQuickTab" @update:model-value="$emit('quick-tab-change', $event)">
       <el-radio-button value="mine">我的客户</el-radio-button>
       <el-radio-button value="all">全部客户</el-radio-button>
@@ -9,7 +9,7 @@
   </el-card>
 
   <!-- 搜索区域 -->
-  <el-card class="search-card" shadow="never">
+  <el-card class="search-card">
     <el-form :model="searchForm" inline @keyup.enter="$emit('search')">
       <el-form-item label="公司名称">
         <el-input v-model="searchForm.company_name" placeholder="请输入公司名称" clearable />
@@ -78,7 +78,7 @@
   </el-alert>
 
   <!-- 状态筛选 Tabs -->
-  <el-card class="tab-card" shadow="never" style="margin-bottom: 12px;">
+  <el-card class="tab-card" style="margin-bottom: 12px;">
     <el-tabs :model-value="activeTab" @tab-change="$emit('tab-change', $event)">
       <el-tab-pane label="全部" name="all" />
       <el-tab-pane label="跟进中" name="following" />

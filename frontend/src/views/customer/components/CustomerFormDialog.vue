@@ -141,6 +141,7 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Delete } from '@element-plus/icons-vue'
@@ -283,7 +284,7 @@ const handleSubmit = async () => {
       emit('success')
     }
   } catch (error) {
-    console.error('提交失败:', error)
+    reportError('提交失败:', error)
   } finally {
     submitLoading.value = false
   }

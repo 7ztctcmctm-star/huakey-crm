@@ -8,7 +8,7 @@
     <!-- 统计卡片 -->
     <div class="stat-cards">
       <div class="stat-card" v-for="s in statCards" :key="s.key" :class="{ clickable: s.key === 'alert' }" @click="s.key === 'alert' && filterAlertProducts()">
-        <div class="stat-value" :style="s.key === 'alert' && alertCount > 0 ? 'color: #dc2626' : ''">{{ s.value }}</div>
+        <div class="stat-value" :style="s.key === 'alert' && alertCount > 0 ? 'color: var(--color-danger)' : ''">{{ s.value }}</div>
         <div class="stat-label">{{ s.label }}</div>
       </div>
     </div>
@@ -17,7 +17,7 @@
     </el-alert>
 
     <!-- 筛选 -->
-    <el-card shadow="never" class="search-card">
+    <el-card class="search-card">
       <el-form :model="search" inline @keyup.enter="fetchList">
         <el-form-item><el-input v-model="search.keyword" placeholder="产品名称/编码" clearable style="width:180px" /></el-form-item>
         <el-form-item>
@@ -35,8 +35,8 @@
     </el-card>
 
     <!-- 列表 -->
-    <el-card shadow="never">
-      <el-table :data="list" stripe border v-loading="loading">
+    <el-card>
+      <el-table :data="list" v-loading="loading">
         <el-table-column prop="name" label="产品名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="code" label="编码" width="120" />
         <el-table-column prop="category" label="分类" width="100" />
@@ -213,7 +213,7 @@ onMounted(() => { fetchList(); fetchStats(); fetchCategories() })
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); }
 .page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); }
 .stat-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: var(--space-4); }
-.stat-card { background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); text-align: center; }
+
 .stat-value { font-size: 28px; font-weight: 700; color: var(--color-text); }
 .stat-label { font-size: 13px; color: var(--color-text-tertiary); margin-top: 4px; }
 .search-card { margin-bottom: var(--space-4); }

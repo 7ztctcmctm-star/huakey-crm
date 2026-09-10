@@ -10,6 +10,8 @@
 #   1. 已按部署攻略第 8-9 步将项目文件上传并解压到当前目录
 #   2. 当前目录应包含：docker-compose.synology.yml、.env.synology、.env.secrets、backend/、frontend/、database/、deploy/
 #   3. .env.secrets 已填入真实凭据并设置 chmod 600
+#   4. nginx/certs/ 下已放置 SSL 证书（server.crt / server.key），
+#      可由 deploy/_https_deploy.sh 生成自签证书；证书不入仓库
 # ============================================
 
 set -e
@@ -36,6 +38,26 @@ for f in docker-compose.synology.yml .env.synology .env.secrets; do
         exit 1
     fi
 done
+
+# 部署期间累积 P0 步骤的失败数。
+# 设计取舍：不采用「失败即中止」——那样会在容器已启动、系统处于半成品状态时中断部署。
+# 改为「记录失败 → 流程跑完 → 最后以非零码退出并醒目汇总」：
+# 既不留半成品状态，又让失败对操作者与 CI 可检测。
+DEPLOY_FAILURES=0
+
+# SSL 证书前置检查
+# nginx/nginx.conf 强依赖 /etc/nginx/certs/server.crt|key（由 ./nginx/certs 挂载），
+# 而证书不入仓库。若缺失，nginx 容器会启动失败并不断重启（crash-loop），
+# 排查成本远高于在此处直接给出明确错误。
+if [ ! -f "$PROJECT_DIR/nginx/certs/server.crt" ] || [ ! -f "$PROJECT_DIR/nginx/certs/server.key" ]; then
+    echo "FATAL: 未找到 SSL 证书 nginx/certs/server.crt 或 server.key"
+    echo ""
+    echo "证书不入仓库，请先二选一："
+    echo "  a) 生成自签证书：bash deploy/_https_deploy.sh"
+    echo "  b) 将正式证书放入 nginx/certs/（server.crt + server.key）"
+    exit 1
+fi
+echo "  ✓ SSL 证书已就位"
 
 # 1. 从安全源注入生产敏感凭据
 # 说明：真实密码/JWT Secret 等敏感信息存放在 .env.secrets 中，
@@ -147,7 +169,9 @@ echo ""
 echo "[9/12] 验证数据库迁移结果..."
 MIGRATE_LOG=$(docker logs huakey-app 2>&1 | grep "迁移.*完成" || echo "")
 if [ -z "$MIGRATE_LOG" ]; then
-    echo "  ⚠ 未找到迁移完成日志，请手动检查：docker logs huakey-app | grep 迁移"
+    echo "  ✗ [P0-5] 未找到迁移完成日志，无法确认迁移已成功"
+    echo "      排查：docker logs huakey-app | grep 迁移"
+    DEPLOY_FAILURES=$((DEPLOY_FAILURES + 1))
 else
     echo "  ✓ $MIGRATE_LOG"
 fi
@@ -167,12 +191,34 @@ echo "  ✓ 初始管理员账号 admin 已就绪（首次登录强制改密）"
 # 11. 初始化角色权限
 echo ""
 echo "[11/12] 初始化角色权限..."
-docker exec huakey-app node scripts/init_role_permissions.js || echo "  [WARNING] 角色权限初始化失败，请手动检查"
+if docker exec huakey-app node scripts/init_role_permissions.js; then
+    echo "  ✓ 角色权限已初始化"
+else
+    echo "  ✗ [P0-3] 角色权限初始化失败——权限码未同步会破坏 RBAC"
+    echo "      排查：docker exec huakey-app node scripts/init_role_permissions.js"
+    DEPLOY_FAILURES=$((DEPLOY_FAILURES + 1))
+fi
 
 # 12. 完成
 echo ""
 echo "[12/12] 部署完成"
 echo ""
+
+# P0 步骤存在失败时：服务已启动，但不得视为部署成功
+if [ "$DEPLOY_FAILURES" -gt 0 ]; then
+    echo "=========================================="
+    echo "  ⚠ 流程已跑完，但有 $DEPLOY_FAILURES 个 P0 步骤未通过"
+    echo "=========================================="
+    echo ""
+    echo "服务已启动，但以下事项未确认成功，请人工核查上方标记 ✗ 的步骤后"
+    echo "再对外提供服务："
+    echo "  · 数据库迁移结果        （P0-5）"
+    echo "  · 角色权限初始化        （P0-3）"
+    echo ""
+    echo "以非零退出码结束，便于 CI / 运维脚本检测失败。"
+    exit 1
+fi
+
 echo "=========================================="
 echo "  部署完成！"
 echo "=========================================="

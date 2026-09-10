@@ -13,7 +13,7 @@
     <el-tabs v-model="activeTab">
       <!-- 佣金计算 -->
       <el-tab-pane label="佣金计算" name="calc">
-        <el-card shadow="never">
+        <el-card>
           <div class="toolbar">
             <el-date-picker v-model="calcMonth" type="month" placeholder="选择月份" value-format="YYYY-MM" style="width:160px" />
             <el-button type="primary" :loading="calcLoading" @click="handleCalculate" style="margin-left:8px">计算佣金</el-button>
@@ -31,16 +31,16 @@
               <template #default="{ row }">{{ row.rate }}%</template>
             </el-table-column>
             <el-table-column prop="commission_amount" label="佣金金额" width="120" align="right">
-              <template #default="{ row }"><span style="color:#059669;font-weight:600">¥{{ Number(row.commission_amount).toLocaleString() }}</span></template>
+              <template #default="{ row }"><span class="text-success font-semibold">¥{{ Number(row.commission_amount).toLocaleString() }}</span></template>
             </el-table-column>
           </el-table>
-          <el-empty v-else description="选择月份后点击计算" :image-size="60" />
+          <EmptyState v-else title="选择月份后点击计算" compact />
         </el-card>
       </el-tab-pane>
 
       <!-- 佣金记录 -->
       <el-tab-pane label="佣金记录" name="records">
-        <el-card shadow="never">
+        <el-card>
           <div class="toolbar">
             <el-date-picker v-model="recordMonth" type="month" placeholder="月份" value-format="YYYY-MM" clearable style="width:140px" @change="fetchRecords" />
             <el-select v-model="recordStatus" placeholder="状态" clearable style="width:120px;margin-left:8px" @change="fetchRecords">
@@ -52,7 +52,7 @@
           <el-table :data="records" stripe border v-loading="recordsLoading" @selection-change="onSelectionChange">
             <el-table-column type="expand">
               <template #default="{ row }">
-                <div style="padding: 12px 20px; background: #fafafa;">
+                <div class="expand-detail">
                   <el-descriptions :column="3" size="small" border>
                     <el-descriptions-item label="来源类型">{{ row.business_type === 'contract' ? '合同' : '回款' }}</el-descriptions-item>
                     <el-descriptions-item label="来源单据">{{ row.business_no || '-' }}</el-descriptions-item>
@@ -93,7 +93,7 @@
 
       <!-- 佣金规则 -->
       <el-tab-pane label="佣金规则" name="rules">
-        <el-card shadow="never">
+        <el-card>
           <div class="toolbar"><el-button type="primary" @click="handleCreateRule">新增规则</el-button></div>
           <el-table :data="rules" stripe border>
             <el-table-column prop="name" label="规则名称" min-width="160" />
@@ -145,6 +145,7 @@
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
@@ -271,9 +272,10 @@ onMounted(() => { fetchStats(); fetchRecords(); fetchRules() })
 .page-header { margin-bottom: var(--space-4); }
 .page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); }
 .stat-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: var(--space-4); }
-.stat-card { background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); text-align: center; }
+
 .stat-value { font-size: 24px; font-weight: 700; color: var(--color-text); }
 .stat-label { font-size: 13px; color: var(--color-text-tertiary); margin-top: 4px; }
 .toolbar { display: flex; align-items: center; margin-bottom: var(--space-4); }
 .pagination { display: flex; justify-content: flex-end; margin-top: var(--space-4); }
+.expand-detail { padding: 12px 20px; background: var(--color-bg-secondary); }
 </style>

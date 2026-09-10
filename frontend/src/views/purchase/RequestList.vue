@@ -7,7 +7,7 @@
       </el-button>
     </div>
 
-    <el-card shadow="never" class="filter-card">
+    <el-card class="filter-card">
       <el-form :inline="true" :model="filters" @submit.prevent="handleSearch">
         <el-form-item label="状态">
           <el-select v-model="filters.status" placeholder="全部状态" clearable style="width: 140px">
@@ -29,8 +29,8 @@
       </el-form>
     </el-card>
 
-    <el-card shadow="never" style="margin-top: 24px">
-      <el-table :data="list" stripe v-loading="loading" style="width: 100%">
+    <el-card style="margin-top: 24px">
+      <el-table :data="list" v-loading="loading" style="width: 100%">
         <el-table-column prop="request_no" label="申请编号" width="160" />
         <el-table-column prop="title" label="标题" min-width="180" show-overflow-tooltip />
         <el-table-column prop="applicant_name" label="申请人" width="120" />
@@ -69,6 +69,7 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { reactive, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -125,7 +126,7 @@ const fetchList = async () => {
       pagination.total = res.data.total || 0
     }
   } catch (error) {
-    console.error('获取采购申请列表失败:', error)
+    reportError('获取采购申请列表失败:', error)
     ElMessage.error('加载失败')
   } finally {
     loading.value = false

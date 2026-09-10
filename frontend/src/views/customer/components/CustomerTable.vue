@@ -1,5 +1,5 @@
 <template>
-  <el-card class="table-card" shadow="never">
+  <el-card class="table-card">
     <div class="toolbar">
       <el-button type="primary" :icon="Plus" @click="$emit('add')" v-permission="'customer:add'">新增客户</el-button>
       <el-button type="success" :icon="Upload" @click="$emit('import')" v-permission="'customer:import'">导入Excel</el-button>
@@ -53,22 +53,19 @@
     </div>
 
     <!-- 表格 -->
+    <TableSkeleton v-if="loading" :rows="8" :cols="7" />
     <el-table
-      v-loading="loading"
+      v-show="!loading"
       ref="tableRef"
       @selection-change="$emit('selection-change', $event)"
       :data="tableData"
-      stripe border
       style="width: 100%"
       :row-class-name="rowClassName"
-      :header-cell-style="{ background: 'var(--color-bg)', color: 'var(--color-text-secondary)' }"
     >
       <template #empty>
-        <el-empty description="">
-          <template v-if="viewMode === 'mine'">暂无负责的客户</template>
-          <template v-else>暂无客户数据</template>
+        <EmptyState :title="viewMode === 'mine' ? '暂无负责的客户' : '暂无客户数据'">
           <el-button type="primary" @click="$emit('add')" v-permission="'customer:add'">新增第一个客户</el-button>
-        </el-empty>
+        </EmptyState>
       </template>
       <el-table-column type="selection" width="50" />
       <el-table-column prop="company_name" label="公司名称" min-width="180" show-overflow-tooltip />
@@ -85,7 +82,7 @@
       </el-table-column>
       <el-table-column prop="primary_contact_phone" label="电话" width="130" class-name="hide-mobile">
         <template #default="{ row }">
-          <a v-if="row.primary_contact_phone" :href="'tel:' + row.primary_contact_phone" style="color: var(--el-color-primary); text-decoration: none;">{{ row.primary_contact_phone }}</a>
+          <a v-if="row.primary_contact_phone" :href="'tel:' + row.primary_contact_phone" style="color: var(--color-accent); text-decoration: none;">{{ row.primary_contact_phone }}</a>
           <span v-else>-</span>
         </template>
       </el-table-column>
@@ -98,10 +95,9 @@
         <template #default="{ row }">
           <el-tag
             :type="levelTagType(row.level)"
-            :color="levelColor(row.level)"
-            effect="dark"
-            size="large"
-            style="font-weight:bold;min-width:60px"
+            effect="light"
+            size="default"
+            style="font-weight:600;min-width:60px"
           >
             {{ levelLabel(row.level) }}
           </el-tag>
@@ -117,15 +113,15 @@
       <el-table-column label="标签" width="160">
         <template #default="{ row }">
           <template v-if="row.tags && row.tags.length">
-            <el-tag v-for="t in row.tags" :key="t.id" :color="t.color" size="small" effect="dark" style="margin: 1px 2px">{{ t.name }}</el-tag>
+            <el-tag v-for="t in row.tags" :key="t.id" :color="t.color" size="small" effect="light" style="margin: 1px 2px">{{ t.name }}</el-tag>
           </template>
-          <span v-else style="color:#999;font-size:12px">-</span>
+          <span v-else style="color:var(--color-text-tertiary);font-size:12px">-</span>
         </template>
       </el-table-column>
       <el-table-column label="最后跟进" width="150">
         <template #default="{ row }">
           <el-tooltip v-if="row.last_follow_time" :content="fullTime(row.last_follow_time)" placement="top">
-            <span :style="{ color: isOverdue(row.last_follow_time) ? '#e85c5c' : '' }">
+            <span :style="{ color: isOverdue(row.last_follow_time) ? 'var(--color-danger)' : '' }">
               {{ relativeTime(row.last_follow_time) }}
             </span>
           </el-tooltip>
@@ -135,7 +131,7 @@
       <el-table-column label="距下次跟进" width="140" align="center">
         <template #default="{ row }">
           <el-tooltip v-if="row.next_follow_time" :content="fullTime(row.next_follow_time)" placement="top">
-            <span :style="{ color: isNextFollowOverdue(row.next_follow_time) ? '#e85c5c' : '' }">
+            <span :style="{ color: isNextFollowOverdue(row.next_follow_time) ? 'var(--color-danger)' : '' }">
               {{ relativeNextTime(row.next_follow_time) }}
             </span>
           </el-tooltip>
@@ -149,19 +145,19 @@
           </el-tooltip>
         </template>
       </el-table-column>
-      <el-table-column label="操作" :width="isBoss || isManager ? 380 : 300" fixed="right">
+      <el-table-column label="操作" width="180" fixed="right">
         <template #default="{ row }">
-          <el-button type="success" size="small" :icon="ChatLineRound" @click="$emit('quick-follow', row)" v-permission="'customer:edit'">跟进</el-button>
-          <el-button v-if="isBoss || isManager" type="warning" size="small" @click="$emit('assign', row)" v-permission="'customer:assign'">分配</el-button>
-          <el-button v-if="canForward(row)" type="primary" size="small" :icon="ArrowRight" @click="handleForward(row)" v-permission="'customer:edit'">推进</el-button>
-          <el-button v-if="canBackward(row)" type="info" size="small" :icon="ArrowLeft" @click="handleBackward(row)" v-permission="'customer:edit'">回退</el-button>
+          <el-button type="primary" link :icon="View" @click="$emit('view', row)">查看</el-button>
+          <el-button type="primary" link :icon="Edit" @click="$emit('edit', row)" v-permission="'customer:edit'">编辑</el-button>
           <el-dropdown trigger="click" @command="(cmd) => handleMoreAction(cmd, row)">
-            <el-button size="small">更多</el-button>
+            <el-button link type="primary">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="view">查看</el-dropdown-item>
-                <el-dropdown-item v-if="hasPermission('customer:edit')" command="edit">编辑</el-dropdown-item>
-                <el-dropdown-item v-if="hasPermission('customer:delete')" command="delete" divided :style="{ color: 'var(--color-accent)' }">删除</el-dropdown-item>
+                <el-dropdown-item v-permission="'customer:edit'" command="quick-follow">跟进</el-dropdown-item>
+                <el-dropdown-item v-if="isBoss || isManager" v-permission="'customer:assign'" command="assign">分配</el-dropdown-item>
+                <el-dropdown-item v-if="canForward(row)" v-permission="'customer:edit'" command="forward">推进</el-dropdown-item>
+                <el-dropdown-item v-if="canBackward(row)" v-permission="'customer:edit'" command="backward">回退</el-dropdown-item>
+                <el-dropdown-item v-permission="'customer:delete'" command="delete" divided class="text-danger">删除</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -186,9 +182,11 @@
 </template>
 
 <script setup>
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus, Upload, Download, DataAnalysis, ChatLineRound, Select, ArrowRight, ArrowLeft } from '@element-plus/icons-vue'
+import { Plus, Upload, Download, DataAnalysis, ChatLineRound, Select, View, Edit, ArrowDown } from '@element-plus/icons-vue'
 import { relativeTime, fullTime, relativeNextTime } from '@/composables/useRelativeTime'
 import { hasPermission } from '@/utils/permission'
 import { forwardCustomer, backwardCustomer } from '@/api/customer'
@@ -224,11 +222,6 @@ const levelTagType = (level) => {
 const levelLabel = (level) => {
   const map = { A: 'A级-重点', B: 'B级-意向', C: 'C级-潜在', D: 'D级-冷淡' }
   return map[level] || level || '-'
-}
-
-const levelColor = (level) => {
-  const map = { A: 'var(--color-accent)', B: 'var(--color-accent)', C: 'var(--color-accent)', D: 'var(--color-text-tertiary)' }
-  return map[level]
 }
 
 const statusTagType = (status) => {
@@ -273,8 +266,10 @@ const rowClassName = ({ row }) => {
 }
 
 const handleMoreAction = (command, row) => {
-  if (command === 'view') emit('view', row)
-  else if (command === 'edit') emit('edit', row)
+  if (command === 'quick-follow') emit('quick-follow', row)
+  else if (command === 'assign') emit('assign', row)
+  else if (command === 'forward') handleForward(row)
+  else if (command === 'backward') handleBackward(row)
   else if (command === 'delete') emit('delete', row)
 }
 

@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import request from '@/utils/request'
+import { reportError, reportWarn } from '@/utils/error'
 
 const userInfo = ref(null)
 let authChecked = false
@@ -19,7 +20,7 @@ async function verifyAuth() {
       userInfo.value = res.data
       return true
     }
-  } catch (e) { console.error('[useUser] 验证登录状态失败:', e) }
+  } catch (e) { reportError('[useUser] 验证登录状态失败:', e) }
   userInfo.value = null
   return false
 }

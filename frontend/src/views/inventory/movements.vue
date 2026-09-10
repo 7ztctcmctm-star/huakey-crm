@@ -5,7 +5,7 @@
       <el-button @click="$router.push('/inventory')">返回库存</el-button>
     </div>
 
-    <el-card shadow="never" class="search-card">
+    <el-card class="search-card">
       <el-form :model="search" inline @keyup.enter="fetchList">
         <el-form-item>
           <el-select v-model="search.product_id" placeholder="全部产品" filterable clearable style="width:200px">
@@ -24,14 +24,14 @@
       </el-form>
     </el-card>
 
-    <el-card shadow="never">
-      <el-table :data="list" stripe border v-loading="loading">
+    <el-card>
+      <el-table :data="list" v-loading="loading">
         <el-table-column prop="product_name" label="产品" min-width="160" show-overflow-tooltip />
         <el-table-column prop="movement_type" label="类型" width="80" align="center">
           <template #default="{ row }"><el-tag :type="typeTag[row.movement_type]" size="small">{{ typeName[row.movement_type] }}</el-tag></template>
         </el-table-column>
         <el-table-column prop="quantity" label="数量" width="80" align="center">
-          <template #default="{ row }"><span :style="{ color: row.quantity > 0 ? '#34c759' : '#f56c6c' }">{{ row.quantity > 0 ? '+' : '' }}{{ row.quantity }}</span></template>
+          <template #default="{ row }"><span :class="row.quantity > 0 ? 'text-success' : 'text-danger'">{{ row.quantity > 0 ? '+' : '' }}{{ row.quantity }}</span></template>
         </el-table-column>
         <el-table-column prop="before_qty" label="变动前" width="80" align="center" />
         <el-table-column prop="after_qty" label="变动后" width="80" align="center" />

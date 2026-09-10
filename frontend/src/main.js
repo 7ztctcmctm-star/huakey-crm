@@ -9,6 +9,7 @@ import { initPerfume } from '@/utils/perfume'
 // ElMessage/ElMessageBox 样式（按需导入插件无法自动处理JS调用的样式）
 import 'element-plus/theme-chalk/src/message.scss'
 import 'element-plus/theme-chalk/src/message-box.scss'
+import { reportError, reportWarn } from '@/utils/error'
 
 const app = createApp(App)
 
@@ -21,7 +22,7 @@ app.directive('safe-html', vSafeHtml)
 
 // Vue全局错误处理
 app.config.errorHandler = (err, instance, info) => {
-  console.error('[Vue Error]', {
+  reportError('[Vue Error]', {
     message: err.message,
     stack: err.stack?.substring(0, 300),
     component: instance?.$.type?.name || 'unknown',

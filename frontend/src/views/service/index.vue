@@ -56,9 +56,8 @@
           批量分配 ({{ selectedServiceRows.length }})
         </el-button>
       </div>
-      <el-table v-loading="loading" :data="tableData" stripe border style="width: 100%"
+      <el-table v-loading="loading" :data="tableData" style="width: 100%"
         :row-class-name="tableRowClass"
-        :header-cell-style="{ background: 'var(--color-bg)', color: 'var(--color-text)' }"
         @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="50" :selectable="(row) => row.status === 1" />
         <el-table-column prop="order_no" label="工单编号" min-width="140" show-overflow-tooltip />
@@ -86,10 +85,10 @@
         </el-table-column>
         <el-table-column label="SLA状态" width="120" align="center">
           <template #default="{ row }">
-            <template v-if="row.status >= 5"><span style="color:#999">-</span></template>
-            <template v-else-if="getSlaHours(row) === null"><span style="color:#999">-</span></template>
+            <template v-if="row.status >= 5"><span style="color: var(--color-text-tertiary)">-</span></template>
+            <template v-else-if="getSlaHours(row) === null"><span style="color: var(--color-text-tertiary)">-</span></template>
             <template v-else-if="getSlaHours(row).overdue">
-              <el-tag type="danger" effect="dark" size="small">超时{{ getSlaHours(row).hours }}h</el-tag>
+              <el-tag type="danger" effect="light" size="small">超时{{ getSlaHours(row).hours }}h</el-tag>
             </template>
             <template v-else-if="getSlaHours(row).urgent">
               <el-tag type="warning" size="small">剩余{{ getSlaHours(row).hours }}h</el-tag>
@@ -306,7 +305,7 @@
         <div v-if="detailData.social_records && detailData.social_records.length > 0">
           <el-divider />
           <h4>沟通记录</h4>
-          <el-table :data="detailData.social_records" stripe border size="small" max-height="250">
+          <el-table :data="detailData.social_records" size="small" max-height="250">
             <el-table-column prop="platform" label="平台" width="80">
               <template #default="{ row }">
                 <el-tag size="small" :type="row.platform === 'wechat' ? 'success' : row.platform === 'email' ? 'info' : 'warning'">{{ row.platform }}</el-tag>
@@ -337,13 +336,15 @@
           <div v-if="item._expanded" class="faq-answer">{{ item.answer }}</div>
           <div v-else class="faq-preview">{{ (item.answer || '').slice(0, 60) }}{{ (item.answer || '').length > 60 ? '...' : '' }}</div>
         </div>
-        <el-empty v-if="!faqLoading && faqList.length === 0" description="暂无相关FAQ" :image-size="48" />
+        <EmptyState v-if="!faqLoading && faqList.length === 0" title="暂无相关FAQ" compact />
       </div>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -497,7 +498,7 @@ function getTypes() {
     if (res.code === 200) {
       types.value = res.data
     }
-  }).catch(err => { console.error('获取服务类型失败:', err); ElMessage.error('获取服务类型失败'); })
+  }).catch(err => { reportError('获取服务类型失败:', err); ElMessage.error('获取服务类型失败'); })
 }
 
 function getStatusList() {
@@ -505,7 +506,7 @@ function getStatusList() {
     if (res.code === 200) {
       statusList.value = res.data
     }
-  }).catch(err => { console.error('获取状态列表失败:', err); ElMessage.error('获取状态列表失败'); })
+  }).catch(err => { reportError('获取状态列表失败:', err); ElMessage.error('获取状态列表失败'); })
 }
 
 function getPriorityList() {
@@ -513,7 +514,7 @@ function getPriorityList() {
     if (res.code === 200) {
       priorityList.value = res.data
     }
-  }).catch(err => { console.error('获取优先级列表失败:', err); ElMessage.error('获取优先级列表失败'); })
+  }).catch(err => { reportError('获取优先级列表失败:', err); ElMessage.error('获取优先级列表失败'); })
 }
 
 function getCustomers() {
@@ -552,7 +553,7 @@ function getList() {
       tableData.value = res.data.list
       pagination.total = res.data.total
     }
-  }).catch(err => { console.error('获取工单列表失败:', err); ElMessage.error('获取工单列表失败'); }).finally(() => {
+  }).catch(err => { reportError('获取工单列表失败:', err); ElMessage.error('获取工单列表失败'); }).finally(() => {
     loading.value = false
   })
 }
@@ -680,7 +681,7 @@ function getContracts() {
     if (res.code === 200) {
       contracts.value = res.data.list
     }
-  }).catch(err => { console.error('获取合同列表失败:', err); ElMessage.error('获取合同列表失败'); })
+  }).catch(err => { reportError('获取合同列表失败:', err); ElMessage.error('获取合同列表失败'); })
 }
 
 function handleView(row) {
@@ -689,7 +690,7 @@ function handleView(row) {
       detailData.value = res.data
       detailVisible.value = true
     }
-  }).catch(err => { console.error('获取工单详情失败:', err); ElMessage.error('获取工单详情失败'); })
+  }).catch(err => { reportError('获取工单详情失败:', err); ElMessage.error('获取工单详情失败'); })
 }
 
 function handleAssign(row) {
@@ -706,7 +707,7 @@ function handleSubmitAssign() {
       assignVisible.value = false
       getList()
     }
-  }).catch(err => { console.error('分配工单失败:', err); ElMessage.error('分配工单失败'); }).finally(() => { submitting.value = false })
+  }).catch(err => { reportError('分配工单失败:', err); ElMessage.error('分配工单失败'); }).finally(() => { submitting.value = false })
 }
 
 function handleProcess(row) {
@@ -727,14 +728,14 @@ function handleSubmitProcess() {
         processVisible.value = false
         getList()
       }
-    }).catch(err => { console.error('开始处理失败:', err); ElMessage.error('开始处理失败'); }).finally(() => { submitting.value = false })
+    }).catch(err => { reportError('开始处理失败:', err); ElMessage.error('开始处理失败'); }).finally(() => { submitting.value = false })
   } else {
     finishService({ id: processData.id, finish_desc: processData.finish_desc }).then(res => {
       if (res.code === 200) {
         processVisible.value = false
         getList()
       }
-    }).catch(err => { console.error('完成工单失败:', err); ElMessage.error('完成工单失败'); }).finally(() => { submitting.value = false })
+    }).catch(err => { reportError('完成工单失败:', err); ElMessage.error('完成工单失败'); }).finally(() => { submitting.value = false })
   }
 }
 
@@ -751,7 +752,7 @@ function handleSubmitConfirm() {
       confirmVisible.value = false
       getList()
     }
-  }).catch(err => { console.error('确认工单失败:', err); ElMessage.error('确认工单失败'); }).finally(() => { submitting.value = false })
+  }).catch(err => { reportError('确认工单失败:', err); ElMessage.error('确认工单失败'); }).finally(() => { submitting.value = false })
 }
 
 function handleDelete(row) {
@@ -940,9 +941,9 @@ const imagePaths = () => {
 /* P0-4: 超时工单行高亮 */
 :deep(.timeout-service-row) { background-color: var(--color-danger-bg) !important; }
 :deep(.timeout-service-row):hover { background-color: rgba(255, 69, 58, 0.12) !important; }
-.faq-item { padding: 12px; border: 1px solid #f0f0f0; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
-.faq-item:hover { border-color: #0071e3; background: #f5f7fa; }
+.faq-item { padding: 12px; border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
+.faq-item:hover { border-color: var(--color-accent); background: var(--color-bg-secondary); }
 .faq-question { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
-.faq-answer { font-size: 13px; color: #1d1d1f; line-height: 1.6; padding: 8px 0; border-top: 1px solid #f0f0f0; margin-top: 4px; }
-.faq-preview { font-size: 12px; color: #86868b; }
+.faq-answer { font-size: 13px; color: var(--color-text); line-height: 1.6; padding: 8px 0; border-top: 1px solid var(--color-border); margin-top: 4px; }
+.faq-preview { font-size: 12px; color: var(--color-text-secondary); }
 </style>

@@ -5,7 +5,7 @@
     <el-tabs v-model="activeTab">
       <!-- API密钥 -->
       <el-tab-pane label="API密钥" name="keys">
-        <el-card shadow="never">
+        <el-card>
           <div class="toolbar"><el-button type="primary" :icon="Plus" @click="handleCreateKey">创建密钥</el-button></div>
           <el-table :data="keys" stripe border>
             <el-table-column prop="name" label="名称" min-width="140" />
@@ -36,7 +36,7 @@
 
       <!-- Webhook管理 -->
       <el-tab-pane label="Webhook管理" name="webhooks">
-        <el-card shadow="never">
+        <el-card>
           <div class="toolbar"><el-button type="primary" :icon="Plus" @click="handleCreateWebhook">创建 Webhook</el-button></div>
           <el-table :data="webhooks" stripe border>
             <el-table-column prop="name" label="名称" min-width="140" />
@@ -48,7 +48,7 @@
               <template #default="{ row }"><el-tag :type="row.status?'success':'info'" size="small">{{ row.status?'启用':'禁用' }}</el-tag></template>
             </el-table-column>
             <el-table-column prop="fail_count" label="失败" width="60" align="center">
-              <template #default="{ row }"><span v-if="row.fail_count > 0" style="color:#f56c6c">{{ row.fail_count }}</span><span v-else>-</span></template>
+              <template #default="{ row }"><span v-if="row.fail_count > 0" class="text-danger font-semibold">{{ row.fail_count }}</span><span v-else>-</span></template>
             </el-table-column>
             <el-table-column label="操作" width="200" fixed="right">
               <template #default="{ row }">
@@ -63,7 +63,7 @@
 
       <!-- API文档 -->
       <el-tab-pane label="API文档" name="docs">
-        <el-card shadow="never">
+        <el-card>
           <div class="doc-section">
             <h3>认证方式</h3>
             <p>在请求头中添加 <code>X-API-Key: your_api_key</code></p>
@@ -285,10 +285,10 @@ onMounted(() => { fetchKeys(); fetchWebhooks(); fetchDocs() })
 .doc-module { margin-bottom: 16px; }
 .doc-endpoint { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--color-border); }
 .doc-method { display: inline-block; width: 50px; text-align: center; font-size: 12px; font-weight: 600; padding: 2px 0; border-radius: 4px; color: #fff; }
-.doc-method.get { background: #34c759; }
-.doc-method.post { background: #0071e3; }
-.doc-method.put { background: #ff9500; }
-.doc-method.delete { background: #f56c6c; }
+.doc-method.get { background: var(--color-success); }
+.doc-method.post { background: var(--color-accent); }
+.doc-method.put { background: var(--color-warning); }
+.doc-method.delete { background: var(--color-danger); }
 .doc-path { font-family: monospace; font-size: 13px; }
 .doc-desc { font-size: 13px; color: var(--color-text-secondary); flex: 1; }
 </style>

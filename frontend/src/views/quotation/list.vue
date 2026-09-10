@@ -1,7 +1,7 @@
 <template>
   <div class="quotation-list">
     <!-- 搜索区域 -->
-    <el-card class="search-card" shadow="never">
+    <el-card class="search-card">
       <el-form :model="searchForm" inline @keyup.enter="handleSearch">
         <el-form-item label="报价单号">
           <el-input v-model="searchForm.quote_no" placeholder="请输入报价单号" clearable />
@@ -31,20 +31,21 @@
     <el-alert v-if="expiringCount > 0" type="warning" :title="`有 ${expiringCount} 条报价将在7天内过期`" show-icon :closable="false" style="margin-bottom: 16px" />
 
     <!-- 操作按钮区域 -->
-    <el-card class="table-card" shadow="never">
+    <el-card class="table-card">
       <div class="toolbar">
         <el-button type="primary" :icon="Plus" @click="handleAdd" v-permission="'quotation:add'">新建报价单</el-button>
       </div>
 
       <!-- 表格 -->
+      <TableSkeleton v-if="loading" :rows="8" :cols="7" />
       <el-table
-        v-loading="loading"
+        v-show="!loading"
         :data="tableData"
-        stripe
-        border
         style="width: 100%"
-        :header-cell-style="{ background: 'var(--color-bg)', color: 'var(--color-text)' }"
       >
+        <template #empty>
+          <EmptyState title="暂无报价单" description="创建报价单后即可在此查看" />
+        </template>
         <el-table-column prop="quote_no" label="报价单号" min-width="140" show-overflow-tooltip />
         <el-table-column prop="customer_name" label="客户名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="amount" label="总金额" width="130" align="right">
@@ -54,8 +55,8 @@
         </el-table-column>
         <el-table-column prop="discount" label="折扣" width="90" align="center">
           <template #default="{ row }">
-            <el-tag type="info">{{ Math.round((1 - row.discount) * 100) }}%</el-tag>
-          </template>
+              <el-tag type="info">{{ Math.round((1 - row.discount) * 100) }}折</el-tag>
+            </template>
         </el-table-column>
         <el-table-column prop="final_amount" label="折后金额" width="130" align="right">
           <template #default="{ row }">
@@ -69,7 +70,7 @@
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)" effect="dark">
+            <el-tag :type="statusTagType(row.status)" effect="light">
               {{ statusMap[row.status] || '未知' }}
             </el-tag>
           </template>
@@ -87,18 +88,25 @@
             {{ formatTime(row.create_time) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="280" fixed="right">
+        <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
-            <el-tag v-if="isExpiringSoon(row)" type="warning" size="small" style="margin-right:4px">即将过期</el-tag>
+            <el-tag v-if="isExpiringSoon(row)" type="warning" size="small" effect="light" style="margin-right:4px">即将过期</el-tag>
             <el-button type="primary" link :icon="View" @click="handleView(row)">查看</el-button>
             <el-button v-if="row.status === 1" type="primary" link :icon="Edit" @click="handleEdit(row)" v-permission="'quotation:edit'">编辑</el-button>
-            <el-button v-if="row.status === 1 || row.status === 2" type="success" link :icon="Promotion" @click="handleSend(row)" v-permission="'quotation:edit'">发送</el-button>
-            <el-button v-if="row.status === 1 || row.status === 2" type="danger" link :icon="Delete" @click="handleDelete(row)" v-permission="'quotation:delete'">删除</el-button>
-            <el-button v-if="row.status === 3 || row.approval_status === 2" type="warning" link @click="handleConvertToContract(row)" v-permission="'contract:add'">转合同</el-button>
-            <el-button v-if="row.approval_status === 0 && row.status === 1" type="warning" link @click="handleSubmitApproval(row)">提交审批</el-button>
-            <el-button v-if="row.approval_status === 1 && isAdmin" type="success" link @click="handleApprove(row)">通过</el-button>
-            <el-button v-if="row.approval_status === 1 && isAdmin" type="danger" link @click="handleReject(row)">拒绝</el-button>
-            <el-button v-if="row.approval_status === 1" type="info" link @click="handleWithdrawApproval(row)">撤回</el-button>
+            <el-dropdown trigger="click" @command="(cmd) => handleMore(row, cmd)">
+              <el-button link type="primary">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item v-if="row.status === 1 || row.status === 2" v-permission="'quotation:edit'" command="send">发送</el-dropdown-item>
+                  <el-dropdown-item v-if="row.approval_status === 0 && row.status === 1" command="submitApproval">提交审批</el-dropdown-item>
+                  <el-dropdown-item v-if="row.approval_status === 1 && isAdmin" command="approve">通过</el-dropdown-item>
+                  <el-dropdown-item v-if="row.approval_status === 1 && isAdmin" command="reject">拒绝</el-dropdown-item>
+                  <el-dropdown-item v-if="row.approval_status === 1" command="withdrawApproval">撤回</el-dropdown-item>
+                  <el-dropdown-item v-if="row.status === 3 || row.approval_status === 2" v-permission="'contract:add'" command="convertToContract">转合同</el-dropdown-item>
+                  <el-dropdown-item v-if="row.status === 1 || row.status === 2" v-permission="'quotation:delete'" command="delete" divided class="text-danger">删除</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </template>
         </el-table-column>
       </el-table>
@@ -140,7 +148,7 @@
             <span class="label">创建时间:</span>
             <span class="value">{{ formatTime(detailData.create_time) }}</span>
             <span class="label">状态:</span>
-            <el-tag :type="statusTagType(detailData.status)">{{ statusMap[detailData.status] }}</el-tag>
+            <el-tag :type="statusTagType(detailData.status)" effect="light">{{ statusMap[detailData.status] }}</el-tag>
           </div>
         </div>
 
@@ -171,7 +179,7 @@
           </div>
           <div class="summary-row">
             <span class="summary-label">折扣:</span>
-            <span class="summary-value">{{ Math.round((1 - detailData.discount) * 100) }}%</span>
+            <span class="summary-value">{{ Math.round((1 - detailData.discount) * 100) }}折</span>
           </div>
           <div class="summary-row total">
             <span class="summary-label">折后金额:</span>
@@ -195,12 +203,15 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh, Plus, View, Edit, Promotion, Delete } from '@element-plus/icons-vue'
+import { Search, Refresh, Plus, View, Edit, ArrowDown } from '@element-plus/icons-vue'
 import request from '@/utils/request'
-import { getQuoteList, addQuote, updateQuote, deleteQuote, approveQuote, quoteToContract, getQuoteDetail } from '@/api/contract'
+import { getQuoteList, addQuote, updateQuote, deleteQuote, approveQuote, quoteToContract, getQuoteDetail } from '@/api/quotation'
 import { submitApproval, withdrawApproval } from '@/api/tools'
 import { formatTime, formatAmount } from '@/composables/useFormat'
 import { useUser } from '@/composables/useUser'
@@ -288,7 +299,7 @@ const fetchList = async () => {
       expiringCount.value = res.data.expiring_count || 0
     }
   } catch (error) {
-    console.error('获取报价单列表失败:', error)
+    reportError('获取报价单列表失败:', error)
   } finally {
     loading.value = false
   }
@@ -324,7 +335,7 @@ const handleView = async (row) => {
       detailVisible.value = true
     }
   } catch (error) {
-    console.error('获取报价单详情失败:', error)
+    reportError('获取报价单详情失败:', error)
   }
 }
 
@@ -341,7 +352,7 @@ const handleSend = (row) => {
         fetchList()
       }
     } catch (error) {
-      console.error('发送报价单失败:', error)
+      reportError('发送报价单失败:', error)
     }
   }).catch(() => {})
 }
@@ -363,7 +374,7 @@ const handleDelete = (row) => {
         fetchList()
       }
     } catch (error) {
-      console.error('删除失败:', error)
+      reportError('删除失败:', error)
     }
   })
 }
@@ -386,7 +397,7 @@ const handleConvertToContract = (row) => {
         router.push(`/contract/detail/${res.data.contract_id}`)
       }
     } catch (error) {
-      console.error('转合同失败:', error)
+      reportError('转合同失败:', error)
     }
   })
 }
@@ -410,7 +421,7 @@ const handleApprove = (row) => {
         fetchList()
       }
     } catch (error) {
-      console.error('审批失败:', error)
+      reportError('审批失败:', error)
     }
   }).catch(() => {})
 }
@@ -430,7 +441,7 @@ const handleReject = (row) => {
         fetchList()
       }
     } catch (error) {
-      console.error('拒绝失败:', error)
+      reportError('拒绝失败:', error)
     }
   }).catch(() => {})
 }
@@ -449,7 +460,7 @@ const handleSubmitApproval = (row) => {
         fetchList()
       }
     } catch (error) {
-      console.error('提交审批失败:', error)
+      reportError('提交审批失败:', error)
     }
   }).catch(() => {})
 }
@@ -468,9 +479,23 @@ const handleWithdrawApproval = (row) => {
         fetchList()
       }
     } catch (error) {
-      console.error('撤回审批失败:', error)
+      reportError('撤回审批失败:', error)
     }
   }).catch(() => {})
+}
+
+// 更多操作下拉
+const handleMore = (row, cmd) => {
+  const actions = {
+    send: handleSend,
+    submitApproval: handleSubmitApproval,
+    approve: handleApprove,
+    reject: handleReject,
+    withdrawApproval: handleWithdrawApproval,
+    convertToContract: handleConvertToContract,
+    delete: handleDelete
+  }
+  actions[cmd]?.(row)
 }
 </script>
 

@@ -13,20 +13,20 @@
     <!-- 趋势图 -->
     <el-row :gutter="20" style="margin-bottom:20px">
       <el-col :span="12">
-        <el-card shadow="never"><template #header><span class="card-title">NPS 趋势（近6个月）</span></template><div ref="npsTrendRef" class="chart-container"></div></el-card>
+        <el-card><template #header><span class="card-title">NPS 趋势（近6个月）</span></template><div ref="npsTrendRef" class="chart-container"></div></el-card>
       </el-col>
       <el-col :span="12">
-        <el-card shadow="never"><template #header><span class="card-title">CSAT 趋势（近6个月）</span></template><div ref="csatTrendRef" class="chart-container"></div></el-card>
+        <el-card><template #header><span class="card-title">CSAT 趋势（近6个月）</span></template><div ref="csatTrendRef" class="chart-container"></div></el-card>
       </el-col>
     </el-row>
 
     <!-- 回复率对比 + 最新调查 -->
     <el-row :gutter="20">
       <el-col :span="12">
-        <el-card shadow="never"><template #header><span class="card-title">各活动回复率</span></template><div ref="responseRateRef" class="chart-container"></div></el-card>
+        <el-card><template #header><span class="card-title">各活动回复率</span></template><div ref="responseRateRef" class="chart-container"></div></el-card>
       </el-col>
       <el-col :span="12">
-        <el-card shadow="never">
+        <el-card>
           <template #header><span class="card-title">最新调查数据</span></template>
           <div v-if="latestData" class="latest-data">
             <div class="latest-name">{{ latestData.name }}</div>
@@ -42,7 +42,7 @@
               </div>
             </div>
           </div>
-          <el-empty v-else description="暂无已关闭的调查" :image-size="60" />
+          <EmptyState v-else title="暂无已关闭的调查" compact />
         </el-card>
       </el-col>
     </el-row>
@@ -50,9 +50,11 @@
 </template>
 
 <script setup>
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { getSurveyOverview } from '@/api/tools'
 import echarts from '@/composables/useECharts'
+import { chartColors } from '@/utils/chartTheme'
 
 const typeName = { nps: 'NPS', csat: 'CSAT', custom: '自定义' }
 
@@ -92,7 +94,7 @@ const renderCharts = () => {
       grid: { left: 40, right: 20, top: 20, bottom: 30 },
       xAxis: { type: 'category', data: d.npsTrend.map(t => t.month) },
       yAxis: { type: 'value', min: 0, max: 10 },
-      series: [{ type: 'line', smooth: true, data: d.npsTrend.map(t => Math.round(t.avg_nps)), areaStyle: { opacity: 0.15 }, itemStyle: { color: '#0071e3' } }]
+      series: [{ type: 'line', smooth: true, data: d.npsTrend.map(t => Math.round(t.avg_nps)), areaStyle: { opacity: 0.15 }, itemStyle: { color: chartColors.primary } }]
     })
   }
 
@@ -104,7 +106,7 @@ const renderCharts = () => {
       grid: { left: 40, right: 20, top: 20, bottom: 30 },
       xAxis: { type: 'category', data: d.csatTrend.map(t => t.month) },
       yAxis: { type: 'value', min: 0, max: 5 },
-      series: [{ type: 'line', smooth: true, data: d.csatTrend.map(t => parseFloat(t.avg_csat).toFixed(1)), areaStyle: { opacity: 0.15 }, itemStyle: { color: '#34c759' } }]
+      series: [{ type: 'line', smooth: true, data: d.csatTrend.map(t => parseFloat(t.avg_csat).toFixed(1)), areaStyle: { opacity: 0.15 }, itemStyle: { color: chartColors.secondary } }]
     })
   }
 
@@ -117,7 +119,7 @@ const renderCharts = () => {
       grid: { left: 120, right: 20, top: 10, bottom: 20 },
       xAxis: { type: 'value', max: 100, axisLabel: { formatter: '{value}%' } },
       yAxis: { type: 'category', data: stats.map(s => s.name) },
-      series: [{ type: 'bar', data: stats.map(s => s.response_rate), itemStyle: { color: '#0071e3', borderRadius: [0, 4, 4, 0] } }]
+      series: [{ type: 'bar', data: stats.map(s => s.response_rate), itemStyle: { color: chartColors.primary, borderRadius: [0, 4, 4, 0] } }]
     })
   }
 }
@@ -130,7 +132,7 @@ onMounted(() => { fetchData() })
 .page-header { margin-bottom: var(--space-4); }
 .page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); }
 .stat-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
-.stat-card { background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); text-align: center; }
+
 .stat-value { font-size: 28px; font-weight: 700; color: var(--color-text); }
 .stat-label { font-size: 13px; color: var(--color-text-tertiary); margin-top: 4px; }
 .card-title { font-size: 15px; font-weight: 600; }
@@ -142,8 +144,8 @@ onMounted(() => { fetchData() })
 .latest-scores { display: flex; gap: 32px; }
 .latest-score { text-align: center; }
 .score-value { font-size: 36px; font-weight: 800; }
-.score-value.good { color: #059669; }
-.score-value.ok { color: #d97706; }
-.score-value.bad { color: #dc2626; }
+.score-value.good { color: var(--color-success); }
+.score-value.ok { color: var(--color-warning); }
+.score-value.bad { color: var(--color-danger); }
 .score-label { font-size: 12px; color: var(--color-text-tertiary); margin-top: 4px; }
 </style>

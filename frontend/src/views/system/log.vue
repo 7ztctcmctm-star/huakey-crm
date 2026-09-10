@@ -4,7 +4,7 @@
       <h2>操作日志</h2>
     </div>
 
-    <el-card shadow="never" class="filter-card">
+    <el-card class="filter-card">
       <el-form :inline="true" :model="filterForm">
         <el-form-item label="模块">
           <el-select v-model="filterForm.module" placeholder="请选择模块" clearable style="width: 150px">
@@ -48,7 +48,7 @@
       </el-form>
     </el-card>
 
-    <el-card shadow="never" class="table-card">
+    <el-card class="table-card">
       <template #header>
         <div class="table-header">
           <span>日志列表</span>
@@ -148,6 +148,7 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Delete, Download } from '@element-plus/icons-vue'
@@ -194,7 +195,7 @@ const handleQuery = async () => {
       pagination.total = res.data.total
     }
   } catch (error) {
-    console.error('查询日志失败:', error)
+    reportError('查询日志失败:', error)
     ElMessage.error('查询失败')
   } finally {
     loading.value = false
@@ -241,7 +242,7 @@ const handleView = async (row) => {
       detailVisible.value = true
     }
   } catch (error) {
-    console.error('获取日志详情失败:', error)
+    reportError('获取日志详情失败:', error)
   }
 }
 
@@ -260,7 +261,7 @@ const handleClear = async () => {
     }
   } catch (error) {
     if (error !== 'cancel') {
-      console.error('清理日志失败:', error)
+      reportError('清理日志失败:', error)
       ElMessage.error('清理失败')
     }
   }
@@ -285,7 +286,7 @@ const handleExport = async () => {
     URL.revokeObjectURL(url)
     ElMessage.success('导出成功')
   } catch (error) {
-    console.error('导出日志失败:', error)
+    reportError('导出日志失败:', error)
     ElMessage.error('导出失败')
   }
 }
@@ -297,7 +298,7 @@ const fetchModules = async () => {
       moduleList.value = res.data
     }
   } catch (error) {
-    console.error('获取模块列表失败:', error)
+    reportError('获取模块列表失败:', error)
   }
 }
 

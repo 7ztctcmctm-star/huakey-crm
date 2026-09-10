@@ -57,7 +57,7 @@
     <!-- 图表区域 -->
     <el-row :gutter="24" style="margin-top: 24px">
       <el-col :span="12">
-        <el-card shadow="never">
+        <el-card>
           <template #header>
             <span class="section-title">销售漏斗</span>
           </template>
@@ -65,7 +65,7 @@
         </el-card>
       </el-col>
       <el-col :span="12">
-        <el-card shadow="never">
+        <el-card>
           <template #header>
             <span class="section-title">客户来源分布</span>
           </template>
@@ -76,7 +76,7 @@
 
     <el-row :gutter="24" style="margin-top: 24px">
       <el-col :span="12">
-        <el-card shadow="never">
+        <el-card>
           <template #header>
             <span class="section-title">销售趋势</span>
           </template>
@@ -84,7 +84,7 @@
         </el-card>
       </el-col>
       <el-col :span="12">
-        <el-card shadow="never">
+        <el-card>
           <template #header>
             <span class="section-title">客户等级分布</span>
           </template>
@@ -96,7 +96,7 @@
     <!-- 采购分析 -->
     <el-row :gutter="24" style="margin-top: 24px">
       <el-col :span="12">
-        <el-card shadow="never">
+        <el-card>
           <template #header>
             <span class="section-title">采购趋势</span>
           </template>
@@ -104,7 +104,7 @@
         </el-card>
       </el-col>
       <el-col :span="12">
-        <el-card shadow="never">
+        <el-card>
           <template #header>
             <span class="section-title">采购供应商分布</span>
           </template>
@@ -116,7 +116,7 @@
     <!-- 业绩排行 -->
     <el-row :gutter="24" style="margin-top: 24px">
       <el-col :span="24">
-        <el-card shadow="never">
+        <el-card>
           <template #header>
             <span class="section-title">销售业绩排行</span>
           </template>
@@ -145,7 +145,7 @@
     </el-row>
 
     <!-- 更多报表入口 -->
-    <el-card shadow="never" style="margin-top:20px">
+    <el-card style="margin-top:20px">
       <template #header><span style="font-weight:600;font-size:15px">更多报表</span></template>
       <el-row :gutter="20">
         <el-col :span="8" v-for="entry in moreEntries" :key="entry.path">
@@ -188,13 +188,13 @@
 
         <el-row :gutter="24" style="margin-top: 24px">
           <el-col :span="12">
-            <el-card shadow="never">
+            <el-card>
               <template #header><span class="section-title">产品分类采购占比</span></template>
               <div ref="costCategoryChartRef" class="chart-container" />
             </el-card>
           </el-col>
           <el-col :span="12">
-            <el-card shadow="never">
+            <el-card>
               <template #header><span class="section-title">月度采购趋势</span></template>
               <div ref="costMonthlyChartRef" class="chart-container" />
             </el-card>
@@ -203,7 +203,7 @@
       </el-tab-pane>
 
       <el-tab-pane label="供应商绩效" name="supplier-performance">
-        <el-card shadow="never">
+        <el-card>
           <template #header><span class="section-title">供应商绩效排行</span></template>
           <el-table :data="supplierPerformance" stripe v-loading="supplierLoading" style="width: 100%">
             <el-table-column type="index" label="排名" width="60" />
@@ -232,6 +232,7 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Download } from '@element-plus/icons-vue'
@@ -244,6 +245,7 @@ import {
 import { formatAmount } from '@/composables/useFormat'
 import { useChart } from '@/composables/useChart'
 import { PARENT_SOURCE_COLORS } from '@/constants/source'
+import { chartColors, chartPalette, alpha } from '@/utils/chartTheme'
 
 const moreEntries = [
   { title: '财务报表', desc: '收入/支出/利润/应收账款分析', path: '/report/finance' },
@@ -321,7 +323,7 @@ const fetchPayment = async () => {
       Object.assign(paymentData, res.data)
     }
   } catch (error) {
-    console.error('获取回款数据失败:', error)
+    reportError('获取回款数据失败:', error)
     ElMessage.error('加载回款数据失败')
   }
 }
@@ -335,7 +337,7 @@ const fetchCustomer = async () => {
       renderLevelChart(customerData.level_dist || [])
     }
   } catch (error) {
-    console.error('获取客户数据失败:', error)
+    reportError('获取客户数据失败:', error)
     ElMessage.error('加载客户数据失败')
   }
 }
@@ -348,7 +350,7 @@ const fetchPerformance = async () => {
       performanceList.value = res.data
     }
   } catch (error) {
-    console.error('获取业绩数据失败:', error)
+    reportError('获取业绩数据失败:', error)
     ElMessage.error('加载业绩数据失败')
   } finally {
     performanceLoading.value = false
@@ -367,7 +369,7 @@ const fetchSalesFunnel = async () => {
       renderFunnelChart(res.data)
     }
   } catch (error) {
-    console.error('获取销售漏斗失败:', error)
+    reportError('获取销售漏斗失败:', error)
     ElMessage.error('加载销售漏斗失败')
   }
 }
@@ -391,15 +393,15 @@ const renderFunnelChart = (data) => {
       gap: 2,
       label: { show: true, position: 'inside', formatter: '{b}\n{c}个' },
       labelLine: { length: 10 },
-      itemStyle: { borderColor: '#fff', borderWidth: 1 },
+      itemStyle: { borderColor: chartColors.bg, borderWidth: 1 },
       emphasis: { label: { fontSize: 14 } },
       data: data.map((item, index) => ({
         value: item.count,
         name: item.stage,
         itemStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-            { offset: 0, color: ['#1a56db', '#2563eb', '#3b82f6', '#60a5fa', '#94a3b8', '#cbd5e1'][index] },
-            { offset: 1, color: ['#dbeafe', '#bfdbfe', '#93c5fd', '#60a5fa', '#e2e8f0', '#cbd5e1'][index] }
+            { offset: 0, color: chartPalette()[index] },
+            { offset: 1, color: alpha(chartPalette()[index], 0.28) }
           ])
         }
       }))
@@ -416,7 +418,7 @@ const renderSourceChart = (data) => {
       radius: ['40%', '70%'],
       center: ['60%', '50%'],
       avoidLabelOverlap: false,
-      itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
+      itemStyle: { borderRadius: 10, borderColor: chartColors.bg, borderWidth: 2 },
       label: { show: false },
       emphasis: {
         label: { show: true, fontSize: 18, fontWeight: 'bold' },
@@ -426,7 +428,7 @@ const renderSourceChart = (data) => {
       data: data.map((item) => ({
         value: item.count,
         name: item.source || '未知',
-        itemStyle: { color: PARENT_SOURCE_COLORS[item.source] || '#94a3b8' }
+        itemStyle: { color: PARENT_SOURCE_COLORS[item.source] || chartColors.neutral }
       }))
     }]
   })
@@ -439,7 +441,7 @@ const fetchSalesTrend = async () => {
       renderTrendChart(res.data)
     }
   } catch (error) {
-    console.error('获取销售趋势失败:', error)
+    reportError('获取销售趋势失败:', error)
     ElMessage.error('加载销售趋势失败')
   }
 }
@@ -462,25 +464,25 @@ const renderTrendChart = (data) => {
         name: '销售额',
         type: 'bar',
         data: amounts,
-        itemStyle: { color: '#2563eb' }
+        itemStyle: { color: chartColors.primary }
       },
       {
         name: '合同数',
         type: 'line',
         yAxisIndex: 1,
         data: counts,
-        lineStyle: { color: '#1a56db', width: 3 },
-        itemStyle: { color: '#1a56db' }
+        lineStyle: { color: chartColors.primary, width: 3 },
+        itemStyle: { color: chartColors.primary }
       }
     ]
   })
 }
 
 const renderLevelChart = (data) => {
-  const levelColors = { 'A': '#60a5fa', 'B': '#3b82f6', 'C': '#1a56db', 'D': '#94a3b8' }
+  const levelColors = { 'A': chartColors.secondary, 'B': chartColors.primary, 'C': chartColors.tertiary, 'D': chartColors.neutral }
   const getLevelColor = (level) => {
     const key = (level || '')[0]
-    return levelColors[key] || '#94a3b8'
+    return levelColors[key] || chartColors.neutral
   }
   initChart('levelChartRef', {
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
@@ -494,7 +496,7 @@ const renderLevelChart = (data) => {
         itemStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
             { offset: 0, color: getLevelColor(item.level) },
-            { offset: 1, color: getLevelColor(item.level) + '80' }
+            { offset: 1, color: alpha(getLevelColor(item.level), 0.5) }
           ]),
           borderRadius: [4, 4, 0, 0]
         }
@@ -511,7 +513,7 @@ const fetchPurchaseTrend = async () => {
       renderPurchaseTrendChart(res.data)
     }
   } catch (error) {
-    console.error('获取采购趋势失败:', error)
+    reportError('获取采购趋势失败:', error)
     ElMessage.error('加载采购趋势失败')
   }
 }
@@ -534,15 +536,15 @@ const renderPurchaseTrendChart = (data) => {
         name: '采购额',
         type: 'bar',
         data: amounts,
-        itemStyle: { color: '#059669' }
+        itemStyle: { color: chartColors.secondary }
       },
       {
         name: '采购单数',
         type: 'line',
         yAxisIndex: 1,
         data: counts,
-        lineStyle: { color: '#047857', width: 3 },
-        itemStyle: { color: '#047857' }
+        lineStyle: { color: chartColors.secondary, width: 3 },
+        itemStyle: { color: chartColors.secondary }
       }
     ]
   })
@@ -555,7 +557,7 @@ const fetchPurchaseBySupplier = async () => {
       renderPurchaseSupplierChart(res.data)
     }
   } catch (error) {
-    console.error('获取采购供应商分布失败:', error)
+    reportError('获取采购供应商分布失败:', error)
     ElMessage.error('加载采购供应商分布失败')
   }
 }
@@ -574,8 +576,8 @@ const renderPurchaseSupplierChart = (data) => {
       barWidth: '60%',
       itemStyle: {
         color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-          { offset: 0, color: '#059669' },
-          { offset: 1, color: '#34d399' }
+          { offset: 0, color: chartColors.secondary },
+          { offset: 1, color: alpha(chartColors.secondary, 0.45) }
         ]),
         borderRadius: [0, 4, 4, 0]
       }
@@ -590,7 +592,7 @@ const fetchPurchaseCost = async () => {
       Object.assign(purchaseCost, res.data)
     }
   } catch (error) {
-    console.error('获取采购成本分析失败:', error)
+    reportError('获取采购成本分析失败:', error)
     ElMessage.error('加载采购成本分析失败')
   }
 }
@@ -604,7 +606,7 @@ const renderCostCategoryChart = (data) => {
       radius: ['40%', '70%'],
       center: ['60%', '50%'],
       avoidLabelOverlap: false,
-      itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
+      itemStyle: { borderRadius: 10, borderColor: chartColors.bg, borderWidth: 2 },
       label: { show: false },
       emphasis: { label: { show: true, fontSize: 16, fontWeight: 'bold' } },
       data: data.map(item => ({ value: parseFloat(item.amount) || 0, name: item.category || '未分类' }))
@@ -626,8 +628,8 @@ const renderCostMonthlyChart = (data) => {
       barWidth: '60%',
       itemStyle: {
         color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: '#059669' },
-          { offset: 1, color: '#34d399' }
+          { offset: 0, color: chartColors.secondary },
+          { offset: 1, color: alpha(chartColors.secondary, 0.6) }
         ]),
         borderRadius: [4, 4, 0, 0]
       }
@@ -643,7 +645,7 @@ const fetchSupplierPerformance = async () => {
       supplierPerformance.value = res.data.top_suppliers || []
     }
   } catch (error) {
-    console.error('获取供应商绩效失败:', error)
+    reportError('获取供应商绩效失败:', error)
     ElMessage.error('加载供应商绩效失败')
   } finally {
     supplierLoading.value = false
@@ -776,7 +778,7 @@ onMounted(() => {
   padding: 24px; background: var(--color-bg-secondary); border-radius: 12px;
   cursor: pointer; transition: all 0.2s;
 }
-.entry-card:hover { background: #f0f7ff; transform: translateY(-2px); }
+.entry-card:hover { background: var(--color-accent-bg); transform: translateY(-2px); }
 .entry-title { font-size: 16px; font-weight: 600; color: var(--color-text); margin-bottom: 6px; }
 .entry-desc { font-size: 13px; color: var(--color-text-tertiary); }
 </style>

@@ -15,7 +15,7 @@
     </el-alert>
 
     <!-- 筛选 -->
-    <el-card shadow="never" class="search-card">
+    <el-card class="search-card">
       <el-form :model="search" inline @keyup.enter="fetchList">
         <el-form-item><el-input v-model="search.keyword" placeholder="姓名/用户名/手机" clearable style="width:180px" /></el-form-item>
         <el-form-item>
@@ -33,7 +33,7 @@
     </el-card>
 
     <!-- 列表 -->
-    <el-card shadow="never">
+    <el-card>
       <el-table :data="list" stripe border v-loading="loading">
         <el-table-column prop="real_name" label="姓名" width="100" />
         <el-table-column prop="dept_name" label="部门" width="120" />
@@ -277,7 +277,7 @@ onMounted(() => { fetchList(); fetchStats(); fetchDepts() })
 .page-header { margin-bottom: var(--space-4); }
 .page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); }
 .stat-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: var(--space-4); }
-.stat-card { background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); text-align: center; }
+
 .stat-value { font-size: 28px; font-weight: 700; color: var(--color-text); }
 .stat-label { font-size: 13px; color: var(--color-text-tertiary); margin-top: 4px; }
 .search-card { margin-bottom: var(--space-4); }

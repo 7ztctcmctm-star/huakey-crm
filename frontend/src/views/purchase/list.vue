@@ -10,31 +10,31 @@
     <!-- 统计卡片 -->
     <el-row :gutter="16" class="stat-cards" v-if="stats">
       <el-col :span="4">
-        <el-card shadow="hover" class="stat-card">
+        <el-card class="stat-card">
           <div class="stat-value">{{ stats.totalOrders }}</div>
           <div class="stat-label">采购单总数</div>
         </el-card>
       </el-col>
       <el-col :span="4">
-        <el-card shadow="hover" class="stat-card warning">
+        <el-card class="stat-card warning">
           <div class="stat-value">{{ stats.pendingApprove }}</div>
           <div class="stat-label">待审核</div>
         </el-card>
       </el-col>
       <el-col :span="4">
-        <el-card shadow="hover" class="stat-card info">
+        <el-card class="stat-card info">
           <div class="stat-value">{{ stats.pendingReceive }}</div>
           <div class="stat-label">待收货</div>
         </el-card>
       </el-col>
       <el-col :span="4">
-        <el-card shadow="hover" class="stat-card success">
+        <el-card class="stat-card success">
           <div class="stat-value">{{ stats.completedThisMonth }}</div>
           <div class="stat-label">本月完成</div>
         </el-card>
       </el-col>
       <el-col :span="8">
-        <el-card shadow="hover" class="stat-card">
+        <el-card class="stat-card">
           <div class="stat-value large">{{ formatMoney(stats.totalAmount) }}</div>
           <div class="stat-label">采购总金额(元)</div>
         </el-card>
@@ -71,7 +71,7 @@
       </el-form>
     </div>
 
-    <el-table :data="tableData" border stripe v-loading="loading" style="width: 100%">
+    <el-table :data="tableData" v-loading="loading" style="width: 100%">
       <el-table-column prop="order_no" label="采购单号" width="170" fixed>
         <template #default="{ row }">
           <el-link type="primary" @click="handleView(row.id)">{{ row.order_no }}</el-link>
@@ -171,7 +171,7 @@
 
         <el-divider content-position="left">采购明细</el-divider>
 
-        <el-table :data="form.items" border size="small" style="margin-bottom: 16px">
+        <el-table :data="form.items" size="small" style="margin-bottom: 16px">
           <el-table-column label="产品名称" min-width="150">
             <template #default="{ row }">
               <el-input v-model="row.product_name" placeholder="产品名称" size="small" />
@@ -240,6 +240,7 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -305,14 +306,14 @@ const fetchStats = async () => {
   try {
     const res = await getPurchaseStatistics();
     if (res.code === 200) stats.value = res.data;
-  } catch (e) { console.error(e); }
+  } catch (e) { reportError(e); }
 };
 
 const fetchSupplierOptions = async () => {
   try {
     const res = await getSupplierOptions();
     if (res.code === 200) supplierOptions.value = res.data;
-  } catch (e) { console.error(e); }
+  } catch (e) { reportError(e); }
 };
 
 const fetchList = async () => {
@@ -320,7 +321,7 @@ const fetchList = async () => {
   try {
     const res = await getPurchaseList({ page: page.value, pageSize: pageSize.value, ...searchForm });
     if (res.code === 200) { tableData.value = res.data.list; total.value = res.data.total; }
-  } catch (error) { console.error(error); }
+  } catch (error) { reportError(error); }
   finally { loading.value = false; }
 };
 
@@ -337,7 +338,7 @@ const handleSubmit = async () => {
     try {
       const res = await addPurchase(form);
       if (res.code === 200) { ElMessage.success('创建成功'); dialogVisible.value = false; fetchList(); fetchStats(); }
-    } catch (e) { console.error(e); }
+    } catch (e) { reportError(e); }
     finally { submitLoading.value = false; }
   });
 };
@@ -347,7 +348,7 @@ const handleStatusChange = async (command, row) => {
     await ElMessageBox.confirm(`确定将状态改为「${command}」吗？`, '确认', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' });
     const res = await updatePurchaseStatus({ id: row.id, status: command });
     if (res.code === 200) { ElMessage.success('更新成功'); fetchList(); fetchStats(); }
-  } catch (e) { if (e !== 'cancel') console.error(e); }
+  } catch (e) { if (e !== 'cancel') reportError(e); }
 };
 
 const handleView = (id) => { router.push(`/purchase/detail/${id}`); };
@@ -362,7 +363,7 @@ const handleSubmitApproval = (row) => {
     try {
       const res = await submitApproval({ business_type: 'purchase', business_id: row.id })
       if (res.code === 200) { ElMessage.success('已提交审批'); fetchList() }
-    } catch (error) { console.error('提交审批失败:', error) }
+    } catch (error) { reportError('提交审批失败:', error) }
   }).catch(() => {})
 }
 
@@ -374,7 +375,7 @@ const handleWithdrawApproval = (row) => {
     try {
       const res = await withdrawApproval('purchase', row.id)
       if (res.code === 200) { ElMessage.success('审批已撤回'); fetchList() }
-    } catch (error) { console.error('撤回审批失败:', error) }
+    } catch (error) { reportError('撤回审批失败:', error) }
   }).catch(() => {})
 }
 

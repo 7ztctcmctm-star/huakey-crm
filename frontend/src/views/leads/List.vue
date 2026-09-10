@@ -1,7 +1,7 @@
 <template>
   <div class="leads-pool">
     <!-- 筛选区 -->
-    <el-card shadow="never" class="filter-card">
+    <el-card class="filter-card">
       <el-form :model="searchForm" inline @submit.prevent="handleSearch">
         <el-form-item label="公司名称">
           <el-input v-model="searchForm.company_name" placeholder="搜索公司名称" clearable style="width: 180px" @keyup.enter="handleSearch" />
@@ -30,7 +30,7 @@
     </el-card>
 
     <!-- 表格区 -->
-    <el-card shadow="never" class="table-card">
+    <el-card class="table-card">
       <template #header>
         <div class="card-header">
           <span>潜客池（共 {{ total }} 条）</span>
@@ -93,6 +93,7 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -162,7 +163,7 @@ const fetchList = async () => {
     }
   } catch (error) {
     ElMessage.error('加载潜客列表失败')
-    console.error('获取潜客列表失败:', error)
+    reportError('获取潜客列表失败:', error)
   } finally {
     loading.value = false
   }

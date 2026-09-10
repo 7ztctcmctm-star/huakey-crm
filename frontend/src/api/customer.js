@@ -51,12 +51,3 @@ export const getFollowUpTaskStats = () => request.get('/follow-up/task-stats')
 export const getOverdueCustomers = (params) => request.get('/customer/overdue', { params })
 export const getNearRecycleCustomers = (params) => request.get('/customer/near-recycle', { params })
 
-// ============ 商机管理 ============
-export const getOpportunityList = (params) => request.post('/opportunity/list', params)
-export const addOpportunity = (data) => request.post('/opportunity/add', data)
-export const updateOpportunity = (data) => request.post('/opportunity/update', data)
-export const deleteOpportunity = (id) => request.post('/opportunity/delete', { id })
-export const updateOpportunityStage = (id, stage) => request.post('/opportunity/update-stage', { id, stage })
-export const getSalesFunnel = (params) => request.get('/opportunity/funnel', { params })
-export const getOpportunityDetail = (id) => request.get(`/opportunity/detail/${id}`)
-export const getOpportunityStageLog = (id) => request.get(`/opportunity/stage-log/${id}`)

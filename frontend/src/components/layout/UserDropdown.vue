@@ -68,10 +68,10 @@ const handleLogout = () => {
   gap: 6px;
   cursor: pointer;
   font-size: 14px;
-  color: #303133;
+  color: var(--color-text);
 }
 
 .user-info:hover {
-  color: #409eff;
+  color: var(--color-accent);
 }
 </style>

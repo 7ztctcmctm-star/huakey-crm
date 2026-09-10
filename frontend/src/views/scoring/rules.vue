@@ -23,7 +23,7 @@
         </el-table-column>
         <el-table-column prop="score" label="分数" width="80" align="center">
           <template #default="{ row }">
-            <span :style="{ color: row.score > 0 ? '#67C23A' : '#F56C6C', fontWeight: 600 }">{{ row.score > 0 ? '+' : '' }}{{ row.score }}</span>
+            <span :class="row.score > 0 ? 'text-success font-semibold' : 'text-danger font-semibold'">{{ row.score > 0 ? '+' : '' }}{{ row.score }}</span>
           </template>
         </el-table-column>
         <el-table-column label="状态" width="80" align="center">

@@ -17,28 +17,28 @@
     <!-- 趋势图 -->
     <el-row :gutter="20" style="margin-bottom:20px">
       <el-col :span="8">
-        <el-card shadow="never"><template #header><span class="card-title">客户增长</span></template><div ref="customerTrendRef" class="chart-sm"></div></el-card>
+        <el-card><template #header><span class="card-title">客户增长</span></template><div ref="customerTrendRef" class="chart-sm"></div></el-card>
       </el-col>
       <el-col :span="8">
-        <el-card shadow="never"><template #header><span class="card-title">合同增长</span></template><div ref="contractTrendRef" class="chart-sm"></div></el-card>
+        <el-card><template #header><span class="card-title">合同增长</span></template><div ref="contractTrendRef" class="chart-sm"></div></el-card>
       </el-col>
       <el-col :span="8">
-        <el-card shadow="never"><template #header><span class="card-title">回款增长</span></template><div ref="paymentTrendRef" class="chart-sm"></div></el-card>
+        <el-card><template #header><span class="card-title">回款增长</span></template><div ref="paymentTrendRef" class="chart-sm"></div></el-card>
       </el-col>
     </el-row>
 
     <!-- 客户分布 + 销售排名 -->
     <el-row :gutter="20" style="margin-bottom:20px">
       <el-col :span="10">
-        <el-card shadow="never"><template #header><span class="card-title">客户等级分布</span></template><div ref="levelDistRef" class="chart-md"></div></el-card>
+        <el-card><template #header><span class="card-title">客户等级分布</span></template><div ref="levelDistRef" class="chart-md"></div></el-card>
       </el-col>
       <el-col :span="14">
-        <el-card shadow="never"><template #header><span class="card-title">销售团队排名（本月）</span></template><div ref="rankingRef" class="chart-md"></div></el-card>
+        <el-card><template #header><span class="card-title">销售团队排名（本月）</span></template><div ref="rankingRef" class="chart-md"></div></el-card>
       </el-col>
     </el-row>
 
     <!-- 销售员业绩明细 -->
-    <el-card shadow="never" style="margin-bottom:20px">
+    <el-card style="margin-bottom:20px">
       <template #header><span class="card-title">销售员业绩明细（本月）</span></template>
       <el-table :data="sellerDetails" stripe size="small" @sort-change="handleSellerSort">
         <el-table-column prop="real_name" label="销售员" width="100">
@@ -66,7 +66,7 @@
     <!-- 预警信息 -->
     <el-row :gutter="20">
       <el-col :span="12">
-        <el-card shadow="never">
+        <el-card>
           <template #header><span class="card-title">逾期未回款</span></template>
           <el-table :data="warnings.overdue_payments || []" stripe size="small" max-height="300">
             <el-table-column prop="contract_no" label="合同编号" width="130" />
@@ -81,7 +81,7 @@
         </el-card>
       </el-col>
       <el-col :span="12">
-        <el-card shadow="never">
+        <el-card>
           <template #header><span class="card-title">长期未跟进客户</span></template>
           <el-table :data="warnings.overdue_customers || []" stripe size="small" max-height="300">
             <el-table-column prop="company_name" label="客户名称" min-width="140">
@@ -104,6 +104,7 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { getReportBusiness } from '@/api/report'
 import echarts from '@/composables/useECharts'
+import { chartColors } from '@/utils/chartTheme'
 
 const data = ref({ kpi: {}, teamRanking: [], distribution: { level: [], industry: [] }, trends: { customer: [], contract: [], payment: [] }, warnings: {} })
 const customerTrendRef = ref(null)
@@ -161,9 +162,9 @@ const renderSmallTrend = (el, items, color, name) => {
 
 const renderCharts = () => {
   const t = data.value.trends
-  renderSmallTrend(customerTrendRef.value, t.customer || [], '#0071e3', '客户')
-  renderSmallTrend(contractTrendRef.value, (t.contract || []).map(c => ({ month: c.month, count: c.amount })), '#34c759', '合同金额')
-  renderSmallTrend(paymentTrendRef.value, (t.payment || []).map(p => ({ month: p.month, count: p.amount })), '#ff9500', '回款金额')
+  renderSmallTrend(customerTrendRef.value, t.customer || [], chartColors.primary, '客户')
+  renderSmallTrend(contractTrendRef.value, (t.contract || []).map(c => ({ month: c.month, count: c.amount })), chartColors.secondary, '合同金额')
+  renderSmallTrend(paymentTrendRef.value, (t.payment || []).map(p => ({ month: p.month, count: p.amount })), chartColors.tertiary, '回款金额')
 
   // 客户等级饼图
   if (levelDistRef.value) {
@@ -183,7 +184,7 @@ const renderCharts = () => {
       grid: { left: 80, right: 20, top: 10, bottom: 20 },
       xAxis: { type: 'value', axisLabel: { formatter: (v) => v >= 10000 ? (v / 10000) + '万' : v } },
       yAxis: { type: 'category', data: ranking.map(r => r.real_name) },
-      series: [{ type: 'bar', data: ranking.map(r => r.contract_amount), itemStyle: { color: '#0071e3', borderRadius: [0, 4, 4, 0] } }]
+      series: [{ type: 'bar', data: ranking.map(r => r.contract_amount), itemStyle: { color: chartColors.primary, borderRadius: [0, 4, 4, 0] } }]
     })
   }
 }
@@ -197,12 +198,12 @@ onMounted(() => { fetchData() })
 .page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); }
 
 .kpi-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; margin-bottom: 20px; }
-.kpi-card { background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+.kpi-card { background: var(--color-bg); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-md); }
 .kpi-label { font-size: 12px; color: var(--color-text-tertiary); margin-bottom: 6px; }
 .kpi-value { font-size: 22px; font-weight: 700; color: var(--color-text); margin-bottom: 4px; }
 .kpi-change { font-size: 12px; display: flex; align-items: center; gap: 4px; }
-.kpi-change .up { color: #34c759; }
-.kpi-change .down { color: #f56c6c; }
+.kpi-change .up { color: var(--color-success); }
+.kpi-change .down { color: var(--color-danger); }
 .kpi-change-label { color: var(--color-text-tertiary); }
 
 .card-title { font-size: 15px; font-weight: 600; }

@@ -89,6 +89,7 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -270,7 +271,7 @@ const handleDelete = (row) => {
         fetchList()
       }
     } catch (error) {
-      console.error('删除失败:', error)
+      reportError('删除失败:', error)
     }
   }).catch(() => {})
 }
@@ -312,7 +313,7 @@ const fetchList = async () => {
       total.value = res.data.total
     }
   } catch (error) {
-    ElMessage.error('加载客户列表失败'); console.error('获取客户列表失败:', error)
+    ElMessage.error('加载客户列表失败')
   } finally {
     loading.value = false
   }

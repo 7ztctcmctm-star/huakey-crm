@@ -44,7 +44,7 @@
 
     <el-dialog v-model="permDialogVisible" :title="`权限配置 — ${permRoleName}`" width="500px">
       <div style="margin-bottom: 12px;">
-        <div style="font-size: 12px; color: #86868b; margin-bottom: 6px;">快速设置：</div>
+        <div style="font-size: 12px; color: var(--color-text-secondary); margin-bottom: 6px;">快速设置：</div>
         <div style="display: flex; gap: 6px; flex-wrap: wrap;">
           <el-button size="small" @click="applyPreset('sales')">销售默认</el-button>
           <el-button size="small" @click="applyPreset('finance')">财务默认</el-button>

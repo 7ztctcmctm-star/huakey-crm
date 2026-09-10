@@ -350,3 +350,73 @@ export async function deleteProduct(request, csrfToken, productId) {
   })
   return res.json()
 }
+
+/**
+ * 创建测试商机
+ * 字段约束见 backend/routes/opportunity.js 的 addOpportunitySchema：
+ * name 与 customer_id 必填，stage 取值 1-6，默认 1
+ * @param {import('@playwright/test').APIRequestContext} request
+ * @param {string} csrfToken
+ * @param {object} data
+ */
+export async function createOpportunity(request, csrfToken, data) {
+  const res = await request.post('/api/v1/opportunity/add', {
+    data: {
+      name: data.name,
+      customer_id: data.customerId,
+      expected_amount: data.expectedAmount ?? 10000,
+      stage: data.stage ?? 1,
+      remark: data.remark || 'E2E 测试商机'
+    },
+    headers: { 'X-CSRF-Token': csrfToken }
+  })
+  return res.json()
+}
+
+/**
+ * 删除测试商机
+ * @param {import('@playwright/test').APIRequestContext} request
+ * @param {string} csrfToken
+ * @param {number} opportunityId
+ */
+export async function deleteOpportunity(request, csrfToken, opportunityId) {
+  const res = await request.post('/api/v1/opportunity/delete', {
+    data: { id: opportunityId },
+    headers: { 'X-CSRF-Token': csrfToken }
+  })
+  return res.json()
+}
+
+/**
+ * 查询商机阶段变更日志（用于校验变更原因是否落库）
+ * @param {import('@playwright/test').APIRequestContext} request
+ * @param {string} csrfToken
+ * @param {number} opportunityId
+ */
+export async function getOpportunityStageLog(request, csrfToken, opportunityId) {
+  const res = await request.get(`/api/v1/opportunity/stage-log/${opportunityId}`, {
+    headers: { 'X-CSRF-Token': csrfToken }
+  })
+  return res.json()
+}
+
+/**
+ * 查询客户列表
+ * 返回结构：{ code, message, data: { list, total } }
+ * 用途：商机创建要求客户 status ∈ following/quoted/negotiating/signed
+ * （见 backend/services/opportunityService.js 的 createOpportunity），
+ * 而 createCustomer 建出的客户是潜客池 lead，状态不满足，故需从既有客户中选取。
+ * @param {import('@playwright/test').APIRequestContext} request
+ * @param {string} csrfToken
+ * @param {object} params
+ */
+export async function listCustomers(request, csrfToken, params = {}) {
+  const res = await request.post('/api/v1/customer/list', {
+    data: {
+      page: params.page || 1,
+      pageSize: params.pageSize || 100
+    },
+    headers: { 'X-CSRF-Token': csrfToken }
+  })
+  return res.json()
+}

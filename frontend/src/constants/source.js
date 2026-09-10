@@ -74,28 +74,28 @@ export function getSourceParent(leafValue) {
   return '其他'
 }
 
-// ---- 报表用：标签颜色 ----
+// ---- 报表用：标签颜色（CSS 变量，需在运行时解析） ----
 const SOURCE_COLORS = {
-  展会: '#409EFF',
-  Facebook: '#1877F2',
-  Instagram: '#E4405F',
-  LinkedIn: '#0A66C2',
-  独立站: '#67C23A',
-  其他网络渠道: '#909399',
-  转介绍: '#E6A23C',
-  电话: '#F56C6C',
-  其他: '#B3B3B3'
+  展会: 'var(--color-accent)',
+  Facebook: 'var(--color-success)',
+  Instagram: 'var(--color-success)',
+  LinkedIn: 'var(--color-success)',
+  独立站: 'var(--color-success)',
+  其他网络渠道: 'var(--color-success)',
+  转介绍: 'var(--color-warning)',
+  电话: 'var(--color-danger)',
+  其他: 'var(--color-text-secondary)'
 }
 
 export function getSourceColor(source) {
-  return SOURCE_COLORS[source] || '#909399'
+  return SOURCE_COLORS[source] || 'var(--color-text-secondary)'
 }
 
-// 父分组颜色（报表饼图用）
+// 父分组颜色（报表饼图用，Canvas 渲染需用 cssVar() 解析）
 export const PARENT_SOURCE_COLORS = {
-  展会: '#1a56db',
-  网络: '#2563eb',
-  转介绍: '#3b82f6',
-  电话: '#60a5fa',
-  其他: '#94a3b8'
+  展会: 'var(--color-accent)',
+  网络: 'var(--color-success)',
+  转介绍: 'var(--color-warning)',
+  电话: 'var(--color-danger)',
+  其他: 'var(--color-text-secondary)'
 }

@@ -23,7 +23,7 @@
     </div>
 
     <!-- 列表 -->
-    <el-card shadow="never">
+    <el-card>
       <el-table :data="list" stripe border v-loading="loading">
         <el-table-column prop="plan_no" label="计划编号" width="160" />
         <el-table-column prop="name" label="计划名称" min-width="200" show-overflow-tooltip />
@@ -221,7 +221,7 @@ onMounted(() => { fetchList(); fetchStats(); fetchOptions() })
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); }
 .page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); }
 .stat-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: var(--space-4); }
-.stat-card { background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); text-align: center; }
+
 .stat-value { font-size: 28px; font-weight: 700; color: var(--color-text); }
 .stat-label { font-size: 13px; color: var(--color-text-tertiary); margin-top: 4px; }
 .status-tabs { display: flex; gap: 8px; margin-bottom: var(--space-4); }

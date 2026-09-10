@@ -5,7 +5,7 @@
     </div>
 
     <!-- 邮件配置 -->
-    <el-card shadow="never" v-loading="loading">
+    <el-card v-loading="loading">
       <template #header>
         <div class="card-header-row">
           <span class="section-title">邮件配置 (SMTP)</span>
@@ -41,7 +41,7 @@
     </el-card>
 
     <!-- 邮件日志 -->
-    <el-card shadow="never" style="margin-top: 24px">
+    <el-card style="margin-top: 24px">
       <template #header><span class="section-title">邮件发送记录</span></template>
       <el-table :data="emailLogs" stripe border size="small" v-loading="logLoading" empty-text="暂无发送记录">
         <el-table-column prop="to_email" label="收件人" min-width="180" show-overflow-tooltip />
@@ -70,6 +70,7 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getIntegrationList, updateIntegration, testIntegration, getEmailLog } from '@/api/system'
@@ -102,7 +103,7 @@ const fetchConfig = async () => {
         } catch (e) { /* ignore */ }
       }
     }
-  } catch (e) { console.error(e) }
+  } catch (e) { reportError(e) }
   finally { loading.value = false }
 }
 
@@ -121,7 +122,7 @@ const handleSave = async () => {
       ElMessage.success('配置已保存')
       fetchConfig()
     }
-  } catch (e) { console.error(e) }
+  } catch (e) { reportError(e) }
   finally { saving.value = false }
 }
 
@@ -149,7 +150,7 @@ const fetchEmailLogs = async () => {
       emailLogs.value = res.data.list
       logTotal.value = res.data.total
     }
-  } catch (e) { console.error(e) }
+  } catch (e) { reportError(e) }
   finally { logLoading.value = false }
 }
 

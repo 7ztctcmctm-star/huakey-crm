@@ -21,7 +21,7 @@
     <!-- 最近更新 -->
     <el-row :gutter="20" style="margin-top: 24px">
       <el-col :span="12" v-for="section in recentSections" :key="section.key">
-        <el-card shadow="never" class="recent-card">
+        <el-card class="recent-card">
           <template #header>
             <div class="recent-header">
               <span>{{ section.title }}</span>
@@ -48,10 +48,10 @@ import { getKnowledgeStats } from '@/api/tools'
 const stats = ref({ counts: { products: 0, scripts: 0, faqs: 0, documents: 0 }, recent: { products: [], scripts: [], faqs: [], documents: [] } })
 
 const entries = [
-  { key: 'products', title: '产品知识', path: '/knowledge/products', icon: Box, bg: '#f0f9ff', color: '#0071e3' },
-  { key: 'scripts', title: '销售话术', path: '/knowledge/scripts', icon: ChatLineSquare, bg: '#f0fdf4', color: '#059669' },
-  { key: 'faqs', title: '常见问题', path: '/knowledge/faqs', icon: QuestionFilled, bg: '#fffbeb', color: '#d97706' },
-  { key: 'documents', title: '文档模板', path: '/knowledge/documents', icon: Folder, bg: '#fdf2f8', color: '#be185d' }
+  { key: 'products', title: '产品知识', path: '/knowledge/products', icon: Box, bg: 'var(--color-accent-bg)', color: 'var(--color-accent)' },
+  { key: 'scripts', title: '销售话术', path: '/knowledge/scripts', icon: ChatLineSquare, bg: 'var(--color-success-bg)', color: 'var(--color-success)' },
+  { key: 'faqs', title: '常见问题', path: '/knowledge/faqs', icon: QuestionFilled, bg: 'var(--color-warning-bg)', color: 'var(--color-warning)' },
+  { key: 'documents', title: '文档模板', path: '/knowledge/documents', icon: Folder, bg: 'var(--color-danger-bg)', color: 'var(--color-danger)' }
 ]
 
 const recentSections = computed(() => [

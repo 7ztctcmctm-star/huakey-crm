@@ -2,7 +2,7 @@
   <div class="purchase-dashboard">
     <el-row :gutter="24">
       <el-col :span="8">
-        <el-card shadow="hover" class="stat-card">
+        <el-card class="stat-card">
           <div class="stat-body">
             <div class="stat-icon" style="background: var(--color-bg-secondary); color: var(--color-accent)">
               <el-icon :size="28"><Goods /></el-icon>
@@ -15,7 +15,7 @@
         </el-card>
       </el-col>
       <el-col :span="8">
-        <el-card shadow="hover" class="stat-card" @click="router.push('/purchase/request')">
+        <el-card class="stat-card" @click="router.push('/purchase/request')">
           <div class="stat-body">
             <div class="stat-icon" style="background: var(--color-bg-secondary); color: var(--color-warning)">
               <el-icon :size="28"><Document /></el-icon>
@@ -28,7 +28,7 @@
         </el-card>
       </el-col>
       <el-col :span="8">
-        <el-card shadow="hover" class="stat-card" @click="router.push('/inventory')">
+        <el-card class="stat-card" @click="router.push('/inventory')">
           <div class="stat-body">
             <div class="stat-icon" style="background: var(--color-bg-secondary); color: var(--color-danger)">
               <el-icon :size="28"><Warning /></el-icon>
@@ -44,7 +44,7 @@
 
     <el-row :gutter="24" style="margin-top: 24px">
       <el-col :span="12">
-        <el-card shadow="never">
+        <el-card>
           <template #header>
             <div class="section-header">
               <span class="section-title">
@@ -66,7 +66,7 @@
         </el-card>
       </el-col>
       <el-col :span="12">
-        <el-card shadow="never">
+        <el-card>
           <template #header>
             <div class="section-header">
               <span class="section-title">
@@ -94,6 +94,7 @@
 </template>
 
 <script setup>
+import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import { Goods, Document, Warning, DocumentChecked, ShoppingCart } from '@element-plus/icons-vue'
@@ -121,7 +122,7 @@ const fetchStatistics = async () => {
   try {
     const res = await getPurchaseStatistics()
     if (res.code === 200) Object.assign(statistics, res.data.summary)
-  } catch (e) { console.error('获取采购统计失败:', e) }
+  } catch (e) { reportError('获取采购统计失败:', e) }
 }
 
 const fetchPendingRequests = async () => {
@@ -132,7 +133,7 @@ const fetchPendingRequests = async () => {
       pendingRequests.value = res.data.list || []
       pendingCount.value = res.data.total || 0
     }
-  } catch (e) { console.error('获取待审批申请失败:', e) }
+  } catch (e) { reportError('获取待审批申请失败:', e) }
   finally { loadingPending.value = false }
 }
 
@@ -141,7 +142,7 @@ const fetchRecentPurchases = async () => {
   try {
     const res = await getPurchaseList({ page: 1, pageSize: 5 })
     if (res.code === 200) recentPurchases.value = res.data.list || []
-  } catch (e) { console.error('获取最近采购失败:', e) }
+  } catch (e) { reportError('获取最近采购失败:', e) }
   finally { loadingPurchases.value = false }
 }
 
@@ -149,7 +150,7 @@ const fetchStockAlerts = async () => {
   try {
     const res = await getInventoryAlerts()
     if (res.code === 200) stockAlerts.value = res.data || []
-  } catch (e) { console.error('获取库存预警失败:', e) }
+  } catch (e) { reportError('获取库存预警失败:', e) }
 }
 
 const load = () => {

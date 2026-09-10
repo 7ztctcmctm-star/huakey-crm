@@ -79,7 +79,7 @@
         </el-form-item>
         <el-form-item label="优先级">
           <el-input-number v-model="form.priority" :min="0" :max="999" />
-          <span style="margin-left:8px;color:#909399;font-size:12px">越大越优先</span>
+          <span style="margin-left:8px;color: var(--color-text-secondary);font-size:12px">越大越优先</span>
         </el-form-item>
       </el-form>
       <template #footer>
