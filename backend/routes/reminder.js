@@ -181,7 +181,7 @@ router.get('/center', authenticateToken, checkPermission('notification'), async 
   try {
     const userId = req.user.userId;
 
-    const { approvals, followups, stockAlerts, paymentOverdue, systemNotifications, unread } =
+    const { approvals, followups, stockAlerts, paymentOverdue, transferPending, systemNotifications, unread } =
       await reminderService.getReminderCenter(pool, userId, req.user.roleId);
 
     // 相对时间辅助
@@ -209,13 +209,14 @@ router.get('/center', authenticateToken, checkPermission('notification'), async 
           approvals: formatItems(approvals),
           followups: formatItems(followups),
           stock_alerts: formatItems(stockAlerts),
-          payment_overdue: formatItems(paymentOverdue)
+          payment_overdue: formatItems(paymentOverdue),
+          transfers: formatItems(transferPending)
         },
         system: systemNotifications.map(n => ({
           id: n.id, title: n.title, content: n.content, type: n.type,
           time: relativeTime(n.create_time), is_read: n.is_read, link: n.link
         })),
-        unread_count: unread + approvals.length + followups.length + stockAlerts.length + paymentOverdue.length
+        unread_count: unread + approvals.length + followups.length + stockAlerts.length + paymentOverdue.length + transferPending.length
       }
     });
   } catch (error) {

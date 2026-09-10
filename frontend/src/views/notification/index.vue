@@ -17,6 +17,30 @@
       <!-- 待办通知 -->
       <div v-if="activeTab === 'todo'">
         <el-tabs v-model="todoTab" @tab-change="fetchData">
+          <el-tab-pane :label="`客户转移 (${transfers.length})`" name="transfers">
+            <el-table :data="transfers" stripe border v-loading="todoLoading">
+              <el-table-column prop="company_name" label="客户" min-width="180" show-overflow-tooltip />
+              <el-table-column prop="from_user_name" label="发起人" width="120" />
+              <el-table-column prop="reason" label="转移原因" min-width="180" show-overflow-tooltip>
+                <template #default="{ row }">{{ row.reason || '—' }}</template>
+              </el-table-column>
+              <el-table-column prop="expire_at" label="有效期至" width="160">
+                <template #default="{ row }">{{ formatTime(row.expire_at) }}</template>
+              </el-table-column>
+              <el-table-column prop="create_time" label="申请时间" width="160">
+                <template #default="{ row }">{{ formatTime(row.create_time) }}</template>
+              </el-table-column>
+              <el-table-column label="操作" width="190" fixed="right">
+                <template #default="{ row }">
+                  <el-button type="primary" link @click="handleTransferAccept(row)">同意</el-button>
+                  <el-button type="danger" link @click="handleTransferReject(row)">拒绝</el-button>
+                  <el-button link @click="goToCustomer(row)">查看客户</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <EmptyState v-if="!todoLoading && transfers.length === 0" title="暂无待处理的客户转移申请" />
+          </el-tab-pane>
+
           <el-tab-pane :label="`审批待办 (${approvals.length})`" name="approvals">
             <el-table :data="approvals" stripe border>
               <el-table-column prop="workflow_name" label="流程" min-width="140" />
@@ -110,17 +134,24 @@ import { ElMessage } from 'element-plus'
 import { getNotifications, markNotificationRead, markAllRead as apiMarkAllRead } from '@/api/notification'
 import { getMyReminders } from '@/api/reminder'
 import { formatTime } from '@/composables/useFormat'
+import { acceptTransferItem, rejectTransferItem } from '@/composables/useTransferTodo'
+import { reportWarn } from '@/utils/error'
 import { connectSSE, offMessage } from '@/utils/sse'
 
 const router = useRouter()
 const activeTab = ref('todo')
 const todoTab = ref('approvals')
 const loading = ref(false)
+const todoLoading = ref(false)
 const unreadCount = ref(0)
 
+const transfers = ref([])
 const approvals = ref([])
 const urges = ref([])
 const services = ref([])
+
+/** 首次加载时若存在转移待办，则默认停在「客户转移」页签（有 3 天时效，最该被看到） */
+const todoTabPicked = ref(false)
 
 const systemNotifications = ref([])
 const systemTotal = ref(0)
@@ -136,14 +167,24 @@ const fetchData = () => {
 }
 
 const fetchTodoData = async () => {
+  todoLoading.value = true
   try {
     const res = await getMyReminders()
     if (res.code === 200) {
+      transfers.value = res.data.transfer_pending || []
       approvals.value = res.data.pending_approvals || []
       urges.value = res.data.urge_notifications || []
       services.value = [...(res.data.new_services || []), ...(res.data.overdue_services || [])]
+      if (!todoTabPicked.value) {
+        todoTabPicked.value = true
+        if (transfers.value.length > 0) todoTab.value = 'transfers'
+      }
     }
-  } catch { /* */ }
+  } catch (error) {
+    reportWarn('加载待办通知失败:', error)
+  } finally {
+    todoLoading.value = false
+  }
 }
 
 const fetchSystemNotifications = async () => {
@@ -185,7 +226,17 @@ const markAllRead = async () => {
 }
 
 const goToCustomer = (row) => {
-  if (row.business_id) router.push(`/customer/detail/${row.business_id}`)
+  const id = row.customer_id || row.business_id
+  if (id) router.push(`/customer/detail/${id}`)
+}
+
+/** 转移待办：同意 / 拒绝（逻辑见 composables/useTransferTodo） */
+const handleTransferAccept = async (row) => {
+  if (await acceptTransferItem(row)) fetchTodoData()
+}
+
+const handleTransferReject = async (row) => {
+  if (await rejectTransferItem(row)) fetchTodoData()
 }
 
 const handleSystemClick = async (row) => {
@@ -201,7 +252,9 @@ const handleSystemClick = async (row) => {
 
 const handleSseMessage = (payload) => {
   if (payload.type === 'notification') {
-    if (activeTab.value === 'system') fetchSystemNotifications()
+    // 收到实时通知时刷新当前所在页签（转移申请会即时出现在待办里）
+    if (activeTab.value === 'todo') fetchTodoData()
+    else fetchSystemNotifications()
   }
 }
 

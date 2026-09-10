@@ -49,6 +49,7 @@ describe('提醒系统模块', () => {
         .mockResolvedValueOnce([[]]) // all reminders
         .mockResolvedValueOnce([[]]) // pre-warning
         .mockResolvedValueOnce([[]]) // notifications
+        .mockResolvedValueOnce([[]]) // 待我处理的客户转移申请
         .mockResolvedValueOnce([[]]); // overdue services
 
       const res = await request(app)
@@ -60,6 +61,76 @@ describe('提醒系统模块', () => {
       expect(res.body.data).toHaveProperty('list');
       expect(res.body.data).toHaveProperty('unread_count');
       expect(res.body.data).toHaveProperty('pending_approvals');
+      // 客户转移待办（通知中心「客户转移」页签的数据来源）
+      expect(res.body.data).toHaveProperty('transfer_pending');
+      expect(res.body.data.transfer_pending).toEqual([]);
+      expect(res.body.data.transfer_pending_count).toBe(0);
+    });
+
+    it('应返回待处理的客户转移申请', async () => {
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[]]) // all reminders
+        .mockResolvedValueOnce([[]]) // pre-warning
+        .mockResolvedValueOnce([[]]) // notifications
+        .mockResolvedValueOnce([[{
+          id: 88, customer_id: 7, company_name: '深圳华科', from_user_name: '张三',
+          reason: '区域调整', expire_at: '2026-09-13 10:00:00', create_time: '2026-09-10 10:00:00'
+        }]]) // 转移申请
+        .mockResolvedValueOnce([[]]); // overdue services
+
+      const res = await request(app)
+        .get('/api/v1/reminder/my-reminders')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.transfer_pending_count).toBe(1);
+      expect(res.body.data.transfer_pending[0]).toMatchObject({
+        id: 88, customer_id: 7, company_name: '深圳华科', from_user_name: '张三'
+      });
+
+      // 断言 SQL 中带了「仅未过期」条件 —— 过期申请由 acceptTransfer 拒收，
+      // 若列表仍展示就会变成点了没反应的死按钮
+      const sql = mockPool.query.mock.calls.map(c => c[0]).join('\n');
+      expect(sql).toContain('crm_customer_transfer');
+      expect(sql).toContain('expire_at > NOW()');
+      expect(sql).toContain("status = 'pending'");
+    });
+  });
+
+  describe('GET /api/v1/reminder/center', () => {
+    it('待办中应包含客户转移分组', async () => {
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[]]) // approvals
+        .mockResolvedValueOnce([[]]) // followups
+        .mockResolvedValueOnce([[]]) // stock alerts
+        .mockResolvedValueOnce([[]]) // payment overdue
+        .mockResolvedValueOnce([[{
+          id: 5, customer_id: 3, create_time: '2026-09-10 10:00:00',
+          title: '客户转移-深圳华科（来自张三）', link: '/customer/detail/3'
+        }]]) // 转移待办
+        .mockResolvedValueOnce([[]]) // system notifications
+        .mockResolvedValueOnce([[{ unread: 0 }]]); // unread count
+
+      const res = await request(app)
+        .get('/api/v1/reminder/center')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.code).toBe(200);
+      expect(res.body.data.todo).toHaveProperty('transfers');
+      expect(res.body.data.todo.transfers).toHaveLength(1);
+      expect(res.body.data.todo.transfers[0]).toMatchObject({
+        id: 5,
+        link: '/customer/detail/3'
+      });
+      // 待办条数应计入角标
+      expect(res.body.data.unread_count).toBe(1);
     });
   });
 

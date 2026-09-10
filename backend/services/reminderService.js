@@ -74,6 +74,22 @@ async function getMyReminders(pool, userId, roleId, opts = {}) {
   const urge_unread_count = allNotifications.length > 0 ? parseInt(allNotifications[0].urge_unread || 0) : 0;
   const service_unread_count = allNotifications.length > 0 ? parseInt(allNotifications[0].service_unread || 0) : 0;
 
+  // 待我处理的客户转移申请（双方同意制：我是接收人且申请仍为 pending 未过期）
+  // 已过期但定时任务尚未扫到的申请不计入 —— acceptTransfer 会拒收，展示出来就是死按钮
+  const [transferPending] = await pool.query(
+    `SELECT t.id, t.customer_id, t.reason, t.expire_at, t.create_time,
+            c.company_name,
+            u.real_name AS from_user_name
+       FROM crm_customer_transfer t
+       LEFT JOIN crm_customer c ON c.id = t.customer_id
+       LEFT JOIN sys_user u ON u.id = t.from_user_id
+      WHERE t.to_user_id = ? AND t.status = 'pending'
+        AND t.deleted_at IS NULL AND t.expire_at > NOW()
+      ORDER BY t.create_time DESC
+      LIMIT 20`,
+    [userId]
+  );
+
   // 超时工单
   let overdueServiceFilter = 'so.status IN (1, 2) AND so.deleted_at IS NULL';
   const overdueServiceParams = [];
@@ -115,7 +131,9 @@ async function getMyReminders(pool, userId, roleId, opts = {}) {
     new_services: newServiceNotifications,
     new_service_count: service_unread_count,
     overdue_services: overdueServices,
-    overdue_service_count: overdueServices.length
+    overdue_service_count: overdueServices.length,
+    transfer_pending: transferPending,
+    transfer_pending_count: transferPending.length
   };
 }
 
@@ -383,6 +401,21 @@ async function getReminderCenter(pool, userId, roleId) {
      ORDER BY pp.plan_date LIMIT 5`
   );
 
+  // 客户转移待我处理（接收人视角，仅未过期）
+  const [transferPending] = await pool.query(
+    `SELECT t.id, t.customer_id, t.reason, t.create_time, t.expire_at,
+            CONCAT('客户转移-', COALESCE(c.company_name, CONCAT('客户#', t.customer_id)),
+                   '（来自', COALESCE(u.real_name, '未知'), '）') as title,
+            CONCAT('/customer/detail/', t.customer_id) as link
+     FROM crm_customer_transfer t
+     LEFT JOIN crm_customer c ON c.id = t.customer_id
+     LEFT JOIN sys_user u ON u.id = t.from_user_id
+     WHERE t.to_user_id = ? AND t.status = 'pending'
+       AND t.deleted_at IS NULL AND t.expire_at > NOW()
+     ORDER BY t.create_time DESC LIMIT 5`,
+    [userId]
+  );
+
   // 系统通知
   const [systemNotifications] = await pool.query(
     `SELECT id, title, content, type, is_read, create_time,
@@ -403,7 +436,7 @@ async function getReminderCenter(pool, userId, roleId) {
      WHERE (to_user_id = ? OR to_role_id = ?) AND is_read = 0 AND is_dismissed = 0`, [userId, roleId]
   );
 
-  return { approvals, followups, stockAlerts, paymentOverdue, systemNotifications, unread };
+  return { approvals, followups, stockAlerts, paymentOverdue, transferPending, systemNotifications, unread };
 }
 
 /**

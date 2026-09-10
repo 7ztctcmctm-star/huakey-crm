@@ -1,19 +1,23 @@
 /**
- * 公海池 API 模块（Phase 5：切换到独立 /pool 端点）
+ * 公海池 / 客户总览 API 模块（Phase 5：切换到独立 /pool 端点）
  *
- * 新端点：
- *   POST /api/v1/pool          公海池列表（status='sea'）           [pool:view]
- *   POST /api/v1/pool/claim    认领公海客户（sea→following, 7天保护期） [pool:claim]
- *   POST /api/v1/pool/release  释放客户到公海（following→sea）        [customer:release]
+ * 端点：
+ *   POST /api/v1/pool                  客户总览列表                      [pool:view]
+ *   POST /api/v1/pool/claim            认领无主客户（owner_id → 当前用户）  [pool:claim]
+ *   POST /api/v1/pool/release          释放客户回公司池（owner_id=NULL）   [customer:release]
+ *   POST /api/v1/pool/transfer/*       客户转移（双方同意制）
+ *
+ * ⚠️ 2026-09-10 起「7 天保护期」已下线：认领后不再写入 protect_until，
+ *    释放后的客户也可被立即认领。详见 docs/crm-customer-overview-design.md。
  *
  * 旧端点 /customer/pool-list、/customer/claim-pool、/customer/release-to-pool 保留为兼容层。
  */
 import request from '@/utils/request'
 
-// 公海池列表（status='sea' AND owner_id IS NULL）
+// 客户总览列表（默认 owner_id 为空，即「待认领」视图）
 export const getPoolList = (params) => request.post('/pool', params)
 
-// 认领公海客户（sea → following, owner_id=当前用户, 7天保护期）
+// 认领无主客户（owner_id = 当前用户；无保护期）
 export const claimPoolCustomer = (id) => request.post('/pool/claim', { id })
 
 // 释放客户到公海（following → sea, owner_id=NULL）

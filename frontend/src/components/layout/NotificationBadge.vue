@@ -15,6 +15,21 @@
       <div class="notify-body" v-loading="notifyLoading">
         <!-- 待办Tab -->
         <div v-if="notifyTab === 'todo'">
+          <div v-if="centerData.todo?.transfers?.length" class="notify-group">
+            <div class="notify-group-title">客户转移待处理</div>
+            <div v-for="item in centerData.todo.transfers" :key="'t'+item.id" class="notify-item">
+              <div class="notify-dot warn" />
+              <div class="notify-content">
+                <div class="notify-title">{{ item.title }}</div>
+                <div class="notify-time">{{ item.time }}</div>
+                <div class="notify-actions">
+                  <el-button type="primary" link size="small" @click.stop="handleTransferAccept(item)">同意</el-button>
+                  <el-button type="danger" link size="small" @click.stop="handleTransferReject(item)">拒绝</el-button>
+                  <el-button link size="small" @click.stop="goCustomer(item)">查看客户</el-button>
+                </div>
+              </div>
+            </div>
+          </div>
           <div v-if="centerData.todo?.approvals?.length" class="notify-group">
             <div class="notify-group-title">审批待处理</div>
             <div v-for="item in centerData.todo.approvals" :key="'a'+item.id" class="notify-item" @click="$router.push(item.link)">
@@ -85,18 +100,19 @@ import { useRouter } from 'vue-router'
 import { Bell } from '@element-plus/icons-vue'
 import { getReminderCenter } from '@/api/tools'
 import { markAllRead as markNotificationAllRead, getUnreadCount } from '@/api/notification'
+import { acceptTransferItem, rejectTransferItem } from '@/composables/useTransferTodo'
 import { connectSSE, offMessage } from '@/utils/sse'
 
 const router = useRouter()
 
 const notifyTab = ref('todo')
 const notifyLoading = ref(false)
-const centerData = ref({ todo: { approvals: [], followups: [], stock_alerts: [], payment_overdue: [] }, system: [], unread_count: 0 })
+const centerData = ref({ todo: { approvals: [], followups: [], stock_alerts: [], payment_overdue: [], transfers: [] }, system: [], unread_count: 0 })
 const unreadCount = ref(0)
 const centerUnreadCount = computed(() => unreadCount.value || 0)
 const hasTodoItems = computed(() => {
   const t = centerData.value.todo
-  return t && (t.approvals?.length || t.followups?.length || t.stock_alerts?.length || t.payment_overdue?.length)
+  return t && (t.approvals?.length || t.followups?.length || t.stock_alerts?.length || t.payment_overdue?.length || t.transfers?.length)
 })
 
 const fetchNotificationCenter = async () => {
@@ -125,6 +141,24 @@ const markCenterAllRead = async () => {
 
 const handleNotifyClick = (item) => {
   if (!item.is_read) item.is_read = 1
+  if (item.link) router.push(item.link)
+}
+
+/** 转移待办：同意 / 拒绝（逻辑见 composables/useTransferTodo） */
+const handleTransferAccept = async (item) => {
+  if (await acceptTransferItem(item)) refreshAfterTransfer()
+}
+
+const handleTransferReject = async (item) => {
+  if (await rejectTransferItem(item)) refreshAfterTransfer()
+}
+
+const refreshAfterTransfer = () => {
+  fetchNotificationCenter()
+  fetchUnreadCount()
+}
+
+const goCustomer = (item) => {
   if (item.link) router.push(item.link)
 }
 
@@ -248,6 +282,16 @@ onUnmounted(() => {
   font-size: 11px;
   color: var(--color-text-tertiary);
   margin-top: 2px;
+}
+
+.notify-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.notify-actions .el-button + .el-button {
+  margin-left: 0;
 }
 
 .notify-footer {
