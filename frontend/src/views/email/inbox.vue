@@ -141,7 +141,7 @@ const selectFolder = (key) => {
 const fetchList = async () => {
   loading.value = true
   try {
-    const params = { folder: currentFolder.value, page: page.value, page_size: pageSize.value }
+    const params = { folder: currentFolder.value, page: page.value, pageSize: pageSize.value }
     if (keyword.value) params.keyword = keyword.value
     const res = await getEmailList(params)
     if (res.code === 200) {

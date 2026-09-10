@@ -203,7 +203,7 @@ const profileForm = reactive({
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await getEmployees({ page: page.value, page_size: pageSize.value, ...search })
+    const res = await getEmployees({ page: page.value, pageSize: pageSize.value, ...search })
     if (res.code === 200) { list.value = res.data.list; total.value = res.data.total; expiringContracts.value = res.data.expiring_contracts || 0 }
   } catch (e) { /* */ }
   finally { loading.value = false }

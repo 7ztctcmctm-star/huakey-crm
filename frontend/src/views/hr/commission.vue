@@ -188,7 +188,7 @@ const selectedIds = ref([])
 const fetchRecords = async () => {
   recordsLoading.value = true
   try {
-    const params = { page: recordPage.value, page_size: 20 }
+    const params = { page: recordPage.value, pageSize: 20 }
     if (recordMonth.value) params.period = recordMonth.value
     if (recordStatus.value) params.status = recordStatus.value
     const res = await getCommissionRecords(params)

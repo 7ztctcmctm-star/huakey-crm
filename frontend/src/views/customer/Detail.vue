@@ -827,7 +827,7 @@ const handleCalculateScore = async () => {
 const fetchEmails = async () => {
   emailLoading.value = true
   try {
-    const res = await getEmailList({ customer_id: customer.id, page: 1, page_size: 50 })
+    const res = await getEmailList({ customer_id: customer.id, page: 1, pageSize: 50 })
     if (res.code === 200) emailList.value = res.data.list || []
   } catch {}
   finally { emailLoading.value = false }

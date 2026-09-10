@@ -85,7 +85,7 @@ const statCards = computed(() => [
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await getFinanceReminders({ page: page.value, page_size: pageSize.value, status: filterStatus.value })
+    const res = await getFinanceReminders({ page: page.value, pageSize: pageSize.value, status: filterStatus.value })
     if (res.code === 200) { list.value = res.data.list; total.value = res.data.total }
   } catch (e) { /* */ }
   finally { loading.value = false }

@@ -138,7 +138,7 @@ const formTotal = computed(() => form.items.reduce((sum, i) => sum + (i.quantity
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await getProcurementPlanList({ page: page.value, page_size: pageSize.value, status: search.status })
+    const res = await getProcurementPlanList({ page: page.value, pageSize: pageSize.value, status: search.status })
     if (res.code === 200) { list.value = res.data.list; total.value = res.data.total }
   } catch (e) { /* */ }
   finally { loading.value = false }
@@ -151,7 +151,7 @@ const fetchStats = async () => {
 const fetchOptions = async () => {
   try {
     const [pRes, sRes] = await Promise.all([
-      getInventoryList({ page_size: 200 }),
+      getInventoryList({ pageSize: 200 }),
       getSupplierList({ page: 1, pageSize: 200 })
     ])
     if (pRes.code === 200) productOptions.value = pRes.data.list

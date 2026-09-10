@@ -115,7 +115,7 @@ const form = reactive({ customer_id: null, platform: 'wechat', direction: 'out',
 const fetchList = async () => {
   loading.value = true
   try {
-    const params = { page: page.value, page_size: pageSize.value }
+    const params = { page: page.value, pageSize: pageSize.value }
     if (search.customer_id) params.customer_id = search.customer_id
     if (search.platform) params.platform = search.platform
     const res = await getSocialRecords(params)

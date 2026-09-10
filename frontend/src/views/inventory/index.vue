@@ -161,7 +161,7 @@ const alertForm = reactive({ min_qty: 0, max_qty: 9999, alert_enabled: 1 })
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await getInventoryList({ page: page.value, page_size: pageSize.value, ...search })
+    const res = await getInventoryList({ page: page.value, pageSize: pageSize.value, ...search })
     if (res.code === 200) { list.value = res.data.list; total.value = res.data.total }
   } catch (e) { /* */ }
   finally { loading.value = false }

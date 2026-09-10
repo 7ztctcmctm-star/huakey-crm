@@ -284,7 +284,7 @@ const handleSaveRecon = async (type) => {
 const fetchHistory = async () => {
   historyLoading.value = true
   try {
-    const res = await getReconciliationList({ page: 1, page_size: 50 })
+    const res = await getReconciliationList({ page: 1, pageSize: 50 })
     if (res.code === 200) historyList.value = res.data.list
   } catch (e) { /* */ }
   finally { historyLoading.value = false }

@@ -164,7 +164,7 @@ const handleRun = async () => {
   if (!currentId.value) { ElMessage.warning('请先选择或保存报表'); return }
   runLoading.value = true
   try {
-    const res = await runReportCustom(currentId.value, { page: runPage.value, page_size: 20 })
+    const res = await runReportCustom(currentId.value, { page: runPage.value, pageSize: 20 })
     if (res.code === 200) {
       resultData.value = res.data
       resultColumns.value = res.data.list.length > 0 ? Object.keys(res.data.list[0]) : []
