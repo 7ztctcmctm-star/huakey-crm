@@ -91,6 +91,55 @@ describe('AI模块', () => {
       expect(res.body.data).toHaveProperty('answer');
       expect(res.body.data).toHaveProperty('sql');
     });
+
+    // 【P1-2】AI 查询必须受数据范围约束
+    // 背景：迁移 086 把 `ai` 权限授予了 sales 等非全局角色，
+    // 而本路由原先对 AI 生成的 SQL 直接执行、无行级过滤。
+    const salesToken = () =>
+      jwt.sign(
+        { userId: 2, username: 'sales1', roleId: 2, roleCode: 'sales', manageAll: false },
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' }
+      );
+
+    it('P1-2：非全局数据范围账号查询客户表应被拒绝', async () => {
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0 }]]); // role query
+
+      chatCompletion.mockResolvedValueOnce('SELECT id, company_name FROM crm_customer');
+
+      const res = await request(app)
+        .post('/api/v1/ai/query')
+        .set('Authorization', `Bearer ${salesToken()}`)
+        .send({ question: '列出所有客户及其负责人' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.rows).toHaveLength(0);
+      expect(res.body.data.sql).toBe('');
+      expect(res.body.data.answer).toContain('数据范围不支持');
+    });
+
+    it('P1-2：非全局数据范围账号查询非敏感表应正常执行', async () => {
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0 }]]); // role query
+
+      chatCompletion
+        .mockResolvedValueOnce('SELECT COUNT(*) FROM crm_product') // SQL 生成
+        .mockResolvedValueOnce('共 50 个产品'); // 结果格式化
+
+      // 注意：AI 生成的 SQL 由只读连接池执行（非主库池）
+      mockReadOnlyPool.query.mockResolvedValueOnce([[{ 'COUNT(*)': 50 }]]);
+
+      const res = await request(app)
+        .post('/api/v1/ai/query')
+        .set('Authorization', `Bearer ${salesToken()}`)
+        .send({ question: '有多少产品' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.answer).toBe('共 50 个产品');
+    });
   });
 
   describe('GET /api/v1/ai/suggestions', () => {

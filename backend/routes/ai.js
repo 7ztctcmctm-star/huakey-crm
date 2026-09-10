@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
-const { checkPermission } = require('../middleware/permission');
+const { checkPermission, checkDataPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const pool = require('../config/database');
 const { readOnlyPool, isReadOnlyPoolAvailable } = require('../config/database');
@@ -98,7 +98,9 @@ const DB_SCHEMA = `
 - sys_email_log(邮件日志): id, to_email, subject, status(sent/failed), create_time
 `.trim();
 
-router.post('/query', authenticateToken, checkPermission('ai'), validate(querySchema), async (req, res, next) => {
+// 【P1-2】追加数据范围中间件：为后续的敏感表守卫提供 req.dataPermission。
+// 非管理员角色默认落在 type='self'（见 middleware/permission.js:71-73）。
+router.post('/query', authenticateToken, checkPermission('ai'), checkDataPermission('customer', 'owner_id'), validate(querySchema), async (req, res, next) => {
   try {
     const { question } = req.body;
     if (!question) return res.status(400).json({ code: 400, message: '请输入问题', data: null });
@@ -147,6 +149,43 @@ router.post('/query', authenticateToken, checkPermission('ai'), validate(querySc
     const sensitiveTables = /\b(sys_user|sys_role|sys_permission|sys_config|sys_backup_record)\b/i;
     if (sensitiveTables.test(sql)) {
       return res.json({ code: 200, message: 'success', data: { sql: '', answer: '不允许查询系统表。', rows: [] } });
+    }
+
+    // 【P1-2】数据范围守卫：AI 查询同样必须受数据权限约束。
+    //
+    // 缺陷背景：本路由此前对 AI 生成的 SQL 直接执行，无任何行级过滤。
+    // 而迁移 086（database/migrations/086_fix_sales_permissions.sql:58,70-73）
+    // 已将 `ai` 权限授予 sales / hr / purchase / finance / engineer，
+    // 因此不具备全局数据范围的角色可通过自然语言问出全公司客户数据。
+    //
+    // 处理方式：不具备全局数据范围（type !== 'all'）时，凡 SQL 触及客户链路敏感表的，
+    // 一律拒绝执行。
+    //
+    // 取舍说明：这里【宁可明确拒绝，也不返回越权数据或不完整数据】——
+    // 若改为静默加过滤条件，聚合类问题（如「客户总数」）会返回错误口径的数字，
+    // 对经营决策的误导比拒绝更严重。后续若要为销售开放，应实现真正的行级改写。
+    const isGlobalScope = !!(req.dataPermission && req.dataPermission.type === 'all');
+    if (!isGlobalScope) {
+      // 敏感表清单依据 information_schema 实测：所有含
+      // owner_id / customer_id / opportunity_id / quote_id / contract_id 的 crm_* 表（共 27 张）
+      const SCOPED_TABLES = /\b(crm_customer|crm_contact|crm_opportunity|crm_opportunity_stage_log|crm_quote|crm_quote_item|crm_contract|crm_payment|crm_payment_plan|crm_payment_reminder|crm_invoice|crm_follow_up|crm_follow_plan|crm_follow_up_reminder|crm_purchase_order|crm_supplier|crm_service_order|crm_customer_tag|crm_customer_score_log|crm_customer_supplier_relation|crm_assign_log|crm_pool_log|crm_competitor_encounter|crm_social_contact|crm_survey_response|crm_email|crm_calendar_event)\b/i;
+      if (SCOPED_TABLES.test(sql)) {
+        logger.warn('[AI查询] 已拒绝：非全局数据范围账号请求了敏感业务表', {
+          userId: req.user && req.user.userId,
+          dataScope: req.dataPermission && req.dataPermission.type,
+          traceId: req.traceId || 'N/A'
+        });
+        return res.json({
+          code: 200,
+          message: 'success',
+          data: {
+            sql: '',
+            answer:
+              '该问题涉及全量业务数据，当前账号的数据范围不支持 AI 直接查询。如需查看您负责的客户，请前往「客户管理」页面。',
+            rows: []
+          }
+        });
+      }
     }
 
     // 第二步：执行 SQL（使用只读连接池）

@@ -113,7 +113,7 @@ deploy/docker-compose.prod.yml:10   container_name: crm-prod-mysql
 | 编号 | 问题 | 证据 | 影响 |
 |------|------|------|------|
 | **P1-1** | **金额用 JS 浮点数计算** | `quoteService.js:61,62,76,294,295,308`（`quantity * unitPrice`、`totalAmount * (1 - disc)`） | 违反任务书 §18「必须避免 JS 浮点数误差」。折扣相乘与累加会累积误差，报价/合同金额可能与实际不符 |
-| **P1-2** | **`/ai/query` 绕过数据范围控制** | `backend/routes/ai.js:166` 直接 `executeReadOnlyQuery`，全文件**无** `buildDataPermissionWhere` | 普通销售可通过自然语言查询读到全库客户（仅屏蔽 `sys_*`），构成**越权数据泄漏** |
+| ~~**P1-2**~~ **✅ 已修复** | **`/ai/query` 绕过数据范围控制** | `backend/routes/ai.js:166` 原直接 `executeReadOnlyQuery`，全文件无 `buildDataPermissionWhere`。**权限可行性经实测补证**：`086_fix_sales_permissions.sql:58,70-73` 将 `ai` 权限授予 `sales,hr,purchase,finance,engineer` → **生产环境中 sales 确实能借此读出全库客户** | 已修复：路由挂载 `checkDataPermission` + 敏感表守卫（27 张表，依据 `information_schema` 实测），非全局数据范围账号触及敏感表一律拒绝 |
 | **P1-3** | **迁移编号断裂 064 / 065 缺失** | `database/migrations/` 中 `063_*` 后直接 `066_*` | 违反任务书 §30 迁移可追溯性；且 `111_*.sql` 注释自曝生产曾应用未入库的 109 → **仓库与产线版本错位** |
 | **P1-4** | **前后端分页参数错配** | 前端 13 处发 `page_size`（如 `report/custom.vue:167`、`email/inbox.vue:144`、`hr/commission.vue:191`），后端 36 处用 `pageSize` | 参数被服务端忽略，**分页静默失效**（可能返回默认条数），用户以为看到了全部数据 |
 | **P1-5** | **dev / test 库 schema 漂移** | `sys_operation_log` 仅存在于 `huakey_crm_test`，`huakey_crm` 无此表 | 环境不可比，测试通过 ≠ 生产可用 |
@@ -124,6 +124,7 @@ deploy/docker-compose.prod.yml:10   container_name: crm-prod-mysql
 | **P1-10** | **报价转合同无幂等** | `quoteService.js:372-394` 未校验是否已转合同 | 违反任务书 §24。重复调用会**生成多份合同** |
 | **P1-11** | **前端空 catch 吞掉异常** | 全项目 `catch {}` 空块 **10 处**（已复核） | 违反任务书 §13「网络请求错误」检查项。API 失败用户无任何提示 |
 | **P1-12** | **E2E 缺营收主链路** | `frontend/e2e/` 9 个 spec，覆盖 login/customer/leads/quotation/approval/opportunity/navigation/responsive/cross-browser | 缺失：**采购→入库、收款/回款、报表看板、合同全生命周期、客户公海回收**——营收主链路无自动化防护 |
+| **P1-13** | **测试库的权限数据不具代表性**（核验 P1-2 时发现） | E2E 自举导入 `init-complete.sql` 后**把所有迁移标记为已执行** → 迁移 `086_fix_sales_permissions.sql` 从未真正运行 → 测试库里只有 `boss` 有 `ai` 权限，且**没有 `sales` 角色** | 影响更广：**当前所有依赖权限/角色的测试都跑在不具代表性的数据集上**，「测试通过」不能代表生产行为。核验 P1-2 时，若只看测试库会误判为「不可利用」——实际生产可利用 |
 
 ---
 
