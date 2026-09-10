@@ -346,7 +346,11 @@ const fetchPrices = async (productId) => {
   try {
     const res = await getProductPrices(productId)
     if (res.code === 200) priceList.value = res.data
-  } catch {}
+  } catch (error) {
+    // P1-11：原为空 catch，价格弹窗内容静默变空，用户无从判断是「没有数据」还是「加载失败」
+    ElMessage.error('加载价格列表失败')
+    reportError('获取产品价格列表失败:', error)
+  }
 }
 
 const addPrice = async () => {
@@ -367,7 +371,11 @@ const addPrice = async () => {
       showAddPrice.value = false
       fetchPrices(currentProductId.value)
     }
-  } catch {}
+  } catch (error) {
+    // P1-11：原为空 catch —— 添加失败时界面毫无反应，用户会重复点击
+    ElMessage.error('添加价格失败')
+    reportError('添加产品价格失败:', error)
+  }
 }
 
 const deletePrice = async (row) => {
@@ -377,7 +385,11 @@ const deletePrice = async (row) => {
       ElMessage.success('删除成功')
       fetchPrices(currentProductId.value)
     }
-  } catch {}
+  } catch (error) {
+    // P1-11：原为空 catch —— 删除失败时界面毫无反应
+    ElMessage.error('删除价格失败')
+    reportError('删除产品价格失败:', error)
+  }
 }
 
 onMounted(() => { fetchList(); fetchCategories() })

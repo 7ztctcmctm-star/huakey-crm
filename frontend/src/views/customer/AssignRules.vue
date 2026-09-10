@@ -93,6 +93,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { reportWarn } from '@/utils/error'
 import { Plus } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getSalesUsers, getAssignRules, createAssignRule, updateAssignRule, deleteAssignRule } from '@/api/customer'
@@ -147,7 +148,10 @@ const fetchSalesUsers = async () => {
   try {
     const r = await getSalesUsers()
     if (r.code === 200) salesUsers.value = r.data
-  } catch {}
+  } catch (error) {
+    // P1-11：原为空 catch，销售下拉静默变空，用户不知是「无销售」还是「加载失败」
+    reportWarn('获取销售列表失败:', error)
+  }
 }
 
 const handleAdd = () => {

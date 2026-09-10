@@ -829,7 +829,11 @@ const fetchEmails = async () => {
   try {
     const res = await getEmailList({ customer_id: customer.id, page: 1, pageSize: 50 })
     if (res.code === 200) emailList.value = res.data.list || []
-  } catch {}
+  } catch (error) {
+    // P1-11：原为空 catch。此处为详情页的辅助信息区，用提示条会显得吵，
+    // 故只记录日志 —— 但绝不能再无声吞掉。
+    reportWarn('获取客户邮件列表失败:', error)
+  }
   finally { emailLoading.value = false }
 }
 

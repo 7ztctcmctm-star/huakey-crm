@@ -94,6 +94,7 @@
 <script setup>
 import { Search, Refresh } from '@element-plus/icons-vue'
 import { ref, onMounted } from 'vue'
+import { reportWarn } from '@/utils/error'
 import { getTagList } from '@/api/system'
 import { get } from '@/utils/request'
 
@@ -116,7 +117,10 @@ const fetchTags = async () => {
   try {
     const res = await getTagList()
     if (res.code === 200) tagOptions.value = res.data
-  } catch {}
+  } catch (error) {
+    // P1-11：原为空 catch，标签筛选静默变空
+    reportWarn('获取客户标签失败:', error)
+  }
 }
 
 const fetchOverdueDays = async () => {

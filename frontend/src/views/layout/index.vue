@@ -66,6 +66,7 @@
 
 <script setup>
 import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { reportWarn } from '@/utils/error'
 import { useRouter, useRoute } from 'vue-router'
 import { getMyReminders, getPaymentOverdue, markAllRead, markNotificationRead } from '@/api/tools'
 import { useUser } from '@/composables/useUser'
@@ -191,7 +192,13 @@ const goToContract = (id) => {
 
 const goToApproval = async (row) => {
   showReminderDialog.value = false
-  try { await markNotificationRead(row.id) } catch {}
+  // P1-11：原为空 catch。此为「阅读后跳转」的附带动作，
+  // 失败不应打断跳转流程，故只记日志、不弹提示。
+  try {
+    await markNotificationRead(row.id)
+  } catch (error) {
+    reportWarn('标记通知已读失败:', error)
+  }
   if (row.business_type === 'quote') {
     router.push(`/quotation?id=${row.business_id}`)
   } else if (row.business_type === 'contract') {
@@ -201,7 +208,13 @@ const goToApproval = async (row) => {
 
 const goToUrgeCustomer = async (row) => {
   showReminderDialog.value = false
-  try { await markNotificationRead(row.id) } catch {}
+  // P1-11：原为空 catch。此为「阅读后跳转」的附带动作，
+  // 失败不应打断跳转流程，故只记日志、不弹提示。
+  try {
+    await markNotificationRead(row.id)
+  } catch (error) {
+    reportWarn('标记通知已读失败:', error)
+  }
   if (row.business_type === 'customer' && row.business_id) {
     router.push(`/customer/detail/${row.business_id}`)
   }
@@ -214,7 +227,13 @@ const goToService = (row) => {
 
 const goToNewService = async (row) => {
   showReminderDialog.value = false
-  try { await markNotificationRead(row.id) } catch {}
+  // P1-11：原为空 catch。此为「阅读后跳转」的附带动作，
+  // 失败不应打断跳转流程，故只记日志、不弹提示。
+  try {
+    await markNotificationRead(row.id)
+  } catch (error) {
+    reportWarn('标记通知已读失败:', error)
+  }
   router.push(`/service?id=${row.business_id}`)
 }
 
