@@ -73,7 +73,11 @@ services:
       DB_USER: crm_user
       DB_PASSWORD: ${MYSQL_PASSWORD}
       DB_NAME: huakey_crm_test
-      JWT_SECRET: ${JWT_SECRET}
+      # 【P0-2】测试环境必须使用独立的 JWT 密钥。
+      # 原为 ${JWT_SECRET}，与生产 docker-compose.prod.yml 共用同一变量
+      # → 测试环境签发的 token 在生产环境有效，环境隔离形同虚设（违反任务书 §31）。
+      # 用 :? 让未配置时直接失败，避免退回「静默共用」的旧行为。
+      JWT_SECRET: ${JWT_SECRET_TEST:?测试环境必须单独配置 JWT_SECRET_TEST，禁止与生产共用 JWT_SECRET}
       JWT_EXPIRES_IN: 7d
       AI_PROVIDER: ${AI_PROVIDER:-}
       MIMO_API_KEY: ${MIMO_API_KEY:-}

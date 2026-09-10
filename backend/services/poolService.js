@@ -119,18 +119,45 @@ async function claimCustomer(pool, customer_id, userId, user) {
   const protectUntil = isLead ? null : new Date()
   if (protectUntil) protectUntil.setDate(protectUntil.getDate() + 7)
 
-  // 认领即开始跟进：status/business_status 必须同步（否则线索认领后 business_status 残留 'lead' 卡在线索池）
-  await pool.query(
-    'UPDATE crm_customer SET pool_status = ?, owner_id = ?, protect_until = ?, status = ?, business_status = ?, last_follow_time = NOW() WHERE id = ?',
-    [POOL_STATUS.PRIVATE, userId, protectUntil, CUSTOMER_STATUS.FOLLOWING, BUSINESS_STATUS.FOLLOWING, customer_id]
-  )
+  // 认领必须【原子】完成。
+  //
+  // 缺陷背景（P0-1）：原实现为「先 SELECT 校验 owner_id，再 UPDATE ... WHERE id = ?」。
+  // UPDATE 的条件里没有 owner_id IS NULL，导致两个并发请求都能通过上方校验、先后执行
+  // UPDATE，后者覆盖前者 —— 同一客户被两人「认领成功」。
+  // 注意：即便开启事务，REPEATABLE READ 下第二个事务的 UPDATE 也会在行锁释放后
+  // 依据最新版本重新匹配 id = ?，因此【仅靠事务无法解决，必须把条件写进 UPDATE】。
+  //
+  // 同时把 crm_pool_log 写入纳入同一事务，避免「认领成功但日志缺失」的半条数据。
+  const connection = await pool.getConnection()
+  try {
+    await connection.beginTransaction()
 
-  await pool.query(
-    `INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id) VALUES (?, 'claim', ?, ?)`,
-    [customer_id, customer.owner_id, userId]
-  )
+    // 认领即开始跟进：status/business_status 必须同步（否则线索认领后 business_status 残留 'lead' 卡在线索池）
+    const [claimResult] = await connection.query(
+      `UPDATE crm_customer
+          SET pool_status = ?, owner_id = ?, protect_until = ?, status = ?, business_status = ?, last_follow_time = NOW()
+        WHERE id = ? AND owner_id IS NULL AND deleted_at IS NULL`,
+      [POOL_STATUS.PRIVATE, userId, protectUntil, CUSTOMER_STATUS.FOLLOWING, BUSINESS_STATUS.FOLLOWING, customer_id]
+    )
 
-  return { protect_until: protectUntil, company_name: customer.company_name }
+    // affectedRows !== 1 说明在 SELECT 与 UPDATE 之间，该客户已被他人认领（或被删除）
+    if (claimResult.affectedRows !== 1) {
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已被他人认领，请刷新后重试');
+    }
+
+    await connection.query(
+      `INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id) VALUES (?, 'claim', ?, ?)`,
+      [customer_id, customer.owner_id, userId]
+    )
+
+    await connection.commit()
+    return { protect_until: protectUntil, company_name: customer.company_name }
+  } catch (error) {
+    await connection.rollback()
+    throw error
+  } finally {
+    connection.release()
+  }
 }
 
 /**
@@ -175,11 +202,21 @@ async function batchClaimCustomers(pool, customer_ids, userId, user) {
       const protectUntil = new Date(now)
       protectUntil.setDate(protectUntil.getDate() + 7)
 
-      // 与单条认领保持一致：status/business_status 同步
-      await connection.query(
-        'UPDATE crm_customer SET pool_status = ?, owner_id = ?, protect_until = ?, status = ?, business_status = ?, last_follow_time = NOW() WHERE id = ?',
+      // 与单条认领保持一致：status/business_status 同步。
+      // 【P0-1】条件必须带 owner_id IS NULL —— 否则并发下会覆盖他人已认领的结果。
+      const [claimResult] = await connection.query(
+        `UPDATE crm_customer
+            SET pool_status = ?, owner_id = ?, protect_until = ?, status = ?, business_status = ?, last_follow_time = NOW()
+          WHERE id = ? AND owner_id IS NULL AND deleted_at IS NULL`,
         [POOL_STATUS.PRIVATE, userId, protectUntil, CUSTOMER_STATUS.FOLLOWING, BUSINESS_STATUS.FOLLOWING, customerId]
       )
+
+      // 未命中说明已被他人抢先认领：按「部分成功」语义跳过，不视为错误
+      if (claimResult.affectedRows !== 1) {
+        skipped.push(`${customer.company_name}(已被他人认领)`)
+        continue
+      }
+
       await connection.query(
         `INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id) VALUES (?, 'claim', ?, ?)`,
         [customerId, customer.owner_id, userId]

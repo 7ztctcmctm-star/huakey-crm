@@ -93,6 +93,20 @@ function validateEnv(env) {
     fatal('JWT_SECRET 必须是 64 字节随机十六进制字符串（128 字符）');
   }
 
+  // 6.1 测试环境密钥不得与生产相同（P0-2）
+  // 背景：deploy/docker-compose.test.yml 原与 prod 共用 ${JWT_SECRET}，
+  // 导致测试环境签发的 token 在生产环境有效，环境隔离失效（任务书 §31）。
+  // 此处做运行期兜底：只要两份密钥同时可见且相同，直接判为致命错误。
+  const jwtSecretTest = get('JWT_SECRET_TEST');
+  if (jwtSecretTest) {
+    if (!/^[a-f0-9]{128}$/i.test(jwtSecretTest)) {
+      fatal('JWT_SECRET_TEST 必须是 64 字节随机十六进制字符串（128 字符）');
+    }
+    if (jwtSecret && jwtSecretTest === jwtSecret) {
+      fatal('JWT_SECRET_TEST 与 JWT_SECRET 不能相同（测试与生产必须使用不同密钥）');
+    }
+  }
+
   // 7. 数据库密码
   const dbPassword = get('DB_PASSWORD');
   if (!dbPassword || dbPassword === '__CHANGE_ME__') {

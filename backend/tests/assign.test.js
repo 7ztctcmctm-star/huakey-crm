@@ -190,9 +190,10 @@ describe('客户分配模块', () => {
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-        .mockResolvedValueOnce([[{ id: 1, pool_status: 1, pool_type: 'public', protect_until: null, owner_id: null }]]) // customer lookup
-        .mockResolvedValueOnce([{ affectedRows: 1 }]) // update
-        .mockResolvedValueOnce([{ insertId: 1 }]); // pool_log insert
+        .mockResolvedValueOnce([[{ id: 1, pool_status: 1, pool_type: 'public', protect_until: null, owner_id: null }]]); // customer lookup
+
+      // P0-1：认领的 UPDATE 与 pool_log INSERT 已改为走事务连接（原子更新 + 同事务写日志）
+      mockConnection.query.mockResolvedValue([{ affectedRows: 1, insertId: 1 }]);
 
       const res = await request(app)
         .post('/api/v1/customer/claim')

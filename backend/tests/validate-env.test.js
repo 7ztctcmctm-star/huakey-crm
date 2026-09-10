@@ -72,6 +72,25 @@ describe('validateEnv 生产环境校验', () => {
     expect(errors).toContainEqual(expect.stringContaining('JWT_SECRET'));
   });
 
+  // P0-2：测试环境与生产环境共用 JWT 密钥 → 测试签发的 token 在生产有效
+  it('JWT_SECRET_TEST 与 JWT_SECRET 相同时应报错', () => {
+    const same = 'a'.repeat(128);
+    const { errors } = validateEnv(makeValidEnv({ JWT_SECRET: same, JWT_SECRET_TEST: same }));
+    expect(errors).toContainEqual(expect.stringContaining('JWT_SECRET_TEST 与 JWT_SECRET 不能相同'));
+  });
+
+  it('JWT_SECRET_TEST 格式不合法应报错', () => {
+    const { errors } = validateEnv(makeValidEnv({ JWT_SECRET_TEST: 'too-short' }));
+    expect(errors).toContainEqual(expect.stringContaining('JWT_SECRET_TEST'));
+  });
+
+  it('JWT_SECRET_TEST 与 JWT_SECRET 不同时应通过', () => {
+    const { errors } = validateEnv(
+      makeValidEnv({ JWT_SECRET: 'a'.repeat(128), JWT_SECRET_TEST: 'b'.repeat(128) })
+    );
+    expect(errors).toHaveLength(0);
+  });
+
   it('DB_PASSWORD 为占位符应报错', () => {
     const { errors } = validateEnv(makeValidEnv({ DB_PASSWORD: '__CHANGE_ME__' }));
     expect(errors).toContainEqual(expect.stringContaining('DB_PASSWORD'));
