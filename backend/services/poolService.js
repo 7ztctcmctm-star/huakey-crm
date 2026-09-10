@@ -16,10 +16,8 @@ const { POOL_STATUS, BUSINESS_STATUS } = require('../constants/poolStatus')
 const AppError = require('../errors/AppError')
 const ErrorCodes = require('../errors/codes')
 
-// 权限判定抽出来，避免重复
-function canManagePrivatePool(user) {
-  return user.manageAll || user.roleId === ROLES.ADMIN || user.roleId === ROLES.MANAGER
-}
+// 注：原 canManagePrivatePool() 随「私有池」概念一并下线（2026-09-10 产品决策）。
+// 私有池取消后，认领不再按 pool_type 区分权限，该判定已无调用方。
 
 /**
  * 获取公海客户列表（本方法原本就不返回 error，保持不变）
@@ -83,7 +81,9 @@ async function listPoolCustomers(pool, { page = 1, pageSize = 10, company_name, 
  * 认领公海客户
  * 变更：return { error } → throw AppError；保护期用 details 携带 protect_until
  */
-async function claimCustomer(pool, customer_id, userId, user) {
+// 第 4 参 user 仍保留以维持既有调用签名（controller 按位置传参）；
+// 私有池下线后已无权限判定需要它，故标记为有意未使用。
+async function claimCustomer(pool, customer_id, userId, _user) {
   if (!customer_id) throw new AppError(ErrorCodes.VALIDATION_ERROR, '客户ID不能为空');
 
   const [customers] = await pool.query(
@@ -97,27 +97,14 @@ async function claimCustomer(pool, customer_id, userId, user) {
 
   if (customer.owner_id !== null) throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户不在公海中');
 
-  // 判断来源：线索池(lead) 还是 公海(sea)
-  const isLead = customer.status === CUSTOMER_STATUS.LEAD
+  // 注：原 isLead 判定随「私有池 / 保护期」下线而移除——两者均已不再按来源区分。
 
-  // 公海私有池权限检查（线索池不限制）
-  if (!isLead && customer.pool_type === 'private' && !canManagePrivatePool(user)) {
-    throw new AppError(ErrorCodes.PERMISSION_DENIED, '私有池客户仅管理员可认领');
-  }
-
-  // 公海保护期检查（线索池无保护期）
-  if (!isLead && customer.protect_until && new Date(customer.protect_until) > new Date()) {
-    const remainDays = Math.ceil((new Date(customer.protect_until) - new Date()) / (1000 * 60 * 60 * 24))
-    throw new AppError(
-      ErrorCodes.BUSINESS_VALIDATION,
-      `该客户在保护期内，还需等待 ${remainDays} 天`,
-      { protect_until: customer.protect_until }
-    );
-  }
-
-  // 线索池认领无保护期，公海认领有 7 天保护期
-  const protectUntil = isLead ? null : new Date()
-  if (protectUntil) protectUntil.setDate(protectUntil.getDate() + 7)
+  // 【产品决策 2026-09-10 · 公海池 → 客户总览】
+  // 原「私有池权限检查」与「7 天保护期检查」已下线：
+  //   · 私有池：取消该概念，认领不再按 pool_type 区分权限
+  //   · 保护期：释放到公海的客户【可被立即认领】，不再有 7 天等待
+  // 字段 protect_until / pool_type 保留在库中（不删列，避免破坏历史数据），
+  // 但新数据不再写入有效保护期（见下方 UPDATE 中显式置 NULL）。
 
   // 认领必须【原子】完成。
   //
@@ -135,9 +122,9 @@ async function claimCustomer(pool, customer_id, userId, user) {
     // 认领即开始跟进：status/business_status 必须同步（否则线索认领后 business_status 残留 'lead' 卡在线索池）
     const [claimResult] = await connection.query(
       `UPDATE crm_customer
-          SET pool_status = ?, owner_id = ?, protect_until = ?, status = ?, business_status = ?, last_follow_time = NOW()
+          SET pool_status = ?, owner_id = ?, protect_until = NULL, status = ?, business_status = ?, last_follow_time = NOW()
         WHERE id = ? AND owner_id IS NULL AND deleted_at IS NULL`,
-      [POOL_STATUS.PRIVATE, userId, protectUntil, CUSTOMER_STATUS.FOLLOWING, BUSINESS_STATUS.FOLLOWING, customer_id]
+      [POOL_STATUS.PRIVATE, userId, CUSTOMER_STATUS.FOLLOWING, BUSINESS_STATUS.FOLLOWING, customer_id]
     )
 
     // affectedRows !== 1 说明在 SELECT 与 UPDATE 之间，该客户已被他人认领（或被删除）
@@ -151,7 +138,8 @@ async function claimCustomer(pool, customer_id, userId, user) {
     )
 
     await connection.commit()
-    return { protect_until: protectUntil, company_name: customer.company_name }
+    // 保护期已下线，不再回传 protect_until
+    return { company_name: customer.company_name }
   } catch (error) {
     await connection.rollback()
     throw error
@@ -164,7 +152,8 @@ async function claimCustomer(pool, customer_id, userId, user) {
  * 批量认领公海客户
  * 变更：入参校验 throw AppError；单条跳过仍走 skipped（部分成功语义）
  */
-async function batchClaimCustomers(pool, customer_ids, userId, user) {
+// 同上：第 4 参保留以维持调用签名，私有池下线后不再使用。
+async function batchClaimCustomers(pool, customer_ids, userId, _user) {
   if (!Array.isArray(customer_ids) || customer_ids.length === 0) {
     throw new AppError(ErrorCodes.VALIDATION_ERROR, '请选择要认领的客户');
   }
@@ -178,7 +167,6 @@ async function batchClaimCustomers(pool, customer_ids, userId, user) {
 
     let claimed = 0
     const skipped = []
-    const now = new Date()
 
     for (const customerId of customer_ids) {
       const [customers] = await connection.query(
@@ -190,25 +178,15 @@ async function batchClaimCustomers(pool, customer_ids, userId, user) {
       const customer = customers[0]
 
       if (customer.owner_id !== null) { skipped.push(`${customer.company_name}(不在公海)`); continue }
-      if (customer.pool_type === 'private' && !canManagePrivatePool(user)) {
-        skipped.push(`${customer.company_name}(私有池限制)`); continue
-      }
-
-      if (customer.protect_until && new Date(customer.protect_until) > now) {
-        const remainDays = Math.ceil((new Date(customer.protect_until) - now) / (1000 * 60 * 60 * 24))
-        skipped.push(`${customer.company_name}(保护期剩余${remainDays}天)`); continue
-      }
-
-      const protectUntil = new Date(now)
-      protectUntil.setDate(protectUntil.getDate() + 7)
+      // 【产品决策 2026-09-10】私有池与保护期均已下线，批量认领不再做这两项检查。
 
       // 与单条认领保持一致：status/business_status 同步。
       // 【P0-1】条件必须带 owner_id IS NULL —— 否则并发下会覆盖他人已认领的结果。
       const [claimResult] = await connection.query(
         `UPDATE crm_customer
-            SET pool_status = ?, owner_id = ?, protect_until = ?, status = ?, business_status = ?, last_follow_time = NOW()
+            SET pool_status = ?, owner_id = ?, protect_until = NULL, status = ?, business_status = ?, last_follow_time = NOW()
           WHERE id = ? AND owner_id IS NULL AND deleted_at IS NULL`,
-        [POOL_STATUS.PRIVATE, userId, protectUntil, CUSTOMER_STATUS.FOLLOWING, BUSINESS_STATUS.FOLLOWING, customerId]
+        [POOL_STATUS.PRIVATE, userId, CUSTOMER_STATUS.FOLLOWING, BUSINESS_STATUS.FOLLOWING, customerId]
       )
 
       // 未命中说明已被他人抢先认领：按「部分成功」语义跳过，不视为错误

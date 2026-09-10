@@ -202,7 +202,8 @@ describe('客户分配模块', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
-      expect(res.body.data).toHaveProperty('protect_until');
+      // 【产品决策 2026-09-10】保护期已下线，认领响应不再包含 protect_until
+      expect(res.body.data).not.toHaveProperty('protect_until');
     });
   });
 

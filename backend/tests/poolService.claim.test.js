@@ -78,7 +78,7 @@ describe('P0-1 公海认领原子性', () => {
       expect(sql).toMatch(/WHERE\s+id\s*=\s*\?\s+AND\s+owner_id\s+IS\s+NULL/i);
     });
 
-    test('正常认领：提交事务、写日志、返回保护期', async () => {
+    test('正常认领：提交事务、写日志（保护期已下线）', async () => {
       const pool = makePool(poolCustomer());
 
       const result = await claimCustomer(pool, 101, 46, actor);
@@ -95,8 +95,8 @@ describe('P0-1 公海认领原子性', () => {
       expect(logCall).toBeDefined();
       expect(logCall[1]).toEqual([101, null, 46]);
 
-      // 公海客户（非 lead）认领后有 7 天保护期
-      expect(result.protect_until).toBeInstanceOf(Date);
+      // 【产品决策 2026-09-10】保护期已下线：认领后不再设置保护期，响应不回传该字段
+      expect(result.protect_until).toBeUndefined();
       expect(result.company_name).toBe('E2E测试客户');
     });
 

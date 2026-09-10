@@ -561,7 +561,7 @@ async function batchAssignCustomers(pool, customerIds, toUserId, operatorId, rem
  */
 async function claimCustomer(pool, customerId, userId) {
   const [customers] = await pool.query(
-    'SELECT id, pool_status, pool_type, protect_until, owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+    'SELECT id, pool_status, pool_type, owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [customerId]
   );
   if (customers.length === 0) {
@@ -573,26 +573,35 @@ async function claimCustomer(pool, customerId, userId) {
   if (customer.pool_status !== POOL_STATUS.SEA) {
     throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户不在公海中');
   }
+  // 【产品决策 2026-09-10】保护期已下线。
 
-  if (customer.protect_until && new Date(customer.protect_until) > new Date()) {
-    const remainDays = Math.ceil((new Date(customer.protect_until) - new Date()) / (1000 * 60 * 60 * 24));
-    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, `该客户在保护期内，还需等待 ${remainDays} 天`, { protect_until: customer.protect_until });
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    // 【P0-1 补齐】同上：原子条件必须写进 UPDATE，事务本身防不住并发覆盖。
+    const [claimResult] = await connection.query(
+      `UPDATE crm_customer
+          SET pool_status = ?, owner_id = ?, protect_until = NULL, last_follow_time = NOW()
+        WHERE id = ? AND owner_id IS NULL AND pool_status = ? AND deleted_at IS NULL`,
+      [POOL_STATUS.PRIVATE, userId, customerId, POOL_STATUS.SEA]
+    );
+    if (claimResult.affectedRows !== 1) {
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已被他人认领，请刷新后重试');
+    }
+
+    await connection.query(
+      "INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id) VALUES (?, 'claim', ?, ?)",
+      [customerId, customer.owner_id, userId]
+    );
+
+    await connection.commit();
+    return { company_name: customer.company_name };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
   }
-
-  const protectUntil = new Date();
-  protectUntil.setDate(protectUntil.getDate() + 7);
-
-  await pool.query(
-    'UPDATE crm_customer SET pool_status = ?, owner_id = ?, protect_until = ?, last_follow_time = NOW() WHERE id = ?',
-    [POOL_STATUS.PRIVATE, userId, protectUntil, customerId]
-  );
-
-  await pool.query(
-    "INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id) VALUES (?, 'claim', ?, ?)",
-    [customerId, customer.owner_id, userId]
-  );
-
-  return { protect_until: protectUntil };
 }
 
 /**
@@ -1153,7 +1162,7 @@ async function releaseCustomerToPool(pool, customerId, operatorId, _reason) {
  */
 async function claimPoolCustomer(pool, customerId, userId) {
   const [rows] = await pool.query(
-    'SELECT id, company_name, business_status, pool_status, protect_until, owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+    'SELECT id, company_name, business_status, pool_status, owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [customerId]
   );
   if (rows.length === 0) {
@@ -1166,28 +1175,31 @@ async function claimPoolCustomer(pool, customerId, userId) {
   if (customer.business_status === BUSINESS_STATUS.LEAD) {
     throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '线索客户请到潜客池认领');
   }
-  if (customer.protect_until && new Date(customer.protect_until) > new Date()) {
-    const remainDays = Math.ceil((new Date(customer.protect_until) - new Date()) / (1000 * 60 * 60 * 24));
-    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, `该客户在保护期内，还需等待 ${remainDays} 天`, { protect_until: customer.protect_until });
-  }
-
-  const protectUntil = new Date();
-  protectUntil.setDate(protectUntil.getDate() + 7);
+  // 【产品决策 2026-09-10】保护期已下线：释放到公海的客户可被立即认领。
 
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-    await connection.query(
-      'UPDATE crm_customer SET pool_status = ?, owner_id = ?, protect_until = ?, last_follow_time = NOW(), update_time = NOW() WHERE id = ?',
-      [POOL_STATUS.PRIVATE, userId, protectUntil, customerId]
+    // 【P0-1 补齐】条件必须带 `owner_id IS NULL AND pool_status = 'sea'`。
+    // 原实现为 `WHERE id = ?`，仅靠事务无法防并发：REPEATABLE READ 下第二个事务的
+    // UPDATE 会在行锁释放后依据最新版本重新匹配 id = ?，仍会覆盖前者的认领结果。
+    // （注：poolService.claimCustomer 已先行修复，此处为同一缺陷的第二处实现。）
+    const [claimResult] = await connection.query(
+      `UPDATE crm_customer
+          SET pool_status = ?, owner_id = ?, protect_until = NULL, last_follow_time = NOW(), update_time = NOW()
+        WHERE id = ? AND owner_id IS NULL AND pool_status = ? AND deleted_at IS NULL`,
+      [POOL_STATUS.PRIVATE, userId, customerId, POOL_STATUS.SEA]
     );
+    if (claimResult.affectedRows !== 1) {
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已被他人认领，请刷新后重试');
+    }
     await connection.query(
       `INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id)
        VALUES (?, 'claim', ?, ?)`,
       [customerId, customer.owner_id, userId]
     );
     await connection.commit();
-    return { id: customerId, company_name: customer.company_name, protect_until: protectUntil };
+    return { id: customerId, company_name: customer.company_name };
   } catch (error) {
     await connection.rollback();
     throw error;
