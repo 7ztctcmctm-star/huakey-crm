@@ -124,3 +124,81 @@ describe('quoteService - 领域边界约束（FIX-2）', () => {
     expect(quoteService.customerService).toBeUndefined();
   });
 });
+
+/**
+ * P1-10：报价转合同幂等
+ *
+ * 缺陷背景：原 convertToContract 缺少「是否已转合同」校验，重复调用会生成多份合同。
+ * 锁定要点：
+ *   ① 已存在合同时必须拒绝，且不得插入新合同、不得提交事务
+ *   ② 判据是「是否已存在引用该报价的合同」，**不是 status === 3**
+ *      —— 报价状态语义为 1草稿/2已发送/3已确认/4已失效，不存在「已转合同」态，
+ *      已确认但未转合同的报价同样是 3，用 status 判重会误伤合法转换
+ *   ③ 未生成合同时应正常转换
+ */
+describe('quoteService - P1-10 报价转合同幂等', () => {
+  const QUOTE_ROW = {
+    id: 1,
+    quote_no: 'BJ-20260910-001',
+    customer_id: 8,
+    amount: 100,
+    final_amount: 100,
+    status: 3, // 已确认（注意：这也是「未转合同」的合法取值）
+    approval_status: 2,
+    opportunity_id: null
+  };
+
+  it('该报价已存在合同时必须拒绝，且不插入新合同、不提交', async () => {
+    const conn = buildConnection();
+    conn.query.mockImplementation((sql) => {
+      const s = String(sql);
+      if (s.includes('FROM crm_quote')) return Promise.resolve([[QUOTE_ROW]]);
+      if (s.includes('FROM crm_contract WHERE quote_id')) {
+        return Promise.resolve([[{ id: 9, contract_no: 'HT-20260910-001' }]]);
+      }
+      return Promise.resolve([{ affectedRows: 1, insertId: 1 }]);
+    });
+    const pool = buildPool(conn);
+
+    await expect(quoteService.convertToContract(pool, 1, 5)).rejects.toThrow(/已生成合同/);
+
+    expect(conn.rollback).toHaveBeenCalled();
+    expect(conn.commit).not.toHaveBeenCalled();
+    const insertCall = conn.query.mock.calls.find((c) => String(c[0]).includes('INSERT INTO crm_contract'));
+    expect(insertCall).toBeUndefined();
+  });
+
+  it('status=3 但尚未转合同的报价应能正常转换（不得误伤）', async () => {
+    const conn = buildConnection();
+    conn.query.mockImplementation((sql) => {
+      const s = String(sql);
+      if (s.includes('FROM crm_quote')) return Promise.resolve([[QUOTE_ROW]]);
+      if (s.includes('FROM crm_contract WHERE quote_id')) return Promise.resolve([[]]); // 无关联合同
+      if (s.includes('COUNT(*) as cnt FROM crm_contract')) return Promise.resolve([[{ cnt: 0 }]]);
+      return Promise.resolve([{ affectedRows: 1, insertId: 77 }]);
+    });
+    const pool = buildPool(conn);
+
+    const r = await quoteService.convertToContract(pool, 1, 5);
+
+    expect(r.contract_id).toBe(77);
+    expect(conn.commit).toHaveBeenCalled();
+  });
+
+  it('查重时应对报价行加锁（FOR UPDATE），防并发重复转换', async () => {
+    const conn = buildConnection();
+    conn.query.mockImplementation((sql) => {
+      const s = String(sql);
+      if (s.includes('FROM crm_quote')) return Promise.resolve([[QUOTE_ROW]]);
+      if (s.includes('FROM crm_contract WHERE quote_id')) return Promise.resolve([[]]);
+      if (s.includes('COUNT(*) as cnt FROM crm_contract')) return Promise.resolve([[{ cnt: 0 }]]);
+      return Promise.resolve([{ affectedRows: 1, insertId: 77 }]);
+    });
+    const pool = buildPool(conn);
+
+    await quoteService.convertToContract(pool, 1, 5);
+
+    const quoteSelect = conn.query.mock.calls.find((c) => String(c[0]).includes('FROM crm_quote'));
+    expect(String(quoteSelect[0])).toContain('FOR UPDATE');
+  });
+});

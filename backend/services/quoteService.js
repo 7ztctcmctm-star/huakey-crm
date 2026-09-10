@@ -379,15 +379,36 @@ async function approveQuote(pool, id, approvalStatus, approvalRemark, userId) {
 async function convertToContract(pool, quoteId, userId) {
   const conn = await pool.getConnection();
   try {
+    // 【P1-10】先开事务并把报价行锁住，避免并发重复转换。
+    // 原实现把 SELECT 放在 beginTransaction 之前，且全程未做幂等校验。
+    await conn.beginTransaction();
+
     const [[quote]] = await conn.query(
       `SELECT id, quote_no, customer_id, amount, discount, final_amount, valid_days, remark, status, approval_status,
         opportunity_id, create_by, create_time, deleted_at
-       FROM crm_quote WHERE id = ? AND deleted_at IS NULL`,
+       FROM crm_quote WHERE id = ? AND deleted_at IS NULL FOR UPDATE`,
       [quoteId]
     );
     if (!quote) throw new AppError(ErrorCodes.QUOTE_NOT_FOUND);
 
-    await conn.beginTransaction();
+    // 【P1-10 幂等校验】原实现缺失此项 —— 重复调用会生成【多份合同】。
+    //
+    // ⚠️ 判据选择说明（勿改成 status === 3）：
+    //   报价状态语义为 1草稿 / 2已发送 / 3已确认 / 4已失效，
+    //   **不存在「已转合同」状态**；转换成功后代码把 status 置为 3（已确认），
+    //   而「已确认但尚未转合同」的报价同样是 3 —— 用 status 判重会【误伤合法转换】。
+    //   故正确判据是「是否已存在引用该报价的合同」。
+    //   crm_contract.quote_id 有索引 idx_contract_quote_id，查询开销可忽略。
+    const [[existing]] = await conn.query(
+      'SELECT id, contract_no FROM crm_contract WHERE quote_id = ? AND deleted_at IS NULL LIMIT 1',
+      [quoteId]
+    );
+    if (existing) {
+      throw new AppError(
+        ErrorCodes.BUSINESS_VALIDATION,
+        `该报价已生成合同（${existing.contract_no}），请勿重复操作`
+      );
+    }
 
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const [[{ cnt }]] = await conn.query("SELECT COUNT(*) as cnt FROM crm_contract WHERE contract_no LIKE ?", [`HT-${dateStr}-%`]);
