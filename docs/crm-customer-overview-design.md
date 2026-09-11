@@ -260,14 +260,119 @@
 
 ### 8.4 已知局限（如实声明，勿当已完成）
 
-| # | 局限 | 影响 | 建议 |
+| # | 局限 | 影响 | 状态 |
 |---|---|---|---|
-| L1 | **未在真实浏览器走查** | 页面交互、按钮可见性、权限隐藏未经验证 | 上线前用真实账号走一遍「发起 → 铃铛收到 → 同意 / 拒绝」 |
-| L2 | 处理完转移后，**系统通知里的那条未读仍在**，角标不会自动清零 | 轻微 UX 瑕疵（待办已消失，但角标仍亮） | 需给转移通知补 `business_type/business_id` 才能按业务清理，属独立小改动 |
-| L3 | 生产库 `huakey_crm` **尚未应用迁移 112**（`crm_customer_transfer` 不存在） | 未经迁移即部署，转移功能会报错 | 部署流程必须包含 112；已在核验脚本中做了「库不存在则跳过」的兼容 |
+| L1 | ~~未在真实浏览器走查~~ | — | ✅ **已闭环（2026-09-10 晚）**，见 §8.6 |
+| L2 | 处理完转移后，**系统通知里的那条未读仍在**，角标不会自动清零 | 轻微 UX 瑕疵（待办已消失，但角标仍亮） | ⏳ 未做。需给转移通知补 `business_type/business_id` 才能按业务清理 |
+| L3 | 生产库 `huakey_crm` **尚未应用迁移 112**（`crm_customer_transfer` 不存在） | 未经迁移即部署，转移功能会报错 | ⏳ 未做。**已用直连生产库确认**：`information_schema` 中该表不存在 |
 
 > ✅ 原 L4（超时回流未实测）已闭环，见 §8.3。
+> ⚠️ L1 走查同时暴露出 **3 个新缺陷（D1–D3）**，见 §8.5 —— 其中 D1 会直接导致转移功能在生产环境失效。
+
+### 8.5 走查新发现（D1–D3，均已实测复现）
+
+#### D1 · 部署会静默删除 `customer:transfer` 授权【严重】
+
+**症状**：部署后，除 `manageAll` 角色外，**6 个转移端点全部返回 403**。
+
+**证据链**（全部实测）：
+
+1. `deploy/deploy.sh` 第 `[11/12]` 步执行 `init_role_permissions.js`
+2. 该脚本第 338–357 步会执行：
+   ```sql
+   DELETE rp FROM sys_role_permission rp
+    WHERE rp.role_id = ? AND rp.permission_id NOT IN (...硬编码清单...)
+   ```
+3. 其硬编码清单 `ROLE_PERMISSIONS` 中 **`customer:transfer` 出现 0 次**（`grep -c` 实测）
+4. 而迁移 112 第三步本会把该权限授予「所有拥有 `customer:edit` 的角色」
+5. 部署顺序是 `[9] 迁移 → [11] init_role_permissions` → **迁移的授权被第 11 步清掉**
+6. 实测：手工重跑迁移 112 的授权语句后，`boss/manager/sales` 立刻恢复该权限；
+   完全符合「曾被授予、后被删除」的判断
+
+**影响面**（直连测试库实测）：拥有 `customer:transfer` 的应为 `boss(2人)/manager(3人)/sales(11人)`，
+被清空后 **这 16 人全部无法发起或处理转移**。
+
+**已修**：`backend/scripts/init_role_permissions.js` 中为 `boss / manager / sales` 三个角色补上
+`customer:transfer`，并在权限定义清单中登记该权限码。选择这三个角色，是因为只有它们持有
+`customer:edit`，与迁移 112 的规则完全一致（不引入新的授权口径）。
+
+> ⚠️ 同类隐患仍在：`routes/customer/module.js` 的 `descriptor.permissions` 数组也缺 `customer:transfer`。
+> 该处仅用于注册/展示，当前不影响鉴权，但属同一类「清单漏项」，建议一并补齐。
+
+#### D2 · 转移候选人列表不校验权限，约 29% 候选人是「死按钮」【中】
+
+`transferService.listTransferCandidates` 仅按 `deleted_at IS NULL AND status = 1` 过滤：
+
+```sql
+SELECT id, real_name, username FROM sys_user
+ WHERE deleted_at IS NULL AND status = 1 AND id <> ? ORDER BY real_name ASC, id ASC
+```
+
+**不做角色或权限过滤** → 前端 `views/pool/List.vue` 会把这些人全部列进转移弹窗。
+
+**实测**（测试库 24 个可用用户）：其中 **7 人**（hr×1、purchase×4、finance×2）没有
+`customer:transfer`，被列为候选人后**同意时必然 403**。
+
+**建议**：候选人查询应 `JOIN sys_role_permission` 过滤掉无该权限的用户；
+或前端在提交前给出明确提示。**本方案未擅自改动**（涉及产品口径：采购/HR 是否可作为客户接收人）。
+
+#### D3 · 新建客户无法被任何人认领【中】
+
+两处认领实现的前置条件不一致，且与建客户的写入不一致：
+
+| 实现 | 前置条件 | 
+|---|---|
+| `poolService.claimCustomer` | 仅 `owner_id IS NULL` |
+| **`customerService.claimPoolCustomer`（路由实际调用）** | `pool_status = 'sea'` **且** `business_status != 'lead'` |
+
+而 `customerDetailService.addCustomer` 的 INSERT **不写 `pool_status`**，落到列默认值 `'private'`，
+`status = 'lead'`。→ 两个条件**全不满足**，恒报「该客户不在公海中」。
+
+**实测**：走查中 A 尝试认领自己刚建的客户，稳定返回
+`{"code":400005,"message":"该客户不在公海中"}`。
+
+> 这也是 §8.6 走查改用「admin 分配」而非「销售认领」来准备数据的原因。
+
+### 8.6 L1 真实浏览器端到端走查（已闭环）
+
+新增 `frontend/e2e/customer-transfer.spec.js`，3 条用例全部通过：
+
+| 用例 | 验证内容 | 结果 |
+|---|---|---|
+| A 发起 → B 通知栏可见并可同意 → 归属变更为 B | 含真实浏览器点击「同意」+ 二次确认 + 轮询等落库 + 前端控制台无错误 | ✅ PASS |
+| B 拒绝 → 归属保持 A + 记录状态为 rejected | 校验 `handle_remark`、状态、归属均正确 | ✅ PASS |
+| 越权守卫：非接收人不得同意他人转移 | 用 `manageAll` 的 admin 冒充接收人，必须被拒 | ✅ PASS |
+
+**数据库侧复核**（证明断言真实、非假通过）：
+
+```
+id=3  customer 649  accepted  71→76   handled 10:10:05   → 客户 649 owner=76（已变更）
+id=2  customer 650  rejected  71→76   remark "E2E 拒绝"  → 客户 650 owner=71（未变更）
+id=1  customer 651  pending   71→76                     → 客户 651 owner=71（未变更）
+```
+
+**走查同时修复了 3 处测试基建问题**（否则用例无法运行，且都属「环境/基建」而非产品缺陷）：
+
+1. **克隆测试库因 `DEFINER` 失败**：源库含 VIEW `v_user_permissions` 与 EVENT `evt_archive_sys_log`，
+   二者带 `DEFINER=\`crm_user\`@\`%\``。以非特权账号恢复需 `SUPER`/`SET_USER_ID`，本机 `crm_user` 没有
+   → 导入在第 3866 行报 `ERROR 1227`。
+   已在 `frontend/scripts/start-e2e-server.mjs` 的克隆流程中**流式剥离 `DEFINER` 片段**
+   （含跨 chunk 边界处理，已单独单测 4 例通过），并加 `--skip-events --no-tablespaces`。
+   > 注意：`--skip-events` 不足以解决，VIEW 的 DEFINER 仍会残留。
+
+2. **`demo_roles.sql` 缺 `manager` / `sales`**：该文件自称「补齐测试库缺失的角色」，
+   但 `INSERT IGNORE` 列表不含这两个角色；而 `demo_users.sql` 用
+   `(SELECT id FROM sys_role WHERE LOWER(code)='sales' LIMIT 1)` 取 `role_id`，
+   取不到即 NULL → `demo_sales` **无任何权限**。已补上两个角色。
+   （这正是 P1-13「测试库权限数据不具代表性」的具体成因之一。）
+
+3. **`demo_sales2` 新增**：走查需第二个具备 `customer:transfer` 的账号作为接收人；
+   原 `demo_purchase` 是 purchase 角色，无该权限。已在 `demo_users.sql` 增加 `demo_sales2`。
+
+> ⚠️ 走查环境依赖：**必须用「克隆源库」模式**（默认），不能加 `E2E_USE_MIGRATIONS=true`。
+> 后者会导入 `deploy/init-complete.sql` 并把所有迁移标记为已执行，得到的测试库**没有 sales/manager 角色**，
+> 无法模拟真实销售。详见 P1-13。
 
 ---
 
-*方案由 David 出具 · 2026-09-10 · 第 7 步已实施，局限见 §8.4*
+*方案由 David 出具 · 2026-09-10 · 第 7 步已实施；L1 走查已闭环，局限见 §8.4，新发现见 §8.5*

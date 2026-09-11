@@ -56,6 +56,27 @@ SELECT
   1, 0, NOW(), 1, NOW();
 
 -- ------------------------------------------------------------
+-- 4. demo_sales2（第二销售，sales 角色）
+--    【新增 2026-09-10】为「客户转移（双方同意制）」端到端走查提供第二个
+--    具备 customer:transfer 权限的账号。
+--    背景：转移的接收人必须有 customer:transfer 权限，否则同意时 403。
+--    demo_purchase 是 purchase 角色，不具备该权限，无法充当接收人；
+--    而测试库中其它 sales 账号（如 vivianli）是真实数据，密码未知，无法登录。
+--    故此处补一个密码受控的第二个销售账号。
+-- ------------------------------------------------------------
+INSERT IGNORE INTO sys_user
+  (username, password, real_name, phone, email, dept_id, role_id, status, must_change_password, password_changed_at, is_demo, create_time)
+SELECT
+  'demo_sales2',
+  '$2b$10$gzztXX6gGQ.dpgvSKiFuc.7LxrOX4VNIab6LJqP9PGoyWkV/7qMBK',
+  'Demo销售2',
+  '13900000004',
+  'demo_sales2@huakey-demo.com',
+  (SELECT id FROM sys_dept WHERE name = 'Demo演示部门' LIMIT 1),
+  (SELECT id FROM sys_role WHERE LOWER(code) = 'sales' LIMIT 1),
+  1, 0, NOW(), 1, NOW();
+
+-- ------------------------------------------------------------
 -- 验证输出
 -- ------------------------------------------------------------
 SELECT '=== demo_users 完成 ===' AS result;

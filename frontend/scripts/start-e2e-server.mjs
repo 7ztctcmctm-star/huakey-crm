@@ -196,11 +196,23 @@ async function cloneDatabase() {
   }
   console.log(`[e2e-server] 从源库 ${SOURCE_DB} 克隆到 ${DB_CONFIG.database} ...`)
 
+  // --skip-events / --no-tablespaces：
+  //   源库含有 EVENT(evt_archive_sys_log) 与 VIEW(v_user_permissions)，
+  //   二者都带 `DEFINER=`crm_user`@`%``。以非特权账号恢复时，创建带 DEFINER 的
+  //   对象需要 SUPER 或 SET_USER_ID 权限，否则报
+  //     ERROR 1227 Access denied; you need (at least one of) the SUPER or SET_USER_ID privilege(s)
+  //   本机 crm_user 不具备该权限（这是环境限制，非代码缺陷）。
+  //   规避方式：dump 后把 DEFINER 片段剥掉再入库 —— 测试库不需要保留 definer。
+  //   注意不能只靠 --skip-events：VIEW 的 DEFINER 仍会残留。
   const args = [
     '-h', DB_CONFIG.host,
     '-P', String(DB_CONFIG.port),
     '-u', DB_ADMIN_USER,
     `-p${DB_ADMIN_PASSWORD}`,
+    '--skip-events',
+    '--no-tablespaces',
+    '--routines',
+    '--triggers',
     SOURCE_DB
   ]
 
@@ -214,7 +226,26 @@ async function cloneDatabase() {
       DB_CONFIG.database
     ], { stdio: ['pipe', 'inherit', 'inherit'] })
 
-    dump.stdout.pipe(restore.stdin)
+    // 逐块剥离 DEFINER=`user`@`host`。
+    // 用「尾部缓冲」处理跨 chunk 被截断的片段，避免漏替换。
+    let tail = ''
+    const stripDefiner = (chunk) => {
+      const text = tail + chunk.toString('utf8')
+      // 保留末尾 200 字符到下个 chunk，防止 DEFINER=`xxx`@`yyy` 被切断
+      const keep = 200
+      const head = text.slice(0, Math.max(0, text.length - keep))
+      tail = text.slice(Math.max(0, text.length - keep))
+      return head.replace(/DEFINER=`[^`]*`@`[^`]*`/g, '')
+    }
+    dump.stdout.on('data', (chunk) => {
+      const cleaned = stripDefiner(chunk)
+      if (cleaned) restore.stdin.write(cleaned)
+    })
+    dump.stdout.on('end', () => {
+      // 冲刷残留缓冲，再做最后一次替换
+      if (tail) restore.stdin.write(tail.replace(/DEFINER=`[^`]*`@`[^`]*`/g, ''))
+      restore.stdin.end()
+    })
 
     let dumpErr = ''
     dump.stderr.on('data', (chunk) => { dumpErr += chunk })
