@@ -846,3 +846,107 @@ SET @s091_5 = IF(@c091_5 = 0,
   "ALTER TABLE crm_supplier_qualification ADD COLUMN update_time DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'",
   'SELECT 1');
 PREPARE stmt091_5 FROM @s091_5; EXECUTE stmt091_5; DEALLOCATE PREPARE stmt091_5;
+
+-- ============================================================
+-- 105-112: 补齐此前遗漏的迁移结构（2026-09-11）
+-- ------------------------------------------------------------
+-- 背景：本文件此前只覆盖到 104，而 CI 建库的最后一步会把
+--       database/migrations/*.sql 全部标记为 schema_migrations 已执行，
+--       导致 105-112 的结构从未建立、却显示为「已迁移」（掩盖漂移）。
+--
+-- 覆盖范围（仅「影响测试」的结构部分）：
+--   · 107: crm_contract.approval_status 默认值对齐
+--   · 108: crm_contract 取消字段 cancel_reason / cancel_action
+--   · 109: crm_follow_up.opportunity_id + 索引
+--   · 112: crm_customer_transfer 表
+--
+-- ⚠️ 有意未覆盖：
+--   · 105/106 —— 外键约束增删。ADD CONSTRAINT 在基线含孤儿数据时会失败，
+--     从而让整个导入中断（比缺约束更糟）；且不影响现有用例。如需补齐，
+--     应在确认数据干净后单独评估。
+--   · 110 —— 纯数据对账（UPDATE），无 DDL。
+--   · 111 —— 纯权限码清理（DELETE），无 DDL。
+--   · 112 的「权限码 + 授权」—— 见文末说明，由 init_role_permissions.js 负责，
+--     不在此处重复（避免出现第二个权限事实来源，即 D1 同类隐患）。
+--
+-- 写法：沿用本文件既有的 information_schema 判存在 + PREPARE/EXECUTE 幂等模式。
+-- ============================================================
+
+-- 107: crm_contract.approval_status 默认值（列已在基线中存在，只对齐 DEFAULT）
+SET @c107 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contract' AND COLUMN_NAME = 'approval_status');
+SET @s107 = IF(@c107 > 0,
+  "ALTER TABLE crm_contract MODIFY COLUMN approval_status TINYINT NOT NULL DEFAULT 0 COMMENT '审批状态: 0=未提交, 1=待审批, 2=已通过, 3=已拒绝'",
+  'SELECT 1');
+PREPARE stmt107 FROM @s107; EXECUTE stmt107; DEALLOCATE PREPARE stmt107;
+
+-- 108: crm_contract 取消字段
+SET @c108a = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contract' AND COLUMN_NAME = 'cancel_reason');
+SET @s108a = IF(@c108a = 0,
+  "ALTER TABLE crm_contract ADD COLUMN cancel_reason VARCHAR(500) NULL COMMENT '取消原因'",
+  'SELECT 1');
+PREPARE stmt108a FROM @s108a; EXECUTE stmt108a; DEALLOCATE PREPARE stmt108a;
+
+SET @c108b = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contract' AND COLUMN_NAME = 'cancel_action');
+SET @s108b = IF(@c108b = 0,
+  "ALTER TABLE crm_contract ADD COLUMN cancel_action VARCHAR(50) NULL COMMENT '取消动作'",
+  'SELECT 1');
+PREPARE stmt108b FROM @s108b; EXECUTE stmt108b; DEALLOCATE PREPARE stmt108b;
+
+-- 109: crm_follow_up.opportunity_id
+-- ⚠️ 勿与 103 混淆：103 补的是 crm_opportunity_stage_log.opportunity_id（另一张表）。
+SET @c109 = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_follow_up' AND COLUMN_NAME = 'opportunity_id');
+SET @s109 = IF(@c109 = 0,
+  "ALTER TABLE crm_follow_up ADD COLUMN opportunity_id INT DEFAULT NULL COMMENT '关联商机ID(可选)'",
+  'SELECT 1');
+PREPARE stmt109 FROM @s109; EXECUTE stmt109; DEALLOCATE PREPARE stmt109;
+
+SET @i109 = (SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_follow_up' AND INDEX_NAME = 'idx_fu_opportunity');
+SET @s109b = IF(@i109 = 0,
+  'CREATE INDEX idx_fu_opportunity ON crm_follow_up(opportunity_id)',
+  'SELECT 1');
+PREPARE stmt109b FROM @s109b; EXECUTE stmt109b; DEALLOCATE PREPARE stmt109b;
+
+-- 112: crm_customer_transfer（客户转移申请，双方同意制）
+-- 与 database/migrations/112_create_customer_transfer.sql 的建表语句保持一致。
+CREATE TABLE IF NOT EXISTS crm_customer_transfer (
+  id INT NOT NULL AUTO_INCREMENT,
+  customer_id INT NOT NULL COMMENT '客户ID',
+  from_user_id INT DEFAULT NULL COMMENT '发起人（原负责人）',
+  to_user_id INT DEFAULT NULL COMMENT '接收人',
+  status VARCHAR(16) NOT NULL DEFAULT 'pending' COMMENT '状态：pending/accepted/rejected/expired',
+  reason VARCHAR(500) DEFAULT NULL COMMENT '转移原因（发起人填写）',
+  handle_remark VARCHAR(500) DEFAULT NULL COMMENT '接收人处理备注',
+  expire_at DATETIME NOT NULL COMMENT '过期时间（创建时间 + 3 天）',
+  handle_time DATETIME DEFAULT NULL COMMENT '处理时间',
+  create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  deleted_at DATETIME DEFAULT NULL COMMENT '软删除标记',
+  PRIMARY KEY (id),
+  KEY idx_transfer_customer (customer_id),
+  KEY idx_transfer_to_status (to_user_id, status),
+  KEY idx_transfer_status_expire (status, expire_at),
+  KEY idx_transfer_deleted_at (deleted_at),
+  CONSTRAINT fk_transfer_customer FOREIGN KEY (customer_id) REFERENCES crm_customer (id) ON DELETE CASCADE,
+  CONSTRAINT fk_transfer_from_user FOREIGN KEY (from_user_id) REFERENCES sys_user (id) ON DELETE SET NULL,
+  CONSTRAINT fk_transfer_to_user FOREIGN KEY (to_user_id) REFERENCES sys_user (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='客户转移申请（双方同意制）';
+
+-- ============================================================
+-- 为什么此处不写 customer:transfer 权限与授权？
+-- ------------------------------------------------------------
+-- 权限的唯一事实来源是 backend/scripts/init_role_permissions.js
+-- （deploy/deploy.sh 第 [11/12] 步在生产执行它）。
+-- 若在此处再写一份权限码 + 授权，就会出现第二个事实来源，
+-- 正是 D1 缺陷的成因（迁移授予 → 部署脚本按硬编码清单 DELETE 掉）。
+--
+-- ⚠️ 但请注意：当前 CI e2e 作业**从未执行 init_role_permissions.js**，
+--    且 deploy/init-complete.sql 是纯结构导出（无任何 INSERT），
+--    因此 CI 库的 sys_permission / sys_role_permission **全为空**。
+--    后果：除 admin（super_admin，走 manageAll 白名单绕过）外，
+--    任何真实角色用户在 CI 中都会因「没有操作权限」而 403。
+--    ⇒ 需要在 CI 的 e2e 建库流程中补一步执行 init_role_permissions.js。
+-- ============================================================
