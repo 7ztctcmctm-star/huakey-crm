@@ -5,9 +5,22 @@
       <div class="toolbar">
         <el-button type="primary" :icon="Plus" @click="handleAdd">新增标签</el-button>
       </div>
-      <TableSkeleton v-if="loading" :rows="8" :cols="5" />
-      <el-table
-        v-show="!loading"
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && tableData.length === 0"
+        empty-text="暂无标签"
+        empty-description="新增标签后即可在此管理"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="5" />
+        </template>
+        <template #empty-action>
+          <el-button type="primary" size="small" @click="handleAdd">新增标签</el-button>
+        </template>
+
+        <el-table
         :data="tableData"
         stripe
         border>
@@ -30,6 +43,7 @@
           </template>
         </el-table-column>
       </el-table>
+      </StateWrapper>
     </el-card>
 
     <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑标签' : '新增标签'" width="450px">
@@ -57,13 +71,17 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import { reportError } from '@/utils/error'
 import { Plus, Edit, Delete } from '@element-plus/icons-vue'
 import { getTagList, manageTag } from '@/api/system'
 import { chartColors, presetColors as getPresetColors } from '@/utils/chartTheme'
 
 const presetColors = getPresetColors()
 
-const loading = ref(false)
+// onMounted 无条件取数，loading 初值 true 消除首帧「暂无标签」闪现
+const loading = ref(true)
+const errorMsg = ref('')
 const tableData = ref([])
 const dialogVisible = ref(false)
 const isEdit = ref(false)
@@ -75,11 +93,19 @@ const rules = { name: [{ required: true, message: '请输入标签名称', trigg
 
 const fetchList = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const res = await getTagList()
-    if (res.code === 200) tableData.value = res.data
-  } catch (e) { /* */ }
-  finally { loading.value = false }
+    if (res.code === 200) {
+      tableData.value = res.data
+    } else {
+      errorMsg.value = res.message || '加载标签列表失败，请稍后重试'
+      reportError('获取标签列表失败:', res.message)
+    }
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载标签列表失败，请稍后重试'
+    reportError('获取标签列表失败:', error)
+  } finally { loading.value = false }
 }
 
 const handleAdd = () => {
