@@ -712,18 +712,24 @@ git push
 | 接线审计（一次性脚本，未入库） | — | 30/30 视图 `import` / `:error` / `:empty` / `@retry` / `errorMsg` 齐全 |
 | 包裹审计 | — | 30/30 顺序 OK；分页均在包裹内；wrapper 外表格数与副表数一致 |
 | 未改动证据 | 逐文件旧 vs 新计数 | 列数 16/16 **完全不变**；分页数不变；`v-permission` 仅 2 个文件 +1（新增空态按钮）；`:cols` 沿用原值 |
-| E2E（chromium） | `npx playwright test --project=chromium` | 批次 1 后 **36 passed / 1 failed / 2 flaky**；批次 2 后 **38 passed / 1 failed / 0 flaky** |
+| E2E（chromium） | `npx playwright test --project=chromium` | 批次 1 后 36 passed / 1 failed / 2 flaky；批次 2 后 38 passed / 1 failed；**修复阶段日志接口后 39 passed / 0 failed**（见下） |
 
-### E2E 唯一失败的归因（已做 A/B，结论：既有问题，非本会话引入）
+### E2E 唯一失败：已修复（含**归因更正**）
 
-`e2e/opportunity-stage.spec.js:42 应能推进商机阶段并记录变更原因`：
-断言 `getOpportunityStageLog` 的返回值包含所填原因，实际收到 `"{}"`；而前一条断言（推进成功提示）
-已通过 —— 即**阶段推进成功，但变更原因未落库或未由日志接口返回**。
+`e2e/opportunity-stage.spec.js:42 应能推进商机阶段并记录变更原因` 断言读到的阶段日志为 `"{}"`。
 
-**A/B 证据**：`git checkout 50a7b64`（本会话开始前的提交）后单跑该用例 → **同样失败**；
-回到 main 单跑 → 同样失败（可稳定复现，排除并行抖动）。
-→ 归因为**既有缺陷**（后端/数据层，P1 级候选）。**本会话未修**：超出已批准的前端 P0-2 范围，
-且属后端域，建议后续专项处理。
+- **初次归因（错）**：判断为「变更原因未落库」（后端/数据层推断）。
+- **A/B 证据（保留）**：`git checkout 50a7b64` 后单跑该用例同样失败 → 确认**非本会话引入**，属既有缺陷。
+- **实测取证后的真实根因（更正）**：写路径正常，坏的是**读取接口整体 500**——
+  `GET /api/v1/opportunity/stage-log/:id` → 500，故 `data ?? {}` 恒为 `"{}"`。
+  其根因是 `opportunityService.js` 三个查询引用了表里**不存在**的列 `changed_at`
+  （`DESCRIBE crm_opportunity_stage_log` 只有 `create_time`；迁移 `011` 建表即用 `create_time`，
+  全链无重命名），而代码注释把两者写反了。mock 型单测从未真正下发 SQL，所以一直没被拦住。
+- **修复**：`c75c78d` —— 三处查询改用 `create_time`，`getStageLog` 以别名保留前端依赖的
+  `changed_at` 字段名；新增**真连库**回归测试 `backend/tests/db/opportunityStageLog.test.js`
+  （修复前 4 failed，报 `Unknown column 'l.changed_at'`；修复后 4 passed）。
+- **修复后验证**：三个接口 HTTP 全部 200（含 `change_reason` / `hours_in_stage` / `timeline` 事件）；
+  后端全量 **111 套件 / 1094 用例全绿**；前端 chromium E2E **39 passed / 0 failed**。
 
 ## 三、本会话顺带修复的既有缺陷（均先验证后修，非本会话引入）
 
@@ -753,3 +759,13 @@ git push
   全部经我逐文件复核（两个审计脚本矩阵、逐文件旧 vs 新计数、`git diff` 抽查、`reportError` /
   `ElMessage` 导入扫描），并补做了 3 处修正（`pool` 空态文案随视图联动、`quotation`/`contract`
   的死 `#empty` 插槽收敛、`notification` 骨架屏列数与实际表格对齐）。
+
+## 五、后续单独处理项（按「一次只修一件事」登记，未在本轮动手）
+
+1. **`getStageStats` 返回类型缺陷**：`SUM()` 经 mysql2 返回字符串，JS `reduce` 变成拼接，
+   实测 `total_hours: "00"`、`hours: "0"`。前端 `api/opportunity.js:31` 的
+   `getOpportunityStageStats` **无任何视图引用**，当前无用户可见影响 —— 修类型或直接删该死接口，
+   两者都属单独的一件事。
+2. **前端死导入清理**：约 13 个文件存在 `request` / `reportWarn` / `computed` 等「导入了但未使用」。
+3. **P0-3 登录页视觉升级**：路线图中唯一被误标为 ✅ 但实际未开始的项（已在路线图更正）。
+4. **仍未覆盖的列表页**：仅用 `el-table v-loading`、无骨架屏的十余个页面（P0-1 未覆盖全）。
