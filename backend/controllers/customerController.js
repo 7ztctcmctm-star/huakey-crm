@@ -456,10 +456,17 @@ async function listPoolNew(req, res, next) {
 
 async function convertLeadToFormal(req, res, next) {
   try {
-    const result = await customerService.convertLeadToCustomer(pool, req.body.id, req.user.userId)
+    const result = await customerService.convertLeadToCustomer(
+      pool, req.body.id, req.user.userId, { manageAll: !!req.user.manageAll }
+    )
     await logAction(req, 'convert-lead', `潜客转正式客户: ${result.company_name}`)
     await invalidateCache([`customer:list:${req.user.userId}:*`])
-    res.json({ code: 200, message: '潜客转正式客户成功', data: result })
+    // 【归属规则 2026-09-11】代转化（manageAll）时客户留空待分配、置入公海，
+    // 提示语需与归属结果一致，避免用户以为已归属自己。
+    const message = result.owner_id === null
+      ? '潜客转正式客户成功（已置入公海，待认领或分配）'
+      : '潜客转正式客户成功'
+    res.json({ code: 200, message, data: result })
   } catch (error) {
     next(error)
   }

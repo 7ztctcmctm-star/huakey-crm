@@ -1058,12 +1058,27 @@ async function listPoolCustomersNew(pool, params = {}, permission = null) {
 /**
  * 潜客转正式客户（Phase 2 增强版）
  * 将 business_status 从 lead 改为 following，同步 customer_type、lifecycle_status
+ *
+ * 【归属规则 · 产品决策 2026-09-11】
+ *   · 本人转化（销售等普通角色，manageAll=false）→ 客户归操作人，pool_status='private'
+ *   · 代转化（老板/管理员，manageAll=true）→ 客户留空待分配，
+ *     置入公海（pool_status='sea' 且 business_status='following'），由后续认领或分配
+ *
+ * 背景（缺陷修复）：此前无论谁转化都**不写 owner_id**，却仍往 crm_assign_log 写
+ * `to_user_id = owner_id || operatorId` —— 日志说「已分给操作人」而数据没分。
+ * 且转化后的客户呈现 owner_id=NULL + pool_status='private' + business_status='following'，
+ * 既不属公海（认领要求 pool_status='sea'），也无法再走潜客池（已非 lead），
+ * 成为「无主正式客户」死区。
+ *
  * @param {object} pool
  * @param {number} customerId
  * @param {number} operatorId
- * @returns {{ id: number, company_name: string, from_status: string, to_status: string }}
+ * @param {object} [options]
+ * @param {boolean} [options.manageAll=false] 操作人是否具备全量管理权限（老板/管理员）
+ * @returns {{ id: number, company_name: string, from_status: string, to_status: string, owner_id: number|null, pool_status: string }}
  */
-async function convertLeadToCustomer(pool, customerId, operatorId) {
+async function convertLeadToCustomer(pool, customerId, operatorId, options = {}) {
+  const { manageAll = false } = options;
   const [rows] = await pool.query(
     'SELECT id, company_name, customer_type, business_status, owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [customerId]
@@ -1076,26 +1091,38 @@ async function convertLeadToCustomer(pool, customerId, operatorId) {
     throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户不是线索，无法转化');
   }
 
+  // 代转化 → 留空进公海；本人转化 → 归自己
+  const nextOwnerId = manageAll ? null : operatorId;
+  const nextPoolStatus = manageAll ? POOL_STATUS.SEA : POOL_STATUS.PRIVATE;
+
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
     await connection.query(
       `UPDATE crm_customer
-       SET customer_type = ?, lifecycle_status = ?, business_status = ?, status = ?, converted_at = NOW(), update_time = NOW()
+       SET customer_type = ?, lifecycle_status = ?, business_status = ?, status = ?,
+           owner_id = ?, pool_status = ?, converted_at = NOW(), update_time = NOW()
        WHERE id = ?`,
-      ['customer', 'active', BUSINESS_STATUS.FOLLOWING, CUSTOMER_STATUS.FOLLOWING, customerId]
+      ['customer', 'active', BUSINESS_STATUS.FOLLOWING, CUSTOMER_STATUS.FOLLOWING,
+        nextOwnerId, nextPoolStatus, customerId]
     );
-    await connection.query(
-      `INSERT INTO crm_assign_log (customer_id, from_user_id, to_user_id, operator_id, remark)
-       VALUES (?, ?, ?, ?, '潜客转正式客户')`,
-      [customerId, customer.owner_id, customer.owner_id || operatorId, operatorId]
-    );
+    // 仅在真正发生归属变更时写分配日志，
+    // 避免「日志说分了、数据没分」（原缺陷）。
+    if (nextOwnerId !== null) {
+      await connection.query(
+        `INSERT INTO crm_assign_log (customer_id, from_user_id, to_user_id, operator_id, remark)
+         VALUES (?, ?, ?, ?, '潜客转正式客户')`,
+        [customerId, customer.owner_id, nextOwnerId, operatorId]
+      );
+    }
     await connection.commit();
     return {
       id: customerId,
       company_name: customer.company_name,
       from_status: BUSINESS_STATUS.LEAD,
-      to_status: BUSINESS_STATUS.FOLLOWING
+      to_status: BUSINESS_STATUS.FOLLOWING,
+      owner_id: nextOwnerId,
+      pool_status: nextPoolStatus
     };
   } catch (error) {
     await connection.rollback();
