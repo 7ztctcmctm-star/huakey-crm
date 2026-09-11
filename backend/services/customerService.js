@@ -150,6 +150,7 @@ async function listCustomers(pool, params = {}, permission = null) {
     source,
     level,
     status,
+    business_status,
     customer_type,
     lifecycle_status,
     owner_id,
@@ -219,6 +220,14 @@ async function listCustomers(pool, params = {}, permission = null) {
   if (level) {
     whereClause += ' AND c.level = ?';
     queryParams.push(level);
+  }
+  // business_status 过滤：与 listFormalCustomers 的实现保持一致。
+  // 前端「客户总览 / 公海」页的下拉「客户状态」发的就是 business_status
+  // （views/pool/List.vue:21-26,250），此前这里不读该参数、schema 也把它 stripUnknown 掉，
+  // 导致用户选了状态列表却不过滤（2026-09-11 修复，回归测试 tests/db/customerListBusinessStatus.test.js）。
+  if (business_status && isValidBusinessStatus(business_status)) {
+    whereClause += ' AND c.business_status = ?';
+    queryParams.push(business_status);
   }
   if (customer_type) {
     whereClause += ' AND c.customer_type = ?';

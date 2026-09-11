@@ -55,6 +55,9 @@ const customerListSchema = Joi.object({
   source: Joi.string().valid(...customerDetailService.VALID_SOURCES, ...Object.keys(customerDetailService.SOURCE_PARENT_MAP)).allow('', null),
   level: Joi.string().valid('A', 'B', 'C').allow('', null),
   status: Joi.string().valid(...CUSTOMER_STATUS_CODES, ...[0, 1, 2, 3, 5].map(String)).allow('', null),
+  // 业务状态筛选：前端「客户总览 / 公海」页发的是 business_status（views/pool/List.vue:250）。
+  // 此前本 schema 缺该字段，配合 validate 的 stripUnknown 会被静默丢弃 → 筛选不生效（2026-09-11 修复）。
+  business_status: Joi.string().valid(...CUSTOMER_STATUS_CODES).allow('', null),
   owner_id: Joi.number().integer().positive().allow(null),
   start_date: Joi.string().isoDate().allow('', null),
   end_date: Joi.string().isoDate().allow('', null),
