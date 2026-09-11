@@ -174,7 +174,10 @@ async function listCustomers(pool, params = {}, permission = null) {
   queryParams.push(...permParams);
 
   // 基础 WHERE
-  let whereClause;
+  // 软删除过滤属于**不变量**，统一放在基础子句里：历史上「传 status」的分支自己拼了一套 WHERE，
+  // 漏掉 deleted_at IS NULL，导致带状态筛选时把已删客户返回给调用方（2026-09-11 修复，见
+  // tests/db/customerListSoftDelete.test.js）。放在基础子句后，后续新增筛选条件只做 `+=`，不会再漏。
+  let whereClause = `WHERE ${permissionWhere} AND c.deleted_at IS NULL`;
   if (status !== undefined && status !== null && status !== '') {
     const mappedStatus = isValidCustomerStatus(status)
       ? status
@@ -182,10 +185,8 @@ async function listCustomers(pool, params = {}, permission = null) {
     if (!mappedStatus) {
       throw new AppError(ErrorCodes.VALIDATION_ERROR, '无效的客户状态');
     }
-    whereClause = `WHERE ${permissionWhere} AND c.status = ?`;
+    whereClause += ' AND c.status = ?';
     queryParams.push(mappedStatus);
-  } else {
-    whereClause = `WHERE ${permissionWhere} AND c.deleted_at IS NULL`;
   }
 
   // 筛选条件
