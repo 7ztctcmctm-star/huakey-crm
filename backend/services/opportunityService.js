@@ -384,13 +384,14 @@ async function getFunnelStats(pool, permission = null) {
  */
 async function getStageStats(pool, opportunityId) {
   const [stats] = await pool.query(
+    // 时间列名为 create_time（建表语句见 database/migrations/011_opportunity_stage_log.sql）
     `SELECT
       to_stage as stage,
       SUM(
-        TIMESTAMPDIFF(HOUR, changed_at,
+        TIMESTAMPDIFF(HOUR, create_time,
           COALESCE(
-            (SELECT MIN(changed_at) FROM crm_opportunity_stage_log
-             WHERE opportunity_id = ? AND changed_at > l.changed_at),
+            (SELECT MIN(create_time) FROM crm_opportunity_stage_log
+             WHERE opportunity_id = ? AND create_time > l.create_time),
             NOW()
           )
         )
@@ -542,19 +543,21 @@ async function getOpportunityWithPermission(pool, id, permission = null) {
  */
 async function getStageLog(pool, opportunityId) {
   const [logs] = await pool.query(
-    // 注意：本表的时间列名为 changed_at，不存在 create_time。
-    // 历史上迁移 011 曾用 create_time 建列，后续 schema 已统一为 changed_at，
-    // 但此处查询未同步更新，导致 SELECT 引用不存在的列、接口恒定返回 500。
-    `SELECT l.id, l.from_stage, l.to_stage, l.change_reason, l.changed_at,
+    // 时间列名为 create_time：建表语句见 database/migrations/011_opportunity_stage_log.sql。
+    // 对外仍以 changed_at 作为字段名返回——前端 views/opportunity/list.vue:318 与
+    // Detail.vue:60 读的是 row.changed_at，改字段名会连带破坏前端。
+    // 更正：此前的注释把两者写反（声称本表列名为 changed_at），导致三处查询引用不存在的列、
+    // 接口恒定 500（2026-09-11 修复，回归测试见 tests/db/opportunityStageLog.test.js）。
+    `SELECT l.id, l.from_stage, l.to_stage, l.change_reason, l.create_time as changed_at,
       u.real_name as changed_by_name,
-      TIMESTAMPDIFF(HOUR, l.changed_at,
+      TIMESTAMPDIFF(HOUR, l.create_time,
         COALESCE(
-          (SELECT MIN(changed_at) FROM crm_opportunity_stage_log WHERE opportunity_id = l.opportunity_id AND changed_at > l.changed_at),
+          (SELECT MIN(create_time) FROM crm_opportunity_stage_log WHERE opportunity_id = l.opportunity_id AND create_time > l.create_time),
           NOW()
         )
       ) as hours_in_stage
      FROM crm_opportunity_stage_log l LEFT JOIN sys_user u ON l.changed_by = u.id
-     WHERE l.opportunity_id = ? ORDER BY l.changed_at DESC`, [opportunityId]);
+     WHERE l.opportunity_id = ? ORDER BY l.create_time DESC`, [opportunityId]);
   return logs;
 }
 
@@ -650,7 +653,7 @@ async function getTimeline(pool, opportunityId) {
   }
 
   const [stageLogs] = await pool.query(
-    `SELECT 'stage_change' as type, l.id, l.from_stage, l.to_stage, l.changed_at as event_time,
+    `SELECT 'stage_change' as type, l.id, l.from_stage, l.to_stage, l.create_time as event_time,
        u.real_name as user_name
      FROM crm_opportunity_stage_log l
      LEFT JOIN sys_user u ON l.changed_by = u.id
