@@ -5,9 +5,21 @@
       <p class="page-desc">客户评分排名，分数越高表示客户价值越大</p>
     </div>
     <el-card>
-      <TableSkeleton v-if="loading" :rows="8" :cols="5" />
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && tableData.length === 0"
+        empty-text="暂无排名"
+        empty-description="请先配置评分规则并计算评分"
+        @retry="fetchRanking"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="5" />
+        </template>
+        <template #empty-action>
+          <el-button type="primary" size="small" @click="goToRules">配置评分规则</el-button>
+        </template>
       <el-table
-        v-show="!loading"
         :data="tableData"
         stripe
         border>
@@ -38,11 +50,7 @@
           </template>
         </el-table-column>
       </el-table>
-      <div v-if="!loading && tableData.length === 0" style="text-align:center;padding:40px;color: var(--color-text-secondary)">
-        暂无评分数据，请先
-        <el-button type="primary" link @click="goToRules">配置评分规则</el-button>
-        并计算评分
-      </div>
+      </StateWrapper>
     </el-card>
   </div>
 </template>
@@ -52,10 +60,14 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import { reportError } from '@/utils/error'
 import { getScoringRanking } from '@/api/system'
 
 const router = useRouter()
-const loading = ref(false)
+// onMounted 无条件取数，初值 true 消除首帧空态闪现
+const loading = ref(true)
+const errorMsg = ref('')
 const tableData = ref([])
 
 const levelTagType = (level) => {
@@ -65,10 +77,19 @@ const levelTagType = (level) => {
 
 const fetchRanking = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const res = await getScoringRanking()
     if (res.code === 200) tableData.value = res.data
-  } catch (e) { ElMessage.error('加载排行榜失败') }
+    else {
+      errorMsg.value = res.message || '加载排名失败，请稍后重试'
+      reportError('获取评分排行榜失败:', res.message)
+    }
+  } catch (e) {
+    errorMsg.value = e?.response?.data?.message || '加载排名失败，请稍后重试'
+    ElMessage.error('加载排行榜失败')
+    reportError('获取评分排行榜失败:', e)
+  }
   finally { loading.value = false }
 }
 

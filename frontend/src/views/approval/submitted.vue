@@ -5,9 +5,17 @@
       <p class="page-desc">查看我提交的审批记录及状态</p>
     </div>
     <el-card>
-      <TableSkeleton v-if="loading" :rows="8" :cols="6" />
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && tableData.length === 0"
+        empty-text="暂无审批记录"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="6" />
+        </template>
       <el-table
-        v-show="!loading"
         :data="tableData"
         stripe
         border>
@@ -40,14 +48,14 @@
           <template #default="{ row }">{{ formatTime(row.create_time) }}</template>
         </el-table-column>
       </el-table>
-      <EmptyState v-if="!loading && tableData.length === 0" title="暂无审批记录" />
+      </StateWrapper>
     </el-card>
   </div>
 </template>
 
 <script setup>
-import EmptyState from '@/components/common/EmptyState.vue'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
 import { reportError, reportWarn } from '@/utils/error'
 import { ref, onMounted } from 'vue'
 import { SuccessFilled, CircleCloseFilled, Clock } from '@element-plus/icons-vue'
@@ -59,11 +67,14 @@ const typeTagMap = { quote: '', contract: 'success', purchase: 'warning', discou
 const statusNameMap = { 1: '待审批', 2: '已通过', 3: '已拒绝', pending: '待审批', approved: '已通过', rejected: '已拒绝' }
 const statusTypeMap = { 1: 'warning', 2: 'success', 3: 'danger', pending: 'warning', approved: 'success', rejected: 'danger' }
 
-const loading = ref(false)
+// onMounted 无条件取数，初值 true 消除首帧空态闪现
+const loading = ref(true)
+const errorMsg = ref('')
 const tableData = ref([])
 
 const fetchList = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const res = await getMySubmitted()
     if (res.code === 200) {
@@ -73,8 +84,14 @@ const fetchList = async () => {
         }
         return row
       })
+    } else {
+      errorMsg.value = res.message || '加载审批记录失败，请稍后重试'
+      reportError('[submitted] 获取已提交列表失败:', res.message)
     }
-  } catch (e) { reportError('[submitted] 获取已提交列表失败:', e) }
+  } catch (e) {
+    errorMsg.value = e?.response?.data?.message || '加载审批记录失败，请稍后重试'
+    reportError('[submitted] 获取已提交列表失败:', e)
+  }
   finally { loading.value = false }
 }
 

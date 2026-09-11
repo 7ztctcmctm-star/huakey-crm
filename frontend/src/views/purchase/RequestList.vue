@@ -30,9 +30,21 @@
     </el-card>
 
     <el-card style="margin-top: 24px">
-      <TableSkeleton v-if="loading" :rows="8" :cols="7" />
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && list.length === 0"
+        empty-text="暂无采购申请"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="7" />
+        </template>
+        <template #empty-action>
+          <el-button type="primary" size="small" @click="handleAdd" v-permission="'purchase:request'">新建申请</el-button>
+        </template>
+
       <el-table
-        v-show="!loading"
         :data="list"
         style="width: 100%">
         <el-table-column prop="request_no" label="申请编号" width="160" />
@@ -68,6 +80,7 @@
           @change="fetchList"
         />
       </div>
+      </StateWrapper>
     </el-card>
   </div>
 </template>
@@ -78,6 +91,7 @@ import { reactive, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
 import { Plus } from '@element-plus/icons-vue'
 import {
   getPurchaseRequestList,
@@ -86,7 +100,9 @@ import {
 } from '@/api/purchaseRequest'
 
 const router = useRouter()
-const loading = ref(false)
+// onMounted 无条件取数，初值 true 消除首帧空态闪现
+const loading = ref(true)
+const errorMsg = ref('')
 
 const filters = reactive({
   status: '',
@@ -120,6 +136,7 @@ const formatMoney = (value) => {
 
 const fetchList = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const res = await getPurchaseRequestList({
       page: pagination.page,
@@ -129,8 +146,12 @@ const fetchList = async () => {
     if (res.code === 200) {
       list.value = res.data.list || []
       pagination.total = res.data.total || 0
+    } else {
+      errorMsg.value = res.message || '加载采购申请失败，请稍后重试'
+      reportError('获取采购申请列表失败:', res.message)
     }
   } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载采购申请失败，请稍后重试'
     reportError('获取采购申请列表失败:', error)
     ElMessage.error('加载失败')
   } finally {

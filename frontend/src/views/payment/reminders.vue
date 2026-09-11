@@ -22,9 +22,18 @@
 
     <!-- 列表 -->
     <el-card>
-      <TableSkeleton v-if="loading" :rows="8" :cols="6" />
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && list.length === 0"
+        empty-text="暂无催款提醒"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="6" />
+        </template>
+
       <el-table
-        v-show="!loading"
         :data="list">
         <el-table-column prop="customer_name" label="客户名称" min-width="150" show-overflow-tooltip />
         <el-table-column prop="contract_no" label="合同编号" width="150" />
@@ -59,6 +68,7 @@
         </el-table-column>
       </el-table>
       <div class="pagination"><el-pagination v-model:current-page="page" v-model:page-size="pageSize" :total="total" layout="total,prev,pager,next" @current-change="fetchList" /></div>
+      </StateWrapper>
     </el-card>
   </div>
 </template>
@@ -67,10 +77,14 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import { reportError } from '@/utils/error'
 import request from '@/utils/request'
 import { getFinanceReminders, getReminderSummary, generateReminders, acknowledgeReminder } from '@/api/hr'
 
-const loading = ref(false)
+// onMounted 无条件取数，初值 true 消除首帧空态闪现
+const loading = ref(true)
+const errorMsg = ref('')
 const generating = ref(false)
 const list = ref([])
 const total = ref(0)
@@ -88,10 +102,19 @@ const statCards = computed(() => [
 
 const fetchList = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const res = await getFinanceReminders({ page: page.value, pageSize: pageSize.value, status: filterStatus.value })
     if (res.code === 200) { list.value = res.data.list; total.value = res.data.total }
-  } catch (e) { /* */ }
+    else {
+      // 业务码非 200：原先静默停在空表，用户无法区分「无数据」与「加载失败」
+      errorMsg.value = res.message || '加载催款提醒失败，请稍后重试'
+      reportError('获取催款提醒列表失败:', res.message)
+    }
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载催款提醒失败，请稍后重试'
+    reportError('获取催款提醒列表失败:', error)
+  }
   finally { loading.value = false }
 }
 

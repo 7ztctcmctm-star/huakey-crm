@@ -71,9 +71,21 @@
       </el-form>
     </div>
 
-    <TableSkeleton v-if="loading" :rows="8" :cols="7" />
+    <StateWrapper
+      :loading="loading"
+      :error="errorMsg"
+      :empty="!loading && tableData.length === 0"
+      empty-text="暂无采购单"
+      @retry="fetchList"
+    >
+      <template #loading>
+        <TableSkeleton :rows="8" :cols="7" />
+      </template>
+      <template #empty-action>
+        <el-button type="primary" size="small" @click="handleAdd" v-permission="'purchase:add'">新建采购单</el-button>
+      </template>
+
     <el-table
-      v-show="!loading"
       :data="tableData"
       style="width: 100%"
     >
@@ -137,6 +149,7 @@
         @current-change="fetchList"
       />
     </div>
+    </StateWrapper>
 
     <!-- 新建采购单对话框 -->
     <el-dialog v-model="dialogVisible" title="新建采购单" width="900px" destroy-on-close @close="resetForm">
@@ -250,6 +263,7 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import TableSkeleton from '@/components/common/TableSkeleton.vue';
+import StateWrapper from '@/components/common/StateWrapper.vue';
 import { Plus, ArrowDown } from '@element-plus/icons-vue';
 import request from '@/utils/request';
 import { getPurchaseList, addPurchase, updatePurchaseStatus, getPurchaseStatistics } from '@/api/product';
@@ -257,7 +271,9 @@ import { submitApproval, withdrawApproval } from '@/api/tools';
 import { getSupplierOptions } from '@/api/product';
 
 const router = useRouter();
-const loading = ref(false);
+// onMounted 无条件取数，初值 true 消除首帧空态闪现
+const loading = ref(true);
+const errorMsg = ref('');
 const tableData = ref([]);
 const total = ref(0);
 const page = ref(1);
@@ -324,10 +340,18 @@ const fetchSupplierOptions = async () => {
 
 const fetchList = async () => {
   loading.value = true;
+  errorMsg.value = '';
   try {
     const res = await getPurchaseList({ page: page.value, pageSize: pageSize.value, ...searchForm });
     if (res.code === 200) { tableData.value = res.data.list; total.value = res.data.total; }
-  } catch (error) { reportError(error); }
+    else {
+      errorMsg.value = res.message || '加载采购单失败，请稍后重试';
+      reportError('获取采购单列表失败:', res.message);
+    }
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载采购单失败，请稍后重试';
+    reportError('获取采购单列表失败:', error);
+  }
   finally { loading.value = false; }
 };
 

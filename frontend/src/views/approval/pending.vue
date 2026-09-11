@@ -9,9 +9,17 @@
         <el-button type="success" :disabled="selectedRows.length === 0" @click="handleBatchApprove">批量通过 ({{ selectedRows.length }})</el-button>
         <el-button type="danger" :disabled="selectedRows.length === 0" @click="handleBatchReject">批量驳回 ({{ selectedRows.length }})</el-button>
       </div>
-      <TableSkeleton v-if="loading" :rows="8" :cols="6" />
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && tableData.length === 0"
+        empty-text="暂无待审批"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="6" />
+        </template>
       <el-table
-        v-show="!loading"
         :data="tableData"
         stripe
         border
@@ -34,7 +42,7 @@
           </template>
         </el-table-column>
       </el-table>
-      <EmptyState v-if="!loading && tableData.length === 0" title="暂无待审批" />
+      </StateWrapper>
     </el-card>
 
     <!-- 审批弹窗 -->
@@ -72,8 +80,8 @@
 </template>
 
 <script setup>
-import EmptyState from '@/components/common/EmptyState.vue'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
 import { reportError, reportWarn } from '@/utils/error'
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -83,7 +91,9 @@ import { formatTime } from '@/composables/useFormat'
 const typeNameMap = { quote: '报价', contract: '合同', purchase: '采购', discount: '折扣' }
 const typeTagMap = { quote: '', contract: 'success', purchase: 'warning', discount: 'info' }
 
-const loading = ref(false)
+// onMounted 无条件取数，初值 true 消除首帧空态闪现
+const loading = ref(true)
+const errorMsg = ref('')
 const tableData = ref([])
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
@@ -105,10 +115,18 @@ const handleSelectionChange = (rows) => { selectedRows.value = rows }
 
 const fetchList = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const res = await getMyPending()
     if (res.code === 200) tableData.value = res.data
-  } catch (e) { reportError('[pending] 获取待审批列表失败:', e) }
+    else {
+      errorMsg.value = res.message || '加载待审批列表失败，请稍后重试'
+      reportError('[pending] 获取待审批列表失败:', res.message)
+    }
+  } catch (e) {
+    errorMsg.value = e?.response?.data?.message || '加载待审批列表失败，请稍后重试'
+    reportError('[pending] 获取待审批列表失败:', e)
+  }
   finally { loading.value = false }
 }
 

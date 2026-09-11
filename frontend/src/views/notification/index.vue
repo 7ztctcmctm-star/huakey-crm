@@ -99,7 +99,18 @@
 
       <!-- 系统通知 -->
       <div v-if="activeTab === 'system'">
-        <el-table :data="systemNotifications" stripe border v-loading="loading" @row-click="handleSystemClick">
+        <StateWrapper
+          :loading="loading"
+          :error="errorMsg"
+          :empty="!loading && systemNotifications.length === 0"
+          empty-text="暂无系统通知"
+          @retry="fetchSystemNotifications"
+        >
+          <template #loading>
+            <TableSkeleton :rows="8" :cols="6" />
+          </template>
+
+        <el-table :data="systemNotifications" stripe border @row-click="handleSystemClick">
           <el-table-column width="50" align="center">
             <template #default="{ row }">
               <div :class="['unread-dot', { read: row.is_read }]"></div>
@@ -122,10 +133,10 @@
             </template>
           </el-table-column>
         </el-table>
-        <EmptyState v-if="!loading && systemNotifications.length === 0" title="暂无系统通知" />
         <div v-if="systemTotal > pageSize" style="margin-top:16px;display:flex;justify-content:flex-end">
           <el-pagination layout="prev, pager, next" :total="systemTotal" :page-size="pageSize" v-model:current-page="page" @current-change="fetchSystemNotifications" />
         </div>
+        </StateWrapper>
       </div>
     </el-card>
   </div>
@@ -134,6 +145,7 @@
 <script setup>
 import EmptyState from '@/components/common/EmptyState.vue'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -141,13 +153,14 @@ import { getNotifications, markNotificationRead, markAllRead as apiMarkAllRead }
 import { getMyReminders } from '@/api/reminder'
 import { formatTime } from '@/composables/useFormat'
 import { acceptTransferItem, rejectTransferItem } from '@/composables/useTransferTodo'
-import { reportWarn } from '@/utils/error'
+import { reportError, reportWarn } from '@/utils/error'
 import { connectSSE, offMessage } from '@/utils/sse'
 
 const router = useRouter()
 const activeTab = ref('todo')
 const todoTab = ref('approvals')
 const loading = ref(false)
+const errorMsg = ref('')
 const todoLoading = ref(false)
 const unreadCount = ref(0)
 
@@ -195,14 +208,22 @@ const fetchTodoData = async () => {
 
 const fetchSystemNotifications = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const res = await getNotifications({ page: page.value, pageSize: pageSize.value })
     if (res.code === 200) {
       systemNotifications.value = res.data.list || []
       systemTotal.value = res.data.total || 0
       unreadCount.value = res.data.unread_count || 0
+    } else {
+      // 业务码非 200：原先静默停在空表，用户无法区分「无数据」与「加载失败」
+      errorMsg.value = res.message || '加载系统通知失败，请稍后重试'
+      reportError('获取系统通知列表失败:', res.message)
     }
-  } catch { /* */ }
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载系统通知失败，请稍后重试'
+    reportError('获取系统通知列表失败:', error)
+  }
   finally { loading.value = false }
 }
 

@@ -23,9 +23,20 @@
 
     <!-- 活动列表 -->
     <el-card>
-      <TableSkeleton v-if="loading" :rows="8" :cols="6" />
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && list.length === 0"
+        empty-text="暂无问卷"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="6" />
+        </template>
+        <template #empty-action>
+          <el-button type="primary" size="small" :icon="Plus" @click="showCreate = true">新建调查</el-button>
+        </template>
       <el-table
-        v-show="!loading"
         :data="list"
         stripe
         border>
@@ -53,6 +64,7 @@
           </template>
         </el-table-column>
       </el-table>
+      </StateWrapper>
     </el-card>
 
     <!-- 新建弹窗 -->
@@ -77,6 +89,8 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import { reportError } from '@/utils/error'
 import { Plus } from '@element-plus/icons-vue'
 import { getSurveyTemplates, getSurveyCampaigns, getSurveyOverview, saveSurveyCampaign, startCampaign, closeCampaign } from '@/api/tools'
 import request from '@/utils/request'
@@ -86,7 +100,9 @@ const typeTag = { nps: '', csat: 'success', custom: 'info' }
 const statusName = { draft: '草稿', active: '进行中', closed: '已关闭' }
 const statusTag = { draft: 'info', active: 'success', closed: '' }
 
-const loading = ref(false)
+// onMounted 无条件取数，初值 true 消除首帧空态闪现
+const loading = ref(true)
+const errorMsg = ref('')
 const list = ref([])
 const templates = ref([])
 const filterStatus = ref('')
@@ -104,10 +120,18 @@ const statCards = computed(() => [
 
 const fetchList = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const res = await getSurveyCampaigns()
     if (res.code === 200) list.value = res.data
-  } catch (e) { /* */ }
+    else {
+      errorMsg.value = res.message || '加载调查列表失败，请稍后重试'
+      reportError('获取调查列表失败:', res.message)
+    }
+  } catch (e) {
+    errorMsg.value = e?.response?.data?.message || '加载调查列表失败，请稍后重试'
+    reportError('获取调查列表失败:', e)
+  }
   finally { loading.value = false }
 }
 

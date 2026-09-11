@@ -25,9 +25,18 @@
     </el-card>
 
     <el-card>
-      <TableSkeleton v-if="loading" :rows="8" :cols="6" />
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && list.length === 0"
+        empty-text="暂无出入库记录"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="6" />
+        </template>
+
       <el-table
-        v-show="!loading"
         :data="list">
         <el-table-column prop="product_name" label="产品" min-width="160" show-overflow-tooltip />
         <el-table-column prop="movement_type" label="类型" width="80" align="center">
@@ -43,6 +52,7 @@
         <el-table-column prop="create_time" label="时间" width="160" />
       </el-table>
       <div class="pagination"><el-pagination v-model:current-page="page" v-model:page-size="pageSize" :total="total" :page-sizes="[20,50,100]" layout="total,sizes,prev,pager,next" @size-change="fetchList" @current-change="fetchList" /></div>
+      </StateWrapper>
     </el-card>
   </div>
 </template>
@@ -50,13 +60,17 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import { reportError } from '@/utils/error'
 import request from '@/utils/request'
 import { getInventoryList, getInventoryMovements } from '@/api/product'
 
 const typeName = { in: '入库', out: '出库', adjust: '调整', return: '退货' }
 const typeTag = { in: 'success', out: 'danger', adjust: '', return: 'warning' }
 
-const loading = ref(false)
+// onMounted 无条件取数，初值 true 消除首帧空态闪现
+const loading = ref(true)
+const errorMsg = ref('')
 const list = ref([])
 const total = ref(0)
 const page = ref(1)
@@ -66,12 +80,21 @@ const search = reactive({ product_id: '', movement_type: '', dateRange: null })
 
 const fetchList = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const params = { page: page.value, pageSize: pageSize.value, product_id: search.product_id, movement_type: search.movement_type }
     if (search.dateRange && search.dateRange.length === 2) { params.start_date = search.dateRange[0]; params.end_date = search.dateRange[1] }
     const res = await getInventoryMovements(params)
     if (res.code === 200) { list.value = res.data.list; total.value = res.data.total }
-  } catch (e) { /* */ }
+    else {
+      // 业务码非 200：原先静默停在空表，用户无法区分「无数据」与「加载失败」
+      errorMsg.value = res.message || '加载出入库记录失败，请稍后重试'
+      reportError('获取出入库记录失败:', res.message)
+    }
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载出入库记录失败，请稍后重试'
+    reportError('获取出入库记录失败:', error)
+  }
   finally { loading.value = false }
 }
 

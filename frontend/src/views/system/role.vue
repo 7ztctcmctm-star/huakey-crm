@@ -5,9 +5,20 @@
       <div class="toolbar">
         <el-button type="primary" :icon="Plus" @click="handleAdd">新增角色</el-button>
       </div>
-      <TableSkeleton v-if="loading" :rows="6" :cols="5" />
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && tableData.length === 0"
+        empty-text="暂无角色"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="6" :cols="5" />
+        </template>
+        <template #empty-action>
+          <el-button type="primary" size="small" @click="handleAdd">新增角色</el-button>
+        </template>
       <el-table
-        v-show="!loading"
         :data="tableData"
         stripe
         border>
@@ -27,6 +38,7 @@
           </template>
         </el-table-column>
       </el-table>
+      </StateWrapper>
     </el-card>
 
     <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑角色' : '新增角色'" width="450px">
@@ -80,11 +92,15 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
 import { Plus, Edit, Delete, Setting } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getRoleList, deleteRole, getPermissionList, updateRolePermission, saveRole, getRolePermissions } from '@/api/system'
+import { reportError } from '@/utils/error'
 
-const loading = ref(false)
+// onMounted 无条件取数，初值 true 消除首帧空态闪现
+const loading = ref(true)
+const errorMsg = ref('')
 const tableData = ref([])
 const dialogVisible = ref(false)
 const isEdit = ref(false)
@@ -104,8 +120,20 @@ const rules = { name: [{ required: true, message: '请输入角色名称', trigg
 
 const fetchList = async () => {
   loading.value = true
-  try { const res = await getRoleList({}); if (res.code === 200) tableData.value = res.data.list } catch (e) { /* */ }
-  finally { loading.value = false }
+  errorMsg.value = ''
+  try {
+    const res = await getRoleList({})
+    if (res.code === 200) {
+      tableData.value = res.data.list
+    } else {
+      // 业务码非 200：原先会静默停在空表，用户无法区分「无数据」与「加载失败」
+      errorMsg.value = res.message || '加载角色列表失败，请稍后重试'
+      reportError('获取角色列表失败:', res.message)
+    }
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载角色列表失败，请稍后重试'
+    reportError('获取角色列表失败:', error)
+  } finally { loading.value = false }
 }
 
 const handleAdd = () => { isEdit.value = false; editId.value = null; Object.assign(form, { name: '', code: '', description: '' }); dialogVisible.value = true }

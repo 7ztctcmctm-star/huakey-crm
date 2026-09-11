@@ -58,9 +58,17 @@
           </div>
         </div>
       </template>
-      <TableSkeleton v-if="loading" :rows="8" :cols="6" />
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && tableData.length === 0"
+        empty-text="暂无日志"
+        @retry="handleQuery"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="6" />
+        </template>
       <el-table
-        v-show="!loading"
         :data="tableData"
         stripe
         border>
@@ -105,6 +113,7 @@
           @current-change="handleQuery"
         />
       </div>
+      </StateWrapper>
     </el-card>
 
     <el-dialog v-model="detailVisible" title="日志详情" width="700px">
@@ -157,11 +166,14 @@ import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
 import { Search, Refresh, Delete, Download } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getLogList, exportLog, clearLog, getLogModules, getLogDetail } from '@/api/system'
 
-const loading = ref(false)
+// onMounted 无条件取数，初值 true 消除首帧空态闪现
+const loading = ref(true)
+const errorMsg = ref('')
 const tableData = ref([])
 const moduleList = ref([])
 const dateRange = ref([])
@@ -183,6 +195,7 @@ const pagination = reactive({
 
 const handleQuery = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const params = {
       page: pagination.page,
@@ -199,10 +212,15 @@ const handleQuery = async () => {
     if (res.code === 200) {
       tableData.value = res.data.list
       pagination.total = res.data.total
+    } else {
+      // 业务码非 200：原先会静默停在空表，用户无法区分「无数据」与「加载失败」
+      errorMsg.value = res.message || '加载日志列表失败，请稍后重试'
+      reportError('查询日志失败:', res.message)
     }
   } catch (error) {
-    reportError('查询日志失败:', error)
+    errorMsg.value = error?.response?.data?.message || '加载日志列表失败，请稍后重试'
     ElMessage.error('查询失败')
+    reportError('查询日志失败:', error)
   } finally {
     loading.value = false
   }

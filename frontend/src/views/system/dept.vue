@@ -5,9 +5,20 @@
       <div class="toolbar">
         <el-button type="primary" :icon="Plus" @click="handleAdd">新增部门</el-button>
       </div>
-      <TableSkeleton v-if="loading" :rows="6" :cols="4" />
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && tableData.length === 0"
+        empty-text="暂无部门"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="6" :cols="4" />
+        </template>
+        <template #empty-action>
+          <el-button type="primary" size="small" @click="handleAdd">新增部门</el-button>
+        </template>
       <el-table
-        v-show="!loading"
         :data="tableData"
         row-key="id"
         stripe
@@ -23,6 +34,7 @@
           </template>
         </el-table-column>
       </el-table>
+      </StateWrapper>
     </el-card>
 
     <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑部门' : '新增部门'" width="450px">
@@ -51,11 +63,15 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
 import { Plus, Edit, Delete } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getDeptList, deleteDept, saveDept } from '@/api/system'
+import { reportError } from '@/utils/error'
 
-const loading = ref(false)
+// onMounted 无条件取数，初值 true 消除首帧空态闪现
+const loading = ref(true)
+const errorMsg = ref('')
 const tableData = ref([])
 const deptOptions = ref([])
 const dialogVisible = ref(false)
@@ -82,14 +98,21 @@ function buildTree(list) {
 
 const fetchList = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const res = await getDeptList({})
     if (res.code === 200) {
       tableData.value = buildTree(res.data.list)
       deptOptions.value = res.data.list
+    } else {
+      // 业务码非 200：原先会静默停在空表，用户无法区分「无数据」与「加载失败」
+      errorMsg.value = res.message || '加载部门列表失败，请稍后重试'
+      reportError('获取部门列表失败:', res.message)
     }
-  } catch (e) { /* */ }
-  finally { loading.value = false }
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载部门列表失败，请稍后重试'
+    reportError('获取部门列表失败:', error)
+  } finally { loading.value = false }
 }
 
 const handleAdd = () => { isEdit.value = false; editId.value = null; Object.assign(form, { name: '', parent_id: null, sort: 0 }); dialogVisible.value = true }

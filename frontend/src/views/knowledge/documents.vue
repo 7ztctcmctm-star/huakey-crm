@@ -17,9 +17,20 @@
       </el-form>
     </el-card>
 
-    <TableSkeleton v-if="loading" :rows="8" :cols="5" />
+    <StateWrapper
+      :loading="loading"
+      :error="errorMsg"
+      :empty="!loading && list.length === 0"
+      empty-text="暂无文档"
+      @retry="fetchList"
+    >
+      <template #loading>
+        <TableSkeleton :rows="8" :cols="5" />
+      </template>
+      <template #empty-action>
+        <el-button type="primary" size="small" :icon="Upload" @click="handleUpload">上传文档</el-button>
+      </template>
     <el-table
-      v-show="!loading"
       :data="list"
       stripe
       border>
@@ -45,6 +56,7 @@
         </template>
       </el-table-column>
     </el-table>
+    </StateWrapper>
 
     <!-- 上传弹窗 -->
     <el-dialog v-model="uploadVisible" title="上传文档" width="500px">
@@ -86,6 +98,8 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import { reportError } from '@/utils/error'
 import { Upload, Edit, Delete } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getKnowledgeDocuments, addKnowledgeDocument, updateKnowledgeDocument, deleteKnowledgeDocument } from '@/api/tools'
@@ -94,7 +108,9 @@ import { formatTime } from '@/composables/useFormat'
 const typeName = { contract: '合同模板', quote: '报价模板', general: '通用文档' }
 const typeTag = { contract: 'success', quote: '', general: 'info' }
 
-const loading = ref(false)
+// onMounted 无条件取数，初值 true 消除首帧空态闪现
+const loading = ref(true)
+const errorMsg = ref('')
 const list = ref([])
 const search = reactive({ keyword: '', type: '' })
 const submitLoading = ref(false)
@@ -107,10 +123,18 @@ const formatSize = (bytes) => {
 
 const fetchList = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const res = await getKnowledgeDocuments(search)
     if (res.code === 200) list.value = res.data.list || []
-  } catch (e) { /* */ }
+    else {
+      errorMsg.value = res.message || '加载文档列表失败，请稍后重试'
+      reportError('获取文档列表失败:', res.message)
+    }
+  } catch (e) {
+    errorMsg.value = e?.response?.data?.message || '加载文档列表失败，请稍后重试'
+    reportError('获取文档列表失败:', e)
+  }
   finally { loading.value = false }
 }
 
