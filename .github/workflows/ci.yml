@@ -161,6 +161,14 @@ jobs:
         # E2E 通过 .env.test 的 E2E_ADMIN_USER=demo_admin 登录，需先 seed Demo 账号 + 业务链
         # seed-demo.js 自带生产环境阻断 + 幂等保护
         run: cd backend && DB_NAME=huakey_crm_test DB_USER=root DB_PASSWORD=test_root_pass DB_HOST=127.0.0.1 DB_PORT=3306 npm run seed:demo
+
+      # 权限的唯一事实来源是 backend/scripts/init_role_permissions.js
+      # （生产由 deploy/deploy.sh 第 [11/12] 步执行；此处保持同一脚本，避免出现第二个事实来源）。
+      # 缺此步的后果：sys_permission / sys_role_permission 为空，
+      # 除 admin（super_admin，走 manageAll 白名单）外，任何真实角色都会 403。
+      # 前置依赖：demo_roles.sql 必须已建出 boss/manager/sales/hr/purchase/finance/engineer。
+      - name: Init role permissions (populate sys_permission / sys_role_permission)
+        run: cd backend && DB_NAME=huakey_crm_test DB_USER=root DB_PASSWORD=test_root_pass DB_HOST=127.0.0.1 DB_PORT=3306 node scripts/init_role_permissions.js
       - run: cd frontend && npx playwright install --with-deps chromium
       - name: Run Playwright E2E tests
         env:
@@ -279,6 +287,14 @@ jobs:
       - name: Load Demo seed data (demo_admin / demo_sales / demo_purchase)
         # E2E 通过 .env.test 的 E2E_ADMIN_USER=demo_admin 登录，需先 seed Demo 账号 + 业务链
         run: cd backend && DB_NAME=huakey_crm_test DB_USER=root DB_PASSWORD=test_root_pass DB_HOST=127.0.0.1 DB_PORT=3306 npm run seed:demo
+
+      # 权限的唯一事实来源是 backend/scripts/init_role_permissions.js
+      # （生产由 deploy/deploy.sh 第 [11/12] 步执行；此处保持同一脚本，避免出现第二个事实来源）。
+      # 缺此步的后果：sys_permission / sys_role_permission 为空，
+      # 除 admin（super_admin，走 manageAll 白名单）外，任何真实角色都会 403。
+      # 前置依赖：demo_roles.sql 必须已建出 boss/manager/sales/hr/purchase/finance/engineer。
+      - name: Init role permissions (populate sys_permission / sys_role_permission)
+        run: cd backend && DB_NAME=huakey_crm_test DB_USER=root DB_PASSWORD=test_root_pass DB_HOST=127.0.0.1 DB_PORT=3306 node scripts/init_role_permissions.js
       - run: cd frontend && npx playwright install --with-deps ${{ matrix.browser }}
       - name: Run Playwright tests
         env:
