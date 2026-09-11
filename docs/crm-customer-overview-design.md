@@ -316,22 +316,71 @@ SELECT id, real_name, username FROM sys_user
 **建议**：候选人查询应 `JOIN sys_role_permission` 过滤掉无该权限的用户；
 或前端在提交前给出明确提示。**本方案未擅自改动**（涉及产品口径：采购/HR 是否可作为客户接收人）。
 
-#### D3 · 新建客户无法被任何人认领【中】
+#### D3 · 潜客转化不写负责人，产出「无主正式客户」死区【2026-09-11 复核升级为 P1】
 
-两处认领实现的前置条件不一致，且与建客户的写入不一致：
+> **复核修正：本节的原有归因有误，已更正。**
+> 原文把根因归为「`addCustomer` 不写 `pool_status` → 客户不在公海 → 认领失败」。
+> 复核发现迁移 `097_customer_business_status_and_pool_enum.sql` 头部**明确规定**：
+>
+> ```
+> 线索 = 未分配的潜客（business_status='lead'），pool_status='private'
+> 公海 = 曾被跟进后被释放的客户（business_status != 'lead' 且 owner_id IS NULL），pool_status='sea'
+> lead 客户即使 owner_id IS NULL，pool_status 仍为 'private'（不属于公海）
+> ```
+>
+> ⇒ **「线索不进公海」是设计如此**，`claimPoolCustomer` 拒绝线索（报「该客户不在公海中」）**行为正确**。
+> 原文把它当缺陷属误判。真正的缺陷在**线索的既定入口「转化」上**。
 
-| 实现 | 前置条件 | 
+**真正的缺陷**：线索的既定入口是「潜客池 → 转化」，但
+`customerService.convertLeadToCustomer`（`services/customerService.js:1066-1106`）
+**全程不更新 `owner_id`**：
+
+| 该函数做了什么 | 缺了什么 |
 |---|---|
-| `poolService.claimCustomer` | 仅 `owner_id IS NULL` |
-| **`customerService.claimPoolCustomer`（路由实际调用）** | `pool_status = 'sea'` **且** `business_status != 'lead'` |
+| UPDATE `customer_type='customer'`、`lifecycle_status='active'`、`business_status='following'`、`status='following'`、`converted_at=NOW()` | **没有 `owner_id = ?`** |
+| INSERT `crm_assign_log (…, to_user_id = customer.owner_id \|\| operatorId, …)` | 日志写了「已分给 operatorId」，而 `crm_customer.owner_id` 纹丝不动 |
 
-而 `customerDetailService.addCustomer` 的 INSERT **不写 `pool_status`**，落到列默认值 `'private'`，
-`status = 'lead'`。→ 两个条件**全不满足**，恒报「该客户不在公海中」。
+**实测**（在测试库内复刻该函数的两条 DML，事务内比对后 ROLLBACK，未改动任何数据）：
 
-**实测**：走查中 A 尝试认领自己刚建的客户，稳定返回
-`{"code":400005,"message":"该客户不在公海中"}`。
+```
+实验对象: {"id":11,"company_name":"Minister Hi-Tech Park Ltd.",
+          "owner_id":null,"status":"lead","business_status":"lead","pool_status":"private"}
+
+转换后：crm_customer.owner_id    = null   ← 转换前后都是 null
+        status / business_status = following / following
+        pool_status              = private
+        crm_assign_log 记录       = {"from_user_id":null,"to_user_id":71,
+                                     "operator_id":71,"remark":"潜客转正式客户"}
+
+❌ 分配日志已写 to_user_id=71，但 crm_customer.owner_id 仍为 NULL —— 日志与实际数据不一致
+```
+
+**⇒ 转化后的客户落入死区**（`owner_id IS NULL` + `pool_status='private'` + `business_status='following'`）：
+
+| 入口 | 判据 | 结果 |
+|---|---|---|
+| 「待认领」列表 | 仅 `owner_id IS NULL`（`customerService.js:244-246`） | **看得见** |
+| 公海认领 | 要求 `pool_status='sea'`（`:1172-1177`） | **拒绝**（仍 `private`） |
+| 潜客池再转化 | 要求 `business_status='lead'` | **拒绝**（已非 `lead`，报「该客户不是线索」） |
+| 「正式客户」列表 | 含 `pool_status='private'` 且 `business_status IN (…)` | 出现，**但无主** |
+
+**三个入口全对不上，客户卡死无人负责。**
+
+**前端确认**：`views/leads/List.vue:217` 转化后**只调用 `convertLeadToFormal(row.id)` 并刷新列表**，
+没有任何补充分配的调用 —— 缺陷端到端成立，非仅后端问题。
+
+**存量实测**：
+
+| 库 | 【死区】无主 + `private` + 已是正式阶段 | 【线索】无主 + `business_status='lead'` |
+|---|---|---|
+| `huakey_crm`（本地） | **1 行** | 422 行 |
+| `huakey_crm_test` | 0 行 | 423 行 |
+
+> 说明：422 行线索本身**不是缺陷**（设计如此），它们是正常待转化的潜客；
+> 真正的风险是**每一次转化都会新产生一个死区客户**。生产库存量**未核实**（本机无法访问 NAS）。
 
 > 这也是 §8.6 走查改用「admin 分配」而非「销售认领」来准备数据的原因。
+> **三种修复方案与改动清单见 §8.7。**
 
 ### 8.6 L1 真实浏览器端到端走查（已闭环）
 
@@ -373,6 +422,92 @@ id=1  customer 651  pending   71→76                     → 客户 651 owner=7
 > 后者会导入 `deploy/init-complete.sql` 并把所有迁移标记为已执行，得到的测试库**没有 sales/manager 角色**，
 > 无法模拟真实销售。详见 P1-13。
 
+### 8.7 D3 修复方案（三选一，2026-09-11 出具 · **本方案未改动任何代码**）
+
+> 前提认知（见 §8.5 D3 复核）：**线索不进公海是 097 的既定设计**，不是 bug。
+> 因此修复目标不是「让线索能被公海认领」，而是**让转化后的客户有人负责**。
+
+#### 方案对比
+
+| 方案 | 一句话 | 改动面 | 治本? | 风险 | 建议 |
+|---|---|---|---|---|---|
+| **A** | 转化时补写 `owner_id = 操作人` | 1 处 SQL | ✅ | 低 | **推荐** |
+| A′ | 转化时走 `autoAssignOwner`，无规则回落操作人 | 1 处 + 复用 helper | ✅ | 中 | 备选 |
+| B | 收敛「待认领」列表判据，不修转化 | 1 处 SQL | ❌ 治标 | 中 | 可与 A 叠加 |
+| C | 放开公海认领判据，允许认领无主客户 | 2–3 处 | ❌ 且引入错语义 | 高 | 不推荐 |
+
+#### 方案 A（推荐）：转化时补写 `owner_id`
+
+**为什么是「补齐」而不是「改设计」**：`convertLeadToCustomer` 已经在
+`crm_assign_log` 里写了 `to_user_id = customer.owner_id || operatorId`，
+说明**作者的意图本就是「转化即分给操作人」**，只是漏了同步 `crm_customer.owner_id`。
+
+**改动清单**
+
+| # | 文件 | 位置 | 改动 |
+|---|---|---|---|
+| 1 | `backend/services/customerService.js` | `1079-1092`（`convertLeadToCustomer` 的事务体） | UPDATE 增加 `owner_id = COALESCE(owner_id, ?)`、显式 `pool_status = 'private'`；参数补 `operatorId` |
+| 2 | `backend/tests/`（新增或用例补充） | — | 断言「转化后 `owner_id === operatorId`」且 `crm_assign_log.to_user_id` 与之一致 |
+| 3 | `frontend/e2e/`（可选） | — | 「潜客池转化 → 待认领列表不再出现该客户」 |
+
+**回滚**：还原第 1 项 SQL 即可（无 DDL、无数据迁移）。
+
+**验证要求**（不接受「改完看着对了」）：单测断言 `owner_id` 落库值 + 断言 `crm_assign_log` 与
+`crm_customer.owner_id` **一致**（本次缺陷的本质就是两者不一致，必须有断言防回归）。
+
+**待产品确认**：老板/管理员**代**转化时，客户应归操作人，还是留空待分配？
+- 归操作人 → 用 `COALESCE(owner_id, operatorId)`（A）
+- 留空待分配 → 则应去掉 `crm_assign_log` 里的 `|| operatorId`，并补 `pool_status='sea'` 让它进公海
+
+#### 方案 A′：转化时按分配规则指派
+
+复用既有 `autoAssignOwner(pool, { source, address })`，无规则命中时回落 `operatorId`。
+优点是与「新建客户」路径口径一致；缺点是引入对分配规则表的依赖，规则误配会把客户分错人。
+**若选 A′，务必先确认分配规则在生产库的实际配置。**
+
+#### 方案 B：仅收敛「待认领」列表判据
+
+| # | 文件 | 位置 | 改动 |
+|---|---|---|---|
+| 1 | `backend/services/customerService.js` | `244-246` | `AND c.owner_id IS NULL` → `AND c.owner_id IS NULL AND c.pool_status = 'sea'` |
+
+效果：列表不再展示 422 行线索（线索改由潜客池承载，口径更清晰）。
+**但治标不治本** —— 死区客户（`business_status='following'` 且无主）依旧存在。
+可作为 A 的叠加项，**不单独使用**。
+
+#### 方案 C：放开公海认领判据（不推荐）
+
+| # | 文件 | 位置 | 改动 |
+|---|---|---|---|
+| 1 | `backend/services/customerService.js` | `1172-1177` | 去掉 `pool_status !== 'sea'` 拦截 |
+| 2 | `backend/services/customerService.js` | `1187-1192`（P0-1 原子守卫） | **必须同步**放宽 `WHERE … pool_status = ?`，否则认领静默失败 |
+| 3 | `backend/services/poolService.js` | `98`（第二处实现） | 同口径修改，否则两套实现再次发散 |
+
+**不推荐理由**：① 违背 097 的「线索≠公海」设计；② 必须同时改 P0-1 原子守卫，
+漏改即回归 P0-1 竞态漏洞；③ 项目内已有两套认领实现（P0-1 踩过坑），再动会扩大发散面。
+
+#### 存量对账（需在生产库执行，本机不可达）
+
+```sql
+-- 死区存量：无主 + private + 已是正式阶段
+SELECT COUNT(*) FROM crm_customer
+WHERE owner_id IS NULL AND pool_status = 'private' AND deleted_at IS NULL
+  AND business_status IN ('following','quoted','negotiating','signed');
+```
+
+**修复原则**：
+- ✅ 由管理员用既有 `POST /customer/assign` 接口逐个/批量补负责人（**已有 `crm_assign_log` 留痕**）
+- ❌ **不做自动改写** —— 系统无法判定这些客户当时应由谁负责，机械分配会制造错误的业绩归属
+- ❌ 不删除任何行
+
+#### 明确不做的事
+
+1. 不自动把死区客户塞给某个销售（无依据）
+2. 不修改 097 的「线索/公海」语义
+3. 不在生产库执行任何 DML（需 NAS 权限 + 先备份 + 先对账）
+4. 本次**只出方案，未动代码** —— 待方案确认后再进入九步循环
+
 ---
 
 *方案由 David 出具 · 2026-09-10 · 第 7 步已实施；L1 走查已闭环，局限见 §8.4，新发现见 §8.5*
+*2026-09-11 复核：D3 原归因已更正，并补齐三重修复方案与改动清单（§8.7）；本轮未动代码*
