@@ -40,7 +40,14 @@
         </div>
       </template>
 
-      <el-table :data="tableData" v-loading="loading" stripe border style="width: 100%">
+      <TableSkeleton v-if="loading" :rows="8" :cols="7" />
+      <el-table
+        v-show="!loading"
+        :data="tableData"
+        stripe
+        border
+        style="width: 100%"
+      >
         <el-table-column prop="company_name" label="公司名称" min-width="200" show-overflow-tooltip>
           <template #default="{ row }">
             <el-link type="primary" @click="goDetail(row)">{{ row.company_name }}</el-link>
@@ -97,6 +104,7 @@ import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import CustomerFormDialog from '@/views/customer/components/CustomerFormDialog.vue'
 import { getLeadsPool, convertLeadToFormal } from '@/api/leads'
 import { addCustomer } from '@/api/customer'

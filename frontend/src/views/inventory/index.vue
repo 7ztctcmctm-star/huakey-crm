@@ -36,7 +36,10 @@
 
     <!-- 列表 -->
     <el-card>
-      <el-table :data="list" v-loading="loading">
+      <TableSkeleton v-if="loading" :rows="8" :cols="6" />
+      <el-table
+        v-show="!loading"
+        :data="list">
         <el-table-column prop="name" label="产品名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="code" label="编码" width="120" />
         <el-table-column prop="category" label="分类" width="100" />
@@ -103,6 +106,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import request from '@/utils/request'
 import { getInventoryList, updateInventory, addInventoryMovement, getInventoryStats, getInventoryCategories } from '@/api/product'
 

@@ -5,7 +5,12 @@
       <div class="toolbar">
         <el-button type="primary" :icon="Plus" @click="handleAdd">新增用户</el-button>
       </div>
-      <el-table v-loading="loading" :data="tableData" stripe border>
+      <TableSkeleton v-if="loading" :rows="8" :cols="7" />
+      <el-table
+        v-show="!loading"
+        :data="tableData"
+        stripe
+        border>
         <el-table-column prop="username" label="用户名" width="120" />
         <el-table-column prop="real_name" label="真实姓名" width="120" />
         <el-table-column prop="dept_name" label="所属部门" width="120" />
@@ -93,6 +98,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import { Plus, Edit, Delete, Key } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getUserList, deleteUser, getDeptList, getRoleList, saveUser, resetUserPassword } from '@/api/system'

@@ -5,7 +5,15 @@
       <div class="toolbar">
         <el-button type="primary" :icon="Plus" @click="handleAdd">新增部门</el-button>
       </div>
-      <el-table v-loading="loading" :data="tableData" row-key="id" stripe border default-expand-all :tree-props="{ children: 'children' }">
+      <TableSkeleton v-if="loading" :rows="6" :cols="4" />
+      <el-table
+        v-show="!loading"
+        :data="tableData"
+        row-key="id"
+        stripe
+        border
+        default-expand-all
+        :tree-props="{ children: 'children' }">
         <el-table-column prop="name" label="部门名称" min-width="180" />
         <el-table-column prop="sort" label="排序" width="80" align="center" />
         <el-table-column label="操作" width="160">
@@ -42,6 +50,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import { Plus, Edit, Delete } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getDeptList, deleteDept, saveDept } from '@/api/system'

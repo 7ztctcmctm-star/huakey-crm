@@ -31,7 +31,12 @@
         <el-button type="primary" :icon="Plus" @click="handleAdd" v-permission="'product:add'">新增产品</el-button>
       </div>
 
-      <el-table v-loading="loading" :data="tableData" stripe border
+      <TableSkeleton v-if="loading" :rows="8" :cols="6" />
+      <el-table
+        v-show="!loading"
+        :data="tableData"
+        stripe
+        border
         :header-cell-style="{ background: 'var(--color-bg)' }">
         <el-table-column prop="code" label="产品编码" width="140" show-overflow-tooltip />
         <el-table-column prop="name" label="产品名称" min-width="160" show-overflow-tooltip />
@@ -206,6 +211,7 @@
 import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import { Plus, Edit, Delete, Search, Refresh } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getProductList, addProduct, updateProduct, deleteProduct, getProductCategories, getProductPrices, addProductPrice, deleteProductPrice } from '@/api/product'

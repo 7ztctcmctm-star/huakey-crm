@@ -138,7 +138,10 @@
     <!-- 历史对账单 -->
     <template v-if="activeType === 'history'">
       <el-card>
-        <el-table :data="historyList" v-loading="historyLoading">
+        <TableSkeleton v-if="historyLoading" :rows="6" :cols="6" />
+        <el-table
+          v-show="!historyLoading"
+          :data="historyList">
           <el-table-column prop="recon_no" label="对账单号" width="160" />
           <el-table-column prop="recon_type" label="类型" width="90" align="center">
             <template #default="{ row }"><el-tag size="small" :type="row.recon_type==='customer'?'primary':'success'">{{ row.recon_type==='customer'?'客户':'供应商' }}</el-tag></template>
@@ -184,6 +187,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import request from '@/utils/request'
 import { getCustomerReconciliation, getSupplierReconciliation, saveReconciliation, getReconciliationList } from '@/api/hr'
 import { getCustomerList } from '@/api/customer'

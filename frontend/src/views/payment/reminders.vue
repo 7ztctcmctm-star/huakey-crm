@@ -22,7 +22,10 @@
 
     <!-- 列表 -->
     <el-card>
-      <el-table :data="list" v-loading="loading">
+      <TableSkeleton v-if="loading" :rows="8" :cols="6" />
+      <el-table
+        v-show="!loading"
+        :data="list">
         <el-table-column prop="customer_name" label="客户名称" min-width="150" show-overflow-tooltip />
         <el-table-column prop="contract_no" label="合同编号" width="150" />
         <el-table-column prop="amount" label="应回款" width="120" align="right">
@@ -63,6 +66,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import request from '@/utils/request'
 import { getFinanceReminders, getReminderSummary, generateReminders, acknowledgeReminder } from '@/api/hr'
 

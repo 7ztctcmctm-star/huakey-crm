@@ -5,7 +5,12 @@
       <p class="page-desc">客户评分排名，分数越高表示客户价值越大</p>
     </div>
     <el-card>
-      <el-table v-loading="loading" :data="tableData" stripe border>
+      <TableSkeleton v-if="loading" :rows="8" :cols="5" />
+      <el-table
+        v-show="!loading"
+        :data="tableData"
+        stripe
+        border>
         <el-table-column label="排名" width="70" align="center">
           <template #default="{ $index }">
             <span :class="['rank-badge', $index < 3 ? 'top' : '']">{{ $index + 1 }}</span>
@@ -46,6 +51,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import { getScoringRanking } from '@/api/system'
 
 const router = useRouter()

@@ -71,7 +71,12 @@
       </el-form>
     </div>
 
-    <el-table :data="tableData" v-loading="loading" style="width: 100%">
+    <TableSkeleton v-if="loading" :rows="8" :cols="7" />
+    <el-table
+      v-show="!loading"
+      :data="tableData"
+      style="width: 100%"
+    >
       <el-table-column prop="order_no" label="采购单号" width="170" fixed>
         <template #default="{ row }">
           <el-link type="primary" @click="handleView(row.id)">{{ row.order_no }}</el-link>
@@ -244,6 +249,7 @@ import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import TableSkeleton from '@/components/common/TableSkeleton.vue';
 import { Plus, ArrowDown } from '@element-plus/icons-vue';
 import request from '@/utils/request';
 import { getPurchaseList, addPurchase, updatePurchaseStatus, getPurchaseStatistics } from '@/api/product';

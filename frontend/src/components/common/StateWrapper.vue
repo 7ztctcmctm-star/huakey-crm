@@ -1,29 +1,57 @@
 <template>
-  <div class="state-wrapper">
-    <!-- 加载态 -->
-    <el-skeleton v-if="loading" :rows="5" animated />
+  <div class="state-wrapper" role="status">
+    <!-- 加载态：默认 el-skeleton，可通过 #loading 插槽自定义（如 TableSkeleton） -->
+    <div v-if="loading" class="state-wrapper__loading">
+      <slot name="loading">
+        <el-skeleton :rows="5" animated />
+      </slot>
+    </div>
 
     <!-- 错误态 -->
-    <el-result
-      v-else-if="error"
-      icon="error"
-      :title="errorTitle"
-      :sub-title="error"
-    >
-      <template #extra>
-        <el-button type="primary" @click="$emit('retry')">重试</el-button>
-      </template>
-    </el-result>
+    <div v-else-if="error" class="state-wrapper__error">
+      <EmptyState type="error" :title="errorTitle" :description="error">
+        <el-button type="primary" size="small" @click="$emit('retry')">
+          重新加载
+        </el-button>
+      </EmptyState>
+    </div>
 
     <!-- 空白态 -->
-    <EmptyState v-else-if="empty" :title="emptyText || '暂无数据'" />
+    <div v-else-if="empty" class="state-wrapper__empty">
+      <slot name="empty">
+        <EmptyState :type="emptyType" :title="emptyText" :description="emptyDescription">
+          <slot name="empty-action" />
+        </EmptyState>
+      </slot>
+    </div>
 
     <!-- 正常态 -->
-    <slot v-else />
+    <div v-else class="state-wrapper__content">
+      <slot />
+    </div>
   </div>
 </template>
 
 <script setup>
+/**
+ * 统一状态容器 —— 加载 / 错误 / 空 / 正常 四态切换。
+ *
+ * 用法一（最简）：
+ * <StateWrapper :loading="loading" :error="errorMsg" :empty="data.length === 0" @retry="fetchData">
+ *   <el-table :data="data" />
+ * </StateWrapper>
+ *
+ * 用法二（表格页，自定义骨架）：
+ * <StateWrapper :loading="loading" :error="errorMsg" :empty="data.length === 0" @retry="fetchList">
+ *   <template #loading>
+ *     <TableSkeleton :rows="8" :cols="6" />
+ *   </template>
+ *   <template #empty-action>
+ *     <el-button type="primary" size="small" @click="handleAdd">新增</el-button>
+ *   </template>
+ *   <el-table :data="data" />
+ * </StateWrapper>
+ */
 import EmptyState from '@/components/common/EmptyState.vue'
 
 defineProps({
@@ -33,11 +61,28 @@ defineProps({
   error: { type: String, default: '' },
   /** 是否显示空白态 */
   empty: { type: Boolean, default: false },
+  /** 空白态类型：data | search | permission | error */
+  emptyType: { type: String, default: 'data' },
   /** 空白态提示文字 */
   emptyText: { type: String, default: '暂无数据' },
+  /** 空白态辅助说明 */
+  emptyDescription: { type: String, default: '' },
   /** 错误态标题 */
   errorTitle: { type: String, default: '加载失败' },
-});
+})
 
-defineEmits(['retry']);
+defineEmits(['retry'])
 </script>
+
+<style scoped>
+.state-wrapper {
+  width: 100%;
+}
+
+.state-wrapper__loading,
+.state-wrapper__error,
+.state-wrapper__empty,
+.state-wrapper__content {
+  width: 100%;
+}
+</style>

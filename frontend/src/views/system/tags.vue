@@ -5,7 +5,12 @@
       <div class="toolbar">
         <el-button type="primary" :icon="Plus" @click="handleAdd">新增标签</el-button>
       </div>
-      <el-table v-loading="loading" :data="tableData" stripe border>
+      <TableSkeleton v-if="loading" :rows="8" :cols="5" />
+      <el-table
+        v-show="!loading"
+        :data="tableData"
+        stripe
+        border>
         <el-table-column prop="name" label="标签名称" min-width="180">
           <template #default="{ row }">
             <el-tag :color="row.color" style="color:var(--color-text-on-accent);border:none;">{{ row.name }}</el-tag>
@@ -51,6 +56,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import { Plus, Edit, Delete } from '@element-plus/icons-vue'
 import { getTagList, manageTag } from '@/api/system'
 import { chartColors, presetColors as getPresetColors } from '@/utils/chartTheme'

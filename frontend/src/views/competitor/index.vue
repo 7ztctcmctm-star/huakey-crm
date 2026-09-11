@@ -26,7 +26,12 @@
     <!-- 竞争对手列表 -->
     <el-card>
       <template #header><span class="card-title">竞争对手列表</span></template>
-      <el-table :data="list" stripe border v-loading="loading">
+      <TableSkeleton v-if="loading" :rows="8" :cols="6" />
+      <el-table
+        v-show="!loading"
+        :data="list"
+        stripe
+        border>
         <el-table-column prop="name" label="名称" min-width="140">
           <template #default="{ row }"><span class="link-text" @click="$router.push(`/competitor/${row.id}`)">{{ row.name }}</span></template>
         </el-table-column>
@@ -81,6 +86,7 @@
 <script setup>
 import { ref, reactive, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import { Plus } from '@element-plus/icons-vue'
 import { getCompetitorList, addCompetitor, updateCompetitor, deleteCompetitor, getCompetitorAnalysis } from '@/api/tools'
 import echarts from '@/composables/useECharts'

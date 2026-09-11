@@ -36,7 +36,12 @@
     <el-card>
       <el-tabs v-model="activeTab" @tab-change="handleTabChange">
         <el-tab-pane label="回款总览" name="merged">
-          <el-table v-loading="loading" :data="mergedData" style="width: 100%">
+          <TableSkeleton v-if="loading" :rows="8" :cols="6" />
+          <el-table
+            v-show="!loading"
+            :data="mergedData"
+            style="width: 100%"
+          >
             <el-table-column prop="contract_no" label="合同编号" width="140" />
             <el-table-column prop="company_name" label="客户名称" min-width="140" show-overflow-tooltip />
             <el-table-column prop="plan_amount" label="计划金额" width="120" align="right">
@@ -216,6 +221,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import request from '@/utils/request'
 import { getMergedPayments, getPaymentSummary, exportPayments, exportPaymentStatement, searchContract, addPayment, getPaymentList } from '@/api/contract'
 

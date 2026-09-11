@@ -18,7 +18,12 @@
       <div v-if="activeTab === 'todo'">
         <el-tabs v-model="todoTab" @tab-change="fetchData">
           <el-tab-pane :label="`客户转移 (${transfers.length})`" name="transfers">
-            <el-table :data="transfers" stripe border v-loading="todoLoading">
+            <TableSkeleton v-if="todoLoading" :rows="6" :cols="5" />
+            <el-table
+              v-show="!todoLoading"
+              :data="transfers"
+              stripe
+              border>
               <el-table-column prop="company_name" label="客户" min-width="180" show-overflow-tooltip />
               <el-table-column prop="from_user_name" label="发起人" width="120" />
               <el-table-column prop="reason" label="转移原因" min-width="180" show-overflow-tooltip>
@@ -128,6 +133,7 @@
 
 <script setup>
 import EmptyState from '@/components/common/EmptyState.vue'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'

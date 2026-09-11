@@ -30,7 +30,11 @@
     </el-card>
 
     <el-card style="margin-top: 24px">
-      <el-table :data="list" v-loading="loading" style="width: 100%">
+      <TableSkeleton v-if="loading" :rows="8" :cols="7" />
+      <el-table
+        v-show="!loading"
+        :data="list"
+        style="width: 100%">
         <el-table-column prop="request_no" label="申请编号" width="160" />
         <el-table-column prop="title" label="标题" min-width="180" show-overflow-tooltip />
         <el-table-column prop="applicant_name" label="申请人" width="120" />
@@ -73,6 +77,7 @@ import { reportError, reportWarn } from '@/utils/error'
 import { reactive, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import { Plus } from '@element-plus/icons-vue'
 import {
   getPurchaseRequestList,

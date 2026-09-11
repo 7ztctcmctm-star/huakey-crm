@@ -58,7 +58,12 @@
           </div>
         </div>
       </template>
-      <el-table v-loading="loading" :data="tableData" stripe border>
+      <TableSkeleton v-if="loading" :rows="8" :cols="6" />
+      <el-table
+        v-show="!loading"
+        :data="tableData"
+        stripe
+        border>
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="module" label="模块" width="100">
           <template #default="{ row }">
@@ -151,6 +156,7 @@
 import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import { Search, Refresh, Delete, Download } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getLogList, exportLog, clearLog, getLogModules, getLogDetail } from '@/api/system'

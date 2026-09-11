@@ -34,7 +34,12 @@
 
     <!-- 列表 -->
     <el-card>
-      <el-table :data="list" stripe border v-loading="loading">
+      <TableSkeleton v-if="loading" :rows="8" :cols="7" />
+      <el-table
+        v-show="!loading"
+        :data="list"
+        stripe
+        border>
         <el-table-column prop="real_name" label="姓名" width="100" />
         <el-table-column prop="dept_name" label="部门" width="120" />
         <el-table-column prop="position" label="职位" width="120">
@@ -161,6 +166,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import request from '@/utils/request'
 import { getEmployees, getEmployeeStats, getEmployeeDetail, updateEmployeeProfile } from '@/api/hr'
 import { getDeptList, deleteUser } from '@/api/system'

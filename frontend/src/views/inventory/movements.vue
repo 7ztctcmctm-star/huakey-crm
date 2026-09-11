@@ -25,7 +25,10 @@
     </el-card>
 
     <el-card>
-      <el-table :data="list" v-loading="loading">
+      <TableSkeleton v-if="loading" :rows="8" :cols="6" />
+      <el-table
+        v-show="!loading"
+        :data="list">
         <el-table-column prop="product_name" label="产品" min-width="160" show-overflow-tooltip />
         <el-table-column prop="movement_type" label="类型" width="80" align="center">
           <template #default="{ row }"><el-tag :type="typeTag[row.movement_type]" size="small">{{ typeName[row.movement_type] }}</el-tag></template>
@@ -46,6 +49,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import request from '@/utils/request'
 import { getInventoryList, getInventoryMovements } from '@/api/product'
 

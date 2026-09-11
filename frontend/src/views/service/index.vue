@@ -56,7 +56,11 @@
           批量分配 ({{ selectedServiceRows.length }})
         </el-button>
       </div>
-      <el-table v-loading="loading" :data="tableData" style="width: 100%"
+      <TableSkeleton v-if="loading" :rows="8" :cols="7" />
+      <el-table
+        v-show="!loading"
+        :data="tableData"
+        style="width: 100%"
         :row-class-name="tableRowClass"
         @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="50" :selectable="(row) => row.status === 1" />
@@ -344,6 +348,7 @@
 
 <script setup>
 import EmptyState from '@/components/common/EmptyState.vue'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'

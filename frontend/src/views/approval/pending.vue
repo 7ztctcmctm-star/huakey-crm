@@ -9,7 +9,13 @@
         <el-button type="success" :disabled="selectedRows.length === 0" @click="handleBatchApprove">批量通过 ({{ selectedRows.length }})</el-button>
         <el-button type="danger" :disabled="selectedRows.length === 0" @click="handleBatchReject">批量驳回 ({{ selectedRows.length }})</el-button>
       </div>
-      <el-table v-loading="loading" :data="tableData" stripe border @selection-change="handleSelectionChange">
+      <TableSkeleton v-if="loading" :rows="8" :cols="6" />
+      <el-table
+        v-show="!loading"
+        :data="tableData"
+        stripe
+        border
+        @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="50" />
         <el-table-column prop="business_type_name" label="类型" width="80" align="center">
           <template #default="{ row }">
@@ -67,6 +73,7 @@
 
 <script setup>
 import EmptyState from '@/components/common/EmptyState.vue'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import { reportError, reportWarn } from '@/utils/error'
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'

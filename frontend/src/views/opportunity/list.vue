@@ -55,15 +55,23 @@
         <el-button type="primary" :icon="Plus" @click="handleAdd" v-permission="'opportunity:add'">新增商机</el-button>
       </div>
 
-      <TableSkeleton v-if="loading" :rows="8" :cols="7" />
-      <el-table
-        v-show="!loading"
-        :data="tableData"
-        style="width: 100%"
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && tableData.length === 0"
+        empty-type="data"
+        empty-text="暂无商机"
+        empty-description="从客户详情创建商机后即可在此跟踪"
+        @retry="fetchList"
       >
-        <template #empty>
-          <EmptyState title="暂无商机" description="从客户详情创建商机后即可在此跟踪" />
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="7" />
         </template>
+        <template #empty-action>
+          <el-button type="primary" size="small" @click="handleAdd" v-permission="'opportunity:add'">新增商机</el-button>
+        </template>
+
+        <el-table :data="tableData" style="width: 100%">
         <el-table-column prop="name" label="商机名称" min-width="180" show-overflow-tooltip />
         <el-table-column prop="customer_name" label="客户名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="expected_amount" label="预计金额" width="130" align="right">
@@ -130,17 +138,18 @@
         </el-table-column>
       </el-table>
 
-      <div class="pagination">
-        <el-pagination
-          v-model:current-page="searchForm.page"
-          v-model:page-size="searchForm.pageSize"
-          :page-sizes="[10, 20, 50, 100]"
-          :total="total"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSearch"
-          @current-change="handleSearch"
-        />
-      </div>
+        <div class="pagination">
+          <el-pagination
+            v-model:current-page="searchForm.page"
+            v-model:page-size="searchForm.pageSize"
+            :page-sizes="[10, 20, 50, 100]"
+            :total="total"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleSearch"
+            @current-change="handleSearch"
+          />
+        </div>
+      </StateWrapper>
     </el-card>
 
     <!-- 新增/编辑弹窗 -->
@@ -331,6 +340,7 @@
 import { reportError, reportWarn } from '@/utils/error'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -416,6 +426,7 @@ const funnelFailed = ref({ count: 0, amount: 0 })
 const tableData = ref([])
 const total = ref(0)
 const loading = ref(false)
+const errorMsg = ref('')
 
 // 弹窗
 const dialogVisible = ref(false)
@@ -485,6 +496,7 @@ const fetchFunnel = async () => {
 // 获取商机列表
 const fetchList = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const params = {
       page: searchForm.page,
@@ -500,7 +512,8 @@ const fetchList = async () => {
       total.value = res.data.total
     }
   } catch (error) {
-    ElMessage.error('加载商机列表失败')
+    errorMsg.value = error?.response?.data?.message || '加载商机列表失败，请稍后重试'
+    ElMessage.error(errorMsg.value)
   } finally {
     loading.value = false
   }

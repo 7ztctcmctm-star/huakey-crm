@@ -41,7 +41,27 @@
       </el-form>
     </div>
 
-    <el-table :data="tableData" border stripe v-loading="loading" style="width: 100%">
+    <StateWrapper
+      :loading="loading"
+      :error="errorMsg"
+      :empty="!loading && tableData.length === 0"
+      empty-text="暂无供应商"
+      empty-description="添加供应商后即可在此管理"
+      @retry="fetchList"
+    >
+      <template #loading>
+        <TableSkeleton :rows="8" :cols="7" />
+      </template>
+      <template #empty-action>
+        <el-button type="primary" size="small" @click="handleAdd" v-permission="'supplier:add'">新增供应商</el-button>
+      </template>
+
+      <el-table
+        :data="tableData"
+        border
+        stripe
+        style="width: 100%"
+      >
       <el-table-column prop="supplier_no" label="编号" width="160" fixed />
       <el-table-column prop="name" label="供应商名称" min-width="180" show-overflow-tooltip>
         <template #default="{ row }">
@@ -80,17 +100,18 @@
       </el-table-column>
     </el-table>
 
-    <div class="pagination-wrapper">
-      <el-pagination
-        v-model:current-page="page"
-        v-model:page-size="pageSize"
-        :total="total"
-        :page-sizes="[10, 20, 50]"
-        layout="total, sizes, prev, pager, next"
-        @size-change="fetchList"
-        @current-change="fetchList"
-      />
-    </div>
+      <div class="pagination-wrapper">
+        <el-pagination
+          v-model:current-page="page"
+          v-model:page-size="pageSize"
+          :total="total"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next"
+          @size-change="fetchList"
+          @current-change="fetchList"
+        />
+      </div>
+    </StateWrapper>
 
     <!-- 新增/编辑对话框 -->
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="650px" destroy-on-close>
@@ -197,11 +218,14 @@ import { ref, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
+import TableSkeleton from '@/components/common/TableSkeleton.vue';
+import StateWrapper from '@/components/common/StateWrapper.vue';
 import request from '@/utils/request';
 import { getSupplierList, addSupplier, updateSupplier, deleteSupplier } from '@/api/product';
 
 const router = useRouter();
 const loading = ref(false);
+const errorMsg = ref('');
 const tableData = ref([]);
 const total = ref(0);
 const page = ref(1);
@@ -257,6 +281,7 @@ const getStatusText = (status) => ({ 1: '合作中', 2: '暂停', 3: '终止' }[
 
 const fetchList = async () => {
   loading.value = true;
+  errorMsg.value = '';
   try {
     const res = await getSupplierList({
       page: page.value,
@@ -266,8 +291,13 @@ const fetchList = async () => {
     if (res.code === 200) {
       tableData.value = res.data.list;
       total.value = res.data.total;
+    } else {
+      // 业务码非 200：若只 reportError，界面会停在空表，用户无法区分「无数据」与「加载失败」
+      errorMsg.value = res.message || '加载供应商列表失败，请稍后重试';
+      reportError('获取供应商列表失败:', res.message);
     }
   } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载供应商列表失败，请稍后重试';
     reportError('获取供应商列表失败:', error);
   } finally {
     loading.value = false;

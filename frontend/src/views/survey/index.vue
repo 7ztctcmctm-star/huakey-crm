@@ -23,7 +23,12 @@
 
     <!-- 活动列表 -->
     <el-card>
-      <el-table :data="list" stripe border v-loading="loading">
+      <TableSkeleton v-if="loading" :rows="8" :cols="6" />
+      <el-table
+        v-show="!loading"
+        :data="list"
+        stripe
+        border>
         <el-table-column prop="name" label="调查名称" min-width="180" show-overflow-tooltip />
         <el-table-column prop="template_name" label="模板" width="140" />
         <el-table-column prop="survey_type" label="类型" width="80" align="center">
@@ -71,6 +76,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import { Plus } from '@element-plus/icons-vue'
 import { getSurveyTemplates, getSurveyCampaigns, getSurveyOverview, saveSurveyCampaign, startCampaign, closeCampaign } from '@/api/tools'
 import request from '@/utils/request'

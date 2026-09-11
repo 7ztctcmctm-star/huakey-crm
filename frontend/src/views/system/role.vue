@@ -5,7 +5,12 @@
       <div class="toolbar">
         <el-button type="primary" :icon="Plus" @click="handleAdd">新增角色</el-button>
       </div>
-      <el-table v-loading="loading" :data="tableData" stripe border>
+      <TableSkeleton v-if="loading" :rows="6" :cols="5" />
+      <el-table
+        v-show="!loading"
+        :data="tableData"
+        stripe
+        border>
         <el-table-column prop="name" label="角色名称" width="140" />
         <el-table-column prop="code" label="角色编码" width="160" />
         <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
@@ -74,6 +79,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import { Plus, Edit, Delete, Setting } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getRoleList, deleteRole, getPermissionList, updateRolePermission, saveRole, getRolePermissions } from '@/api/system'

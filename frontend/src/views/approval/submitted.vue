@@ -5,7 +5,12 @@
       <p class="page-desc">查看我提交的审批记录及状态</p>
     </div>
     <el-card>
-      <el-table v-loading="loading" :data="tableData" stripe border>
+      <TableSkeleton v-if="loading" :rows="8" :cols="6" />
+      <el-table
+        v-show="!loading"
+        :data="tableData"
+        stripe
+        border>
         <el-table-column prop="business_type" label="类型" width="80" align="center">
           <template #default="{ row }">
             <el-tag :type="typeTagMap[row.business_type]" size="small">{{ typeNameMap[row.business_type] }}</el-tag>
@@ -42,6 +47,7 @@
 
 <script setup>
 import EmptyState from '@/components/common/EmptyState.vue'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import { reportError, reportWarn } from '@/utils/error'
 import { ref, onMounted } from 'vue'
 import { SuccessFilled, CircleCloseFilled, Clock } from '@element-plus/icons-vue'

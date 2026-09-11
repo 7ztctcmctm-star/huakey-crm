@@ -17,7 +17,12 @@
       </el-form>
     </el-card>
 
-    <el-table v-loading="loading" :data="list" stripe border>
+    <TableSkeleton v-if="loading" :rows="8" :cols="5" />
+    <el-table
+      v-show="!loading"
+      :data="list"
+      stripe
+      border>
       <el-table-column prop="name" label="文档名称" min-width="200" show-overflow-tooltip />
       <el-table-column prop="type" label="类型" width="100" align="center">
         <template #default="{ row }"><el-tag :type="typeTag[row.type]" size="small">{{ typeName[row.type] }}</el-tag></template>
@@ -80,6 +85,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import { Upload, Edit, Delete } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getKnowledgeDocuments, addKnowledgeDocument, updateKnowledgeDocument, deleteKnowledgeDocument } from '@/api/tools'

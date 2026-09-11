@@ -202,12 +202,12 @@ h1, h2, h3, h4, h5, h6 {
   border: 1px solid var(--color-border) !important;
   box-shadow: var(--shadow-sm) !important;
   background: var(--color-bg) !important;
-  transition: box-shadow var(--duration) var(--ease-out), transform var(--duration) var(--ease-out);
+  transition: box-shadow 0.15s var(--ease-out), border-color 0.15s var(--ease-out);
 }
 
 .el-card:hover {
   box-shadow: var(--shadow-md) !important;
-  transform: translateY(-2px);
+  border-color: var(--color-border-strong) !important;
 }
 
 .el-card + .el-card {
@@ -233,13 +233,14 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: var(--shadow-sm) !important;
   background: var(--color-bg) !important;
   cursor: pointer;
-  transition: all var(--duration) var(--ease-out);
+  transition: box-shadow 0.15s var(--ease-out), border-color 0.15s var(--ease-out), background 0.15s var(--ease-out);
   padding: var(--space-5);
 }
 
 .stat-card:hover {
-  box-shadow: var(--shadow-lg) !important;
-  transform: translateY(-4px);
+  box-shadow: var(--shadow-md) !important;
+  border-color: var(--color-border-strong) !important;
+  background: var(--color-bg-tertiary) !important;
 }
 
 .stat-card .stat-body {
