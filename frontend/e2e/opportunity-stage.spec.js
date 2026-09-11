@@ -12,6 +12,12 @@
  * status ∈ {following, quoted, negotiating, signed}，而 createCustomer 建出的客户
  * 落在潜客池（status 不满足），故本用例从既有客户中选取，不再自建客户，
  * 清理时也只删自己创建的商机，不触碰既有客户数据。
+ *
+ * ⚠️ 只选 seed/demo 客户，**避开其它用例的临时 E2E 数据**（2026-09-11 修 flaky）：
+ * 客户列表排序会把其它用例刚建的 `E2E*` 客户排在最前，而它们在各自用例结束时会被删除。
+ * 实测（trace 取证）：本用例选中 `E2E本人转化_…`（leads-convert.spec.js 建的）后，
+ * 该用例先一步删掉了它，本用例 `POST /opportunity/add` 便返回 404002「客户不存在」。
+ * 故此处过滤掉名字以 `E2E` 开头的临时客户；仅当不存在任何非临时客户时才回退。
  */
 
 import { test, expect } from './fixtures/auth.js'
@@ -57,7 +63,9 @@ test.describe('商机阶段推进核心流程', () => {
     const listRes = await listCustomers(request, csrfToken, { pageSize: 100 })
     expect(listRes.code).toBe(200)
     const customers = listRes.data?.list || []
-    const target = customers.find((c) => ALLOWED_CUSTOMER_STATUSES.includes(c.status))
+    const candidates = customers.filter((c) => ALLOWED_CUSTOMER_STATUSES.includes(c.status))
+    // 优先 seed/demo 客户：其它并行用例的 E2E* 临时客户会被它们自己删除（见文件头数据策略）
+    const target = candidates.find((c) => !/^E2E/.test(c.company_name || '')) || candidates[0]
     if (!target) {
       throw new Error(
         '测试库中没有 status ∈ ' +
