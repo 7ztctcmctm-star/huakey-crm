@@ -7,13 +7,10 @@
       </slot>
     </div>
 
-    <!-- 错误态 -->
+    <!-- 错误态：EmptyState 在 type="error" 时自带「重新加载」按钮，接上 retry 即可。
+         曾在此再塞一个同名按钮，导致页面上出现两个「重新加载」，且靠上的那个不接事件（死按钮） -->
     <div v-else-if="error" class="state-wrapper__error">
-      <EmptyState type="error" :title="errorTitle" :description="error">
-        <el-button type="primary" size="small" @click="$emit('retry')">
-          重新加载
-        </el-button>
-      </EmptyState>
+      <EmptyState type="error" :title="errorTitle" :description="error" @retry="$emit('retry')" />
     </div>
 
     <!-- 空白态 -->
