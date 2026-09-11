@@ -66,7 +66,18 @@
           </el-table>
         </el-tab-pane>
         <el-tab-pane label="全部回款" name="all">
-          <el-table v-loading="loading" :data="tableData" style="width: 100%">
+          <StateWrapper
+            :loading="loading"
+            :error="errorMsg"
+            :empty="!loading && tableData.length === 0"
+            empty-text="暂无回款记录"
+            @retry="fetchList"
+          >
+            <template #loading>
+              <TableSkeleton :rows="8" :cols="6" />
+            </template>
+
+          <el-table :data="tableData" style="width: 100%">
             <el-table-column prop="contract_no" label="合同编号" width="160" />
             <el-table-column prop="company_name" label="客户名称" min-width="160" show-overflow-tooltip />
             <el-table-column prop="pay_date" label="回款日期" width="120" />
@@ -76,6 +87,7 @@
             <el-table-column prop="pay_method" label="回款方式" width="100" />
             <el-table-column prop="remark" label="备注" min-width="120" show-overflow-tooltip />
           </el-table>
+          </StateWrapper>
         </el-tab-pane>
 
         <el-tab-pane label="逾期未回款" name="overdue">
@@ -222,12 +234,16 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import { reportError } from '@/utils/error'
 import request from '@/utils/request'
 import { getMergedPayments, getPaymentSummary, exportPayments, exportPaymentStatement, searchContract, addPayment, getPaymentList } from '@/api/contract'
 
 const router = useRouter()
 const activeTab = ref('merged')
-const loading = ref(false)
+// onMounted 无条件取数，初值 true 消除首帧空态闪现
+const loading = ref(true)
+const errorMsg = ref('')
 const tableData = ref([])
 const mergedData = ref([])
 const total = ref(0)
@@ -277,6 +293,7 @@ const fmt = (v) => {
 
 const fetchList = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const params = {
       page: page.value,
@@ -291,9 +308,14 @@ const fetchList = async () => {
     if (res.code === 200) {
       tableData.value = res.data.list
       total.value = res.data.total
+    } else {
+      // 业务码非 200：若只 reportError，界面会停在空表，用户无法区分「无数据」与「加载失败」
+      errorMsg.value = res.message || '加载回款列表失败，请稍后重试'
+      reportError('获取回款列表失败:', res.message)
     }
-  } catch {
-    /* ignore */
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载回款列表失败，请稍后重试'
+    reportError('获取回款列表失败:', error)
   } finally {
     loading.value = false
   }

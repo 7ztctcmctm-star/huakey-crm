@@ -36,9 +36,18 @@
 
     <!-- 列表 -->
     <el-card>
-      <TableSkeleton v-if="loading" :rows="8" :cols="6" />
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && list.length === 0"
+        empty-text="暂无库存记录"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="6" />
+        </template>
+
       <el-table
-        v-show="!loading"
         :data="list">
         <el-table-column prop="name" label="产品名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="code" label="编码" width="120" />
@@ -68,6 +77,7 @@
         </el-table-column>
       </el-table>
       <div class="pagination"><el-pagination v-model:current-page="page" v-model:page-size="pageSize" :total="total" :page-sizes="[20,50,100]" layout="total,sizes,prev,pager,next" @size-change="fetchList" @current-change="fetchList" /></div>
+      </StateWrapper>
     </el-card>
 
     <!-- 入库/出库/调整弹窗 -->
@@ -107,15 +117,19 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import { reportError } from '@/utils/error'
 import request from '@/utils/request'
-import { getInventoryList, updateInventory, addInventoryMovement, getInventoryStats, getInventoryCategories } from '@/api/product'
+import { getInventoryList, updateInventory, addInventoryMovement, getInventoryStats, getInventoryCategories, autoGeneratePlan } from '@/api/product'
 
 const router = useRouter()
 
 const statusName = { normal: '正常', low: '偏低', high: '偏高' }
 const statusTag = { normal: 'success', low: 'warning', high: '' }
 
-const loading = ref(false)
+// onMounted 无条件取数，初值 true 消除首帧空态闪现
+const loading = ref(true)
+const errorMsg = ref('')
 const list = ref([])
 const total = ref(0)
 const page = ref(1)
@@ -164,11 +178,19 @@ const alertForm = reactive({ min_qty: 0, max_qty: 9999, alert_enabled: 1 })
 
 const fetchList = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const res = await getInventoryList({ page: page.value, pageSize: pageSize.value, ...search })
     if (res.code === 200) { list.value = res.data.list; total.value = res.data.total }
-  } catch (e) { /* */ }
-  finally { loading.value = false }
+    else {
+      // 业务码非 200 原先静默停在空表，用户无法区分「无数据」与「加载失败」
+      errorMsg.value = res.message || '加载库存列表失败，请稍后重试'
+      reportError('获取库存列表失败:', res.message)
+    }
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载库存列表失败，请稍后重试'
+    reportError('获取库存列表失败:', error)
+  } finally { loading.value = false }
 }
 
 const fetchStats = async () => {

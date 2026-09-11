@@ -56,9 +56,21 @@
           批量分配 ({{ selectedServiceRows.length }})
         </el-button>
       </div>
-      <TableSkeleton v-if="loading" :rows="8" :cols="7" />
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && tableData.length === 0"
+        empty-text="暂无服务工单"
+        @retry="getList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="7" />
+        </template>
+        <template #empty-action>
+          <el-button type="primary" size="small" :icon="Plus" @click="openAddModal" v-permission="'service:add'">新建工单</el-button>
+        </template>
+
       <el-table
-        v-show="!loading"
         :data="tableData"
         style="width: 100%"
         :row-class-name="tableRowClass"
@@ -125,6 +137,7 @@
         layout="total, sizes, prev, pager, next, jumper"
         style="margin-top: 24px; text-align: right;"
       />
+      </StateWrapper>
     </el-card>
 
     <!-- 新建工单弹窗 -->
@@ -349,6 +362,7 @@
 <script setup>
 import EmptyState from '@/components/common/EmptyState.vue'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
 import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -373,7 +387,9 @@ const uploadRef = ref(null)
 const route = useRoute()
 const router = useRouter()
 const { userInfo } = useUser()
-const loading = ref(false)
+// onMounted 无条件取数，初值 true 消除首帧空态闪现
+const loading = ref(true)
+const errorMsg = ref('')
 const tableData = ref([])
 // [新增] 视图切换：全部/我的工单（非管理员默认显示我的工单）
 const currentUserId = computed(() => userInfo.value?.userId || userInfo.value?.id)
@@ -538,6 +554,7 @@ function getEngineers() {
 
 function getList() {
   loading.value = true
+  errorMsg.value = ''
   const params = {
     page: pagination.page,
     pageSize: pagination.pageSize,
@@ -557,8 +574,16 @@ function getList() {
     if (res.code === 200) {
       tableData.value = res.data.list
       pagination.total = res.data.total
+    } else {
+      // 业务码非 200：若只 reportError，界面会停在空表，用户无法区分「无数据」与「加载失败」
+      errorMsg.value = res.message || '加载服务工单失败，请稍后重试'
+      reportError('获取工单列表失败:', res.message)
     }
-  }).catch(err => { reportError('获取工单列表失败:', err); ElMessage.error('获取工单列表失败'); }).finally(() => {
+  }).catch(err => {
+    errorMsg.value = err?.response?.data?.message || '加载服务工单失败，请稍后重试'
+    reportError('获取工单列表失败:', err)
+    ElMessage.error('获取工单列表失败')
+  }).finally(() => {
     loading.value = false
   })
 }

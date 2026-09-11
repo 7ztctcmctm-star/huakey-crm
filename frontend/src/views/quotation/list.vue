@@ -37,15 +37,25 @@
       </div>
 
       <!-- 表格 -->
-      <TableSkeleton v-if="loading" :rows="8" :cols="7" />
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && tableData.length === 0"
+        empty-text="暂无报价单"
+        empty-description="创建报价单后即可在此查看"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="7" />
+        </template>
+        <template #empty-action>
+          <el-button type="primary" size="small" @click="handleAdd" v-permission="'quotation:add'">新建报价单</el-button>
+        </template>
+
       <el-table
-        v-show="!loading"
         :data="tableData"
         style="width: 100%"
       >
-        <template #empty>
-          <EmptyState title="暂无报价单" description="创建报价单后即可在此查看" />
-        </template>
         <el-table-column prop="quote_no" label="报价单号" min-width="140" show-overflow-tooltip />
         <el-table-column prop="customer_name" label="客户名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="amount" label="总金额" width="130" align="right">
@@ -123,6 +133,7 @@
           @current-change="handleSearch"
         />
       </div>
+      </StateWrapper>
     </el-card>
 
     <!-- 详情弹窗 -->
@@ -205,7 +216,7 @@
 <script setup>
 import { reportError, reportWarn } from '@/utils/error'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -262,7 +273,9 @@ const searchForm = reactive({
 // 表格数据
 const tableData = ref([])
 const total = ref(0)
-const loading = ref(false)
+// onMounted 无条件取数，初值 true 消除首帧空态闪现
+const loading = ref(true)
+const errorMsg = ref('')
 const expiringCount = ref(0)
 
 // 判断报价是否即将过期（7天内）
@@ -282,6 +295,7 @@ const detailData = ref({})
 // 获取报价单列表
 const fetchList = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const params = {
       page: searchForm.page,
@@ -297,8 +311,13 @@ const fetchList = async () => {
       tableData.value = res.data.list
       total.value = res.data.total
       expiringCount.value = res.data.expiring_count || 0
+    } else {
+      // 业务码非 200：若只 reportError，界面会停在空表，用户无法区分「无数据」与「加载失败」
+      errorMsg.value = res.message || '加载报价列表失败，请稍后重试'
+      reportError('获取报价单列表失败:', res.message)
     }
   } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载报价列表失败，请稍后重试'
     reportError('获取报价单列表失败:', error)
   } finally {
     loading.value = false

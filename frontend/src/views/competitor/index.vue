@@ -26,9 +26,21 @@
     <!-- 竞争对手列表 -->
     <el-card>
       <template #header><span class="card-title">竞争对手列表</span></template>
-      <TableSkeleton v-if="loading" :rows="8" :cols="6" />
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && list.length === 0"
+        empty-text="暂无竞争对手"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="6" />
+        </template>
+        <template #empty-action>
+          <el-button type="primary" size="small" @click="handleCreate">新增竞争对手</el-button>
+        </template>
+
       <el-table
-        v-show="!loading"
         :data="list"
         stripe
         border>
@@ -57,6 +69,7 @@
           </template>
         </el-table-column>
       </el-table>
+      </StateWrapper>
     </el-card>
 
     <!-- 新增/编辑弹窗 -->
@@ -87,11 +100,16 @@
 import { ref, reactive, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import { reportError } from '@/utils/error'
 import { Plus } from '@element-plus/icons-vue'
 import { getCompetitorList, addCompetitor, updateCompetitor, deleteCompetitor, getCompetitorAnalysis } from '@/api/tools'
 import echarts from '@/composables/useECharts'
+import { chartColors } from '@/utils/chartTheme'
 
-const loading = ref(false)
+// onMounted 无条件取数，初值 true 消除首帧空态闪现
+const loading = ref(true)
+const errorMsg = ref('')
 const list = ref([])
 const stats = ref({ total_competitors: 0, total_encounters: 0, win_rate: 0, encounter_by_comp: [], reasons: [], recent_encounters: [] })
 const dialogVisible = ref(false)
@@ -105,8 +123,19 @@ const reasonChartRef = ref(null)
 
 const fetchList = async () => {
   loading.value = true
-  try { const res = await getCompetitorList(); if (res.code === 200) list.value = res.data.list || res.data } catch (e) { /* */ }
-  finally { loading.value = false }
+  errorMsg.value = ''
+  try {
+    const res = await getCompetitorList()
+    if (res.code === 200) list.value = res.data.list || res.data
+    else {
+      // 业务码非 200 原先静默停在空表，用户无法区分「无数据」与「加载失败」
+      errorMsg.value = res.message || '加载竞争对手列表失败，请稍后重试'
+      reportError('获取竞争对手列表失败:', res.message)
+    }
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载竞争对手列表失败，请稍后重试'
+    reportError('获取竞争对手列表失败:', error)
+  } finally { loading.value = false }
 }
 
 const fetchStats = async () => {

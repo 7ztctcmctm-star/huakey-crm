@@ -34,9 +34,18 @@
 
     <!-- 列表 -->
     <el-card>
-      <TableSkeleton v-if="loading" :rows="8" :cols="7" />
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && list.length === 0"
+        empty-text="暂无员工"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="7" />
+        </template>
+
       <el-table
-        v-show="!loading"
         :data="list"
         stripe
         border>
@@ -77,6 +86,7 @@
         </el-table-column>
       </el-table>
       <div class="pagination"><el-pagination v-model:current-page="page" v-model:page-size="pageSize" :total="total" layout="total,prev,pager,next" @current-change="fetchList" /></div>
+      </StateWrapper>
     </el-card>
 
     <!-- 员工详情弹窗 -->
@@ -167,6 +177,8 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import { reportError } from '@/utils/error'
 import request from '@/utils/request'
 import { getEmployees, getEmployeeStats, getEmployeeDetail, updateEmployeeProfile } from '@/api/hr'
 import { getDeptList, deleteUser } from '@/api/system'
@@ -174,7 +186,9 @@ import { getDeptList, deleteUser } from '@/api/system'
 const empTypeName = { fulltime: '全职', parttime: '兼职', intern: '实习' }
 const empTypeTag = { fulltime: 'success', parttime: 'warning', intern: 'info' }
 
-const loading = ref(false)
+// onMounted 无条件取数，初值 true 消除首帧空态闪现
+const loading = ref(true)
+const errorMsg = ref('')
 const list = ref([])
 const total = ref(0)
 const page = ref(1)
@@ -208,11 +222,19 @@ const profileForm = reactive({
 
 const fetchList = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const res = await getEmployees({ page: page.value, pageSize: pageSize.value, ...search })
     if (res.code === 200) { list.value = res.data.list; total.value = res.data.total; expiringContracts.value = res.data.expiring_contracts || 0 }
-  } catch (e) { /* */ }
-  finally { loading.value = false }
+    else {
+      // 业务码非 200 原先静默停在空表，用户无法区分「无数据」与「加载失败」
+      errorMsg.value = res.message || '加载员工列表失败，请稍后重试'
+      reportError('获取员工列表失败:', res.message)
+    }
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载员工列表失败，请稍后重试'
+    reportError('获取员工列表失败:', error)
+  } finally { loading.value = false }
 }
 
 const fetchStats = async () => {

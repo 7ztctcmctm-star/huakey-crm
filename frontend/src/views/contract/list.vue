@@ -36,11 +36,22 @@
 
     <el-card>
       <div class="toolbar"><el-button type="primary" :icon="Plus" @click="handleCreate" v-permission="'contract:add'">新增合同</el-button><el-button type="warning" :icon="Download" :loading="exportLoading" @click="handleExport" v-permission="'contract'">导出Excel</el-button></div>
-      <TableSkeleton v-if="loading" :rows="8" :cols="7" />
-      <el-table v-show="!loading" :data="tableData" style="width: 100%" :row-class-name="tableRowClassName">
-        <template #empty>
-          <EmptyState title="暂无合同" description="报价通过审批后可转为合同" />
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && tableData.length === 0"
+        empty-text="暂无合同"
+        empty-description="报价通过审批后可转为合同"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="7" />
         </template>
+        <template #empty-action>
+          <el-button type="primary" size="small" @click="handleCreate" v-permission="'contract:add'">新增合同</el-button>
+        </template>
+
+      <el-table :data="tableData" style="width: 100%" :row-class-name="tableRowClassName">
         <el-table-column prop="contract_no" label="合同编号" width="160" />
         <el-table-column prop="customer_name" label="客户名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="amount" label="合同金额" width="130" align="right">
@@ -80,6 +91,7 @@
       <div class="pagination">
         <el-pagination v-model:current-page="page" v-model:page-size="pageSize" :page-sizes="[10,20,50]" :total="total" layout="total,sizes,prev,pager,next" @size-change="fetchList" @current-change="fetchList" />
       </div>
+      </StateWrapper>
     </el-card>
 
     <!-- 新增/编辑 -->
@@ -155,7 +167,7 @@
 <script setup>
 import { reportError, reportWarn } from '@/utils/error'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -169,7 +181,9 @@ const router = useRouter()
 const route = useRoute()
 const { userInfo } = useUser()
 
-const loading = ref(false), tableData = ref([]), total = ref(0), page = ref(1), pageSize = ref(20), exportLoading = ref(false)
+// onMounted 无条件取数，初值 true 消除首帧空态闪现
+const loading = ref(true), tableData = ref([]), total = ref(0), page = ref(1), pageSize = ref(20), exportLoading = ref(false)
+const errorMsg = ref('')
 const searchForm = reactive({ keyword: '', status: '', approval_status: '', payment_status: '' })
 const formVisible = ref(false), isEdit = ref(false), saveLoading = ref(false), formRef = ref(null), editId = ref(null)
 const customerOptions = ref([]), opportunityOptions = ref([])
@@ -211,7 +225,19 @@ const isAdmin = computed(() => userInfo.value?.manageAll === true)
 
 const fetchList = async () => {
   loading.value = true
-  try { const r = await getContractList({ page: page.value, pageSize: pageSize.value, ...searchForm }); if (r.code === 200) { tableData.value = r.data.list; total.value = r.data.total } } catch { ElMessage.error('加载失败') }
+  errorMsg.value = ''
+  try {
+    const r = await getContractList({ page: page.value, pageSize: pageSize.value, ...searchForm })
+    if (r.code === 200) { tableData.value = r.data.list; total.value = r.data.total } else {
+      // 业务码非 200：若只 reportError，界面会停在空表，用户无法区分「无数据」与「加载失败」
+      errorMsg.value = r.message || '加载合同列表失败，请稍后重试'
+      reportError('获取合同列表失败:', r.message)
+    }
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载合同列表失败，请稍后重试'
+    reportError('获取合同列表失败:', error)
+    ElMessage.error('加载失败')
+  }
   finally { loading.value = false }
 }
 const fetchCustomers = async () => { try { const r = await getCustomerList({ page: 1, pageSize: 200 }); if (r.code === 200) customerOptions.value = r.data.list } catch { /**/ } }

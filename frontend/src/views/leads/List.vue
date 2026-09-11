@@ -40,9 +40,21 @@
         </div>
       </template>
 
-      <TableSkeleton v-if="loading" :rows="8" :cols="7" />
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && tableData.length === 0"
+        empty-text="暂无潜客"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="7" />
+        </template>
+        <template #empty-action>
+          <el-button type="primary" size="small" @click="handleAdd" v-permission="'leads:add'">新增潜客</el-button>
+        </template>
+
       <el-table
-        v-show="!loading"
         :data="tableData"
         stripe
         border
@@ -86,6 +98,7 @@
           @current-change="handlePageChange"
         />
       </div>
+      </StateWrapper>
     </el-card>
 
     <!-- 编辑对话框 -->
@@ -105,6 +118,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
 import CustomerFormDialog from '@/views/customer/components/CustomerFormDialog.vue'
 import { getLeadsPool, convertLeadToFormal } from '@/api/leads'
 import { addCustomer } from '@/api/customer'
@@ -141,7 +155,9 @@ const searchForm = reactive({
 
 const tableData = ref([])
 const total = ref(0)
-const loading = ref(false)
+// onMounted 无条件取数，初值 true 消除首帧空态闪现
+const loading = ref(true)
+const errorMsg = ref('')
 
 const dialogVisible = ref(false)
 const currentCustomer = ref(null)
@@ -153,6 +169,7 @@ const levelTagType = (level) => {
 
 const fetchList = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const params = {
       page: searchForm.page,
@@ -168,8 +185,13 @@ const fetchList = async () => {
     if (res.code === 200) {
       tableData.value = res.data.list
       total.value = res.data.total
+    } else {
+      // 业务码非 200：若只 reportError，界面会停在空表，用户无法区分「无数据」与「加载失败」
+      errorMsg.value = res.message || '加载潜客列表失败，请稍后重试'
+      reportError('获取潜客列表失败:', res.message)
     }
   } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载潜客列表失败，请稍后重试'
     ElMessage.error('加载潜客列表失败')
     reportError('获取潜客列表失败:', error)
   } finally {

@@ -31,9 +31,21 @@
         <el-button type="primary" :icon="Plus" @click="handleAdd" v-permission="'product:add'">新增产品</el-button>
       </div>
 
-      <TableSkeleton v-if="loading" :rows="8" :cols="6" />
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && tableData.length === 0"
+        empty-text="暂无产品"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="6" />
+        </template>
+        <template #empty-action>
+          <el-button type="primary" size="small" :icon="Plus" @click="handleAdd" v-permission="'product:add'">新增产品</el-button>
+        </template>
+
       <el-table
-        v-show="!loading"
         :data="tableData"
         stripe
         border
@@ -91,6 +103,7 @@
           layout="total, sizes, prev, pager, next" @size-change="fetchList" @current-change="fetchList"
         />
       </div>
+      </StateWrapper>
     </el-card>
 
     <!-- 新增/编辑弹窗 -->
@@ -212,6 +225,7 @@ import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
 import { Plus, Edit, Delete, Search, Refresh } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getProductList, addProduct, updateProduct, deleteProduct, getProductCategories, getProductPrices, addProductPrice, deleteProductPrice } from '@/api/product'
@@ -220,7 +234,9 @@ import { useUser } from '@/composables/useUser'
 
 const { userInfo } = useUser()
 
-const loading = ref(false)
+// onMounted 无条件取数，初值 true 消除首帧空态闪现
+const loading = ref(true)
+const errorMsg = ref('')
 const tableData = ref([])
 const total = ref(0)
 const page = ref(1)
@@ -262,6 +278,7 @@ const profitRate = (row) => {
 
 const fetchList = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const params = { page: page.value, pageSize: pageSize.value }
     if (searchForm.keyword) params.keyword = searchForm.keyword
@@ -271,8 +288,15 @@ const fetchList = async () => {
     if (res.code === 200) {
       tableData.value = res.data.list
       total.value = res.data.total
+    } else {
+      // 业务码非 200：若只 reportError，界面会停在空表，用户无法区分「无数据」与「加载失败」
+      errorMsg.value = res.message || '加载产品列表失败，请稍后重试'
+      reportError('获取产品列表失败:', res.message)
     }
-  } catch (e) { reportError(e) }
+  } catch (e) {
+    errorMsg.value = e?.response?.data?.message || '加载产品列表失败，请稍后重试'
+    reportError('获取产品列表失败:', e)
+  }
   finally { loading.value = false }
 }
 

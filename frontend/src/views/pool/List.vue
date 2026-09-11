@@ -51,9 +51,18 @@
         </div>
       </template>
 
-      <TableSkeleton v-if="loading" :rows="8" :cols="8" />
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && tableData.length === 0"
+        :empty-text="scope === 'pending' ? '暂无待认领客户' : '暂无客户'"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="8" />
+        </template>
+
       <el-table
-        v-show="!loading"
         :data="tableData"
         stripe
         border
@@ -121,6 +130,7 @@
           @current-change="handlePageChange"
         />
       </div>
+      </StateWrapper>
     </el-card>
 
     <!-- 客户转移弹窗（双方同意制：需接收人同意才生效，不可撤回，超 3 天自动回流） -->
@@ -164,6 +174,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
 import { getPoolList, claimPoolCustomer, createTransfer, getTransferCandidates } from '@/api/pool'
 import { getCustomerList } from '@/api/customer'
 
@@ -191,7 +202,9 @@ const searchForm = reactive({
 
 const tableData = ref([])
 const total = ref(0)
-const loading = ref(false)
+// onMounted 无条件取数，初值 true 消除首帧空态闪现
+const loading = ref(true)
+const errorMsg = ref('')
 
 const levelTagType = (level) => {
   const map = { A: 'danger', B: 'warning', C: 'info', D: '' }
@@ -221,7 +234,10 @@ const statusTagType = (status) => {
 }
 
 const fetchList = async () => {
+  // 两种视图的业务用语不同，错误文案跟随当前查看范围
+  const label = scope.value === 'pending' ? '待认领客户' : '客户'
   loading.value = true
+  errorMsg.value = ''
   try {
     const params = {
       page: searchForm.page,
@@ -241,9 +257,13 @@ const fetchList = async () => {
     if (res.code === 200) {
       tableData.value = res.data.list || []
       total.value = res.data.total || 0
+    } else {
+      // 业务码非 200：若只 reportError，界面会停在空表，用户无法区分「无数据」与「加载失败」
+      errorMsg.value = res.message || `加载${label}列表失败，请稍后重试`
+      reportError(`获取${label}列表失败:`, res.message)
     }
   } catch (error) {
-    const label = scope.value === 'pending' ? '待认领客户' : '客户'
+    errorMsg.value = error?.response?.data?.message || `加载${label}列表失败，请稍后重试`
     ElMessage.error(`加载${label}列表失败`)
     reportError(`获取${label}列表失败:`, error)
   } finally {
