@@ -151,6 +151,24 @@ describe('商机阶段日志真实 SQL（防列名漂移）', () => {
     expect(Array.isArray(stats.stages)).toBe(true);
   });
 
+  it('getStageStats 返回数值而非字符串（SUM 经 mysql2 是字符串，直接取用会变成拼接）', async () => {
+    if (!reachable) return;
+
+    const oppId = await createTestOpportunity(`单测商机统计类型_${Date.now()}`);
+    await opportunityService.advanceStage(pool, oppId, 2, userId, { changeReason: '统计类型用' });
+    await opportunityService.advanceStage(pool, oppId, 3, userId, { changeReason: '统计类型用2' });
+
+    const stats = await opportunityService.getStageStats(pool, oppId);
+
+    expect(stats.stages.length).toBeGreaterThan(0);
+    for (const s of stats.stages) {
+      expect(typeof s.hours).toBe('number');
+    }
+    expect(typeof stats.total_hours).toBe('number');
+    // 字符串化陷阱的具体形态：0 + "0" 会得到 "00"，这里锁死它不是字符串
+    expect(String(stats.total_hours)).not.toMatch(/^0\d/);
+  });
+
   it('getTimeline 返回带 event_time 的 stage_change 事件', async () => {
     if (!reachable) return;
 

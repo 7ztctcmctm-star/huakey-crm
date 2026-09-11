@@ -403,10 +403,12 @@ async function getStageStats(pool, opportunityId) {
     [opportunityId, opportunityId]
   );
 
+  // mysql2 把 SUM() 当 DECIMAL 返回**字符串**：直接取用会让下面的 reduce 变成字符串拼接
+  // （实测 total_hours 曾返回 "00"）。此处统一转 number，保证对外是数值类型。
   const stages = stats.map(s => ({
     stage: s.stage,
     name: STAGE_MAP[s.stage] || '未知',
-    hours: s.hours || 0
+    hours: Number(s.hours) || 0
   }));
 
   const totalHours = stages.reduce((sum, s) => sum + s.hours, 0);
