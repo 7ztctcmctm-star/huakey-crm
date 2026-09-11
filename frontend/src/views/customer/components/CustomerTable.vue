@@ -52,21 +52,30 @@
       <span>已选择 <strong>{{ selectedRows.length }}</strong> 项</span>
     </div>
 
-    <!-- 表格 -->
-    <TableSkeleton v-if="loading" :rows="8" :cols="7" />
-    <el-table
-      v-show="!loading"
+    <!-- 表格：加载 / 错误 / 空 / 正常 四态统一由 StateWrapper 承载。
+         原先 el-table 的 #empty 插槽只在表格渲染时才可见，与 StateWrapper 的空态重复，已并入后者 -->
+    <StateWrapper
+      :loading="loading"
+      :error="errorMsg"
+      :empty="!loading && tableData.length === 0"
+      :empty-text="viewMode === 'mine' ? '暂无负责的客户' : '暂无客户数据'"
+      empty-description="可搜索筛选，或新增第一个客户"
+      @retry="$emit('retry')"
+    >
+      <template #loading>
+        <TableSkeleton :rows="8" :cols="7" />
+      </template>
+      <template #empty-action>
+        <el-button type="primary" @click="$emit('add')" v-permission="'customer:add'">新增第一个客户</el-button>
+      </template>
+
+      <el-table
       ref="tableRef"
       @selection-change="$emit('selection-change', $event)"
       :data="tableData"
       style="width: 100%"
       :row-class-name="rowClassName"
     >
-      <template #empty>
-        <EmptyState :title="viewMode === 'mine' ? '暂无负责的客户' : '暂无客户数据'">
-          <el-button type="primary" @click="$emit('add')" v-permission="'customer:add'">新增第一个客户</el-button>
-        </EmptyState>
-      </template>
       <el-table-column type="selection" width="50" />
       <el-table-column prop="company_name" label="公司名称" min-width="180" show-overflow-tooltip />
       <el-table-column prop="owner_name" label="负责人" width="110">
@@ -164,6 +173,7 @@
         </template>
       </el-table-column>
     </el-table>
+    </StateWrapper>
 
     <!-- 回退原因弹窗 -->
     <el-dialog v-model="backwardDialogVisible" title="回退客户状态" width="440px" :close-on-click-modal="false">
@@ -183,7 +193,7 @@
 
 <script setup>
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
+import StateWrapper from '@/components/common/StateWrapper.vue'
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Upload, Download, DataAnalysis, ChatLineRound, Select, View, Edit, ArrowDown } from '@element-plus/icons-vue'
@@ -202,14 +212,16 @@ const props = defineProps({
   viewMode: { type: String, default: 'all' },
   staffFilterId: { type: [Number, String], default: null },
   batchNewOwnerId: { type: [Number, String], default: '' },
-  exportLoading: { type: Boolean, default: false }
+  exportLoading: { type: Boolean, default: false },
+  /** 加载失败信息（由父组件持有并传入；真值 = 显示错误态 + 重试） */
+  errorMsg: { type: String, default: '' }
 })
 
 const emit = defineEmits([
   'add', 'import', 'export', 'quality-check', 'batch-follow', 'batch-assign',
   'update:viewMode', 'update:staffFilterId', 'update:batchNewOwnerId',
   'view-mode-change', 'staff-filter-change',
-  'selection-change', 'quick-follow', 'assign', 'status-change', 'view', 'edit', 'delete'
+  'selection-change', 'quick-follow', 'assign', 'status-change', 'view', 'edit', 'delete', 'retry'
 ])
 
 const tableRef = ref(null)

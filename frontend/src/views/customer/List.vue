@@ -18,6 +18,7 @@
     <CustomerTable
       ref="customerTableRef"
       :loading="loading"
+      :error-msg="errorMsg"
       :table-data="tableData"
       :is-boss="isBoss"
       :is-manager="isManager"
@@ -40,6 +41,7 @@
       @quick-follow="(row) => { quickFollowCustomer = row; quickFollowVisible = true }"
       @assign="(row) => { assignCustomer = row; assignDialogVisible = true }"
       @status-change="fetchList"
+      @retry="fetchList"
       @view="(row) => router.push(`/customer/detail/${row.id}`)"
       @edit="handleEdit"
       @delete="handleDelete"
@@ -239,6 +241,8 @@ const editStatusOptions = [
 const tableData = ref([])
 const total = ref(0)
 const loading = ref(false)
+// 加载失败信息：传给 CustomerTable 的 StateWrapper，失败时显示错误态 + 重试
+const errorMsg = ref('')
 const exportLoading = ref(false)
 
 const dialogVisible = ref(false)
@@ -278,6 +282,7 @@ const handleDelete = (row) => {
 
 const fetchList = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const params = {
       page: searchForm.page,
@@ -311,8 +316,13 @@ const fetchList = async () => {
     if (res.code === 200) {
       tableData.value = res.data.list
       total.value = res.data.total
+    } else {
+      errorMsg.value = res.message || '加载客户列表失败，请稍后重试'
+      reportError('获取客户列表失败:', res.message)
     }
   } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载客户列表失败，请稍后重试'
+    reportError('获取客户列表失败:', error)
     ElMessage.error('加载客户列表失败')
   } finally {
     loading.value = false
