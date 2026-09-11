@@ -71,6 +71,78 @@ export async function loginAsAdmin(request) {
 }
 
 /**
+ * 读取 E2E 销售账号（从环境变量，不硬编码）
+ * 优先 E2E_SALES_USER / E2E_SALES_PASSWORD（Demo 账号体系里的 demo_sales）
+ * 密码未单独配置时回退到管理员密码（demo_* 账号默认同密码）
+ */
+function getSalesCredentials() {
+  const username = process.env.E2E_SALES_USER || 'demo_sales'
+  const password = process.env.E2E_SALES_PASSWORD || process.env.E2E_ADMIN_PASSWORD || process.env.E2E_PASSWORD
+  if (!username || !password) {
+    throw new Error(
+      'E2E 销售账号未配置：缺少 E2E_SALES_USER / E2E_SALES_PASSWORD。\n' +
+      '请先执行 `cd backend && npm run seed:demo` 创建 demo_sales，或配置 .env.test。'
+    )
+  }
+  return { username, password }
+}
+
+/**
+ * 使用销售账号登录（非 manageAll 角色，用于验证「本人转化」分支）
+ * @param {import('@playwright/test').APIRequestContext} request
+ */
+export async function loginAsSales(request) {
+  const captchaRes = await request.get('/api/v1/auth/captcha')
+  const captchaData = await captchaRes.json()
+
+  const { username, password } = getSalesCredentials()
+  const loginRes = await request.post('/api/v1/auth/login', {
+    data: { username, password, captcha: 'dev1', captchaKey: captchaData.data?.key }
+  })
+
+  const loginData = await loginRes.json()
+  if (loginData.code !== 200) {
+    throw new Error(`销售账号 API 登录失败：${loginData.message || loginRes.statusText()}`)
+  }
+
+  const storageState = await request.storageState()
+  const csrfCookie = storageState.cookies.find((c) => c.name === 'csrf-token')
+  if (!csrfCookie) throw new Error('销售账号登录后未获取到 csrf-token cookie')
+
+  const userId = loginData.data?.userInfo?.id
+  if (!userId) throw new Error('销售账号登录响应未返回 userInfo.id')
+  return { csrfToken: csrfCookie.value, userId }
+}
+
+/**
+ * 潜客转正式客户（POST /leads/convert）
+ * @param {import('@playwright/test').APIRequestContext} request
+ * @param {string} csrfToken
+ * @param {number} customerId
+ */
+export async function convertLeadToFormal(request, csrfToken, customerId) {
+  const res = await request.post('/api/v1/leads/convert', {
+    data: { id: customerId },
+    headers: { 'X-CSRF-Token': csrfToken }
+  })
+  return res.json()
+}
+
+/**
+ * 查询客户详情（取 owner_id / pool_status / business_status 用于断言归属规则）
+ * 注意：响应结构为 { customer, contacts, followRecords }，owner_id 在 data.customer 下。
+ * @param {import('@playwright/test').APIRequestContext} request
+ * @param {string} csrfToken
+ * @param {number} customerId
+ */
+export async function getCustomerDetail(request, csrfToken, customerId) {
+  const res = await request.get(`/api/v1/customer/detail/${customerId}`, {
+    headers: { 'X-CSRF-Token': csrfToken }
+  })
+  return res.json()
+}
+
+/**
  * 查询潜客池客户列表（按公司名搜索，用于 E2E 清理时取客户 id）
  * @param {import('@playwright/test').APIRequestContext} request
  * @param {string} csrfToken
