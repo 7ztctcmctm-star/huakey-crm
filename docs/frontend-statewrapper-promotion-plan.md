@@ -681,3 +681,75 @@ git add docs/frontend-optimization-roadmap-v2.md docs/frontend-statewrapper-prom
 git commit -m "docs(frontend): 路线图纠错（前端无 ESLint）+ P0-2 执行记录"
 git push
 ```
+
+---
+
+# 执行记录（2026-09-11）
+
+## 一、任务完成情况
+
+| 任务 | 状态 | 提交 |
+|---|---|---|
+| Task 1 全仓模板绑定守卫测试 | ✅ 完成（含反证） | `15027e8` |
+| Task 2 修 StateWrapper 错误态双按钮缺陷 | ✅ 完成（TDD：2 failed → 5 passed） | `d9606ae` |
+| Task 3 试点页 `system/tags.vue` | ✅ 完成（TDD：3 failed → 3 passed） | `0ce745b` |
+| Task 4 客户列表 + CustomerTable | ✅ 完成（TDD：2 failed → 2 passed） | `ef0d4a6` |
+| Task 5 批次 1 其余 10 页 | ✅ 完成 | `f5112e4` |
+| Task 6 批次 1 E2E 回归 | ✅ 完成（含失败归因 A/B） | — |
+| Task 7 批次 2 十七页 | ✅ 16 改 / 1 跳过 | `8bfd380` |
+| Task 8 收尾（文档纠错 + 记录） | ✅ 本次提交 | — |
+
+**接入 StateWrapper 的视图：2 → 30 个**（路线图要求「20+ 页面」已达成）。
+
+## 二、实测结果（命令与输出）
+
+| 验证 | 命令 | 结果 |
+|---|---|---|
+| 守卫测试 | `npx vitest run src/tests/unit/views/templateBindings.test.js` | **1 passed**（97 个 `<script setup>` 视图全量编译） |
+| 守卫反证 | 向 `tags.vue` 注入 `{{ bogusMsg }}` | **1 failed**，精确报 `views\system\tags.vue -> bogusMsg`；回滚后恢复通过 |
+| 全量单测 | `npx vitest run` | **15 文件 / 55 用例全绿**（基线 11 文件 / 44 用例） |
+| 生产构建 | `npm run build -- --emptyOutDir=false` | **✓ built in 36–37s** |
+| 接线审计（一次性脚本，未入库） | — | 30/30 视图 `import` / `:error` / `:empty` / `@retry` / `errorMsg` 齐全 |
+| 包裹审计 | — | 30/30 顺序 OK；分页均在包裹内；wrapper 外表格数与副表数一致 |
+| 未改动证据 | 逐文件旧 vs 新计数 | 列数 16/16 **完全不变**；分页数不变；`v-permission` 仅 2 个文件 +1（新增空态按钮）；`:cols` 沿用原值 |
+| E2E（chromium） | `npx playwright test --project=chromium` | 批次 1 后 **36 passed / 1 failed / 2 flaky**；批次 2 后 **38 passed / 1 failed / 0 flaky** |
+
+### E2E 唯一失败的归因（已做 A/B，结论：既有问题，非本会话引入）
+
+`e2e/opportunity-stage.spec.js:42 应能推进商机阶段并记录变更原因`：
+断言 `getOpportunityStageLog` 的返回值包含所填原因，实际收到 `"{}"`；而前一条断言（推进成功提示）
+已通过 —— 即**阶段推进成功，但变更原因未落库或未由日志接口返回**。
+
+**A/B 证据**：`git checkout 50a7b64`（本会话开始前的提交）后单跑该用例 → **同样失败**；
+回到 main 单跑 → 同样失败（可稳定复现，排除并行抖动）。
+→ 归因为**既有缺陷**（后端/数据层，P1 级候选）。**本会话未修**：超出已批准的前端 P0-2 范围，
+且属后端域，建议后续专项处理。
+
+## 三、本会话顺带修复的既有缺陷（均先验证后修，非本会话引入）
+
+1. `StateWrapper.vue` 错误态同时渲染两个「重新加载」按钮，**靠上那个不接事件（死按钮）**——
+   DOM 实测证据见 `d9606ae`；修复改用 `EmptyState` 自带按钮并接上 `@retry`。
+2. `inventory/index.vue` 调用**从未导入**的 `autoGeneratePlan()` → 点击「自动生成采购计划」必抛
+   `ReferenceError`（已确认 `api/product.js:58` 有该导出，补上 import）。
+3. `competitor/index.vue` 使用**从未导入**的 `chartColors.secondary / quaternary` → 两张图表渲染不出来
+   （已确认 `utils/chartTheme.js` 导出该对象，补上 import）。
+
+## 四、未覆盖 / 未验证项（如实登记，不声明为已完成）
+
+- **未覆盖页面**：详情页内嵌表格；仍用 `el-table v-loading` 且无骨架屏的十余个列表页（P0-1 亦未覆盖全）；
+  `payment/reconciliation.vue`（骨架屏只挂页签内历史表，主区域是按需生成视图，**按约定跳过**）；
+  `payment/index.vue` 只包了主列表「全部回款」（`loading` 被 3 张表共用）；`system/log.vue` 的
+  `handleHighRisk()` 非列表取数路径（失败仍只弹 toast）。
+- **未验证**：四态的**浏览器实际渲染未逐页人工走查**；本会话浏览器级证据仅为 chromium E2E 全量回归
+  （覆盖主要流程页），**未逐页截图核对**。批次 1 的 2 条 flaky（customer-crud、leads-convert）在批次 2
+  的最终回归中**未再复现**（0 flaky），未做进一步追查。
+- **测试基建变更**：`frontend/vitest.config.js` 的 `testTimeout` / `hookTimeout` 由 10s 放宽到 30s。
+  原因是新增测试文件后 8 逻辑核并行出现**与本次改动无关**的既有用例超时（实测对照：排除新测试
+  的 11 文件基线全绿、串行全量全绿 56s、并行全量 26s）。放宽后连跑两次全绿。未选 `maxWorkers` 降并发，
+  因本机核数不代表 CI 环境。
+- **P3 待办（只登记，未清理）**：约 13 个文件存在死导入（`request`、`reportWarn`、`computed` 等
+  导入了但全文未使用），为避免扩大本轮改动面留给专项清理。
+- **执行方式说明**：27 个页面的机械改造由 3 + 4 个并行子代理完成，**其结论未被直接采信**——
+  全部经我逐文件复核（两个审计脚本矩阵、逐文件旧 vs 新计数、`git diff` 抽查、`reportError` /
+  `ElMessage` 导入扫描），并补做了 3 处修正（`pool` 空态文案随视图联动、`quotation`/`contract`
+  的死 `#empty` 插槽收敛、`notification` 骨架屏列数与实际表格对齐）。
