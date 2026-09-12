@@ -81,19 +81,21 @@ async function addContact(pool, params, user, canManageCustomer) {
     }
   }
 
+  // 若本次要设为主联系人：**先降级**该客户其他联系人，再插入。
+  // 顺序不能反：uk_contact_primary_per_customer 要求每个客户至多一条主联系人，
+  // 先插入会瞬时出现两条而撞唯一键（2026-09-11 修复，回归测试 tests/db/contactSinglePrimary.test.js）
+  if (primaryFlag) {
+    await pool.query(
+      'UPDATE crm_contact SET is_primary = 0 WHERE customer_id = ? AND deleted_at IS NULL',
+      [customer_id]
+    );
+  }
+
   const [result] = await pool.query(
     `INSERT INTO crm_contact (customer_id, name, position, phone, email, wechat, is_decision, is_primary, remark)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [customer_id, name, position || null, phone || null, email || null, wechat || null, is_decision || 0, primaryFlag, remark || null]
   );
-
-  // 若明确指定为主联系人，取消其他联系人的主联系人标记
-  if (primaryFlag) {
-    await pool.query(
-      'UPDATE crm_contact SET is_primary = 0 WHERE customer_id = ? AND id != ? AND deleted_at IS NULL',
-      [customer_id, result.insertId]
-    );
-  }
 
   return result.insertId;
 }
@@ -137,19 +139,21 @@ async function updateContact(pool, params, user, canManageCustomer) {
     throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权修改该联系人');
   }
 
-  await pool.query(
-    `UPDATE crm_contact SET name = ?, position = ?, phone = ?, email = ?, wechat = ?, is_decision = ?, is_primary = ?, remark = ?
-    WHERE id = ?`,
-    [name, position || null, phone || null, email || null, wechat || null, is_decision || 0, is_primary ? 1 : 0, remark || null, id]
-  );
-
-  // 若设置为主联系人，取消该客户其他联系人的主联系人标记
+  // 若设置为主联系人：**先降级**该客户其他联系人，再更新本条 —— 顺序不能反：
+  // uk_contact_primary_per_customer 要求每个客户至多一条主联系人，先更新会瞬时两条而撞唯一键
+  // （2026-09-11 修复，回归测试 tests/db/contactSinglePrimary.test.js）
   if (is_primary) {
     await pool.query(
       'UPDATE crm_contact SET is_primary = 0 WHERE customer_id = ? AND id != ? AND deleted_at IS NULL',
       [customerId, id]
     );
   }
+
+  await pool.query(
+    `UPDATE crm_contact SET name = ?, position = ?, phone = ?, email = ?, wechat = ?, is_decision = ?, is_primary = ?, remark = ?
+    WHERE id = ?`,
+    [name, position || null, phone || null, email || null, wechat || null, is_decision || 0, is_primary ? 1 : 0, remark || null, id]
+  );
 }
 
 /**

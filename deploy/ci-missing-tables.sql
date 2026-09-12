@@ -270,6 +270,19 @@ SET @sql071b = IF(@idx_primary = 0,
   'SELECT 1');
 PREPARE stmt071b FROM @sql071b; EXECUTE stmt071b; DEALLOCATE PREPARE stmt071b;
 
+-- 113: 联系人「每个客户最多一个主联系人」唯一索引
+-- 背景：CI 的库由 init-complete.sql + 本文件建成，随后把全部迁移**标记为已执行**（不真跑），
+--       因此迁移 113 的约束必须在这里同步，否则 CI 建出的库缺少该不变量。
+-- 说明：不能写进 init-complete.sql —— 它是旧版 dump，其 crm_contact 连 is_primary 列都没有，
+--       该列正是由上面 071 段补的，索引只能加在列存在之后。
+-- 表达式与迁移 113 完全一致：函数式唯一索引，NULL 不参与唯一性（未删除且 is_primary=1 才算占用）。
+SET @uk_primary = (SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contact' AND INDEX_NAME = 'uk_contact_primary_per_customer');
+SET @sql113 = IF(@uk_primary = 0,
+  'ALTER TABLE crm_contact ADD UNIQUE KEY uk_contact_primary_per_customer ((IF(is_primary = 1 AND deleted_at IS NULL, customer_id, NULL)))',
+  'SELECT 1');
+PREPARE stmt113 FROM @sql113; EXECUTE stmt113; DEALLOCATE PREPARE stmt113;
+
 -- 074: crm_customer.original_lead_id (074_down.sql rollback 依赖)
 SET @col_olid = (SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_customer' AND COLUMN_NAME = 'original_lead_id');
