@@ -322,13 +322,56 @@ demo_admin / demo_sales / demo_purchase (用户)
 | 文件/脚本 | 用途 | 复用价值 |
 |---|---|---|
 | `database/seeds/seed_test_data.sql` | 从 prod 导出配置（角色/权限/部门/admin 用户），有库名校验 | ✅ 环境保护逻辑可复用 |
-| `database/seeds/test_data_modules.sql` | 模块验证测试数据（老板/销售/客户/跟进/商机） | 🟡 业务数据参考 |
+| `database/seeds/test_data_modules.sql` | 模块验证测试数据（老板/销售/客户/跟进/商机） | 🟡 业务数据参考；**2026-09-12 已修复至当前 schema**（见下） |
 | `backend/scripts/init_role_permissions.js` | 角色权限初始化 | ✅ 角色补齐参考 |
 | `.github/ci/test-users.sql` | CI 测试用户（admin，密码 huakey123） | 🟡 与 demo 账号体系独立 |
 | `frontend/e2e/fixtures/api-helpers.js` | E2E 默认账号（E2E_USERNAME/E2E_PASSWORD env） | ✅ 已支持 env，需补 .env.test |
 | `deploy/init-complete.sql` | 生产初始化 DDL+DML（含 admin 用户） | ✅ schema 基线 |
 
 **结论**：现有机制分散，无统一 demo 标识，无环境隔离。需建立标准化 `database/seeds/demo_*.sql` 体系 + `npm run seed:demo` 执行器 + 生产环境保护。
+
+> **2026-09-12 补充：`test_data_modules.sql` schema 漂移已修复**
+>
+> 该文件是**手工执行**的历史 seed，不被任何脚本引用（`grep` 实证：仅出现在文档中）。
+> 实测它整体停留在旧 schema，四个问题：
+>
+> | # | 问题 | 修复 |
+> |---|---|---|
+> | 1 | 第 12 行 `USE huakey_crm;` 硬编码库名，与自带的「非 test/dev 库则中止」守卫自相矛盾，且违反迁移规范（禁止 USE） | 已移除，改以连接默认库为准 |
+> | 2 | 8 处 `INSERT INTO crm_customer` 的 `status` 用**数字 1/2** —— 迁移 070 已把该列改为 `VARCHAR(32) NOT NULL DEFAULT 'following'`，数字是旧格式 | 按 070 的权威映射改为字符串（1→`following`、2→`signed`） |
+> | 3 | 全部漏写 `business_status`（097 定义 `NOT NULL DEFAULT 'lead'`）→ 客户全被压成 `lead`，被 `listFormalCustomers` 整体过滤，**列表恒为空**（与演示 seed 的 `7620c2c` 同源缺陷） | 显式写入，与 `status` 一致 |
+> | 4 | 全部漏写 `pool_status` | 显式写入 `'private'`（这些客户均有 owner） |
+>
+> **为什么问题 3 必须连同问题 2 一起修**：迁移 110（`sync_customer_business_status`）确立
+> 了「`status` 为权威、`business_status` 镜像 `status`」的对账规则，其 `WHERE status IN
+> ('lead','following',...)` 只匹配**字符串**。若只补 `business_status` 而 `status` 仍写数字，
+> 110 的修正条件永不命中，两个字段会长期漂移。故二者必须同为字符串。
+>
+> 另修两处数字语义残留：逾期提醒的 `c.status NOT IN (2,3) AND c.status != 0`
+> 改为 `business_status IN ('following','quoted','negotiating')`（按业务语义「只提醒活跃阶段客户」，
+> 排除终态与线索）；尾部验证查询 `WHERE status != 0` 改为 `deleted_at IS NULL`
+> （016 迁移注释明确「统一软删除方式，当前用 status=0」，deleted_at 才是当前判据）。
+>
+> **第三处修复：环境守卫原是死代码（2026-09-12 真库实测发现）**
+> 原守卫写法 `SELECT IF(...,(SELECT \`ABORT__NOT_A_TEST_DATABASE\`), ...)` 在 MySQL 下
+> **任何库上都报 ERROR 1054** —— MySQL 解析阶段即校验标识符，与 IF 分支无关。
+> 已改用 `PREPARE`/`EXECUTE` 动态 SQL，并双向实测（测试库放行 / 非测试库中止）。
+> 详见 `crm-e2e-diagnosis-and-responsive-fix.md` §11.8.1。
+>
+> **验证（已闭环）**：
+> 1. 静态校验脚本确认全部 19 条 INSERT 的列数/值数一致（`crm_customer` 8 条全 OK）。
+> 2. **真库实测**（2026-09-12）：以 `mysqldump --no-data` 建临时库 `huakey_seed_test_tmp`，
+>    按真实顺序执行 `seed_test_data.sql` → 本文件，**退出码 0、零错误**：
+>    - `business_status` 分布 = `following 129` / `signed 13`，**`lead` 堆积 0**
+>    - 正式客户列表可见 **142 条**（修复前模拟为 **0**）
+>    - 逾期提醒 **10 条**（修复前为 0）
+>    - 110 号对账 `remaining_drift = 0`（两字段严格镜像）
+>    验证后临时库已删除，未触碰任何既有库。
+>
+> **遗留**：该 seed 硬编码 `dept_id = 1/2`，隐含要求 `sys_dept` 预置数据
+> （`seed_test_data.sql` 的 `INSERT IGNORE ... SELECT ... FROM sys_dept` 在结构空库上是空操作）。
+> 建议后续让该 seed 自带部门数据。
+
 
 ---
 

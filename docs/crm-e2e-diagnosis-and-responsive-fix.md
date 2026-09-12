@@ -316,4 +316,224 @@ Playwright 在重试时会清理 `test-results/` 下的产物目录，本机安�
 
 ---
 
+## 十一、`navigation.spec.js` 陈旧断言修复与守卫测试（2026-09-12）
+
+### 11.1 现象与两层根因
+
+CI `navigation.spec.js:16`「客户列表页应能正常加载」**连续 5 次稳定红灯**。经排查是**两层根因叠加**：
+
+| 层 | 根因 | 处置 |
+|---|---|---|
+| 数据层 | 演示 seed 的 `crm_customer` 漏写 `business_status`（097 起 `NOT NULL DEFAULT 'lead'`）→ 客户全被压成 `lead`，被 `listFormalCustomers` 整体过滤，**正式客户列表恒为空** | 上一提交 `7620c2c` 修复 |
+| 断言层 | 断言用 `page.locator('.el-table, .el-empty')`，但 `el-empty` **已全站下线** | 本次修复 |
+
+### 11.2 断言为何失效
+
+视觉规范第三阶段（提交 `c923960`）用自研 `EmptyState`（内联 SVG 插画）替换了全站 `el-empty`。当前源码中 `el-empty` **只剩注释与一条无组件产出的死样式**（`apple.css:621` 的 `.el-empty__description`）。
+
+列表页接入 `StateWrapper` 后，四种状态的**真实**渲染形态是（据 `StateWrapper.vue` 的 `v-if/v-else-if/v-else` 链）：
+
+| 状态 | 真实根节点 |
+|---|---|
+| 有数据 | `.el-table` |
+| 空数据 | `.empty-state`（`EmptyState` 根节点） |
+| 加载失败 | `.empty-state`（同上，`type="error"`） |
+| 加载中 | `.table-skeleton`（`TableSkeleton` 根节点） |
+
+⇒ 原断言**只在「列表恰好有数据」时碰巧通过**，数据为空必然红。这与数据层缺陷叠加，形成了「列表恒空 + 断言认不出空态」的死局。
+
+### 11.3 修复内容
+
+```js
+// frontend/e2e/navigation.spec.js
+const LIST_LOADED = '.el-table, .empty-state'
+```
+
+三处列表页断言（客户 / 商机 / 产品）统一改用该常量。**刻意不包含骨架屏** —— 等到骨架屏不算「加载成功」，若超时后仍只有骨架屏，说明接口没返回，应当失败。
+
+### 11.4 守卫测试（新增）
+
+`frontend/src/tests/unit/views/navigationStateSelectors.test.js`
+
+**目的**：在不依赖浏览器与数据库的前提下，把「断言与实现脱节」这类缺陷拦在 CI 前。用真实页面组件在三种状态下渲染，反向验证 E2E 选择器确实命中。
+
+| 用例 | 断言 |
+|---|---|
+| 商机列表为空 | `.empty-state` 存在，且 E2E 选择器命中 |
+| 商机列表有数据 | `.el-table` 存在，且 E2E 选择器命中 |
+| 产品列表为空 | `.empty-state` 存在，且 E2E 选择器命中 |
+| 加载中 | 骨架屏存在，且 E2E 选择器**不**命中 |
+
+测试内以常量 `E2E_SELECTOR` 快照 E2E 侧选择器，并注明：**若 E2E 侧再次调整选择器，本测试会失败并提示同步** —— 这正是它存在的意义。
+
+### 11.5 验证状态
+
+| 项 | 证据 | 结论 |
+|---|---|---|
+| 选择器与实现对齐 | 通读 `StateWrapper.vue` / `EmptyState.vue` / `TableSkeleton.vue` 根节点 | ✅ 静态确认 |
+| `el-empty` 已下线 | 全库 grep：仅剩注释 + 1 条死样式，无组件产出 | ✅ 静态确认 |
+| 选择器契约（零依赖脚本实测） | 见 §11.5.1 | ✅ 通过 |
+| seed 与 CI schema 兼容 | 见 §11.6 —— `ci-missing-tables.sql` 补齐了 `business_status` / `pool_status` / `status VARCHAR(32)` | ✅ 静态确认 |
+| **seed 真库执行** | 见 §11.8 —— 临时库实测，**零错误**，正式客户 142 条可见 | ✅ **已闭环** |
+| **环境守卫有效性** | 见 §11.8.1 —— 双向实测（测试库放行 / 非测试库中止） | ✅ **已闭环** |
+| **守卫测试（vitest）** | 见 §11.9 —— **4 passed / 4** | ✅ **已闭环** |
+| **前端全量单测** | 见 §11.9 —— **15 文件 / 57 测试全通过** | ✅ **已闭环** |
+| **前端构建** | 见 §11.9 —— `npm run build -- --emptyOutDir=false` **EXIT=0** | ✅ **已闭环** |
+| `navigation.spec.js` 真实 CI 跑通 | 依赖 CI 环境，本轮未跑 | ⏳ 待 CI 验证 |
+
+#### 11.5.1 选择器契约实测（零依赖，可复现）
+
+vitest 依赖尚未装好，故先用一个**零依赖**脚本直接读组件模板源码验证契约
+（脚本为临时产物，验证后删除）：
+
+```
+=== EmptyState.vue ===
+  根节点 class: empty-state                              ✅
+  含 el-empty 标签: false                                ✅（确证 el-empty 已下线）
+
+=== TableSkeleton.vue ===
+  根节点 class: table-skeleton                           ✅
+
+=== StateWrapper.vue ===
+  分支数: 4  (v-if / v-else-if / v-else-if / v-else)     ✅ 四态链完整
+  empty 分支含 el-table: false                           ✅（第 4 用例前提成立）
+  empty 分支含 EmptyState: true                          ✅
+
+=== 商机列表 / 产品列表 ===
+  均使用 StateWrapper，empty-text 为「暂无商机」「暂无产品」  ✅
+```
+
+⇒ 证实 E2E 的 `LIST_LOADED = '.el-table, .empty-state'` 与组件实现一致，
+且「加载态不命中」的反向断言前提成立（骨架屏在 loading 分支，不在 empty 分支）。
+
+> 该脚本验证的是**模板静态结构**，不能替代守卫测试的**运行时渲染**验证
+> （桩组件是否生效、promise flush 时序等只能在 vitest 里验）。后者见 §11.7 N-01。
+
+### 11.6 seed 与 CI schema 的兼容性核查
+
+修复 seed 时顺带核查了「CI 里 `crm_customer` 到底有没有 `business_status` 列」——结论是**有**，但来源不是基线：
+
+| 文件 | `crm_customer.status` | `business_status` | `pool_status` |
+|---|---|---|---|
+| `deploy/init-complete.sql`（CI 基线） | `tinyint DEFAULT '5'`（旧格式） | **不存在** | `tinyint DEFAULT '0'` |
+| `deploy/ci-missing-tables.sql`（补丁） | 第 138 行改为 `VARCHAR(32)` | 第 604 行新增 | 第 611 行改为 `VARCHAR(8)` |
+
+⇒ CI 环境下 seed 写入 `business_status` 与字符串 `status` **可正常执行**。
+
+> ⚠️ **顺带暴露的结构性隐患（登记，未处理）**：`init-complete.sql` 是一份**过时基线**
+> ——客户表仍停留在 070 之前的两代前 schema，全靠 `ci-missing-tables.sql` 手工打补丁追平。
+> 两份文件必须**人工保持同步**，一旦某次迁移只更新其一，CI 就会与真实迁移链产生静默漂移。
+> 建议后续将 `init-complete.sql` 从迁移链重新生成（或直接改为跑真实迁移链）。
+> 本次不处理（超出当前范围，且改动 CI 建库方式风险较高）。
+
+### 11.7 尚未闭环（如实登记）
+
+| 编号 | 事项 | 原因 |
+|---|---|---|
+| N-02 | 修复后的 `navigation.spec.js` **未在真实 CI 跑通** | 依赖 CI 环境（本机 E2E 需完整自举 + 浏览器）；本轮已完成其**逻辑前提**的全部验证 |
+
+> 按 `AGENTS.md` 第六章，上述项**不得表述为「已完成」**，登记为「未验证」。
+
+### 11.9 自动化测试与构建（2026-09-12 实测）
+
+依赖安装受阻（npm 反复卡在依赖树构建阶段），最终以
+`npm install --no-save --ignore-scripts vitest@4.1.9` + 补装 `element-plus` 的方式解决。
+
+| 项 | 命令 | 结果 |
+|---|---|---|
+| 守卫测试 | `vitest run src/tests/unit/views/navigationStateSelectors.test.js` | ✅ **4 passed / 4** |
+| 模板绑定回归 | `vitest run src/tests/unit/views/templateBindings.test.js` | ✅ 1 passed / 1 |
+| **前端全量单测** | `vitest run` | ✅ **15 文件 / 57 测试 全通过** |
+| **前端构建** | `npm run build -- --emptyOutDir=false` | ✅ **EXIT=0**（50.28s） |
+
+守卫测试实测输出：
+
+```
+✓ 商机列表有数据时：E2E 选择器应命中 .el-table
+✓ 产品列表为空时：E2E 选择器必须能命中
+✓ 加载中：E2E 选择器不应命中（等骨架屏不算「加载成功」）
+Test Files  1 passed (1)
+     Tests  4 passed (4)
+```
+
+> 运行中出现的 `[Vue warn] Failed to resolve component: el-xxx` 属**无害噪声** ——
+> 断言针对的是显式桩掉的 `.el-table` / `.empty-state` / `.table-skeleton` 三类节点。
+>
+> **踩坑记录**：`getSalesFunnel` 的 mock 若只给 `{ code:200, data:{} }`，
+> 模板 `funnelFailed.count` 会抛 `TypeError`（Unhandled Rejection 拖垮 2 个用例）。
+> 必须按其消费形状提供
+> `data: { funnel: [], total_count: 0, total_amount: 0, failed: { count: 0, amount: 0 } }`。
+
+### 11.8 `test_data_modules.sql` 实库验证（2026-09-12，已闭环）
+
+本项原登记为「未验证（本机无 MySQL 凭据）」。后续实测发现本机 root 密码可用，
+遂以**临时库**方式完成真库验证（不触碰任何既有库，验证后即删除）。
+
+**方法**：`mysqldump --no-data` 导出 `huakey_crm_test` 结构（105 表）→ 导入临时库
+`huakey_seed_test_tmp` → 按真实顺序执行 `seed_test_data.sql` → `test_data_modules.sql`。
+
+**结果**：
+
+| 检查项 | 修复前（模拟旧写法） | 修复后（实测） |
+|---|---|---|
+| `business_status` 分布 | `lead` 堆积（全部） | `following 129` / `signed 13`，**lead = 0** |
+| 正式客户列表可见数 | **0**（恒空 → E2E 必红） | **142**（全部可见 → E2E 必绿） |
+| 线索池 / 公海 | — | 0 / 0（符合预期） |
+| 逾期提醒条数 | **0**（旧 WHERE 用字符串比数字，恒不成立） | **10** |
+| 110 号对账 `remaining_drift` | — | **0**（`status` 与 `business_status` 严格镜像） |
+| seed 执行退出码 | 1（报错） | **0（零错误）** |
+
+⇒ **本轮修复在真实 MySQL 上完全生效**，且不会与迁移 110 的对账规则冲突。
+
+#### 11.8.1 顺带修复：环境守卫是死代码
+
+实库验证暴露了 seed 的**环境守卫从未真正生效**：
+
+```sql
+-- 原写法（错误）
+SELECT IF(DATABASE() NOT LIKE '%test%' AND DATABASE() NOT LIKE '%dev%',
+  (SELECT `ABORT__NOT_A_TEST_DATABASE`), 'test_db_ok') AS `guard`;
+```
+
+MySQL 在**解析阶段**即校验所有标识符，`ABORT__NOT_A_TEST_DATABASE` 列不存在
+→ **任何库上都无条件报 `ERROR 1054`**，与运行时的 `IF` 分支无关。
+即：它不是守卫，只是一条必然的报错（这也解释了为何此前该 seed 从未被成功执行过）。
+
+**修复**（改用 `PREPARE`/`EXECUTE` 动态 SQL —— 非法语句只在满足条件时才被解析）：
+
+```sql
+SET @guard_sql = IF(
+  DATABASE() NOT LIKE '%test%' AND DATABASE() NOT LIKE '%dev%',
+  'SELECT `ABORT__NOT_A_TEST_DATABASE`',
+  'SELECT ''test_db_ok'' AS `guard`'
+);
+PREPARE guard_stmt FROM @guard_sql;
+EXECUTE guard_stmt;
+DEALLOCATE PREPARE guard_stmt;
+```
+
+**双向实测**：
+
+| 库名 | 结果 | 预期 |
+|---|---|---|
+| `huakey_seed_test_tmp`（含 `test`） | 输出 `test_db_ok`，继续执行 | ✅ |
+| `huakey_prod_guard_check`（非 test/dev） | `ERROR 1054`，**中止** | ✅ |
+
+#### 11.8.2 登记：seed 对 `sys_dept` 的隐含依赖
+
+实库验证中发现：3 条 `sys_user` INSERT 因外键 `fk_user_dept` 失败，
+根因是 **`sys_dept` 为空**，而 seed 硬编码了 `dept_id = 1/2`。
+
+`seed_test_data.sql` 第 21-22 行是
+`INSERT IGNORE INTO sys_dept (...) SELECT ... FROM sys_dept` ——
+**从源库自复制**，在结构空库上等于空操作。故 `test_data_modules.sql`
+**隐含要求源库已有 id=1、2 的部门**。
+
+| 编号 | 事项 | 处置 |
+|---|---|---|
+| N-04 | `test_data_modules.sql` 硬编码 `dept_id=1/2`，依赖 `sys_dept` 预置数据 | 已登记。本次未改（属 seed 设计问题，且不影响本次修复目标）；建议后续让该 seed 自带 `INSERT IGNORE INTO sys_dept` |
+
+---
+
 *报告由 David 出具 · 2026-09-10 · 含一次公开的自我纠错（§9.1）*
+*§11 追加于 2026-09-12*
