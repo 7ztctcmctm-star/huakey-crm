@@ -295,7 +295,7 @@ demo_admin / demo_sales / demo_purchase (用户)
 | 缺失项 | 影响 | 补充方式 |
 |---|---|---|
 | HR/PURCHASE/FINANCE/ENGINEER/BOSS 角色 | demo_purchase 无角色可分配 | demo_roles.sql 用 INSERT IGNORE 补齐 |
-| sys_dept 部门数据 | 用户无部门归属 | demo_roles.sql 补 Demo 部门 |
+| sys_dept 部门数据 | 用户无部门归属 | demo_roles.sql 补 Demo 部门；**test_data_modules.sql 亦已自带（N-04，2026-09-12）** |
 | crm_currency 货币数据 | 报价/合同 currency 外键无值 | demo_roles.sql 补 CNY/USD 货币 |
 
 ---
@@ -371,6 +371,40 @@ demo_admin / demo_sales / demo_purchase (用户)
 > **遗留**：该 seed 硬编码 `dept_id = 1/2`，隐含要求 `sys_dept` 预置数据
 > （`seed_test_data.sql` 的 `INSERT IGNORE ... SELECT ... FROM sys_dept` 在结构空库上是空操作）。
 > 建议后续让该 seed 自带部门数据。
+
+> **N-04 已闭环（2026-09-12）**
+>
+> **根因**：`test_data_modules.sql` 在「结构空库」上必然失败 —— 没有脚本/迁移会创建
+> `sys_dept` 的 id=1/2 记录，外键 `fk_user_dept` 一律 1452。同时连带发现 `seed_test_data.sql`
+> 第 14 行 `USE huakey_crm;` 会**把执行连接切到生产库**，使上一行的环境守卫完全失效（守卫
+> 检查的是切换前的库名）。
+>
+> **修复**：
+> | 文件 | 改动 |
+> |---|---|
+> | `database/seeds/test_data_modules.sql` | 新增 §1 部门兜底段：`INSERT IGNORE INTO sys_dept (id,name) VALUES (1,'总经办'),(2,'销售部')` + 按名兜底补插；改用 `@boss_dept_id / @sales_dept_id` 按名解析，**移除全部硬编码 dept_id=1/2**；尾部新增 6 行部门归属自检 |
+> | `database/seeds/seed_test_data.sql` | 移除 `USE huakey_crm;`（守卫绕过+违反迁移规范+生产安全隐患） |
+> | `scripts/verify-seeds.sh` | 移除「前置补齐 sys_dept」workaround（seed 已自带），改为 4 项 N-04 专项断言（部门存在/用户 dept_id 非 NULL/老板归属总经办/经理销售归属销售部） |
+>
+> **修复策略**采用 `database/seeds/demo_roles.sql` 的既有模式：固定 id + 按名兜底 + 按名查询。
+> 这种方式**同时兼容**两种场景：
+> - 干净库：固定 id 走 `INSERT IGNORE` 成功，按名查询得到正确 id
+> - 生产克隆库：固定 id 1/2 已被占用（总经办/人力资源部），按名兜底新增 `id=901 销售部`，
+>   原数据完全不被破坏
+>
+> **验证（双场景零库均通过，2026-09-12）**：
+>
+> | 场景 | 操作 | 结论 |
+> |---|---|---|
+> | 1. **结构空库**（`sys_dept=0`） | 跑修复后的两个 seed | ✅ 10/10 断言全绿；用户部门归属全部正确 |
+> | 2. **生产克隆库**（`sys_dept` 已有 id=1总经办/id=2人力资源部） | 跑修复后的两个 seed | ✅ 零错误；`id=1/2` 数据保留；新增 `id=901 销售部`；用户归属正确 |
+> | 3. **反向验证**（结构空库 + 硬编码 dept_id=1） | 用旧写法插 sys_user | ✅ **精准复现** `ERROR 1452 fk_user_dept` 失败 |
+>
+> **回归**：
+> - 前端单测：15 files / 57 tests ✅
+> - 后端 db 测试：6 suites / 78 tests ✅
+> - 验证脚本 `scripts/verify-seeds.sh`：10/10 断言 ✅
+> - E2E（navigation.spec.js）：在跑（见下）
 
 
 ---

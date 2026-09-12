@@ -30,7 +30,40 @@ DEALLOCATE PREPARE guard_stmt;
 -- 且迁移规范（见 112 号迁移注释）明确禁止在脚本中使用 USE —— 它会把执行连接切走，
 -- 导致 `DATABASE()` 守卫形同虚设、并让测试库执行失败。已移除，一律以连接默认库为准。
 
--- ========== 1. 用户数据 ==========
+-- ========== 1. 部门与角色（前置依赖） ==========
+--
+-- 修复说明（2026-09-12，N-04）：
+--   原文件在插入 sys_user 时**硬编码 dept_id = 1 / 2**，隐含假设目标库的 sys_dept
+--   已存在 id=1、2 的记录。但在「结构空库」上（如 CI 基线或本机测试库重建），
+--   sys_dept 为空 → 触发外键 `fk_user_dept` 失败：ERROR 1452。
+--   经核实，本仓库**没有任何脚本或迁移**会创建这两个部门：
+--     · seed_test_data.sql 第 21-22 行是 `SELECT ... FROM sys_dept` 自复制，空库上等于空操作；
+--     · deploy/init-complete.sql 只建表结构，不含 sys_dept 的 INSERT；
+--     · migrations 中亦无 sys_dept 的种子语句。
+--   即：该 seed 此前**只在「已从生产克隆的库」上可用**，在干净库上必然失败。
+--
+--   修法（照 database/seeds/demo_roles.sql 的既定模式）：
+--     ① 本 seed 自带所需部门，用 `INSERT IGNORE` 固定 id + 按名称兜底补插；
+--     ② 后续一律用 `@变量`（按名称查 id）引用，**不再硬编码任何数字 id**。
+--   这样既兼容已有的生产克隆库（部门已存在），也能在结构空库上独立跑通。
+INSERT IGNORE INTO sys_dept (id, name, parent_id, sort, create_time)
+VALUES (1, '总经办', 0, 1, NOW()),
+       (2, '销售部', 0, 2, NOW());
+
+-- 兜底：若上述固定 id 已被占用但名称不同，按名称补插（与其他 seed 的幂等策略一致）
+INSERT INTO sys_dept (name, parent_id, sort, create_time)
+SELECT '总经办', 0, 1, NOW()
+WHERE NOT EXISTS (SELECT 1 FROM sys_dept WHERE name = '总经办');
+INSERT INTO sys_dept (name, parent_id, sort, create_time)
+SELECT '销售部', 0, 2, NOW()
+WHERE NOT EXISTS (SELECT 1 FROM sys_dept WHERE name = '销售部');
+
+-- 按名称解析部门 id（不依赖具体数字）。
+-- 说明：总经办承载「老板」，销售部承载「销售经理 + 一线销售」——
+--   原写法把经理与销售统一挂到 id=2（生产库中是「人力资源部」），语义错误；
+--   此处改为语义正确的「销售部」。
+SET @boss_dept_id = (SELECT id FROM sys_dept WHERE name = '总经办' ORDER BY id LIMIT 1);
+SET @sales_dept_id = (SELECT id FROM sys_dept WHERE name = '销售部' ORDER BY id LIMIT 1);
 
 -- 确保角色存在（如果迁移脚本未执行，这里补执行）
 INSERT IGNORE INTO sys_role (name, code, description, status, view_all, manage_all)
@@ -43,12 +76,12 @@ SET @sales_role_id = (SELECT id FROM sys_role WHERE code = 'sales');
 
 -- 插入老板用户 (密码: Huakey@Test2026!)
 INSERT INTO sys_user (username, password, real_name, phone, email, dept_id, role_id, status, manager_id)
-SELECT 'boss', '$2b$10$Mn3PAECbK/GLl3Lm8WrveOoi0he.a0XWx5vYf0JO4vYSCGs/mwz5S', '王老板', '13900000001', 'boss@huakey.com', 1, @boss_role_id, 1, NULL
+SELECT 'boss', '$2b$10$Mn3PAECbK/GLl3Lm8WrveOoi0he.a0XWx5vYf0JO4vYSCGs/mwz5S', '王老板', '13900000001', 'boss@huakey.com', @boss_dept_id, @boss_role_id, 1, NULL
 WHERE NOT EXISTS (SELECT 1 FROM sys_user WHERE username = 'boss');
 
 -- 插入销售经理 (密码: Huakey@Test2026!)
 INSERT INTO sys_user (username, password, real_name, phone, email, dept_id, role_id, status, manager_id)
-SELECT 'manager_zhang', '$2b$10$Mn3PAECbK/GLl3Lm8WrveOoi0he.a0XWx5vYf0JO4vYSCGs/mwz5S', '张经理', '13900000002', 'zhang@huakey.com', 2, @manager_role_id, 1, (SELECT id FROM sys_user WHERE username = 'boss')
+SELECT 'manager_zhang', '$2b$10$Mn3PAECbK/GLl3Lm8WrveOoi0he.a0XWx5vYf0JO4vYSCGs/mwz5S', '张经理', '13900000002', 'zhang@huakey.com', @sales_dept_id, @manager_role_id, 1, (SELECT id FROM sys_user WHERE username = 'boss')
 WHERE NOT EXISTS (SELECT 1 FROM sys_user WHERE username = 'manager_zhang');
 
 -- 获取老板ID
@@ -57,10 +90,10 @@ SET @manager_id = (SELECT id FROM sys_user WHERE username = 'manager_zhang');
 
 -- 插入销售人员（密码: Huakey@Test2026!）
 INSERT INTO sys_user (username, password, real_name, phone, email, dept_id, role_id, status, manager_id) VALUES
-('sales_wang', '$2b$10$Mn3PAECbK/GLl3Lm8WrveOoi0he.a0XWx5vYf0JO4vYSCGs/mwz5S', '王销售', '13900000010', 'wang_sales@huakey.com', 2, @sales_role_id, 1, @manager_id),
-('sales_li', '$2b$10$Mn3PAECbK/GLl3Lm8WrveOoi0he.a0XWx5vYf0JO4vYSCGs/mwz5S', '李销售', '13900000011', 'li_sales@huakey.com', 2, @sales_role_id, 1, @manager_id),
-('sales_zhao', '$2b$10$Mn3PAECbK/GLl3Lm8WrveOoi0he.a0XWx5vYf0JO4vYSCGs/mwz5S', '赵销售', '13900000012', 'zhao_sales@huakey.com', 2, @sales_role_id, 1, @manager_id),
-('sales_chen', '$2b$10$Mn3PAECbK/GLl3Lm8WrveOoi0he.a0XWx5vYf0JO4vYSCGs/mwz5S', '陈销售', '13900000013', 'chen_sales@huakey.com', 2, @sales_role_id, 1, @manager_id)
+('sales_wang', '$2b$10$Mn3PAECbK/GLl3Lm8WrveOoi0he.a0XWx5vYf0JO4vYSCGs/mwz5S', '王销售', '13900000010', 'wang_sales@huakey.com', @sales_dept_id, @sales_role_id, 1, @manager_id),
+('sales_li', '$2b$10$Mn3PAECbK/GLl3Lm8WrveOoi0he.a0XWx5vYf0JO4vYSCGs/mwz5S', '李销售', '13900000011', 'li_sales@huakey.com', @sales_dept_id, @sales_role_id, 1, @manager_id),
+('sales_zhao', '$2b$10$Mn3PAECbK/GLl3Lm8WrveOoi0he.a0XWx5vYf0JO4vYSCGs/mwz5S', '赵销售', '13900000012', 'zhao_sales@huakey.com', @sales_dept_id, @sales_role_id, 1, @manager_id),
+('sales_chen', '$2b$10$Mn3PAECbK/GLl3Lm8WrveOoi0he.a0XWx5vYf0JO4vYSCGs/mwz5S', '陈销售', '13900000013', 'chen_sales@huakey.com', @sales_dept_id, @sales_role_id, 1, @manager_id)
 ON DUPLICATE KEY UPDATE real_name = VALUES(real_name);
 
 -- 获取销售ID
@@ -275,3 +308,12 @@ SELECT '=== business_status 分布（应无意外堆积在 lead）===' AS info;
 SELECT business_status, pool_status, COUNT(*) AS cnt
 FROM crm_customer WHERE deleted_at IS NULL
 GROUP BY business_status, pool_status ORDER BY business_status;
+
+-- 部门归属自检（2026-09-12 新增，N-04）：确认本 seed 插入的用户都挂到了解析出的部门上，
+-- 且部门确实存在（dept_id 为 NULL 说明部门未解析成功，需检查上面的兜底段）。
+SELECT '=== 测试用户部门归属（dept_id 不应为 NULL）===' AS info;
+SELECT u.username, u.real_name, u.dept_id, d.name AS dept_name
+FROM sys_user u
+LEFT JOIN sys_dept d ON u.dept_id = d.id
+WHERE u.username IN ('boss', 'manager_zhang', 'sales_wang', 'sales_li', 'sales_zhao', 'sales_chen')
+ORDER BY u.username;

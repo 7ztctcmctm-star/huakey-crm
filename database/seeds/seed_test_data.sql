@@ -11,7 +11,17 @@ SET @db_safe = (DATABASE() LIKE '%test%' OR DATABASE() LIKE '%dev%');
 SET @guard_sql = IF(@db_safe, 'SELECT 1', 'SELECT `ABORT__NOT_A_TEST_DATABASE`');
 PREPARE guard_stmt FROM @guard_sql; EXECUTE guard_stmt; DEALLOCATE PREPARE guard_stmt;
 
-USE huakey_crm;
+-- ⚠️ 修复说明（2026-09-12，N-04 关联）：
+--   原文件此处为 `USE huakey_crm;` —— 它会**把执行连接无条件切到生产库**，
+--   使上一行的守卫彻底失效（守卫检查的是切换前的库名），且后续所有语句
+--   都会作用到 `huakey_crm` 上。这既违反迁移规范（禁止脚本内 USE，见 112 号迁移注释），
+--   也是真实的数据安全隐患。已移除，一律以连接默认库为准。
+--
+--   连带说明：「INSERT IGNORE ... SELECT ... FROM <同一张表>」（下方 sys_role /
+--   sys_dept / sys_config / sys_permission / sys_role_permission 各段）是从生产库
+--   自复制的写法，在「结构空库」上等于空操作，无法提供种子数据。
+--   `test_data_modules.sql` 因此已改为**自带**所需部门/角色（见该文件 §1）。
+--   本文件保留原意（从既有库复制配置），但不再擅自切换数据库。
 
 -- 角色数据（当前 schema 使用 name 而非 role_name）
 INSERT IGNORE INTO sys_role (id, name, code, description, view_all, manage_all, status, create_time)

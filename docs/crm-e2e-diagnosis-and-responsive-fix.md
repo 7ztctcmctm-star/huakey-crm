@@ -531,7 +531,7 @@ DEALLOCATE PREPARE guard_stmt;
 
 | 编号 | 事项 | 处置 |
 |---|---|---|
-| N-04 | `test_data_modules.sql` 硬编码 `dept_id=1/2`，依赖 `sys_dept` 预置数据 | 已登记。本次未改（属 seed 设计问题，且不影响本次修复目标）；建议后续让该 seed 自带 `INSERT IGNORE INTO sys_dept` |
+| N-04 | ~~`test_data_modules.sql` 硬编码 `dept_id=1/2`~~ | **✅ 已闭环（2026-09-12）**：seed 自带部门（`总经办/销售部`）+ 按名解析 + `seed_test_data.sql` 移除危险的 `USE huakey_crm;`。结构空库与生产克隆库双场景实测通过，10/10 断言绿；详见 `docs/DEMO_DATA_AUDIT.md` §七 N-04 段 |
 
 ### 11.9 CI 触发条件核查：为什么 N-02 只能靠合并 main 闭环（2026-09-12）
 

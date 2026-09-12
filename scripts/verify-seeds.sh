@@ -103,16 +103,15 @@ fi
 
 echo ""
 echo "=== 二、按真实顺序执行 seed ==="
-# 前置：test_data_modules.sql 硬编码 dept_id=1/2，隐含要求 sys_dept 预置数据
-# （seed_test_data.sql 的 `INSERT IGNORE INTO sys_dept SELECT ... FROM sys_dept` 是
-#  从源库自复制，在结构空库上等于空操作 —— 见 N-04）。
-# 这里补上最小部门数据，否则外键 fk_user_dept 会让 3 条 sys_user 插入失败，
-# 进而使 @sales_*_id 为 NULL、客户数据全部无法插入。
-DEPT_CNT=$(my -N -B -e "SELECT COUNT(*) FROM $TMP_DB.sys_dept")
-if [ "${DEPT_CNT:-0}" -eq 0 ]; then
-  my "$TMP_DB" -e "INSERT IGNORE INTO sys_dept (id,name,parent_id,sort,create_time) VALUES (1,'总经办',0,1,NOW()),(2,'销售部',0,2,NOW());"
-  echo "ℹ️  sys_dept 为空，已补入 id=1/2（N-04 前置条件）"
-fi
+# N-04 已修复（2026-09-12）：test_data_modules.sql 现在**自带** sys_dept 数据
+# （INSERT IGNORE 固定 id + 按名兜底），并用 @变量按名称解析 dept_id，
+# 不再硬编码 1/2，也不需要调用方预置部门数据。
+#
+# 因此这里**刻意不再做任何前置补齐** —— 让结构空库保持「空」的状态直接跑 seed。
+# 这既是对 N-04 修复效果的验证（下方 §三 有对应断言），
+# 也保证脚本能真实复现「干净库上 seed 是否可用」这一场景。
+DEPT_BEFORE=$(my -N -B -e "SELECT COUNT(*) FROM \`$TMP_DB\`.sys_dept")
+echo "ℹ️  执行前 sys_dept 行数 = $DEPT_BEFORE（应为 0，即结构空库；由 seed 自行兜底）"
 
 for f in database/seeds/seed_test_data.sql database/seeds/test_data_modules.sql; do
   [ -f "$ROOT/$f" ] || { echo "⚠️  跳过（不存在）: $f"; continue; }
@@ -157,6 +156,16 @@ assert "逾期提醒条数（>0 证明 WHERE 修复生效）" \
   "SELECT COUNT(*) > 0 FROM crm_follow_up_reminder" "1"
 assert "110 号对账漂移行数（必须 0）" \
   "SELECT COUNT(*) FROM crm_customer WHERE deleted_at IS NULL AND ((status IN ('lead','following','quoted','negotiating','signed','lost') AND business_status <> status) OR (status IN ('sea','paused') AND business_status='lead'))" "0"
+
+# ── N-04 专项断言（2026-09-12）：seed 必须在结构空库上自带部门并正确解析 dept_id ──
+assert "N-04 部门由 seed 自带（总经办/销售部）" \
+  "SELECT COUNT(*) FROM sys_dept WHERE name IN ('总经办','销售部')" "2"
+assert "N-04 测试用户 dept_id 均非 NULL（外键不再失败）" \
+  "SELECT COUNT(*) FROM sys_user WHERE username IN ('boss','manager_zhang','sales_wang','sales_li','sales_zhao','sales_chen') AND dept_id IS NULL" "0"
+assert "N-04 老板归属「总经办」" \
+  "SELECT COUNT(*) FROM sys_user u JOIN sys_dept d ON u.dept_id=d.id WHERE u.username='boss' AND d.name='总经办'" "1"
+assert "N-04 经理与销售归属「销售部」" \
+  "SELECT COUNT(*) FROM sys_user u JOIN sys_dept d ON u.dept_id=d.id WHERE u.username IN ('manager_zhang','sales_wang','sales_li','sales_zhao','sales_chen') AND d.name='销售部'" "5"
 
 echo ""
 echo "=== 四、结果 ==="
