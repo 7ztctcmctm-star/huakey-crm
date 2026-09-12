@@ -533,7 +533,117 @@ DEALLOCATE PREPARE guard_stmt;
 |---|---|---|
 | N-04 | `test_data_modules.sql` 硬编码 `dept_id=1/2`，依赖 `sys_dept` 预置数据 | 已登记。本次未改（属 seed 设计问题，且不影响本次修复目标）；建议后续让该 seed 自带 `INSERT IGNORE INTO sys_dept` |
 
+### 11.9 CI 触发条件核查：为什么 N-02 只能靠合并 main 闭环（2026-09-12）
+
+推送 `580f7aa` 后本拟以 PR 触发 CI 验证 `navigation.spec.js`，核查 `.github/workflows/ci.yml` 后发现**此路不通**：
+
+```yaml
+e2e-test:
+  if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+```
+
+| 作业 | push main | PR → main | 跑的是 |
+|---|---|---|---|
+| `e2e-test`（含 `navigation.spec.js`） | ✅ | ❌ **跳过** | Playwright chromium |
+| `integration-test` | ✅ | ✅ | `backend/tests/e2e/`（**jest**，非 Playwright） |
+
+⇒ **PR 无法验证 `navigation.spec.js`**；该断言只在提交进入 `main` 后才被执行。
+N-02 的唯一闭环路径是合并到 `main`，没有第二条。
+
+**顺带核查到的历史事实**：`main` 在 `7620c2c`（2026-09-12 03:10 UTC）的 CI **已 success** ——
+此前连续 6 次 failure 的主线（`2026-09-11T09:11` 起）由此终结。
+即**数据层根因修复（`7620c2c`）已在真实 CI 上验证通过**；尚待验证的是断言层（`580f7aa`）。
+
+### 11.10 本机测试库「落后于 CI 基线」的诊断（2026-09-12）
+
+在本地跑 `npm test` 时出现 3 个 `tests/db/*` suite 失败，逐一核实后**全部判定为环境问题，非代码缺陷**：
+
+| suite | 表面症状 | 真因 | 判定 |
+|---|---|---|---|
+| `customerListBusinessStatus` | `Access denied for user 'root'@'localhost'` | 未注入 `DB_PASSWORD`（默认空密码） | 环境 |
+| `customerListSoftDelete` | 同上 | 同上 | 环境 |
+| `contactSinglePrimary` | 唯一约束未生效，`rejects.toThrow()` 失败 | 本机库**未执行迁移 113**，且数据脏 | 环境 |
+
+**注入正确凭据后复跑**：11 个用例 **8 通过**，前两个 suite 全绿 —— 确认与代码无关。
+
+#### 11.10.1 `contactSinglePrimary` 为何在 CI 上会通过
+
+本机 `huakey_crm_test` 的 `schema_migrations` **只到 110**，缺 113；且
+`idx_contact_primary` 是**普通索引**（`Non_unique=1`），迁移 113 要求的函数式唯一索引不存在。
+
+而以**全新空库**复现 CI 完整建库流程（`init-complete.sql` → `ci-missing-tables.sql`）后实测：
+
+```
+uk_contact_primary_per_customer  Non_unique=0
+Expression: if(((`is_primary` = 1) and (`deleted_at` is null)),`customer_id`,NULL)
+```
+
+⇒ **约束成功创建**（`ci-missing-tables.sql:273-284` 已含 113 的补丁，表达式与迁移 113 一致）。
+CI 的库从空库建起、无历史脏数据，不会遇到下述冲突。**结论：CI 上该 suite 通过。**
+
+#### 11.10.2 新发现 N-05：`ci-missing-tables.sql` 的静默失败模式
+
+在**既有数据的库**上应用 `ci-missing-tables.sql` 时，113 段的
+`PREPARE`/`EXECUTE` 遇 `ERROR 1062 Duplicate entry` **不会中止脚本**，
+也不会在输出中留下显眼提示 —— 实测该段执行后**索引并未创建**，但脚本继续往下跑。
+
+根因是数据本身违反即将建立的不变量（本机 `huakey_crm_test` 中客户 11–15 **各有 2 个主联系人**）。
+
+| 编号 | 事项 | 影响 | 处置 |
+|---|---|---|---|
+| N-05 | `ci-missing-tables.sql` 建唯一约束时若遇脏数据，错误被静默吞掉、脚本继续 | **CI 无影响**（库为空）；但任何在**既有数据**上复刻此基线的场景会得到「看起来成功、实际缺约束」的库 | 已登记。建议为 `PREPARE`/`EXECUTE` 段补失败检测（用 `SHOW WARNINGS` 或前置数据校验断言） |
+
+> ⚠️ 该模式与 §11.8.1 的 seed 守卫同源：**都是「多语句 SQL 中断言无法生效」的变体**。
+> 两者合起来说明本项目在 `.sql` 脚本层缺乏统一的失败传播机制 —— 值得列入后续基建议题。
+
+### 11.11 N-02 闭环：`navigation.spec.js` 本机真实 E2E 全绿（2026-09-12）
+
+原登记「未在真实 CI 跑通」。鉴于 §11.9 已证明 **PR 无法触发 `e2e-test`**，
+本轮改为**在本机复刻 CI 的完整链路**直接验证，不再被动等待 CI。
+
+**环境**：真实 chromium + 真实 MySQL + 真实后端（`start-e2e-server.mjs` 克隆库 → 跑迁移 → seed）
+**命令**：`npx playwright test e2e/navigation.spec.js --project=chromium --retries=0 --workers=1`
+
+**结果：5 / 5 全部通过** ✅
+
+```
+ok 1 [chromium] › 登录后应能看到侧边栏菜单         (3.7s)
+ok 2 [chromium] › 客户列表页应能正常加载           (3.5s)   ← 连续 5 次红灯的用例
+ok 3 [chromium] › 商机管理页应能正常加载           (2.6s)
+ok 4 [chromium] › 产品管理页应能正常加载           (2.5s)
+ok 5 [chromium] › 404 页面应正常显示               (1.4s)
+```
+
+⇒ 本轮修改的三处断言（客户 / 商机 / 产品，均改用常量 `LIST_LOADED`）**在真实浏览器中全部生效**，
+N-02 由「未验证」转为「**已实测通过（本机环境）**」。
+
+**对照凭证**（排除「假绿」）：以相同 cookie 会话独立探测各页面真实 DOM，确认选择器确有产出者：
+
+| 页面 | `.el-table` | `.empty-state` | `.table-skeleton` | 控制台错误 |
+|---|---|---|---|---|
+| `/opportunity` | 1 | 1 | 0 | 无 |
+
+#### 11.11.1 踩坑记录：一次「假失败」的排除过程
+
+首次执行（未预先保活 server）时出现 5 个用例全红，报错为
+`apiRequestContext.get: Request context disposed. → GET /api/v1/auth/captcha` —— **登录前置即失败**。
+另有单条用例 3 失败（`.el-table, .empty-state` 均未找到）。
+
+经排查两者**均为环境问题，与断言修正无关**：
+
+| 现象 | 真因 | 证据 |
+|---|---|---|
+| 5 用例全红于 captcha | bash 工具调用结束时**子进程被回收**，`webServer` 起的后端随之死亡 | `curl` 报 `502 upstream connect failed (os error 10061)`；日志停在「启动成功」后无崩溃信息 |
+| 用例 3 超时找不到元素 | 同一时刻后端失联导致的连锁；且 worker 未能退出（被 force-kill） | 独立探测 `/opportunity` 得 `.el-table=1`、`.empty-state=1`、**0 控制台错误** |
+
+**处置**：改用**托管后台模式**启动 server（进程不被回收）并持续保活，重跑即 5/5 全绿。
+
+> **可复用结论**：本机跑 Playwright E2E 时，`webServer` 所依赖的后端子进程必须
+> 用不会随命令结束而被回收的方式启动；否则会出现「全用例红在登录前置」这类
+> **看起来像产品缺陷、实为进程回收**的假失败。判据：`/api/v1/auth/captcha` 直连返回 502 且后端日志无崩溃栈。
+
 ---
 
 *报告由 David 出具 · 2026-09-10 · 含一次公开的自我纠错（§9.1）*
 *§11 追加于 2026-09-12*
+*§11.9 / §11.10 / §11.11 追加于 2026-09-12（推送成功后）*
