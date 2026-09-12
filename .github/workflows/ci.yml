@@ -100,6 +100,22 @@ jobs:
           echo "Applying post-dump schema changes (missing tables + DDL from migrations 056-092)..."
           sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/ci-missing-tables.sql | \
           docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
+          echo "Verifying N-05: 92 invariants (列/索引/唯一键) after ci-missing-tables.sql..."
+          sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/ci-missing-tables-verify.sql | \
+          docker exec -i ci-mysql mysql --batch -u root -ptest_root_pass huakey_crm_test > /tmp/n05-verify.tsv
+          N05_RC=$?
+          if [ $N05_RC -ne 0 ]; then
+            echo "✗ N-05 verify FAILED (mysql client exit $N05_RC)"
+            cat /tmp/n05-verify.tsv
+            exit 1
+          fi
+          # 即使 mysql client 退 0,也要靠 N-05_FINAL 行 grep 二次确认
+          if grep -q '^N-05 FAIL' /tmp/n05-verify.tsv; then
+            echo "✗ N-05 verify FAILED (see N-05_FINAL above)"
+            cat /tmp/n05-verify.tsv
+            exit 1
+          fi
+          echo "✓ N-05 verify: 92/92 invariants satisfied"
           echo "Creating CI test users (from .github/ci/test-users.sql)..."
           sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" .github/ci/test-users.sql | \
           docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
@@ -145,6 +161,22 @@ jobs:
           echo "Applying post-dump schema changes (missing tables + DDL from migrations 056-092)..."
           sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/ci-missing-tables.sql | \
           docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
+          echo "Verifying N-05: 92 invariants (列/索引/唯一键) after ci-missing-tables.sql..."
+          sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/ci-missing-tables-verify.sql | \
+          docker exec -i ci-mysql mysql --batch -u root -ptest_root_pass huakey_crm_test > /tmp/n05-verify.tsv
+          N05_RC=$?
+          if [ $N05_RC -ne 0 ]; then
+            echo "✗ N-05 verify FAILED (mysql client exit $N05_RC)"
+            cat /tmp/n05-verify.tsv
+            exit 1
+          fi
+          # 即使 mysql client 退 0,也要靠 N-05_FINAL 行 grep 二次确认
+          if grep -q '^N-05 FAIL' /tmp/n05-verify.tsv; then
+            echo "✗ N-05 verify FAILED (see N-05_FINAL above)"
+            cat /tmp/n05-verify.tsv
+            exit 1
+          fi
+          echo "✓ N-05 verify: 92/92 invariants satisfied"
           echo "Creating CI test users (from .github/ci/test-users.sql)..."
           sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" .github/ci/test-users.sql | \
           docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
@@ -210,6 +242,22 @@ jobs:
           echo "Applying post-dump schema changes (missing tables + DDL from migrations 056-092)..."
           sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/ci-missing-tables.sql | \
           docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
+          echo "Verifying N-05: 92 invariants (列/索引/唯一键) after ci-missing-tables.sql..."
+          sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/ci-missing-tables-verify.sql | \
+          docker exec -i ci-mysql mysql --batch -u root -ptest_root_pass huakey_crm_test > /tmp/n05-verify.tsv
+          N05_RC=$?
+          if [ $N05_RC -ne 0 ]; then
+            echo "✗ N-05 verify FAILED (mysql client exit $N05_RC)"
+            cat /tmp/n05-verify.tsv
+            exit 1
+          fi
+          # 即使 mysql client 退 0,也要靠 N-05_FINAL 行 grep 二次确认
+          if grep -q '^N-05 FAIL' /tmp/n05-verify.tsv; then
+            echo "✗ N-05 verify FAILED (see N-05_FINAL above)"
+            cat /tmp/n05-verify.tsv
+            exit 1
+          fi
+          echo "✓ N-05 verify: 92/92 invariants satisfied"
           echo "Creating CI test users (from .github/ci/test-users.sql)..."
           sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" .github/ci/test-users.sql | \
           docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
@@ -272,6 +320,22 @@ jobs:
           echo "Applying post-dump schema changes (missing tables + DDL from migrations 056-092)..."
           sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/ci-missing-tables.sql | \
           docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
+          echo "Verifying N-05: 92 invariants (列/索引/唯一键) after ci-missing-tables.sql..."
+          sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/ci-missing-tables-verify.sql | \
+          docker exec -i ci-mysql mysql --batch -u root -ptest_root_pass huakey_crm_test > /tmp/n05-verify.tsv
+          N05_RC=$?
+          if [ $N05_RC -ne 0 ]; then
+            echo "✗ N-05 verify FAILED (mysql client exit $N05_RC)"
+            cat /tmp/n05-verify.tsv
+            exit 1
+          fi
+          # 即使 mysql client 退 0,也要靠 N-05_FINAL 行 grep 二次确认
+          if grep -q '^N-05 FAIL' /tmp/n05-verify.tsv; then
+            echo "✗ N-05 verify FAILED (see N-05_FINAL above)"
+            cat /tmp/n05-verify.tsv
+            exit 1
+          fi
+          echo "✓ N-05 verify: 92/92 invariants satisfied"
           echo "Creating CI test users (from .github/ci/test-users.sql)..."
           sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" .github/ci/test-users.sql | \
           docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
