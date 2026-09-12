@@ -642,8 +642,39 @@ N-02 由「未验证」转为「**已实测通过（本机环境）**」。
 > 用不会随命令结束而被回收的方式启动；否则会出现「全用例红在登录前置」这类
 > **看起来像产品缺陷、实为进程回收**的假失败。判据：`/api/v1/auth/captcha` 直连返回 502 且后端日志无崩溃栈。
 
+### 11.12 N-02 最终闭环：真实 CI 全绿（2026-09-12）
+
+按 §11.9 得出的唯一路径，将工作线合并入 `main`（`origin/main` 当时为 `5a0787b`，
+本分支为纯领先，fast-forward、零冲突），推送后 CI 于 `d28553f` 全量执行。
+
+**CI run 结论：`success`** —— **8 success / 0 失败 / 1 skipped**
+
+| job | 结果 |
+|---|---|
+| backend-test | ✅ success |
+| frontend-test | ✅ success |
+| frontend-build | ✅ success |
+| integration-test | ✅ success |
+| migration-test | ✅ success |
+| image-scan | ✅ success |
+| security-scan | ✅ success |
+| **e2e-test（含 `navigation.spec.js`）** | ✅ **success** |
+| cross-browser-test | ⏭ skipped（设计上仅定时/手动触发，属正常） |
+
+⇒ `navigation.spec.js` **在真实 CI 环境（Linux + Docker MySQL + Playwright chromium）通过**。
+
+**N-02 至此完全闭环 —— 本机与 CI 双重验证：**
+
+| 环境 | 结果 | 出处 |
+|---|---|---|
+| 本机（Windows + chromium + 本机 MySQL） | ✅ **5/5 全绿** | §11.11 |
+| CI（ubuntu + Docker MySQL + chromium） | ✅ **job success** | §11.12 |
+
+> 本次合并同时把 09-11~09-12 的整条工作线（29 个提交，含迁移 113、依赖 CVE 升级、
+> CI 建库补丁、26 页 `StateWrapper` 接入等）并入 `main`，全部 job 通过。
+
 ---
 
 *报告由 David 出具 · 2026-09-10 · 含一次公开的自我纠错（§9.1）*
 *§11 追加于 2026-09-12*
-*§11.9 / §11.10 / §11.11 追加于 2026-09-12（推送成功后）*
+*§11.9 – §11.12 追加于 2026-09-12（推送与合并 main 后）*
