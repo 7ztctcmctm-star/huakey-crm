@@ -10,7 +10,7 @@
 -- ------------------------------------------------------------
 INSERT INTO crm_customer
   (company_name, contact_name, phone, email, address, industry, source, level,
-   owner_id, status, customer_type, lifecycle_status, score, remark,
+   owner_id, status, business_status, customer_type, lifecycle_status, score, remark,
    last_follow_time, is_demo, create_time)
 SELECT
   '广东华信汽车零部件有限公司',
@@ -22,6 +22,7 @@ SELECT
   '展会',
   'A',
   (SELECT id FROM sys_user WHERE username = 'demo_sales' LIMIT 1),
+  'signed',
   'signed',
   'customer',
   'active',
