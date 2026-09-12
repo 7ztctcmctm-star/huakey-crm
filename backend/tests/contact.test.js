@@ -62,9 +62,9 @@ describe('客户联系人模块', () => {
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ id: 1 }]]) // customer lookup
-        .mockResolvedValueOnce([[]]) // existing primary contact
-        .mockResolvedValueOnce([{ insertId: 10 }]) // insert contact
-        .mockResolvedValueOnce([{ affectedRows: 1 }]); // update other primary flags
+        .mockResolvedValueOnce([[]]) // existing primary contact (空 → 自动晋升本条为主联系人)
+        .mockResolvedValueOnce([{ affectedRows: 0 }]) // primaryFlag=1 → 先降级（无其他主联系人，0 行受影响）
+        .mockResolvedValueOnce([{ insertId: 10 }]); // insert contact
 
       const res = await request(app)
         .post('/api/v1/customer/contact/add')
