@@ -116,14 +116,22 @@ const overdueMode = ref(route.query.overdue === 'true')
 
 const activeTab = ref('all')
 const handleTabChange = (tab) => {
-  // Phase 3：正式客户页面不再切换 tab，保留接口兼容 CustomerFilter
+  // 状态 tab 是**业务状态**筛选（business_status），与快捷 tab（我的/全部客户）正交。
+  // 历史缺陷：此处只翻页不落参数，用户点「已签约」列表毫无变化（2026-09-12 修复）。
+  // 「全部」= 不传该参数（由后端按正式客户集合兜底），其余按 business_status 过滤。
+  activeTab.value = tab
+  searchForm.business_status = tab === 'all' ? '' : tab
   searchForm.page = 1
   fetchList()
 }
 
+// ⚠️ viewMode 必须与 activeQuickTab 的初值一致。
+// 历史上 activeQuickTab 初值为 'mine'（UI 上「我的客户」被选中），而 viewMode 初值为 'all'，
+// 首屏发出的请求只有分页参数、不带 owner_id —— UI 说是「我的客户」、数据却是全量，
+// 两者长期脱节（2026-09-12 修复，回归测试 frontend/src/tests/unit/views/customerListState.test.js）。
 const viewMode = ref('all')
 const staffFilterId = ref(null)
-const activeQuickTab = ref('mine')
+const activeQuickTab = ref('all')
 const switchViewMode = () => {
   searchForm.page = 1
   fetchList()
@@ -205,6 +213,8 @@ const searchForm = reactive({
   source: '',
   level: '',
   status: '',
+  // 业务状态筛选（状态 tab）：'' = 不传，后端按正式客户集合兜底
+  business_status: '',
   dateRange: [],
   sort: '',
   page: 1,
@@ -294,6 +304,8 @@ const fetchList = async () => {
     if (searchForm.source) params.source = searchForm.source
     if (searchForm.level) params.level = searchForm.level
     if (searchForm.status !== '' && searchForm.status !== null) params.status = searchForm.status
+    // 状态 tab（业务状态）→ business_status。空串不下发（由后端按正式客户集合兜底）。
+    if (searchForm.business_status) params.business_status = searchForm.business_status
     if (searchForm.lifecycle_status) params.lifecycle_status = searchForm.lifecycle_status
     if (searchForm.dateRange && searchForm.dateRange.length === 2) {
       params.start_date = searchForm.dateRange[0]
