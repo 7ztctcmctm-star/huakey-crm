@@ -4,6 +4,7 @@
 
 const assignService = require('../../services/assignService');
 const { CUSTOMER_STATUS } = require('../../constants/customerStatus');
+const { BUSINESS_STATUS } = require('../../constants/poolStatus');
 
 function createMockPool() {
   return { query: jest.fn(), getConnection: jest.fn() };
@@ -200,7 +201,7 @@ describe('assignService', () => {
       expect(pool.query.mock.calls[1][0]).not.toContain(', status = ?');
     });
 
-    it('回收时(pool_status=1)应更新状态为 sea', async () => {
+    it('回收时(pool_status=1)应更新状态为 sea 并同步 business_status=following', async () => {
       const pool = createMockPool();
       pool.query
         .mockResolvedValueOnce([[{ id: 1, owner_id: 2, company_name: 'A' }]])
@@ -209,8 +210,12 @@ describe('assignService', () => {
 
       const result = await assignService.manualAssign(pool, 1, null, 3, 'r');
       expect(result.message).toBe('已回收为待分配');
+      const updateSql = pool.query.mock.calls[1][0];
       const updateParams = pool.query.mock.calls[1][1];
+      expect(updateSql).toContain('status = ?');
+      expect(updateSql).toContain('business_status = ?');
       expect(updateParams).toContain(CUSTOMER_STATUS.SEA);
+      expect(updateParams).toContain(BUSINESS_STATUS.FOLLOWING);
     });
   });
 
@@ -230,7 +235,7 @@ describe('assignService', () => {
       expect(conn.commit).toHaveBeenCalled();
     });
 
-    it('回收时应更新状态', async () => {
+    it('回收时应更新状态并同步 business_status', async () => {
       const pool = createMockPool();
       const conn = createMockConn();
       conn.query
@@ -240,7 +245,12 @@ describe('assignService', () => {
       pool.getConnection.mockResolvedValue(conn);
 
       await assignService.batchAssign(pool, [1], null, 3, 'r');
-      expect(conn.query.mock.calls[1][0]).toContain('status = ?');
+      const updateSql = conn.query.mock.calls[1][0];
+      const updateParams = conn.query.mock.calls[1][1];
+      expect(updateSql).toContain('status = ?');
+      expect(updateSql).toContain('business_status = ?');
+      expect(updateParams).toContain(CUSTOMER_STATUS.SEA);
+      expect(updateParams).toContain(BUSINESS_STATUS.FOLLOWING);
     });
 
     it('异常时应回滚', async () => {

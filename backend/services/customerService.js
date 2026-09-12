@@ -1272,5 +1272,7 @@ module.exports = {
   // Phase 2: 三业务操作
   convertLeadToCustomer,
   releaseCustomerToPool,
-  claimPoolCustomer
+  claimPoolCustomer,
+  // 工具函数
+  mapStatusToBusinessStatus
 };

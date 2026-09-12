@@ -4,7 +4,7 @@
  */
 
 const { CUSTOMER_STATUS } = require('../constants/customerStatus');
-const { POOL_STATUS } = require('../constants/poolStatus');
+const { POOL_STATUS, BUSINESS_STATUS } = require('../constants/poolStatus');
 
 // ========== 分配规则 ==========
 
@@ -207,8 +207,9 @@ async function manualAssign(pool, customerId, toUserId, operatorId, remark) {
   let updateSql = 'UPDATE crm_customer SET owner_id = ?, pool_status = ?, protect_until = NULL';
   const updateParams = [toUserIdValue, poolStatus];
   if (!toUserIdValue) {
-    updateSql += ', status = ?';
-    updateParams.push(CUSTOMER_STATUS.SEA);
+    // 回收至公海：status='sea' 映射为 business_status='following'（business_status 枚举不含 sea）
+    updateSql += ', status = ?, business_status = ?';
+    updateParams.push(CUSTOMER_STATUS.SEA, BUSINESS_STATUS.FOLLOWING);
   }
   updateSql += ' WHERE id = ?';
   updateParams.push(customerId);
@@ -246,8 +247,9 @@ async function batchAssign(pool, customerIds, toUserId, operatorId, remark) {
       let updateSql = 'UPDATE crm_customer SET owner_id = ?, pool_status = ?, protect_until = NULL';
       const updateParams = [toUserId, poolStatus];
       if (!toUserId) {
-        updateSql += ', status = ?';
-        updateParams.push(CUSTOMER_STATUS.SEA);
+        // 回收至公海：status='sea' 映射为 business_status='following'
+        updateSql += ', status = ?, business_status = ?';
+        updateParams.push(CUSTOMER_STATUS.SEA, BUSINESS_STATUS.FOLLOWING);
       }
       updateSql += ' WHERE id = ?';
       updateParams.push(customerId);
