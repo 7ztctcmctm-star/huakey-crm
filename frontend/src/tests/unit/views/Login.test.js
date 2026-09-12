@@ -16,8 +16,11 @@ const globalStubs = {
       'el-input': { template: '<input />', props: ['modelValue'] },
       'el-button': { template: '<button><slot /></button>' },
       'el-checkbox': { template: '<input type="checkbox" />', props: ['modelValue'] },
+      'el-icon': true,
       User: true,
-      Lock: true
+      Lock: true,
+      CircleCheck: true,
+      CircleClose: true
     }
   }
 }
