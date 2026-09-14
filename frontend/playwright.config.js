@@ -34,7 +34,23 @@ loadEnvTest()
 
 export default defineConfig({
   testDir: './e2e',
-  timeout: 30000,
+  // ------------------------------------------------------------
+  // CI 并行度与超时（2026-09-14 修复间歇性 flaky）
+  // ------------------------------------------------------------
+  // 根因：CI 里 Playwright 默认按 CPU 派生 worker（GitHub 4 vCPU → 2 workers），
+  //   两个 spec 同时共享「同一个后端 + 同一个 MySQL 库 + 同一个 Vite dev server」，
+  //   造成两类问题：
+  //     1) 数据串扰：A 用例断言列表非空时，B 用例正在增删同一批数据
+  //        （前科：50f9b4c「商机阶段用例 flaky —— 根因是借用了其它并行用例的临时客户」）
+  //     2) 资源竞争：并发请求拖慢每步响应，用例 30s 预算被前置步骤吃满，
+  //        最后一步 action 撞上 "Test timeout of 30000ms exceeded"
+  //   表现：随机用例超时，不同 run 挂不同用例
+  //        （run 119 挂 navigation:16，run 124 挂 approval-flow:130），
+  //        且失败 run 总时长 1.5m > 通过 run 1.0-1.2m。
+  // 处置：CI 强制单 worker 消除串扰；timeout 放宽到 45s 给慢环境余量。
+  //   本机不设 CI 时保持 Playwright 默认并行与 30s，不影响开发体验。
+  workers: process.env.CI ? 1 : undefined,
+  timeout: process.env.CI ? 45000 : 30000,
   retries: 1,
   use: {
     baseURL: 'http://localhost:5173',
