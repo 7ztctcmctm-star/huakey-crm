@@ -10,7 +10,14 @@
 #       每个探测作为 verify 中的一项 invariant。
 #       expected 按段语义判定:
 #         - ADD COL/INDEX/UNIQUE/CREATE INDEX:expected = 1 (段后存在)
-#         - MODIFY (探测含 DATA_TYPE):expected = 0 (段后类型变了)
+#         - MODIFY (探测含 DATA_TYPE):expected = 0 (段后类型改了)
+#
+#       索引类探测(STATISTICS 视图)按"索引存在"判定,用
+#       COUNT(DISTINCT INDEX_NAME)(∈{0,1}),而非 COUNT(*)。
+#       原因:COUNT(*) 数的是**索引列数**,对复合索引(如 071 迁移的
+#             idx_contact_primary(customer_id,is_primary))会得 2,
+#             与段语义"该索引是否存在"不符(ci-missing 自身的守卫也是
+#             IF(@c = 0, 建, 跳过),即 existence 语义)。
 #
 # 用法:
 #   python scripts/build-n05-verify.py
@@ -66,6 +73,8 @@ def render_verify(detections):
 --       单独 docker exec ... mysql < verify.sql 调用,顺序敏感。
 -- 设计原则:每条探测的 expected 取自其段语义:
 --   - ADD COL / ADD INDEX / CREATE INDEX / ADD UNIQUE:expected = 1 (段后存在)
+--     · 索引类(STATISTICS)按**索引是否存在**判定:COUNT(DISTINCT INDEX_NAME)
+--       而非 COUNT(*)（后者数的是索引列数,复合索引会得 2 而误判 FAIL）
 --   - MODIFY (探测含 DATA_TYPE):expected = 0 (段后类型改了)
 -- ============================================================
 
@@ -97,7 +106,8 @@ SELECT IF(@__n05_failed = 0,
 '''
     parts = []
     for tag, view, where, expected in detections:
-        sel = f"(SELECT COUNT(*) FROM information_schema.{view} WHERE {where})"
+        agg = 'COUNT(DISTINCT INDEX_NAME)' if view == 'STATISTICS' else 'COUNT(*)'
+        sel = f"(SELECT {agg} FROM information_schema.{view} WHERE {where})"
         parts.append(
             f"  SELECT '@{tag}' AS tag, {sel} AS actual, "
             f"{expected} AS expected, IF({sel} = {expected}, 1, 0) AS pass"

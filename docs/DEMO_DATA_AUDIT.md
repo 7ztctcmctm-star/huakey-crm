@@ -326,7 +326,7 @@ demo_admin / demo_sales / demo_purchase (用户)
 | `backend/scripts/init_role_permissions.js` | 角色权限初始化 | ✅ 角色补齐参考 |
 | `.github/ci/test-users.sql` | CI 测试用户（admin，密码 huakey123） | 🟡 与 demo 账号体系独立 |
 | `frontend/e2e/fixtures/api-helpers.js` | E2E 默认账号（E2E_USERNAME/E2E_PASSWORD env） | ✅ 已支持 env，需补 .env.test |
-| `deploy/init-complete.sql` | 生产初始化 DDL+DML（含 admin 用户） | ✅ schema 基线 |
+| `deploy/init-complete.sql` | 结构基线（**仅 DDL，无数据**） | ✅ schema 基线；**2026-09-14 已重建为权威并集终态**（102 表 + 1 视图，见 `docs/n05-ci-missing-tables-verify-fix.md` §七） |
 
 **结论**：现有机制分散，无统一 demo 标识，无环境隔离。需建立标准化 `database/seeds/demo_*.sql` 体系 + `npm run seed:demo` 执行器 + 生产环境保护。
 

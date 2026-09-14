@@ -15,6 +15,8 @@
 --       单独 docker exec ... mysql < verify.sql 调用,顺序敏感。
 -- 设计原则:每条探测的 expected 取自其段语义:
 --   - ADD COL / ADD INDEX / CREATE INDEX / ADD UNIQUE:expected = 1 (段后存在)
+--     · 索引类(STATISTICS)按**索引是否存在**判定:COUNT(DISTINCT INDEX_NAME)
+--       而非 COUNT(*)（后者数的是索引列数,复合索引会得 2 而误判 FAIL）
 --   - MODIFY (探测含 DATA_TYPE):expected = 0 (段后类型改了)
 -- ============================================================
 
@@ -35,7 +37,7 @@ FROM (
   UNION ALL
   SELECT '@col_quote_id' AS tag, (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contract' AND COLUMN_NAME = 'quote_id') AS actual, 1 AS expected, IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contract' AND COLUMN_NAME = 'quote_id') = 1, 1, 0) AS pass
   UNION ALL
-  SELECT '@idx_quote_id' AS tag, (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contract' AND INDEX_NAME = 'idx_contract_quote_id') AS actual, 1 AS expected, IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contract' AND INDEX_NAME = 'idx_contract_quote_id') = 1, 1, 0) AS pass
+  SELECT '@idx_quote_id' AS tag, (SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contract' AND INDEX_NAME = 'idx_contract_quote_id') AS actual, 1 AS expected, IF((SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contract' AND INDEX_NAME = 'idx_contract_quote_id') = 1, 1, 0) AS pass
   UNION ALL
   SELECT '@col_is_plan' AS tag, (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_follow_up' AND COLUMN_NAME = 'is_plan') AS actual, 1 AS expected, IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_follow_up' AND COLUMN_NAME = 'is_plan') = 1, 1, 0) AS pass
   UNION ALL
@@ -51,13 +53,13 @@ FROM (
   UNION ALL
   SELECT '@col_primary' AS tag, (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contact' AND COLUMN_NAME = 'is_primary') AS actual, 1 AS expected, IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contact' AND COLUMN_NAME = 'is_primary') = 1, 1, 0) AS pass
   UNION ALL
-  SELECT '@idx_primary' AS tag, (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contact' AND INDEX_NAME = 'idx_contact_primary') AS actual, 1 AS expected, IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contact' AND INDEX_NAME = 'idx_contact_primary') = 1, 1, 0) AS pass
+  SELECT '@idx_primary' AS tag, (SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contact' AND INDEX_NAME = 'idx_contact_primary') AS actual, 1 AS expected, IF((SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contact' AND INDEX_NAME = 'idx_contact_primary') = 1, 1, 0) AS pass
   UNION ALL
-  SELECT '@uk_primary' AS tag, (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contact' AND INDEX_NAME = 'uk_contact_primary_per_customer') AS actual, 1 AS expected, IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contact' AND INDEX_NAME = 'uk_contact_primary_per_customer') = 1, 1, 0) AS pass
+  SELECT '@uk_primary' AS tag, (SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contact' AND INDEX_NAME = 'uk_contact_primary_per_customer') AS actual, 1 AS expected, IF((SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contact' AND INDEX_NAME = 'uk_contact_primary_per_customer') = 1, 1, 0) AS pass
   UNION ALL
   SELECT '@col_olid' AS tag, (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_customer' AND COLUMN_NAME = 'original_lead_id') AS actual, 1 AS expected, IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_customer' AND COLUMN_NAME = 'original_lead_id') = 1, 1, 0) AS pass
   UNION ALL
-  SELECT '@idx_olid' AS tag, (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_customer' AND INDEX_NAME = 'idx_original_lead_id') AS actual, 1 AS expected, IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_customer' AND INDEX_NAME = 'idx_original_lead_id') = 1, 1, 0) AS pass
+  SELECT '@idx_olid' AS tag, (SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_customer' AND INDEX_NAME = 'idx_original_lead_id') AS actual, 1 AS expected, IF((SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_customer' AND INDEX_NAME = 'idx_original_lead_id') = 1, 1, 0) AS pass
   UNION ALL
   SELECT '@col_mcp' AS tag, (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND COLUMN_NAME = 'must_change_password') AS actual, 1 AS expected, IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND COLUMN_NAME = 'must_change_password') = 1, 1, 0) AS pass
   UNION ALL
@@ -153,9 +155,9 @@ FROM (
   UNION ALL
   SELECT '@c104_2' AS tag, (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_opportunity' AND COLUMN_NAME = 'source_id') AS actual, 1 AS expected, IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_opportunity' AND COLUMN_NAME = 'source_id') = 1, 1, 0) AS pass
   UNION ALL
-  SELECT '@c104_3' AS tag, (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_opportunity' AND INDEX_NAME = 'uk_opportunity_no') AS actual, 1 AS expected, IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_opportunity' AND INDEX_NAME = 'uk_opportunity_no') = 1, 1, 0) AS pass
+  SELECT '@c104_3' AS tag, (SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_opportunity' AND INDEX_NAME = 'uk_opportunity_no') AS actual, 1 AS expected, IF((SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_opportunity' AND INDEX_NAME = 'uk_opportunity_no') = 1, 1, 0) AS pass
   UNION ALL
-  SELECT '@c104_4' AS tag, (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_opportunity' AND INDEX_NAME = 'idx_source_id') AS actual, 1 AS expected, IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_opportunity' AND INDEX_NAME = 'idx_source_id') = 1, 1, 0) AS pass
+  SELECT '@c104_4' AS tag, (SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_opportunity' AND INDEX_NAME = 'idx_source_id') AS actual, 1 AS expected, IF((SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_opportunity' AND INDEX_NAME = 'idx_source_id') = 1, 1, 0) AS pass
   UNION ALL
   SELECT '@c090_1' AS tag, (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_attachment' AND COLUMN_NAME = 'deleted_at') AS actual, 1 AS expected, IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_attachment' AND COLUMN_NAME = 'deleted_at') = 1, 1, 0) AS pass
   UNION ALL
@@ -209,7 +211,7 @@ FROM (
   UNION ALL
   SELECT '@c109' AS tag, (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_follow_up' AND COLUMN_NAME = 'opportunity_id') AS actual, 1 AS expected, IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_follow_up' AND COLUMN_NAME = 'opportunity_id') = 1, 1, 0) AS pass
   UNION ALL
-  SELECT '@i109' AS tag, (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_follow_up' AND INDEX_NAME = 'idx_fu_opportunity') AS actual, 1 AS expected, IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_follow_up' AND INDEX_NAME = 'idx_fu_opportunity') = 1, 1, 0) AS pass
+  SELECT '@i109' AS tag, (SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_follow_up' AND INDEX_NAME = 'idx_fu_opportunity') AS actual, 1 AS expected, IF((SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_follow_up' AND INDEX_NAME = 'idx_fu_opportunity') = 1, 1, 0) AS pass
 ) AS __n05_checklist
 INTO @__n05_per_item, @__n05_passed, @__n05_total, @__n05_failed;
 

@@ -148,7 +148,9 @@ echo "✓ N-05 verify: 92/92 invariants satisfied"
 
 ## 五、剩余 / 后续
 
-- **`deploy/init-complete.sql` 过时基线**与 ci-missing-tables.sql 需人工同步，仍旧是一项手动流程；本次未触碰（属于「已冻结基线」范畴）
+- ~~**`deploy/init-complete.sql` 过时基线**与 ci-missing-tables.sql 需人工同步，仍旧是一项手动流程；本次未触碰（属于「已冻结基线」范畴）~~
+  → **✅ 已闭环（2026-09-14）**：`init-complete.sql` 已按「并集终态」反向重建为权威基线，导入后即满足全部 92 项 invariant，
+  `ci-missing-tables.sql` 退化为幂等空跑。详见 **§七**。
 - **CI workflow 中 docker exec 命令的 `--abort-source-on-error`**（mysql 8.0 客户端参数）作为二级防御：**未引入**——方案 A 已足够稳健
 - **CI 验证**：本地 E2E 全绿；下一次 push 后 CI 跑通可补一张 run 截图进 docs/
 - **整合说明（2026-09-12 rebase）**：本提交与远端 N-04 线（`580f7aa`…`1972fa0`）在 `7620c2c` 分叉，
@@ -168,3 +170,72 @@ echo "✓ N-05 verify: 92/92 invariants satisfied"
 | ADD COLUMN (mod status tinyint) | 1 | 0 (MODIFY 后类型改) |
 | ADD COLUMN (mod pool_status tinyint) | 1 | 0 |
 | **合计** | **92** | — |
+
+---
+
+## 七、闭环：`init-complete.sql` 权威基线重建（2026-09-14）
+
+### 7.1 背景
+
+N-05 方案 A 只是「让补丁失败可见」，并未消除**补丁本身**。根因是 `deploy/init-complete.sql`
+停留在迁移 ~055 的旧快照，与真实结构漂移，只能靠 `ci-missing-tables.sql` 91 段人工追平。
+本节把基线本身扶正，使补丁退化为幂等空跑。
+
+### 7.2 关键认知：权威结构 ≠ 迁移链终态（并集定理）
+
+原以为「跑完全部迁移 = 权威结构」，实测证伪。既有**两类缺口**：
+
+| 缺口类型 | 机制 | 实例 |
+|---|---|---|
+| **IF NOT EXISTS 掩盖** | 旧基线建表语句比迁移链更「瘦」，迁移用 `CREATE TABLE IF NOT EXISTS` ⇒ 表已存在即整段跳过，迁移里的列永远建不上 | 迁移 `039` 定义了 `crm_supplier_contact.create_by/update_time`，但旧基线已建该表 ⇒ 列缺失 |
+| **仅存在于补丁** | 结构只写在 `ci-missing-tables.sql`，迁移链从未定义 | `crm_quote` / `crm_contract` 的 `update_time`（`quoteService.convertToContract` 查询依赖） |
+
+⇒ **权威结构 = 旧基线 + 全部迁移 + ci-missing 修正 的并集**。仅跑迁移会缺 7 项（实测 85/92）。
+
+### 7.3 重建方法
+
+新增可复现脚本 `scripts/regen-init-baseline.js`：
+
+```
+旧基线 → run_migrations.js（111 个迁移）→ ci-missing-tables.sql
+       → mysqldump --no-data（排除迁移内部备份表）→ deploy/init-complete.sql
+```
+
+**排除表**（迁移副作用，非应用结构）：`_migration_097_backup`、`crm_contact_primary_backup_113`。
+产物：**102 表 + 1 视图**，无 `USE`、无 `DEFINER`、无数据。
+
+### 7.4 verify 生成器修正（索引存在性语义）
+
+`scripts/build-n05-verify.py` 对索引类探测原用 `COUNT(*)`——数的是**索引列数**。
+迁移 `071` 建的是复合索引 `idx_contact_primary(customer_id, is_primary)`（迁移 `113` 证实
+全仓 20 处查询写作 `pc.customer_id = c.id AND pc.is_primary = 1`，复合索引正是其目标形状），
+`COUNT(*)` 得 2 而被误判 FAIL。
+
+修正：索引类（`STATISTICS` 视图）改用 `COUNT(DISTINCT INDEX_NAME)`（∈{0,1}），
+与 `ci-missing-tables.sql` 自身守卫 `IF(@c = 0, 建, 跳过)` 的**存在性语义**一致。
+重新生成后 92 项不变（`探测段: 92`）。
+
+### 7.5 验证结果
+
+| 路径 | 库结构 | N-05 verify | 说明 |
+|---|---|---|---|
+| **仅导入新基线** | 102 表 | **92/92 PASS** | 核心目标：不再需要补丁 |
+| 新基线 + ci-missing | 102 表 | **92/92 PASS** | CI 兼容：补丁幂等空跑 |
+| 新基线 + 全部迁移 | 104 表 | **92/92 PASS** | 生产路径：迁移被守卫识别为已建 |
+| 新基线库 vs 并集终态 | — | **结构差异 0** | `information_schema` 逐列/逐索引比对（排除 2 张备份表） |
+
+**回归**：后端单元 `113 套件 / 1079 用例` 全绿；集成 `tests/e2e/ 10 套件 / 69 用例` 全绿
+（均指向由新基线自举的库）。
+
+### 7.6 本次改动清单
+
+| 文件 | 改动 |
+|---|---|
+| `deploy/init-complete.sql` | **重建**：91 表 → 102 表 / 1 视图（并集终态，含 39 处结构纠正） |
+| `scripts/regen-init-baseline.js` | **新增**：可复现的重建脚本（支持 `IGNORE_TABLES`） |
+| `scripts/build-n05-verify.py` | **修改**：索引类探测改 `COUNT(DISTINCT INDEX_NAME)` |
+| `deploy/ci-missing-tables-verify.sql` | **重生成**：92 项（8 处索引项改存在性语义） |
+| `docs/n05-ci-missing-tables-verify-fix.md` | **修改**：本 §七 |
+
+> **保留项**：`ci-missing-tables.sql` 及其在 `ci.yml` 的调用**暂未移除**（现已空跑）。
+> 待真实 CI 以新基线跑通一次后，可另行提交下线该文件与 4 处 step。

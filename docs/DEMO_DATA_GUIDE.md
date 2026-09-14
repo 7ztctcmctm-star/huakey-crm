@@ -69,7 +69,7 @@ demo_admin / demo_sales / demo_purchase（用户）
 ### 4.1 前置条件
 
 1. MySQL 8.0 已运行，`huakey_crm`（或 `huakey_crm_test`）库已创建；
-2. 基线 schema 已导入（`deploy/init-complete.sql` 或迁移已执行到 095）；
+2. 基线 schema 已导入（`deploy/init-complete.sql`；**2026-09-14 起该文件即迁移链并集终态**，无需再判断「迁移跑到第几号」）；
 3. **迁移 095 已执行**（为核心 12 表添加 `is_demo` 列）：
    ```bash
    cd database/migrations && node run_migrations.js
@@ -313,7 +313,7 @@ A：未执行迁移 095。先 `mysql -u root -p huakey_crm < database/migrations
 A：检查仓库根目录是否存在 `.env.test`（可从 `.env.test.example` 复制），且已执行 `seed:demo` 创建账号。
 
 **Q5：CI 中 E2E 失败 "demo_admin 不存在"？**
-A：确认 ci.yml 的 e2e-test job 中 `Load Demo seed data` 步骤在 Playwright 之前执行，且 `ci-missing-tables.sql` 已包含 is_demo 列定义。
+A：确认 ci.yml 的 e2e-test job 中 `Load Demo seed data` 步骤在 Playwright 之前执行，且库中已含 `is_demo`（**2026-09-14 起由 `deploy/init-complete.sql` 直接提供，不再依赖 ci-missing-tables.sql**）。
 
 ---
 

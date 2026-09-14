@@ -1,18 +1,32 @@
 -- MySQL dump 10.13  Distrib 8.0.46, for Win64 (x86_64)
 --
--- Host: localhost    Database: huakey_crm
+-- Host: 127.0.0.1    Database: huakey_crm
 -- ------------------------------------------------------
 -- Server version	8.0.46
 
--- ⚠️⚠️⚠️ 警告（2026-08-18 审计）⚠️⚠️⚠️
--- 本文件是早期快照（crm_customer.status 仍为 TINYINT、pool_status 为 TINYINT、
--- 缺少 business_status / old_status_int / must_change_password 等字段），
--- 与 database/migrations/ 下的 001~107 迁移存在结构性漂移。
+-- ⚠️⚠️⚠️ 基线生成说明 ⚠️⚠️⚠️
+-- 本文件是**结构基线快照**，由「旧基线 + 全部迁移 + ci-missing-tables.sql 修正」的
+-- 并集终态反向导出，与 CI / E2E 实际校验的库结构**逐表逐列一致**
+-- （生成方式见 scripts/regen-init-baseline.js）。
 --
--- 仅可用于【全新环境的最小基线导入】。导入后必须执行：
---   cd database/migrations && node run_migrations.js
--- 以补齐 070/089/097 等迁移引入的字段与配置。
--- 禁止在本文件上手工改表结构；结构变更一律通过新增迁移文件实施。
+-- 为什么是并集而非「迁移链终态」：
+--   · 迁移多用 CREATE TABLE IF NOT EXISTS，旧基线偏瘦的表会整段跳过，迁移里的列建不上；
+--   · 少数结构（如 crm_quote/crm_contract.update_time）只存在于 ci-missing-tables.sql。
+--   仅跑迁移无法还原权威结构，故必须叠加 ci-missing 修正。
+--
+-- 用途：全新环境 / CI / E2E 自举的建库起点。
+--   · 生产/演练：导入本文件后，正常执行 database/migrations/run_migrations.js（幂等补齐）；
+--   · CI / E2E：导入本文件即得到与校验库一致的库，**ci-missing-tables.sql 退化为幂等空跑**。
+--
+-- 约束：
+--   · 仅含结构（CREATE TABLE / VIEW），**不含任何业务数据**；种子数据见 database/seeds/。
+--   · 不含 USE 语句，以连接默认库为准（迁移规范禁止在脚本内切库）。
+--   · 视图已剥离 DEFINER（避免依赖 crm_user 等特定账号，便于跨环境导入）。
+--   · 已排除迁移内部备份表（_migration_*_backup / *_backup_* 等），它们非应用结构。
+--   · 禁止在本文件上手工改表结构；结构变更一律通过新增迁移文件实施，再重新生成本基线。
+--
+-- 重新生成：见 scripts/regen-init-baseline.js 头部说明。
+
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -34,12 +48,12 @@ DROP TABLE IF EXISTS `crm_ai_suggestion`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_ai_suggestion` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `type` enum('customer','opportunity','pricing','follow_up') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `type` enum('customer','opportunity','pricing','follow_up') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `ref_id` int NOT NULL,
-  `suggestion` text COLLATE utf8mb4_unicode_ci,
+  `suggestion` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `confidence` decimal(5,2) DEFAULT NULL,
   `is_accepted` tinyint DEFAULT '0',
-  `feedback` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `feedback` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `create_by` int DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -56,10 +70,10 @@ DROP TABLE IF EXISTS `crm_api_key`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_api_key` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '密钥名称',
-  `api_key` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'API Key',
-  `api_secret` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'API Secret',
-  `permissions` text COLLATE utf8mb4_unicode_ci COMMENT '权限列表JSON',
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '密钥名称',
+  `api_key` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'API Key',
+  `api_secret` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'API Secret',
+  `permissions` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '权限列表JSON',
   `rate_limit` int DEFAULT '100' COMMENT '每小时请求限制',
   `status` tinyint(1) DEFAULT '1' COMMENT '状态',
   `last_used_at` datetime DEFAULT NULL COMMENT '最后使用时间',
@@ -84,13 +98,13 @@ DROP TABLE IF EXISTS `crm_approval_record`;
 CREATE TABLE `crm_approval_record` (
   `id` int NOT NULL AUTO_INCREMENT,
   `workflow_id` int NOT NULL COMMENT '流程ID',
-  `business_type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '业务类型',
+  `business_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '业务类型',
   `business_id` int NOT NULL COMMENT '业务ID',
   `step_id` int NOT NULL COMMENT '步骤ID',
   `step_order` int NOT NULL COMMENT '步骤顺序',
   `approver_id` int NOT NULL COMMENT '审批人ID',
-  `status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'pending' COMMENT '状态：pending/approved/rejected',
-  `remark` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '审批意见',
+  `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'pending' COMMENT '状态：pending/approved/rejected',
+  `remark` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '审批意见',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -117,15 +131,15 @@ CREATE TABLE `crm_approval_step` (
   `id` int NOT NULL AUTO_INCREMENT,
   `workflow_id` int NOT NULL COMMENT '流程ID',
   `step_order` int NOT NULL COMMENT '步骤顺序',
-  `step_name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '步骤名称',
-  `approver_type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '审批人类型：user/role/manager',
+  `step_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '步骤名称',
+  `approver_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '审批人类型：user/role/manager',
   `approver_id` int DEFAULT NULL COMMENT '审批人ID',
   `is_required` tinyint(1) DEFAULT '1' COMMENT '是否必须审批',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_as_workflow` (`workflow_id`),
   CONSTRAINT `fk_as_workflow` FOREIGN KEY (`workflow_id`) REFERENCES `crm_approval_workflow` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='审批步骤';
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='审批步骤';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -137,18 +151,19 @@ DROP TABLE IF EXISTS `crm_approval_workflow`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_approval_workflow` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '流程名称',
-  `type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '流程类型：quote/contract/purchase/discount',
-  `description` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '流程描述',
+  `name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '流程名称',
+  `type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '流程类型：quote/contract/purchase/discount',
+  `description` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '流程描述',
   `status` tinyint(1) DEFAULT '1' COMMENT '状态：1启用 0禁用',
   `create_by` int DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime DEFAULT NULL,
+  `is_demo` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Demo数据标识: 0=真实 1=Demo',
   PRIMARY KEY (`id`),
   KEY `idx_aw_type` (`type`),
   KEY `idx_aw_status` (`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='审批流程';
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='审批流程';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -160,11 +175,11 @@ DROP TABLE IF EXISTS `crm_assign_log`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_assign_log` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `customer_id` int NOT NULL COMMENT '客户ID',
+  `customer_id` int DEFAULT NULL,
   `from_user_id` int DEFAULT NULL COMMENT '原负责人ID',
   `to_user_id` int DEFAULT NULL,
   `operator_id` int DEFAULT NULL,
-  `remark` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
+  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '分配时间',
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
   PRIMARY KEY (`id`),
@@ -173,7 +188,7 @@ CREATE TABLE `crm_assign_log` (
   KEY `idx_assign_to_user` (`to_user_id`),
   KEY `idx_assign_create_time` (`create_time`),
   KEY `fk_assign_log_from_user` (`from_user_id`),
-  CONSTRAINT `fk_assign_log_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_assign_log_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_assign_log_from_user` FOREIGN KEY (`from_user_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_assign_log_operator` FOREIGN KEY (`operator_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_assign_log_to_user` FOREIGN KEY (`to_user_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL
@@ -221,6 +236,7 @@ CREATE TABLE `crm_attachment` (
   `file_type` varchar(50) DEFAULT NULL COMMENT '文件MIME类型',
   `create_by` int DEFAULT NULL COMMENT '上传人',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_business` (`business_type`,`business_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='通用附件表';
@@ -235,21 +251,21 @@ DROP TABLE IF EXISTS `crm_calendar_event`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_calendar_event` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `title` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '标题',
-  `event_type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '类型：meeting/followup/task/reminder',
-  `description` text COLLATE utf8mb4_unicode_ci COMMENT '描述',
+  `title` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '标题',
+  `event_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '类型：meeting/followup/task/reminder',
+  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '描述',
   `start_time` datetime NOT NULL COMMENT '开始时间',
   `end_time` datetime DEFAULT NULL COMMENT '结束时间',
   `all_day` tinyint(1) DEFAULT '0' COMMENT '全天事件',
-  `location` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '地点',
+  `location` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '地点',
   `customer_id` int DEFAULT NULL COMMENT '关联客户',
   `contact_id` int DEFAULT NULL COMMENT '关联联系人',
-  `related_type` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '关联类型',
+  `related_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '关联类型',
   `related_id` int DEFAULT NULL COMMENT '关联ID',
-  `attendees` text COLLATE utf8mb4_unicode_ci COMMENT '参与人ID列表JSON',
+  `attendees` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '参与人ID列表JSON',
   `reminder_minutes` int DEFAULT '15' COMMENT '提前提醒分钟',
-  `status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'confirmed' COMMENT '状态',
-  `color` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '#2563EB' COMMENT '显示颜色',
+  `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'confirmed' COMMENT '状态',
+  `color` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '#2563EB' COMMENT '显示颜色',
   `create_by` int DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -259,7 +275,8 @@ CREATE TABLE `crm_calendar_event` (
   KEY `idx_ce_customer` (`customer_id`),
   KEY `idx_ce_type` (`event_type`),
   KEY `idx_calendar_time` (`start_time`,`end_time`),
-  KEY `idx_calendar_create_by` (`create_by`,`deleted_at`)
+  KEY `idx_calendar_create_by` (`create_by`,`deleted_at`),
+  CONSTRAINT `fk_calendar_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='日程会议';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -274,14 +291,14 @@ CREATE TABLE `crm_commission_record` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL COMMENT '销售人员ID',
   `rule_id` int DEFAULT NULL COMMENT '规则ID',
-  `business_type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '业务类型：contract/payment',
+  `business_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '业务类型：contract/payment',
   `business_id` int NOT NULL COMMENT '业务ID',
   `base_amount` decimal(12,2) NOT NULL COMMENT '计算基数',
   `commission_rate` decimal(5,2) DEFAULT NULL COMMENT '佣金比例(%)',
   `commission_amount` decimal(12,2) NOT NULL COMMENT '佣金金额',
-  `period` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '归属月份',
-  `status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'calculated' COMMENT '状态：calculated/confirmed/paid',
-  `remark` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `period` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '归属月份',
+  `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'calculated' COMMENT '状态：calculated/confirmed/paid',
+  `remark` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -302,12 +319,12 @@ DROP TABLE IF EXISTS `crm_commission_rule`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_commission_rule` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '规则名称',
-  `rule_type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '规则类型：fixed/tiered/amount',
-  `apply_to` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'contract' COMMENT '适用对象：contract/payment',
-  `config` text COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '规则配置JSON',
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '规则名称',
+  `rule_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '规则类型：fixed/tiered/amount',
+  `apply_to` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'contract' COMMENT '适用对象：contract/payment',
+  `config` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '规则配置JSON',
   `status` tinyint(1) DEFAULT '1' COMMENT '状态',
-  `remark` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `remark` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `create_by` int DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -326,17 +343,17 @@ DROP TABLE IF EXISTS `crm_competitor`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_competitor` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '竞争对手名称',
-  `website` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '官网',
-  `industry` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '行业',
-  `scale` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '规模：large/medium/small/micro',
-  `headquarters` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '总部所在地',
-  `strengths` text COLLATE utf8mb4_unicode_ci COMMENT '优势JSON数组',
-  `weaknesses` text COLLATE utf8mb4_unicode_ci COMMENT '劣势JSON数组',
-  `products` text COLLATE utf8mb4_unicode_ci COMMENT '主要产品/服务',
-  `price_range` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '价格区间',
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '竞争对手名称',
+  `website` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '官网',
+  `industry` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '行业',
+  `scale` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '规模：large/medium/small/micro',
+  `headquarters` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '总部所在地',
+  `strengths` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '优势JSON数组',
+  `weaknesses` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '劣势JSON数组',
+  `products` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '主要产品/服务',
+  `price_range` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '价格区间',
   `market_share` decimal(5,2) DEFAULT NULL COMMENT '市场份额(%)',
-  `description` text COLLATE utf8mb4_unicode_ci COMMENT '公司简介',
+  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '公司简介',
   `status` tinyint(1) DEFAULT '1' COMMENT '状态：1活跃 0不再竞争',
   `create_by` int DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
@@ -360,20 +377,24 @@ CREATE TABLE `crm_competitor_encounter` (
   `competitor_id` int NOT NULL COMMENT '竞争对手ID',
   `customer_id` int DEFAULT NULL COMMENT '关联客户',
   `opportunity_id` int DEFAULT NULL COMMENT '关联商机',
-  `encounter_type` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '交锋类型：lost/won/competing/encountered',
+  `encounter_type` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '交锋类型：lost/won/competing/encountered',
   `our_price` decimal(12,2) DEFAULT NULL COMMENT '我方报价',
   `their_price` decimal(12,2) DEFAULT NULL COMMENT '对方报价',
-  `win_reason` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '赢单/丢单原因',
-  `our_advantage` text COLLATE utf8mb4_unicode_ci COMMENT '我方优势体现',
-  `their_advantage` text COLLATE utf8mb4_unicode_ci COMMENT '对方优势体现',
-  `lesson_learned` text COLLATE utf8mb4_unicode_ci COMMENT '经验教训',
+  `win_reason` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '赢单/丢单原因',
+  `our_advantage` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '我方优势体现',
+  `their_advantage` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '对方优势体现',
+  `lesson_learned` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '经验教训',
   `encounter_date` date DEFAULT NULL COMMENT '交锋日期',
   `create_by` int DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_ce_competitor` (`competitor_id`),
   KEY `idx_ce_customer` (`customer_id`),
-  KEY `idx_ce_type` (`encounter_type`)
+  KEY `idx_ce_type` (`encounter_type`),
+  KEY `fk_compenc_opp` (`opportunity_id`),
+  CONSTRAINT `fk_compenc_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_compenc_opp` FOREIGN KEY (`opportunity_id`) REFERENCES `crm_opportunity` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='竞品交锋记录';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -387,14 +408,15 @@ DROP TABLE IF EXISTS `crm_competitor_intel`;
 CREATE TABLE `crm_competitor_intel` (
   `id` int NOT NULL AUTO_INCREMENT,
   `competitor_id` int NOT NULL COMMENT '竞争对手ID',
-  `intel_type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '情报类型：product/pricing/strategy/partnership/market',
-  `title` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '情报标题',
-  `content` text COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '情报内容',
-  `source` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '信息来源',
-  `importance` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT 'medium' COMMENT '重要程度：high/medium/low',
+  `intel_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '情报类型：product/pricing/strategy/partnership/market',
+  `title` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '情报标题',
+  `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '情报内容',
+  `source` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '信息来源',
+  `importance` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'medium' COMMENT '重要程度：high/medium/low',
   `verified` tinyint(1) DEFAULT '0' COMMENT '是否已验证',
   `create_by` int DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_ci_competitor` (`competitor_id`),
   KEY `idx_ci_type` (`intel_type`)
@@ -411,22 +433,26 @@ DROP TABLE IF EXISTS `crm_contact`;
 CREATE TABLE `crm_contact` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `customer_id` int NOT NULL COMMENT '客户ID',
-  `name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '姓名',
-  `position` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '职位',
-  `phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '电话',
-  `email` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '邮箱',
-  `wechat` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '微信',
+  `name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '姓名',
+  `position` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '职位',
+  `phone` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '电话',
+  `email` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '邮箱',
+  `wechat` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '微信',
   `is_decision` tinyint DEFAULT '0' COMMENT '是否决策人（1是0否）',
-  `remark` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
+  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
+  `is_primary` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否主联系人',
+  `is_demo` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Demo数据标识: 0=真实 1=Demo',
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_contact_primary_per_customer` ((if(((`is_primary` = 1) and (`deleted_at` is null)),`customer_id`,NULL))),
   KEY `idx_contact_customer_id` (`customer_id`),
   KEY `idx_contact_name` (`name`),
   KEY `idx_contact_phone` (`phone`),
   KEY `idx_contact_is_decision` (`is_decision`),
   KEY `idx_contact_deleted_at` (`deleted_at`),
+  KEY `idx_contact_primary` (`customer_id`,`is_primary`),
   CONSTRAINT `fk_contact_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `chk_contact_is_decision` CHECK ((`is_decision` in (0,1)))
 ) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='联系人表';
@@ -441,24 +467,29 @@ DROP TABLE IF EXISTS `crm_contract`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_contract` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `contract_no` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `contract_no` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `customer_id` int NOT NULL,
   `opportunity_id` int DEFAULT NULL,
   `amount` decimal(15,2) DEFAULT '0.00',
-  `currency` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT 'CNY' COMMENT '合同货币',
+  `currency` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'CNY' COMMENT '合同货币',
   `exchange_rate` decimal(10,4) DEFAULT '1.0000' COMMENT '使用汇率',
   `sign_date` date DEFAULT NULL,
   `delivery_date` date DEFAULT NULL,
-  `payment_terms` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `payment_terms` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `status` tinyint DEFAULT '1',
-  `approval_status` tinyint NOT NULL DEFAULT '2' COMMENT '审批状态: 1=待审批, 2=已通过, 3=已拒绝',
+  `approval_status` tinyint NOT NULL DEFAULT '0' COMMENT '审批状态: 0=未提交, 1=待审批, 2=已通过, 3=已拒绝',
   `approver_id` int DEFAULT NULL COMMENT '审批人ID',
-  `approval_remark` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '审批备注（拒绝原因）',
-  `remark` text COLLATE utf8mb4_unicode_ci,
-  `file_url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `approval_remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '审批备注（拒绝原因）',
+  `cancel_reason` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '取消原因',
+  `cancel_action` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '取消动作',
+  `remark` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `file_url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `create_by` int DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
+  `quote_id` int DEFAULT NULL COMMENT '关联合同来源报价单ID',
+  `is_demo` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Demo数据标识: 0=真实 1=Demo',
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `contract_no` (`contract_no`),
   KEY `fk_contract_opportunity` (`opportunity_id`),
@@ -472,9 +503,13 @@ CREATE TABLE `crm_contract` (
   KEY `idx_contract_del_status_ctime` (`deleted_at`,`status`,`create_time`),
   KEY `idx_contract_approval` (`approval_status`),
   KEY `idx_contract_sign_date` (`sign_date`),
+  KEY `idx_contract_quote_id` (`quote_id`),
+  KEY `idx_contract_cust_status` (`customer_id`,`status`),
   CONSTRAINT `fk_contract_create_by` FOREIGN KEY (`create_by`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_contract_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_contract_opportunity` FOREIGN KEY (`opportunity_id`) REFERENCES `crm_opportunity` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+  CONSTRAINT `fk_contract_opp` FOREIGN KEY (`opportunity_id`) REFERENCES `crm_opportunity` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_contract_opportunity` FOREIGN KEY (`opportunity_id`) REFERENCES `crm_opportunity` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_contract_quote` FOREIGN KEY (`quote_id`) REFERENCES `crm_quote` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='合同表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -487,16 +522,17 @@ DROP TABLE IF EXISTS `crm_contract_template`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_contract_template` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模板名称',
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模板名称',
   `amount` decimal(15,2) DEFAULT '0.00' COMMENT '默认金额',
-  `payment_terms` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '付款条款',
+  `payment_terms` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '付款条款',
   `delivery_days` int DEFAULT '30' COMMENT '默认交付天数',
-  `remark` text COLLATE utf8mb4_unicode_ci COMMENT '默认备注',
+  `remark` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '默认备注',
   `sort` int DEFAULT '0' COMMENT '排序',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='合同模板表';
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='合同模板表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -514,11 +550,13 @@ CREATE TABLE `crm_currency` (
   `exchange_rate` decimal(10,4) DEFAULT '1.0000' COMMENT '对人民币汇率',
   `is_default` tinyint(1) DEFAULT '0' COMMENT '是否默认货币',
   `status` tinyint(1) DEFAULT '1',
+  `deleted_at` datetime DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `code` (`code`)
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='货币配置表';
+  UNIQUE KEY `code` (`code`),
+  KEY `idx_currency_deleted` (`deleted_at`)
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='货币配置表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -530,30 +568,34 @@ DROP TABLE IF EXISTS `crm_customer`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_customer` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `company_name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '公司名称',
-  `contact_name` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '联系人姓名',
-  `phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '电话',
-  `email` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '邮箱',
-  `address` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '地址',
-  `industry` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '所属行业',
-  `source` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '客户来源（展会/网络/转介绍/电话/其他）',
-  `level` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'C' COMMENT '客户等级（A/B/C/D）',
-  `lead_level` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '意向等级：高/中/低',
-  `follow_status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '跟进状态：初次联系/需求确认/报价中/已流失',
+  `company_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '公司名称',
+  `contact_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '【已废弃】请使用 crm_contact',
+  `phone` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '【已废弃】请使用 crm_contact',
+  `email` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '【已废弃】请使用 crm_contact',
+  `address` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '地址',
+  `industry` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '所属行业',
+  `source` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '客户来源（展会/网络/转介绍/电话/其他）',
+  `level` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'C' COMMENT '客户等级（A/B/C/D）',
+  `lead_level` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '意向等级：高/中/低',
+  `follow_status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '跟进状态：初次联系/需求确认/报价中/已流失',
   `converted_at` datetime DEFAULT NULL COMMENT '转化为客户的时间',
   `owner_id` int DEFAULT NULL COMMENT '负责销售ID',
-  `status` tinyint DEFAULT '5' COMMENT '状态: 0=删除, 1=潜客, 2=正式客户, 3=流失, 5=线索',
-  `customer_type` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'prospect' COMMENT '对象类型: prospect/customer',
-  `lifecycle_status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'new' COMMENT '生命周期: new/nurturing/intent/active/lost/inactive',
+  `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'following',
+  `customer_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'prospect' COMMENT '对象类型: prospect/customer',
+  `lifecycle_status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'new' COMMENT '生命周期: new/nurturing/intent/active/lost/inactive',
+  `original_lead_id` int DEFAULT NULL COMMENT '原始线索ID，用于线索转客户溯源',
   `score` int DEFAULT '0' COMMENT '客户评分',
-  `remark` text COLLATE utf8mb4_unicode_ci COMMENT '备注',
+  `remark` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '备注',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
-  `pool_status` tinyint DEFAULT '0' COMMENT '0=归属销售 1=在公海',
-  `pool_type` enum('public','private') COLLATE utf8mb4_unicode_ci DEFAULT 'public' COMMENT '池类型',
+  `pool_status` varchar(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'private' COMMENT '资源归属: private=私有 sea=公海',
+  `pool_type` enum('public','private') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'public' COMMENT '池类型',
   `protect_until` datetime DEFAULT NULL COMMENT '保护期截止时间',
   `last_follow_time` datetime DEFAULT NULL COMMENT '最后跟进时间',
+  `old_status_int` tinyint DEFAULT NULL COMMENT '迁移前状态备份',
+  `is_demo` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Demo数据标识: 0=真实 1=Demo',
+  `business_status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'lead' COMMENT '业务生命周期: lead/following/quoted/negotiating/signed/lost',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_company_phone` (`company_name`,`phone`),
   KEY `idx_customer_company_name` (`company_name`),
@@ -576,6 +618,11 @@ CREATE TABLE `crm_customer` (
   KEY `idx_cust_status_owner_follow` (`status`,`owner_id`,`last_follow_time`),
   KEY `idx_customer_status_lifecycle` (`status`,`lifecycle_status`),
   KEY `idx_customer_owner` (`owner_id`,`deleted_at`),
+  KEY `idx_original_lead_id` (`original_lead_id`),
+  KEY `idx_owner_status_deleted` (`owner_id`,`status`,`deleted_at`),
+  KEY `idx_customer_is_demo` (`is_demo`),
+  KEY `idx_customer_business_status` (`business_status`,`deleted_at`),
+  KEY `idx_customer_biz_pool` (`business_status`,`pool_status`,`owner_id`,`deleted_at`),
   CONSTRAINT `fk_customer_owner` FOREIGN KEY (`owner_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=635 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='客户表';
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -589,17 +636,17 @@ DROP TABLE IF EXISTS `crm_customer_score_log`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_customer_score_log` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `customer_id` int NOT NULL,
+  `customer_id` int DEFAULT NULL,
   `rule_id` int DEFAULT NULL COMMENT '触发规则',
   `score` int NOT NULL COMMENT '分数变化',
   `total_score` int NOT NULL COMMENT '总分',
-  `remark` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
+  `remark` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_csl_customer` (`customer_id`),
   KEY `idx_csl_rule` (`rule_id`),
-  CONSTRAINT `fk_csl_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_csl_rule` FOREIGN KEY (`rule_id`) REFERENCES `crm_score_rule` (`id`) ON DELETE SET NULL
+  CONSTRAINT `fk_csl_rule` FOREIGN KEY (`rule_id`) REFERENCES `crm_score_rule` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_score_log_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='客户评分记录';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -614,9 +661,9 @@ CREATE TABLE `crm_customer_supplier_relation` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `customer_id` int NOT NULL COMMENT '客户ID',
   `supplier_id` int NOT NULL COMMENT '供应商ID',
-  `relationship_type` enum('主要','次要','禁用') COLLATE utf8mb4_unicode_ci DEFAULT '主要' COMMENT '关联类型',
+  `relationship_type` enum('主要','次要','禁用') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '主要' COMMENT '关联类型',
   `effective_date` date DEFAULT NULL COMMENT '生效日期',
-  `remark` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
+  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
   `create_by` int DEFAULT NULL COMMENT '创建人ID',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
@@ -638,16 +685,47 @@ DROP TABLE IF EXISTS `crm_customer_tag`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_customer_tag` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `customer_id` int NOT NULL,
+  `customer_id` int DEFAULT NULL,
   `tag_id` int NOT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_customer_tag` (`customer_id`,`tag_id`),
   KEY `idx_customer` (`customer_id`),
   KEY `idx_tag` (`tag_id`),
-  CONSTRAINT `fk_ct_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_ct_tag` FOREIGN KEY (`tag_id`) REFERENCES `crm_tag` (`id`) ON DELETE CASCADE
+  CONSTRAINT `fk_ct_tag` FOREIGN KEY (`tag_id`) REFERENCES `crm_tag` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_customer_tag_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='客户标签关联表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `crm_customer_transfer`
+--
+
+DROP TABLE IF EXISTS `crm_customer_transfer`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `crm_customer_transfer` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `customer_id` int NOT NULL COMMENT '客户ID',
+  `from_user_id` int DEFAULT NULL COMMENT '发起人（原负责人）',
+  `to_user_id` int DEFAULT NULL COMMENT '接收人',
+  `status` varchar(16) NOT NULL DEFAULT 'pending' COMMENT '状态：pending/accepted/rejected/expired',
+  `reason` varchar(500) DEFAULT NULL COMMENT '转移原因（发起人填写）',
+  `handle_remark` varchar(500) DEFAULT NULL COMMENT '接收人处理备注',
+  `expire_at` datetime NOT NULL COMMENT '过期时间（创建时间 + 3 天）',
+  `handle_time` datetime DEFAULT NULL COMMENT '处理时间',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `deleted_at` datetime DEFAULT NULL COMMENT '软删除标记',
+  PRIMARY KEY (`id`),
+  KEY `idx_transfer_customer` (`customer_id`),
+  KEY `idx_transfer_to_status` (`to_user_id`,`status`),
+  KEY `idx_transfer_status_expire` (`status`,`expire_at`),
+  KEY `idx_transfer_deleted_at` (`deleted_at`),
+  KEY `fk_transfer_from_user` (`from_user_id`),
+  CONSTRAINT `fk_transfer_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_transfer_from_user` FOREIGN KEY (`from_user_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_transfer_to_user` FOREIGN KEY (`to_user_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='客户转移申请（双方同意制）';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -688,7 +766,8 @@ CREATE TABLE `crm_email` (
   KEY `idx_email_direction` (`direction`),
   CONSTRAINT `crm_email_ibfk_1` FOREIGN KEY (`account_id`) REFERENCES `crm_email_account` (`id`),
   CONSTRAINT `crm_email_ibfk_2` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`),
-  CONSTRAINT `crm_email_ibfk_3` FOREIGN KEY (`contact_id`) REFERENCES `crm_contact` (`id`)
+  CONSTRAINT `crm_email_ibfk_3` FOREIGN KEY (`contact_id`) REFERENCES `crm_contact` (`id`),
+  CONSTRAINT `fk_email_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='邮件记录表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -701,7 +780,7 @@ DROP TABLE IF EXISTS `crm_email_account`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_email_account` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `user_id` int NOT NULL COMMENT '关联用户',
+  `user_id` int DEFAULT NULL,
   `email` varchar(100) NOT NULL COMMENT '邮箱地址',
   `display_name` varchar(50) DEFAULT NULL COMMENT '发件人显示名称',
   `imap_host` varchar(100) DEFAULT NULL COMMENT 'IMAP服务器',
@@ -715,9 +794,11 @@ CREATE TABLE `crm_email_account` (
   `status` tinyint(1) DEFAULT '1',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_ea_user` (`user_id`),
-  CONSTRAINT `crm_email_account_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`id`) ON DELETE CASCADE
+  CONSTRAINT `crm_email_account_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_email_account_user` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='邮件账号配置表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -752,26 +833,26 @@ DROP TABLE IF EXISTS `crm_employee_profile`;
 CREATE TABLE `crm_employee_profile` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL COMMENT '关联sys_user.id',
-  `gender` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '性别',
+  `gender` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '性别',
   `birth_date` date DEFAULT NULL COMMENT '出生日期',
-  `id_card` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '身份证号',
+  `id_card` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '身份证号',
   `hire_date` date DEFAULT NULL COMMENT '入职日期',
   `leave_date` date DEFAULT NULL COMMENT '离职日期',
-  `position` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '职位',
-  `employment_type` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'fulltime' COMMENT '用工类型',
+  `position` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '职位',
+  `employment_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'fulltime' COMMENT '用工类型',
   `contract_start` date DEFAULT NULL COMMENT '合同起始日',
   `contract_end` date DEFAULT NULL COMMENT '合同到期日',
   `salary_base` decimal(10,2) DEFAULT NULL COMMENT '基本工资',
   `salary_commission_rate` decimal(5,2) DEFAULT '0.00' COMMENT '提成比例(%)',
-  `bank_name` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '开户银行',
-  `bank_account` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '银行账号',
-  `emergency_contact` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '紧急联系人',
-  `emergency_phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '紧急联系电话',
-  `address` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '家庭住址',
-  `education` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '学历',
-  `university` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '毕业院校',
-  `major` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '专业',
-  `remark` text COLLATE utf8mb4_unicode_ci COMMENT '备注',
+  `bank_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '开户银行',
+  `bank_account` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '银行账号',
+  `emergency_contact` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '紧急联系人',
+  `emergency_phone` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '紧急联系电话',
+  `address` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '家庭住址',
+  `education` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '学历',
+  `university` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '毕业院校',
+  `major` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '专业',
+  `remark` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '备注',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -792,9 +873,9 @@ CREATE TABLE `crm_follow_plan` (
   `customer_id` int NOT NULL COMMENT '客户ID',
   `contact_id` int DEFAULT NULL COMMENT '联系人ID',
   `plan_time` datetime NOT NULL COMMENT '计划跟进时间',
-  `plan_content` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '计划内容',
-  `follow_type` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '电话' COMMENT '跟进方式',
-  `status` enum('pending','completed','overdue') COLLATE utf8mb4_unicode_ci DEFAULT 'pending' COMMENT '状态',
+  `plan_content` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '计划内容',
+  `follow_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '电话' COMMENT '跟进方式',
+  `status` enum('pending','completed','overdue') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'pending' COMMENT '状态',
   `create_by` int DEFAULT NULL COMMENT '创建人ID',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
@@ -802,7 +883,9 @@ CREATE TABLE `crm_follow_plan` (
   KEY `idx_fp_customer` (`customer_id`),
   KEY `idx_fp_plan_time` (`plan_time`),
   KEY `idx_fp_status` (`status`),
-  KEY `idx_fp_create_by` (`create_by`)
+  KEY `idx_fp_create_by` (`create_by`),
+  CONSTRAINT `fk_followplan_create_by` FOREIGN KEY (`create_by`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_followplan_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='跟进计划表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -816,14 +899,20 @@ DROP TABLE IF EXISTS `crm_follow_up`;
 CREATE TABLE `crm_follow_up` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `customer_id` int NOT NULL COMMENT '客户ID',
+  `opportunity_id` int DEFAULT NULL COMMENT '关联商机ID(可选)',
   `contact_id` int DEFAULT NULL COMMENT '联系人ID',
-  `follow_type` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '电话' COMMENT '跟进方式',
-  `content` text COLLATE utf8mb4_unicode_ci COMMENT '跟进内容',
+  `follow_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '电话' COMMENT '跟进方式',
+  `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '跟进内容',
   `next_time` datetime DEFAULT NULL COMMENT '下次提醒时间',
-  `next_content` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '下次计划',
+  `next_content` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '下次计划',
   `create_by` int DEFAULT NULL COMMENT '创建人ID',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `deleted_at` datetime DEFAULT NULL COMMENT '删除时间',
+  `is_plan` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否跟进计划: 0=实际跟进, 1=跟进计划',
+  `finish_time` datetime DEFAULT NULL COMMENT '计划完成时间（completePlan 时填充）',
+  `plan_status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '计划状态: pending/completed/overdue/cancelled',
+  `source_plan_id` int DEFAULT NULL COMMENT '溯源: 原 crm_follow_plan.id',
+  `is_demo` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Demo数据标识: 0=真实 1=Demo',
   PRIMARY KEY (`id`),
   KEY `fk_follow_contact` (`contact_id`),
   KEY `idx_follow_customer` (`customer_id`),
@@ -834,9 +923,15 @@ CREATE TABLE `crm_follow_up` (
   KEY `idx_follow_cust_del_time` (`customer_id`,`deleted_at`,`create_time`),
   KEY `idx_followup_customer_time` (`customer_id`,`create_time` DESC),
   KEY `idx_followup_next_time` (`next_time`),
+  KEY `idx_follow_is_plan` (`is_plan`),
+  KEY `idx_follow_source_plan` (`source_plan_id`),
+  KEY `idx_follow_cust_deleted` (`customer_id`,`deleted_at`),
+  KEY `idx_fu_opportunity` (`opportunity_id`),
   CONSTRAINT `fk_follow_contact` FOREIGN KEY (`contact_id`) REFERENCES `crm_contact` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_follow_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_follow_user` FOREIGN KEY (`create_by`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_followup_create_by` FOREIGN KEY (`create_by`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_followup_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE,
   CONSTRAINT `chk_follow_type` CHECK ((`follow_type` in (_utf8mb4'电话',_utf8mb4'拜访',_utf8mb4'微信',_utf8mb4'邮件',_utf8mb4'其他')))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='跟进记录表';
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -850,11 +945,11 @@ DROP TABLE IF EXISTS `crm_follow_up_reminder`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_follow_up_reminder` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `customer_id` int NOT NULL COMMENT '客户ID',
+  `customer_id` int DEFAULT NULL,
   `owner_id` int DEFAULT NULL COMMENT '客户负责人ID',
   `manager_id` int DEFAULT NULL COMMENT '负责人上级ID',
   `follow_plan_id` int DEFAULT NULL COMMENT '关联跟进计划ID',
-  `reminder_type` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'overdue' COMMENT '提醒类型: overdue=逾期未跟进',
+  `reminder_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'overdue' COMMENT '提醒类型: overdue=逾期未跟进',
   `reminder_date` date NOT NULL COMMENT '提醒日期',
   `is_read` tinyint DEFAULT '0' COMMENT '是否已读(0未读/1已读)',
   `is_dismissed` tinyint DEFAULT '0' COMMENT '是否已处理(0未处理/1已处理)',
@@ -867,7 +962,7 @@ CREATE TABLE `crm_follow_up_reminder` (
   KEY `idx_reminder_create_time` (`create_time`),
   KEY `idx_reminder_follow_plan` (`follow_plan_id`),
   KEY `fk_reminder_manager` (`manager_id`),
-  CONSTRAINT `fk_reminder_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_reminder_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_reminder_manager` FOREIGN KEY (`manager_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_reminder_owner` FOREIGN KEY (`owner_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=399 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='跟进提醒表';
@@ -882,17 +977,18 @@ DROP TABLE IF EXISTS `crm_followup_template`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_followup_template` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模板名称',
-  `type` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'general' COMMENT '类型：first首次/quote报价/deal成交/general通用',
-  `content` text COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模板内容',
+  `name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模板名称',
+  `type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'general' COMMENT '类型：first首次/quote报价/deal成交/general通用',
+  `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模板内容',
   `create_by` int DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_ft_type` (`type`),
-  KEY `idx_ft_creator` (`create_by`)
-) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='跟进模板';
+  KEY `idx_ft_creator` (`create_by`),
+  CONSTRAINT `fk_followup_tpl_create_by` FOREIGN KEY (`create_by`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=23 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='跟进模板';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -904,7 +1000,7 @@ DROP TABLE IF EXISTS `crm_invoice`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_invoice` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `invoice_no` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '发票编号',
+  `invoice_no` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '发票编号',
   `contract_id` int NOT NULL COMMENT '合同ID',
   `customer_id` int NOT NULL COMMENT '客户ID',
   `type` tinyint DEFAULT '1' COMMENT '发票类型：1=增值税普票 2=增值税专票 3=电子发票',
@@ -913,7 +1009,7 @@ CREATE TABLE `crm_invoice` (
   `tax_amount` decimal(15,2) DEFAULT NULL COMMENT '税额',
   `invoice_date` date DEFAULT NULL COMMENT '开票日期',
   `status` tinyint DEFAULT '1' COMMENT '状态：1=待开票 2=已开票 3=已邮寄 4=已作废',
-  `remark` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
+  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
   `create_by` int DEFAULT NULL COMMENT '创建人ID',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -922,7 +1018,10 @@ CREATE TABLE `crm_invoice` (
   KEY `idx_invoice_no` (`invoice_no`),
   KEY `idx_contract` (`contract_id`),
   KEY `idx_customer` (`customer_id`),
-  KEY `idx_status` (`status`)
+  KEY `idx_status` (`status`),
+  KEY `fk_invoice_create_by` (`create_by`),
+  CONSTRAINT `fk_invoice_create_by` FOREIGN KEY (`create_by`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_invoice_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='发票表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -935,12 +1034,12 @@ DROP TABLE IF EXISTS `crm_knowledge_document`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_knowledge_document` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '文档名称',
-  `type` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '文档类型：contract/quote/general',
-  `description` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '文档说明',
-  `file_path` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '文件路径',
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '文档名称',
+  `type` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '文档类型：contract/quote/general',
+  `description` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '文档说明',
+  `file_path` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '文件路径',
   `file_size` int DEFAULT NULL COMMENT '文件大小(字节)',
-  `file_type` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '文件类型',
+  `file_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '文件类型',
   `download_count` int DEFAULT '0' COMMENT '下载次数',
   `create_by` int DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
@@ -960,9 +1059,9 @@ DROP TABLE IF EXISTS `crm_knowledge_faq`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_knowledge_faq` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `question` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '问题',
-  `answer` text COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '答案',
-  `category` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '分类',
+  `question` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '问题',
+  `answer` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '答案',
+  `category` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '分类',
   `view_count` int DEFAULT '0' COMMENT '查看次数',
   `sort_order` int DEFAULT '0' COMMENT '排序',
   `create_by` int DEFAULT NULL,
@@ -983,13 +1082,13 @@ DROP TABLE IF EXISTS `crm_knowledge_product`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_knowledge_product` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '产品名称',
-  `category` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '产品分类',
-  `model` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '产品型号',
-  `description` text COLLATE utf8mb4_unicode_ci COMMENT '产品描述',
-  `specs` text COLLATE utf8mb4_unicode_ci COMMENT '产品参数(JSON)',
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '产品名称',
+  `category` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '产品分类',
+  `model` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '产品型号',
+  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '产品描述',
+  `specs` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '产品参数(JSON)',
   `price` decimal(12,2) DEFAULT NULL COMMENT '参考价格',
-  `images` text COLLATE utf8mb4_unicode_ci COMMENT '产品图片(JSON数组)',
+  `images` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '产品图片(JSON数组)',
   `status` tinyint(1) DEFAULT '1' COMMENT '状态：1启用 0停用',
   `create_by` int DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
@@ -1010,9 +1109,9 @@ DROP TABLE IF EXISTS `crm_knowledge_script`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_knowledge_script` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `title` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '话术标题',
-  `scene` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '适用场景',
-  `content` text COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '话术内容',
+  `title` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '话术标题',
+  `scene` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '适用场景',
+  `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '话术内容',
   `sort_order` int DEFAULT '0' COMMENT '排序',
   `usage_count` int DEFAULT '0' COMMENT '使用次数',
   `create_by` int DEFAULT NULL,
@@ -1033,10 +1132,11 @@ DROP TABLE IF EXISTS `crm_notification`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_notification` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `type` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '通知类型: quote_approval, contract_approval, remind, ...',
-  `title` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '通知标题',
-  `content` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '通知内容',
-  `business_type` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '业务类型: quote, contract, ...',
+  `type` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '通知类型: quote_approval, contract_approval, remind, ...',
+  `title` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '通知标题',
+  `content` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '通知内容',
+  `link_url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '跳转链接',
+  `business_type` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '业务类型: quote, contract, ...',
   `business_id` int DEFAULT NULL COMMENT '业务记录ID',
   `from_user_id` int DEFAULT NULL COMMENT '触发人ID',
   `to_user_id` int DEFAULT NULL COMMENT '接收人ID（NULL表示角色组广播）',
@@ -1049,7 +1149,10 @@ CREATE TABLE `crm_notification` (
   KEY `idx_to_role` (`to_role_id`,`is_read`),
   KEY `idx_business` (`business_type`,`business_id`),
   KEY `idx_type` (`type`),
-  KEY `idx_create_time` (`create_time`)
+  KEY `idx_create_time` (`create_time`),
+  KEY `fk_notif_from_user` (`from_user_id`),
+  CONSTRAINT `fk_notif_from_user` FOREIGN KEY (`from_user_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_notif_to_user` FOREIGN KEY (`to_user_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统通知表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -1063,17 +1166,22 @@ DROP TABLE IF EXISTS `crm_opportunity`;
 CREATE TABLE `crm_opportunity` (
   `id` int NOT NULL AUTO_INCREMENT,
   `customer_id` int NOT NULL,
-  `name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `opportunity_no` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '商机编号（OPP-YYMMDD-NNN）',
+  `source_id` int DEFAULT NULL COMMENT '商机来源ID（外键到 crm_opportunity_source）',
   `expected_amount` decimal(15,2) DEFAULT '0.00',
   `expected_date` date DEFAULT NULL,
   `stage` tinyint DEFAULT '1',
   `win_rate` tinyint DEFAULT '10',
-  `remark` text COLLATE utf8mb4_unicode_ci,
+  `remark` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `lost_reason` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '输单原因（stage=6 时填写）',
   `owner_id` int DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
+  `is_demo` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Demo数据标识: 0=真实 1=Demo',
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_opportunity_no` (`opportunity_no`),
   KEY `idx_opp_customer` (`customer_id`),
   KEY `idx_opp_owner` (`owner_id`),
   KEY `idx_opp_stage` (`stage`),
@@ -1081,11 +1189,32 @@ CREATE TABLE `crm_opportunity` (
   KEY `idx_opp_deleted_at` (`deleted_at`),
   KEY `idx_opp_owner_stage_ctime` (`owner_id`,`stage`,`create_time`),
   KEY `idx_opp_del_stage_amount` (`deleted_at`,`stage`,`expected_amount`),
+  KEY `idx_source_id` (`source_id`),
   CONSTRAINT `fk_opp_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_opp_owner` FOREIGN KEY (`owner_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `chk_opp_stage` CHECK ((`stage` between 1 and 6)),
   CONSTRAINT `chk_opp_win_rate` CHECK ((`win_rate` between 0 and 100))
 ) ENGINE=InnoDB AUTO_INCREMENT=30 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `crm_opportunity_source`
+--
+
+DROP TABLE IF EXISTS `crm_opportunity_source`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `crm_opportunity_source` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(50) NOT NULL COMMENT '来源名称',
+  `code` varchar(30) NOT NULL COMMENT '来源代码',
+  `sort_order` int DEFAULT '0' COMMENT '排序',
+  `is_active` tinyint(1) DEFAULT '1' COMMENT '是否启用：1=启用 0=禁用',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_source_code` (`code`)
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商机来源字典表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1097,15 +1226,17 @@ DROP TABLE IF EXISTS `crm_opportunity_stage_log`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_opportunity_stage_log` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `opportunity_id` int NOT NULL COMMENT '商机ID',
+  `opportunity_id` int DEFAULT NULL,
   `from_stage` int DEFAULT NULL COMMENT '原阶段（NULL表示初始创建）',
   `to_stage` int NOT NULL COMMENT '新阶段',
   `change_reason` varchar(500) DEFAULT NULL COMMENT '变更原因',
   `changed_by` int DEFAULT NULL COMMENT '操作人ID',
   `changed_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '变更时间',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`),
   KEY `idx_opportunity_id` (`opportunity_id`),
-  KEY `idx_changed_at` (`changed_at`)
+  KEY `idx_changed_at` (`changed_at`),
+  CONSTRAINT `fk_stagelog_opp` FOREIGN KEY (`opportunity_id`) REFERENCES `crm_opportunity` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商机阶段变更日志';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -1122,16 +1253,18 @@ CREATE TABLE `crm_payment` (
   `plan_id` int DEFAULT NULL,
   `pay_date` date NOT NULL,
   `pay_amount` decimal(15,2) DEFAULT '0.00',
-  `pay_method` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `remark` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `pay_method` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
+  `is_demo` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Demo数据标识: 0=真实 1=Demo',
   PRIMARY KEY (`id`),
   KEY `fk_payment_plan` (`plan_id`),
   KEY `idx_payment_contract` (`contract_id`),
   KEY `idx_payment_date` (`pay_date`),
   KEY `idx_payment_deleted_at` (`deleted_at`),
   KEY `idx_payment_contract_del` (`contract_id`,`deleted_at`),
+  KEY `idx_payment_contract_deleted` (`contract_id`,`deleted_at`),
   CONSTRAINT `fk_payment_contract` FOREIGN KEY (`contract_id`) REFERENCES `crm_contract` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_payment_plan` FOREIGN KEY (`plan_id`) REFERENCES `crm_payment_plan` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='回款记录表';
@@ -1149,13 +1282,14 @@ CREATE TABLE `crm_payment_plan` (
   `contract_id` int NOT NULL,
   `plan_date` date NOT NULL,
   `plan_amount` decimal(15,2) DEFAULT '0.00',
-  `remark` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `status` enum('pending','partial','completed','overdue') COLLATE utf8mb4_unicode_ci DEFAULT 'pending' COMMENT '回款状态',
+  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `status` enum('pending','partial','completed','overdue') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'pending' COMMENT '回款状态',
   `paid_amount` decimal(15,2) DEFAULT '0.00' COMMENT '已回金额',
   `overdue_days` int DEFAULT '0' COMMENT '逾期天数',
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_demo` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Demo数据标识: 0=真实 1=Demo',
   PRIMARY KEY (`id`),
   KEY `idx_payment_plan_contract` (`contract_id`),
   KEY `idx_payment_plan_date` (`plan_date`),
@@ -1176,19 +1310,20 @@ CREATE TABLE `crm_payment_reminder` (
   `id` int NOT NULL AUTO_INCREMENT,
   `contract_id` int NOT NULL COMMENT '合同ID',
   `plan_id` int DEFAULT NULL COMMENT '回款计划ID',
-  `customer_id` int NOT NULL COMMENT '客户ID',
+  `customer_id` int DEFAULT NULL,
   `remind_date` date NOT NULL COMMENT '提醒日期',
-  `remind_type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '提醒类型：upcoming/overdue/weekly',
+  `remind_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '提醒类型：upcoming/overdue/weekly',
   `remind_days` int DEFAULT NULL COMMENT '距到期天数',
   `amount` decimal(12,2) DEFAULT NULL COMMENT '应回款金额',
-  `status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'pending' COMMENT '状态：pending/acknowledged/sent',
-  `remark` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'pending' COMMENT '状态：pending/acknowledged/sent',
+  `remark` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_pr_contract` (`contract_id`),
   KEY `idx_pr_customer` (`customer_id`),
   KEY `idx_pr_status` (`status`),
-  KEY `idx_pr_date` (`remind_date`)
+  KEY `idx_pr_date` (`remind_date`),
+  CONSTRAINT `fk_payremind_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='回款提醒记录';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -1201,8 +1336,8 @@ DROP TABLE IF EXISTS `crm_pool_log`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_pool_log` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '主键',
-  `customer_id` int NOT NULL COMMENT '客户ID',
-  `action` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '操作: release/claim/auto_release',
+  `customer_id` int DEFAULT NULL,
+  `action` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '操作: release/claim/auto_release',
   `from_user_id` int DEFAULT NULL COMMENT '原负责人ID',
   `to_user_id` int DEFAULT NULL COMMENT '新负责人ID',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
@@ -1215,7 +1350,8 @@ CREATE TABLE `crm_pool_log` (
   KEY `fk_pool_log_from_user` (`from_user_id`),
   KEY `fk_pool_log_to_user` (`to_user_id`),
   CONSTRAINT `fk_pool_log_from_user` FOREIGN KEY (`from_user_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `fk_pool_log_to_user` FOREIGN KEY (`to_user_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL
+  CONSTRAINT `fk_pool_log_to_user` FOREIGN KEY (`to_user_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_poollog_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='客户池操作记录';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -1228,9 +1364,9 @@ DROP TABLE IF EXISTS `crm_prediction_config`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_prediction_config` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模型名称',
-  `model_type` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模型类型：moving_avg/linear_reg/seasonal',
-  `config` text COLLATE utf8mb4_unicode_ci COMMENT '模型参数JSON',
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模型名称',
+  `model_type` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模型类型：moving_avg/linear_reg/seasonal',
+  `config` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '模型参数JSON',
   `accuracy` decimal(5,2) DEFAULT NULL COMMENT '准确率',
   `last_run_at` datetime DEFAULT NULL,
   `status` tinyint(1) DEFAULT '1',
@@ -1250,18 +1386,19 @@ DROP TABLE IF EXISTS `crm_product`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_product` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `code` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `category` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `unit` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '件',
+  `name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `category` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `unit` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '件',
   `price` decimal(15,2) DEFAULT '0.00',
   `cost_price` decimal(15,2) DEFAULT '0.00',
   `stock` int DEFAULT '0',
-  `description` text COLLATE utf8mb4_unicode_ci,
+  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `status` tinyint DEFAULT '1',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime DEFAULT NULL COMMENT '删除时间',
+  `is_demo` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Demo数据标识: 0=真实 1=Demo',
   PRIMARY KEY (`id`),
   UNIQUE KEY `code` (`code`),
   KEY `idx_product_code` (`code`),
@@ -1289,14 +1426,71 @@ CREATE TABLE `crm_product_price` (
   `valid_from` date DEFAULT NULL COMMENT '生效日期',
   `valid_to` date DEFAULT NULL COMMENT '失效日期',
   `status` tinyint(1) DEFAULT '1',
+  `deleted_at` datetime DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_pp_product` (`product_id`),
   KEY `idx_pp_type` (`price_type`),
   KEY `idx_pp_level` (`customer_level`),
+  KEY `idx_product_price_deleted` (`deleted_at`),
   CONSTRAINT `crm_product_price_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `crm_product` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='产品价格表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `crm_purchase_comparison`
+--
+
+DROP TABLE IF EXISTS `crm_purchase_comparison`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `crm_purchase_comparison` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `comparison_no` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '比价单号',
+  `request_id` int DEFAULT NULL COMMENT '关联采购申请ID',
+  `title` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '比价标题',
+  `product_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '产品名称',
+  `quantity` decimal(10,2) DEFAULT NULL COMMENT '数量',
+  `unit` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '单位',
+  `status` enum('draft','completed','cancelled') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'draft' COMMENT '状态',
+  `selected_supplier_id` int DEFAULT NULL COMMENT '选中供应商ID',
+  `created_by` int NOT NULL COMMENT '创建人ID',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `comparison_no` (`comparison_no`),
+  KEY `idx_request` (`request_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_created_by` (`created_by`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='采购比价单';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `crm_purchase_comparison_item`
+--
+
+DROP TABLE IF EXISTS `crm_purchase_comparison_item`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `crm_purchase_comparison_item` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `comparison_id` int NOT NULL COMMENT '比价单ID',
+  `supplier_id` int NOT NULL COMMENT '供应商ID',
+  `unit_price` decimal(12,2) DEFAULT NULL COMMENT '单价',
+  `total_price` decimal(12,2) DEFAULT NULL COMMENT '总价',
+  `delivery_days` int DEFAULT NULL COMMENT '交货天数',
+  `payment_terms` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '付款条件',
+  `remark` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '备注',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_comparison` (`comparison_id`),
+  KEY `idx_supplier` (`supplier_id`),
+  CONSTRAINT `crm_purchase_comparison_item_ibfk_1` FOREIGN KEY (`comparison_id`) REFERENCES `crm_purchase_comparison` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `crm_purchase_comparison_item_ibfk_2` FOREIGN KEY (`supplier_id`) REFERENCES `crm_supplier` (`id`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='采购比价供应商报价明细';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1309,17 +1503,17 @@ DROP TABLE IF EXISTS `crm_purchase_item`;
 CREATE TABLE `crm_purchase_item` (
   `id` int NOT NULL AUTO_INCREMENT,
   `order_id` int NOT NULL COMMENT '采购单ID',
-  `product_name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '产品名称',
-  `product_spec` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '规格型号',
-  `unit` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '个' COMMENT '单位',
+  `product_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '产品名称',
+  `product_spec` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '规格型号',
+  `unit` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '个' COMMENT '单位',
   `quantity` decimal(12,3) NOT NULL COMMENT '采购数量',
   `unit_price` decimal(12,4) NOT NULL COMMENT '单价',
   `discount_rate` decimal(5,2) DEFAULT '0.00' COMMENT '折扣率%',
   `discount_amount` decimal(15,2) DEFAULT '0.00' COMMENT '折扣金额',
   `amount` decimal(15,2) NOT NULL COMMENT '小计金额',
   `received_qty` decimal(12,3) DEFAULT '0.000' COMMENT '已收货数量',
-  `quality_status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '待检' COMMENT '质检状态：待检/合格/不合格',
-  `remark` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
+  `quality_status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '待检' COMMENT '质检状态：待检/合格/不合格',
+  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
   PRIMARY KEY (`id`),
   KEY `idx_poi_order` (`order_id`),
@@ -1336,14 +1530,14 @@ DROP TABLE IF EXISTS `crm_purchase_order`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_purchase_order` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `order_no` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '采购单号 PO-YYMMDD-XXX',
+  `order_no` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '采购单号 PO-YYMMDD-XXX',
   `supplier_id` int NOT NULL COMMENT '供应商ID',
-  `title` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '采购标题',
-  `type` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '常规' COMMENT '类型：常规/紧急/样品/返修',
+  `title` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '采购标题',
+  `type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '常规' COMMENT '类型：常规/紧急/样品/返修',
   `expected_date` date DEFAULT NULL COMMENT '预计到货日期',
-  `payment_terms` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '付款条款',
-  `delivery_address` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '交货地址',
-  `remark` varchar(2000) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
+  `payment_terms` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '付款条款',
+  `delivery_address` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '交货地址',
+  `remark` varchar(2000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
   `total_amount` decimal(15,2) DEFAULT '0.00' COMMENT '商品总金额(不含税)',
   `tax_rate` decimal(5,2) DEFAULT '13.00' COMMENT '税率%',
   `tax_amount` decimal(15,2) DEFAULT '0.00' COMMENT '税额',
@@ -1351,12 +1545,12 @@ CREATE TABLE `crm_purchase_order` (
   `actual_date` date DEFAULT NULL COMMENT '实际到货日期',
   `owner_id` int DEFAULT NULL COMMENT '采购负责人ID',
   `create_by` int DEFAULT NULL COMMENT '创建人ID',
-  `status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '草稿' COMMENT '状态：草稿/待审核/已确认/部分收货/已完成/已取消',
+  `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '草稿' COMMENT '状态：草稿/待审核/已确认/部分收货/已完成/已取消',
   `approval_status` tinyint NOT NULL DEFAULT '2' COMMENT '审批状态：0草稿 1待审批 2已通过 3已拒绝',
   `approver_id` int DEFAULT NULL COMMENT '审批人',
-  `approval_remark` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '审批备注',
+  `approval_remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '审批备注',
   `approve_time` datetime DEFAULT NULL COMMENT '审批时间',
-  `approveRemark` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '审批备注',
+  `approveRemark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '审批备注',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
@@ -1367,6 +1561,7 @@ CREATE TABLE `crm_purchase_order` (
   KEY `idx_po_supplier` (`supplier_id`),
   KEY `idx_po_status` (`status`),
   KEY `idx_po_create_time` (`create_time`),
+  KEY `idx_purchase_order_approval_status` (`approval_status`),
   CONSTRAINT `fk_po_create_by` FOREIGN KEY (`create_by`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_po_owner` FOREIGN KEY (`owner_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_po_supplier` FOREIGN KEY (`supplier_id`) REFERENCES `crm_supplier` (`id`) ON DELETE RESTRICT
@@ -1384,9 +1579,9 @@ CREATE TABLE `crm_purchase_payment` (
   `id` int NOT NULL AUTO_INCREMENT,
   `order_id` int NOT NULL COMMENT '采购单ID',
   `amount` decimal(15,2) NOT NULL COMMENT '付款金额',
-  `pay_method` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '付款方式',
+  `pay_method` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '付款方式',
   `pay_date` date DEFAULT NULL COMMENT '付款日期',
-  `remark` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
+  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
   `payer_id` int DEFAULT NULL COMMENT '付款人ID',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
@@ -1407,11 +1602,11 @@ DROP TABLE IF EXISTS `crm_purchase_plan`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_purchase_plan` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `plan_no` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '计划编号',
-  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '计划名称',
-  `status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'draft' COMMENT '状态',
+  `plan_no` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '计划编号',
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '计划名称',
+  `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'draft' COMMENT '状态',
   `total_amount` decimal(12,2) DEFAULT '0.00' COMMENT '计划总金额',
-  `remark` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `remark` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `create_by` int DEFAULT NULL,
   `approved_by` int DEFAULT NULL,
   `approved_at` datetime DEFAULT NULL,
@@ -1439,8 +1634,8 @@ CREATE TABLE `crm_purchase_plan_item` (
   `quantity` int NOT NULL COMMENT '计划数量',
   `unit_price` decimal(12,2) DEFAULT NULL COMMENT '预估单价',
   `amount` decimal(12,2) DEFAULT NULL COMMENT '预估金额',
-  `reason` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '采购原因',
-  `status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'pending' COMMENT '状态',
+  `reason` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '采购原因',
+  `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'pending' COMMENT '状态',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_ppi_plan` (`plan_id`),
@@ -1461,13 +1656,13 @@ CREATE TABLE `crm_purchase_receipt` (
   `id` int NOT NULL AUTO_INCREMENT,
   `order_id` int NOT NULL COMMENT '采购单ID',
   `item_id` int NOT NULL COMMENT '明细项ID',
-  `receipt_no` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '收货单号 RCV-YYMMDD-XXX',
+  `receipt_no` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '收货单号 RCV-YYMMDD-XXX',
   `quantity` decimal(12,3) NOT NULL COMMENT '本次收货数量',
   `quality_check` tinyint DEFAULT '1' COMMENT '是否质检：0=免检 1=质检',
-  `quality_result` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '待检' COMMENT '质检结果：合格/不合格/待检',
-  `defect_desc` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '不良描述',
-  `warehouse` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '入库仓库',
-  `remark` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
+  `quality_result` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '待检' COMMENT '质检结果：合格/不合格/待检',
+  `defect_desc` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '不良描述',
+  `warehouse` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '入库仓库',
+  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
   `operator_id` int DEFAULT NULL COMMENT '操作人ID',
   `receive_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '收货时间',
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
@@ -1483,6 +1678,37 @@ CREATE TABLE `crm_purchase_receipt` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `crm_purchase_request`
+--
+
+DROP TABLE IF EXISTS `crm_purchase_request`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `crm_purchase_request` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `title` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '申请标题',
+  `request_no` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '申请编号',
+  `dept_id` int DEFAULT NULL COMMENT '申请部门ID',
+  `applicant_id` int NOT NULL COMMENT '申请人ID',
+  `expected_amount` decimal(12,2) DEFAULT NULL COMMENT '预计金额',
+  `reason` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '申请理由',
+  `status` enum('draft','pending','approved','rejected','ordered','cancelled') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'draft' COMMENT '状态',
+  `approved_by` int DEFAULT NULL COMMENT '审批人ID',
+  `approved_at` datetime DEFAULT NULL COMMENT '审批时间',
+  `reject_reason` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '驳回/撤销原因',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `request_no` (`request_no`),
+  KEY `idx_applicant` (`applicant_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_request_no` (`request_no`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='采购申请表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `crm_quote`
 --
 
@@ -1491,23 +1717,25 @@ DROP TABLE IF EXISTS `crm_quote`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_quote` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `quote_no` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `quote_no` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `customer_id` int NOT NULL,
   `opportunity_id` int DEFAULT NULL COMMENT '关联商机ID',
   `amount` decimal(15,2) DEFAULT '0.00',
   `discount` decimal(5,2) DEFAULT '0.00',
   `final_amount` decimal(15,2) DEFAULT '0.00',
-  `currency` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT 'CNY' COMMENT '报价货币',
+  `currency` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'CNY' COMMENT '报价货币',
   `exchange_rate` decimal(10,4) DEFAULT '1.0000' COMMENT '使用汇率',
   `valid_days` int DEFAULT '30',
-  `remark` text COLLATE utf8mb4_unicode_ci,
+  `remark` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `status` tinyint DEFAULT '1',
   `approval_status` tinyint NOT NULL DEFAULT '2' COMMENT '审批状态: 1=待审批, 2=已通过, 3=已拒绝',
   `approver_id` int DEFAULT NULL COMMENT '审批人ID',
-  `approval_remark` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '审批备注（拒绝原因）',
+  `approval_remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '审批备注（拒绝原因）',
   `create_by` int DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
+  `is_demo` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Demo数据标识: 0=真实 1=Demo',
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `quote_no` (`quote_no`),
   KEY `fk_quote_create_by` (`create_by`),
@@ -1535,12 +1763,12 @@ CREATE TABLE `crm_quote_item` (
   `id` int NOT NULL AUTO_INCREMENT,
   `quote_id` int NOT NULL,
   `product_id` int NOT NULL,
-  `product_name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `product_code` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `product_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `product_code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `quantity` int DEFAULT '1',
   `unit_price` decimal(15,2) DEFAULT '0.00',
   `total_price` decimal(15,2) DEFAULT '0.00',
-  `remark` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
   PRIMARY KEY (`id`),
   KEY `idx_quote_item_quote` (`quote_id`),
@@ -1559,17 +1787,17 @@ DROP TABLE IF EXISTS `crm_reconciliation`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_reconciliation` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `recon_no` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '对账单号',
-  `recon_type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '对账类型：customer/supplier',
+  `recon_no` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '对账单号',
+  `recon_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '对账类型：customer/supplier',
   `target_id` int NOT NULL COMMENT '客户/供应商ID',
-  `target_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '名称',
+  `target_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '名称',
   `period_start` date NOT NULL COMMENT '起始日',
   `period_end` date NOT NULL COMMENT '截止日',
   `total_amount` decimal(12,2) DEFAULT '0.00' COMMENT '总金额',
   `paid_amount` decimal(12,2) DEFAULT '0.00' COMMENT '已付金额',
   `unpaid_amount` decimal(12,2) DEFAULT '0.00' COMMENT '未付金额',
-  `status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'draft' COMMENT '状态：draft/confirmed/disputed',
-  `detail_data` text COLLATE utf8mb4_unicode_ci COMMENT '明细JSON',
+  `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'draft' COMMENT '状态：draft/confirmed/disputed',
+  `detail_data` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '明细JSON',
   `create_by` int DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -1589,13 +1817,13 @@ DROP TABLE IF EXISTS `crm_report_config`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_report_config` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '报表名称',
-  `description` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '报表说明',
-  `report_type` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '报表类型：table/bar/line/pie',
-  `data_source` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '数据来源：customer/contract/payment/purchase/opportunity',
-  `columns_config` text COLLATE utf8mb4_unicode_ci COMMENT '列配置JSON',
-  `filter_config` text COLLATE utf8mb4_unicode_ci COMMENT '筛选条件JSON',
-  `chart_config` text COLLATE utf8mb4_unicode_ci COMMENT '图表配置JSON',
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '报表名称',
+  `description` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '报表说明',
+  `report_type` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '报表类型：table/bar/line/pie',
+  `data_source` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '数据来源：customer/contract/payment/purchase/opportunity',
+  `columns_config` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '列配置JSON',
+  `filter_config` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '筛选条件JSON',
+  `chart_config` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '图表配置JSON',
   `is_public` tinyint(1) DEFAULT '0' COMMENT '是否公开',
   `create_by` int DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
@@ -1616,7 +1844,7 @@ DROP TABLE IF EXISTS `crm_sales_target`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_sales_target` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `user_id` int NOT NULL,
+  `user_id` int DEFAULT NULL,
   `year` int NOT NULL,
   `month` int NOT NULL,
   `target_amount` decimal(15,2) DEFAULT '0.00',
@@ -1626,7 +1854,8 @@ CREATE TABLE `crm_sales_target` (
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_user_period` (`user_id`,`year`,`month`),
-  KEY `idx_target_user_year_month` (`user_id`,`year`,`month`)
+  KEY `idx_target_user_year_month` (`user_id`,`year`,`month`),
+  CONSTRAINT `fk_salestarget_user` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -1639,19 +1868,45 @@ DROP TABLE IF EXISTS `crm_score_rule`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_score_rule` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '规则名称',
-  `condition_type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '条件类型：source来源/action行为/interaction互动',
-  `condition_field` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '条件字段',
-  `condition_operator` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '条件运算符：eq/gt/lt/contains',
-  `condition_value` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '条件值',
+  `name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '规则名称',
+  `condition_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '条件类型：source来源/action行为/interaction互动',
+  `condition_field` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '条件字段',
+  `condition_operator` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '条件运算符：eq/gt/lt/contains',
+  `condition_value` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '条件值',
   `score` int NOT NULL DEFAULT '0' COMMENT '分数',
   `status` tinyint(1) DEFAULT '1' COMMENT '状态：1启用 0禁用',
+  `deleted_at` datetime DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_sr_type` (`condition_type`),
-  KEY `idx_sr_status` (`status`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评分规则';
+  KEY `idx_sr_status` (`status`),
+  KEY `idx_score_rule_deleted` (`deleted_at`)
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评分规则';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `crm_scoring_rule`
+--
+
+DROP TABLE IF EXISTS `crm_scoring_rule`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `crm_scoring_rule` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `category` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '评分维度：quality质量/delivery交期/service服务/price价格',
+  `rule_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '规则名称',
+  `min_score` decimal(3,1) NOT NULL DEFAULT '1.0' COMMENT '最低分',
+  `max_score` decimal(3,1) NOT NULL DEFAULT '5.0' COMMENT '最高分',
+  `weight` decimal(4,2) NOT NULL DEFAULT '1.00' COMMENT '权重',
+  `is_active` tinyint(1) DEFAULT '1' COMMENT '是否启用',
+  `sort_order` int DEFAULT '0' COMMENT '排序',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_scoring_category` (`category`),
+  KEY `idx_scoring_active` (`is_active`)
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='供应商评分规则表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1663,17 +1918,17 @@ DROP TABLE IF EXISTS `crm_service_order`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_service_order` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `order_no` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `order_no` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `customer_id` int NOT NULL,
   `contract_id` int DEFAULT NULL,
-  `type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `title` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `description` text COLLATE utf8mb4_unicode_ci,
+  `type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `title` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `status` tinyint DEFAULT '1',
   `priority` tinyint DEFAULT '3',
   `assignee_id` int DEFAULT NULL,
   `finish_time` datetime DEFAULT NULL,
-  `finish_desc` text COLLATE utf8mb4_unicode_ci,
+  `finish_desc` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `satisfaction` tinyint DEFAULT NULL,
   `create_by` int DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
@@ -1705,11 +1960,11 @@ DROP TABLE IF EXISTS `crm_smart_reminder`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_smart_reminder` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '规则名称',
-  `reminder_type` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '提醒类型',
-  `config` text COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '配置JSON',
-  `notify_to` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'owner' COMMENT '通知对象',
-  `notify_method` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'system' COMMENT '通知方式',
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '规则名称',
+  `reminder_type` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '提醒类型',
+  `config` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '配置JSON',
+  `notify_to` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'owner' COMMENT '通知对象',
+  `notify_method` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'system' COMMENT '通知方式',
   `status` tinyint(1) DEFAULT '1' COMMENT '状态',
   `last_run_at` datetime DEFAULT NULL,
   `create_by` int DEFAULT NULL,
@@ -1731,11 +1986,11 @@ DROP TABLE IF EXISTS `crm_smart_reminder_log`;
 CREATE TABLE `crm_smart_reminder_log` (
   `id` int NOT NULL AUTO_INCREMENT,
   `rule_id` int NOT NULL,
-  `target_type` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `target_type` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `target_id` int NOT NULL,
   `remind_date` date NOT NULL,
   `user_id` int NOT NULL COMMENT '通知目标用户',
-  `status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'pending',
+  `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'pending',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_reminder_once` (`rule_id`,`target_type`,`target_id`,`remind_date`),
@@ -1754,13 +2009,14 @@ CREATE TABLE `crm_social_contact` (
   `id` int NOT NULL AUTO_INCREMENT,
   `customer_id` int DEFAULT NULL COMMENT '关联客户',
   `contact_id` int DEFAULT NULL COMMENT '关联联系人',
-  `platform` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '平台',
-  `direction` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '方向：in/out',
-  `content` text COLLATE utf8mb4_unicode_ci COMMENT '沟通内容摘要',
-  `attachment_url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '附件路径',
+  `platform` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '平台',
+  `direction` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '方向：in/out',
+  `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '沟通内容摘要',
+  `attachment_url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '附件路径',
   `message_time` datetime DEFAULT NULL COMMENT '消息时间',
   `create_by` int DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_sc_customer` (`customer_id`),
   KEY `idx_sc_platform` (`platform`),
@@ -1800,13 +2056,13 @@ DROP TABLE IF EXISTS `crm_stock_movement`;
 CREATE TABLE `crm_stock_movement` (
   `id` int NOT NULL AUTO_INCREMENT,
   `product_id` int NOT NULL COMMENT '产品ID',
-  `movement_type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '变动类型：in/out/adjust/return',
+  `movement_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '变动类型：in/out/adjust/return',
   `quantity` int NOT NULL COMMENT '变动数量',
   `before_qty` int NOT NULL COMMENT '变动前库存',
   `after_qty` int NOT NULL COMMENT '变动后库存',
-  `related_type` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '关联类型',
+  `related_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '关联类型',
   `related_id` int DEFAULT NULL COMMENT '关联单据ID',
-  `remark` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `remark` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `operator_id` int DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -1826,26 +2082,27 @@ DROP TABLE IF EXISTS `crm_supplier`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_supplier` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `supplier_no` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '供应商编号',
-  `name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '供应商名称',
-  `short_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '简称',
-  `type` enum('生产','贸易','服务') COLLATE utf8mb4_unicode_ci DEFAULT '贸易' COMMENT '类型',
-  `industry` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '所属行业',
-  `level` enum('核心','重点','普通','备用') COLLATE utf8mb4_unicode_ci DEFAULT '普通' COMMENT '等级',
+  `supplier_no` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '供应商编号',
+  `name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '供应商名称',
+  `short_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '简称',
+  `type` enum('生产','贸易','服务') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '贸易' COMMENT '类型',
+  `industry` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '所属行业',
+  `level` enum('核心','重点','普通','备用') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '普通' COMMENT '等级',
   `status` tinyint DEFAULT '1' COMMENT '状态：1=合作中 2=暂停 3=终止',
   `rating` decimal(2,1) DEFAULT '0.0' COMMENT '综合评分（0-5）',
-  `contact_person` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '主要联系人',
-  `contact_phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '联系电话',
-  `contact_email` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '联系邮箱',
-  `address` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '地址',
-  `payment_terms` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '结算方式',
+  `contact_person` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '主要联系人',
+  `contact_phone` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '联系电话',
+  `contact_email` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '联系邮箱',
+  `address` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '地址',
+  `payment_terms` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '结算方式',
   `delivery_days` int DEFAULT NULL COMMENT '交货周期（天）',
-  `remark` text COLLATE utf8mb4_unicode_ci COMMENT '备注',
+  `remark` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '备注',
   `owner_id` int DEFAULT NULL COMMENT '负责人ID',
   `create_by` int DEFAULT NULL COMMENT '创建人ID',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
+  `is_demo` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Demo数据标识: 0=真实 1=Demo',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_supplier_name` (`name`),
   KEY `fk_supplier_create_by` (`create_by`),
@@ -1871,18 +2128,20 @@ DROP TABLE IF EXISTS `crm_supplier_contact`;
 CREATE TABLE `crm_supplier_contact` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `supplier_id` int NOT NULL COMMENT '供应商ID',
-  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '姓名',
-  `position` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '职位',
-  `department` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '部门',
-  `phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '电话',
-  `mobile` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '手机',
-  `email` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '邮箱',
-  `wechat` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '微信',
-  `role` enum('决策人','对接人','财务','技术','其他') COLLATE utf8mb4_unicode_ci DEFAULT '对接人' COMMENT '角色',
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '姓名',
+  `position` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '职位',
+  `department` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '部门',
+  `phone` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '电话',
+  `mobile` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '手机',
+  `email` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '邮箱',
+  `wechat` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '微信',
+  `role` enum('决策人','对接人','财务','技术','其他') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '对接人' COMMENT '角色',
   `is_primary` tinyint DEFAULT '0' COMMENT '是否主要联系人：0=否 1=是',
-  `remark` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
+  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
+  `create_by` int DEFAULT NULL COMMENT '创建人',
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   KEY `idx_contact_supplier` (`supplier_id`),
   KEY `idx_contact_role` (`role`),
@@ -1900,17 +2159,19 @@ DROP TABLE IF EXISTS `crm_supplier_qualification`;
 CREATE TABLE `crm_supplier_qualification` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `supplier_id` int NOT NULL COMMENT '供应商ID',
-  `cert_type` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '证照类型（营业执照/许可证/认证等）',
-  `cert_no` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '证照编号',
-  `cert_name` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '证照名称',
+  `cert_type` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '证照类型（营业执照/许可证/认证等）',
+  `cert_no` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '证照编号',
+  `cert_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '证照名称',
   `issue_date` date DEFAULT NULL COMMENT '发证日期',
   `expire_date` date DEFAULT NULL COMMENT '有效期至',
-  `issuing_authority` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '发证机构',
-  `file_path` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '扫描件路径',
+  `issuing_authority` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '发证机构',
+  `file_path` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '扫描件路径',
   `status` tinyint DEFAULT '1' COMMENT '状态：1=有效 2=即将到期 3=已过期',
-  `remark` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
+  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
+  `create_by` int DEFAULT NULL COMMENT '创建人',
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   KEY `idx_qual_supplier` (`supplier_id`),
   KEY `idx_qual_type` (`cert_type`),
@@ -1937,12 +2198,13 @@ CREATE TABLE `crm_supplier_rating` (
   `quality_rate` decimal(5,2) DEFAULT '0.00' COMMENT '质量合格率',
   `delivery_rate` decimal(5,2) DEFAULT '0.00' COMMENT '准时交付率',
   `total_score` decimal(2,1) DEFAULT '0.0' COMMENT '总分（0-5）',
-  `rating_period` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '评分周期（如2024-Q1）',
+  `rating_period` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '评分周期（如2024-Q1）',
   `evaluator_id` int DEFAULT NULL COMMENT '评估人ID',
-  `remark` text COLLATE utf8mb4_unicode_ci COMMENT '评估说明',
+  `remark` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '评估说明',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_supplier_rating_period` (`supplier_id`,`rating_period`),
   KEY `fk_rating_evaluator` (`evaluator_id`),
   KEY `idx_rating_supplier` (`supplier_id`),
   KEY `idx_rating_period` (`rating_period`),
@@ -1960,12 +2222,12 @@ DROP TABLE IF EXISTS `crm_survey_campaign`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_survey_campaign` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '调查名称',
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '调查名称',
   `template_id` int NOT NULL COMMENT '使用的模板',
-  `status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'draft' COMMENT '状态：draft/active/closed',
-  `target_type` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'all' COMMENT '目标：all/specific',
-  `target_ids` text COLLATE utf8mb4_unicode_ci COMMENT '指定客户ID列表JSON',
-  `send_method` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'link' COMMENT '发送方式',
+  `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'draft' COMMENT '状态：draft/active/closed',
+  `target_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'all' COMMENT '目标：all/specific',
+  `target_ids` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '指定客户ID列表JSON',
+  `send_method` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'link' COMMENT '发送方式',
   `total_sent` int DEFAULT '0' COMMENT '已发送数',
   `total_responded` int DEFAULT '0' COMMENT '已回复数',
   `start_date` date DEFAULT NULL COMMENT '开始日期',
@@ -1991,11 +2253,11 @@ CREATE TABLE `crm_survey_response` (
   `id` int NOT NULL AUTO_INCREMENT,
   `campaign_id` int NOT NULL COMMENT '活动ID',
   `customer_id` int DEFAULT NULL COMMENT '关联客户',
-  `answers` text COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '回答JSON',
+  `answers` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '回答JSON',
   `nps_score` int DEFAULT NULL COMMENT 'NPS分数(0-10)',
   `csat_score` decimal(3,1) DEFAULT NULL COMMENT 'CSAT平均分',
-  `respondent_name` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '回复人',
-  `respondent_contact` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '联系方式',
+  `respondent_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '回复人',
+  `respondent_contact` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '联系方式',
   `submitted_at` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_sr_campaign` (`campaign_id`),
@@ -2013,10 +2275,10 @@ DROP TABLE IF EXISTS `crm_survey_template`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_survey_template` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模板名称',
-  `description` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '模板说明',
-  `survey_type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'csat' COMMENT '调查类型：nps/csat/custom',
-  `questions` text COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '问题配置JSON',
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模板名称',
+  `description` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '模板说明',
+  `survey_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'csat' COMMENT '调查类型：nps/csat/custom',
+  `questions` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '问题配置JSON',
   `is_system` tinyint(1) DEFAULT '0' COMMENT '是否系统预设',
   `create_by` int DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
@@ -2036,14 +2298,34 @@ DROP TABLE IF EXISTS `crm_tag`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_tag` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '标签名称',
-  `type` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'custom' COMMENT '标签类型: region/industry/scale/custom',
-  `color` varchar(7) COLLATE utf8mb4_unicode_ci DEFAULT '#1a56db' COMMENT '标签颜色(hex)',
+  `name` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '标签名称',
+  `type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'custom' COMMENT '标签类型: region/industry/scale/custom',
+  `color` varchar(7) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '#1a56db' COMMENT '标签颜色(hex)',
   `sort` int DEFAULT '0' COMMENT '排序',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_name` (`name`)
-) ENGINE=InnoDB AUTO_INCREMENT=67 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='客户标签表';
+) ENGINE=InnoDB AUTO_INCREMENT=73 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='客户标签表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `crm_user_permission`
+--
+
+DROP TABLE IF EXISTS `crm_user_permission`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `crm_user_permission` (
+  `id` int NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `user_id` int NOT NULL COMMENT '用户ID',
+  `permission_id` int NOT NULL COMMENT '权限ID',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_permission` (`user_id`,`permission_id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_permission_id` (`permission_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户权限关联表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2055,10 +2337,10 @@ DROP TABLE IF EXISTS `crm_webhook`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_webhook` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Webhook名称',
-  `url` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '回调URL',
-  `events` text COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '订阅事件JSON',
-  `secret` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '签名密钥',
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Webhook名称',
+  `url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '回调URL',
+  `events` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '订阅事件JSON',
+  `secret` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '签名密钥',
   `status` tinyint(1) DEFAULT '1' COMMENT '状态',
   `last_triggered_at` datetime DEFAULT NULL COMMENT '最后触发时间',
   `fail_count` int DEFAULT '0' COMMENT '连续失败次数',
@@ -2080,11 +2362,11 @@ DROP TABLE IF EXISTS `crm_webhook_log`;
 CREATE TABLE `crm_webhook_log` (
   `id` int NOT NULL AUTO_INCREMENT,
   `webhook_id` int NOT NULL,
-  `event_type` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `payload` text COLLATE utf8mb4_unicode_ci COMMENT '发送的JSON数据',
+  `event_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `payload` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '发送的JSON数据',
   `response_status` int DEFAULT NULL COMMENT 'HTTP响应状态码',
-  `response_body` text COLLATE utf8mb4_unicode_ci COMMENT '响应内容',
-  `status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'success/failed/timeout',
+  `response_body` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '响应内容',
+  `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'success/failed/timeout',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_wl_webhook` (`webhook_id`),
@@ -2102,12 +2384,12 @@ DROP TABLE IF EXISTS `crm_workflow_log`;
 CREATE TABLE `crm_workflow_log` (
   `id` int NOT NULL AUTO_INCREMENT,
   `rule_id` int NOT NULL,
-  `trigger_event` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `target_type` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `trigger_event` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `target_type` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `target_id` int DEFAULT NULL,
-  `action_type` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `action_result` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `action_detail` text COLLATE utf8mb4_unicode_ci,
+  `action_type` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `action_result` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `action_detail` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_wl_rule` (`rule_id`),
@@ -2124,11 +2406,11 @@ DROP TABLE IF EXISTS `crm_workflow_rule`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_workflow_rule` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '规则名称',
-  `description` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `trigger_event` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '触发事件',
-  `conditions` text COLLATE utf8mb4_unicode_ci COMMENT '触发条件JSON',
-  `actions` text COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '执行动作JSON',
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '规则名称',
+  `description` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `trigger_event` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '触发事件',
+  `conditions` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '触发条件JSON',
+  `actions` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '执行动作JSON',
   `status` tinyint(1) DEFAULT '1' COMMENT '状态',
   `last_run_at` datetime DEFAULT NULL,
   `run_count` int DEFAULT '0',
@@ -2151,12 +2433,12 @@ DROP TABLE IF EXISTS `schema_migrations`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `schema_migrations` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `version` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '迁移版本号',
-  `name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '迁移名称',
+  `version` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '迁移版本号',
+  `name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '迁移名称',
   `executed_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '执行时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_version` (`version`)
-) ENGINE=InnoDB AUTO_INCREMENT=58 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='数据库迁移追踪表';
+) ENGINE=InnoDB AUTO_INCREMENT=169 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='数据库迁移追踪表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2168,15 +2450,15 @@ DROP TABLE IF EXISTS `sys_analysis_config`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `sys_analysis_config` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `code` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `type` enum('prediction','anomaly','alert') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `type` enum('prediction','anomaly','alert') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `config` json DEFAULT NULL,
   `is_active` tinyint DEFAULT '1',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `code` (`code`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2188,12 +2470,12 @@ DROP TABLE IF EXISTS `sys_backup_record`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `sys_backup_record` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '备份ID',
-  `backup_type` enum('full','incremental') COLLATE utf8mb4_unicode_ci DEFAULT 'full' COMMENT '备份类型',
-  `file_name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '备份文件名',
-  `file_path` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '备份文件路径',
+  `backup_type` enum('full','incremental') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'full' COMMENT '备份类型',
+  `file_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '备份文件名',
+  `file_path` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '备份文件路径',
   `file_size` bigint DEFAULT '0' COMMENT '文件大小(bytes)',
-  `status` enum('running','success','failed') COLLATE utf8mb4_unicode_ci DEFAULT 'running' COMMENT '状态',
-  `error_msg` text COLLATE utf8mb4_unicode_ci COMMENT '错误信息',
+  `status` enum('running','success','failed') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'running' COMMENT '状态',
+  `error_msg` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '错误信息',
   `create_by` int DEFAULT NULL COMMENT '创建人',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`),
@@ -2217,7 +2499,49 @@ CREATE TABLE `sys_config` (
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `config_key` (`config_key`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `sys_customer_status`
+--
+
+DROP TABLE IF EXISTS `sys_customer_status`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `sys_customer_status` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `code` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '状态编码',
+  `name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '显示名称',
+  `sort_order` int DEFAULT '0' COMMENT '排序',
+  `is_default` tinyint(1) DEFAULT '0' COMMENT '是否默认状态',
+  `is_end` tinyint(1) DEFAULT '0' COMMENT '是否终态',
+  `color` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '标签颜色',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_code` (`code`)
+) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='客户状态配置';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `sys_customer_status_transition`
+--
+
+DROP TABLE IF EXISTS `sys_customer_status_transition`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `sys_customer_status_transition` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `from_code` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '来源状态',
+  `to_code` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '目标状态',
+  `require_permission` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '需要的权限码',
+  `require_reason` tinyint(1) DEFAULT '0' COMMENT '是否需要填写原因',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_transition` (`from_code`,`to_code`),
+  KEY `idx_from_code` (`from_code`)
+) ENGINE=InnoDB AUTO_INCREMENT=35 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='客户状态流转规则';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2230,15 +2554,15 @@ DROP TABLE IF EXISTS `sys_data_permission`;
 CREATE TABLE `sys_data_permission` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `role_id` int NOT NULL COMMENT '角色ID',
-  `module` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模块名称',
-  `data_scope` enum('all','dept','dept_and_sub','self','custom') COLLATE utf8mb4_unicode_ci DEFAULT 'self' COMMENT '数据范围',
-  `custom_dept_ids` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '自定义部门ID列表',
+  `module` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模块名称',
+  `data_scope` enum('all','dept','dept_and_sub','self','custom') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'self' COMMENT '数据范围',
+  `custom_dept_ids` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '自定义部门ID列表',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_role_module` (`role_id`,`module`),
   KEY `idx_role_id` (`role_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='数据权限配置表';
+) ENGINE=InnoDB AUTO_INCREMENT=29 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='数据权限配置表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2250,7 +2574,7 @@ DROP TABLE IF EXISTS `sys_data_quality_report`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `sys_data_quality_report` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '报告ID',
-  `table_name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '表名',
+  `table_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '表名',
   `total_count` int DEFAULT '0' COMMENT '总记录数',
   `duplicate_count` int DEFAULT '0' COMMENT '重复记录数',
   `invalid_count` int DEFAULT '0' COMMENT '无效记录数',
@@ -2272,7 +2596,7 @@ DROP TABLE IF EXISTS `sys_dept`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `sys_dept` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '部门ID',
-  `name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '部门名称',
+  `name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '部门名称',
   `parent_id` int DEFAULT '0' COMMENT '上级部门ID',
   `sort` int DEFAULT '0' COMMENT '排序',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -2292,13 +2616,13 @@ DROP TABLE IF EXISTS `sys_email_log`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `sys_email_log` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `to_email` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `subject` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `body` text COLLATE utf8mb4_unicode_ci,
-  `type` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `status` enum('sent','failed') COLLATE utf8mb4_unicode_ci DEFAULT 'sent',
-  `error_msg` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `ref_type` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `to_email` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `subject` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `body` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `status` enum('sent','failed') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'sent',
+  `error_msg` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `ref_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `ref_id` int DEFAULT NULL,
   `send_by` int DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
@@ -2317,15 +2641,15 @@ DROP TABLE IF EXISTS `sys_integration`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `sys_integration` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `type` enum('email','sms','erp','finance') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `type` enum('email','sms','erp','finance') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `config` json DEFAULT NULL,
-  `status` enum('active','inactive','error') COLLATE utf8mb4_unicode_ci DEFAULT 'inactive',
+  `status` enum('active','inactive','error') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'inactive',
   `last_sync_time` datetime DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2337,20 +2661,20 @@ DROP TABLE IF EXISTS `sys_log`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `sys_log` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `module` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `action` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `method` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `url` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `params` text COLLATE utf8mb4_unicode_ci,
-  `changed_fields` text COLLATE utf8mb4_unicode_ci COMMENT '变更字段列表(JSON)',
-  `old_value` text COLLATE utf8mb4_unicode_ci COMMENT '变更前数据(JSON)',
-  `new_value` text COLLATE utf8mb4_unicode_ci COMMENT '变更后数据(JSON)',
-  `ip_address` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `module` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `action` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `method` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `params` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `changed_fields` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '变更字段列表(JSON)',
+  `old_value` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '变更前数据(JSON)',
+  `new_value` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '变更后数据(JSON)',
+  `ip_address` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `user_id` int DEFAULT NULL,
-  `user_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `description` text COLLATE utf8mb4_unicode_ci,
+  `user_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `status` tinyint DEFAULT '1',
-  `error_msg` text COLLATE utf8mb4_unicode_ci,
+  `error_msg` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_module` (`module`),
@@ -2359,6 +2683,38 @@ CREATE TABLE `sys_log` (
   KEY `idx_action` (`action`),
   CONSTRAINT `fk_log_user` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=11738 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `sys_log_archive`
+--
+
+DROP TABLE IF EXISTS `sys_log_archive`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `sys_log_archive` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `module` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `action` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `method` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `params` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `changed_fields` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '变更字段列表(JSON)',
+  `old_value` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '变更前数据(JSON)',
+  `new_value` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '变更后数据(JSON)',
+  `ip_address` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `user_id` int DEFAULT NULL,
+  `user_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `status` tinyint DEFAULT '1',
+  `error_msg` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_module` (`module`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_create_time` (`create_time`),
+  KEY `idx_action` (`action`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2371,17 +2727,17 @@ DROP TABLE IF EXISTS `sys_operation_log`;
 CREATE TABLE `sys_operation_log` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '日志ID',
   `user_id` int DEFAULT NULL COMMENT '用户ID',
-  `username` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '用户名',
-  `module` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '模块名称',
-  `operation` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '操作类型',
-  `method` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '方法名',
-  `params` text COLLATE utf8mb4_unicode_ci COMMENT '请求参数',
-  `result` text COLLATE utf8mb4_unicode_ci COMMENT '返回结果摘要',
-  `ip` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '操作IP',
-  `user_agent` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '用户代理',
+  `username` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '用户名',
+  `module` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '模块名称',
+  `operation` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '操作类型',
+  `method` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '方法名',
+  `params` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '请求参数',
+  `result` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '返回结果摘要',
+  `ip` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '操作IP',
+  `user_agent` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '用户代理',
   `execution_time` int DEFAULT NULL COMMENT '执行时长(ms)',
   `status` tinyint DEFAULT '1' COMMENT '状态：1成功 0失败',
-  `error_msg` text COLLATE utf8mb4_unicode_ci COMMENT '错误信息',
+  `error_msg` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '错误信息',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`),
   KEY `idx_user_id` (`user_id`),
@@ -2400,12 +2756,12 @@ DROP TABLE IF EXISTS `sys_permission`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `sys_permission` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '权限ID',
-  `name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '权限名称',
-  `code` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '权限编码',
-  `type` enum('menu','button','api') COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '权限类型',
+  `name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '权限名称',
+  `code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '权限编码',
+  `type` enum('menu','button','api') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '权限类型',
   `parent_id` int DEFAULT '0' COMMENT '父权限ID',
-  `path` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '权限路径（菜单路径或API路径）',
-  `icon` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '图标',
+  `path` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '权限路径（菜单路径或API路径）',
+  `icon` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '图标',
   `sort` int DEFAULT '0' COMMENT '排序',
   `is_visible` tinyint DEFAULT '1' COMMENT '是否可见',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -2414,7 +2770,7 @@ CREATE TABLE `sys_permission` (
   UNIQUE KEY `uk_code` (`code`),
   KEY `idx_parent_id` (`parent_id`),
   KEY `idx_type` (`type`)
-) ENGINE=InnoDB AUTO_INCREMENT=119 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='权限表';
+) ENGINE=InnoDB AUTO_INCREMENT=161 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='权限表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2426,9 +2782,9 @@ DROP TABLE IF EXISTS `sys_role`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `sys_role` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '角色ID',
-  `name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '角色名称',
-  `code` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '角色编码',
-  `description` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '描述',
+  `name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '角色名称',
+  `code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '角色编码',
+  `description` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '描述',
   `status` tinyint DEFAULT '1' COMMENT '状态(1正常0禁用)',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -2437,7 +2793,7 @@ CREATE TABLE `sys_role` (
   `deleted_at` datetime DEFAULT NULL COMMENT '删除时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_code` (`code`)
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色表';
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2458,7 +2814,28 @@ CREATE TABLE `sys_role_permission` (
   KEY `idx_permission_id` (`permission_id`),
   CONSTRAINT `fk_rp_permission` FOREIGN KEY (`permission_id`) REFERENCES `sys_permission` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_rp_role` FOREIGN KEY (`role_id`) REFERENCES `sys_role` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=256 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色权限关联表';
+) ENGINE=InnoDB AUTO_INCREMENT=299 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色权限关联表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `sys_token_blacklist`
+--
+
+DROP TABLE IF EXISTS `sys_token_blacklist`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `sys_token_blacklist` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `token_hash` varchar(64) NOT NULL,
+  `user_id` int DEFAULT NULL,
+  `expire_at` datetime NOT NULL,
+  `reason` varchar(50) DEFAULT 'logout',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_token_hash` (`token_hash`),
+  KEY `idx_expire` (`expire_at`),
+  KEY `idx_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2470,25 +2847,29 @@ DROP TABLE IF EXISTS `sys_user`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `sys_user` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '用户ID',
-  `username` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '用户名',
-  `password` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '密码',
-  `real_name` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '真实姓名',
-  `phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '电话',
-  `email` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '邮箱',
+  `username` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '用户名',
+  `password` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '密码',
+  `real_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '真实姓名',
+  `phone` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '电话',
+  `email` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '邮箱',
   `dept_id` int DEFAULT NULL COMMENT '部门ID',
   `role_id` int DEFAULT NULL COMMENT '角色ID',
   `status` tinyint DEFAULT '1' COMMENT '状态(1正常0禁用)',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `last_login_time` datetime DEFAULT NULL COMMENT '最后登录时间',
-  `last_login_ip` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '最后登录IP',
+  `last_login_ip` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '最后登录IP',
   `manager_id` int DEFAULT NULL COMMENT '直属上级ID',
   `deleted_at` datetime DEFAULT NULL COMMENT '删除时间',
+  `must_change_password` tinyint NOT NULL DEFAULT '0' COMMENT '首次登录/重置密码后必须改密(1是0否)',
+  `password_changed_at` datetime DEFAULT NULL COMMENT '密码最后修改时间',
+  `is_demo` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Demo数据标识: 0=真实 1=Demo',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_username` (`username`),
   KEY `idx_dept_id` (`dept_id`),
   KEY `idx_role_id` (`role_id`),
   KEY `fk_user_manager` (`manager_id`),
+  KEY `idx_user_is_demo` (`is_demo`),
   CONSTRAINT `fk_user_dept` FOREIGN KEY (`dept_id`) REFERENCES `sys_dept` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_user_manager` FOREIGN KEY (`manager_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_user_role` FOREIGN KEY (`role_id`) REFERENCES `sys_role` (`id`) ON DELETE SET NULL
@@ -2504,17 +2885,17 @@ DROP TABLE IF EXISTS `sys_validation_rule`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `sys_validation_rule` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '规则ID',
-  `table_name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '表名',
-  `column_name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '列名',
-  `rule_type` enum('required','unique','format','range','custom') COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '规则类型',
+  `table_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '表名',
+  `column_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '列名',
+  `rule_type` enum('required','unique','format','range','custom') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '规则类型',
   `rule_config` json DEFAULT NULL COMMENT '规则配置',
-  `error_message` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '错误提示',
+  `error_message` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '错误提示',
   `is_active` tinyint DEFAULT '1' COMMENT '是否启用',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_table_col_type` (`table_name`,`column_name`,`rule_type`),
   KEY `idx_table_column` (`table_name`,`column_name`)
-) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='数据验证规则表';
+) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='数据验证规则表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2548,7 +2929,7 @@ SET character_set_client = @saved_cs_client;
 /*!50001 SET character_set_results     = utf8mb4 */;
 /*!50001 SET collation_connection      = utf8mb4_unicode_ci */;
 /*!50001 CREATE ALGORITHM=UNDEFINED */
-/*!50013 DEFINER=`crm_user`@`localhost` SQL SECURITY DEFINER */
+/*!50013 SQL SECURITY DEFINER */
 /*!50001 VIEW `v_user_permissions` AS select `u`.`id` AS `user_id`,`u`.`username` AS `username`,`u`.`real_name` AS `real_name`,`u`.`role_id` AS `role_id`,`r`.`name` AS `role_name`,`p`.`code` AS `permission_code`,`p`.`name` AS `permission_name`,`p`.`type` AS `permission_type` from (((`sys_user` `u` left join `sys_role` `r` on((`u`.`role_id` = `r`.`id`))) left join `sys_role_permission` `rp` on((`r`.`id` = `rp`.`role_id`))) left join `sys_permission` `p` on((`rp`.`permission_id` = `p`.`id`))) where ((`u`.`status` = 1) and (`p`.`id` is not null)) */;
 /*!50001 SET character_set_client      = @saved_cs_client */;
 /*!50001 SET character_set_results     = @saved_cs_results */;
@@ -2563,4 +2944,4 @@ SET character_set_client = @saved_cs_client;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-06-12 11:52:34
+-- Dump completed on 2026-09-14 11:55:23
