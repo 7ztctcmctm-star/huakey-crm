@@ -7,6 +7,7 @@ const logger = require('../config/logger');
 const opportunityService = require('../services/opportunityService');
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
+const notificationService = require('./notificationService');
 // 【P1-1】金额一律走 money 工具，禁止原生浮点运算（详见 utils/money.js 的缺陷说明）
 const money = require('../utils/money');
 
@@ -352,10 +353,7 @@ async function approveQuote(pool, id, approvalStatus, approvalRemark, userId) {
     [approvalStatus, userId, approvalRemark || null, id]
   );
 
-  await pool.query(
-    'UPDATE crm_notification SET is_dismissed = 1, is_read = 1 WHERE business_type = ? AND business_id = ? AND is_dismissed = 0',
-    ['quote', id]
-  );
+  await notificationService.dismissByBusiness(pool, 'quote', id);
 
   // 4-3-5: 报价审批通过时推进商机到 stage 3（方案报价）（不阻塞主流程）
   if (approvalStatus === 1) {

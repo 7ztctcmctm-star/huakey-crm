@@ -349,10 +349,7 @@ async function dismissNotification(pool, id, roleId) {
  * @param {number} businessId
  */
 async function dismissNotificationByBusiness(pool, businessType, businessId) {
-  await pool.query(
-    'UPDATE crm_notification SET is_dismissed = 1, is_read = 1 WHERE business_type = ? AND business_id = ? AND is_dismissed = 0',
-    [businessType, businessId]
-  );
+  await require('./notificationService').dismissByBusiness(pool, businessType, businessId);
 }
 
 /**

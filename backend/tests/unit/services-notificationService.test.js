@@ -151,5 +151,56 @@ describe('notificationService', () => {
 
       expect(pool.query.mock.calls[0][1][4]).toBeNull();
     });
+
+    it('应持久化 business_type / business_id', async () => {
+      const pool = createMockPool();
+      pool.query.mockResolvedValueOnce([{ insertId: 102 }]);
+
+      await notificationService.createNotification(pool, {
+        user_id: 1,
+        type: 'customer_transfer',
+        title: 'title',
+        content: 'content',
+        business_type: 'customer_transfer',
+        business_id: 55
+      });
+
+      const [sql, params] = pool.query.mock.calls[0];
+      expect(String(sql)).toContain('business_type');
+      expect(String(sql)).toContain('business_id');
+      expect(params).toContain('customer_transfer');
+      expect(params).toContain(55);
+    });
+
+    it('business_type 为 customer 时，link_url 可由 buildLink 派生', async () => {
+      const pool = createMockPool();
+      pool.query.mockResolvedValueOnce([{ insertId: 103 }]);
+
+      await notificationService.createNotification(pool, {
+        user_id: 1,
+        type: 'customer_transfer',
+        title: 'title',
+        business_type: 'customer',
+        business_id: 88
+      });
+
+      expect(pool.query.mock.calls[0][1][4]).toBe('/customer/detail/88');
+    });
+  });
+
+  describe('dismissByBusiness', () => {
+    it('应按 business_type + business_id 标记已处理且已读', async () => {
+      const pool = createMockPool();
+      pool.query.mockResolvedValueOnce([{ affectedRows: 2 }]);
+
+      const result = await notificationService.dismissByBusiness(pool, 'customer_transfer', 42);
+
+      expect(result.affectedRows).toBe(2);
+      const [sql, params] = pool.query.mock.calls[0];
+      expect(String(sql)).toContain('is_dismissed = 1');
+      expect(String(sql)).toContain('is_read = 1');
+      expect(String(sql)).toContain('business_type = ?');
+      expect(params).toEqual(['customer_transfer', 42]);
+    });
   });
 });

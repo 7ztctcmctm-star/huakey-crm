@@ -97,7 +97,9 @@ async function createTransfer(pool, data, fromUserId) {
       type: 'customer_transfer',
       title: '客户转移申请',
       content: `${customer.company_name} 的转移申请待你处理，${EXPIRE_DAYS} 天内未处理将自动失效`,
-      link_url: `/customer/detail/${customerId}`
+      link_url: `/customer/detail/${customerId}`,
+      business_type: 'customer_transfer',
+      business_id: result.insertId
     });
 
     return { id: result.insertId, customer_id: customerId, to_user_id: toUserId, expire_days: EXPIRE_DAYS };
@@ -169,12 +171,17 @@ async function acceptTransfer(pool, transferId, userId) {
 
     await connection.commit();
 
+    // 申请已处理 → 消除接收人侧的原「待处理」通知（否则角标常亮，见 design §8.4 L2）
+    await notificationService.dismissByBusiness(pool, 'customer_transfer', transferId);
+
     await notificationService.createNotification(pool, {
       user_id: transfer.from_user_id,
       type: 'customer_transfer',
       title: '客户转移已通过',
       content: '你发起的客户转移申请已被接收人同意，客户归属已变更',
-      link_url: `/customer/detail/${transfer.customer_id}`
+      link_url: `/customer/detail/${transfer.customer_id}`,
+      business_type: 'customer_transfer',
+      business_id: transferId
     });
 
     return { id: transferId, customer_id: transfer.customer_id, status: TRANSFER_STATUS.ACCEPTED };
@@ -220,12 +227,17 @@ async function rejectTransfer(pool, transferId, userId, remark) {
 
     await connection.commit();
 
+    // 申请已处理 → 消除接收人侧的原「待处理」通知
+    await notificationService.dismissByBusiness(pool, 'customer_transfer', transferId);
+
     await notificationService.createNotification(pool, {
       user_id: transfer.from_user_id,
       type: 'customer_transfer',
       title: '客户转移被拒绝',
       content: remark ? `对方拒绝了转移申请，理由：${remark}` : '对方拒绝了你的客户转移申请',
-      link_url: `/customer/detail/${transfer.customer_id}`
+      link_url: `/customer/detail/${transfer.customer_id}`,
+      business_type: 'customer_transfer',
+      business_id: transferId
     });
 
     return { id: transferId, status: TRANSFER_STATUS.REJECTED };
@@ -243,12 +255,25 @@ async function rejectTransfer(pool, transferId, userId, remark) {
  * 供定时任务调用。
  */
 async function expireTransfers(pool) {
+  // 先取将被回流的申请 ID，用于随后消除其对应的「待处理」通知
+  const [doomed] = await pool.query(
+    `SELECT id FROM crm_customer_transfer
+      WHERE status = ? AND expire_at <= NOW() AND deleted_at IS NULL`,
+    [TRANSFER_STATUS.PENDING]
+  );
+
   const [result] = await pool.query(
     `UPDATE crm_customer_transfer
         SET status = ?, handle_time = NOW()
       WHERE status = ? AND expire_at <= NOW() AND deleted_at IS NULL`,
     [TRANSFER_STATUS.EXPIRED, TRANSFER_STATUS.PENDING]
   );
+
+  // 已失效的申请不再需要提示接收人处理 —— 消除对应通知
+  for (const { id } of doomed) {
+    await notificationService.dismissByBusiness(pool, 'customer_transfer', id);
+  }
+
   return { expired: result.affectedRows };
 }
 
@@ -286,13 +311,21 @@ async function listMyPending(pool, userId, params = {}) {
  * 为什么不复用 /user/list：该接口要求 `system:user` 权限，普通销售没有，
  * 会导致销售无法选择接收人 —— 而转移的主角恰恰是销售。
  * 故提供本接口，仅要求 `customer:transfer` 权限，只回传必要字段。
+ *
+ * 候选人必须自身持有 `customer:transfer`：
+ * `POST /pool/transfer/accept` 要求该权限（routes/pool.js），
+ * 若把无权用户列为候选人，接收人点「同意」必然 403 —— 即「死按钮」。
+ * 故按该权限过滤，保证「候选人集合 ⊆ 可接受人集合」。
  */
 async function listTransferCandidates(pool, excludeUserId) {
   const [rows] = await pool.query(
-    `SELECT id, real_name, username
-       FROM sys_user
-      WHERE deleted_at IS NULL AND status = 1 AND id <> ?
-      ORDER BY real_name ASC, id ASC`,
+    `SELECT DISTINCT u.id, u.real_name, u.username
+       FROM sys_user u
+       JOIN sys_role_permission rp ON rp.role_id = u.role_id
+       JOIN sys_permission p ON p.id = rp.permission_id
+      WHERE u.deleted_at IS NULL AND u.status = 1 AND u.id <> ?
+        AND p.code = 'customer:transfer'
+      ORDER BY u.real_name ASC, u.id ASC`,
     [excludeUserId || 0]
   );
   return rows;

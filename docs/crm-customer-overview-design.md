@@ -263,7 +263,7 @@
 | # | 局限 | 影响 | 状态 |
 |---|---|---|---|
 | L1 | ~~未在真实浏览器走查~~ | — | ✅ **已闭环（2026-09-10 晚）**，见 §8.6 |
-| L2 | 处理完转移后，**系统通知里的那条未读仍在**，角标不会自动清零 | 轻微 UX 瑕疵（待办已消失，但角标仍亮） | ⏳ 未做。需给转移通知补 `business_type/business_id` 才能按业务清理 |
+| L2 | ~~处理完转移后，**系统通知里的那条未读仍在**，角标不会自动清零~~ | — | ✅ **已闭环（2026-09-14）**：`notificationService` 新增 `dismissByBusiness()` 并让 `createNotification` 持久化 `business_type/business_id`；`transferService` 的 create/accept/reject/expire 四条路径均补齐业务字段，处理即消除接收人侧「待处理」通知 |
 | L3 | 生产库 `huakey_crm` **尚未应用迁移 112**（`crm_customer_transfer` 不存在） | 未经迁移即部署，转移功能会报错 | ⏳ 未做。**已用直连生产库确认**：`information_schema` 中该表不存在 |
 
 > ✅ 原 L4（超时回流未实测）已闭环，见 §8.3。
@@ -315,6 +315,13 @@ SELECT id, real_name, username FROM sys_user
 
 **建议**：候选人查询应 `JOIN sys_role_permission` 过滤掉无该权限的用户；
 或前端在提交前给出明确提示。**本方案未擅自改动**（涉及产品口径：采购/HR 是否可作为客户接收人）。
+
+> **✅ 已修（2026-09-14）**：`transferService.listTransferCandidates` 已改为
+> `JOIN sys_role_permission + sys_permission` 并加 `p.code = 'customer:transfer'` 过滤。
+> **判据不是产品口径，而是硬性一致性**：`POST /pool/transfer/accept` 本身就要求
+> `customer:transfer`（`routes/pool.js:107`），故「候选人集合 ⊆ 可接受人集合」是正确性要求 ——
+> 任何无该权限的候选人在点击「同意」时必然 403。真库实测：候选人由 **25 → 16**，
+> 恰好剔除 9 个「死按钮」。新增回归用例见 `tests/transferService.test.js`。
 
 #### D3 · 潜客转化不写负责人，产出「无主正式客户」死区【2026-09-11 复核升级为 P1】
 

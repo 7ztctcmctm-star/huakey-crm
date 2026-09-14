@@ -11,7 +11,8 @@
  */
 
 jest.mock('../services/notificationService', () => ({
-  createNotification: jest.fn().mockResolvedValue({ id: 1 })
+  createNotification: jest.fn().mockResolvedValue({ id: 1 }),
+  dismissByBusiness: jest.fn().mockResolvedValue({ affectedRows: 1 })
 }));
 
 const notificationService = require('../services/notificationService');
@@ -75,6 +76,7 @@ const baseHandlers = () => ({
 
 beforeEach(() => {
   notificationService.createNotification.mockClear();
+  notificationService.dismissByBusiness.mockClear();
 });
 
 describe('transferService 客户转移（双方同意制）', () => {
@@ -93,7 +95,11 @@ describe('transferService 客户转移（双方同意制）', () => {
       expect(r.expire_days).toBe(3);
       expect(conn.commit).toHaveBeenCalled();
       expect(notificationService.createNotification).toHaveBeenCalledTimes(1);
-      expect(notificationService.createNotification.mock.calls[0][1].user_id).toBe(7);
+      const notif = notificationService.createNotification.mock.calls[0][1];
+      expect(notif.user_id).toBe(7);
+      // 关联业务字段是「处理后可消除通知」的前提（design §8.4 L2）
+      expect(notif.business_type).toBe('customer_transfer');
+      expect(notif.business_id).toBe(1);
     });
 
     test('不能转移给自己', async () => {
@@ -231,7 +237,12 @@ describe('transferService 客户转移（双方同意制）', () => {
 
   describe('expireTransfers 超时回流', () => {
     test('将超期 pending 置为 expired，且不触碰客户表', async () => {
-      const pool = { query: jest.fn().mockResolvedValue([{ affectedRows: 3 }]) };
+      const pool = {
+        query: jest
+          .fn()
+          .mockResolvedValueOnce([[{ id: 1 }, { id: 2 }, { id: 3 }]]) // SELECT 待回流 ID
+          .mockResolvedValueOnce([{ affectedRows: 3 }])               // UPDATE 置 expired
+      };
 
       const r = await transferService.expireTransfers(pool);
 
@@ -239,6 +250,21 @@ describe('transferService 客户转移（双方同意制）', () => {
       const sql = String(pool.query.mock.calls[0][0]);
       expect(sql).toContain('expire_at <= NOW()');
       expect(sql).not.toContain('crm_customer SET');
+    });
+
+    test('回流后消除每条申请对应的「待处理」通知', async () => {
+      const pool = {
+        query: jest
+          .fn()
+          .mockResolvedValueOnce([[{ id: 11 }, { id: 12 }]])
+          .mockResolvedValueOnce([{ affectedRows: 2 }])
+      };
+
+      await transferService.expireTransfers(pool);
+
+      expect(notificationService.dismissByBusiness).toHaveBeenCalledTimes(2);
+      expect(notificationService.dismissByBusiness).toHaveBeenCalledWith(pool, 'customer_transfer', 11);
+      expect(notificationService.dismissByBusiness).toHaveBeenCalledWith(pool, 'customer_transfer', 12);
     });
   });
 
@@ -254,6 +280,32 @@ describe('transferService 客户转移（双方同意制）', () => {
       expect(r).toHaveProperty('total');
       expect(String(pool.query.mock.calls[0][0])).toContain('t.status = ?');
       expect(String(pool.query.mock.calls[1][0])).toContain('to_user_id = ?');
+    });
+  });
+
+  describe('listTransferCandidates 接收人候选', () => {
+    // 回归来源：docs/crm-customer-overview-design.md §8.5 D2
+    // 候选人必须自身持有 customer:transfer，否则接收人点「同意」必然 403（死按钮）。
+    test('按 customer:transfer 权限过滤，排除自己', async () => {
+      const pool = { query: jest.fn().mockResolvedValue([[{ id: 5, real_name: '销售A', username: 'a' }]]) };
+
+      const rows = await transferService.listTransferCandidates(pool, 7);
+
+      expect(rows).toHaveLength(1);
+      const [sql, params] = pool.query.mock.calls[0];
+      expect(String(sql)).toContain('sys_role_permission');
+      expect(String(sql)).toContain('sys_permission');
+      expect(String(sql)).toContain("p.code = 'customer:transfer'");
+      expect(String(sql)).toContain('u.id <> ?');
+      expect(params).toEqual([7]);
+    });
+
+    test('excludeUserId 缺省时兜底为 0，不因 undefined 报错', async () => {
+      const pool = { query: jest.fn().mockResolvedValue([[]]) };
+
+      await transferService.listTransferCandidates(pool);
+
+      expect(pool.query.mock.calls[0][1]).toEqual([0]);
     });
   });
 });

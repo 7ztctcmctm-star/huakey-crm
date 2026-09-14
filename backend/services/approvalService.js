@@ -4,6 +4,7 @@
  */
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
+const notificationService = require('./notificationService');
 
 const BUSINESS_TABLE_MAP = {
   quote: 'crm_quote',
@@ -365,10 +366,7 @@ async function simpleApproveContract(pool, id, approval_status, approval_remark,
     [approval_status, userId, approval_remark || null, id]
   );
 
-  await pool.query(
-    'UPDATE crm_notification SET is_dismissed = 1, is_read = 1 WHERE business_type = ? AND business_id = ? AND is_dismissed = 0',
-    ['contract', id]
-  );
+  await notificationService.dismissByBusiness(pool, 'contract', id);
 }
 
 module.exports = {
