@@ -2,10 +2,9 @@
   <div class="page-container">
     <div class="page-header">
       <h2>文档模板</h2>
-      <el-button type="primary" :icon="Upload" @click="handleUpload">上传文档</el-button>
     </div>
 
-    <el-card class="search-card">
+    <PageToolbar>
       <el-form :model="search" inline @keyup.enter="fetchList">
         <el-form-item><el-input v-model="search.keyword" placeholder="搜索文档名称" clearable style="width:220px" /></el-form-item>
         <el-form-item>
@@ -13,9 +12,16 @@
             <el-option label="合同模板" value="contract" /><el-option label="报价模板" value="quote" /><el-option label="通用文档" value="general" />
           </el-select>
         </el-form-item>
-        <el-form-item><el-button type="primary" @click="fetchList">搜索</el-button></el-form-item>
       </el-form>
-    </el-card>
+
+      <template #filter-actions>
+        <el-button type="primary" @click="fetchList">搜索</el-button>
+      </template>
+
+      <template #actions>
+        <el-button type="primary" :icon="Upload" @click="handleUpload">上传文档</el-button>
+      </template>
+    </PageToolbar>
 
     <StateWrapper
       :loading="loading"
@@ -99,6 +105,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
+import PageToolbar from '@/components/common/PageToolbar.vue'
 import { reportError } from '@/utils/error'
 import { Upload, Edit, Delete } from '@element-plus/icons-vue'
 import request from '@/utils/request'

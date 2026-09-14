@@ -2,9 +2,6 @@
   <div class="purchase-list">
     <div class="page-header">
       <h2>采购管理</h2>
-      <el-button type="primary" @click="handleAdd" v-permission="'purchase:add'">
-        <el-icon><Plus /></el-icon>新建采购单
-      </el-button>
     </div>
 
     <!-- 统计卡片 -->
@@ -41,7 +38,7 @@
       </el-col>
     </el-row>
 
-    <div class="search-bar">
+    <PageToolbar>
       <el-form :inline="true" :model="searchForm" @submit.prevent="handleSearch">
         <el-form-item label="关键词">
           <el-input v-model="searchForm.keyword" placeholder="单号/标题/供应商" clearable style="width: 200px" />
@@ -64,12 +61,19 @@
             <el-option label="返修" value="返修" />
           </el-select>
         </el-form-item>
-        <el-form-item>
-          <el-button type="primary" native-type="submit">查询</el-button>
-          <el-button @click="resetSearch">重置</el-button>
-        </el-form-item>
       </el-form>
-    </div>
+
+      <template #filter-actions>
+        <el-button type="primary" native-type="submit" @click="handleSearch">查询</el-button>
+        <el-button @click="resetSearch">重置</el-button>
+      </template>
+
+      <template #actions>
+        <el-button type="primary" @click="handleAdd" v-permission="'purchase:add'">
+          <el-icon><Plus /></el-icon>新建采购单
+        </el-button>
+      </template>
+    </PageToolbar>
 
     <StateWrapper
       :loading="loading"
@@ -264,6 +268,7 @@ import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import TableSkeleton from '@/components/common/TableSkeleton.vue';
 import StateWrapper from '@/components/common/StateWrapper.vue';
+import PageToolbar from '@/components/common/PageToolbar.vue';
 import { Plus, ArrowDown } from '@element-plus/icons-vue';
 import request from '@/utils/request';
 import { getPurchaseList, addPurchase, updatePurchaseStatus, getPurchaseStatistics } from '@/api/product';

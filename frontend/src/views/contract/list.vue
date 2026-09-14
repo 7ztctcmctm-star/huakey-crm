@@ -2,7 +2,7 @@
   <div class="page-container">
     <div class="page-header"><h2>合同管理</h2></div>
 
-    <el-card class="search-card">
+    <PageToolbar :collapsible="true" :max-visible="3">
       <el-form :model="searchForm" inline @keyup.enter="handleSearch">
         <el-form-item label="关键词">
           <el-input v-model="searchForm.keyword" placeholder="合同编号/客户名称" clearable style="width:200px" />
@@ -19,20 +19,26 @@
             <el-option label="待审批" :value="1" /><el-option label="已通过" :value="2" /><el-option label="已拒绝" :value="3" />
           </el-select>
         </el-form-item>
-        <el-form-item label="回款">
-          <el-select v-model="searchForm.payment_status" placeholder="全部" clearable style="width:140px">
-            <el-option label="已逾期" value="overdue">
-              <span style="color: var(--color-danger); font-weight: 600">已逾期</span>
-            </el-option>
-            <el-option label="部分回款" value="partial" /><el-option label="已回清" value="completed" /><el-option label="待回款" value="pending" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
-          <el-button :icon="Refresh" @click="handleReset">重置</el-button>
-        </el-form-item>
       </el-form>
-    </el-card>
+
+      <template #extra>
+        <el-form :model="searchForm" inline @keyup.enter="handleSearch">
+          <el-form-item label="回款">
+            <el-select v-model="searchForm.payment_status" placeholder="全部" clearable style="width:140px">
+              <el-option label="已逾期" value="overdue">
+                <span style="color: var(--color-danger); font-weight: 600">已逾期</span>
+              </el-option>
+              <el-option label="部分回款" value="partial" /><el-option label="已回清" value="completed" /><el-option label="待回款" value="pending" />
+            </el-select>
+          </el-form-item>
+        </el-form>
+      </template>
+
+      <template #filter-actions>
+        <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
+        <el-button :icon="Refresh" @click="handleReset">重置</el-button>
+      </template>
+    </PageToolbar>
 
     <el-card>
       <div class="toolbar"><el-button type="primary" :icon="Plus" @click="handleCreate" v-permission="'contract:add'">新增合同</el-button><el-button type="warning" :icon="Download" :loading="exportLoading" @click="handleExport" v-permission="'contract'">导出Excel</el-button></div>
@@ -168,6 +174,7 @@
 import { reportError, reportWarn } from '@/utils/error'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
+import PageToolbar from '@/components/common/PageToolbar.vue'
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'

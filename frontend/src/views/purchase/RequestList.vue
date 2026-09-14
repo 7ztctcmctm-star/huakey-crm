@@ -2,12 +2,9 @@
   <div class="page-container">
     <div class="page-header">
       <h2>采购申请</h2>
-      <el-button type="primary" @click="handleAdd" v-permission="'purchase:request'">
-        <el-icon><Plus /></el-icon>新建申请
-      </el-button>
     </div>
 
-    <el-card class="filter-card">
+    <PageToolbar>
       <el-form :inline="true" :model="filters" @submit.prevent="handleSearch">
         <el-form-item label="状态">
           <el-select v-model="filters.status" placeholder="全部状态" clearable style="width: 140px">
@@ -22,12 +19,19 @@
         <el-form-item label="关键词">
           <el-input v-model="filters.keyword" placeholder="标题/编号" clearable style="width: 200px" />
         </el-form-item>
-        <el-form-item>
-          <el-button type="primary" native-type="submit">查询</el-button>
-          <el-button @click="resetFilters">重置</el-button>
-        </el-form-item>
       </el-form>
-    </el-card>
+
+      <template #filter-actions>
+        <el-button type="primary" native-type="submit" @click="handleSearch">查询</el-button>
+        <el-button @click="resetFilters">重置</el-button>
+      </template>
+
+      <template #actions>
+        <el-button type="primary" @click="handleAdd" v-permission="'purchase:request'">
+          <el-icon><Plus /></el-icon>新建申请
+        </el-button>
+      </template>
+    </PageToolbar>
 
     <el-card style="margin-top: 24px">
       <StateWrapper
@@ -92,6 +96,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
+import PageToolbar from '@/components/common/PageToolbar.vue'
 import { Plus } from '@element-plus/icons-vue'
 import {
   getPurchaseRequestList,

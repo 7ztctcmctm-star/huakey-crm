@@ -667,6 +667,29 @@ h1, h2, h3, h4, h5, h6 {
   margin: 0 4px;
 }
 
+/* ===== PageToolbar（列表页统一工具栏，路线图 v2 §P1-1） =====
+   左侧筛选/搜索、右侧主操作按钮；筛选项超过 maxVisible 时折叠。
+   组件内只负责布局骨架，表单项的间距/宽度归一化在此处统一。 */
+.page-toolbar .el-form-item {
+  margin-bottom: 0;
+}
+
+.page-toolbar .el-form {
+  display: contents;
+}
+
+.page-toolbar .el-input,
+.page-toolbar .el-select,
+.page-toolbar .el-date-editor {
+  /* 未显式指定宽度的控件给一个稳定默认值，避免各页宽窄不一 */
+  --el-input-width: 180px;
+}
+
+.page-toolbar__actions .el-button + .el-button,
+.page-toolbar__filter-actions .el-button + .el-button {
+  margin-left: 0;
+}
+
 /* ===== Pagination container ===== */
 .pagination {
   display: flex;

@@ -4,7 +4,7 @@
       <h2>操作日志</h2>
     </div>
 
-    <el-card class="filter-card">
+    <PageToolbar :collapsible="true" :max-visible="3">
       <el-form :inline="true" :model="filterForm">
         <el-form-item label="模块">
           <el-select v-model="filterForm.module" placeholder="请选择模块" clearable style="width: 150px">
@@ -23,39 +23,46 @@
             <el-option label="导入" value="import" />
           </el-select>
         </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="filterForm.status" placeholder="请选择状态" clearable style="width: 120px">
-            <el-option label="成功" :value="1" />
-            <el-option label="失败" :value="0" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="时间范围">
-          <el-date-picker
-            v-model="dateRange"
-            type="daterange"
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-            value-format="YYYY-MM-DD"
-            style="width: 240px"
-          />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" :icon="Search" @click="handleQuery">查询</el-button>
-          <el-button type="danger" plain @click="handleHighRisk">高风险操作</el-button>
-          <el-button :icon="Refresh" @click="handleReset">重置</el-button>
-        </el-form-item>
       </el-form>
-    </el-card>
+
+      <template #extra>
+        <el-form :inline="true" :model="filterForm">
+          <el-form-item label="状态">
+            <el-select v-model="filterForm.status" placeholder="请选择状态" clearable style="width: 120px">
+              <el-option label="成功" :value="1" />
+              <el-option label="失败" :value="0" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="时间范围">
+            <el-date-picker
+              v-model="dateRange"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              value-format="YYYY-MM-DD"
+              style="width: 240px"
+            />
+          </el-form-item>
+        </el-form>
+      </template>
+
+      <template #filter-actions>
+        <el-button type="primary" :icon="Search" @click="handleQuery">查询</el-button>
+        <el-button type="danger" plain @click="handleHighRisk">高风险操作</el-button>
+        <el-button :icon="Refresh" @click="handleReset">重置</el-button>
+      </template>
+
+      <template #actions>
+        <el-button type="primary" :icon="Download" @click="handleExport" v-permission="'log:export'">导出日志</el-button>
+        <el-button type="danger" :icon="Delete" @click="handleClear">清理日志</el-button>
+      </template>
+    </PageToolbar>
 
     <el-card class="table-card">
       <template #header>
         <div class="table-header">
           <span>日志列表</span>
-          <div class="table-actions">
-            <el-button type="primary" :icon="Download" @click="handleExport" v-permission="'log:export'">导出日志</el-button>
-            <el-button type="danger" :icon="Delete" @click="handleClear">清理日志</el-button>
-          </div>
         </div>
       </template>
       <StateWrapper
@@ -167,6 +174,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
+import PageToolbar from '@/components/common/PageToolbar.vue'
 import { Search, Refresh, Delete, Download } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getLogList, exportLog, clearLog, getLogModules, getLogDetail } from '@/api/system'

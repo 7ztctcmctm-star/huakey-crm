@@ -29,7 +29,7 @@
     </div>
 
     <!-- 搜索区域 -->
-    <el-card class="search-card">
+    <PageToolbar>
       <el-form :model="searchForm" inline @keyup.enter="handleSearch">
         <el-form-item label="商机名称">
           <el-input v-model="searchForm.name" placeholder="请输入商机名称" clearable />
@@ -42,18 +42,20 @@
             <el-option v-for="item in stageOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
-        <el-form-item>
-          <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
-          <el-button :icon="Refresh" @click="handleReset">重置</el-button>
-        </el-form-item>
       </el-form>
-    </el-card>
+
+      <template #filter-actions>
+        <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
+        <el-button :icon="Refresh" @click="handleReset">重置</el-button>
+      </template>
+
+      <template #actions>
+        <el-button type="primary" :icon="Plus" @click="handleAdd" v-permission="'opportunity:add'">新增商机</el-button>
+      </template>
+    </PageToolbar>
 
     <!-- 表格 -->
     <el-card class="table-card">
-      <div class="toolbar">
-        <el-button type="primary" :icon="Plus" @click="handleAdd" v-permission="'opportunity:add'">新增商机</el-button>
-      </div>
 
       <StateWrapper
         :loading="loading"
@@ -341,6 +343,7 @@ import { reportError, reportWarn } from '@/utils/error'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
+import PageToolbar from '@/components/common/PageToolbar.vue'
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'

@@ -2,7 +2,6 @@
   <div class="page-container">
     <div class="page-header">
       <h2>销售话术库</h2>
-      <el-button type="primary" :icon="Plus" @click="handleAdd">新增话术</el-button>
     </div>
 
     <!-- 场景筛选 -->
@@ -11,12 +10,19 @@
       <el-check-tag v-for="s in scenes" :key="s" :checked="search.scene===s" @change="search.scene=s;fetchList()">{{ s }}</el-check-tag>
     </div>
 
-    <el-card class="search-card">
+    <PageToolbar>
       <el-form inline @keyup.enter="fetchList">
         <el-form-item><el-input v-model="search.keyword" placeholder="搜索话术标题/内容" clearable style="width:260px" /></el-form-item>
-        <el-form-item><el-button type="primary" @click="fetchList">搜索</el-button></el-form-item>
       </el-form>
-    </el-card>
+
+      <template #filter-actions>
+        <el-button type="primary" @click="fetchList">搜索</el-button>
+      </template>
+
+      <template #actions>
+        <el-button type="primary" :icon="Plus" @click="handleAdd">新增话术</el-button>
+      </template>
+    </PageToolbar>
 
     <!-- 话术列表 -->
     <div class="script-list" v-loading="loading">
@@ -55,6 +61,7 @@
 
 <script setup>
 import EmptyState from '@/components/common/EmptyState.vue'
+import PageToolbar from '@/components/common/PageToolbar.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete } from '@element-plus/icons-vue'

@@ -15,7 +15,7 @@
     </el-alert>
 
     <!-- 筛选 -->
-    <el-card class="search-card">
+    <PageToolbar>
       <el-form :model="search" inline @keyup.enter="fetchList">
         <el-form-item><el-input v-model="search.keyword" placeholder="姓名/用户名/手机" clearable style="width:180px" /></el-form-item>
         <el-form-item>
@@ -28,9 +28,12 @@
             <el-option label="在职" :value="1" /><el-option label="离职" :value="0" />
           </el-select>
         </el-form-item>
-        <el-form-item><el-button type="primary" @click="fetchList">搜索</el-button></el-form-item>
       </el-form>
-    </el-card>
+
+      <template #filter-actions>
+        <el-button type="primary" @click="fetchList">搜索</el-button>
+      </template>
+    </PageToolbar>
 
     <!-- 列表 -->
     <el-card>
@@ -178,6 +181,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
+import PageToolbar from '@/components/common/PageToolbar.vue'
 import { reportError } from '@/utils/error'
 import request from '@/utils/request'
 import { getEmployees, getEmployeeStats, getEmployeeDetail, updateEmployeeProfile } from '@/api/hr'

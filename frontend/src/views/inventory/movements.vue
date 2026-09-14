@@ -2,10 +2,9 @@
   <div class="page-container">
     <div class="page-header">
       <h2>库存变动记录</h2>
-      <el-button @click="$router.push('/inventory')">返回库存</el-button>
     </div>
 
-    <el-card class="search-card">
+    <PageToolbar>
       <el-form :model="search" inline @keyup.enter="fetchList">
         <el-form-item>
           <el-select v-model="search.product_id" placeholder="全部产品" filterable clearable style="width:200px">
@@ -20,9 +19,16 @@
         <el-form-item>
           <el-date-picker v-model="search.dateRange" type="daterange" start-placeholder="开始" end-placeholder="结束" value-format="YYYY-MM-DD" style="width:260px" />
         </el-form-item>
-        <el-form-item><el-button type="primary" @click="fetchList">搜索</el-button></el-form-item>
       </el-form>
-    </el-card>
+
+      <template #filter-actions>
+        <el-button type="primary" @click="fetchList">搜索</el-button>
+      </template>
+
+      <template #actions>
+        <el-button @click="$router.push('/inventory')">返回库存</el-button>
+      </template>
+    </PageToolbar>
 
     <el-card>
       <StateWrapper
@@ -61,6 +67,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
+import PageToolbar from '@/components/common/PageToolbar.vue'
 import { reportError } from '@/utils/error'
 import request from '@/utils/request'
 import { getInventoryList, getInventoryMovements } from '@/api/product'

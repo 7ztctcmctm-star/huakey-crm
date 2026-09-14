@@ -1,152 +1,83 @@
-# 前端优化路线图 V2
+# 前端优化路线图 V2 · 待办清单
 
-> 生成时间：2026-09-11
+> 生成时间：2026-09-11 ｜ 重构时间：2026-09-14
 > 范围：`frontend/src`
 > 基线状态：Apple 设计系统已落地、色值 token 化完成、错误日志收敛、响应式基础框架已搭
 > 目标：从「能用」到「好用 + 好看 + 快」
+>
+> 📦 **已完成条目已移出本文档**，归档于
+> [`docs/frontend-optimization-completed-archive.md`](frontend-optimization-completed-archive.md)
+> （含 P0-1~P0-4、P1-4 防抖、P2-1 核查结论、P2-4 构建优化的原文与实测数据）。
+> 本文档**只保留未完成待办**，按优先级排列。
 
 ---
 
-## 一、总览
+## 一、当前状态速览
 
-当前前端整体质量处于**中上水平**：
-- 架构层：路由懒加载、ECharts 按需引入、错误边界、统一请求封装、CSRF/httpOnly Cookie、Web Vitals 监控 — 均已到位
-- 视觉层：Apple 风格主题系统完整、组件级样式统一、空状态插画化 — 完成度高
-- 工程层：Vite 构建、Vitest 单测、Playwright E2E — 已就绪；**前端没有 ESLint**
-  （实测 2026-09-11：无 eslint 依赖、无配置、无 lint 脚本；根 `.lintstagedrc.json` 只覆盖 `backend` 目录），
+**已到位（不重复规划）**：
+
+- **架构层**：路由懒加载、ECharts 按需引入（`echarts/core` + 具名注册）、错误边界、
+  统一请求封装、CSRF / httpOnly Cookie、Web Vitals 监控
+- **视觉层**：Apple 风格主题系统完整、组件级样式统一、`EmptyState` 空状态插画化
+- **工程层**：Vite 构建、Vitest 单测、Playwright E2E
+- **构建产物**：首屏 JS **137 KB gzip**（目标 < 250 KB，**已达标**）
+- **状态管理**：`StateWrapper` 四态已覆盖 **49 个视图**
+
+**已知缺口**：
+
+- ⚠️ **前端没有 ESLint**（实测 2026-09-11：无依赖、无配置、无 lint 脚本；根 `.lintstagedrc.json` 只覆盖 `backend`）。
   该缺口由 `frontend/src/tests/unit/views/templateBindings.test.js`（模板绑定守卫，全量编译 views 下
-  `<script setup>` SFC，检出「模板引用了未声明标识符」）部分补位
-
-> **勘误（2026-09-11 实测）**：本行原写「ESLint — 基础设施齐全」，与实际不符。本项目文档曾多次与代码
-> 不符（见 `AGENTS.md` §14.1），任何结论请以实测为准。
-
-但仍存在**体验断层**：骨架屏覆盖 26/约 40 个列表页（2026-09-11 实测，非「不足 20%」）、加载态参差、部分页面缺少交互反馈、登录页视觉单薄、可访问性基本为零、部分组件重复代码。
+  `<script setup>` SFC，检出「模板引用了未声明标识符」）**部分补位**。
+  > 本项目文档曾多次与代码不符（见 `AGENTS.md` §14.1），任何结论请以实测为准。
 
 ---
 
-## 二、P0 · 高价值低投入（立即做）
+## 二、P1 · 体验提升（近期做）
 
-### P0-1 骨架屏覆盖率从 4 页扩展到全部列表页
+### P1-1 列表页统一工具栏布局规范 ⬅ **✅ 已完成（2026-09-14）**
 
-**现状**：只有客户、商机、报价、合同 4 个列表页用了 `TableSkeleton`，其余 14+ 个列表页（供应商、采购、回款、知识库、满意度、审批、服务工单、潜客池、公海池等）直接用 `v-if="loading"` + `el-table`，加载时空白闪烁。
-
-**收益**：感知加载速度提升 30%+，消除「白屏等待」焦虑。
-**投入**：低 — `TableSkeleton` 组件已存在，只需替换 `v-if` 模式。
-
-**涉及文件**（18 个视图中 14 个待补）：
-- `views/supplier/list.vue`
-- `views/purchase/list.vue`
-- `views/payment/index.vue`
-- `views/knowledge/*.vue`（4 个）
-- `views/survey/*.vue`（4 个）
-- `views/approval/*.vue`（2 个）
-- `views/service/index.vue`
-- `views/leads/List.vue`
-- `views/pool/List.vue`
-- `views/scoring/ranking.vue`
-
-**改造模式**：
-```vue
-<!-- 改造前 -->
-<el-table v-if="!loading" :data="tableData" />
-<el-empty v-else description="加载中..." />
-
-<!-- 改造后 -->
-<TableSkeleton v-if="loading" :rows="10" />
-<el-table v-show="!loading" :data="tableData" />
-```
-> 用 `v-show` 保留表格 DOM，避免加载完成后布局抖动。
-
----
-
-### P0-2 激活 `StateWrapper` 组件，统一三态管理
-
-> **状态：已落地（2026-09-11）→ 二次扩面（2026-09-14 P2-3）** —— 接入视图由 **2 个 → 30 个 → 49 个**，
-> 路线图要求的「20+ 页面」远超达成。2026-09-14 追加 18 个列表页（清单见
-> `docs/outstanding-work-audit-2026-09-14.md` 附录 A.1）。
-> 实施计划与执行记录：`docs/frontend-statewrapper-promotion-plan.md`；相关提交：`0ce745b`、`ef0d4a6`、
-> `f5112e4`、`8bfd380`。同时修掉 `StateWrapper` 错误态**重复渲染两个「重新加载」按钮、且靠上那个是死按钮**
-> 的缺陷（`d9606ae`），并新增全仓模板绑定守卫测试（`15027e8`）。
->
-> **未覆盖（如实登记）**：
-> - 详情页内嵌的多个小表格（非独立列表，状态语义不同）—— 9 个页面，需按**子表粒度**分别接线
-> - 多表格看板（一页多表各自独立取数）—— `TeamDashboard`、`analysis/index`、`report/index`、`report/business`、`hr/commission`
-> - 编辑页（`quotation/edit.vue`）、日历/流程型页面（`followup/calendar`、`automation/workflows`、`automation/smart-reminders`、`procurement/plan`）
-> - `payment/reconciliation.vue`：骨架屏只挂在页签内的历史表，主区域是按需生成视图，套用不自然
-> - `payment/index.vue`：`loading` 被 3 张表共用，只包装了主列表「全部回款」；「回款总览」仍为旧双机制
-> - `system/log.vue` 的 `handleHighRisk()` 非列表取数函数，失败仍只弹 toast
->
-> 上述「未接入」21 个页面均已逐个判定为**本轮不适用**（非遗漏），完整分档见审计报告附录 A.2。
-
-**原始现状**：`components/common/StateWrapper.vue` 已封装好「加载 / 错误 / 空 / 正常」四态切换，但**全项目零引用**，属于死代码。各页面自行用 `v-if/v-else` 拼接状态，质量参差不齐。
-
-**收益**：
-- 消除重复的状态判断逻辑（每个列表页约 10-15 行）
-- 错误态统一带「重试」按钮，避免用户卡壳
-- 空态统一走 `EmptyState` 组件，视觉一致
-
-**投入**：中 — 需在 20+ 个列表/详情页中替换状态判断逻辑。
-
-**推荐策略**：先从 3-5 个核心页面（客户详情、商机列表、回款列表）试点，验证后推广。
-
----
-
-### P0-3 登录页视觉升级
-
-**现状**：登录页是用户对系统的第一印象，但当前设计非常朴素 — 纯白背景 + 居中表单，缺少品牌氛围和视觉层次。
-
-**问题**：
-- 无背景装饰/渐变，显得单薄
-- 验证码区域排版拥挤
-- 错误提示只有 `ElMessage`，表单内无 inline 反馈
-- 移动端登录框占比不合理
-
-**优化方向**：
-1. 左侧品牌展示区 + 右侧登录表单的分栏布局（桌面端）
-2. 添加柔和渐变背景或网格纹理
-3. Logo 区域强化品牌感
-4. 表单错误 inline 显示（红框 + 文案）
-5. 加载态按钮优化（当前 loading 态按钮宽度会变）
-
-**投入**：中 — 单页面重设计。
-
----
-
-### P0-4 卡片 hover 效果降级（CRM 场景不适用抬升动效）
-
-**现状**：`.el-card:hover` 有 `transform: translateY(-2px)` + 阴影加深，`.stat-card:hover` 更是 `translateY(-4px)`。
-
-**问题**：
-- CRM 是**工具型产品**，卡片承载数据而非营销内容，抬升动效显得「轻飘」
-- 统计卡片密集排列时，hover 一个会造成视觉跳动，干扰阅读
-- 表格行 hover 已有背景色变化，卡片再抬升属于「过度动效」
-
-**优化方案**：
-- 普通 `.el-card`：移除 `translateY`，仅保留阴影加深（`shadow-sm → shadow-md`）
-- `.stat-card`：移除 `translateY(-4px)`，改为边框色微亮（`border-color: var(--color-border-strong)`）或背景色微变
-- 过渡时长从 `0.3s` 降到 `0.15s`，更利落
-
-**投入**：极低 — 改 20 行 CSS。
-
----
-
-## 三、P1 · 体验提升（近期做）
-
-### P1-1 列表页统一工具栏布局规范
-
-**现状**：各列表页的工具栏（搜索 + 筛选 + 操作按钮）布局不统一：
+**原现状**：各列表页的工具栏（搜索 + 筛选 + 操作按钮）布局不统一：
 - 有的用 `el-card` 包搜索表单（客户列表）
 - 有的直接放按钮（部分页面）
 - 有的筛选条件展开/收起逻辑缺失
 - 操作按钮顺序不统一（新增在左 vs 在右）
 
-**优化方案**：
-1. 抽离 `PageToolbar` 通用组件：左侧筛选/搜索，右侧主操作按钮
-2. 主操作按钮统一用 `el-button--primary`，放在最右侧
-3. 筛选条件超过 3 个时自动折叠，带「展开/收起」
-4. 统一间距、圆角、高度
+**交付物**：
 
-**投入**：中 — 新建组件 + 改造 10+ 页面。
+| 项 | 文件 | 说明 |
+|---|---|---|
+| 通用组件 | `frontend/src/components/common/PageToolbar.vue` | 左侧筛选/搜索（default 插槽 + `#extra` 折叠区）、右侧主操作（`#actions`）、`#filter-actions` 承载查询/重置 |
+| 样式归一化 | `frontend/src/styles/apple.css` `.page-toolbar` 区块 | 表单项 `margin-bottom: 0`、控件默认宽度、按钮 `+` 选择器归零、移动端纵向堆叠 |
+| 单测 | `frontend/src/tests/unit/components/PageToolbar.test.js` | 8 例：无 `#extra` 不渲染折叠按钮（防死按钮）、展开/收起文案切换、`#actions`/`#filter-actions` 渲染、`defaultExpanded` 两态 |
+
+**验收对照（原方案 4 条）**：
+1. ✅ 抽离 `PageToolbar` 通用组件，左侧筛选/搜索、右侧主操作
+2. ✅ 主操作统一放最右侧（`.page-toolbar__actions { margin-left: auto }`，`el-button--primary` 由各页自行声明）
+3. ✅ 筛选项超过 `max-visible`（默认 3）自动折叠，带「展开/收起」+ 箭头旋转
+4. ✅ 间距/圆角/高度统一由 `apple.css` 的 `.page-toolbar` 收口
+
+**接入页面（22 个）**：
+
+| 批次 | 页面 |
+|---|---|
+| 知识库 4 | `knowledge/products`、`knowledge/faqs`、`knowledge/scripts`、`knowledge/documents` |
+| 采购 3 | `purchase/list`、`purchase/RequestList`、`purchase/ComparisonList` |
+| 主链路 3 | `contract/list`、`opportunity/list`、`quotation/list` |
+| 客户/线索/公海 3 | `customer/components/CustomerFilter`、`leads/List`、`pool/List` |
+| 其他 9 | `supplier/list`、`service/index`、`social/index`、`system/log`、`inventory/movements`、`hr/employees`、`product/index`、`payment/reconciliation`（客户/供应商双页签） |
+
+**实施要点**：
+- **行为零变更**：只收拢布局，未改请求参数、字段、权限码、事件名。`handleSearch`/`resetSearch` 仍由各页自行定义。
+- **`native-type="submit"` 保留**：表单 `@submit.prevent` 仍在，回车提交行为不变。
+- **折叠判定是「能力 + 内容」双条件**：`collapsible` 且**确实提供了 `#extra` 槽**才渲染「展开」按钮 ——
+  避免出现「点了没反应的死按钮」（沿用 `StateWrapper` 死按钮缺陷的教训）。
+- **`#filter-actions` 与筛选项同行**：查询/重置属于筛选区尾部动作，不放到右侧操作区，符合「右侧只放主操作」规范。
+
+**验证**：
+- 前端全量单测 **16 files / 72 tests passed**（新增 `PageToolbar.test.js` 8 例）
+- 构建 `npx vite build --emptyOutDir` → **✓ built in 39.21s**，无 chunk 体积警告
+- **首屏 JS 139.3 KB gzip**（entry 83.2 + vendor 59.5），与 P2-4 基线 137 KB 持平
+  ⇒ 证明本次为**纯结构重构，零性能回归**；`index.html` 仍只 preload `entry + vendor` 两个 chunk
 
 ---
 
@@ -160,6 +91,8 @@
 - 加载失败显示错误态 + 重试按钮
 
 **涉及文件**：客户详情、商机详情、合同详情、报价详情等。
+
+**当前进度**：⚠️ 仅 `views/opportunity/list.vue` 有单点 `drawerLoading`，**未成规范**。
 
 ---
 
@@ -179,19 +112,14 @@
 
 ---
 
-### P1-4 搜索体验优化
+### P1-4 搜索体验优化（剩余部分）
 
-**现状**：全局搜索（`SearchOverlay`）功能存在，但：
-- 搜索结果分类不清晰
-- 无搜索历史
-- 无键盘快捷键提示（⌘K / Ctrl+K）
-- 无「搜索中」状态
+**已完成**：输入 debounce（`SearchOverlay.vue:115-116`，500ms）—— 见归档 §P1-4。
 
-**优化方案**：
+**剩余待办**：
 1. 添加 `⌘K` / `Ctrl+K` 快捷键唤起（带角标提示）
 2. 搜索结果按类型分组（客户 / 商机 / 合同 / 联系人）
 3. 展示最近 5 条搜索历史
-4. 输入 debounce + 加载骨架
 
 ---
 
@@ -212,20 +140,18 @@
 
 ---
 
-## 四、P2 · 性能与工程（中期做）
+## 三、P2 · 性能与工程（中期做）
 
-### P2-1 ECharts 按需加载与懒渲染
+### P2-1 ECharts 懒渲染增强（剩余部分）
 
-**现状**：`useECharts.js` 已经按需引入了 5 种图表类型，但：
-- ECharts chunk 仍在首屏加载（虽然是路由懒加载，但进入 Dashboard 就会全量加载）
-- Dashboard 有多个图表时同时初始化，可能造成首帧卡顿
-- 图表没有 resize 防抖
+**已核查结论**：ECharts **已是路由级懒加载**，「首屏加载」疑虑被证伪 —— 见归档 §P2-1。
+剩余的**视口优化**为「有则更好」，未发现实测瓶颈驱动：
 
-**优化方案**：
-1. 图表组件改为异步导入（`defineAsyncComponent`），进一步拆分 chunk
-2. 用 `IntersectionObserver` 实现视口内才初始化图表（Dashboard 下方的图表延迟初始化）
-3. `resize` 事件加 `requestAnimationFrame` 节流
-4. 评估是否可以用 `echarts/core` 进一步 tree-shaking（当前已经在做，确认是否还有优化空间）
+1. 用 `IntersectionObserver` 实现视口内才初始化图表（Dashboard 下方的图表延迟初始化）
+2. `resize` 事件加 `requestAnimationFrame` 节流
+3. 评估图表组件改 `defineAsyncComponent` 进一步拆分 chunk
+
+> **前置条件**：先做性能实测，确认 Dashboard 首帧确有卡顿再实施。
 
 ---
 
@@ -243,6 +169,8 @@
 
 **投入**：中 — 改造 `utils/request.js`，加一层 cache/abort 封装。
 
+**当前进度**：⚠️ `api/*.js` + `utils/*.js` 中 `cancelToken` / `AbortController` / `dedupe` **零命中**，未启动。
+
 ---
 
 ### P2-3 虚拟滚动（长列表优化）
@@ -252,59 +180,15 @@
 **优化方案**：
 - 评估是否需要引入虚拟滚动（`el-table-v2` 或 `vue-virtual-scroller`）
 - 优先级：产品列表（可能上千条）> 客户列表 > 其他
-- 先做性能实测，确认瓶颈在渲染再上虚拟滚动
+- **先做性能实测，确认瓶颈在渲染再上虚拟滚动**
 
 ---
 
-### P2-4 构建优化
-
-> **状态：已实施（2026-09-14）** —— 核心结论：**唯一真问题是 `manualChunks` 对象形式**，
-> 它把 element-plus 整包强制归入单一 chunk，产出一个 **944 KB（gzip 296 KB）的巨石**，
-> 并经 `index.html` 的 `modulepreload` 进入**首屏关键路径**。
-> 改为**函数形式**后交给 Rollup 按组件粒度自动切分。
->
-> **实测收益（干净构建对比）**：
->
-> | 指标 | 改造前 | 改造后 | 变化 |
-> |---|---|---|---|
-> | 首屏 JS（gzip） | 370 KB | **137 KB** | **−233 KB（−63%）** |
-> | 首屏 preload 数量 | 3（entry+vendor+EP） | 2（entry+vendor） | EP 移出关键路径 |
-> | 全量 JS（gzip） | 915 KB | 901 KB | 基本持平（纯加载时机优化） |
-> | 最大单 chunk | 944 KB | 247 KB | 巨石消除 |
->
-> **逐项判定（roadmap 原 5 方向）**：
-> 1. `rollup-plugin-visualizer` —— **未采纳**。本次改用「构建产物 + `index.html` preload 分析」即可定位瓶颈，无需引入依赖；如需长期可观测再补。
-> 2. Element Plus 按需加载 —— **已达标且发现真问题**。`unplugin-vue-components` + `ElementPlusResolver` 本身正常（CSS 已按组件切分），**但被 `manualChunks` 对象形式覆盖**。详见上方结论。
-> 3. 图标库 tree-shake —— **已达标（无需改动）**。全仓 30 处均为 `import { X } from '@element-plus/icons-vue'` 具名导入，无 `import * as`。
-> 4. `vite-plugin-compression` 预压缩 —— **本次不采纳，登记为独立任务**。⚠️
->    本项目链路为「浏览器 → nginx(`proxy_pass`) → Node/Express」，**两端都不读磁盘 `.gz`**：
->    - `deploy/nginx-synology.conf:92` 只有动态 `gzip on`，**无 `gzip_static on`**；且该 location 是 `proxy_pass` 转发，**根本不 serve 静态文件**；
->    - `backend/app.js:14` 用 `compression@1.8.1` 做**纯动态压缩**（源码零 `.gz` 引用）。
->
->    ⇒ 预压缩产物在本项目**不会影响任何一次传输**，加进来只是磁盘死重量。
->    若将来要启用，需**后端 + 运维协同**：nginx 加 `gzip_static on` 且改为直接 serve 静态目录，或 Express 静态层接入 precompressed 中间件。
-> 5. `vite-plugin-pwa` 离线缓存 —— **不采纳**。内部 CRM 收益低，且 Service Worker 缓存失效会造成「改了没生效」的排障困难。
->
-> **一个被证伪的假设（记录以免重复）**：曾以为 echarts **首屏加载**，实为**已正确懒加载** ——
-> `dist/index.html` 未 preload echarts，入口 chunk 内的 `echarts-*.js` 字样位于**路由 manifest 字符串数组**中（供动态 `import()` 用），
-> 非静态 `import`。故「echarts 路由懒加载」**无需改动**。
-
-**原始现状**：已有基础的 `manualChunks` 配置，但还可以更细。
-
-**优化方向（原记录，保留供追溯）**：
-1. 分析当前 bundle 构成（`rollup-plugin-visualizer`）
-2. Element Plus 是否可以进一步按需加载（当前用 `unplugin-vue-components`，已较好）
-3. 图标库是否可以 tree-shake（`@element-plus/icons-vue` 支持按需，当前是全量导入还是按需？需确认）
-4. 开启 `vite-plugin-compression` 做 gzip/brotli 预压缩
-5. 添加 `vite-plugin-pwa` 做离线缓存（可选）
-
----
-
-## 五、P3 · 可访问性与打磨（长期做）
+## 四、P3 · 可访问性与打磨（长期做）
 
 ### P3-1 可访问性（a11y）基础
 
-**现状**：基本没有考虑可访问性。
+**现状**：基本没有考虑可访问性。全仓仅 2 个文件出现 `aria-label` / `role="dialog"`，属零散点缀。
 
 **最低标准清单**：
 1. 所有图片有 `alt` 属性
@@ -323,7 +207,8 @@
 
 ### P3-2 深色模式
 
-**现状**：只有浅色模式，CSS 变量体系已搭好，扩展深色模式的基础很好。
+**现状**：只有浅色模式（全仓零 `prefers-color-scheme` / `dark-mode` / `html.dark`），
+CSS 变量体系已搭好，扩展深色模式的基础很好。
 
 **实现路径**：
 1. `apple.css` 中添加 `[data-theme="dark"]` 选择器，覆盖变量值
@@ -346,13 +231,14 @@
 
 ### P3-4 国际化（i18n）框架
 
-**现状**：系统全中文硬编码，没有 i18n 框架。
+**现状**：系统全中文硬编码，`frontend/src/i18n/` **目录不存在**。
 
-**建议**：如果未来有多语言需求，尽早引入 `vue-i18n`，越晚改成本越高。当前如果没有明确需求，可以暂缓，但**所有新增文案建议留好提取空间**（不要散落在模板中，集中管理）。
+**建议**：如果未来有多语言需求，尽早引入 `vue-i18n`，越晚改成本越高。
+当前如果没有明确需求，可以**暂缓**，但**所有新增文案建议留好提取空间**（不要散落在模板中，集中管理）。
 
 ---
 
-## 六、代码质量与可维护性
+## 五、代码质量与可维护性
 
 ### Q-1 组件重复代码收敛
 
@@ -380,41 +266,27 @@
 
 ---
 
-## 七、实施建议
+## 六、未验收项（需人工确认）
 
-### 第一周（P0 快速收益）
-1. ✅ 卡片 hover 降级（1h）—— 完成（`50a7b64`）
-2. ⚠️ 骨架屏扩展（1d）—— **部分完成**：26 个视图已用 `TableSkeleton`，但仍有十余个列表页只用
-   `el-table v-loading`、无骨架屏，**未达「全部列表页」**（原标记 ✅ 与实测不符，2026-09-11 更正）
-3. ❌ 登录页视觉升级（2d）—— **未开始**（原标记 ✅ 与实测不符，2026-09-11 更正）
-
-### 第二周（P1 体验提升）
-4. ✅ StateWrapper 推广到核心页面（2d）—— 完成并**超出**：30 个视图（详见 §P0-2）
-5. 详情页抽屉加载态（1d）
-6. 列表工具栏统一组件 + 改造（2d）
-
-### 第三~四周（P2 性能工程）
-7. ECharts 懒渲染 + 异步加载（1d）—— **✅ 无需改动**：实测已是路由级懒加载（`index.html` 未 preload）
-8. 请求缓存与去重（2d）
-9. Bundle 分析 + 构建优化（1d）—— **✅ 完成（2026-09-14）**：修掉 `manualChunks` 对象形式导致的巨石 chunk，首屏 JS **370 → 137 KB gzip（−63%）**，详见 §P2-4
-
-### 后续（P3 打磨）
-10. a11y 基础达标
-11. 深色模式
-12. 微交互打磨
+| 项 | 来源 | 说明 |
+|---|---|---|
+| 真实浏览器端到端走查 | `docs/crm-customer-overview-design.md` §八 第 8 项 | 文档标 ⏳ 未做（当时本机无浏览器环境）；核心业务域已收敛，建议上线前补一次全链路走查 |
+| `pool:*` 路径/权限码改名 | `docs/crm-customer-overview-design.md` §八 第 9 项 | **刻意不做**：`router/index.js:77-78` 注释明示「改 path/权限码会波及已发通知链接与权限数据，属独立迁移」 |
+| seed 中 `AUTO_INCREMENT` 硬编码清理 | `docs/outstanding-work-audit-2026-09-14.md` P3-1 | 剩余约 42 处，非阻塞 |
+| 服务层 JSDoc 补全 | `docs/outstanding-work-audit-2026-09-14.md` P3-2 | 与 Q-3 重叠，可合并推进 |
 
 ---
 
-## 八、验证指标
+## 七、验证指标
 
-| 指标 | 当前（估） | 目标 | 测量方式 |
+| 指标 | 当前 | 目标 | 测量方式 |
 |------|-----------|------|---------|
-| LCP（Dashboard） | ~2.5s | < 2.0s | Web Vitals / Lighthouse |
-| 骨架屏覆盖率 | ~20%（4/18） | 100% | 代码统计 |
-| 列表页首屏可交互时间 | ~1.8s | < 1.2s | Lighthouse TTI |
-| 首屏 JS 体积 | **137 KB gzip（2026-09-14 实测）** | < 250KB gzip | Bundle 分析 — **✅ 已达标**（原 ~370 KB，见 §P2-4） |
+| LCP（Dashboard） | ~2.5s（估） | < 2.0s | Web Vitals / Lighthouse |
+| 骨架屏覆盖率 | **49 个视图** | 100% 适用列表页 | 代码统计 |
+| 列表页首屏可交互时间 | ~1.8s（估） | < 1.2s | Lighthouse TTI |
+| 首屏 JS 体积 | **139.3 KB gzip（2026-09-14 实测）** | < 250KB gzip | Bundle 分析 — **✅ 已达标** |
 | a11y 对比度通过率 | 未测 | 100% 正文文本 | axe-core 扫描 |
 
 ---
 
-*本报告为优化建议清单，实际实施前需按九步循环逐一评估影响范围与回滚方案。*
+*本清单为待办建议，实际实施前需按九步循环逐一评估影响范围与回滚方案。*

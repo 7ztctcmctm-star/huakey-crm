@@ -1,7 +1,7 @@
 <template>
   <div class="quotation-list">
     <!-- 搜索区域 -->
-    <el-card class="search-card">
+    <PageToolbar :collapsible="true" :max-visible="3">
       <el-form :model="searchForm" inline @keyup.enter="handleSearch">
         <el-form-item label="报价单号">
           <el-input v-model="searchForm.quote_no" placeholder="请输入报价单号" clearable />
@@ -14,27 +14,34 @@
             <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
-        <el-form-item label="审批">
-          <el-select v-model="searchForm.approval_status" placeholder="全部" clearable>
-            <el-option label="待审批" :value="1" />
-            <el-option label="已通过" :value="2" />
-            <el-option label="已拒绝" :value="3" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
-          <el-button :icon="Refresh" @click="handleReset">重置</el-button>
-        </el-form-item>
       </el-form>
-    </el-card>
+
+      <template #extra>
+        <el-form :model="searchForm" inline @keyup.enter="handleSearch">
+          <el-form-item label="审批">
+            <el-select v-model="searchForm.approval_status" placeholder="全部" clearable>
+              <el-option label="待审批" :value="1" />
+              <el-option label="已通过" :value="2" />
+              <el-option label="已拒绝" :value="3" />
+            </el-select>
+          </el-form-item>
+        </el-form>
+      </template>
+
+      <template #filter-actions>
+        <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
+        <el-button :icon="Refresh" @click="handleReset">重置</el-button>
+      </template>
+
+      <template #actions>
+        <el-button type="primary" :icon="Plus" @click="handleAdd" v-permission="'quotation:add'">新建报价单</el-button>
+      </template>
+    </PageToolbar>
 
     <el-alert v-if="expiringCount > 0" type="warning" :title="`有 ${expiringCount} 条报价将在7天内过期`" show-icon :closable="false" style="margin-bottom: 16px" />
 
-    <!-- 操作按钮区域 -->
+    <!-- 表格 -->
     <el-card class="table-card">
-      <div class="toolbar">
-        <el-button type="primary" :icon="Plus" @click="handleAdd" v-permission="'quotation:add'">新建报价单</el-button>
-      </div>
 
       <!-- 表格 -->
       <StateWrapper
@@ -217,6 +224,7 @@
 import { reportError, reportWarn } from '@/utils/error'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
+import PageToolbar from '@/components/common/PageToolbar.vue'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'

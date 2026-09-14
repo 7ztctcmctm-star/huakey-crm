@@ -11,7 +11,7 @@
 
     <!-- 客户对账 -->
     <template v-if="activeType === 'customer'">
-      <el-card class="search-card">
+      <PageToolbar>
         <el-form inline>
           <el-form-item label="客户">
             <el-select v-model="custForm.customer_id" filterable placeholder="选择客户" style="width:240px">
@@ -21,9 +21,12 @@
           <el-form-item label="时间范围">
             <el-date-picker v-model="custForm.dateRange" type="daterange" start-placeholder="开始" end-placeholder="结束" value-format="YYYY-MM-DD" style="width:260px" />
           </el-form-item>
-          <el-form-item><el-button type="primary" @click="fetchCustomerRecon">生成对账单</el-button></el-form-item>
         </el-form>
-      </el-card>
+
+        <template #filter-actions>
+          <el-button type="primary" @click="fetchCustomerRecon">生成对账单</el-button>
+        </template>
+      </PageToolbar>
 
       <template v-if="custData">
         <el-card style="margin-top:16px">
@@ -83,7 +86,7 @@
 
     <!-- 供应商对账 -->
     <template v-if="activeType === 'supplier'">
-      <el-card class="search-card">
+      <PageToolbar>
         <el-form inline>
           <el-form-item label="供应商">
             <el-select v-model="suppForm.supplier_id" filterable placeholder="选择供应商" style="width:240px">
@@ -93,9 +96,12 @@
           <el-form-item label="时间范围">
             <el-date-picker v-model="suppForm.dateRange" type="daterange" start-placeholder="开始" end-placeholder="结束" value-format="YYYY-MM-DD" style="width:260px" />
           </el-form-item>
-          <el-form-item><el-button type="primary" @click="fetchSupplierRecon">生成对账单</el-button></el-form-item>
         </el-form>
-      </el-card>
+
+        <template #filter-actions>
+          <el-button type="primary" @click="fetchSupplierRecon">生成对账单</el-button>
+        </template>
+      </PageToolbar>
 
       <template v-if="suppData">
         <el-card style="margin-top:16px">
@@ -188,6 +194,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import PageToolbar from '@/components/common/PageToolbar.vue'
 import request from '@/utils/request'
 import { getCustomerReconciliation, getSupplierReconciliation, saveReconciliation, getReconciliationList } from '@/api/hr'
 import { getCustomerList } from '@/api/customer'

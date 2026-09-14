@@ -18,7 +18,7 @@
     </div>
 
     <!-- 搜索区域 -->
-    <el-card class="search-card">
+    <PageToolbar :collapsible="true" :max-visible="2">
       <el-form :model="searchForm" inline>
         <el-form-item label="工单编号">
           <el-input v-model="searchForm.keyword" placeholder="输入工单编号或客户名称" clearable />
@@ -28,23 +28,32 @@
             <el-option v-for="t in types" :key="t.value" :label="t.label" :value="t.value" />
           </el-select>
         </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="searchForm.status" placeholder="全部" clearable>
-            <el-option v-for="s in statusList" :key="s.value" :label="s.label" :value="s.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="优先级">
-          <el-select v-model="searchForm.priority" placeholder="全部" clearable>
-            <el-option v-for="p in priorityList" :key="p.value" :label="p.label" :value="p.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch">搜索</el-button>
-          <el-button @click="resetSearch">重置</el-button>
-        </el-form-item>
       </el-form>
-      <el-button type="primary" :icon="Plus" @click="openAddModal" style="margin-left: auto;" v-permission="'service:add'">新建工单</el-button>
-    </el-card>
+
+      <template #extra>
+        <el-form :model="searchForm" inline>
+          <el-form-item label="状态">
+            <el-select v-model="searchForm.status" placeholder="全部" clearable>
+              <el-option v-for="s in statusList" :key="s.value" :label="s.label" :value="s.value" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="优先级">
+            <el-select v-model="searchForm.priority" placeholder="全部" clearable>
+              <el-option v-for="p in priorityList" :key="p.value" :label="p.label" :value="p.value" />
+            </el-select>
+          </el-form-item>
+        </el-form>
+      </template>
+
+      <template #filter-actions>
+        <el-button type="primary" @click="handleSearch">搜索</el-button>
+        <el-button @click="resetSearch">重置</el-button>
+      </template>
+
+      <template #actions>
+        <el-button type="primary" :icon="Plus" @click="openAddModal" v-permission="'service:add'">新建工单</el-button>
+      </template>
+    </PageToolbar>
 
     <!-- 工单列表 -->
     <el-card>
@@ -363,6 +372,7 @@
 import EmptyState from '@/components/common/EmptyState.vue'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
+import PageToolbar from '@/components/common/PageToolbar.vue'
 import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'

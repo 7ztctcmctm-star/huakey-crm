@@ -1,7 +1,7 @@
 <template>
   <div class="leads-pool">
     <!-- 筛选区 -->
-    <el-card class="filter-card">
+    <PageToolbar :collapsible="true" :max-visible="3">
       <el-form :model="searchForm" inline @submit.prevent="handleSearch">
         <el-form-item label="公司名称">
           <el-input v-model="searchForm.company_name" placeholder="搜索公司名称" clearable style="width: 180px" @keyup.enter="handleSearch" />
@@ -12,31 +12,38 @@
         <el-form-item label="电话">
           <el-input v-model="searchForm.phone" placeholder="搜索电话" clearable style="width: 150px" @keyup.enter="handleSearch" />
         </el-form-item>
-        <el-form-item label="来源">
-          <el-select v-model="searchForm.source" placeholder="全部来源" clearable style="width: 140px">
-            <el-option v-for="opt in sourceOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="等级">
-          <el-select v-model="searchForm.level" placeholder="全部等级" clearable style="width: 120px">
-            <el-option v-for="opt in levelOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch">搜索</el-button>
-          <el-button @click="handleReset">重置</el-button>
-        </el-form-item>
       </el-form>
-    </el-card>
+
+      <template #extra>
+        <el-form :model="searchForm" inline @submit.prevent="handleSearch">
+          <el-form-item label="来源">
+            <el-select v-model="searchForm.source" placeholder="全部来源" clearable style="width: 140px">
+              <el-option v-for="opt in sourceOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="等级">
+            <el-select v-model="searchForm.level" placeholder="全部等级" clearable style="width: 120px">
+              <el-option v-for="opt in levelOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+            </el-select>
+          </el-form-item>
+        </el-form>
+      </template>
+
+      <template #filter-actions>
+        <el-button type="primary" @click="handleSearch">搜索</el-button>
+        <el-button @click="handleReset">重置</el-button>
+      </template>
+
+      <template #actions>
+        <el-button type="primary" @click="handleAdd" v-permission="'leads:add'">新增潜客</el-button>
+      </template>
+    </PageToolbar>
 
     <!-- 表格区 -->
     <el-card class="table-card">
       <template #header>
         <div class="card-header">
           <span>潜客池（共 {{ total }} 条）</span>
-          <div>
-            <el-button type="primary" @click="handleAdd" v-permission="'leads:add'">新增潜客</el-button>
-          </div>
         </div>
       </template>
 
@@ -119,6 +126,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
+import PageToolbar from '@/components/common/PageToolbar.vue'
 import CustomerFormDialog from '@/views/customer/components/CustomerFormDialog.vue'
 import { getLeadsPool, convertLeadToFormal } from '@/api/leads'
 import { addCustomer } from '@/api/customer'

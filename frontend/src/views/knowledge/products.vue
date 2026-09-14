@@ -2,11 +2,10 @@
   <div class="page-container">
     <div class="page-header">
       <h2>产品知识库</h2>
-      <el-button type="primary" :icon="Plus" @click="handleAdd">新增产品</el-button>
     </div>
 
     <!-- 搜索栏 -->
-    <el-card class="search-card">
+    <PageToolbar>
       <el-form :model="search" inline @keyup.enter="fetchList">
         <el-form-item><el-input v-model="search.keyword" placeholder="搜索产品名称/型号" clearable style="width:220px" /></el-form-item>
         <el-form-item>
@@ -14,9 +13,16 @@
             <el-option v-for="c in categories" :key="c" :label="c" :value="c" />
           </el-select>
         </el-form-item>
-        <el-form-item><el-button type="primary" @click="fetchList">搜索</el-button></el-form-item>
       </el-form>
-    </el-card>
+
+      <template #filter-actions>
+        <el-button type="primary" @click="fetchList">搜索</el-button>
+      </template>
+
+      <template #actions>
+        <el-button type="primary" :icon="Plus" @click="handleAdd">新增产品</el-button>
+      </template>
+    </PageToolbar>
 
     <!-- 产品卡片列表 -->
     <div class="product-grid" v-loading="loading">
@@ -89,6 +95,7 @@
 
 <script setup>
 import EmptyState from '@/components/common/EmptyState.vue'
+import PageToolbar from '@/components/common/PageToolbar.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, Box } from '@element-plus/icons-vue'

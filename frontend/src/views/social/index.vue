@@ -2,7 +2,6 @@
   <div class="page-container">
     <div class="page-header">
       <h2>社媒沟通记录</h2>
-      <el-button type="primary" :icon="Plus" @click="handleCreate">新增记录</el-button>
     </div>
 
     <!-- 统计 -->
@@ -16,7 +15,7 @@
     </div>
 
     <!-- 筛选 -->
-    <el-card class="search-card">
+    <PageToolbar>
       <el-form :model="search" inline @keyup.enter="fetchList">
         <el-form-item>
           <el-select v-model="search.customer_id" filterable clearable placeholder="选择客户" style="width:200px">
@@ -28,9 +27,16 @@
             <el-option v-for="(v, k) in platformName" :key="k" :label="v" :value="k" />
           </el-select>
         </el-form-item>
-        <el-form-item><el-button type="primary" @click="fetchList">搜索</el-button></el-form-item>
       </el-form>
-    </el-card>
+
+      <template #filter-actions>
+        <el-button type="primary" @click="fetchList">搜索</el-button>
+      </template>
+
+      <template #actions>
+        <el-button type="primary" :icon="Plus" @click="handleCreate">新增记录</el-button>
+      </template>
+    </PageToolbar>
 
     <!-- 列表 -->
     <el-card>
@@ -109,6 +115,7 @@ import { getCustomerList } from '@/api/customer'
 import request from '@/utils/request'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import PageToolbar from '@/components/common/PageToolbar.vue'
 import { reportError } from '@/utils/error'
 
 const platformName = { wechat: '微信', whatsapp: 'WhatsApp', telegram: 'Telegram', email: '邮件', linkedin: 'LinkedIn', facebook: 'Facebook', instagram: 'Instagram' }

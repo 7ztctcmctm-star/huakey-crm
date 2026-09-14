@@ -2,7 +2,6 @@
   <div class="page-container">
     <div class="page-header">
       <h2>常见问题</h2>
-      <el-button type="primary" :icon="Plus" @click="handleAdd">新增FAQ</el-button>
     </div>
 
     <!-- 分类筛选 -->
@@ -11,12 +10,19 @@
       <el-check-tag v-for="c in categoryList" :key="c" :checked="search.category===c" @change="search.category=c;fetchList()">{{ c }}</el-check-tag>
     </div>
 
-    <el-card class="search-card">
+    <PageToolbar>
       <el-form inline @keyup.enter="fetchList">
         <el-form-item><el-input v-model="search.keyword" placeholder="搜索问题/答案" clearable style="width:280px" /></el-form-item>
-        <el-form-item><el-button type="primary" @click="fetchList">搜索</el-button></el-form-item>
       </el-form>
-    </el-card>
+
+      <template #filter-actions>
+        <el-button type="primary" @click="fetchList">搜索</el-button>
+      </template>
+
+      <template #actions>
+        <el-button type="primary" :icon="Plus" @click="handleAdd">新增FAQ</el-button>
+      </template>
+    </PageToolbar>
 
     <!-- FAQ 折叠面板 -->
     <div v-loading="loading">
@@ -60,6 +66,7 @@
 
 <script setup>
 import EmptyState from '@/components/common/EmptyState.vue'
+import PageToolbar from '@/components/common/PageToolbar.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete } from '@element-plus/icons-vue'

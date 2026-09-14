@@ -2,12 +2,9 @@
   <div class="supplier-list">
     <div class="page-header">
       <h2>供应商管理</h2>
-      <el-button type="primary" @click="handleAdd" v-permission="'supplier:add'">
-        <el-icon><Plus /></el-icon>新增供应商
-      </el-button>
     </div>
 
-    <div class="search-bar">
+    <PageToolbar :collapsible="true" :max-visible="3">
       <el-form :inline="true" :model="searchForm" @submit.prevent="handleSearch">
         <el-form-item label="关键词">
           <el-input v-model="searchForm.keyword" placeholder="名称/编号/联系人" clearable style="width: 200px" />
@@ -27,19 +24,31 @@
             <el-option label="备用" value="备用" />
           </el-select>
         </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="searchForm.status" placeholder="全部状态" clearable style="width: 120px">
-            <el-option label="合作中" :value="1" />
-            <el-option label="暂停" :value="2" />
-            <el-option label="终止" :value="3" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" native-type="submit">查询</el-button>
-          <el-button @click="resetSearch">重置</el-button>
-        </el-form-item>
       </el-form>
-    </div>
+
+      <template #extra>
+        <el-form :inline="true" :model="searchForm" @submit.prevent="handleSearch">
+          <el-form-item label="状态">
+            <el-select v-model="searchForm.status" placeholder="全部状态" clearable style="width: 120px">
+              <el-option label="合作中" :value="1" />
+              <el-option label="暂停" :value="2" />
+              <el-option label="终止" :value="3" />
+            </el-select>
+          </el-form-item>
+        </el-form>
+      </template>
+
+      <template #filter-actions>
+        <el-button type="primary" native-type="submit" @click="handleSearch">查询</el-button>
+        <el-button @click="resetSearch">重置</el-button>
+      </template>
+
+      <template #actions>
+        <el-button type="primary" @click="handleAdd" v-permission="'supplier:add'">
+          <el-icon><Plus /></el-icon>新增供应商
+        </el-button>
+      </template>
+    </PageToolbar>
 
     <StateWrapper
       :loading="loading"
@@ -220,6 +229,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import TableSkeleton from '@/components/common/TableSkeleton.vue';
 import StateWrapper from '@/components/common/StateWrapper.vue';
+import PageToolbar from '@/components/common/PageToolbar.vue';
 import request from '@/utils/request';
 import { getSupplierList, addSupplier, updateSupplier, deleteSupplier } from '@/api/product';
 
@@ -394,7 +404,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-4);
 }
 
 .page-header h2 {
@@ -403,15 +413,6 @@ onMounted(() => {
   font-weight: 600;
   color: var(--color-text);
   letter-spacing: -0.02em;
-}
-
-.search-bar {
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  padding: var(--space-4) var(--space-5);
-  margin-bottom: var(--space-4);
 }
 
 .pagination-wrapper {

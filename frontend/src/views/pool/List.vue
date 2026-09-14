@@ -1,7 +1,7 @@
 <template>
   <div class="pool-list">
     <!-- 筛选区 -->
-    <el-card class="filter-card">
+    <PageToolbar :collapsible="true" :max-visible="3">
       <el-form :model="searchForm" inline @submit.prevent="handleSearch">
         <el-form-item label="公司名称">
           <el-input v-model="searchForm.company_name" placeholder="搜索公司名称" clearable style="width: 180px" @keyup.enter="handleSearch" />
@@ -12,20 +12,28 @@
         <el-form-item label="电话">
           <el-input v-model="searchForm.phone" placeholder="搜索电话" clearable style="width: 150px" @keyup.enter="handleSearch" />
         </el-form-item>
-        <el-form-item label="等级">
-          <el-select v-model="searchForm.level" placeholder="全部等级" clearable style="width: 120px">
-            <el-option v-for="opt in levelOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="业务状态">
-          <el-select v-model="searchForm.business_status" placeholder="全部状态" clearable style="width: 120px">
-            <el-option label="跟进中" value="following" />
-            <el-option label="已报价" value="quoted" />
-            <el-option label="谈判中" value="negotiating" />
-            <el-option label="已签约" value="signed" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="查看范围">
+      </el-form>
+
+      <template #extra>
+        <el-form :model="searchForm" inline @submit.prevent="handleSearch">
+          <el-form-item label="等级">
+            <el-select v-model="searchForm.level" placeholder="全部等级" clearable style="width: 120px">
+              <el-option v-for="opt in levelOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="业务状态">
+            <el-select v-model="searchForm.business_status" placeholder="全部状态" clearable style="width: 120px">
+              <el-option label="跟进中" value="following" />
+              <el-option label="已报价" value="quoted" />
+              <el-option label="谈判中" value="negotiating" />
+              <el-option label="已签约" value="signed" />
+            </el-select>
+          </el-form-item>
+        </el-form>
+      </template>
+
+      <template #filter-actions>
+        <el-form-item label="查看范围" class="page-toolbar__scope">
           <!-- 客户总览：一个页面两半 —— 「待认领」即原公海池（owner_id 为空），
                「全部客户」用于老板看清客户在谁手上、进行到哪个阶段 -->
           <el-radio-group v-model="scope" @change="handleScopeChange">
@@ -33,12 +41,10 @@
             <el-radio-button value="all">全部客户</el-radio-button>
           </el-radio-group>
         </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch">搜索</el-button>
-          <el-button @click="handleReset">重置</el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
+        <el-button type="primary" @click="handleSearch">搜索</el-button>
+        <el-button @click="handleReset">重置</el-button>
+      </template>
+    </PageToolbar>
 
     <!-- 表格区 -->
     <el-card class="table-card">
@@ -175,6 +181,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
+import PageToolbar from '@/components/common/PageToolbar.vue'
 import { getPoolList, claimPoolCustomer, createTransfer, getTransferCandidates } from '@/api/pool'
 import { getCustomerList } from '@/api/customer'
 
