@@ -258,9 +258,40 @@
 
 ### P2-4 构建优化
 
-**现状**：已有基础的 `manualChunks` 配置，但还可以更细。
+> **状态：已实施（2026-09-14）** —— 核心结论：**唯一真问题是 `manualChunks` 对象形式**，
+> 它把 element-plus 整包强制归入单一 chunk，产出一个 **944 KB（gzip 296 KB）的巨石**，
+> 并经 `index.html` 的 `modulepreload` 进入**首屏关键路径**。
+> 改为**函数形式**后交给 Rollup 按组件粒度自动切分。
+>
+> **实测收益（干净构建对比）**：
+>
+> | 指标 | 改造前 | 改造后 | 变化 |
+> |---|---|---|---|
+> | 首屏 JS（gzip） | 370 KB | **137 KB** | **−233 KB（−63%）** |
+> | 首屏 preload 数量 | 3（entry+vendor+EP） | 2（entry+vendor） | EP 移出关键路径 |
+> | 全量 JS（gzip） | 915 KB | 901 KB | 基本持平（纯加载时机优化） |
+> | 最大单 chunk | 944 KB | 247 KB | 巨石消除 |
+>
+> **逐项判定（roadmap 原 5 方向）**：
+> 1. `rollup-plugin-visualizer` —— **未采纳**。本次改用「构建产物 + `index.html` preload 分析」即可定位瓶颈，无需引入依赖；如需长期可观测再补。
+> 2. Element Plus 按需加载 —— **已达标且发现真问题**。`unplugin-vue-components` + `ElementPlusResolver` 本身正常（CSS 已按组件切分），**但被 `manualChunks` 对象形式覆盖**。详见上方结论。
+> 3. 图标库 tree-shake —— **已达标（无需改动）**。全仓 30 处均为 `import { X } from '@element-plus/icons-vue'` 具名导入，无 `import * as`。
+> 4. `vite-plugin-compression` 预压缩 —— **本次不采纳，登记为独立任务**。⚠️
+>    本项目链路为「浏览器 → nginx(`proxy_pass`) → Node/Express」，**两端都不读磁盘 `.gz`**：
+>    - `deploy/nginx-synology.conf:92` 只有动态 `gzip on`，**无 `gzip_static on`**；且该 location 是 `proxy_pass` 转发，**根本不 serve 静态文件**；
+>    - `backend/app.js:14` 用 `compression@1.8.1` 做**纯动态压缩**（源码零 `.gz` 引用）。
+>
+>    ⇒ 预压缩产物在本项目**不会影响任何一次传输**，加进来只是磁盘死重量。
+>    若将来要启用，需**后端 + 运维协同**：nginx 加 `gzip_static on` 且改为直接 serve 静态目录，或 Express 静态层接入 precompressed 中间件。
+> 5. `vite-plugin-pwa` 离线缓存 —— **不采纳**。内部 CRM 收益低，且 Service Worker 缓存失效会造成「改了没生效」的排障困难。
+>
+> **一个被证伪的假设（记录以免重复）**：曾以为 echarts **首屏加载**，实为**已正确懒加载** ——
+> `dist/index.html` 未 preload echarts，入口 chunk 内的 `echarts-*.js` 字样位于**路由 manifest 字符串数组**中（供动态 `import()` 用），
+> 非静态 `import`。故「echarts 路由懒加载」**无需改动**。
 
-**优化方向**：
+**原始现状**：已有基础的 `manualChunks` 配置，但还可以更细。
+
+**优化方向（原记录，保留供追溯）**：
 1. 分析当前 bundle 构成（`rollup-plugin-visualizer`）
 2. Element Plus 是否可以进一步按需加载（当前用 `unplugin-vue-components`，已较好）
 3. 图标库是否可以 tree-shake（`@element-plus/icons-vue` 支持按需，当前是全量导入还是按需？需确认）
@@ -363,9 +394,9 @@
 6. 列表工具栏统一组件 + 改造（2d）
 
 ### 第三~四周（P2 性能工程）
-7. ECharts 懒渲染 + 异步加载（1d）
+7. ECharts 懒渲染 + 异步加载（1d）—— **✅ 无需改动**：实测已是路由级懒加载（`index.html` 未 preload）
 8. 请求缓存与去重（2d）
-9. Bundle 分析 + 构建优化（1d）
+9. Bundle 分析 + 构建优化（1d）—— **✅ 完成（2026-09-14）**：修掉 `manualChunks` 对象形式导致的巨石 chunk，首屏 JS **370 → 137 KB gzip（−63%）**，详见 §P2-4
 
 ### 后续（P3 打磨）
 10. a11y 基础达标
@@ -381,7 +412,7 @@
 | LCP（Dashboard） | ~2.5s | < 2.0s | Web Vitals / Lighthouse |
 | 骨架屏覆盖率 | ~20%（4/18） | 100% | 代码统计 |
 | 列表页首屏可交互时间 | ~1.8s | < 1.2s | Lighthouse TTI |
-| 首屏 JS 体积 | ~300KB gzip | < 250KB gzip | Bundle 分析 |
+| 首屏 JS 体积 | **137 KB gzip（2026-09-14 实测）** | < 250KB gzip | Bundle 分析 — **✅ 已达标**（原 ~370 KB，见 §P2-4） |
 | a11y 对比度通过率 | 未测 | 100% 正文文本 | axe-core 扫描 |
 
 ---
