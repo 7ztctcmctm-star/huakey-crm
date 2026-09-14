@@ -43,28 +43,40 @@
     <!-- 邮件日志 -->
     <el-card style="margin-top: 24px">
       <template #header><span class="section-title">邮件发送记录</span></template>
-      <el-table :data="emailLogs" stripe border size="small" v-loading="logLoading" empty-text="暂无发送记录">
-        <el-table-column prop="to_email" label="收件人" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="subject" label="主题" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="status" label="状态" width="80" align="center">
-          <template #default="{ row }">
-            <el-tag :type="row.status === 'sent' ? 'success' : 'danger'" size="small">
-              {{ row.status === 'sent' ? '成功' : '失败' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="sender_name" label="发送人" width="90" />
-        <el-table-column prop="create_time" label="发送时间" width="160" />
-      </el-table>
-      <div v-if="logTotal > 20" class="table-pagination">
-        <el-pagination
-          v-model:current-page="logPage"
-          :total="logTotal"
-          :page-size="20"
-          layout="total, prev, pager, next"
-          @current-change="fetchEmailLogs"
-        />
-      </div>
+      <StateWrapper
+        :loading="logLoading"
+        :error="logErrorMsg"
+        :empty="!logLoading && !logErrorMsg && emailLogs.length === 0"
+        empty-text="暂无发送记录"
+        @retry="fetchEmailLogs"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="5" />
+        </template>
+
+        <el-table :data="emailLogs" stripe border size="small">
+          <el-table-column prop="to_email" label="收件人" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="subject" label="主题" min-width="200" show-overflow-tooltip />
+          <el-table-column prop="status" label="状态" width="80" align="center">
+            <template #default="{ row }">
+              <el-tag :type="row.status === 'sent' ? 'success' : 'danger'" size="small">
+                {{ row.status === 'sent' ? '成功' : '失败' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="sender_name" label="发送人" width="90" />
+          <el-table-column prop="create_time" label="发送时间" width="160" />
+        </el-table>
+        <div v-if="logTotal > 20" class="table-pagination">
+          <el-pagination
+            v-model:current-page="logPage"
+            :total="logTotal"
+            :page-size="20"
+            layout="total, prev, pager, next"
+            @current-change="fetchEmailLogs"
+          />
+        </div>
+      </StateWrapper>
     </el-card>
   </div>
 </template>
@@ -74,11 +86,14 @@ import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getIntegrationList, updateIntegration, testIntegration, getEmailLog } from '@/api/system'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
 
 const loading = ref(false)
 const saving = ref(false)
 const testing = ref(false)
-const logLoading = ref(false)
+const logLoading = ref(true)   // onMounted 无条件取数，初值 true 消除首帧「暂无发送记录」闪现
+const logErrorMsg = ref('')
 
 const emailConfig = ref({ id: null, status: 'inactive' })
 const emailForm = reactive({
@@ -144,13 +159,20 @@ const handleTest = async () => {
 
 const fetchEmailLogs = async () => {
   logLoading.value = true
+  logErrorMsg.value = ''
   try {
     const res = await getEmailLog({ page: logPage.value, pageSize: 20 })
     if (res.code === 200) {
       emailLogs.value = res.data.list
       logTotal.value = res.data.total
+    } else {
+      logErrorMsg.value = res.message || '加载邮件发送记录失败，请稍后重试'
+      reportError('获取邮件发送记录失败:', res.message)
     }
-  } catch (e) { reportError(e) }
+  } catch (error) {
+    logErrorMsg.value = error?.response?.data?.message || '加载邮件发送记录失败，请稍后重试'
+    reportError('获取邮件发送记录失败:', error)
+  }
   finally { logLoading.value = false }
 }
 

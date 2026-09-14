@@ -61,17 +61,22 @@
 
 ### P0-2 激活 `StateWrapper` 组件，统一三态管理
 
-> **状态：已落地（2026-09-11）** —— 接入视图由 **2 个 → 30 个**，路线图要求的「20+ 页面」已达成。
+> **状态：已落地（2026-09-11）→ 二次扩面（2026-09-14 P2-3）** —— 接入视图由 **2 个 → 30 个 → 49 个**，
+> 路线图要求的「20+ 页面」远超达成。2026-09-14 追加 18 个列表页（清单见
+> `docs/outstanding-work-audit-2026-09-14.md` 附录 A.1）。
 > 实施计划与执行记录：`docs/frontend-statewrapper-promotion-plan.md`；相关提交：`0ce745b`、`ef0d4a6`、
 > `f5112e4`、`8bfd380`。同时修掉 `StateWrapper` 错误态**重复渲染两个「重新加载」按钮、且靠上那个是死按钮**
 > 的缺陷（`d9606ae`），并新增全仓模板绑定守卫测试（`15027e8`）。
 >
 > **未覆盖（如实登记）**：
-> - 详情页内嵌的多个小表格（非独立列表，状态语义不同）
-> - 仍用 `el-table v-loading` 且无骨架屏的十余个列表页（P0-1 亦未覆盖全）
+> - 详情页内嵌的多个小表格（非独立列表，状态语义不同）—— 9 个页面，需按**子表粒度**分别接线
+> - 多表格看板（一页多表各自独立取数）—— `TeamDashboard`、`analysis/index`、`report/index`、`report/business`、`hr/commission`
+> - 编辑页（`quotation/edit.vue`）、日历/流程型页面（`followup/calendar`、`automation/workflows`、`automation/smart-reminders`、`procurement/plan`）
 > - `payment/reconciliation.vue`：骨架屏只挂在页签内的历史表，主区域是按需生成视图，套用不自然
 > - `payment/index.vue`：`loading` 被 3 张表共用，只包装了主列表「全部回款」；「回款总览」仍为旧双机制
 > - `system/log.vue` 的 `handleHighRisk()` 非列表取数函数，失败仍只弹 toast
+>
+> 上述「未接入」21 个页面均已逐个判定为**本轮不适用**（非遗漏），完整分档见审计报告附录 A.2。
 
 **原始现状**：`components/common/StateWrapper.vue` 已封装好「加载 / 错误 / 空 / 正常」四态切换，但**全项目零引用**，属于死代码。各页面自行用 `v-if/v-else` 拼接状态，质量参差不齐。
 

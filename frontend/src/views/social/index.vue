@@ -34,31 +34,43 @@
 
     <!-- 列表 -->
     <el-card>
-      <el-table :data="list" stripe border v-loading="loading">
-        <el-table-column prop="customer_name" label="客户" min-width="140" show-overflow-tooltip />
-        <el-table-column prop="contact_name" label="联系人" width="100" />
-        <el-table-column prop="platform" label="平台" width="100" align="center">
-          <template #default="{ row }">
-            <span class="platform-badge" :style="{ background: platformColor[row.platform] }">{{ platformName[row.platform] || row.platform }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="direction" label="方向" width="60" align="center">
-          <template #default="{ row }">
-            <span :class="row.direction === 'in' ? 'text-success' : 'text-accent'">{{ row.direction === 'in' ? '← 收' : '→ 发' }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="content" label="内容摘要" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="message_time" label="消息时间" width="160">
-          <template #default="{ row }">{{ row.message_time || '-' }}</template>
-        </el-table-column>
-        <el-table-column prop="create_by_name" label="操作人" width="90" />
-        <el-table-column label="操作" width="100" fixed="right">
-          <template #default="{ row }">
-            <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-      <div class="pagination"><el-pagination v-model:current-page="page" v-model:page-size="pageSize" :total="total" layout="total,prev,pager,next" @current-change="fetchList" /></div>
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && !errorMsg && list.length === 0"
+        empty-text="暂无社交记录"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="8" />
+        </template>
+
+        <el-table :data="list" stripe border>
+          <el-table-column prop="customer_name" label="客户" min-width="140" show-overflow-tooltip />
+          <el-table-column prop="contact_name" label="联系人" width="100" />
+          <el-table-column prop="platform" label="平台" width="100" align="center">
+            <template #default="{ row }">
+              <span class="platform-badge" :style="{ background: platformColor[row.platform] }">{{ platformName[row.platform] || row.platform }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="direction" label="方向" width="60" align="center">
+            <template #default="{ row }">
+              <span :class="row.direction === 'in' ? 'text-success' : 'text-accent'">{{ row.direction === 'in' ? '← 收' : '→ 发' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="content" label="内容摘要" min-width="200" show-overflow-tooltip />
+          <el-table-column prop="message_time" label="消息时间" width="160">
+            <template #default="{ row }">{{ row.message_time || '-' }}</template>
+          </el-table-column>
+          <el-table-column prop="create_by_name" label="操作人" width="90" />
+          <el-table-column label="操作" width="100" fixed="right">
+            <template #default="{ row }">
+              <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <div class="pagination"><el-pagination v-model:current-page="page" v-model:page-size="pageSize" :total="total" layout="total,prev,pager,next" @current-change="fetchList" /></div>
+      </StateWrapper>
     </el-card>
 
     <!-- 新增弹窗 -->
@@ -95,11 +107,15 @@ import { Plus } from '@element-plus/icons-vue'
 import { getSocialRecords, saveSocialRecord, getSocialStats, deleteSocialRecord } from '@/api/tools'
 import { getCustomerList } from '@/api/customer'
 import request from '@/utils/request'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import { reportError } from '@/utils/error'
 
 const platformName = { wechat: '微信', whatsapp: 'WhatsApp', telegram: 'Telegram', email: '邮件', linkedin: 'LinkedIn', facebook: 'Facebook', instagram: 'Instagram' }
 const platformColor = { wechat: '#07C160', whatsapp: '#25D366', telegram: '#0088cc', email: '#636363', linkedin: '#0A66C2', facebook: '#1877F2', instagram: '#E4405F' }
 
-const loading = ref(false)
+const loading = ref(true)   // onMounted 无条件取数，初值 true 消除首帧「暂无社交记录」闪现
+const errorMsg = ref('')
 const list = ref([])
 const total = ref(0)
 const page = ref(1)
@@ -114,14 +130,22 @@ const form = reactive({ customer_id: null, platform: 'wechat', direction: 'out',
 
 const fetchList = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const params = { page: page.value, pageSize: pageSize.value }
     if (search.customer_id) params.customer_id = search.customer_id
     if (search.platform) params.platform = search.platform
     const res = await getSocialRecords(params)
-    if (res.code === 200) { list.value = res.data.list; total.value = res.data.total }
-  } catch (e) { /* */ }
-  finally { loading.value = false }
+    if (res.code === 200) {
+      list.value = res.data.list; total.value = res.data.total
+    } else {
+      errorMsg.value = res.message || '加载社交记录失败，请稍后重试'
+      reportError('获取社交记录列表失败:', res.message)
+    }
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载社交记录失败，请稍后重试'
+    reportError('获取社交记录列表失败:', error)
+  } finally { loading.value = false }
 }
 
 const fetchStats = async () => {

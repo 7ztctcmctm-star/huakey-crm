@@ -8,22 +8,34 @@
       <div class="toolbar">
         <el-button type="primary" :icon="Plus" @click="handleAdd">新增模板</el-button>
       </div>
-      <el-table v-loading="loading" :data="tableData" stripe border>
-        <el-table-column prop="name" label="模板名称" min-width="150" />
-        <el-table-column prop="type" label="类型" width="120" align="center">
-          <template #default="{ row }">
-            <el-tag :type="typeTagMap[row.type]" size="small">{{ typeNameMap[row.type] || row.type }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="content" label="模板内容" min-width="300" show-overflow-tooltip />
-        <el-table-column label="操作" width="180">
-          <template #default="{ row }">
-            <el-button type="primary" link :icon="View" @click="handlePreview(row)">预览</el-button>
-            <el-button type="primary" link :icon="Edit" @click="handleEdit(row)">编辑</el-button>
-            <el-button type="danger" link :icon="Delete" @click="handleDelete(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && !errorMsg && tableData.length === 0"
+        empty-text="暂无跟进模板"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="4" />
+        </template>
+
+        <el-table :data="tableData" stripe border>
+          <el-table-column prop="name" label="模板名称" min-width="150" />
+          <el-table-column prop="type" label="类型" width="120" align="center">
+            <template #default="{ row }">
+              <el-tag :type="typeTagMap[row.type]" size="small">{{ typeNameMap[row.type] || row.type }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="content" label="模板内容" min-width="300" show-overflow-tooltip />
+          <el-table-column label="操作" width="180">
+            <template #default="{ row }">
+              <el-button type="primary" link :icon="View" @click="handlePreview(row)">预览</el-button>
+              <el-button type="primary" link :icon="Edit" @click="handleEdit(row)">编辑</el-button>
+              <el-button type="danger" link :icon="Delete" @click="handleDelete(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </StateWrapper>
     </el-card>
 
     <!-- 新增/编辑弹窗 -->
@@ -72,11 +84,15 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, View } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getFollowupTemplates, saveFollowupTemplate, deleteFollowupTemplate } from '@/api/customer'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import { reportError } from '@/utils/error'
 
 const typeNameMap = { general: '通用', first: '首次跟进', quote: '报价跟进', deal: '成交跟进' }
 const typeTagMap = { general: 'info', first: 'primary', quote: 'warning', deal: 'success' }
 
-const loading = ref(false)
+const loading = ref(true)   // onMounted 无条件取数，初值 true 消除首帧「暂无跟进模板」闪现
+const errorMsg = ref('')
 const tableData = ref([])
 const dialogVisible = ref(false)
 const isEdit = ref(false)
@@ -95,10 +111,19 @@ const previewData = reactive({ name: '', type: 'general', content: '' })
 
 const fetchList = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const res = await getFollowupTemplates()
-    if (res.code === 200) tableData.value = res.data
-  } catch (e) { /* */ }
+    if (res.code === 200) {
+      tableData.value = res.data
+    } else {
+      errorMsg.value = res.message || '加载跟进模板失败，请稍后重试'
+      reportError('获取跟进模板列表失败:', res.message)
+    }
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载跟进模板失败，请稍后重试'
+    reportError('获取跟进模板列表失败:', error)
+  }
   finally { loading.value = false }
 }
 

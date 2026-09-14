@@ -8,27 +8,38 @@
         </div>
       </template>
 
-      <el-table :data="accounts" v-loading="loading" stripe border>
-        <el-table-column prop="email" label="邮箱地址" min-width="200" />
-        <el-table-column prop="display_name" label="显示名称" width="140" />
-        <el-table-column prop="imap_host" label="IMAP服务器" width="180" />
-        <el-table-column prop="smtp_host" label="SMTP服务器" width="180" />
-        <el-table-column label="状态" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="row.sync_status === 'active' ? 'success' : row.sync_status === 'error' ? 'danger' : 'info'" size="small">
-              {{ { pending: '待配置', syncing: '同步中', active: '正常', error: '错误' }[row.sync_status] || row.sync_status }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="200" align="center">
-          <template #default="{ row }">
-            <el-button type="primary" link size="small" @click="testConnection(row)">测试连接</el-button>
-            <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && !errorMsg && accounts.length === 0"
+        empty-text="暂无邮箱账号"
+        empty-description="点击「添加邮箱」配置收发件账号"
+        @retry="fetchAccounts"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="6" />
+        </template>
 
-      <EmptyState v-if="!loading && accounts.length === 0" title="暂无邮箱配置，点击上方按钮添加" />
+        <el-table :data="accounts" stripe border>
+          <el-table-column prop="email" label="邮箱地址" min-width="200" />
+          <el-table-column prop="display_name" label="显示名称" width="140" />
+          <el-table-column prop="imap_host" label="IMAP服务器" width="180" />
+          <el-table-column prop="smtp_host" label="SMTP服务器" width="180" />
+          <el-table-column label="状态" width="100" align="center">
+            <template #default="{ row }">
+              <el-tag :type="row.sync_status === 'active' ? 'success' : row.sync_status === 'error' ? 'danger' : 'info'" size="small">
+                {{ { pending: '待配置', syncing: '同步中', active: '正常', error: '错误' }[row.sync_status] || row.sync_status }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="200" align="center">
+            <template #default="{ row }">
+              <el-button type="primary" link size="small" @click="testConnection(row)">测试连接</el-button>
+              <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </StateWrapper>
     </el-card>
 
     <!-- 添加邮箱弹窗 -->
@@ -66,13 +77,16 @@
 </template>
 
 <script setup>
-import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
 import { getEmailAccounts, addEmailAccount, deleteEmailAccount, testEmailAccount } from '@/api/tools'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import { reportError } from '@/utils/error'
 
-const loading = ref(false)
+const loading = ref(false)   // 取数由用户手动触发 + onMounted，保持 false 避免非预期永久骨架
+const errorMsg = ref('')
 const accounts = ref([])
 const showAdd = ref(false)
 const adding = ref(false)
@@ -100,9 +114,18 @@ const autoConfig = () => {
 
 const fetchAccounts = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const res = await getEmailAccounts()
-    if (res.code === 200) accounts.value = res.data
+    if (res.code === 200) {
+      accounts.value = res.data
+    } else {
+      errorMsg.value = res.message || '加载邮箱账号失败，请稍后重试'
+      reportError('获取邮箱账号列表失败:', res.message)
+    }
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载邮箱账号失败，请稍后重试'
+    reportError('获取邮箱账号列表失败:', error)
   } finally {
     loading.value = false
   }

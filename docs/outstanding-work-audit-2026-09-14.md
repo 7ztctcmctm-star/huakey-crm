@@ -68,15 +68,17 @@
 
 ---
 
-### 🟡 P2-3 · 38 个含 el-table 的列表页缺骨架屏/三态管理
+### 🟡 P2-3 · 39 个含 el-table 的页面缺骨架屏/三态管理 —— ✅ 可接入部分已修复（18/18）
 
 | 项 | 内容 |
 |---|---|
-| **位置** | `frontend/src/views/**` —— 69 个含 `el-table` 的页面中，38 个无 `TableSkeleton`/`StateWrapper`（详见附录 A） |
-| **需要做什么** | 按 `docs/frontend-optimization-roadmap-v2.md` §P0-1/P0-2，将剩余列表页统一改用 `StateWrapper`（四态真实根节点） |
-| **为什么** | 路线图原文标注：骨架屏覆盖率 **「未达『全部列表页』」且与实测不符（2026-09-11 更正）**。当前实际 31/69 ≈ 45%，加载态体验不一致 |
-| **验证** | `rg -l 'StateWrapper|TableSkeleton' frontend/src/views | wc -l` 覆盖率达 100%；E2E 选择器 `.el-table, .empty-state` 全站可用 |
-| **注** | 优先级低于 P0/P1：属体验打磨，不影响功能正确性。建议按热度分批（先 Dashboard/客户/商机/报价/合同主链路） |
+| **位置** | `frontend/src/views/**` —— 69 个含 `el-table` 的页面中，39 个无 `TableSkeleton`/`StateWrapper`（详见附录 A） |
+| **本次已实施** | 按既有「统一改法」（StateWrapper 四态 + TableSkeleton + errorMsg 三分支），接入 **18 个可接入页**（全部单主表格列表页），使接入数 **31 → 49** |
+| **按既有约定跳过 21 个** | 详情页内嵌多表格（`customer/Detail` 8 表、`*Detail.vue`、`*/detail.vue`）、编辑页（`quotation/edit`）、多表格各自独立取数的看板（`TeamDashboard` 5 表、`analysis/index`、`report/index`、`report/business`、`hr/commission`）、`payment/reconciliation`（推广计划已约定跳过）、`followup/calendar`（日历非主内容） |
+| **为什么** | 路线图原文标注：骨架屏覆盖率 **「未达『全部列表页』」且与实测不符（2026-09-11 更正）** |
+| **验证** | `StateWrapper` 覆盖 31 → **49** 个视图；18 页守卫测试 + 全量 15 文件 / 64 用例 + 构建全绿；逐文件复核列数/表格数/分页数/`v-permission`/对话框数**全部不变** |
+| **顺带修复** | `analysis/prediction.vue` 使用 `chartColors` 但**从未导入** → 图表渲染必抛 `ReferenceError`（与此前 `inventory`/`competitor` 同类缺陷），已补 import |
+| **剩余未覆盖** | 21 个跳过页 + 详情页内嵌表格，均为按约定不适用，非遗漏 |
 
 ---
 
@@ -119,31 +121,39 @@
 
 ---
 
-## 附录 A · 38 个缺骨架屏的页面（P2-3 工作清单）
+## 附录 A · 缺骨架屏页面清单（P2-3 工作清单 —— ✅ 已收口）
+
+初筛 39 个含 `el-table` 的页面（原列 38 个，补 `analysis/prediction.vue`）。经逐个判定，拆为**接入 18 / 按约定跳过 21**。
+
+### A.1 ✅ 已接入 StateWrapper + TableSkeleton（18 个，提交 `P2-3`）
 
 ```
-analysis/prediction.vue          analysis/index.vue
-automation/assign-rules.vue      automation/workflows.vue
-automation/smart-reminders.vue   competitor/detail.vue
-contract/detail.vue              approval/workflow.vue
-follow-up/TomorrowTasks.vue      email/settings.vue
-customer/Detail.vue              follow-up/TodayTasks.vue
-customer/AssignRules.vue         procurement/planDetail.vue
-TeamDashboard.vue                procurement/plan.vue
-target/index.vue                 opportunity/Detail.vue
-system/backup.vue                hr/commission.vue
-system/permission.vue            system/currency.vue
-purchase/ComparisonDetail.vue    followup/template.vue
-purchase/detail.vue              survey/detail.vue
-followup/calendar.vue            report/business.vue
-scoring/rules.vue                quotation/edit.vue
-supplier/ranking.vue             report/custom.vue
-supplier/detail.vue              settings/integration.vue
-settings/api-platform.vue        report/finance.vue
-report/index.vue                 social/index.vue
+analysis/prediction.vue          approval/workflow.vue
+automation/assign-rules.vue      customer/AssignRules.vue
+email/settings.vue               follow-up/TodayTasks.vue
+follow-up/TomorrowTasks.vue      followup/template.vue
+report/custom.vue                report/finance.vue
+scoring/rules.vue                settings/integration.vue
+social/index.vue                 supplier/ranking.vue
+system/backup.vue                system/currency.vue
+system/permission.vue            target/index.vue
 ```
 
-> 注：其中 `detail.vue` 类为详情页（非列表），`el-table` 可能用于子表；是否纳入骨架屏需逐个判定，勿机械全改。
+> `analysis/prediction.vue` 顺带修复一处**既有缺陷**：使用了 `chartColors` 却未从 `@/utils/chartTheme` 导入（同 `inventory`/`competitor` 的历史缺陷类型），原会导致图表渲染时抛 `ReferenceError`。
+
+### A.2 ⏭ 按约定跳过（21 个，不做）
+
+依据 `docs/frontend-statewrapper-promotion-plan.md` §已知限制：
+
+| 类别 | 页面 | 跳过原因 |
+|---|---|---|
+| 详情页内嵌多表格 | `customer/Detail.vue`、`contract/detail.vue`、`competitor/detail.vue`、`opportunity/Detail.vue`、`procurement/planDetail.vue`、`purchase/detail.vue`、`purchase/ComparisonDetail.vue`、`supplier/detail.vue`、`survey/detail.vue` | 子表格各自独立取数，需按子表粒度分别接线，本轮不做 |
+| 编辑页 | `quotation/edit.vue` | 编辑场景，非列表加载态 |
+| 多表格看板 | `TeamDashboard.vue`、`analysis/index.vue`、`report/index.vue`、`report/business.vue`、`hr/commission.vue` | 一页多表、各自独立取数，需按表分别接入 |
+| 日历/流程型 | `followup/calendar.vue`、`automation/workflows.vue`、`automation/smart-reminders.vue`、`procurement/plan.vue` | 主体非 `el-table` 列表，骨架屏收益低 |
+| 配置页 | `settings/api-platform.vue` | 文档示例型页面 |
+
+> 以上 21 个并非「遗漏」，而是明确判定本轮不适用。若后续要做，建议按「子表粒度」逐页设计，而非机械套用统一改法。
 
 ---
 

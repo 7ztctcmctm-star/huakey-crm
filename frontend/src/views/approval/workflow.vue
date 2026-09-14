@@ -8,28 +8,41 @@
       <div class="toolbar">
         <el-button type="primary" :icon="Plus" @click="handleAdd">新增流程</el-button>
       </div>
-      <el-table v-loading="loading" :data="tableData" stripe border>
-        <el-table-column prop="name" label="流程名称" min-width="150" />
-        <el-table-column prop="type" label="类型" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="typeTagMap[row.type]" size="small">{{ typeNameMap[row.type] }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="step_count" label="步骤数" width="80" align="center" />
-        <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
-        <el-table-column label="状态" width="80" align="center">
-          <template #default="{ row }">
-            <el-switch v-model="row.status" :active-value="1" :inactive-value="0" @change="handleToggleStatus(row)" />
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="180">
-          <template #default="{ row }">
-            <el-button type="primary" link :icon="View" @click="handleView(row)">查看</el-button>
-            <el-button type="primary" link :icon="Edit" @click="handleEdit(row)">编辑</el-button>
-            <el-button type="danger" link :icon="Delete" @click="handleDelete(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && !errorMsg && tableData.length === 0"
+        empty-text="暂无审批流程"
+        empty-description="点击「新增流程」配置审批步骤"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="6" />
+        </template>
+
+        <el-table :data="tableData" stripe border>
+          <el-table-column prop="name" label="流程名称" min-width="150" />
+          <el-table-column prop="type" label="类型" width="100" align="center">
+            <template #default="{ row }">
+              <el-tag :type="typeTagMap[row.type]" size="small">{{ typeNameMap[row.type] }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="step_count" label="步骤数" width="80" align="center" />
+          <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
+          <el-table-column label="状态" width="80" align="center">
+            <template #default="{ row }">
+              <el-switch v-model="row.status" :active-value="1" :inactive-value="0" @change="handleToggleStatus(row)" />
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="180">
+            <template #default="{ row }">
+              <el-button type="primary" link :icon="View" @click="handleView(row)">查看</el-button>
+              <el-button type="primary" link :icon="Edit" @click="handleEdit(row)">编辑</el-button>
+              <el-button type="danger" link :icon="Delete" @click="handleDelete(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </StateWrapper>
     </el-card>
 
     <!-- 新增/编辑弹窗 -->
@@ -117,12 +130,15 @@ import request from '@/utils/request'
 import { getApprovalWorkflows, updateApprovalWorkflow, saveApprovalWorkflow, deleteApprovalWorkflow } from '@/api/tools'
 import { getSalesUsers } from '@/api/customer'
 import { getRoleList } from '@/api/system'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
 
 const typeNameMap = { quote: '报价', contract: '合同', purchase: '采购', discount: '折扣' }
 const typeTagMap = { quote: '', contract: 'success', purchase: 'warning', discount: 'danger' }
 const approverTypeMap = { user: '指定用户', role: '指定角色', manager: '上级主管' }
 
-const loading = ref(false)
+const loading = ref(true)   // onMounted 无条件取数，初值 true 消除首帧「暂无审批流程」闪现
+const errorMsg = ref('')
 const tableData = ref([])
 const dialogVisible = ref(false)
 const isEdit = ref(false)
@@ -151,10 +167,19 @@ const addStep = () => {
 
 const fetchList = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const res = await getApprovalWorkflows()
-    if (res.code === 200) tableData.value = res.data
-  } catch (e) { reportError('[workflow] 获取流程列表失败:', e) }
+    if (res.code === 200) {
+      tableData.value = res.data
+    } else {
+      errorMsg.value = res.message || '加载审批流程失败，请稍后重试'
+      reportError('获取审批流程列表失败:', res.message)
+    }
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载审批流程失败，请稍后重试'
+    reportError('获取审批流程列表失败:', error)
+  }
   finally { loading.value = false }
 }
 

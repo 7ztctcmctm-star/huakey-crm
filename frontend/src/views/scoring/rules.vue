@@ -9,35 +9,47 @@
         <el-button type="primary" :icon="Plus" @click="handleAdd">新增规则</el-button>
         <el-button :icon="Refresh" :loading="batchLoading" @click="handleBatchCalculate">重新计算所有评分</el-button>
       </div>
-      <el-table v-loading="loading" :data="tableData" stripe border>
-        <el-table-column prop="name" label="规则名称" min-width="150" />
-        <el-table-column prop="condition_type" label="类型" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="typeTagMap[row.condition_type]" size="small">{{ typeNameMap[row.condition_type] }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="条件" min-width="200">
-          <template #default="{ row }">
-            <span>{{ formatCondition(row) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="score" label="分数" width="80" align="center">
-          <template #default="{ row }">
-            <span :class="row.score > 0 ? 'text-success font-semibold' : 'text-danger font-semibold'">{{ row.score > 0 ? '+' : '' }}{{ row.score }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="80" align="center">
-          <template #default="{ row }">
-            <el-switch v-model="row.status" :active-value="1" :inactive-value="0" @change="handleToggleStatus(row)" />
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="140">
-          <template #default="{ row }">
-            <el-button type="primary" link :icon="Edit" @click="handleEdit(row)">编辑</el-button>
-            <el-button type="danger" link :icon="Delete" @click="handleDelete(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && !errorMsg && tableData.length === 0"
+        empty-text="暂无评分规则"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="6" />
+        </template>
+
+        <el-table :data="tableData" stripe border>
+          <el-table-column prop="name" label="规则名称" min-width="150" />
+          <el-table-column prop="condition_type" label="类型" width="100" align="center">
+            <template #default="{ row }">
+              <el-tag :type="typeTagMap[row.condition_type]" size="small">{{ typeNameMap[row.condition_type] }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="条件" min-width="200">
+            <template #default="{ row }">
+              <span>{{ formatCondition(row) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="score" label="分数" width="80" align="center">
+            <template #default="{ row }">
+              <span :class="row.score > 0 ? 'text-success font-semibold' : 'text-danger font-semibold'">{{ row.score > 0 ? '+' : '' }}{{ row.score }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="80" align="center">
+            <template #default="{ row }">
+              <el-switch v-model="row.status" :active-value="1" :inactive-value="0" @change="handleToggleStatus(row)" />
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="140">
+            <template #default="{ row }">
+              <el-button type="primary" link :icon="Edit" @click="handleEdit(row)">编辑</el-button>
+              <el-button type="danger" link :icon="Delete" @click="handleDelete(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </StateWrapper>
     </el-card>
 
     <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑规则' : '新增规则'" width="550px">
@@ -86,6 +98,9 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, Refresh } from '@element-plus/icons-vue'
 import { getScoringRules, saveScoringRule, batchCalculateScore, deleteScoringRule, updateScoringRule } from '@/api/system'
 import request from '@/utils/request'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import { reportError } from '@/utils/error'
 
 const typeNameMap = { source: '来源', action: '行为', interaction: '互动' }
 const typeTagMap = { source: 'info', action: 'warning', interaction: 'success' }
@@ -106,7 +121,8 @@ const fieldMap = {
 
 const operatorMap = { eq: '等于', gt: '大于', lt: '小于', contains: '包含' }
 
-const loading = ref(false)
+const loading = ref(true)   // onMounted 无条件取数，初值 true 消除首帧「暂无评分规则」闪现
+const errorMsg = ref('')
 const tableData = ref([])
 const dialogVisible = ref(false)
 const isEdit = ref(false)
@@ -141,11 +157,19 @@ const formatCondition = (row) => {
 
 const fetchList = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const res = await getScoringRules()
-    if (res.code === 200) tableData.value = res.data
-  } catch (e) { /* */ }
-  finally { loading.value = false }
+    if (res.code === 200) {
+      tableData.value = res.data
+    } else {
+      errorMsg.value = res.message || '加载评分规则列表失败，请稍后重试'
+      reportError('获取评分规则列表失败:', res.message)
+    }
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载评分规则列表失败，请稍后重试'
+    reportError('获取评分规则列表失败:', error)
+  } finally { loading.value = false }
 }
 
 const handleAdd = () => {

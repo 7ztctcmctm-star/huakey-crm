@@ -19,21 +19,34 @@
     <!-- 预测表格 -->
     <el-card style="margin-bottom:20px">
       <template #header><span class="card-title">预测数据</span></template>
-      <el-table :data="predictions" stripe border>
-        <el-table-column prop="month" label="月份" width="100" />
-        <el-table-column prop="moving_avg" label="移动平均" width="120" align="right">
-          <template #default="{ row }">¥{{ Number(row.moving_avg).toLocaleString() }}</template>
-        </el-table-column>
-        <el-table-column prop="linear_regression" label="线性回归" width="120" align="right">
-          <template #default="{ row }">¥{{ Number(row.linear_regression).toLocaleString() }}</template>
-        </el-table-column>
-        <el-table-column prop="seasonal" label="季节性" width="120" align="right">
-          <template #default="{ row }">¥{{ Number(row.seasonal).toLocaleString() }}</template>
-        </el-table-column>
-        <el-table-column label="置信区间" width="200">
-          <template #default="{ row }">¥{{ Number(row.confidence_low).toLocaleString() }} ~ ¥{{ Number(row.confidence_high).toLocaleString() }}</template>
-        </el-table-column>
-      </el-table>
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && !errorMsg && predictions.length === 0"
+        empty-text="暂无预测数据"
+        empty-description="需先有足够的销售历史数据才能生成预测"
+        @retry="fetchData"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="5" />
+        </template>
+
+        <el-table :data="predictions" stripe border>
+          <el-table-column prop="month" label="月份" width="100" />
+          <el-table-column prop="moving_avg" label="移动平均" width="120" align="right">
+            <template #default="{ row }">¥{{ Number(row.moving_avg).toLocaleString() }}</template>
+          </el-table-column>
+          <el-table-column prop="linear_regression" label="线性回归" width="120" align="right">
+            <template #default="{ row }">¥{{ Number(row.linear_regression).toLocaleString() }}</template>
+          </el-table-column>
+          <el-table-column prop="seasonal" label="季节性" width="120" align="right">
+            <template #default="{ row }">¥{{ Number(row.seasonal).toLocaleString() }}</template>
+          </el-table-column>
+          <el-table-column label="置信区间" width="200">
+            <template #default="{ row }">¥{{ Number(row.confidence_low).toLocaleString() }} ~ ¥{{ Number(row.confidence_high).toLocaleString() }}</template>
+          </el-table-column>
+        </el-table>
+      </StateWrapper>
     </el-card>
 
     <!-- 模型说明 -->
@@ -70,8 +83,12 @@ import { reportError, reportWarn } from '@/utils/error'
 import { ref, onMounted, nextTick, watch } from 'vue'
 import { getPredictionEnhanced } from '@/api/report'
 import echarts from '@/composables/useECharts'
+import { chartColors } from '@/utils/chartTheme'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
 
-const loading = ref(false)
+const loading = ref(true)   // onMounted 无条件取数，初值 true 消除首帧「暂无预测数据」闪现
+const errorMsg = ref('')
 const monthsAhead = ref(3)
 const history = ref([])
 const predictions = ref([])
@@ -80,6 +97,7 @@ const chartRef = ref(null)
 
 const fetchData = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const res = await getPredictionEnhanced({ months_ahead: monthsAhead.value })
     if (res.code === 200) {
@@ -88,9 +106,14 @@ const fetchData = async () => {
       models.value = res.data.models || {}
       await nextTick()
       renderChart()
+    } else {
+      errorMsg.value = res.message || '加载预测数据失败，请稍后重试'
+      reportError('[prediction] 获取预测数据失败:', res.message)
     }
-  } catch (e) { reportError('[prediction] 获取预测数据失败:', e) }
-  finally { loading.value = false }
+  } catch (e) {
+    errorMsg.value = e?.response?.data?.message || '加载预测数据失败，请稍后重试'
+    reportError('[prediction] 获取预测数据失败:', e)
+  } finally { loading.value = false }
 }
 
 const renderChart = () => {

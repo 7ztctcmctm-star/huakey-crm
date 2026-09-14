@@ -9,24 +9,36 @@
         <el-button type="primary" :icon="Plus" @click="handleAdd(0)">新增权限</el-button>
       </div>
 
-      <el-table v-loading="loading" :data="treeData" row-key="id" stripe border default-expand-all :tree-props="{ children: 'children' }">
-        <el-table-column prop="name" label="权限名称" width="200" />
-        <el-table-column prop="code" label="权限编码" width="220" />
-        <el-table-column prop="type" label="类型" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="typeTag(row.type)" size="small">{{ typeText(row.type) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="path" label="路径" min-width="160" show-overflow-tooltip />
-        <el-table-column prop="sort" label="排序" width="80" align="center" />
-        <el-table-column label="操作" width="200">
-          <template #default="{ row }">
-            <el-button v-if="row.type !== 'button'" type="success" link @click="handleAdd(row.id)">新增子权限</el-button>
-            <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
-            <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && !errorMsg && treeData.length === 0"
+        empty-text="暂无权限"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="6" />
+        </template>
+
+        <el-table :data="treeData" row-key="id" stripe border default-expand-all :tree-props="{ children: 'children' }">
+          <el-table-column prop="name" label="权限名称" width="200" />
+          <el-table-column prop="code" label="权限编码" width="220" />
+          <el-table-column prop="type" label="类型" width="100" align="center">
+            <template #default="{ row }">
+              <el-tag :type="typeTag(row.type)" size="small">{{ typeText(row.type) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="path" label="路径" min-width="160" show-overflow-tooltip />
+          <el-table-column prop="sort" label="排序" width="80" align="center" />
+          <el-table-column label="操作" width="200">
+            <template #default="{ row }">
+              <el-button v-if="row.type !== 'button'" type="success" link @click="handleAdd(row.id)">新增子权限</el-button>
+              <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
+              <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </StateWrapper>
     </el-card>
 
     <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑权限' : '新增权限'" width="500px">
@@ -74,8 +86,12 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getPermissionList, deletePermissionNode, savePermission, updatePermission } from '@/api/system'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import { reportError } from '@/utils/error'
 
-const loading = ref(false)
+const loading = ref(true)   // onMounted 无条件取数，初值 true 消除首帧「暂无权限」闪现
+const errorMsg = ref('')
 const treeData = ref([])
 const flatPermissions = ref([])
 const dialogVisible = ref(false)
@@ -107,12 +123,19 @@ function flattenTree(nodes) {
 
 const fetchList = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const res = await getPermissionList()
     if (res.code === 200) {
       treeData.value = res.data
       flatPermissions.value = flattenTree(res.data)
+    } else {
+      errorMsg.value = res.message || '加载权限列表失败，请稍后重试'
+      reportError('获取权限列表失败:', res.message)
     }
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载权限列表失败，请稍后重试'
+    reportError('获取权限列表失败:', error)
   } finally {
     loading.value = false
   }

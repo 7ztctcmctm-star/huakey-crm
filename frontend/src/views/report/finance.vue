@@ -29,24 +29,36 @@
     <!-- 应收账款 -->
     <el-card>
       <template #header><span class="card-title">应收账款</span></template>
-      <el-table :data="receivables" stripe border v-loading="loading">
-        <el-table-column prop="contract_no" label="合同编号" width="150" />
-        <el-table-column prop="customer_name" label="客户名称" min-width="160" show-overflow-tooltip />
-        <el-table-column prop="total_amount" label="合同金额" width="120" align="right">
-          <template #default="{ row }">¥{{ fmtMoney(row.total_amount) }}</template>
-        </el-table-column>
-        <el-table-column prop="paid_amount" label="已回款" width="120" align="right">
-          <template #default="{ row }">¥{{ fmtMoney(row.paid_amount) }}</template>
-        </el-table-column>
-        <el-table-column prop="unpaid_amount" label="未回款" width="120" align="right">
-          <template #default="{ row }"><span class="text-danger font-semibold">¥{{ fmtMoney(row.unpaid_amount) }}</span></template>
-        </el-table-column>
-        <el-table-column prop="overdue_days" label="逾期天数" width="100" align="center" sortable>
-          <template #default="{ row }">
-            <el-tag :type="row.overdue_days > 60 ? 'danger' : row.overdue_days > 30 ? 'warning' : 'info'" size="small">{{ row.overdue_days }}天</el-tag>
-          </template>
-        </el-table-column>
-      </el-table>
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && !errorMsg && receivables.length === 0"
+        empty-text="暂无财务数据"
+        @retry="fetchData"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="6" />
+        </template>
+
+        <el-table :data="receivables" stripe border>
+          <el-table-column prop="contract_no" label="合同编号" width="150" />
+          <el-table-column prop="customer_name" label="客户名称" min-width="160" show-overflow-tooltip />
+          <el-table-column prop="total_amount" label="合同金额" width="120" align="right">
+            <template #default="{ row }">¥{{ fmtMoney(row.total_amount) }}</template>
+          </el-table-column>
+          <el-table-column prop="paid_amount" label="已回款" width="120" align="right">
+            <template #default="{ row }">¥{{ fmtMoney(row.paid_amount) }}</template>
+          </el-table-column>
+          <el-table-column prop="unpaid_amount" label="未回款" width="120" align="right">
+            <template #default="{ row }"><span class="text-danger font-semibold">¥{{ fmtMoney(row.unpaid_amount) }}</span></template>
+          </el-table-column>
+          <el-table-column prop="overdue_days" label="逾期天数" width="100" align="center" sortable>
+            <template #default="{ row }">
+              <el-tag :type="row.overdue_days > 60 ? 'danger' : row.overdue_days > 30 ? 'warning' : 'info'" size="small">{{ row.overdue_days }}天</el-tag>
+            </template>
+          </el-table-column>
+        </el-table>
+      </StateWrapper>
     </el-card>
   </div>
 </template>
@@ -56,8 +68,12 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import { Download } from '@element-plus/icons-vue'
 import { getReportFinance } from '@/api/report'
 import echarts from '@/composables/useECharts'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import { reportError } from '@/utils/error'
 
-const loading = ref(false)
+const loading = ref(true)   // onMounted 无条件取数，初值 true 消除首帧「暂无财务数据」闪现
+const errorMsg = ref('')
 const period = ref('month')
 const data = ref({ overview: { month: {}, quarter: {}, year: {}, payment_rate: 0 }, receivables: [], trend: [] })
 const trendChartRef = ref(null)
@@ -82,15 +98,21 @@ const receivables = computed(() => data.value.receivables || [])
 
 const fetchData = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const res = await getReportFinance()
     if (res.code === 200) {
       data.value = res.data
       await nextTick()
       renderTrendChart()
+    } else {
+      errorMsg.value = res.message || '加载财务数据失败，请稍后重试'
+      reportError('获取财务数据失败:', res.message)
     }
-  } catch (e) { /* */ }
-  finally { loading.value = false }
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载财务数据失败，请稍后重试'
+    reportError('获取财务数据失败:', error)
+  } finally { loading.value = false }
 }
 
 const renderTrendChart = () => {

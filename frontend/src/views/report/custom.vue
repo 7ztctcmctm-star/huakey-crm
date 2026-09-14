@@ -9,19 +9,30 @@
       <!-- 左侧：报表列表 -->
       <el-col :span="7">
         <el-card class="list-card">
-          <div v-for="item in reportList" :key="item.id" class="report-item" :class="{ active: currentId === item.id }" @click="selectReport(item)">
-            <div class="report-name">{{ item.name }}</div>
-            <div class="report-meta">
-              <el-tag size="small" :type="typeTag[item.report_type]">{{ typeName[item.report_type] }}</el-tag>
-              <el-tag size="small" type="info">{{ sourceName[item.data_source] }}</el-tag>
-              <el-tag v-if="item.is_public" size="small" type="success">公开</el-tag>
+          <StateWrapper
+            :loading="loading"
+            :error="errorMsg"
+            :empty="!loading && !errorMsg && reportList.length === 0"
+            empty-text="暂无自定义报表"
+            @retry="fetchList"
+          >
+            <template #loading>
+              <TableSkeleton :rows="8" :cols="1" />
+            </template>
+
+            <div v-for="item in reportList" :key="item.id" class="report-item" :class="{ active: currentId === item.id }" @click="selectReport(item)">
+              <div class="report-name">{{ item.name }}</div>
+              <div class="report-meta">
+                <el-tag size="small" :type="typeTag[item.report_type]">{{ typeName[item.report_type] }}</el-tag>
+                <el-tag size="small" type="info">{{ sourceName[item.data_source] }}</el-tag>
+                <el-tag v-if="item.is_public" size="small" type="success">公开</el-tag>
+              </div>
+              <div class="report-actions">
+                <el-button type="primary" link size="small" @click.stop="handleEdit(item)">编辑</el-button>
+                <el-button type="danger" link size="small" @click.stop="handleDelete(item)">删除</el-button>
+              </div>
             </div>
-            <div class="report-actions">
-              <el-button type="primary" link size="small" @click.stop="handleEdit(item)">编辑</el-button>
-              <el-button type="danger" link size="small" @click.stop="handleDelete(item)">删除</el-button>
-            </div>
-          </div>
-          <EmptyState v-if="reportList.length === 0" title="暂无报表" compact />
+          </StateWrapper>
         </el-card>
       </el-col>
 
@@ -81,11 +92,16 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { getReportCustomList, createReportCustom, updateReportCustom, deleteReportCustom, runReportCustom, getReportCustomFields } from '@/api/report'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import { reportError } from '@/utils/error'
 
 const typeName = { table: '表格', bar: '柱状图', line: '折线图', pie: '饼图' }
 const typeTag = { table: '', bar: 'warning', line: 'success', pie: 'info' }
 const sourceName = { customer: '客户', contract: '合同', payment: '回款', purchase: '采购', opportunity: '商机' }
 
+const loading = ref(true)   // onMounted 无条件取数，初值 true 消除首帧「暂无自定义报表」闪现
+const errorMsg = ref('')
 const reportList = ref([])
 const currentId = ref(null)
 const isEditing = ref(false)
@@ -105,7 +121,20 @@ const resultColumns = ref([])
 const fieldLabel = (key) => { const f = availableFields.value.find(f => f.key === key); return f ? f.label : key }
 
 const fetchList = async () => {
-  try { const res = await getReportCustomList(); if (res.code === 200) reportList.value = res.data } catch (e) { /* */ }
+  loading.value = true
+  errorMsg.value = ''
+  try {
+    const res = await getReportCustomList()
+    if (res.code === 200) {
+      reportList.value = res.data
+    } else {
+      errorMsg.value = res.message || '加载自定义报表失败，请稍后重试'
+      reportError('获取自定义报表列表失败:', res.message)
+    }
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载自定义报表失败，请稍后重试'
+    reportError('获取自定义报表列表失败:', error)
+  } finally { loading.value = false }
 }
 
 const fetchFields = async () => {

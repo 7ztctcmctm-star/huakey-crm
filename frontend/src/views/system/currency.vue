@@ -10,37 +10,50 @@
         </div>
       </template>
 
-      <el-table :data="list" v-loading="loading" stripe border :header-cell-style="{ background: 'var(--color-bg-secondary)' }">
-        <el-table-column prop="code" label="货币代码" width="100" />
-        <el-table-column prop="name" label="货币名称" width="120" />
-        <el-table-column prop="symbol" label="符号" width="80" align="center">
-          <template #default="{ row }">
-            <span style="font-size: 18px;">{{ row.symbol }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="exchange_rate" label="对人民币汇率" width="140" align="right">
-          <template #default="{ row }">
-            {{ parseFloat(row.exchange_rate).toFixed(4) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="默认" width="80" align="center">
-          <template #default="{ row }">
-            <el-tag v-if="row.is_default" type="success" size="small">默认</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="80" align="center">
-          <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'info'" size="small">
-              {{ row.status === 1 ? '启用' : '禁用' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="120" align="center">
-          <template #default="{ row }">
-            <el-button type="primary" link size="small" @click="handleEdit(row)">编辑汇率</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && !errorMsg && list.length === 0"
+        empty-text="暂无货币"
+        empty-description="系统初始化后会自动写入常用货币"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="5" />
+        </template>
+
+        <el-table :data="list" stripe border :header-cell-style="{ background: 'var(--color-bg-secondary)' }">
+          <el-table-column prop="code" label="货币代码" width="100" />
+          <el-table-column prop="name" label="货币名称" width="120" />
+          <el-table-column prop="symbol" label="符号" width="80" align="center">
+            <template #default="{ row }">
+              <span style="font-size: 18px;">{{ row.symbol }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="exchange_rate" label="对人民币汇率" width="140" align="right">
+            <template #default="{ row }">
+              {{ parseFloat(row.exchange_rate).toFixed(4) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="默认" width="80" align="center">
+            <template #default="{ row }">
+              <el-tag v-if="row.is_default" type="success" size="small">默认</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="80" align="center">
+            <template #default="{ row }">
+              <el-tag :type="row.status === 1 ? 'success' : 'info'" size="small">
+                {{ row.status === 1 ? '启用' : '禁用' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="120" align="center">
+            <template #default="{ row }">
+              <el-button type="primary" link size="small" @click="handleEdit(row)">编辑汇率</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </StateWrapper>
     </el-card>
 
     <!-- 编辑汇率弹窗 -->
@@ -70,18 +83,30 @@ import { Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
 import { getCurrencyList, updateCurrency } from '@/api/system'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import { reportError } from '@/utils/error'
 
 const list = ref([])
-const loading = ref(false)
+const loading = ref(true)   // onMounted 无条件取数，初值 true 消除首帧「暂无货币」闪现
+const errorMsg = ref('')
 const dialogVisible = ref(false)
 const saving = ref(false)
 const editForm = ref({})
 
 const fetchList = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const res = await getCurrencyList()
     if (res.code === 200) list.value = res.data
+    else {
+      errorMsg.value = res.message || '加载货币列表失败，请稍后重试'
+      reportError('获取货币列表失败:', res.message)
+    }
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载货币列表失败，请稍后重试'
+    reportError('获取货币列表失败:', error)
   } finally {
     loading.value = false
   }

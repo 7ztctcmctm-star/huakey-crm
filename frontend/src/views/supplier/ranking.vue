@@ -5,32 +5,44 @@
     <!-- 排名表格 -->
     <el-card style="margin-bottom:20px">
       <template #header><span class="card-title">综合排名</span></template>
-      <el-table :data="rankingList" stripe border v-loading="loading">
-        <el-table-column label="排名" width="70" align="center">
-          <template #default="{ $index }">
-            <span :class="['rank-badge', $index < 3 ? 'top' : '']">{{ $index + 1 }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="name" label="供应商名称" min-width="160">
-          <template #default="{ row }"><span class="link-text" @click="$router.push(`/supplier/detail/${row.id}`)">{{ row.name }}</span></template>
-        </el-table-column>
-        <el-table-column prop="category" label="分类" width="100" />
-        <el-table-column prop="rating" label="等级" width="80" align="center">
-          <template #default="{ row }"><el-rate :model-value="Number(row.rating) || 0" disabled :max="5" /></template>
-        </el-table-column>
-        <el-table-column label="综合评分" width="100" align="center">
-          <template #default="{ row }"><span class="score-value">{{ row.total_score || '-' }}</span></template>
-        </el-table-column>
-        <el-table-column label="质量" width="80" align="center">
-          <template #default="{ row }">{{ row.quality_score || '-' }}</template>
-        </el-table-column>
-        <el-table-column label="交期" width="80" align="center">
-          <template #default="{ row }">{{ row.delivery_score || '-' }}</template>
-        </el-table-column>
-        <el-table-column label="服务" width="80" align="center">
-          <template #default="{ row }">{{ row.service_score || '-' }}</template>
-        </el-table-column>
-      </el-table>
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && !errorMsg && rankingList.length === 0"
+        empty-text="暂无供应商排行"
+        @retry="fetchRanking"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="8" />
+        </template>
+
+        <el-table :data="rankingList" stripe border>
+          <el-table-column label="排名" width="70" align="center">
+            <template #default="{ $index }">
+              <span :class="['rank-badge', $index < 3 ? 'top' : '']">{{ $index + 1 }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="name" label="供应商名称" min-width="160">
+            <template #default="{ row }"><span class="link-text" @click="$router.push(`/supplier/detail/${row.id}`)">{{ row.name }}</span></template>
+          </el-table-column>
+          <el-table-column prop="category" label="分类" width="100" />
+          <el-table-column prop="rating" label="等级" width="80" align="center">
+            <template #default="{ row }"><el-rate :model-value="Number(row.rating) || 0" disabled :max="5" /></template>
+          </el-table-column>
+          <el-table-column label="综合评分" width="100" align="center">
+            <template #default="{ row }"><span class="score-value">{{ row.total_score || '-' }}</span></template>
+          </el-table-column>
+          <el-table-column label="质量" width="80" align="center">
+            <template #default="{ row }">{{ row.quality_score || '-' }}</template>
+          </el-table-column>
+          <el-table-column label="交期" width="80" align="center">
+            <template #default="{ row }">{{ row.delivery_score || '-' }}</template>
+          </el-table-column>
+          <el-table-column label="服务" width="80" align="center">
+            <template #default="{ row }">{{ row.service_score || '-' }}</template>
+          </el-table-column>
+        </el-table>
+      </StateWrapper>
     </el-card>
 
     <!-- 供应商对比 -->
@@ -58,8 +70,12 @@ import request from '@/utils/request'
 import { getSupplierRanking, getSupplierCompare } from '@/api/product'
 import echarts from '@/composables/useECharts'
 import { chartPalette } from '@/utils/chartTheme'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import { reportError } from '@/utils/error'
 
-const loading = ref(false)
+const loading = ref(true)   // onMounted 无条件取数，初值 true 消除首帧「暂无供应商排行」闪现
+const errorMsg = ref('')
 const rankingList = ref([])
 const compareIds = ref([])
 const compareData = ref([])
@@ -67,10 +83,19 @@ const radarRef = ref(null)
 
 const fetchRanking = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const res = await getSupplierRanking()
-    if (res.code === 200) rankingList.value = res.data
-  } catch (e) { /* */ }
+    if (res.code === 200) {
+      rankingList.value = res.data
+    } else {
+      errorMsg.value = res.message || '加载供应商排行失败，请稍后重试'
+      reportError('获取供应商排行失败:', res.message)
+    }
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载供应商排行失败，请稍后重试'
+    reportError('获取供应商排行失败:', error)
+  }
   finally { loading.value = false }
 }
 

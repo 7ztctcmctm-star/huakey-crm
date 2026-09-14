@@ -12,43 +12,56 @@
     </el-card>
 
     <el-card>
-      <el-table :data="rules" border stripe v-loading="loading">
-        <el-table-column prop="rule_name" label="规则名称" min-width="150" />
-        <el-table-column prop="assign_type" label="分配方式" width="120" align="center">
-          <template #default="{ row }">
-            <el-tag :type="{ round_robin: 'primary', by_source: 'success', by_region: 'warning' }[row.assign_type]">
-              {{ { round_robin: '轮询', by_source: '按来源', by_region: '按区域' }[row.assign_type] }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="source_value" label="来源值" width="120">
-          <template #default="{ row }">{{ row.source_value || '-' }}</template>
-        </el-table-column>
-        <el-table-column prop="region_value" label="区域值" width="120">
-          <template #default="{ row }">{{ row.region_value || '-' }}</template>
-        </el-table-column>
-        <el-table-column label="分配用户" min-width="200">
-          <template #default="{ row }">
-            <el-tag v-for="uid in parseUserIds(row.user_ids)" :key="uid" size="small" style="margin:2px">
-              {{ getUserName(uid) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="priority" label="优先级" width="80" align="center" />
-        <el-table-column prop="is_active" label="状态" width="80" align="center">
-          <template #default="{ row }">
-            <el-switch v-model="row.is_active" :active-value="1" :inactive-value="0" @change="toggleActive(row)" />
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="150" align="center" fixed="right">
-          <template #default="{ row }">
-            <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
-            <el-popconfirm title="确定删除该规则？" @confirm="handleDelete(row)">
-              <template #reference><el-button type="danger" link>删除</el-button></template>
-            </el-popconfirm>
-          </template>
-        </el-table-column>
-      </el-table>
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && !errorMsg && rules.length === 0"
+        empty-text="暂无分配规则"
+        empty-description="点击「新增规则」配置新客户的自动分配"
+        @retry="fetchRules"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="8" />
+        </template>
+
+        <el-table :data="rules" border stripe>
+          <el-table-column prop="rule_name" label="规则名称" min-width="150" />
+          <el-table-column prop="assign_type" label="分配方式" width="120" align="center">
+            <template #default="{ row }">
+              <el-tag :type="{ round_robin: 'primary', by_source: 'success', by_region: 'warning' }[row.assign_type]">
+                {{ { round_robin: '轮询', by_source: '按来源', by_region: '按区域' }[row.assign_type] }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="source_value" label="来源值" width="120">
+            <template #default="{ row }">{{ row.source_value || '-' }}</template>
+          </el-table-column>
+          <el-table-column prop="region_value" label="区域值" width="120">
+            <template #default="{ row }">{{ row.region_value || '-' }}</template>
+          </el-table-column>
+          <el-table-column label="分配用户" min-width="200">
+            <template #default="{ row }">
+              <el-tag v-for="uid in parseUserIds(row.user_ids)" :key="uid" size="small" style="margin:2px">
+                {{ getUserName(uid) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="priority" label="优先级" width="80" align="center" />
+          <el-table-column prop="is_active" label="状态" width="80" align="center">
+            <template #default="{ row }">
+              <el-switch v-model="row.is_active" :active-value="1" :inactive-value="0" @change="toggleActive(row)" />
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="150" align="center" fixed="right">
+            <template #default="{ row }">
+              <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
+              <el-popconfirm title="确定删除该规则？" @confirm="handleDelete(row)">
+                <template #reference><el-button type="danger" link>删除</el-button></template>
+              </el-popconfirm>
+            </template>
+          </el-table-column>
+        </el-table>
+      </StateWrapper>
     </el-card>
 
     <!-- 新增/编辑弹窗 -->
@@ -98,10 +111,14 @@ import { Plus } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getSalesUsers, getAssignRules, createAssignRule, updateAssignRule, deleteAssignRule } from '@/api/customer'
 import { ALL_SOURCE_VALUES } from '@/constants/source'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import { reportError } from '@/utils/error'
 
 defineOptions({ name: 'AssignRules' })
 
-const loading = ref(false)
+const loading = ref(true)   // onMounted 无条件取数，初值 true 消除首帧「暂无分配规则」闪现
+const errorMsg = ref('')
 const rules = ref([])
 const salesUsers = ref([])
 const sourceOptions = ALL_SOURCE_VALUES
@@ -138,9 +155,18 @@ const getUserName = (id) => {
 
 const fetchRules = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const r = await getAssignRules()
-    if (r.code === 200) rules.value = r.data
+    if (r.code === 200) {
+      rules.value = r.data
+    } else {
+      errorMsg.value = r.message || '加载分配规则失败，请稍后重试'
+      reportError('获取分配规则列表失败:', r.message)
+    }
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载分配规则失败，请稍后重试'
+    reportError('获取分配规则列表失败:', error)
   } finally { loading.value = false }
 }
 

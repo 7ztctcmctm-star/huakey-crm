@@ -9,32 +9,45 @@
     </div>
 
     <el-card>
-      <el-table :data="list" stripe border v-loading="loading">
-        <el-table-column prop="rule_name" label="规则名称" min-width="160" />
-        <el-table-column prop="assign_type" label="分配方式" width="100" align="center">
-          <template #default="{ row }"><el-tag :type="typeTag[row.assign_type]" size="small">{{ typeName[row.assign_type] }}</el-tag></template>
-        </el-table-column>
-        <el-table-column label="适用条件" min-width="140">
-          <template #default="{ row }">
-            <span v-if="row.assign_type === 'by_source'">来源 = {{ row.source_value }}</span>
-            <span v-else-if="row.assign_type === 'by_region'">地区含 {{ row.region_value }}</span>
-            <span v-else>全部客户</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="分配人员" min-width="200">
-          <template #default="{ row }">{{ formatUsers(row.user_ids) }}</template>
-        </el-table-column>
-        <el-table-column prop="priority" label="优先级" width="80" align="center" />
-        <el-table-column label="状态" width="80" align="center">
-          <template #default="{ row }"><el-tag :type="row.is_active?'success':'info'" size="small">{{ row.is_active?'启用':'禁用' }}</el-tag></template>
-        </el-table-column>
-        <el-table-column label="操作" width="140" fixed="right">
-          <template #default="{ row }">
-            <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
-            <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && !errorMsg && list.length === 0"
+        empty-text="暂无分配规则"
+        empty-description="点击「新建规则」配置自动分配"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="7" />
+        </template>
+
+        <el-table :data="list" stripe border>
+          <el-table-column prop="rule_name" label="规则名称" min-width="160" />
+          <el-table-column prop="assign_type" label="分配方式" width="100" align="center">
+            <template #default="{ row }"><el-tag :type="typeTag[row.assign_type]" size="small">{{ typeName[row.assign_type] }}</el-tag></template>
+          </el-table-column>
+          <el-table-column label="适用条件" min-width="140">
+            <template #default="{ row }">
+              <span v-if="row.assign_type === 'by_source'">来源 = {{ row.source_value }}</span>
+              <span v-else-if="row.assign_type === 'by_region'">地区含 {{ row.region_value }}</span>
+              <span v-else>全部客户</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="分配人员" min-width="200">
+            <template #default="{ row }">{{ formatUsers(row.user_ids) }}</template>
+          </el-table-column>
+          <el-table-column prop="priority" label="优先级" width="80" align="center" />
+          <el-table-column label="状态" width="80" align="center">
+            <template #default="{ row }"><el-tag :type="row.is_active?'success':'info'" size="small">{{ row.is_active?'启用':'禁用' }}</el-tag></template>
+          </el-table-column>
+          <el-table-column label="操作" width="140" fixed="right">
+            <template #default="{ row }">
+              <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
+              <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </StateWrapper>
     </el-card>
 
     <!-- 新增/编辑弹窗 -->
@@ -80,11 +93,15 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { getAutomationAssignRules, saveAutomationAssignRule, applyAutomationAssignRule, deleteAutomationAssignRule } from '@/api/tools'
 import { getSalesUsers, getCustomerList } from '@/api/customer'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import { reportError } from '@/utils/error'
 
 const typeName = { round_robin: '轮询', by_source: '按来源', by_region: '按区域' }
 const typeTag = { round_robin: '', by_source: 'success', by_region: 'warning' }
 
-const loading = ref(false)
+const loading = ref(true)   // onMounted 无条件取数，初值 true 消除首帧「暂无分配规则」闪现
+const errorMsg = ref('')
 const list = ref([])
 const userOptions = ref([])
 const customerOptions = ref([])
@@ -105,16 +122,29 @@ const formatUsers = (v) => {
 
 const fetchList = async () => {
   loading.value = true
-  try { const res = await getAutomationAssignRules(); if (res.code === 200) list.value = res.data } catch (e) { /* */ }
-  finally { loading.value = false }
+  errorMsg.value = ''
+  try {
+    const res = await getAutomationAssignRules()
+    if (res.code === 200) {
+      list.value = res.data
+    } else {
+      errorMsg.value = res.message || '加载分配规则失败，请稍后重试'
+      reportError('获取分配规则列表失败:', res.message)
+    }
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载分配规则失败，请稍后重试'
+    reportError('获取分配规则列表失败:', error)
+  } finally {
+    loading.value = false
+  }
 }
 
 const fetchUsers = async () => {
-  try { const res = await getSalesUsers(); if (res.code === 200) userOptions.value = res.data } catch (e) { /* */ }
+  try { const res = await getSalesUsers(); if (res.code === 200) userOptions.value = res.data } catch (e) { reportError('获取销售用户列表失败:', e) }
 }
 
 const fetchCustomers = async () => {
-  try { const res = await getCustomerList({ page: 1, pageSize: 200 }); if (res.code === 200) customerOptions.value = res.data.list } catch (e) { /* */ }
+  try { const res = await getCustomerList({ page: 1, pageSize: 200 }); if (res.code === 200) customerOptions.value = res.data.list } catch (e) { reportError('获取客户列表失败:', e) }
 }
 
 const handleCreate = () => {

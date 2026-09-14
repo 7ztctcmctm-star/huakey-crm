@@ -6,37 +6,49 @@
     </div>
 
     <el-card>
-      <el-table :data="taskList" border stripe v-loading="loading" empty-text="今日没有待跟进任务">
-        <el-table-column type="index" width="50" />
-        <el-table-column prop="company_name" label="客户名称" min-width="150">
-          <template #default="{ row }">
-            <el-button type="primary" link @click="goCustomer(row.customer_id)">
-              {{ row.company_name || '未知客户' }}
-            </el-button>
-          </template>
-        </el-table-column>
-        <el-table-column prop="customer_contact" label="联系人" width="100" />
-        <el-table-column prop="customer_phone" label="电话" width="130" />
-        <el-table-column prop="follow_type" label="跟进方式" width="90" align="center">
-          <template #default="{ row }">
-            <el-tag :type="followTypeTag(row.follow_type)" size="small">{{ row.follow_type }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="content" label="上次跟进内容" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="next_time" label="计划时间" width="160" align="center">
-          <template #default="{ row }">
-            <span :class="{ 'overdue': isOverdue(row.next_time) }">
-              {{ formatTime(row.next_time) }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="next_content" label="计划内容" min-width="150" show-overflow-tooltip />
-        <el-table-column label="操作" width="100" align="center" fixed="right">
-          <template #default="{ row }">
-            <el-button type="primary" link @click="goCustomer(row.customer_id)">去跟进</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && !errorMsg && taskList.length === 0"
+        empty-text="今日没有待跟进任务"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="9" />
+        </template>
+
+        <el-table :data="taskList" border stripe>
+          <el-table-column type="index" width="50" />
+          <el-table-column prop="company_name" label="客户名称" min-width="150">
+            <template #default="{ row }">
+              <el-button type="primary" link @click="goCustomer(row.customer_id)">
+                {{ row.company_name || '未知客户' }}
+              </el-button>
+            </template>
+          </el-table-column>
+          <el-table-column prop="customer_contact" label="联系人" width="100" />
+          <el-table-column prop="customer_phone" label="电话" width="130" />
+          <el-table-column prop="follow_type" label="跟进方式" width="90" align="center">
+            <template #default="{ row }">
+              <el-tag :type="followTypeTag(row.follow_type)" size="small">{{ row.follow_type }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="content" label="上次跟进内容" min-width="200" show-overflow-tooltip />
+          <el-table-column prop="next_time" label="计划时间" width="160" align="center">
+            <template #default="{ row }">
+              <span :class="{ 'overdue': isOverdue(row.next_time) }">
+                {{ formatTime(row.next_time) }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="next_content" label="计划内容" min-width="150" show-overflow-tooltip />
+          <el-table-column label="操作" width="100" align="center" fixed="right">
+            <template #default="{ row }">
+              <el-button type="primary" link @click="goCustomer(row.customer_id)">去跟进</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </StateWrapper>
     </el-card>
   </div>
 </template>
@@ -45,11 +57,15 @@
 import { ref, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import { getTodayReminders } from '@/api/customer'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import { reportError } from '@/utils/error'
 
 defineOptions({ name: 'TodayTasks' })
 
 const router = useRouter()
-const loading = ref(false)
+const loading = ref(true)   // onMounted 无条件取数，初值 true 消除首帧「今日没有待跟进任务」闪现
+const errorMsg = ref('')
 const taskList = ref([])
 
 const followTypeTag = (type) => {
@@ -73,9 +89,18 @@ const goCustomer = (id) => {
 
 const fetchList = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const r = await getTodayReminders()
-    if (r.code === 200) taskList.value = r.data.list || []
+    if (r.code === 200) {
+      taskList.value = r.data.list || []
+    } else {
+      errorMsg.value = r.message || '加载今日待办失败，请稍后重试'
+      reportError('获取今日待跟进列表失败:', r.message)
+    }
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载今日待办失败，请稍后重试'
+    reportError('获取今日待跟进列表失败:', error)
   } finally { loading.value = false }
 }
 

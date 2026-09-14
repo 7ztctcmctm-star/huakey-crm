@@ -9,41 +9,53 @@
         <el-button type="primary" :icon="Download" :loading="createLoading" @click="handleCreate">创建备份</el-button>
       </div>
 
-      <el-table v-loading="loading" :data="tableData" stripe border>
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="backup_type" label="类型" width="100">
-          <template #default="{ row }">{{ row.backup_type === 'full' ? '全量备份' : '增量备份' }}</template>
-        </el-table-column>
-        <el-table-column prop="file_name" label="文件名" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="file_size" label="文件大小" width="120" align="right">
-          <template #default="{ row }">{{ formatSize(row.file_size) }}</template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="statusType(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="create_by_name" label="创建人" width="100" />
-        <el-table-column prop="create_time" label="创建时间" width="180" />
-        <el-table-column label="操作" width="160">
-          <template #default="{ row }">
-            <el-button v-if="row.status === 'success'" type="primary" link @click="handleRestore(row)">恢复</el-button>
-            <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && !errorMsg && tableData.length === 0"
+        empty-text="暂无备份记录"
+        @retry="fetchList"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="8" />
+        </template>
 
-      <div class="pagination">
-        <el-pagination
-          v-model:current-page="page"
-          v-model:page-size="pageSize"
-          :total="total"
-          :page-sizes="[10, 20, 50]"
-          layout="total, sizes, prev, pager, next"
-          @size-change="fetchList"
-          @current-change="fetchList"
-        />
-      </div>
+        <el-table :data="tableData" stripe border>
+          <el-table-column prop="id" label="ID" width="80" />
+          <el-table-column prop="backup_type" label="类型" width="100">
+            <template #default="{ row }">{{ row.backup_type === 'full' ? '全量备份' : '增量备份' }}</template>
+          </el-table-column>
+          <el-table-column prop="file_name" label="文件名" min-width="200" show-overflow-tooltip />
+          <el-table-column prop="file_size" label="文件大小" width="120" align="right">
+            <template #default="{ row }">{{ formatSize(row.file_size) }}</template>
+          </el-table-column>
+          <el-table-column prop="status" label="状态" width="100" align="center">
+            <template #default="{ row }">
+              <el-tag :type="statusType(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="create_by_name" label="创建人" width="100" />
+          <el-table-column prop="create_time" label="创建时间" width="180" />
+          <el-table-column label="操作" width="160">
+            <template #default="{ row }">
+              <el-button v-if="row.status === 'success'" type="primary" link @click="handleRestore(row)">恢复</el-button>
+              <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div class="pagination">
+          <el-pagination
+            v-model:current-page="page"
+            v-model:page-size="pageSize"
+            :total="total"
+            :page-sizes="[10, 20, 50]"
+            layout="total, sizes, prev, pager, next"
+            @size-change="fetchList"
+            @current-change="fetchList"
+          />
+        </div>
+      </StateWrapper>
     </el-card>
   </div>
 </template>
@@ -53,8 +65,12 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download } from '@element-plus/icons-vue'
 import { getBackupList, createBackup, deleteBackup, restoreBackup } from '@/api/system'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import { reportError } from '@/utils/error'
 
-const loading = ref(false)
+const loading = ref(true)   // onMounted 无条件取数，初值 true 消除首帧「暂无备份记录」闪现
+const errorMsg = ref('')
 const createLoading = ref(false)
 const tableData = ref([])
 const page = ref(1)
@@ -72,13 +88,19 @@ const formatSize = (bytes) => {
 
 const fetchList = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const res = await getBackupList()
     if (res.code === 200) {
       tableData.value = res.data.list
       total.value = res.data.total
+    } else {
+      errorMsg.value = res.message || '加载备份记录列表失败，请稍后重试'
+      reportError('获取备份记录列表失败:', res.message)
     }
-  } catch {
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载备份记录列表失败，请稍后重试'
+    reportError('获取备份记录列表失败:', error)
     ElMessage.error('加载备份列表失败')
   } finally {
     loading.value = false

@@ -9,33 +9,45 @@
     </div>
 
     <el-card>
-      <el-table v-loading="loading" :data="tableData" stripe border>
-        <el-table-column prop="real_name" label="销售姓名" width="120" />
-        <el-table-column prop="dept_name" label="部门" width="120" />
-        <el-table-column label="月度目标(元)" width="180" align="right">
-          <template #default="{ row }">
-            <el-input-number v-model="row.target_amount" :min="0" :precision="2" :controls="false" size="small" style="width: 140px" />
-          </template>
-        </el-table-column>
-        <el-table-column prop="actual_amount" label="成交金额" width="140" align="right">
-          <template #default="{ row }">¥{{ fmt(row.actual_amount) }}</template>
-        </el-table-column>
-        <el-table-column prop="payment_amount" label="回款金额" width="140" align="right">
-          <template #default="{ row }">¥{{ fmt(row.payment_amount) }}</template>
-        </el-table-column>
-        <el-table-column label="达成率" width="140" align="center">
-          <template #default="{ row }">
-            <el-progress
-              v-if="row.target_amount > 0"
-              :percentage="Math.min(row.achievement_rate, 100)"
-              :status="row.achievement_rate >= 100 ? 'success' : row.achievement_rate >= 60 ? '' : 'exception'"
-              :stroke-width="18"
-              :format="() => row.achievement_rate + '%'"
-            />
-            <span v-else class="text-muted">未设目标</span>
-          </template>
-        </el-table-column>
-      </el-table>
+      <StateWrapper
+        :loading="loading"
+        :error="errorMsg"
+        :empty="!loading && !errorMsg && tableData.length === 0"
+        empty-text="暂无目标"
+        @retry="fetchData"
+      >
+        <template #loading>
+          <TableSkeleton :rows="8" :cols="6" />
+        </template>
+
+        <el-table :data="tableData" stripe border>
+          <el-table-column prop="real_name" label="销售姓名" width="120" />
+          <el-table-column prop="dept_name" label="部门" width="120" />
+          <el-table-column label="月度目标(元)" width="180" align="right">
+            <template #default="{ row }">
+              <el-input-number v-model="row.target_amount" :min="0" :precision="2" :controls="false" size="small" style="width: 140px" />
+            </template>
+          </el-table-column>
+          <el-table-column prop="actual_amount" label="成交金额" width="140" align="right">
+            <template #default="{ row }">¥{{ fmt(row.actual_amount) }}</template>
+          </el-table-column>
+          <el-table-column prop="payment_amount" label="回款金额" width="140" align="right">
+            <template #default="{ row }">¥{{ fmt(row.payment_amount) }}</template>
+          </el-table-column>
+          <el-table-column label="达成率" width="140" align="center">
+            <template #default="{ row }">
+              <el-progress
+                v-if="row.target_amount > 0"
+                :percentage="Math.min(row.achievement_rate, 100)"
+                :status="row.achievement_rate >= 100 ? 'success' : row.achievement_rate >= 60 ? '' : 'exception'"
+                :stroke-width="18"
+                :format="() => row.achievement_rate + '%'"
+              />
+              <span v-else class="text-muted">未设目标</span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </StateWrapper>
     </el-card>
   </div>
 </template>
@@ -45,8 +57,12 @@ import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Check } from '@element-plus/icons-vue'
 import { getTargetList, batchSetTarget } from '@/api/system'
+import StateWrapper from '@/components/common/StateWrapper.vue'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import { reportError } from '@/utils/error'
 
-const loading = ref(false)
+const loading = ref(true)   // onMounted 无条件取数，初值 true 消除首帧「暂无目标」闪现
+const errorMsg = ref('')
 const saveLoading = ref(false)
 const tableData = ref([])
 const now = new Date()
@@ -59,13 +75,19 @@ const fmt = (v) => {
 
 const fetchData = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const [year, month] = queryMonth.value.split('-').map(Number)
     const res = await getTargetList({ year, month })
     if (res.code === 200) {
       tableData.value = res.data.list
+    } else {
+      errorMsg.value = res.message || '加载目标列表失败，请稍后重试'
+      reportError('获取目标列表失败:', res.message)
     }
-  } catch {
+  } catch (error) {
+    errorMsg.value = error?.response?.data?.message || '加载目标列表失败，请稍后重试'
+    reportError('获取目标列表失败:', error)
     ElMessage.error('加载失败')
   } finally {
     loading.value = false
