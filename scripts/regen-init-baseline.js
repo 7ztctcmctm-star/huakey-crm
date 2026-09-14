@@ -9,31 +9,32 @@
  *
  *     init-complete.sql（结构基线）  →  run_migrations.js（111 个增量迁移）
  *
- * 而 CI / E2E 自举为了提速，采用的是
+ * 而 CI / E2E 自举过去为了提速，采用的是
  *
  *     init-complete.sql  →  ci-missing-tables.sql（手工补丁）  →  标记所有迁移已执行
  *
  * 历史上基线快照严重落后于迁移链（crm_customer.status 仍是 TINYINT、缺 business_status /
  * is_demo 等），CI 库与真实迁移链**静默漂移**，只能靠 ci-missing-tables.sql 逐条打补丁追平（N-05）。
  *
- * ⚠ 关键认知：**仅跑迁移链并不足以还原权威结构**。存在两类缺口：
+ * ⚠ 关键认知：**仅跑迁移链并不足以还原权威结构**。当时存在两类缺口：
  *   1) 旧基线的建表语句比迁移链更「瘦」，而迁移多用 `CREATE TABLE IF NOT EXISTS`
  *      ⇒ 表已存在即整段跳过，迁移里的列（如 039 的 create_by/update_time）永远建不上；
- *   2) 少数结构只存在于 ci-missing-tables.sql（如 crm_quote/crm_contract.update_time）。
+ *   2) 少数结构只见于 ci-missing-tables.sql（如 crm_quote/crm_contract.update_time）。
  *   因此权威结构 = 旧基线 + 全部迁移 + ci-missing 修正 的**并集**。
  *
- * 本脚本即从该并集终态反向导出基线，使其与 CI/E2E 实际校验的库结构逐表逐列一致，
- * 从而让 CI/E2E 导入本文件即可，无需再依赖 ci-missing-tables.sql（该文件退化为幂等空跑）。
+ * 本脚本即从该并集终态反向导出基线，使其与 CI/E2E 实际校验的库结构逐表逐列一致。
+ * 基线扶正后（2026-09-14）ci-missing-tables.sql 已**退役删除**：新基线自带全部修正，
+ * 重新生成只需「导入当前基线 → 跑迁移 → dump」——迁移皆被守卫识别为已建，幂等无副作用。
  *
  * 用法
  * ----
- *   # 1) 建临时库（库名建议含 test），导入**当前**基线，跑完迁移链，再应用 ci-missing 修正
+ *   # 1) 建临时库（库名建议含 test），导入**当前**基线，再跑完迁移链
+ *   #    当前基线已是权威并集终态，无需任何补丁（ci-missing-tables.sql 已退役）
  *   mysql -u root -p -e "CREATE DATABASE huakey_baseline_regen_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
  *   sed "s/`huakey_crm`/`huakey_baseline_regen_test`/g" deploy/init-complete.sql \
  *     | mysql -u root -p huakey_baseline_regen_test
  *   NODE_PATH=backend/node_modules DB_NAME=huakey_baseline_regen_test \
  *     DB_USER=root DB_PASSWORD=*** node database/migrations/run_migrations.js
- *   mysql -u root -p huakey_baseline_regen_test < deploy/ci-missing-tables.sql
  *
  *   # 2) 从该库导出新基线（排除迁移内部备份表）
  *   DB_PASSWORD=*** IGNORE_TABLES=_migration_097_backup,crm_contact_primary_backup_113 \
@@ -76,18 +77,18 @@ const IGNORE_TABLES = (process.env.IGNORE_TABLES || '')
   .filter(Boolean);
 
 const WARNING = `-- ⚠️⚠️⚠️ 基线生成说明 ⚠️⚠️⚠️
--- 本文件是**结构基线快照**，由「旧基线 + 全部迁移 + ci-missing-tables.sql 修正」的
--- 并集终态反向导出，与 CI / E2E 实际校验的库结构**逐表逐列一致**
--- （生成方式见 scripts/regen-init-baseline.js）。
+-- 本文件是**结构基线快照**，由「旧基线 + 全部迁移 + 历史补丁修正」的并集终态反向导出，
+-- 与 CI / E2E 实际校验的库结构**逐表逐列一致**（生成方式见 scripts/regen-init-baseline.js）。
 --
 -- 为什么是并集而非「迁移链终态」：
 --   · 迁移多用 CREATE TABLE IF NOT EXISTS，旧基线偏瘦的表会整段跳过，迁移里的列建不上；
---   · 少数结构（如 crm_quote/crm_contract.update_time）只存在于 ci-missing-tables.sql。
---   仅跑迁移无法还原权威结构，故必须叠加 ci-missing 修正。
+--   · 少数结构（如 crm_quote/crm_contract.update_time）当时只见于 ci-missing-tables.sql。
+--   这些修正已全部并入本文件；仅跑迁移无法还原权威结构。
 --
 -- 用途：全新环境 / CI / E2E 自举的建库起点。
 --   · 生产/演练：导入本文件后，正常执行 database/migrations/run_migrations.js（幂等补齐）；
---   · CI / E2E：导入本文件即得到与校验库一致的库，**ci-missing-tables.sql 退化为幂等空跑**。
+--   · CI / E2E：导入本文件即得到与校验库一致的库，无需任何补丁
+--     （原 ci-missing-tables.sql 已于 2026-09-14 退役删除）。
 --
 -- 约束：
 --   · 仅含结构（CREATE TABLE / VIEW），**不含任何业务数据**；种子数据见 database/seeds/。

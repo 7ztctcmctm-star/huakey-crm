@@ -237,5 +237,43 @@ N-05 方案 A 只是「让补丁失败可见」，并未消除**补丁本身**�
 | `deploy/ci-missing-tables-verify.sql` | **重生成**：92 项（8 处索引项改存在性语义） |
 | `docs/n05-ci-missing-tables-verify-fix.md` | **修改**：本 §七 |
 
-> **保留项**：`ci-missing-tables.sql` 及其在 `ci.yml` 的调用**暂未移除**（现已空跑）。
-> 待真实 CI 以新基线跑通一次后，可另行提交下线该文件与 4 处 step。
+> ~~**保留项**：`ci-missing-tables.sql` 及其在 `ci.yml` 的调用**暂未移除**（现已空跑）。~~
+> → **已于 2026-09-14 下线**（见 §八）。当时保留的原因：真实 CI 尚未以新基线跑通。
+> 该前提随后由 CI run **#127**（main `661a29d`）满足——9 job 全绿，含 `migration-test` / `integration-test` / `e2e-test`。
+
+---
+
+## 八、下线 `ci-missing-tables.sql`（2026-09-14）
+
+### 8.1 依据
+
+Run **#127** 全绿证明：新基线导入后，`ci-missing-tables.sql` 的 91/92 段守卫**全部命中「已存在」分支**，
+即整份文件退化为**幂等空跑**。其对 schema 的唯一价值（补齐旧基线缺的结构）已被基线自身吸收。
+
+### 8.2 改动
+
+| 文件 | 改动 |
+|---|---|
+| `deploy/ci-missing-tables.sql` | **删除**（54 KB 补丁，已无用） |
+| `scripts/build-n05-verify.py` | **删除**（生成器的数据源即上表；探测集合转为冻结契约） |
+| `.github/workflows/ci.yml` | **4 处**调用块：移除补丁导入 step；`verify` step 保留（改述为「against baseline」），步骤名改为 *Import baseline schema + verify invariants* |
+| `deploy/ci-missing-tables-verify.sql` | **头部改写**：由「AUTO-GENERATED」改为**冻结的独立校验契约**；保留 `ci-missing` 前缀属历史命名，仅为稳定 CI 路径 |
+| `scripts/verify-ci-missing-tables.sh` | 头部改写（同上；脚本名保留） |
+| `scripts/regen-init-baseline.js` | 用法配方去掉 ci-missing 步骤；banner 文案同步 |
+| `deploy/init-complete.sql` | banner 文案同步（指向「历史补丁修正」+ 已退役） |
+| `backend/tests/db/contactSinglePrimary.test.js` | 环境要求注释订正 |
+| `docs/customer-contact-single-primary-plan.md` | 加历史文档告示 |
+
+### 8.3 保留的校验能力（未削弱）
+
+`verify` 仍是 CI 的**建库终态验收**：任何自举路径（仅 `init-complete.sql` / `+ 全部迁移`）
+都必须满足 **92/92**。删除的只是「补丁」本身，不是「校验」。
+`scripts/build-n05-verify.py` 删除后，如需增删 invariant，**手工编辑** verify SQL 即可
+（其头部已注明）。
+
+### 8.4 已知遗留（未纳入本次提交）
+
+`scripts/regen-init-baseline.js` 生成的 `AUTO_INCREMENT` 计数**取决于源库历史**
+（本次实测：`sys_permission` 161 → 203，`schema_migrations` 169 → 280）。
+纯属无语义差异（表为空，计数只是起始值），但会让「重新生成基线」产生噪声 diff。
+如需彻底确定性，可在 dump 后统一剥离 `AUTO_INCREMENT=\d+`（另起一次提交）。

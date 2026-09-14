@@ -5,18 +5,18 @@
 -- Server version	8.0.46
 
 -- ⚠️⚠️⚠️ 基线生成说明 ⚠️⚠️⚠️
--- 本文件是**结构基线快照**，由「旧基线 + 全部迁移 + ci-missing-tables.sql 修正」的
--- 并集终态反向导出，与 CI / E2E 实际校验的库结构**逐表逐列一致**
--- （生成方式见 scripts/regen-init-baseline.js）。
+-- 本文件是**结构基线快照**，由「旧基线 + 全部迁移 + 历史补丁修正」的并集终态反向导出，
+-- 与 CI / E2E 实际校验的库结构**逐表逐列一致**（生成方式见 scripts/regen-init-baseline.js）。
 --
 -- 为什么是并集而非「迁移链终态」：
 --   · 迁移多用 CREATE TABLE IF NOT EXISTS，旧基线偏瘦的表会整段跳过，迁移里的列建不上；
---   · 少数结构（如 crm_quote/crm_contract.update_time）只存在于 ci-missing-tables.sql。
---   仅跑迁移无法还原权威结构，故必须叠加 ci-missing 修正。
+--   · 少数结构（如 crm_quote/crm_contract.update_time）当时只见于 ci-missing-tables.sql。
+--   这些修正已全部并入本文件；仅跑迁移无法还原权威结构。
 --
 -- 用途：全新环境 / CI / E2E 自举的建库起点。
 --   · 生产/演练：导入本文件后，正常执行 database/migrations/run_migrations.js（幂等补齐）；
---   · CI / E2E：导入本文件即得到与校验库一致的库，**ci-missing-tables.sql 退化为幂等空跑**。
+--   · CI / E2E：导入本文件即得到与校验库一致的库，无需任何补丁
+--     （原 ci-missing-tables.sql 已于 2026-09-14 退役删除）。
 --
 -- 约束：
 --   · 仅含结构（CREATE TABLE / VIEW），**不含任何业务数据**；种子数据见 database/seeds/。

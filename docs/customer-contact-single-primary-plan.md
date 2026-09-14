@@ -1,5 +1,10 @@
 # 联系人「单一主联系人」不变量修复 —— 实施计划
 
+> ⚠️ **历史文档（2026-09-11 计划）**，下文多处提到的 `deploy/ci-missing-tables.sql`
+> 已于 **2026-09-14 退役删除**：`deploy/init-complete.sql` 重建为权威基线后，全新库/CI
+> 的 schema 由它**单点提供**，不再需要任何补丁脚本。详见
+> `docs/n05-ci-missing-tables-verify-fix.md` §七/§八。
+>
 > **For agentic workers:** 用 `executing-plans` 逐任务执行，步骤用 `- [ ]` 跟踪。设计与方案 A 已于
 > 2026-09-11 经用户批准（含生产库数据去重）。
 

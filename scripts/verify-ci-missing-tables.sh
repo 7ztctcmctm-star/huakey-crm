@@ -2,10 +2,13 @@
 # ============================================================
 # scripts/verify-ci-missing-tables.sh
 # ============================================================
-# 作用:在 apply deploy/ci-missing-tables.sql 之后,执行
-#       deploy/ci-missing-tables-verify.sql,检查 92 项
-#       information_schema invariant 是否满足。
+# 作用:对**建库终态**执行 deploy/ci-missing-tables-verify.sql,检查 92 项
+#       information_schema invariant 是否满足（自举是否完整、无静默缺约束）。
 # CI workflow 与本机 verify 都需要。
+#
+# 命名:脚本与 SQL 文件保留 `ci-missing` 前缀属**历史命名**——其数据源
+#       deploy/ci-missing-tables.sql 已于 2026-09-14 退役
+#       （新 init-complete.sql 导入即满足 92/92，补丁退化为幂等空跑后移除）。
 #
 # 用法:
 #   ./scripts/verify-ci-missing-tables.sh <DB_NAME> [HOST] [PORT] [USER] [PASS]
