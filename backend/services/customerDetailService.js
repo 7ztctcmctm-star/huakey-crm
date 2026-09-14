@@ -229,6 +229,14 @@ async function updateCustomer(pool, id, updateFields, user) {
     if (allowedFields.includes(key) && value !== undefined) {
       setClauses.push(`${key} = ?`);
       params.push(value);
+      // status 变更时同步 business_status（保持两字段一致，与 transitionStatus 规则对齐）
+      if (key === 'status') {
+        const bizStatus = customerService.mapStatusToBusinessStatus(value);
+        if (bizStatus) {
+          setClauses.push('business_status = ?');
+          params.push(bizStatus);
+        }
+      }
     }
   }
 
