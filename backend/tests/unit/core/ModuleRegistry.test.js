@@ -11,7 +11,7 @@ describe('ModuleRegistry', () => {
 
   test('可以注册模块并返回路由列表', () => {
     const router = express.Router();
-    registry.register('customer', { routes: router, permissions: ['customer:list'] });
+    registry.register('customer', { routes: router, permissions: ['customer:view'] });
 
     const routes = registry.getAllRoutes();
     expect(routes).toHaveLength(1);

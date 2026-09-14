@@ -18,7 +18,7 @@ jest.mock('../middleware/logger', () => ({
 }));
 
 jest.mock('../services/permissionService', () => ({
-  getUserPermissions: jest.fn().mockResolvedValue(['customer:list', 'customer:add', 'customer:edit', 'customer:delete']),
+  getUserPermissions: jest.fn().mockResolvedValue(['customer:view', 'customer:add', 'customer:edit', 'customer:delete']),
   getMenuPermissions: jest.fn().mockResolvedValue([]),
   getDataPermissions: jest.fn().mockResolvedValue([])
 }));

@@ -187,11 +187,12 @@ const handleSavePermission = async () => {
 }
 
 // 权限预设包
+// [权限对齐 2026-09-14] customer:list → customer:view（后端客户列表类端点统一为 customer:view）
 const permissionPresets = {
-  sales: ['dashboard', 'customer', 'customer:list', 'pool', 'pool:view', 'pool:claim', 'leads', 'followup:calendar', 'opportunity', 'quotation', 'knowledge', 'scoring'],
+  sales: ['dashboard', 'customer', 'customer:view', 'pool', 'pool:view', 'pool:claim', 'leads', 'followup:calendar', 'opportunity', 'quotation', 'knowledge', 'scoring'],
   finance: ['dashboard', 'contract', 'payment', 'invoice', 'report'],
   purchase: ['dashboard', 'supplier', 'purchase', 'inventory', 'product'],
-  service: ['dashboard', 'service', 'customer:list', 'knowledge'],
+  service: ['dashboard', 'service', 'customer:view', 'knowledge'],
   readonly: ['dashboard']
 }
 

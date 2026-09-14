@@ -11,7 +11,7 @@ export const MOCK_USER = {
   roleId: 1,
   manageAll: true,
   viewAll: true,
-  permissions: ['customer:add', 'customer:edit', 'customer:delete', 'customer:list']
+  permissions: ['customer:view', 'customer:add', 'customer:edit', 'customer:delete']
 }
 
 export const MOCK_CUSTOMERS = [

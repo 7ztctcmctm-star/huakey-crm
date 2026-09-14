@@ -10,7 +10,9 @@
  *   POST /claim-pool       - 领取公海客户
  *
  * 权限说明：
- *   潜客池/正式客户/公海池查询：customer:list 或 customer:view
+ *   潜客池/正式客户/公海池查询：customer:view
+ *   [权限对齐 2026-09-14] 原用 customer:list，与新树 /customers、/leads、/pool 口径不一；
+ *   迁移 098 已保证 customer:list 持有者自动获得 customer:view，故统一为 customer:view
  *   潜客转正式：customer:edit
  *   释放到公海：customer:release
  *   领取公海：pool:claim
@@ -78,7 +80,7 @@ const releaseSchema = Joi.object({
 // 潜客池列表
 router.post('/leads-pool',
   authenticateToken,
-  checkPermission('customer:list'),
+  checkPermission('customer:view'),
   checkDataPermission('customer', 'owner_id'),
   validate(leadPoolSchema),
   customerController.listLeadPool
@@ -87,7 +89,7 @@ router.post('/leads-pool',
 // 正式客户列表
 router.post('/formal',
   authenticateToken,
-  checkPermission('customer:list'),
+  checkPermission('customer:view'),
   checkDataPermission('customer', 'owner_id'),
   validate(formalSchema),
   customerController.listFormal
@@ -96,7 +98,7 @@ router.post('/formal',
 // 公海池列表
 router.post('/pool-list',
   authenticateToken,
-  checkPermission('customer:list'),
+  checkPermission('customer:view'),
   validate(poolListSchema),
   customerController.listPoolNew
 );

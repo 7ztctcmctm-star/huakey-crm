@@ -206,7 +206,7 @@ const router = express.Router();
 // 1. 获取客户列表（复用 customerService）
 router.post('/list',
   authenticateToken,
-  checkPermission('customer:list'),
+  checkPermission('customer:view'),
   createCache(300, (req) => `customer:list:${req.user.userId}:${JSON.stringify(req.body)}`),
   checkDataPermission('customer', 'owner_id'),
   validate(customerListSchema),
@@ -223,13 +223,15 @@ router.post('/update', authenticateToken, checkPermission('customer:edit'), vali
 router.post('/delete', authenticateToken, checkPermission('customer:delete'), validate(deleteCustomerSchema), customerController.remove);
 
 // 5. 获取客户详情
-router.get('/detail/:id', authenticateToken, checkDataPermission('customer', 'owner_id'), customerController.detail);
+// [权限对齐 2026-09-14] 原实现只有 authenticateToken + checkDataPermission，
+// 缺少功能权限校验，与本树其他端口及 /customers/detail/:id 的 customer:view 密级不一致 → 补齐。
+router.get('/detail/:id', authenticateToken, checkPermission('customer:view'), checkDataPermission('customer', 'owner_id'), customerController.detail);
 
 // 5.5 客户360度视图
-router.get('/:id/360', authenticateToken, checkPermission('customer:list'), checkDataPermission('customer', 'owner_id'), customerController.view360);
+router.get('/:id/360', authenticateToken, checkPermission('customer:view'), checkDataPermission('customer', 'owner_id'), customerController.view360);
 
 // 6. 导出客户列表
-router.post('/export', authenticateToken, checkPermission('customer:list'), checkDataPermission('customer', 'owner_id'), validate(exportCustomersSchema), customerController.exportCustomers);
+router.post('/export', authenticateToken, checkPermission('customer:view'), checkDataPermission('customer', 'owner_id'), validate(exportCustomersSchema), customerController.exportCustomers);
 
 // 客户状态推进（沿主销售漏斗前进一步）
 router.post('/forward', authenticateToken, checkPermission('customer:edit'), validate(forwardCustomerSchema), customerController.forward);

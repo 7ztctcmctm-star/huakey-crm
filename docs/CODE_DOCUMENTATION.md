@@ -3209,7 +3209,7 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 
 #### customer/module.js（~21行，模块注册）
 
-ModuleRegistry.register('customer', {routes, permissions})。10个权限点：customer:list/add/edit/delete/view/assign/import/release + pool:view/claim。
+ModuleRegistry.register('customer', {routes, permissions})。9个权限点：customer:view/add/edit/delete/assign/import/release + pool:view/claim。（2026-09-14 移除 customer:list，路由已统一为 customer:view）
 
 #### dataManagement/module.js（~17行，模块注册）
 

@@ -194,6 +194,26 @@ pool（公海池 - 菜单）
 | `frontend/src/views/system/role.vue` | sales 预设 `customer:pool` → `pool` + `pool:view` + `pool:claim` |
 | `backend/tests/assign.test.js` | mock 权限 `customer:pool` → `pool:claim` + `customer:release` + `pool:view` |
 
+### 迁移 098 收尾：`customer:list` 代码层停用（2026-09-14）
+
+与 `customer:pool` 不同，`customer:list` **DB 权限码保留**——098 的兼容映射「`customer:list` → `leads:view` + `customer:view`」继续生效，仅**停用代码引用**，使全客户域权限口径统一为 `customer:view`：
+
+| 文件 | 变更 |
+|------|------|
+| `backend/routes/customer/detail.js` | `/list`、`/:id/360`、`/export` → `customer:view`；`GET /detail/:id` **补** `checkPermission('customer:view')`（原缺失，越权） |
+| `backend/routes/customer/center.js` | `/leads-pool`、`/formal`、`/pool-list` → `customer:view` |
+| `backend/routes/customer/module.js` | permissions 数组移除 `customer:list`，保留 `customer:view` |
+| `backend/routes/customers.js` | 头注释订正（前端已切换完毕；老树剩余能力端口清单） |
+| `backend/tests/e2e/permission-real.integration.test.js` | 夹具 `customer:list` → `customer:view` |
+| `backend/tests/customerDetail.test.js` | 权限 mock 同步为 `customer:view` |
+| `backend/tests/unit/core/ModuleRegistry.test.js` | 测试内自注册权限串统一 |
+| `frontend/src/views/system/role.vue` | sales / service 预设 `customer:list` → `customer:view` |
+| `frontend/src/tests/mocks/handlers.js` | `MOCK_USER.permissions` 同步 |
+
+**安全性依据**：098 已保证「拥有旧码 `customer:list` 的角色自动获得 `customer:view`」，且其矩阵已把 `customer:view` 授予 sales/manager；boss 由 `manage_all=1` 绕过 → 无角色受影响。
+**未改**：`detail.js` 缓存键 `customer:list:${userId}:*`（属操作命名空间，`customerController.test.js` 有断言依赖）。
+详见 `docs/crm-customer-api-port-map.md`。
+
 ---
 
 ## 六、验证结果

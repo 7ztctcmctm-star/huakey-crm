@@ -16,7 +16,11 @@
  *   POST /export        - 导出客户                         [customer:view]
  *
  * 兼容说明: 旧端点 POST /api/v1/customer/* 保留，内部调用相同的 controller 方法。
- *           前端逐步切换到 /api/v1/customers/* 新端点。
+ *           [2026-09-14 订正] 前端**已完成切换**——列表/增删改/详情/导出/状态推进回退
+ *           全部走本文件（/api/v1/customers/*）。旧树中仍在用的只剩「能力型」端口
+ *           （assign / contact / :id/360 / assign-rules / template / import-preview /
+ *             import-confirm / overdue / near-recycle / sales-users），
+ *           其余 CRUD 兼容端口已无前端引用，属待清理项。详见 docs/crm-customer-api-port-map.md
  */
 
 const express = require('express');

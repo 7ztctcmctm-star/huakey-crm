@@ -25,16 +25,16 @@ const PERMISSIONS = [
   { name: '用户管理', code: 'system:user', type: 'button', parent_id: 0 },
   { name: '新增用户', code: 'system:user:add', type: 'button', parent_id: 0 },
   { name: '客户管理', code: 'customer', type: 'menu', parent_id: 0 },
-  { name: '客户列表', code: 'customer:list', type: 'button', parent_id: 0 },
+  { name: '查看客户', code: 'customer:view', type: 'button', parent_id: 0 },
   { name: '新增客户', code: 'customer:add', type: 'button', parent_id: 0 },
   { name: '审批管理', code: 'approval', type: 'menu', parent_id: 0 }
 ];
 
 // 角色 → 权限映射
 const ROLE_PERMISSIONS = {
-  1: ['system:user', 'system:user:add', 'customer', 'customer:list', 'customer:add', 'approval'], // admin 全部
-  2: ['customer:list', 'customer:add', 'approval'],                                                // manager
-  3: ['customer:list', 'customer:add']                                                             // sales
+  1: ['system:user', 'system:user:add', 'customer', 'customer:view', 'customer:add', 'approval'], // admin 全部
+  2: ['customer:view', 'customer:add', 'approval'],                                                // manager
+  3: ['customer:view', 'customer:add']                                                             // sales
 };
 
 const userIds = {};
