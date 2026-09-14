@@ -253,7 +253,7 @@ router.get('/docs', authenticateToken, (req, res) => {
     data: {
       auth: { method: 'Header', header: 'X-API-Key', description: '在请求头中添加 X-API-Key: your_api_key' },
       endpoints: [
-        { module: '客户', endpoints: [{ method: 'GET', path: '/api/customer/list', permission: 'customer:read', description: '客户列表' }, { method: 'GET', path: '/api/customer/detail/:id', permission: 'customer:read', description: '客户详情' }] },
+        { module: '客户', endpoints: [{ method: 'GET', path: '/api/customers/list', permission: 'customer:view', description: '客户列表' }, { method: 'GET', path: '/api/customers/detail/:id', permission: 'customer:view', description: '客户详情' }] },
         { module: '合同', endpoints: [{ method: 'GET', path: '/api/contract/list', permission: 'contract:read', description: '合同列表' }] },
         { module: '商机', endpoints: [{ method: 'GET', path: '/api/opportunity/list', permission: 'opportunity:read', description: '商机列表' }] },
         { module: '产品', endpoints: [{ method: 'GET', path: '/api/product/list', permission: 'product:read', description: '产品列表' }] }

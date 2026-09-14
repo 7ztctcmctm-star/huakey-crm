@@ -88,7 +88,7 @@ const { appErrorHandler, globalErrorHandler } = require('../middleware/errorHand
 const app = express();
 app.use(express.json());
 
-app.use('/api/v1/customer', require('../routes/customer'));
+app.use('/api/v1/customers', require('../routes/customers'));
 app.use('/api/v1/follow-up', require('../routes/followUp'));
 app.use('/api/v1/opportunity', require('../routes/opportunity'));
 app.use('/api/v1/quote', require('../routes/quote'));
@@ -120,7 +120,7 @@ describe('客户全生命周期 - 端到端流程', () => {
   });
 
   // Step 1: 创建客户
-  it('Step 1: POST /api/v1/customer/add — 创建客户', async () => {
+  it('Step 1: POST /api/v1/customers/add — 创建客户', async () => {
     // addCustomer: pool.query 检查重复，connection.query 事务内 INSERT 客户 + 联系人
     mockPool.query
       .mockResolvedValueOnce([[]]);                      // 检查重复（无重复）
@@ -130,7 +130,7 @@ describe('客户全生命周期 - 端到端流程', () => {
       .mockResolvedValueOnce([{ affectedRows: 1 }]);     // INSERT 联系人
 
     const res = await request(app)
-      .post('/api/v1/customer/add')
+      .post('/api/v1/customers/add')
       .set('Authorization', `Bearer ${token}`)
       .send({
         company_name: '测试客户公司',
@@ -255,14 +255,14 @@ describe('客户全生命周期 - 端到端流程', () => {
   });
 
   // Step 7: 删除客户（移入回收站）
-  it('Step 7: POST /api/v1/customer/delete — 移入回收站', async () => {
+  it('Step 7: POST /api/v1/customers/delete — 移入回收站', async () => {
     // deleteCustomer: 2 次 pool.query
     mockPool.query
       .mockResolvedValueOnce([[{ id: 100, owner_id: 1 }]])  // SELECT 客户
       .mockResolvedValueOnce([{ affectedRows: 1 }]);          // UPDATE deleted_at
 
     const res = await request(app)
-      .post('/api/v1/customer/delete')
+      .post('/api/v1/customers/delete')
       .set('Authorization', `Bearer ${token}`)
       .send({ id: 100 });
 

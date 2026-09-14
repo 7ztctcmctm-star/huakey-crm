@@ -68,7 +68,7 @@ describe('读写分离配置', () => {
   });
 
   it('客户新增路由应使用主库连接池', () => {
-    const detailModule = require('../../routes/customer/detail');
+    const detailModule = require('../../routes/customers');
     expect(detailModule).toBeDefined();
   });
 

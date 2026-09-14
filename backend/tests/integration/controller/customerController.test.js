@@ -62,8 +62,8 @@ jest.mock('../../../utils/fieldLog', () => ({
 // ============ Setup app ============
 const app = express();
 app.use(express.json({ limit: '5mb' }));
-const customerRoutes = require('../../../routes/customer/detail');
-app.use('/api/v1/customer', customerRoutes);
+const customerRoutes = require('../../../routes/customers');
+app.use('/api/v1/customers', customerRoutes);
 
 // 统一错误处理中间件（模拟 app.js）
 // eslint-disable-next-line no-unused-vars
@@ -81,13 +81,13 @@ describe('customerController 集成测试', () => {
     jest.clearAllMocks();
   });
 
-  describe('POST /api/v1/customer/add', () => {
+  describe('POST /api/v1/customers/add', () => {
     it('创建客户成功：调用 service、记录日志、清除缓存', async () => {
       mockAddCustomer.mockResolvedValue({ id: 42, company_name: '铧旗科技', assignedOwner: null });
       const { invalidateCache } = require('../../../middleware/cache');
 
       const res = await request(app)
-        .post('/api/v1/customer/add')
+        .post('/api/v1/customers/add')
         .send({ company_name: '铧旗科技', source: 'website', contacts: [{ name: '张三', phone: '13800138000' }] });
 
       expect(res.status).toBe(200);
@@ -104,7 +104,7 @@ describe('customerController 集成测试', () => {
 
     it('创建客户参数校验失败：缺少公司名称返回 400', async () => {
       const res = await request(app)
-        .post('/api/v1/customer/add')
+        .post('/api/v1/customers/add')
         .send({ source: 'website' });
 
       expect(res.status).toBe(400);
@@ -117,7 +117,7 @@ describe('customerController 集成测试', () => {
       mockAddCustomer.mockRejectedValue(new Error('数据库连接失败'));
 
       const res = await request(app)
-        .post('/api/v1/customer/add')
+        .post('/api/v1/customers/add')
         .send({ company_name: '铧旗科技', contacts: [{ name: '张三' }] });
 
       expect(res.status).toBe(500);
@@ -126,7 +126,7 @@ describe('customerController 集成测试', () => {
     });
   });
 
-  describe('POST /api/v1/customer/update', () => {
+  describe('POST /api/v1/customers/update', () => {
     it('修改客户成功：记录字段变更日志', async () => {
       mockUpdateCustomer.mockResolvedValue({
         customer: { id: 1, company_name: '铧旗科技' },
@@ -135,7 +135,7 @@ describe('customerController 集成测试', () => {
       const { invalidateCache } = require('../../../middleware/cache');
 
       const res = await request(app)
-        .post('/api/v1/customer/update')
+        .post('/api/v1/customers/update')
         .send({ id: 1, company_name: '铧旗科技' });
 
       expect(res.status).toBe(200);
@@ -147,7 +147,7 @@ describe('customerController 集成测试', () => {
 
     it('修改客户缺少 id：返回 400', async () => {
       const res = await request(app)
-        .post('/api/v1/customer/update')
+        .post('/api/v1/customers/update')
         .send({ company_name: '铧旗科技' });
 
       expect(res.status).toBe(400);
@@ -155,13 +155,13 @@ describe('customerController 集成测试', () => {
     });
   });
 
-  describe('POST /api/v1/customer/delete', () => {
+  describe('POST /api/v1/customers/delete', () => {
     it('删除客户成功：调用 service、记录日志、清除缓存', async () => {
       mockDeleteCustomer.mockResolvedValue(undefined);
       const { invalidateCache } = require('../../../middleware/cache');
 
       const res = await request(app)
-        .post('/api/v1/customer/delete')
+        .post('/api/v1/customers/delete')
         .send({ id: 1 });
 
       expect(res.status).toBe(200);

@@ -3,7 +3,7 @@
  *
  * 重构要点（对照评审报告 C1/C2/m8）：
  * 1. controller 只做：取参 → 调 service → 审计日志 → res.json；错误一律 next(error)
- * 2. 删除所有手写校验（routes/customer/detail.js 已挂 Joi validate 中间件，重复校验）
+ * 2. 删除所有手写校验（路由层已挂 Joi validate 中间件，重复校验）
  * 3. 删除 error.status/error.message 改写（让真实错误透传，appErrorHandler 统一渲染）
  * 4. 删除 error.code === 404/403/400/409 分支（service 改抛 AppError，由中间件分类）
  * 5. 唯一保留的“翻译点”：ER_DUP_ENTRY（DB 基础设施错误）→ AppError（领域错误），这是合理的 controller 职责

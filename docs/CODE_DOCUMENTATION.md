@@ -1210,17 +1210,20 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 
 ##### 客户来源白名单
 
-```
-展会, Facebook, Instagram, LinkedIn, 独立站, 其他网络渠道, 转介绍, 电话, 其他
-```
+> **[2026-09-14 阶段4] 已移出本文件**：`VALID_SOURCES` 与 `SOURCE_PARENT_MAP` 的权威定义在
+> `services/customerDetailService.js` 并从那里导出（`customers.js` 的 Joi schema 即引用该处）。
+> 本文件内的 `VALID_SOURCES`（零引用）已随死码清理删除；`SOURCE_PARENT_MAP` 仍作为本文件
+> 内部实现保留（取消导出），见下文「来源父级映射」。
 
-来源父级映射：`网络 → [Facebook, Instagram, LinkedIn, 独立站, 其他网络渠道]`
+来源父级映射（本文件内部使用，不再导出）：`网络 → [Facebook, Instagram, LinkedIn, 独立站, 其他网络渠道]`
 
 ##### 状态配置缓存
 
-- `loadStatusConfig(pool)`: 从 `sys_customer_status` 加载状态配置（缓存）
-- `loadStatusTransitions(pool)`: 从 `sys_customer_status_transition` 加载流转规则（缓存）
-- `clearStatusConfigCache()`: 清空缓存
+- `loadStatusConfig(pool)`: 从 `sys_customer_status` 加载状态配置（缓存，本文件内部使用）
+- `loadStatusTransitions(pool)`: 从 `sys_customer_status_transition` 加载流转规则（缓存，本文件内部使用）
+
+> **[2026-09-14 阶段4]** `clearStatusConfigCache()` 与 `getDefaultStatus()` 经全仓扫描确认
+> 零路由 / 零测试 / 本文件内亦无调用，已随死码清理删除。
 
 ##### `listCustomers(pool, params, permission)`
 
@@ -1313,13 +1316,8 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 **返回**: `{ fromUserId }`  
 **副作用**: 写入 `crm_assign_log` 日志，重置 `pool_status='private'`、清除 `protect_until`
 
-#### `batchAssignCustomers(pool, customerIds, toUserId, operatorId, remark)`
-
-批量分配客户负责人（事务保护）。
-
-**优化**: 批量查询 + 批量 UPDATE + 批量 INSERT 日志（各 1 次 SQL），避免循环。
-
-**返回**: `{ count }`
+> **[2026-09-14 阶段4]** `batchAssignCustomers()` 经全仓扫描确认零路由 / 零测试 /
+> 本文件内亦无调用（批量分配能力由 `assignService.batchAssign` 承接），已随死码清理删除。
 
 #### `claimCustomer(pool, customerId, userId)`
 
@@ -1944,19 +1942,14 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 
 **关键设计**: 验证码 Redis 优先+内存降级；token 黑名单主动失效；/auth/me 短 TTL 缓存。
 
-#### leadsService.js（~272行）
+#### ~~leadsService.js~~（已于 2026-09-14 阶段4 删除）
 
-| 函数 | 说明 |
-|------|------|
-| `getLeadsList` | 线索分页列表 |
-| `convertLead` | 线索转化（事务保护） |
-| `batchConvert` | 批量转化 |
-| `importLeads` | 批量导入 |
-| `claimLead` | 领取线索 |
-| `markLeadLost` | 标记流失 |
-| `getLeadsStats` | 线索统计 |
-
-**关键设计**: @deprecated，线索已整合为客户"潜客"阶段；权限按角色分层。
+> **已删除（2026-09-14 阶段4 登记项清理）**：旧版线索服务 `backend/services/leadsService.js`
+> 的 7 个方法（`getLeadsList` / `convertLead` / `batchConvert` / `importLeads` / `claimLead` /
+> `markLeadLost` / `getLeadsStats`）在阶段3 删除 `customerController` 的对应包装后，
+> 已**无任何生产调用方**，仅由 `tests/unit/services-leadsService.test.js` 覆盖。
+> 本轮连同该测试一并删除。潜客能力现由 `/api/v1/leads`（`leads.js` → `customerService` 的
+> `listLeads` / `convertLeadToCustomer`）承接。
 
 #### assignService.js（~305行）
 
@@ -2654,7 +2647,7 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 **业务规则**:
 - 正式客户 = `business_status IN ('following','quoted','negotiating','signed') AND pool_status='private'`
 - 线索客户（`business_status='lead'`）不在此页面展示
-- 旧端点 `/api/v1/customer/*` 保留，内部调用相同 controller
+- **[2026-09-14 阶段4] 旧端点 `/api/v1/customer/*` 已整树下线**，本命名空间为唯一入口
 
 **阶段3 补充（2026-09-14「只扩不收」）**: `/api/v1/customers` 除本文件外，还通过
 `app.js` 复挂 4 个「能力型」子路由（**复用同一 router 对象，无重复实现**）：
@@ -2666,9 +2659,11 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 | `/customers` | `routes/customer/import.js` | `GET /template`；`POST /import`、`/import-preview`、`/import-confirm` |
 | `/customers` | `routes/customer/detailExtras.js` | `GET /:id/360`、`/overdue`、`/near-recycle` |
 
-> 同一批端点同时响应 `/api/v1/customer/*`（老树兼容层，保留至 v2）。前端已全部切至
-> `/customers/*`。路由无冲突：本文件无通配 `/:id`，不会吞掉 `/assign`、`/template` 等。
-> 详见 `docs/crm-customer-api-port-map.md` §3.4 / §八。
+> **阶段4（2026-09-14）**：老树 `/api/v1/customer/*` 已整树下线——`routes/customer/module.js`、
+> `routes/customer/index.js`、`routes/customer/detail.js` 删除，`app.js` 移除模块注册。
+> 上述 4 个能力子路由现在**只**挂在 `/customers/*`。前端早已全量切至 `/customers/*`。
+> 路由无冲突：本文件无通配 `/:id`，不会吞掉 `/assign`、`/template` 等。
+> 详见 `docs/crm-customer-api-port-map.md` §3.4 / §十。
 
 #### 10.2.2 线索路由 leads.js
 
@@ -2883,7 +2878,7 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 | `/user` | `routes/user.js` | 用户管理 |
 | `/leads` | `routes/leads.js` | 线索管理 |
 | `/pool` | `routes/pool.js` | 公海管理 |
-| `/customers` | `routes/customers.js` + `customer/contact` + `customer/assign` + `customer/import` + `customer/detailExtras` | 正式客户管理（阶段3：能力子路由同前缀复挂） |
+| `/customers` | `routes/customers.js` + `customer/contact` + `customer/assign` + `customer/import` + `customer/detailExtras` | 正式客户管理（阶段4：老树 `/customer/*` 下线，唯一命名空间） |
 | `/follow-up` | `routes/followUp.js` | 跟进管理 |
 | `/opportunity` | `routes/opportunity.js` | 商机管理 |
 | `/quote` | `routes/quote.js` | 报价管理 |
@@ -3203,30 +3198,37 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 
 ### 10c.5 客户子路由/模块注册/聚合路由
 
-#### customer/contact.js（~85行，/api/v1/customer/contact）
+#### customer/contact.js（~85行，/api/v1/customers/contact）
 
 4个端点：联系人CRUD。通过canManageCustomer校验客户管理权。支持决策人/首要联系人双标记。
+（`canManageCustomer` 现直接取自 `services/customerDetailService`；原从 `./detail` 转出的导出已随阶段4 删除。）
 
-#### customer/detail.js（~250行，/api/v1/customer）
+#### ~~customer/detail.js~~（已于 2026-09-14 阶段4 删除）
 
-8个端点：客户CRUD+详情+导出+状态推进/回退。（2026-09-14 阶段3：`/:id/360`、`/overdue`、`/near-recycle` 抽出为 `detailExtras.js`，本文件改为 `router.use('/', detailExtras)` 挂载。）checkDataPermission('customer','owner_id')。createCache(300)列表缓存。导出VALID_SOURCES/SOURCE_PARENT_MAP/canManageCustomer供复用。
+> 原 8 个端点：客户CRUD + 详情 + 导出 + 状态推进/回退。**阶段3** 已将 `/:id/360`、`/overdue`、
+> `/near-recycle` 抽出为 `detailExtras.js`；**阶段4** 老树整树下线后，其路由文件与 `module.js`、
+> `index.js` 一并删除。CRUD/详情/导出/状态机现由 `routes/customers.js` 唯一提供；
+> 其导出的 `VALID_SOURCES`/`SOURCE_PARENT_MAP`/`canManageCustomer` 中，前两者的权威定义已归于
+> `customerDetailService`，`canManageCustomer` 亦改由 `contact.js` 直连 `customerDetailService`。
 
-#### customer/detailExtras.js（~40行，双前缀）
+#### customer/detailExtras.js（~40行，/api/v1/customers）
 
 3个端点：`GET /:id/360`、`GET /overdue`、`GET /near-recycle`（均 `customer:view` + `checkDataPermission`）。
-2026-09-14 阶段3 从 `detail.js` 抽出，由 `app.js` 同时挂到 `/api/v1/customers` 与老树 `/api/v1/customer`（复用同一 router 对象，无重复实现）。
+2026-09-14 阶段3 从 `detail.js` 抽出；阶段4 老树下线后**只**挂到 `/api/v1/customers`（复用同一 router 对象，无重复实现）。
 
-#### customer/import.js（~97行，/api/v1/customer）
+#### customer/import.js（~97行，/api/v1/customers）
 
 4个端点：模板下载/异步导入(202)/预览/确认。multer memoryStorage+10MB+.xlsx/.xls/.csv。异步导入通过enqueue消息队列。
 
-#### customer/index.js（~29行，聚合路由）
+#### ~~customer/index.js~~（已于 2026-09-14 阶段4 删除）
 
-聚合挂载4个子路由：detail(/) + contact(/contact) + assign(/) + import()。（2026-09-14 阶段2 移除 center(/) 与 POST /convert-to-customer；废弃的 pool.js/leads.js/quality.js 仍不挂载）
+> 原聚合路由挂载 detail(/) + contact(/contact) + assign(/) + import()。阶段4 整树下线时删除；
+> 阶段3 起上述能力子路由已由 `app.js` 直接复挂到 `/customers`，不再需要旧树聚合器。
 
-#### customer/module.js（~21行，模块注册）
+#### ~~customer/module.js~~（已于 2026-09-14 阶段4 删除）
 
-ModuleRegistry.register('customer', {routes, permissions})。9个权限点：customer:view/add/edit/delete/assign/import/release + pool:view/claim。（2026-09-14 移除 customer:list，路由已统一为 customer:view）
+> 原 `ModuleRegistry.register('customer', {...})`（9 个权限点）。阶段4 从 `app.js` 移除注册并删除文件。
+> **无权限点丢失**：`getAllPermissions()` 仅被单元测试消费，权限点数据来自迁移（021/098 等），非代码注册。
 
 #### dataManagement/module.js（~17行，模块注册）
 
@@ -3283,6 +3285,9 @@ ModuleRegistry.register('report', {routes, permissions})。1个权限点：repor
 > `batchConvertLeads`、`importLeads`、`claimLead`、`markLeadLost`、`getLeadsStats` —— 在 Phase 5 把线索
 > API 迁到 `/api/v1/leads` 后成为**零路由 / 零测试引用**的死码，已连同失效的 `leadsService` 导入一并删除。
 > 线索列表 / 转化现由 `listLeadPool` / `convertLeadToFormal` 承载（`routes/leads.js`）。
+>
+> **阶段4 收尾（2026-09-14）**：其底层服务 `backend/services/leadsService.js` 与
+> `tests/unit/services-leadsService.test.js` 也已一并删除（详见 9.x 服务层说明）。
 
 **分配管理**:
 

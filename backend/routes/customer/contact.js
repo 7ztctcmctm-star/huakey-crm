@@ -3,8 +3,12 @@ const pool = require('../../config/database');
 const { authenticateToken } = require('../../middleware/auth');
 const { checkPermission } = require('../../middleware/permission');
 const { validate, Joi } = require('../../middleware/validate');
-const { canManageCustomer } = require('./detail');
+const customerDetailService = require('../../services/customerDetailService');
 const contactService = require('../../services/contactRouteService');
+
+// [2026-09-14 阶段4] 原从 './detail' 引入 canManageCustomer；detail.js 已随老树下线删除，
+// 改为直接绑定 customerDetailService（其本就是对 canManageCustomer 的唯一实现）。
+const canManageCustomer = (user, ownerId) => customerDetailService.canManageCustomer(pool, user, ownerId);
 
 const addContactSchema = Joi.object({
   customer_id: Joi.number().integer().positive().required(),

@@ -95,8 +95,10 @@ export default function () {
   sleep(0.2);
 
   // 3. 客户列表
+  // [2026-09-14 阶段4] 老树 /api/v1/customer 已下线；客户列表现为 POST /api/v1/customers/list
   group('customer_list', () => {
-    const res = http.get(`${BASE_URL}/api/v1/customer?page=1&pageSize=20`, { headers: authHeaders });
+    const res = http.post(`${BASE_URL}/api/v1/customers/list`, JSON.stringify({ page: 1, pageSize: 20 }),
+      { headers: { ...authHeaders, 'Content-Type': 'application/json' } });
     customerListDuration.add(res.timings.duration);
     check(res, {
       'customer list status 200': (r) => r.status === 200,

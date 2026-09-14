@@ -74,8 +74,8 @@ function post(ctx, csrfToken, url, data) {
  *   这也是产品里真实的路径，比强行指定 owner 更能代表实际使用。
  */
 async function createCustomerAs(actor, companyName) {
-  // 用单数前缀 /customer/add（customer 模块），与 assign、detail 保持同一套
-  const res = await post(actor.ctx, actor.csrfToken, `${API}/customer/add`, {
+  // [2026-09-14 阶段4] 老树 /customer/* 已下线，全部走复数的 /customers/*
+  const res = await post(actor.ctx, actor.csrfToken, `${API}/customers/add`, {
     company_name: companyName,
     contacts: [{ name: 'E2E联系人', phone: '13900000000' }],
     // source 必须是 customerDetailService.VALID_SOURCES 中的中文展示值（不是英文 code）
@@ -110,11 +110,9 @@ async function createCustomerAs(actor, companyName) {
  * 分配接口需 customer:assign + requireManager，demo_sales 无此权限，故必须用 admin 操作。
  */
 async function assignTo(adminActor, customerId, toUserId) {
-  // ⚠️ 路径是 /customer/assign（单数）——由 ModuleRegistry 以 `/<name>` 前缀挂载
-  // （backend/core/ModuleRegistry.js:31），routes/customer/assign.js 挂在其中。
-  // 注意与 /customers/add（复数，backend/app.js:314 手工挂载）区分：
-  // 项目里 customer 与 customers 两套前缀并存，改动时极易踩错。
-  const res = await post(adminActor.ctx, adminActor.csrfToken, `${API}/customer/assign`, {
+  // [2026-09-14 阶段4] 老树 /customer/* 已下线；assign 现挂在 /customers/assign
+  // （backend/app.js）——项目已收敛为 /customers、/leads、/pool 唯一一套命名空间。
+  const res = await post(adminActor.ctx, adminActor.csrfToken, `${API}/customers/assign`, {
     customer_id: customerId,
     to_user_id: toUserId
   })
@@ -140,10 +138,10 @@ async function setupCustomerOwnedBy(a, adminActor, companyName) {
 
 /** 读客户当前负责人（需要 customer:view + 数据范围；用 owner 自己或 admin 查） */
 async function ownerOf(actor, customerId) {
-  // 用单数前缀 /customer/detail/:id：该路由只做 checkDataPermission，
-  // 而复数 /customers/detail/:id 额外要求 customer:view。
-  // admin(manageAll) 两条都能过，但单数路径对角色要求更少，更稳。
-  const res = await actor.ctx.get(`${API}/customer/detail/${customerId}`, {
+  // [2026-09-14 阶段4] 统一走 /customers/detail/:id（需 customer:view + 数据范围）。
+  // 老树 /customer/detail/:id 已下线；且阶段1 已给它补过 checkPermission('customer:view')，
+  // 两套前缀的密级本就已一致。
+  const res = await actor.ctx.get(`${API}/customers/detail/${customerId}`, {
     headers: { 'x-csrf-token': actor.csrfToken }
   })
   const body = await res.json()

@@ -95,12 +95,12 @@ app.use(express.json());
 
 // 真实路由
 const userRoutes = require('../routes/user');
-const customerRoutes = require('../routes/customer');
+const customerRoutes = require('../routes/customers');
 const approvalRoutes = require('../routes/approval');
 const logRoutes = require('../routes/log');
 
 app.use('/api/v1/user', userRoutes);
-app.use('/api/v1/customer', customerRoutes);
+app.use('/api/v1/customers', customerRoutes);
 app.use('/api/v1/approval', approvalRoutes);
 app.use('/api/v1/log', logRoutes);
 app.use(appErrorHandler);
@@ -241,9 +241,9 @@ describe('权限矩阵测试', () => {
     });
   });
 
-  describe('POST /api/v1/customer/add — ADMIN / MANAGER / SALES 可访问', () => {
+  describe('POST /api/v1/customers/add — ADMIN / MANAGER / SALES 可访问', () => {
     const endpoint = (app) => request(app)
-      .post('/api/v1/customer/add')
+      .post('/api/v1/customers/add')
       .send({ company_name: '测试公司', contacts: [{ name: '张三', phone: '13800138000' }] });
 
     it('ADMIN → 200', async () => {

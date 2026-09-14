@@ -15,12 +15,12 @@
  *   POST /backward      - 状态回退                         [customer:edit]
  *   POST /export        - 导出客户                         [customer:view]
  *
- * 兼容说明: 旧端点 POST /api/v1/customer/* 保留，内部调用相同的 controller 方法。
- *           [2026-09-14 订正] 前端**已完成切换**——列表/增删改/详情/导出/状态推进回退
- *           全部走本文件（/api/v1/customers/*）。旧树中仍在用的只剩「能力型」端口
- *           （assign / contact / :id/360 / assign-rules / template / import-preview /
- *             import-confirm / overdue / near-recycle / sales-users），
- *           其余 CRUD 兼容端口已无前端引用，属待清理项。详见 docs/crm-customer-api-port-map.md
+ * 兼容说明: [2026-09-14 阶段4] 老树 /api/v1/customer/* 已整树下线，
+ *           本文件（/api/v1/customers/*）是客户中心 API 的**唯一命名空间**。
+ *           原「能力型」端口（assign / contact / :id/360 / assign-rules / template /
+ *             import-preview / import-confirm / overdue / near-recycle / sales-users）
+ *           已在阶段3通过复用同一 router 对象重新挂载到本命名空间（见 app.js）。
+ *           详见 docs/crm-customer-api-port-map.md
  */
 
 const express = require('express');
@@ -140,7 +140,7 @@ router.post('/',
   customerController.listFormal
 );
 
-// 全量客户列表（兼容旧 /customer/list 端点）
+// 全量客户列表（含线索/公海，供内部筛选与对外集成）
 router.post('/list',
   authenticateToken,
   checkPermission('customer:view'),

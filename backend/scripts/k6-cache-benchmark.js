@@ -40,7 +40,7 @@ export default function () {
     {
       name: 'customer/list',
       method: 'POST',
-      url: `${API_BASE}/api/v1/customer/list`,
+      url: `${API_BASE}/api/v1/customers/list`,
       body: JSON.stringify({ page: 1, pageSize: 20 })
     },
     {

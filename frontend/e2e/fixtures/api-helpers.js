@@ -136,7 +136,7 @@ export async function convertLeadToFormal(request, csrfToken, customerId) {
  * @param {number} customerId
  */
 export async function getCustomerDetail(request, csrfToken, customerId) {
-  const res = await request.get(`/api/v1/customer/detail/${customerId}`, {
+  const res = await request.get(`/api/v1/customers/detail/${customerId}`, {
     headers: { 'X-CSRF-Token': csrfToken }
   })
   return res.json()
@@ -167,7 +167,7 @@ export async function listLeadsPoolCustomers(request, csrfToken, companyName) {
  * @param {object} data
  */
 export async function createCustomer(request, csrfToken, data) {
-  const res = await request.post('/api/v1/customer/add', {
+  const res = await request.post('/api/v1/customers/add', {
     data: {
       company_name: data.companyName,
       contacts: data.contacts || [{ name: 'E2E联系人', phone: '13800138000' }],
@@ -402,7 +402,7 @@ export async function getMyPending(request, csrfToken) {
  * @param {number} customerId
  */
 export async function deleteCustomer(request, csrfToken, customerId) {
-  const res = await request.post('/api/v1/customer/delete', {
+  const res = await request.post('/api/v1/customers/delete', {
     data: { id: customerId },
     headers: { 'X-CSRF-Token': csrfToken }
   })
@@ -483,7 +483,7 @@ export async function getOpportunityStageLog(request, csrfToken, opportunityId) 
  * @param {object} params
  */
 export async function listCustomers(request, csrfToken, params = {}) {
-  const res = await request.post('/api/v1/customer/list', {
+  const res = await request.post('/api/v1/customers/list', {
     data: {
       page: params.page || 1,
       pageSize: params.pageSize || 100

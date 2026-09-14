@@ -54,9 +54,9 @@ describe('客户生命周期', () => {
     await pool.query('DELETE FROM sys_user WHERE username = ?', [ADMIN.username]);
   });
 
-  test('POST /api/v1/customer/add 创建客户', async () => {
+  test('POST /api/v1/customers/add 创建客户', async () => {
     const res = await agent
-      .post('/api/v1/customer/add')
+      .post('/api/v1/customers/add')
       .send({
         company_name: '集成测试公司',
         contacts: [{ name: '张三', phone: '+8613800138000' }],
@@ -125,9 +125,9 @@ describe('客户生命周期', () => {
     expect(rows.length).toBeGreaterThanOrEqual(1);
   });
 
-  test('POST /api/v1/customer/delete 软删除客户', async () => {
+  test('POST /api/v1/customers/delete 软删除客户', async () => {
     const res = await agent
-      .post('/api/v1/customer/delete')
+      .post('/api/v1/customers/delete')
       .send({ id: customerId })
       .expect(200);
 

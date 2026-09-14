@@ -29,7 +29,7 @@ const app = express();
 app.use(express.json());
 
 const contactRoutes = require('../routes/customer/contact');
-app.use('/api/v1/customer/contact', contactRoutes);
+app.use('/api/v1/customers/contact', contactRoutes);
 app.use(appErrorHandler);
 app.use(globalErrorHandler);
 
@@ -42,13 +42,13 @@ describe('客户联系人模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('POST /api/v1/customer/contact/add', () => {
+  describe('POST /api/v1/customers/contact/add', () => {
     it('应该返回400当缺少name字段', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/v1/customer/contact/add')
+        .post('/api/v1/customers/contact/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: 1 });
 
@@ -67,7 +67,7 @@ describe('客户联系人模块', () => {
         .mockResolvedValueOnce([{ insertId: 10 }]); // insert contact
 
       const res = await request(app)
-        .post('/api/v1/customer/contact/add')
+        .post('/api/v1/customers/contact/add')
         .set('Authorization', `Bearer ${token}`)
         .send({ customer_id: 1, name: '张三', phone: '13800138000', position: '采购经理' });
 
@@ -77,13 +77,13 @@ describe('客户联系人模块', () => {
     });
   });
 
-  describe('POST /api/v1/customer/contact/update', () => {
+  describe('POST /api/v1/customers/contact/update', () => {
     it('应该返回400当缺少id字段', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/v1/customer/contact/update')
+        .post('/api/v1/customers/contact/update')
         .set('Authorization', `Bearer ${token}`)
         .send({ name: '张三' });
 
@@ -101,7 +101,7 @@ describe('客户联系人模块', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
 
       const res = await request(app)
-        .post('/api/v1/customer/contact/update')
+        .post('/api/v1/customers/contact/update')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1, name: '张三改', phone: '13900139000' });
 
@@ -113,7 +113,7 @@ describe('客户联系人模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .post('/api/v1/customer/contact/add')
+        .post('/api/v1/customers/contact/add')
         .send({ customer_id: 1, name: '张三' });
 
       expect(res.status).toBe(401);

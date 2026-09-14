@@ -21,7 +21,7 @@ function createApp(corsOrigin) {
   }));
 
   app.get('/api/v1/health', (req, res) => res.json({ code: 200, message: 'ok' }));
-  app.post('/api/v1/customer', (req, res) => res.json({ code: 200, message: 'ok' }));
+  app.post('/api/v1/customers', (req, res) => res.json({ code: 200, message: 'ok' }));
 
   // 错误处理
   // eslint-disable-next-line no-unused-vars
@@ -37,7 +37,7 @@ describe('CORS 安全配置', () => {
     it('应返回正确的 CORS 头', async () => {
       const app = createApp();
       const res = await request(app)
-        .options('/api/v1/customer')
+        .options('/api/v1/customers')
         .set('Origin', 'https://crm.example.com')
         .set('Access-Control-Request-Method', 'POST')
         .set('Access-Control-Request-Headers', 'Content-Type,Authorization');
@@ -51,7 +51,7 @@ describe('CORS 安全配置', () => {
     it('应拒绝不安全的请求方法（如 TRACE）', async () => {
       const app = createApp();
       const res = await request(app)
-        .options('/api/v1/customer')
+        .options('/api/v1/customers')
         .set('Origin', 'https://crm.example.com')
         .set('Access-Control-Request-Method', 'TRACE')
         .set('Access-Control-Request-Headers', 'Content-Type');

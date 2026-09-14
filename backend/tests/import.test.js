@@ -29,7 +29,7 @@ const app = express();
 app.use(express.json());
 
 const importRoutes = require('../routes/customer/import');
-app.use('/api/v1/customer', importRoutes);
+app.use('/api/v1/customers', importRoutes);
 app.use(appErrorHandler);
 app.use(globalErrorHandler);
 
@@ -42,13 +42,13 @@ describe('客户导入模块', () => {
 
   beforeEach(() => { mockPool.query.mockReset(); });
 
-  describe('GET /api/v1/customer/template', () => {
+  describe('GET /api/v1/customers/template', () => {
     it('应该返回导入模板文件', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .get('/api/v1/customer/template')
+        .get('/api/v1/customers/template')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
@@ -56,13 +56,13 @@ describe('客户导入模块', () => {
     });
   });
 
-  describe('POST /api/v1/customer/import-preview', () => {
+  describe('POST /api/v1/customers/import-preview', () => {
     it('应该返回400当缺少file', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
-        .post('/api/v1/customer/import-preview')
+        .post('/api/v1/customers/import-preview')
         .set('Authorization', `Bearer ${token}`)
         .send({});
 
@@ -87,7 +87,7 @@ describe('客户导入模块', () => {
       const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
       const res = await request(app)
-        .post('/api/v1/customer/import-preview')
+        .post('/api/v1/customers/import-preview')
         .set('Authorization', `Bearer ${token}`)
         .attach('file', buf, { filename: 'test.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 
@@ -101,7 +101,7 @@ describe('客户导入模块', () => {
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
-        .get('/api/v1/customer/template');
+        .get('/api/v1/customers/template');
 
       expect(res.status).toBe(401);
     });

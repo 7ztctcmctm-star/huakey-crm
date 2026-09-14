@@ -170,9 +170,10 @@ const { apiLimiter } = require('./middleware/rateLimiter');
 // 统一响应格式中间件
 const responseFormat = require('./middleware/responseFormat');
 
-// 模块注册器（试点：customer、product、report）
+// 模块注册器（试点：product、report）
+// [2026-09-14 阶段4] customer 模块已下线：老树 /api/v1/customer/* 不再挂载。
+// 其能力路由（contact/assign/import/detailExtras）现由下方 apiRouter.use('/customers', ...) 直接挂载。
 const registry = require('./core/ModuleRegistry');
-require('./routes/customer/module');
 require('./routes/product/module');
 require('./routes/report/module');
 require('./routes/dataManagement/module'); // 数据管理域（质量检查剥离，Prompt 4-5）
@@ -308,14 +309,15 @@ for (const { prefix, router } of registry.getAllRoutes()) {
   apiRouter.use(prefix, router);
 }
 
-// Phase 5：客户中心 API 独立化（旧 /customer/* 端点保留为兼容层，内部调用相同 controller）
+// 客户中心 API —— 唯一命名空间：/customers、/leads、/pool
+// [2026-09-14 阶段4] 老树 /api/v1/customer/* 已整树下线（ModuleRegistry 注册移除 +
+// routes/customer/{module,index,detail}.js 删除）；CRUD 由 routes/customers.js 承载。
 apiRouter.use('/leads', require('./routes/leads'));
 apiRouter.use('/pool', require('./routes/pool'));
 apiRouter.use('/customers', require('./routes/customers'));
 
-// 阶段3（2026-09-14）：把老树的「能力型」子路由同样挂到 /customers 下，
-// 使前端只依赖一套命名空间（/customers、/leads、/pool）。
-// 复用同一批 router 对象 → 无重复实现；老树 /customer/* 作为兼容层保留至 v2（公开 API 契约）。
+// 客户域「能力型」子路由（阶段3 复挂；阶段4 后为唯一挂载点）。
+// 复用这些 router 对象，无重复实现。
 apiRouter.use('/customers/contact', require('./routes/customer/contact'));
 apiRouter.use('/customers', require('./routes/customer/assign'));
 apiRouter.use('/customers', require('./routes/customer/import'));

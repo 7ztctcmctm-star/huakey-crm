@@ -41,13 +41,14 @@ describe('ModuleRegistry', () => {
     process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret';
 
     // 模拟 app.js 加载模块
-    require('../../../routes/customer/module');
+    // [2026-09-14 阶段4] 客户中心老树（routes/customer/module.js）已下线，
+    // 客户接口改由 app.js 直接挂载 /customers 命名空间，不再走模块注册器。
     require('../../../routes/product/module');
     require('../../../routes/report/module');
 
     const mainRoutes = ModuleRegistry.getAllRoutes();
     const names = mainRoutes.map(r => r.name);
-    expect(names).toContain('customer');
+    expect(names).not.toContain('customer');
     expect(names).toContain('product');
     expect(names).toContain('report');
   });

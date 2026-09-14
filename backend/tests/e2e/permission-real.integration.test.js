@@ -193,9 +193,9 @@ describe('权限链路测试（真实数据库）', () => {
     expect(res.body.code).toBe(403);
   });
 
-  test('4. manager 访问 POST /api/v1/customer/add → 200（有 customer:add 权限）', async () => {
+  test('4. manager 访问 POST /api/v1/customers/add → 200（有 customer:add 权限）', async () => {
     const res = await request(app)
-      .post('/api/v1/customer/add')
+      .post('/api/v1/customers/add')
       .set('Authorization', `Bearer ${tokens.manager}`)
       .send({
         company_name: '权限测试_经理创建公司',
@@ -213,9 +213,9 @@ describe('权限链路测试（真实数据库）', () => {
     }
   });
 
-  test('5. sales 访问 POST /api/v1/customer/add → 200（有 customer:add 权限）', async () => {
+  test('5. sales 访问 POST /api/v1/customers/add → 200（有 customer:add 权限）', async () => {
     const res = await request(app)
-      .post('/api/v1/customer/add')
+      .post('/api/v1/customers/add')
       .set('Authorization', `Bearer ${tokens.sales_a}`)
       .send({
         company_name: '权限测试_销售A创建公司',
@@ -243,7 +243,7 @@ describe('权限链路测试（真实数据库）', () => {
   test('7. 数据权限 self 模式：sales_a 创建的客户，sales_b 看不到', async () => {
     // sales_a 创建一个客户
     const createRes = await request(app)
-      .post('/api/v1/customer/add')
+      .post('/api/v1/customers/add')
       .set('Authorization', `Bearer ${tokens.sales_a}`)
       .send({
         company_name: '数据权限隔离测试公司',
@@ -264,7 +264,7 @@ describe('权限链路测试（真实数据库）', () => {
     try {
       // sales_b 查询客户列表 — 应看不到 sales_a 创建的客户
       const listRes = await request(app)
-        .post('/api/v1/customer/list')
+        .post('/api/v1/customers/list')
         .set('Authorization', `Bearer ${tokens.sales_b}`)
         .send({ page: 1, pageSize: 100 });
 
@@ -275,7 +275,7 @@ describe('权限链路测试（真实数据库）', () => {
 
       // sales_a 查询客户列表 — 应能看到自己创建的客户
       const listResA = await request(app)
-        .post('/api/v1/customer/list')
+        .post('/api/v1/customers/list')
         .set('Authorization', `Bearer ${tokens.sales_a}`)
         .send({ page: 1, pageSize: 100 });
 

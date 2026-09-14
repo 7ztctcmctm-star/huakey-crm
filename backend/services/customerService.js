@@ -17,15 +17,8 @@ const { paginatedQuery } = require('../utils/pagination');
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
 
-// 客户来源白名单
-const VALID_SOURCES = [
-  '展会',
-  'Facebook', 'Instagram', 'LinkedIn', '独立站', '其他网络渠道',
-  '转介绍',
-  '电话',
-  '其他'
-];
-
+// 来源父子映射（'网络' → 子渠道列表）。VALID_SOURCES 白名单已随阶段4 死码清理移除
+// （权威定义见 services/customerDetailService.js 并从那里导出）。
 const SOURCE_PARENT_MAP = {
   '网络': ['Facebook', 'Instagram', 'LinkedIn', '独立站', '其他网络渠道']
 };
@@ -104,23 +97,6 @@ async function loadStatusTransitions(pool) {
   );
   statusTransitionCache = rows;
   return rows;
-}
-
-/**
- * 清空状态配置缓存（状态配置变更时调用）
- */
-function clearStatusConfigCache() {
-  statusConfigCache = null;
-  statusTransitionCache = null;
-}
-
-/**
- * 获取默认状态 code
- */
-async function getDefaultStatus(pool) {
-  const configs = await loadStatusConfig(pool);
-  const defaultStatus = configs.find(s => s.is_default === 1);
-  return defaultStatus ? defaultStatus.code : CUSTOMER_STATUS.FOLLOWING;
 }
 
 /**
@@ -508,58 +484,6 @@ async function assignCustomer(pool, customerId, toUserId, operatorId, remark) {
   );
 
   return { fromUserId };
-}
-
-/**
- * 批量分配客户负责人（事务保护）
- * @param {object} pool
- * @param {number[]} customerIds
- * @param {number|null} toUserId
- * @param {number} operatorId
- * @param {string} [remark]
- * @returns {{ count: number }}
- */
-async function batchAssignCustomers(pool, customerIds, toUserId, operatorId, remark) {
-  const connection = await pool.getConnection();
-  try {
-    await connection.beginTransaction();
-
-    // 批量查询所有客户（1次 SQL）
-    const placeholders = customerIds.map(() => '?').join(',');
-    const [allCustomers] = await connection.query(
-      `SELECT id, company_name, owner_id FROM crm_customer WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
-      customerIds
-    );
-    // 批量 UPDATE（1次 SQL）
-    const existingIds = allCustomers.map(c => c.id);
-    if (existingIds.length > 0) {
-      await connection.query(
-        `UPDATE crm_customer SET owner_id = ?, pool_status = ?, protect_until = NULL WHERE id IN (${existingIds.map(() => '?').join(',')})`,
-        [toUserId, POOL_STATUS.PRIVATE, ...existingIds]
-      );
-
-      // 批量 INSERT 分配日志（1次 SQL）
-      const logValues = [];
-      const logParams = [];
-      for (const c of allCustomers) {
-        logValues.push('(?, ?, ?, ?, ?)');
-        logParams.push(c.id, c.owner_id, toUserId, operatorId, remark || null);
-      }
-      await connection.query(
-        `INSERT INTO crm_assign_log (customer_id, from_user_id, to_user_id, operator_id, remark) VALUES ${logValues.join(',')}`,
-        logParams
-      );
-    }
-    const successCount = allCustomers.length;
-
-    await connection.commit();
-    return { count: successCount };
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
 }
 
 /**
@@ -1207,22 +1131,20 @@ async function claimPoolCustomer(pool, customerId, userId) {
 }
 
 module.exports = {
-  VALID_SOURCES,
-  SOURCE_PARENT_MAP,
+  // [2026-09-14 阶段4] 移除零引用导出面：VALID_SOURCES / SOURCE_PARENT_MAP /
+  // batchAssignCustomers / loadStatusConfig / loadStatusTransitions /
+  // getDefaultStatus / clearStatusConfigCache。
+  // 其中 SOURCE_PARENT_MAP / loadStatusConfig / loadStatusTransitions 仍为
+  // 本文件内部实现（仅取消导出）；其余四项已随本次死码清理整体删除。
   listCustomers,
   getCustomer,
   transitionStatus,
   forwardStatus,
   backwardStatus,
   assignCustomer,
-  batchAssignCustomers,
   claimCustomer,
   releaseCustomer,
-  loadStatusConfig,
-  loadStatusTransitions,
   canTransition,
-  getDefaultStatus,
-  clearStatusConfigCache,
   getOverdueCustomers,
   getNearRecycleCustomersList,
   // Phase 2: 三页面查询

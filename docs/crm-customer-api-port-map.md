@@ -12,25 +12,28 @@
 客户域原有 **4 条已挂载的路由树、共 61 个端点**。
 经 **阶段 2（2026-09-14）移除 7 个零依赖重复端点**后，现为 **54 个端点**（下表为阶段2后口径）。
 经 **阶段 3（2026-09-14）「只扩不收」**后，老树的 **10 个能力型端点**已**同时**挂载到
-`/api/v1/customers/*`（复用同一 router 对象，**无重复实现**），前端 18 处调用全部切到 `/customers/*`；
-`/api/v1/customer/*` 作为**兼容层原样保留至 v2**。故**端点定义数不变（54）**，但**权威命名空间收敛为 `/customers`**。
+`/api/v1/customers/*`（复用同一 router 对象，**无重复实现**），前端 18 处调用全部切到 `/customers/*`。
+经 **阶段 4（2026-09-14）老树整树下线**后，`/api/v1/customer/*` **彻底移除**，
+客户域收敛为**单一命名空间 `/api/v1/customers`**（端点定义数不变，仍是 54，只是不再有兼容副本）。
 
 | 路由树 | 挂载点 | 来源文件 | 挂载方式 | 端点数 | 前端在用 | 0 引用 |
 |---|---|---|---|---|---|---|
-| A 新树 | `/api/v1/customers` | `routes/customers.js` + 阶段3 复挂的 4 个能力路由 | 直接 `use` | 9（+10 能力端点复挂） | 19 | 0 |
-| B 老树 | `/api/v1/customer` | `routes/customer/`（**5 文件**） | **ModuleRegistry 自动挂载** | **34** | 0（阶段3 后仅作兼容层） | **34** |
+| A 新树 | `/api/v1/customers` | `routes/customers.js` + 4 个能力路由 | 直接 `use` | 9（+10 能力端点复挂） | 19 | 0 |
+| ~~B 老树~~ | ~~`/api/v1/customer`~~ | ~~`routes/customer/`~~ | — | **0（阶段4 整树下线）** | — | — |
 | C 线索 | `/api/v1/leads` | `routes/leads.js` | 直接 `use` | 2 | 2 | 0 |
 | D 公海 | `/api/v1/pool` | `routes/pool.js` | 直接 `use` | 9 | 9 | 0 |
-| **合计** | | | | **54** | **30** | **34** |
+| **合计** | | | | **54** | **30** | **24（已随老树一并下线）** |
 
-> 阶段3 后 B 树「前端在用」降为 **0**——所有消费面已切到 A 树；B 树仍在线以承接
-> 已发布的外部 API 集成（`api-platform` 契约），故保留。
+> 阶段3 后 B 树「前端在用」降为 **0**；阶段4 直接把 B 树从 `app.js` 摘除并删除
+> `routes/customer/{module,index,detail}.js`。原先「保留至 v2 的已发布外部 API 契约」
+> 经用户确认后**解冻**：该契约从未真正对外交付，且前端早已全量切至 A 树。
 
-**核心判断**：老树 `/api/v1/customer` **不是**整体死代码——它是「一半僵尸 + 一半一等公民」的混合体：
+**核心判断（阶段3 时）**：老树 `/api/v1/customer` 曾是「一半僵尸 + 一半一等公民」的混合体；
+**阶段4 后该判断失效**——老树整体不存在，24 个僵尸端点与 10 个能力端点均改由 A 树
+（`/customers`）唯一承载。
 
-- **僵尸部分（阶段2前 31 个 → 现 24 个）**：客户 CRUD、导出、状态机、认领/释放、批量操作、导入入队、分配日志、自动分配、公海日志——这些能力**已被 A/C/D 三条新树完整取代**，且前端 0 引用。
-  （**池化视图 6 个 + convert-to-customer 1 个已于阶段2移除**，见 §七）
-- **一等公民部分（10 个）**：分配、联系人、360 视图、分配规则、导入预览/确认、逾期、临期回收、销售列表——**新树尚未覆盖**，前端仍在用。
+- **僵尸部分（24 个）**：客户 CRUD、导出、状态机、认领/释放、批量操作、导入入队、分配日志、自动分配、公海日志——**已随老树删除**（能力由 A/C/D 三条树完整取代）。
+- **能力型部分（10 个）**：分配、联系人、360 视图、分配规则、导入预览/确认、逾期、临期回收、销售列表——阶段3 已复挂到 A 树，阶段4 老树删除后**只**在 A 树在线。
 
 ---
 
@@ -102,35 +105,39 @@ apiRouter.use('/customers',         require('./routes/customer/detailExtras'));
 > 残留待决策：`POST /customer/claim`（assign.js，已被 `/pool/claim` 取代，仅 assign.test.js 引用）
 > 与 `POST /customer/release`（**前端仍在用**，`releaseCustomer`）——二者属 `assign.js`，本轮未动。
 
-### 3.4 能力型端点（阶段3 后**双前缀可用**，前端已切新树）
+### 3.4 能力型端点（阶段4 后**仅 `/customers` 单前缀**）
 
 **阶段3（2026-09-14）处置**：以下 10 个能力端点**未迁走、未复制**，而是把承载它们的
 `assign.js` / `contact.js` / `import.js` + 新抽出的 `detailExtras.js` **同一 router 对象
 再挂一次到 `/customers`**。因此同一份实现同时响应 `/customers/*` 与 `/customer/*`，
 **无重复实现、无漂移风险**；前端 18 处调用已全部改指 `/customers/*`。
 
-| Method | 权威路径（前端在用） | 兼容路径（保留至 v2） | 权限码 | 前端函数 |
+**阶段4（2026-09-14）处置**：老树整树下线后，下表的「兼容路径」列**全部失效（404）**，
+本组端点只保留「权威路径」一列（`/customers/*`）。
+
+| Method | 权威路径（唯一入口） | ~~兼容路径（阶段4 已下线）~~ | 权限码 | 前端函数 |
 |---|---|---|---|---|
-| POST | `/customers/assign` | `/customer/assign` | `customer:assign` | `assignCustomer` |
-| POST | `/customers/batch-assign` | `/customer/batch-assign` | `customer:assign` | `batchAssignCustomer` |
-| GET | `/customers/sales-users` | `/customer/sales-users` | `customer:assign` | `getSalesUsers` |
-| GET | `/customers/my-subordinates` | `/customer/my-subordinates` | 仅登录 | `getMySubordinates` |
-| GET | `/customers/:id/360` | `/customer/:id/360` | `customer:view` | `getCustomer360` |
-| GET | `/customers/overdue` | `/customer/overdue` | `customer:view` | `getOverdueCustomers` |
-| GET | `/customers/near-recycle` | `/customer/near-recycle` | `customer:view` | `getNearRecycleCustomers` |
-| GET | `/customers/assign-rules` | `/customer/assign-rules` | `manager` | `getAssignRules` |
-| POST | `/customers/assign-rules/{add,update,delete}` | 同左 | `manager` | 3 个 |
-| POST | `/customers/contact/{add,update,delete}` | 同左 | `customer:edit` | 3 个 |
-| GET | `/customers/template` | `/customer/template` | 仅登录 | `getCustomerTemplate` |
-| POST | `/customers/import-preview` | `/customer/import-preview` | `customer:import` | `importPreview` |
-| POST | `/customers/import-confirm` | `/customer/import-confirm` | `customer:import` | `importConfirm` |
+| POST | `/customers/assign` | ~~`/customer/assign`~~ | `customer:assign` | `assignCustomer` |
+| POST | `/customers/batch-assign` | ~~`/customer/batch-assign`~~ | `customer:assign` | `batchAssignCustomer` |
+| GET | `/customers/sales-users` | ~~`/customer/sales-users`~~ | `customer:assign` | `getSalesUsers` |
+| GET | `/customers/my-subordinates` | ~~`/customer/my-subordinates`~~ | 仅登录 | `getMySubordinates` |
+| GET | `/customers/:id/360` | ~~`/customer/:id/360`~~ | `customer:view` | `getCustomer360` |
+| GET | `/customers/overdue` | ~~`/customer/overdue`~~ | `customer:view` | `getOverdueCustomers` |
+| GET | `/customers/near-recycle` | ~~`/customer/near-recycle`~~ | `customer:view` | `getNearRecycleCustomers` |
+| GET | `/customers/assign-rules` | ~~`/customer/assign-rules`~~ | `manager` | `getAssignRules` |
+| POST | `/customers/assign-rules/{add,update,delete}` | ~~`/customer/assign-rules/{...}`~~ | `manager` | 3 个 |
+| POST | `/customers/contact/{add,update,delete}` | ~~`/customer/contact/*`~~ | `customer:edit` | 3 个 |
+| GET | `/customers/template` | ~~`/customer/template`~~ | 仅登录 | `getCustomerTemplate` |
+| POST | `/customers/import-preview` | ~~`/customer/import-preview`~~ | `customer:import` | `importPreview` |
+| POST | `/customers/import-confirm` | ~~`/customer/import-confirm`~~ | `customer:import` | `importConfirm` |
 
 > **实现与验证**：`GET /customers/:id/360`、`/customers/overdue`、`/customers/near-recycle`
-> 由 `routes/customer/detail.js` 抽出为独立 `detailExtras.js`（原 `detail.js` 内联实现删除，
-> `detail.js` 改为 `router.use('/', detailExtras)`），再由 `app.js` 同时挂到两个前缀。
-> supertest 实测：新路径 401（存在、需鉴权）、旧路径 401（兼容层在线）、阶段2 删除端点 404。
+> 由 `routes/customer/detail.js` 抽出为独立 `detailExtras.js`（原 `detail.js` 内联实现删除、
+> 该文件已于阶段4 随老树删除），仅由 `app.js` 挂到 `/api/v1/customers`。
+> **阶段4 GET 探针实测**：新路径 401（存在、需鉴权）、老路径 404（已下线）、
+> ModuleRegistry 路由表中不再含 `/customer`（13/13 断言通过）。
 
-### 3.5 老树 0 引用端点清单（阶段2 后 24 个，剩余下线候选）
+### 3.5 老树 0 引用端点清单（**阶段4 已随老树整树删除**）
 
 **已于阶段2（2026-09-14）移除 —— 7 个「零测试 + 零前端 + 已被新树取代」：**
 
@@ -141,7 +148,7 @@ POST /customer/claim-pool        POST /customer/formal
 ```
 （含 `routes/customer/center.js` 整体删除 + `index.js` 的 `convert-to-customer`）
 
-**剩余 24 个（本轮未动，各自有阻塞原因）：**
+**已于阶段4（2026-09-14）随老树整树下线 —— 剩余 24 个（14 个 0 引用 + 10 个能力副本）：**
 
 ```
 POST /customer/list ✱            POST /customer/add ✱             POST /customer/update ✱
@@ -151,11 +158,11 @@ POST /customer/assign-log ✱      POST /customer/batch-claim       POST /custom
 POST /customer/auto-assign       POST /customer/pool-log          POST /customer/contact/list
 POST /customer/import
 ```
-✱ = 有测试文件断言（删则需同步改写测试）；其余为**唯一能力、新树无替代**（批量认领/批量释放/自动分配/公海日志/联系人列表/异步导入），删除会丢失功能。
+✱ = 曾有测试文件断言（13 个测试/脚本已同步改写为 `/customers/*`）；其余为**唯一能力、新树无替代**，
+其权威实现早已由阶段3 复挂到 `/customers/*`，故删除老树副本不丢功能。
 
-> **`/customer/list` 等 CRUD 端点额外阻塞**：应用内「API 开放平台」页
-> （`frontend/src/views/settings/api-platform.vue:74`）把它作为**对外集成示例**宣传，
-> 硬删会破坏已公开的 API 契约 → 建议 v2 再做。
+> **原 `/customer/list` 的「对外集成示例」顾虑已解除**：应用内「API 开放平台」页
+> （`frontend/src/views/settings/api-platform.vue`）已于阶段3 把示例切到 `/customers/list`。
 
 ---
 
@@ -207,11 +214,27 @@ POST /customer/import
 3. 前端 `api/customer.js` 18 处调用 `/customer/*` → `/customers/*`；
    `api-platform.vue` 对外示例切到 `/customers/list`。
 
-**与「完整单树归拢」的差距（留 v2）**：老树整树未下线；6–7 个断言老树的测试未改写。
-（`useAssign.js` 死代码与 `convertToCustomer` 孤立方法已于 2026-09-14「死代码清理」删除，见 §九。）详见 §八。
+**与「完整单树归拢」的差距（阶段4 已补齐）**：~~老树整树未下线；6–7 个断言老树的测试未改写。~~
+（`useAssign.js` 死代码与 `convertToCustomer` 孤立方法已于 2026-09-14「死代码清理」删除，见 §九。）
+阶段4 已完成老树整树下线与全部测试改写，详见 §十。
 
-> **推荐路径**：先做阶段 1（已交付），阶段 2 并入下一次「客户域专项清理」（已交付），
-> 阶段 3「只扩不收」已交付；**阶段 3+「真·单树」**（老树下线 + 测试改写）待 Core v1 发布后的架构迭代窗口。
+### 阶段 4 —— 老树整树下线 + 登记项清理 ✅ 已执行（2026-09-14，**用户解冻后全量执行**）
+
+**决策**：用户明确「解冻」——授权执行此前被推迟的**破坏性变更**：
+1. **老树 `/api/v1/customer/*` 整树下线**（阶段3 遗留的「真·单树」）；
+2. **清理 §九 登记但未清理的死代码项**。
+
+**做法**：
+1. `app.js` 移除 `require('./routes/customer/module')`（模块注册器不再自动挂载客户老树）；
+2. 删除 `routes/customer/{module,index,detail}.js`（三个文件）；
+3. `routes/customer/contact.js` 的 `canManageCustomer` 改从 `services/customerDetailService` 直连
+   （原从 `./detail` 转出，随 detail.js 一并失效）；
+4. 13 个测试 / 脚本文件把 `/api/v1/customer/*` 断言改写为 `/api/v1/customers/*`，
+   `require('../routes/customer')` / `require('../routes/customer/detail')` 改指
+   `routes/customers` / `routes/customer/detailExtras`；
+5. 清理 §九「登记但未清理」的全部 7 个 `customerService` 导出 + `leadsService.js` 整文件（含测试）。
+
+> **推荐路径更新**：阶段 1/2/3/4 均已交付；客户域 API 收敛**完成**——单命名空间 `/api/v1/customers`。
 
 ---
 
@@ -282,7 +305,7 @@ pool.js     → POST /pool, /pool/claim, /pool/release, /pool/transfer/*
 | `frontend/src/composables/useAssign.js` | 3 处路径切到 `/customers/*`（该文件**全仓零引用**，已于 §九 删除） |
 | `frontend/src/views/settings/api-platform.vue` | 对外请求示例 `/customer/list` → `/customers/list` |
 | `docs/CODE_DOCUMENTATION.md` | 客户域挂载说明：`/customers` 现同时承载能力子路由 |
-| `docs/crm-customer-api-port-map.md` | 本文件：§一/§二/§3.4/§五/§六 全部改写，新增 §八 |
+| `docs/crm-customer-api-port-map.md` | 本文件：§一/§二/§3.4/§五/§六 全部改写（阶段4 补充见 §十） |
 
 **验证**：
 - supertest 路由探针：新 `/customers/*` → 401（存在需鉴权）、旧 `/customer/*` → 401（兼容层在线）、阶段2 删除端点 → 404；
@@ -320,12 +343,50 @@ pool.js     → POST /pool, /pool/claim, /pool/release, /pool/transfer/*
 `customerController` 32 个导出**零死码**；`customerService` 25 个导出中 7 个无外部引用
 （`VALID_SOURCES`、`SOURCE_PARENT_MAP`、`batchAssignCustomers`、`loadStatusConfig`、`loadStatusTransitions`、`getDefaultStatus`、`clearStatusConfigCache`）。
 
-### 登记但**未清理**（超出「客户 API 端口」谱系，待独立决策）
+### 登记项 —— ✅ 已于阶段4（2026-09-14）全部清理
 
-| 对象 | 说明 |
+| 对象 | 说明 | 阶段4 处置 |
+|---|---|---|
+| `customerService.{VALID_SOURCES, batchAssignCustomers, getDefaultStatus, clearStatusConfigCache}` | 外部零引用且**本文件内亦无调用**（仅「定义 + 导出」） | **删除**函数/常量 + 导出项 |
+| `customerService.{SOURCE_PARENT_MAP, loadStatusConfig, loadStatusTransitions}` | 外部零引用，但**本文件内有调用** → 仅「导出」冗余 | **仅删除导出**，实现保留（内部使用） |
+| `backend/services/leadsService.js`（整文件） | 删掉 7 个 controller 包装后**已无生产调用方**，仅由 `tests/unit/services-leadsService.test.js` 覆盖 | **删除**服务文件 + 其单元测试 |
+
+> `SOURCE_PARENT_MAP` / `VALID_SOURCES` 的**权威定义**在 `services/customerDetailService.js`
+> 并从那里导出（`customers.js` 的 Joi schema 引用该处），故 `customerService` 侧的副本删除不影响 schema 校验。
+
+**验证**：阶段4 删除后回归 **后端 Jest 113 套件 / 1079 用例全绿**（原 114/1098，减少的即
+`services-leadsService.test.js`）、**真连库集成 2 套件 / 12 用例全绿**、**前端 Vitest 15 文件 / 64 用例全绿**。
+
+---
+
+## 十、阶段 4 变更记录（2026-09-14 · 老树整树下线 + 登记项清理）
+
+**背景**：用户对阶段3 遗留的「已发布 API 契约保留至 v2」决策**解冻**，授权执行破坏性变更。
+
+| 文件 | 变更 |
 |---|---|
-| `customerService.{VALID_SOURCES, batchAssignCustomers, getDefaultStatus, clearStatusConfigCache}` | 外部零引用且**本文件内亦无调用**（仅「定义 + 导出」）；属**状态配置/常量子系统**的导出面，非 API 端口死码 |
-| `customerService.{SOURCE_PARENT_MAP, loadStatusConfig, loadStatusTransitions}` | 外部零引用，但**本文件内有调用** → 仅「导出」冗余，函数本身在用 |
-| `backend/services/leadsService.js`（整文件） | 删掉上述 7 个 controller 包装后，该服务**已无生产调用方**，仅由 `tests/unit/services-leadsService.test.js` 覆盖。删除与否需单独决策（含其测试），故本轮保留 |
+| `backend/app.js` | 移除 `require('./routes/customer/module')`（模块注册器不再挂载客户老树）；阶段4 注释订正 |
+| `backend/routes/customer/module.js` | **删除**（ModuleRegistry 注册文件） |
+| `backend/routes/customer/index.js` | **删除**（老树聚合路由） |
+| `backend/routes/customer/detail.js` | **删除**（老树 CRUD/详情/导出/状态机；`canManageCustomer` 导出随之消失） |
+| `backend/routes/customer/contact.js` | `canManageCustomer` 改从 `services/customerDetailService` 直连 |
+| `backend/services/customerService.js` | 删除 `VALID_SOURCES` / `batchAssignCustomers` / `getDefaultStatus` / `clearStatusConfigCache`；`SOURCE_PARENT_MAP` / `loadStatusConfig` / `loadStatusTransitions` 取消导出（实现保留） |
+| `backend/services/leadsService.js`、`tests/unit/services-leadsService.test.js` | **删除**（整文件 + 测试） |
+| `backend/scripts/k6-cache-benchmark.js`、`routes/customers.js` | `/customer/list` → `/customers/list`；头注释订正 |
+| 13 个测试/脚本（`assign`/`boundary`/`businessFlow.customer`/`contact`/`customer`/`customerDetail`/`import`/`permissionMatrix`/`readwrite-separation`/`ModuleRegistry`/`e2e/*`/`performance/k6-*`/`integration/controller/customerController`/`security/cors`） | `/api/v1/customer/*` → `/api/v1/customers/*`；`require('../routes/customer'\|'/detail')` 改指 `routes/customers` / `routes/customer/detailExtras`；`ModuleRegistry.test.js` 去掉 customer 模块断言 |
+| `frontend/e2e/customer-transfer.spec.js`、`e2e/fixtures/api-helpers.js` | 模板串路径 `/customer/*` → `/customers/*` |
+| `docs/CODE_DOCUMENTATION.md` | 服务层/控制器/路由三章同步；`leadsService` 章节标记删除；`detail.js`/`index.js`/`module.js` 章节标记删除 |
+| `docs/crm-customer-api-port-map.md` | 本文件：§一/§3.4/§3.5/§五/§九 改写，新增 §十 |
 
-**验证**：删除后后端 Jest + 真连库集成 + 前端 Vitest 全绿（见提交信息）。
+**为什么「移除 ModuleRegistry 的 customer 注册」不丢权限点**：`ModuleRegistry.getAllPermissions()`
+**只被单元测试消费**，生产环境的权限点数据来自迁移（021/098 等），不由代码注册——详见
+`backend/tests/unit/core/ModuleRegistry.test.js` 与迁移清单。
+
+**验证**：
+- **GET 路由探针**（`scripts/_probe.js`，已用后删除）：老树全部 404、新树 401（存在需鉴权）、
+  ModuleRegistry 路由表不含 `/customer` — **13/13 通过**（POST 探针会被全局 CSRF 拦成 403，无法区分 404/401，故改用 GET）；
+- 后端 Jest **113 套件 / 1079 用例全绿**；
+- 真连库集成（`permission-real` + `customer-lifecycle`）**2 套件 / 12 用例全绿**；
+- 前端 Vitest **15 文件 / 64 用例全绿**。
+
+**回滚点**：本阶段全部改动集中在一次提交；如需回滚 `git revert <阶段4 commit>` 即可恢复老树。

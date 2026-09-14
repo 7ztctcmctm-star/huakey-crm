@@ -25,7 +25,7 @@ const BASE_URL = __ENV.BASE_URL || 'http://localhost:5000';
 const TOKEN = __ENV.TOKEN;
 
 export default function () {
-  const res = http.post(`${BASE_URL}/api/v1/customer/list`,
+  const res = http.post(`${BASE_URL}/api/v1/customers/list`,
     JSON.stringify({ page: 1, pageSize: 20 }),
     {
       headers: {

@@ -71,7 +71,7 @@ router.post('/release',
 
 // ========== 客户转移（双方同意制，2026-09-10 新增）==========
 // 规则：销售发起 → 接收人同意才生效；不可撤回；超 3 天自动回流。
-// 老板/管理员走 assignService 直接分配，不经此流程（见 /api/v1/customer/assign）。
+// 老板/管理员走 assignService 直接分配，不经此流程（见 /api/v1/customers/assign）。
 
 const transferCreateSchema = Joi.object({
   customer_id: Joi.number().integer().positive().required(),

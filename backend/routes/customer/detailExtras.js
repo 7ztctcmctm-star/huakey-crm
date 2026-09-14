@@ -1,13 +1,11 @@
 /**
- * 客户详情·附加能力端点（2026-09-14 阶段3 从 detail.js 抽出，供两条命名空间复用）
+ * 客户详情·附加能力端点（2026-09-14 阶段3 从 detail.js 抽出）
  *
- * 抽出原因：这 3 个端点既是老树 /api/v1/customer 的能力端点，也要在阶段3 挂到
- *          新树 /api/v1/customers 下。抽成独立 router 后**两处挂载同一对象**，
- *          避免复制粘贴造成两份实现。
+ * 抽出原因：这 3 个端点原属老树 /api/v1/customer 的能力端点，阶段3 需同时挂到
+ *          新树 /api/v1/customers 下。抽成独立 router 后多处挂载同一对象，避免两份实现。
  *
- * 挂载点：
- *   - /api/v1/customer  ← routes/customer/detail.js 内 `router.use('/', detailExtras)`（兼容层）
- *   - /api/v1/customers ← backend/app.js 直接挂载（新命名空间）
+ * 挂载点（2026-09-14 阶段4 老树下线后仅剩新树）：
+ *   - /api/v1/customers ← backend/app.js 直接挂载（唯一命名空间）
  *
  * 端点：
  *   GET /overdue       逾期客户列表       [customer:view]
