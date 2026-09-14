@@ -10,7 +10,8 @@
  * ⚠️ 2026-09-10 起「7 天保护期」已下线：认领后不再写入 protect_until，
  *    释放后的客户也可被立即认领。详见 docs/crm-customer-overview-design.md。
  *
- * 旧端点 /customer/pool-list、/customer/claim-pool、/customer/release-to-pool 保留为兼容层。
+ * 旧端点 /customer/pool-list、/customer/claim-pool、/customer/release-to-pool 已于 2026-09-14
+ * （阶段2）随后端 routes/customer/center.js 一并移除，本模块为公海池的唯一前端出口。
  */
 import request from '@/utils/request'
 

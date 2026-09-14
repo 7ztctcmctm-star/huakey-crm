@@ -8,8 +8,8 @@
  *   POST /          - 线索列表（status='lead'）      [leads:view]
  *   POST /convert   - 潜客转正式客户（lead→following） [leads:convert]
  *
- * 兼容说明: 旧端点 POST /api/v1/customer/leads-pool 和 /customer/convert-lead 保留，
- *           内部调用相同的 controller 方法，行为一致。
+ * [2026-09-14 阶段2] 旧兼容端点 POST /api/v1/customer/leads-pool 与 /customer/convert-lead 已随
+ *           routes/customer/center.js 一并移除；本文件为潜客池的唯一端口。
  */
 
 const express = require('express');
@@ -20,7 +20,7 @@ const { checkPermission, checkDataPermission } = require('../middleware/permissi
 const { validate, Joi } = require('../middleware/validate');
 const customerController = require('../controllers/customerController');
 
-// ========== 查询 Schema（与 customer/center.js 保持一致） ==========
+// ========== 查询 Schema（原与 customer/center.js 保持一致，该文件已于 2026-09-14 移除） ==========
 
 const leadPoolSchema = Joi.object({
   page: Joi.number().integer().min(1).optional(),

@@ -9,8 +9,8 @@
  *   POST /claim     - 认领公海客户（sea→following, 7天保护期） [pool:claim]
  *   POST /release   - 释放客户到公海（following→sea）       [customer:release]
  *
- * 兼容说明: 旧端点 POST /api/v1/customer/pool-list、/customer/claim-pool、
- *           /customer/release-to-pool 保留，内部调用相同的 controller 方法。
+ * [2026-09-14 阶段2] 旧兼容端点 POST /api/v1/customer/pool-list、/customer/claim-pool、
+ *           /customer/release-to-pool 已随 routes/customer/center.js 一并移除；本文件为公海池的唯一端口。
  */
 
 const express = require('express');
@@ -22,7 +22,7 @@ const { validate, Joi } = require('../middleware/validate');
 const customerController = require('../controllers/customerController');
 const transferController = require('../controllers/transferController');
 
-// ========== 查询 Schema（与 customer/center.js 保持一致） ==========
+// ========== 查询 Schema（原与 customer/center.js 保持一致，该文件已于 2026-09-14 移除） ==========
 
 const poolListSchema = Joi.object({
   page: Joi.number().integer().min(1).optional(),

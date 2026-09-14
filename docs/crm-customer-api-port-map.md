@@ -9,19 +9,21 @@
 
 ## 一、结论速览
 
-客户域**同时存在 4 条已挂载的路由树、共 61 个端点**，其中 **31 个是前端 0 引用的兼容层/重复端口**。
+客户域原有 **4 条已挂载的路由树、共 61 个端点**。
+经 **阶段 2（2026-09-14）移除 7 个零依赖重复端点**后，现为 **54 个端点**（下表为阶段2后口径）。
 
 | 路由树 | 挂载点 | 来源文件 | 挂载方式 | 端点数 | 前端在用 | 0 引用 |
 |---|---|---|---|---|---|---|
 | A 新树 | `/api/v1/customers` | `routes/customers.js` | 直接 `use` | 9 | 9 | 0 |
-| B 老树 | `/api/v1/customer` | `routes/customer/`（6 文件） | **ModuleRegistry 自动挂载** | 41 | 10 | 31 |
+| B 老树 | `/api/v1/customer` | `routes/customer/`（**5 文件**） | **ModuleRegistry 自动挂载** | **34** | 10 | **24** |
 | C 线索 | `/api/v1/leads` | `routes/leads.js` | 直接 `use` | 2 | 2 | 0 |
 | D 公海 | `/api/v1/pool` | `routes/pool.js` | 直接 `use` | 9 | 9 | 0 |
-| **合计** | | | | **61** | **30** | **31** |
+| **合计** | | | | **54** | **30** | **24** |
 
 **核心判断**：老树 `/api/v1/customer` **不是**整体死代码——它是「一半僵尸 + 一半一等公民」的混合体：
 
-- **僵尸部分（31 个）**：客户 CRUD、导出、状态机、池化视图、认领/释放、批量操作、导入入队、分配日志、自动分配、公海日志——这些能力**已被 A/C/D 三条新树完整取代**，且前端 0 引用。
+- **僵尸部分（阶段2前 31 个 → 现 24 个）**：客户 CRUD、导出、状态机、认领/释放、批量操作、导入入队、分配日志、自动分配、公海日志——这些能力**已被 A/C/D 三条新树完整取代**，且前端 0 引用。
+  （**池化视图 6 个 + convert-to-customer 1 个已于阶段2移除**，见 §七）
 - **一等公民部分（10 个）**：分配、联系人、360 视图、分配规则、导入预览/确认、逾期、临期回收、销售列表——**新树尚未覆盖**，前端仍在用。
 
 ---
@@ -72,17 +74,18 @@ apiRouter.use('/customers', require('./routes/customers'));
 | 状态推进 | POST `/customers/forward` | POST `/customer/forward` |
 | 状态回退 | POST `/customers/backward` | POST `/customer/backward` |
 
-### 3.3 池化视图（线索池 / 公海池）—— ⚠️ 3 套并存
+### 3.3 池化视图（线索池 / 公海池）—— ✅ 已收敛（阶段2 移除老树端口）
 
-| 逻辑操作 | 新树 | 老树（僵尸） |
+| 逻辑操作 | 新树（唯一端口） | 老树（已移除 2026-09-14） |
 |---|---|---|
-| 潜客池列表 | POST `/leads`（`leads:view`） | POST `/customer/leads-pool`（~~`customer:list`~~ → `customer:view`） |
-| 潜客转正式 | POST `/leads/convert`（`leads:convert`） | POST `/customer/convert-lead`、POST `/customer/convert-to-customer` |
-| 公海池列表 | POST `/pool`（`pool:view`） | POST `/customer/pool-list`（~~`customer:list`~~ → `customer:view`） |
-| 认领公海 | POST `/pool/claim`（`pool:claim`） | POST `/customer/claim-pool`、POST `/customer/claim` |
-| 释放到公海 | POST `/pool/release`（`customer:release`） | POST `/customer/release-to-pool`、POST `/customer/release` ✅ |
+| 潜客池列表 | POST `/leads`（`leads:view`） | ~~POST `/customer/leads-pool`~~ |
+| 潜客转正式 | POST `/leads/convert`（`leads:convert`） | ~~POST `/customer/convert-lead`~~、~~`/customer/convert-to-customer`~~ |
+| 公海池列表 | POST `/pool`（`pool:view`） | ~~POST `/customer/pool-list`~~ |
+| 认领公海 | POST `/pool/claim`（`pool:claim`） | ~~POST `/customer/claim-pool`~~ |
+| 释放到公海 | POST `/pool/release`（`customer:release`） | ~~POST `/customer/release-to-pool`~~ |
 
-> 注：`/customer/release` 是**唯一仍在用的**池化老端点（前端 `releaseCustomer`），与 `/pool/release` 功能重叠但前端保留了两条调用口，属**待决策项**。
+> 残留待决策：`POST /customer/claim`（assign.js，已被 `/pool/claim` 取代，仅 assign.test.js 引用）
+> 与 `POST /customer/release`（**前端仍在用**，`releaseCustomer`）——二者属 `assign.js`，本轮未动。
 
 ### 3.4 老树独占能力（新树未覆盖，前端在用）—— 10 个，**不可删**
 
@@ -102,20 +105,32 @@ apiRouter.use('/customers', require('./routes/customers'));
 | POST | `/customer/import-preview` | `customer:import` | `importPreview` |
 | POST | `/customer/import-confirm` | `customer:import` | `importConfirm` |
 
-### 3.5 老树 0 引用端点清单（31 个，下线候选）
+### 3.5 老树 0 引用端点清单（阶段2 后 24 个，剩余下线候选）
+
+**已于阶段2（2026-09-14）移除 —— 7 个「零测试 + 零前端 + 已被新树取代」：**
 
 ```
-POST /customer/list              POST /customer/add               POST /customer/update
-POST /customer/delete            GET  /customer/detail/:id        POST /customer/export
-POST /customer/forward           POST /customer/backward          POST /customer/formal
 POST /customer/leads-pool        POST /customer/pool-list         POST /customer/convert-lead
-POST /customer/convert-to-customer                                 POST /customer/release-to-pool
-POST /customer/claim-pool        POST /customer/claim             POST /customer/batch-claim
-POST /customer/batch-release     POST /customer/auto-assign       POST /customer/assign-log
-POST /customer/pool-log          POST /customer/contact/list      POST /customer/import
+POST /customer/convert-to-customer                                POST /customer/release-to-pool
+POST /customer/claim-pool        POST /customer/formal
 ```
+（含 `routes/customer/center.js` 整体删除 + `index.js` 的 `convert-to-customer`）
 
-（共 23 项；另有 `/customer/assign-rules/*` 等 8 项属"在用"，不计入）
+**剩余 24 个（本轮未动，各自有阻塞原因）：**
+
+```
+POST /customer/list ✱            POST /customer/add ✱             POST /customer/update ✱
+POST /customer/delete ✱          GET  /customer/detail/:id ✱      POST /customer/export ✱
+POST /customer/forward ✱         POST /customer/backward ✱        POST /customer/claim ✱
+POST /customer/assign-log ✱      POST /customer/batch-claim       POST /customer/batch-release
+POST /customer/auto-assign       POST /customer/pool-log          POST /customer/contact/list
+POST /customer/import
+```
+✱ = 有测试文件断言（删则需同步改写测试）；其余为**唯一能力、新树无替代**（批量认领/批量释放/自动分配/公海日志/联系人列表/异步导入），删除会丢失功能。
+
+> **`/customer/list` 等 CRUD 端点额外阻塞**：应用内「API 开放平台」页
+> （`frontend/src/views/settings/api-platform.vue:74`）把它作为**对外集成示例**宣传，
+> 硬删会破坏已公开的 API 契约 → 建议 v2 再做。
 
 ---
 
@@ -141,11 +156,17 @@ POST /customer/pool-log          POST /customer/contact/list      POST /customer
 
 **安全性依据（数据层已保证，非"顺带改"）**：迁移 **098** 明确约定「保留旧码 `customer:list`；**拥有旧码 `customer:list` 的角色自动获得 `customer:view`**」，且其权限矩阵已把 `customer:view` 授予 sales(✓)/manager(✓)/boss(manage_all=1 自动绕过)。故切换到 `customer:view` 不会锁死任何既有角色。
 
-### 阶段 2 —— 清理重复 CRUD（中风险，需回归测试）
+### 阶段 2 —— 清理重复端点 ✅ 已执行（2026-09-14，**收窄为 7 个零依赖端点**）
 
-删除老树中已被新树取代的 23 个 0 引用端点（§3.5），此阶段需同步：
-- 检查 `tests/` 下 9 个直接 `require('routes/customer/*')` 的用例是否断言这些端口（`customer.test.js`、`boundary.test.js`、`permissionMatrix.test.js` 等）；
-- 更新 `docs/API_VERSIONING.md` 的端点台账。
+原计划删 23 个，实测影响面后**收窄为 7 个**（§3.5），原因：
+1. 其中 8 个 CRUD/claim/assign-log/import 端点被 **11 个测试文件**断言 → 删除须改写 Core v1 的 QA 证据；
+2. `/customer/list` 被**应用内「API 开放平台」页作为对外集成示例宣传** → 属已公开 API 契约；
+3. 另有 6 个（batch-claim / batch-release / auto-assign / pool-log / contact/list / async import）是**唯一能力**，新树无替代 → 删除会丢功能。
+
+**实际执行**：删除 `routes/customer/center.js`（6 端点）+ `index.js` 的 `convert-to-customer`，
+均为零测试引用、零前端调用、已由 `/customers`、`/leads`、`/pool` 完整取代。同步更新 `leads.js`/`pool.js`/`api/*.js` 注释与 2 份文档。
+
+> 原计划中「更新 `docs/API_VERSIONING.md` 端点台账」一项作废——该文档是**路径前缀策略**，并无端点台账。
 
 ### 阶段 3 —— 单树归拢（长期，可延后）
 
@@ -189,3 +210,19 @@ pool.js     → POST /pool, /pool/claim, /pool/release, /pool/transfer/*
 **刻意未改**：`detail.js` 的缓存键 `customer:list:${userId}:${body}`（属"操作命名空间"而非权限码；`customerController.test.js` 有 3 处断言依赖它，且 controller 的 `invalidateCache(['customer:list:*'])` 与之配对）。
 
 **行为影响**：无。boss=`manageAll` 绕过、manager/sales 已持有 `customer:view`、其余角色本无 `customer:list`；且迁移 098 已强制 `customer:list ⊂ customer:view` 的持有关系。
+
+### 阶段 2 变更记录（2026-09-14 · 移除 7 个零依赖重复端点）
+
+| 文件 | 变更 |
+|---|---|
+| `backend/routes/customer/center.js` | **删除整个文件**（6 端点：leads-pool / formal / pool-list / convert-lead / release-to-pool / claim-pool） |
+| `backend/routes/customer/index.js` | 移除 `centerRoutes` 挂载 + `POST /convert-to-customer`；清理 4 个随之失效的 import |
+| `backend/routes/leads.js`、`routes/pool.js` | 头注释：去掉「旧端点保留为兼容层」，改为「已移除」；Schema 注释中的 center.js 引用订正 |
+| `frontend/src/api/leads.js`、`api/pool.js` | 同上注释订正 |
+| `docs/CODE_DOCUMENTATION.md` | center.js 章节标记已移除；`leads/pool` 旧端点说明改写；`index.js` 聚合描述 5→4 子路由 |
+| `docs/crm-customer-api-port-map.md` | 本文件：端点计数 61→54、僵尸 31→24、§3.3/§3.5/§五 全部改写 |
+
+**保留未动**：`customerController.convertToCustomer` / `customerService.convertToCustomer`（随路由下线成为孤立方法；
+同时 `customerService` 侧仍被 `leads.js` 的 `convertLeadToFormal` 间接复用链路之外，属独立方法）——未删除以免扩大爆炸半径。
+
+**验证**：删除后旧端点返回 404；后端客户相关测试、真实 DB 权限集成、前端单测全部保持全绿（见提交信息）。

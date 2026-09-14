@@ -5,7 +5,8 @@
  *   POST /api/v1/leads          潜客池列表（status='lead'）  [leads:view]
  *   POST /api/v1/leads/convert  潜客转正式客户               [leads:convert]
  *
- * 旧端点 /customer/leads-pool、/customer/convert-lead 保留为兼容层。
+ * 旧端点 /customer/leads-pool、/customer/convert-lead 已于 2026-09-14（阶段2）随后端
+ * routes/customer/center.js 一并移除，本模块为潜客池的唯一前端出口。
  */
 import request from '@/utils/request'
 

@@ -2670,7 +2670,7 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 | POST | `/` | `leads:view` | 线索列表（`business_status='lead'`，含 lead_level 高/中/低筛选） |
 | POST | `/convert` | `leads:convert` | 潜客转正式客户（`business_status` lead→following，写 `crm_assign_log`） |
 
-**旧端点兼容**: `/customer/leads-pool`、`/customer/convert-lead` 保留。
+**旧端点**: `/customer/leads-pool`、`/customer/convert-lead` 已于 2026-09-14（阶段2）移除（原挂载于 `routes/customer/center.js`）。
 
 #### 10.2.3 公海路由 pool.js
 
@@ -2683,7 +2683,7 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 | POST | `/claim` | `pool:claim` | 公海认领（设 `pool_status='private'`，7天保护期 `protect_until`） |
 | POST | `/release` | `customer:release` | 释放客户到公海（含 reason，线索客户禁止释放） |
 
-**旧端点兼容**: `/customer/pool-list`、`/customer/claim-pool`、`/customer/release-to-pool` 保留。
+**旧端点**: `/customer/pool-list`、`/customer/claim-pool`、`/customer/release-to-pool` 已于 2026-09-14（阶段2）移除（原挂载于 `routes/customer/center.js`）。
 
 ---
 
@@ -3183,9 +3183,11 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 
 15个端点：分配/批量分配(上限100)+日志+销售用户/下属+规则CRUD+自动分配+认领/批量认领(上限20)+释放/批量释放(上限100)+公海日志。分配策略round_robin/by_source/by_region。
 
-#### customer/center.js（~100行，/api/v1/customer）
+#### ~~customer/center.js~~（已于 2026-09-14 阶段2 移除）
 
-6个端点：潜客池/正式客户/公海池列表+潜客转正式+释放到公海+领取公海。三页面按business_status区分。潜客和正式客户有数据权限，公海全员可见。
+原 6 个池化视图旧端点：leads-pool / formal / pool-list / convert-lead / release-to-pool / claim-pool。
+零测试引用、零前端调用，能力由 `/api/v1/leads`、`/api/v1/pool`、`/api/v1/customers` 完整承接
+（底层复用同一批 customerController 方法）。详见 `docs/crm-customer-api-port-map.md`。
 
 ---
 
@@ -3205,7 +3207,7 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 
 #### customer/index.js（~29行，聚合路由）
 
-聚合挂载5个子路由：detail(/) + contact(/contact) + assign(/) + import(/) + center(/)。额外端点POST /convert-to-customer。废弃pool.js/leads.js/quality.js不再挂载。
+聚合挂载4个子路由：detail(/) + contact(/contact) + assign(/) + import()。（2026-09-14 阶段2 移除 center(/) 与 POST /convert-to-customer；废弃的 pool.js/leads.js/quality.js 仍不挂载）
 
 #### customer/module.js（~21行，模块注册）
 
