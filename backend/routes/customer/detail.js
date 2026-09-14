@@ -1,14 +1,13 @@
 const express = require('express');
 const pool = require('../../config/database');
 const { authenticateToken } = require('../../middleware/auth');
-const { validate, queryValidate, Joi } = require('../../middleware/validate');
-const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../../middleware/permission');
+const { validate, Joi } = require('../../middleware/validate');
+const { checkPermission, checkDataPermission } = require('../../middleware/permission');
 const { createCache } = require('../../middleware/cache');
 const customerDetailService = require('../../services/customerDetailService');
-const customerService = require('../../services/customerService');
 const customerController = require('../../controllers/customerController');
-const logger = require('../../config/logger');
 const { CUSTOMER_STATUS_CODES } = require('../../constants/customerStatus');
+const detailExtras = require('./detailExtras');
 
 const customerListSchema = Joi.object({
   page: Joi.number().integer().min(1).optional(),
@@ -90,11 +89,6 @@ const forwardCustomerSchema = Joi.object({
 const backwardCustomerSchema = Joi.object({
   customer_id: Joi.number().integer().positive().required(),
   reason: Joi.string().max(500).allow('', null)
-});
-
-const paginationSchema = Joi.object({
-  page: Joi.number().integer().min(1).optional(),
-  pageSize: Joi.number().integer().min(1).max(200).optional()
 });
 
 const router = express.Router();
@@ -203,7 +197,7 @@ const router = express.Router();
  *       500: { description: 服务器内部错误 }
  */
 
-// 1. 获取客户列表（复用 customerService）
+// 1. 获取客户列表
 router.post('/list',
   authenticateToken,
   checkPermission('customer:view'),
@@ -227,8 +221,7 @@ router.post('/delete', authenticateToken, checkPermission('customer:delete'), va
 // 缺少功能权限校验，与本树其他端口及 /customers/detail/:id 的 customer:view 密级不一致 → 补齐。
 router.get('/detail/:id', authenticateToken, checkPermission('customer:view'), checkDataPermission('customer', 'owner_id'), customerController.detail);
 
-// 5.5 客户360度视图
-router.get('/:id/360', authenticateToken, checkPermission('customer:view'), checkDataPermission('customer', 'owner_id'), customerController.view360);
+// 5.5 客户360度视图 → 已抽至 ./detailExtras（两侧命名空间复用），见文件末尾 router.use
 
 // 6. 导出客户列表
 router.post('/export', authenticateToken, checkPermission('customer:view'), checkDataPermission('customer', 'owner_id'), validate(exportCustomersSchema), customerController.exportCustomers);
@@ -239,41 +232,10 @@ router.post('/forward', authenticateToken, checkPermission('customer:edit'), val
 // 客户状态回退（沿主销售漏斗回退一步）
 router.post('/backward', authenticateToken, checkPermission('customer:edit'), validate(backwardCustomerSchema), customerController.backward);
 
-// 7. 逾期客户列表
-router.get('/overdue',
-  authenticateToken,
-  checkPermission('customer:view'),
-  checkDataPermission('customer', 'owner_id'),
-  queryValidate(paginationSchema),
-  async (req, res, next) => {
-    try {
-      const permission = await buildDataPermissionWhere(req.dataPermission, 'c');
-      const data = await customerService.getOverdueCustomers(pool, req.query, permission);
-      res.json({ code: 200, message: '获取逾期客户列表成功', data });
-    } catch (error) {
-      logger.error('获取逾期客户列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-      next(error);
-    }
-  }
-);
-
-// 8. 即将回收客户列表
-router.get('/near-recycle',
-  authenticateToken,
-  checkPermission('customer:view'),
-  checkDataPermission('customer', 'owner_id'),
-  queryValidate(paginationSchema),
-  async (req, res, next) => {
-    try {
-      const permission = await buildDataPermissionWhere(req.dataPermission, 'c');
-      const data = await customerService.getNearRecycleCustomersList(pool, req.query, permission);
-      res.json({ code: 200, message: '获取即将回收客户列表成功', data });
-    } catch (error) {
-      logger.error('获取即将回收客户列表错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-      next(error);
-    }
-  }
-);
+// 7/8. 逾期客户列表、即将回收客户列表、客户360度视图
+// 2026-09-14 阶段3：这三个端点抽到 ./detailExtras，老树此处挂载以保持 /api/v1/customer/* 不变；
+// 新树 /api/v1/customers/* 由 backend/app.js 挂载同一个 router 对象（无重复实现）。
+router.use('/', detailExtras);
 
 module.exports = router;
 module.exports.VALID_SOURCES = customerDetailService.VALID_SOURCES;

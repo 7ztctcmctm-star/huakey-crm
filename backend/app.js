@@ -313,6 +313,14 @@ apiRouter.use('/leads', require('./routes/leads'));
 apiRouter.use('/pool', require('./routes/pool'));
 apiRouter.use('/customers', require('./routes/customers'));
 
+// 阶段3（2026-09-14）：把老树的「能力型」子路由同样挂到 /customers 下，
+// 使前端只依赖一套命名空间（/customers、/leads、/pool）。
+// 复用同一批 router 对象 → 无重复实现；老树 /customer/* 作为兼容层保留至 v2（公开 API 契约）。
+apiRouter.use('/customers/contact', require('./routes/customer/contact'));
+apiRouter.use('/customers', require('./routes/customer/assign'));
+apiRouter.use('/customers', require('./routes/customer/import'));
+apiRouter.use('/customers', require('./routes/customer/detailExtras'));
+
 // 跟进记录路由
 apiRouter.use('/follow-up', followUpRoutes);
 apiRouter.use('/opportunity', opportunityRoutes);

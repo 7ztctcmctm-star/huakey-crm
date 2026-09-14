@@ -2650,7 +2650,7 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 | POST | `/add` | `customer:add` | `authenticateToken`, `checkPermission` | 新增客户（contacts 至少1个） |
 | POST | `/update` | `customer:edit` | 同上 | 修改客户 |
 | POST | `/delete` | `customer:delete` | 同上 | 删除客户（软删） |
-| GET | `/detail/:id` | `customer:view` | `authenticateToken`, `checkDataPermission` | 客户详情 |
+| GET | `/detail/:id` | `customer:view` | `authenticateToken`, `checkPermission`, `checkDataPermission` | 客户详情 |
 | POST | `/forward` | `customer:edit` | 同上 | 推进客户状态 |
 | POST | `/backward` | `customer:edit` | 同上 | 回退客户状态（含 reason） |
 | POST | `/export` | `customer:view` | 同上 | 导出客户列表 |
@@ -2659,6 +2659,20 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 - 正式客户 = `business_status IN ('following','quoted','negotiating','signed') AND pool_status='private'`
 - 线索客户（`business_status='lead'`）不在此页面展示
 - 旧端点 `/api/v1/customer/*` 保留，内部调用相同 controller
+
+**阶段3 补充（2026-09-14「只扩不收」）**: `/api/v1/customers` 除本文件外，还通过
+`app.js` 复挂 4 个「能力型」子路由（**复用同一 router 对象，无重复实现**）：
+
+| 子挂载点 | 来源文件 | 端点 |
+|---|---|---|
+| `/customers/contact` | `routes/customer/contact.js` | `POST /list`、`POST /add`、`POST /update`、`POST /delete` |
+| `/customers` | `routes/customer/assign.js` | `POST /assign`、`/batch-assign`、`/assign-log`、`/claim`、`/batch-claim`、`/release`、`/batch-release`、`/auto-assign`、`/pool-log`；`GET /sales-users`、`/my-subordinates`、`/assign-rules`；`POST /assign-rules/{add,update,delete}` |
+| `/customers` | `routes/customer/import.js` | `GET /template`；`POST /import`、`/import-preview`、`/import-confirm` |
+| `/customers` | `routes/customer/detailExtras.js` | `GET /:id/360`、`/overdue`、`/near-recycle` |
+
+> 同一批端点同时响应 `/api/v1/customer/*`（老树兼容层，保留至 v2）。前端已全部切至
+> `/customers/*`。路由无冲突：本文件无通配 `/:id`，不会吞掉 `/assign`、`/template` 等。
+> 详见 `docs/crm-customer-api-port-map.md` §3.4 / §八。
 
 #### 10.2.2 线索路由 leads.js
 
@@ -2873,7 +2887,7 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 | `/user` | `routes/user.js` | 用户管理 |
 | `/leads` | `routes/leads.js` | 线索管理 |
 | `/pool` | `routes/pool.js` | 公海管理 |
-| `/customers` | `routes/customers.js` | 正式客户管理 |
+| `/customers` | `routes/customers.js` + `customer/contact` + `customer/assign` + `customer/import` + `customer/detailExtras` | 正式客户管理（阶段3：能力子路由同前缀复挂） |
 | `/follow-up` | `routes/followUp.js` | 跟进管理 |
 | `/opportunity` | `routes/opportunity.js` | 商机管理 |
 | `/quote` | `routes/quote.js` | 报价管理 |
@@ -3197,9 +3211,14 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 
 4个端点：联系人CRUD。通过canManageCustomer校验客户管理权。支持决策人/首要联系人双标记。
 
-#### customer/detail.js（~279行，/api/v1/customer）
+#### customer/detail.js（~250行，/api/v1/customer）
 
-11个端点：客户CRUD+详情+360视图+导出+状态推进/回退+逾期/即将回收列表。checkDataPermission('customer','owner_id')。createCache(300)列表缓存。导出VALID_SOURCES/SOURCE_PARENT_MAP/canManageCustomer供复用。
+8个端点：客户CRUD+详情+导出+状态推进/回退。（2026-09-14 阶段3：`/:id/360`、`/overdue`、`/near-recycle` 抽出为 `detailExtras.js`，本文件改为 `router.use('/', detailExtras)` 挂载。）checkDataPermission('customer','owner_id')。createCache(300)列表缓存。导出VALID_SOURCES/SOURCE_PARENT_MAP/canManageCustomer供复用。
+
+#### customer/detailExtras.js（~40行，双前缀）
+
+3个端点：`GET /:id/360`、`GET /overdue`、`GET /near-recycle`（均 `customer:view` + `checkDataPermission`）。
+2026-09-14 阶段3 从 `detail.js` 抽出，由 `app.js` 同时挂到 `/api/v1/customers` 与老树 `/api/v1/customer`（复用同一 router 对象，无重复实现）。
 
 #### customer/import.js（~97行，/api/v1/customer）
 
@@ -3452,7 +3471,7 @@ ModuleRegistry.register('report', {routes, permissions})。1个权限点：repor
 
 **职责**: 客户全生命周期管理，涵盖客户 CRUD、联系人、跟进记录、商机、分配规则、导入预览与客户评分
 
-**关键设计**: 双轨制端点——新 `/customers/*` 用于核心 CRUD，旧 `/customer/*` 保留兼容层；跟进记录与商机管理内聚于同一模块形成"客户→跟进→商机"业务闭环；导入流程拆分为 preview + confirm 两步。
+**关键设计**: 双轨制端点——新 `/customers/*` 为核心 CRUD 与**能力型端点的权威命名空间**（阶段3 起 assign/contact/import/360/逾期等亦复挂于此），旧 `/customer/*` 保留兼容层至 v2；跟进记录与商机管理内聚于同一模块形成"客户→跟进→商机"业务闭环；导入流程拆分为 preview + confirm 两步。
 
 **核心函数**: getCustomerList/getFormalCustomers/getCustomerDetail/addCustomer/updateCustomer/deleteCustomer/assignCustomer/batchAssignCustomer/forwardCustomer/backwardCustomer/exportCustomers/addContact/updateContact/deleteContact/getSalesUsers/getMySubordinates/getCustomer360/releaseCustomer/getAssignRules/createAssignRule/updateAssignRule/deleteAssignRule/getCustomerTemplate/importPreview/importConfirm/calculateCustomerScore/getFollowUpList/addFollowUp/updateFollowUp/deleteFollowUp/getFollowupTemplates/saveFollowupTemplate/deleteFollowupTemplate/getFollowUpCalendar/getTodayReminders/getTomorrowTasks/getFollowUpPlans/addFollowUpPlan/completeFollowUpPlan/cancelFollowUpPlan/batchAddFollowUp/getFollowUpTaskStats/getOverdueCustomers/getNearRecycleCustomers/getOpportunityList/addOpportunity/updateOpportunity/deleteOpportunity/updateOpportunityStage/getSalesFunnel/getOpportunityDetail/getOpportunityStageLog
 

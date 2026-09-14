@@ -71,7 +71,9 @@
 
             <h3>请求示例</h3>
             <pre class="code-block">curl -H "X-API-Key: crm_xxxxxxxxxxxx" \
-  http://your-server/api/v1/customer/list</pre>
+  http://your-server/api/v1/customers/list</pre>
+            <!-- [2026-09-14 阶段3] 权威命名空间为 /api/v1/customers/*；旧 /api/v1/customer/* 仍作为
+                 兼容层保留至 v2（已发布的外部集成契约），但不再作为推荐示例。 -->
 
             <h3>可用端点</h3>
             <div v-for="mod in docs.endpoints" :key="mod.module" class="doc-module">
