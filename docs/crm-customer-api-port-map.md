@@ -207,9 +207,8 @@ POST /customer/import
 3. 前端 `api/customer.js` 18 处调用 `/customer/*` → `/customers/*`；
    `api-platform.vue` 对外示例切到 `/customers/list`。
 
-**与「完整单树归拢」的差距（留 v2）**：老树整树未下线；6–7 个断言老树的测试未改写；
-`useAssign.js` 死代码未删除；`customerController.convertToCustomer` 等孤立方法未清。
-详见 §八。
+**与「完整单树归拢」的差距（留 v2）**：老树整树未下线；6–7 个断言老树的测试未改写。
+（`useAssign.js` 死代码与 `convertToCustomer` 孤立方法已于 2026-09-14「死代码清理」删除，见 §九。）详见 §八。
 
 > **推荐路径**：先做阶段 1（已交付），阶段 2 并入下一次「客户域专项清理」（已交付），
 > 阶段 3「只扩不收」已交付；**阶段 3+「真·单树」**（老树下线 + 测试改写）待 Core v1 发布后的架构迭代窗口。
@@ -231,9 +230,8 @@ leads.js    → POST /leads, POST /leads/convert
 pool.js     → POST /pool, /pool/claim, /pool/release, /pool/transfer/*
 ```
 
-> ⚠️ **例外（待清理）**：`frontend/src/composables/useAssign.js` 曾**绕过统一出口**自行拼
-> `/customer/{sales-users,assign,batch-assign}`（重复实现）。阶段3 已把其路径改指
-> `/customers/*`，但该文件**全仓零引用（死代码）**，建议随 v2 一并删除。
+> ✅ **已清理（2026-09-14 §九）**：`frontend/src/composables/useAssign.js` 曾**绕过统一出口**自行拼
+> `/customer/{sales-users,assign,batch-assign}`（重复实现），且**全仓零引用**。该文件已于本轮删除。
 
 ---
 
@@ -268,8 +266,8 @@ pool.js     → POST /pool, /pool/claim, /pool/release, /pool/transfer/*
 | `docs/CODE_DOCUMENTATION.md` | center.js 章节标记已移除；`leads/pool` 旧端点说明改写；`index.js` 聚合描述 5→4 子路由 |
 | `docs/crm-customer-api-port-map.md` | 本文件：端点计数 61→54、僵尸 31→24、§3.3/§3.5/§五 全部改写 |
 
-**保留未动**：`customerController.convertToCustomer` / `customerService.convertToCustomer`（随路由下线成为孤立方法；
-同时 `customerService` 侧仍被 `leads.js` 的 `convertLeadToFormal` 间接复用链路之外，属独立方法）——未删除以免扩大爆炸半径。
+**保留未动（已于 2026-09-14 §九 清理）**：`customerController.convertToCustomer` / `customerService.convertToCustomer`
+随路由下线成为孤立方法——阶段2 为控制爆炸半径暂留，阶段3 后确认零引用，已在「死代码清理」中删除。
 
 **验证**：删除后旧端点返回 404；后端客户相关测试、真实 DB 权限集成、前端单测全部保持全绿（见提交信息）。
 
@@ -281,7 +279,7 @@ pool.js     → POST /pool, /pool/claim, /pool/release, /pool/transfer/*
 | `backend/routes/customer/detail.js` | 移除上述 3 端点内联实现 + 随之失效的 import/schema；改 `router.use('/', detailExtras)`；保留 `pool`（`canManageCustomer` 导出仍用） |
 | `backend/app.js` | 新增 4 行：把 `contact` / `assign` / `import` / `detailExtras` 复挂到 `/customers` |
 | `frontend/src/api/customer.js` | **18 处** `/customer/*` → `/customers/*`；头注释同步为「统一走 /customers」 |
-| `frontend/src/composables/useAssign.js` | 3 处路径切到 `/customers/*`（该文件全仓零引用，见 §六 例外） |
+| `frontend/src/composables/useAssign.js` | 3 处路径切到 `/customers/*`（该文件**全仓零引用**，已于 §九 删除） |
 | `frontend/src/views/settings/api-platform.vue` | 对外请求示例 `/customer/list` → `/customers/list` |
 | `docs/CODE_DOCUMENTATION.md` | 客户域挂载说明：`/customers` 现同时承载能力子路由 |
 | `docs/crm-customer-api-port-map.md` | 本文件：§一/§二/§3.4/§五/§六 全部改写，新增 §八 |
@@ -290,12 +288,44 @@ pool.js     → POST /pool, /pool/claim, /pool/release, /pool/transfer/*
 - supertest 路由探针：新 `/customers/*` → 401（存在需鉴权）、旧 `/customer/*` → 401（兼容层在线）、阶段2 删除端点 → 404；
 - 后端 Jest：**114 套件 / 1098 用例全绿**（需 `DB_PASSWORD=huakey123`，否则真连库用例报 `Access denied`）；
 - 真连库集成：`permission-real` + `customer-lifecycle` 全绿（需 `NODE_PATH=<repo>/backend/node_modules`）；
-- 前端 Vitest：**15 文件 / 57 用例全绿**。
+- 前端 Vitest：**15 文件 / 64 用例全绿**（`customer.test.js` 补 7 条能力端点断言，4→11）。
 
 **后端路由无冲突复核**：`customers.js` 仅有 `/`、`/list`、`/add`、`/update`、`/delete`、
 `/detail/:id`、`/forward`、`/backward`、`/export` 等**具名**路由，无 `/:id` 通配，
 故不会吞掉复挂的 `/assign`、`/template`、`/:id/360` 等；`use` 前缀匹配按挂载顺序回落到
 下一个 router，实测路径均命中预期处理器。
 
-**遗留（v2）**：①老树 `/api/v1/customer/*` 整树下线；②6–7 个断言老树的测试文件改写；
-③`useAssign.js` 死代码删除；④`customerController.convertToCustomer` 等孤立方法清理。
+**遗留（v2）**：①老树 `/api/v1/customer/*` 整树下线；②6–7 个断言老树的测试文件改写。
+~~③`useAssign.js` 死代码删除~~ ✅ 已做（§九）；~~④`customerController.convertToCustomer` 等孤立方法清理~~ ✅ 已做（§九）。
+
+---
+
+## 九、死代码清理（2026-09-14 · 阶段3 收尾）
+
+**范围**：仅清理**已确认零引用**的死代码，不触碰老树端点、不改任何测试、不改公开 API 契约。
+
+| 对象 | 判定依据 | 处置 |
+|---|---|---|
+| `frontend/src/composables/useAssign.js` | 全仓（含 `src/tests`、`e2e`、`scripts`）零 import；且与 `api/customer.js` 的 3 个函数重复 | **删除文件** |
+| `customerController.convertToCustomer` | 路由 `POST /customer/convert-to-customer` 于阶段2 下线后无人调用；全仓仅「定义 + 导出」 | 删除函数 + 导出项 |
+| `customerService.convertToCustomer` | 仅被上面的 controller 方法调用；全仓仅「定义 + 导出」 | 删除函数 + JSDoc + 导出项 |
+| `customerController.{listLeads, convertLead, batchConvertLeads, importLeads, claimLead, markLeadLost, getLeadsStats}` | **旧版 leads 控制器包装**。`/api/v1/leads` 已改用 `listLeadPool` / `convertLeadToFormal`（Phase 5）；全仓零路由/零测试引用 | 删除 7 个方法 + 导出项 + 随之失效的 `leadsService` 导入 |
+
+**连带核查（无孤儿）**：stage2 删除的 `center.js` 曾调用的 6 个方法中，
+`listFormal`（`customers.js`）、`listLeadPool`/`convertLeadToFormal`（`leads.js`）、
+`listPoolNew`/`claimPool`/`releaseToPool`（`pool.js`）**均已迁到新树**，无孤儿。
+`customerService` 的 `AppError`/`ErrorCodes`/`BUSINESS_STATUS`/`CUSTOMER_STATUS` 导入仍被其余 10~24 处引用，**不产生失效导入**。
+
+**扫描器复核**：对 `customerController` / `customerService` 的全部导出做「接收方前缀 + 全仓文本」零引用扫描 →
+`customerController` 32 个导出**零死码**；`customerService` 25 个导出中 7 个无外部引用
+（`VALID_SOURCES`、`SOURCE_PARENT_MAP`、`batchAssignCustomers`、`loadStatusConfig`、`loadStatusTransitions`、`getDefaultStatus`、`clearStatusConfigCache`）。
+
+### 登记但**未清理**（超出「客户 API 端口」谱系，待独立决策）
+
+| 对象 | 说明 |
+|---|---|
+| `customerService.{VALID_SOURCES, batchAssignCustomers, getDefaultStatus, clearStatusConfigCache}` | 外部零引用且**本文件内亦无调用**（仅「定义 + 导出」）；属**状态配置/常量子系统**的导出面，非 API 端口死码 |
+| `customerService.{SOURCE_PARENT_MAP, loadStatusConfig, loadStatusTransitions}` | 外部零引用，但**本文件内有调用** → 仅「导出」冗余，函数本身在用 |
+| `backend/services/leadsService.js`（整文件） | 删掉上述 7 个 controller 包装后，该服务**已无生产调用方**，仅由 `tests/unit/services-leadsService.test.js` 覆盖。删除与否需单独决策（含其测试），故本轮保留 |
+
+**验证**：删除后后端 Jest + 真连库集成 + 前端 Vitest 全绿（见提交信息）。

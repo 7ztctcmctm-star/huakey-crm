@@ -1339,17 +1339,13 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 
 ### 9.4.3 潜客转化
 
-#### `convertToCustomer(pool, id)`
-
-潜客转化为正式客户（Prompt 4-1 版本）。
-
-**字段变更**: `customer_type: prospect→customer`、`lifecycle_status: →active`、`business_status: lead→following`、`status: →CUSTOMER_STATUS.FOLLOWING`
-
 #### `convertLeadToCustomer(pool, customerId, operatorId)`
 
 潜客转正式客户（Phase 2 增强版，事务保护）。
 
-**与 `convertToCustomer` 区别**: 同时写入 `crm_assign_log` 转化日志，返回 `from_status`/`to_status`。
+**说明**: 同时写入 `crm_assign_log` 转化日志，返回 `from_status`/`to_status`。潜客转化的**唯一入口**为 `POST /api/v1/leads/convert`。
+
+> **已清理（2026-09-14 阶段3 死代码清理）**: 旧版 `convertToCustomer`（`customerService` + `customerController` 同名方法）随路由 `POST /customer/convert-to-customer` 于阶段2 下线后成为孤立方法，本轮一并删除。
 
 **返回**: `{ id, company_name, from_status, to_status }`
 
@@ -1430,7 +1426,7 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 | `assignCustomer` / `batchAssignCustomers` | 分配负责人 |
 | `claimCustomer` / `claimPoolCustomer` | 认领公海 |
 | `releaseCustomer` / `releaseCustomerToPool` | 释放公海 |
-| `convertToCustomer` / `convertLeadToCustomer` | 潜客转化 |
+| `convertLeadToCustomer` | 潜客转化（旧 `convertToCustomer` 已于 2026-09-14 清理） |
 | `getOverdueCustomers` / `getNearRecycleCustomersList` | 逾期/回收预警 |
 | `loadStatusConfig` / `loadStatusTransitions` / `canTransition` / `getDefaultStatus` / `clearStatusConfigCache` | 状态配置管理 |
 
@@ -3261,8 +3257,8 @@ ModuleRegistry.register('report', {routes, permissions})。1个权限点：repor
 ### 10b.1 客户控制器 customerController.js
 
 **文件路径**: `backend/controllers/customerController.js`  
-**导出方法数**: 34  
-**依赖 Service**: `customerService`, `customerDetailService`, `leadsService`, `assignService`, `poolService`, `importService`  
+**导出方法数**: 32  
+**依赖 Service**: `customerService`, `customerDetailService`, `assignService`, `poolService`, `importService`  
 **依赖中间件**: `buildDataPermissionWhere`, `invalidateCache`, `logAction`, `logFieldChanges`
 
 #### 方法清单
@@ -3281,17 +3277,12 @@ ModuleRegistry.register('report', {routes, permissions})。1个权限点：repor
 | `forward` | 状态推进 | — | ✅ rawLogAction | ✅ |
 | `backward` | 状态回退（含 reason） | — | ✅ rawLogAction | ✅ |
 
-**线索管理**:
+**线索管理（已移除）**:
 
-| 方法 | 说明 | 审计 |
-|------|------|------|
-| `listLeads` | 线索列表 | — |
-| `convertLead` | 潜客转正式 | ✅ 'convert' |
-| `batchConvertLeads` | 批量转化 | ✅ 'batch-convert' |
-| `importLeads` | 导入线索 | ✅ 'import' |
-| `claimLead` | 领取线索 | ✅ 'claim-lead' |
-| `markLeadLost` | 标记流失 | — |
-| `getLeadsStats` | 线索统计 | — |
+> **已清理（2026-09-14 阶段3 死代码清理）**: 以下 7 个旧版 leads 控制器包装 —— `listLeads`、`convertLead`、
+> `batchConvertLeads`、`importLeads`、`claimLead`、`markLeadLost`、`getLeadsStats` —— 在 Phase 5 把线索
+> API 迁到 `/api/v1/leads` 后成为**零路由 / 零测试引用**的死码，已连同失效的 `leadsService` 导入一并删除。
+> 线索列表 / 转化现由 `listLeadPool` / `convertLeadToFormal` 承载（`routes/leads.js`）。
 
 **分配管理**:
 

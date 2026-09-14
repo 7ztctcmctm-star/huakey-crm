@@ -22,7 +22,6 @@ const ErrorCodes = require('../errors/codes')
 
 const customerService = require('../services/customerService')
 const customerDetailService = require('../services/customerDetailService')
-const leadsService = require('../services/leadsService')
 const assignService = require('../services/assignService')
 const poolService = require('../services/poolService')
 const importService = require('../services/importService')
@@ -157,75 +156,6 @@ async function backward(req, res, next) {
     })
     await invalidateCache([`customer:list:${req.user.userId}:*`])
     res.json({ code: 200, message: '状态回退成功', data: result })
-  } catch (error) {
-    next(error)
-  }
-}
-
-// ==================== leads ====================
-
-async function listLeads(req, res, next) {
-  try {
-    const result = await leadsService.getLeadsList(pool, req.body, req.user, customerDetailService.SOURCE_PARENT_MAP)
-    res.json({ code: 200, message: '获取线索列表成功', data: result })
-  } catch (error) {
-    next(error)
-  }
-}
-
-async function convertLead(req, res, next) {
-  try {
-    const result = await leadsService.convertLead(pool, req.body.id, req.user.userId)
-    await logAction(req, 'convert', `线索转化: ${result.company_name} → 已分配`)
-    res.json({ code: 200, message: '转化成功，已分配给当前销售', data: result })
-  } catch (error) {
-    next(error)
-  }
-}
-
-async function batchConvertLeads(req, res, next) {
-  try {
-    const result = await leadsService.batchConvert(pool, req.body.ids)
-    await logAction(req, 'batch-convert', `批量转化线索: ${result.converted}条成功`)
-    res.json({ code: 200, message: '批量转化完成', data: result })
-  } catch (error) {
-    next(error)
-  }
-}
-
-async function importLeads(req, res, next) {
-  try {
-    const result = await leadsService.importLeads(pool, req.body.leads, req.user.userId)
-    await logAction(req, 'import', `导入线索: ${result.imported}条成功`)
-    res.json({ code: 200, message: '导入完成', data: result })
-  } catch (error) {
-    next(error)
-  }
-}
-
-async function claimLead(req, res, next) {
-  try {
-    const result = await leadsService.claimLead(pool, req.body.id, req.user.userId)
-    await logAction(req, 'claim-lead', `领取线索: ${result.company_name}`)
-    res.json({ code: 200, message: '领取成功，该线索已归您跟进', data: result })
-  } catch (error) {
-    next(error)
-  }
-}
-
-async function markLeadLost(req, res, next) {
-  try {
-    await leadsService.markLeadLost(pool, req.body.id, req.user.userId)
-    res.json({ code: 200, message: '已标记为流失', data: { id: req.body.id } })
-  } catch (error) {
-    next(error)
-  }
-}
-
-async function getLeadsStats(req, res, next) {
-  try {
-    const result = await leadsService.getLeadsStats(pool, req.user)
-    res.json({ code: 200, message: '查询成功', data: result })
   } catch (error) {
     next(error)
   }
@@ -411,17 +341,6 @@ async function importConfirm(req, res, next) {
   }
 }
 
-// ==================== 潜客转化（Prompt 4-1） ====================
-
-async function convertToCustomer(req, res, next) {
-  try {
-    const result = await customerService.convertToCustomer(pool, req.body.id);
-    res.json({ code: 200, message: '转化为正式客户成功', data: result });
-  } catch (error) {
-    next(error);
-  }
-}
-
 // ==================== Phase 2: 客户中心三页面 ====================
 
 async function listLeadPool(req, res, next) {
@@ -496,8 +415,6 @@ async function claimPool(req, res, next) {
 
 module.exports = {
   list, create, update, remove, detail, view360, exportCustomers, forward, backward,
-  listLeads, convertLead, batchConvertLeads, importLeads, claimLead, markLeadLost, getLeadsStats,
-  convertToCustomer,
   assign, batchAssign, listAssignLogs, createAssignRule, updateAssignRule, deleteAssignRule, autoAssign,
   getAssignRules, getSalesUsers, getMySubordinates,
   claim, batchClaim, release, batchRelease, listPoolLogs, importPreview, importConfirm,
