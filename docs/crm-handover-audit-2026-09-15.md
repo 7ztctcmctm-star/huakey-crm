@@ -162,3 +162,82 @@ R-03 三用例（`customer-crud.spec.js:220` 起）：
 ---
 
 *本报告所有「已修复/已通过」结论均附命令与输出；未实测项一律标注「未开始」或「未验证」。*
+
+---
+
+## 八、收口结果（2026-09-15 当日完成）
+
+采用建议 **C**：先把 worktree 分支的 5 个未推提交推到 `main`，再把本次产出 rebase 上去。
+
+### 8.1 执行过程（含两次环境事故，均为可恢复）
+
+| 步 | 动作 | 结果 |
+|---|---|---|
+| 1 | `git push origin f8fc9fa:main` | ✅ `661a29d..f8fc9fa`（快进） |
+| 2 | 主 checkout 合并 origin/main | ⚠️ **两端口冲突测试**（见 8.3）；改为在 worktree 内收口 |
+| 3 | 14 个非重叠文件直接搬运；6 个重叠文件手工合并 | ✅ |
+| 4 | 前端单测 + E2E 验证 | ✅（见 8.2） |
+| 5 | 提交 `e40e932` + `git push origin HEAD:main` | ✅ `f8fc9fa..e40e932`；`ls-remote` 权威核对通过 |
+| 6 | 主 checkout 对齐到 `e40e932` | ✅ |
+
+⚠️ **重叠文件其实是 6 个，不是 1 个**：本报告 §五 P1-1 最初用「陈旧的 `origin/main` 引用」做重叠检查（该引用实际指向 `5a0787b`，比真值旧 12 个提交），
+漏判了 5 个文件。**教训：做集合运算前先核验 ref 真值，别只 `git log origin/main` 看列表。**
+
+### 8.2 合并语义（关键判断）
+
+6 个重叠文件中，**5 个是「伪冲突」**：另一 agent 基于旧基线，把上游新引入的 `PageToolbar`
+（`f8fc9fa` P1-1）改回了 `el-card` 写法。正确解法 = **保留上游的 PageToolbar，只吸收本次增量**：
+
+| 文件 | 保留上游 | 吸收本次 |
+|---|---|---|
+| `customer/components/CustomerFilter.vue` | PageToolbar 结构 | `FILTER_TAB_OPTIONS` 驱动 tabs |
+| `pool/List.vue` | PageToolbar 结构 | 状态标签改引用常量，删本地 `statusLabel/statusTagType` |
+| `quotation/list.vue` | PageToolbar 结构 | 转合同幂等守卫 + `_t` 时间戳刷新 |
+| `contract/list.vue` | PageToolbar 结构 | `onActivated` 刷新 |
+| `backend/services/quoteService.js` | `dismissByBusiness` 重构 | 明细复制 + 金额 `??` |
+| `frontend/e2e/fixtures/api-helpers.js` | 全量 `/customers/*`（已是新命名空间） | 新增 `claimPoolCustomer` |
+
+### 8.3 环境事故：本机 git 树更新极慢 / 卡死（新增记录）
+
+- **现象**：`git merge` 与 `git reset --hard <不同提交>` 长时间无输出；进程 CPU 仅 2 秒、状态 `Not Responding`。
+  两次中断都留下**半应用的中间态**（大量 ` D` 条目 + 文件真实缺失）。
+- **根因**：本机**单文件删除约 5–10 秒**（实测 `rm -f` 一个文件 `real 5.25s`，环境 I/O 拦截）。
+  git 需要批量删除时耗时被放大到数十分钟，**不是死锁**。
+- **恢复手法（有效）**：`rm -f .git/index.lock .git/MERGE_HEAD` → `git reset --hard <已知提交>`
+  （纯写入，秒级完成）→ 再逐个/分批手工 `rm` 掉待删文件 → 最后 `git reset --hard <目标>`
+  （此时只剩写入，迅速完成）。
+- **副产品**：排查中确认「用陈旧 index 伪装全仓删除」的判据依然有效（本报告 §五 P1-1 记忆条目）。
+- **另**：`git update-ref` 依旧**静默失败**（`rc=0` 但值不变）→ 修 ref 必须直写 `refs/...` 文件。
+
+### 8.4 验证证据（收口后，均在新基线 `f8fc9fa`+ 之上）
+
+| # | 项 | 结论 |
+|---|---|---|
+| 1 | 前端单测（worktree） | 18 文件 / 115 用例；3 例并行 flaky，**单独重跑 9/9 全过** |
+| 2 | E2E `customer-crud.spec.js`（chromium，`--workers=1`） | ✅ **6/6**（含 NI-1 登记的 3 个历史失败用例 + R-03 三个新用例） |
+| 3 | E2E `quotation-to-contract.spec.js`（chromium） | ✅ **1/1**（R-02 端到端打通） |
+| 4 | 2 workers 并行 | 2 例失败（`#1`/`#7`）→ **资源争用型 flaky，非缺陷**（单 worker 全绿） |
+| 5 | 权威基线重建 | 102 → **103 表**，含 `crm_contract_item` |
+| 6 | 新基线自举 | 全新库导入 → 103 表，`crm_contract_item` 存在 |
+| 7 | **N-05 终态验收** | ✅ **92/92 invariants satisfied**（CI 的建库终态验收，本机复现） |
+| 8 | regen 确定性（P3-1） | 连续两次 regen **md5 一致**（`eb576ef8d2f15194432d5bd08da24171`） |
+
+### 8.5 风险状态更新
+
+| 编号 | 原状态 | 现状态 |
+|---|---|---|
+| **P0-1** E2E 端点用已下线老树 | 已修，未验证 | ✅ **已修 + 复跑验证** |
+| **P0-2** 迁移 114 未进权威基线 | 未修 | ✅ **已修**（基线重建 + N-05 92/92） |
+| **P3-1** regen `AUTO_INCREMENT` 噪声 | 未做（登记项） | ✅ **已修**（含 dump 时间戳归一化） |
+| P1-2 主 checkout 落后 | 未处理 | ✅ 已对齐 `e40e932` |
+| 全部产出未提交 | 19 文件裸奔 | ✅ 已提交 `e40e932` 并推送 |
+
+### 8.6 仍待处理（未做，如实登记）
+
+1. **R-04 / R-05 / R-06 完全未开始**（3 个后端单测 / Dashboard / 架构治理卡点）。
+2. **生产库补跑迁移 112 / 113 / 114** —— 需 NAS 权限；且 `110` 改号事件说明**账本须先核对**。
+3. **R-01 / R-02 的 RFC**：PRD 标注两者「触及冻结模块需 RFC」，本次仅落地了实现，**未见 RFC 文档**。
+4. R-01 未验证后端侧：PRD 验收要求「forward API 单接口同时返回两字段」，本次只做了**前端**常量统一。
+   > 注：`origin/main` 已有 `5f0c7ce`（NI-3 统一 status/business_status 同步）与 `f14bacb`，需比对是否已满足该条。
+5. 本报告 §六 中「主 checkout 同步」项已完成，其余项不变。
+
