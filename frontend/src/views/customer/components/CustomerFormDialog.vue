@@ -162,6 +162,16 @@ const submitLoading = ref(false)
 const isEdit = computed(() => !!props.customer)
 const dialogTitle = computed(() => isEdit.value ? '编辑客户' : '新增客户')
 
+/**
+ * 打开编辑弹窗时「列表行带过来的原始状态」。
+ * ⚠️ 用途：只有「原本有状态」且「用户确实改过」才提交 status。
+ * 由来（2026-09-15 真实缺陷）：/leads 潜客池列表**不返回 status 字段**，
+ * 旧实现 `props.customer.status || 'following'` 会把缺失状态默认成 following 并提交，
+ * 于用户「只改备注」时静默尝试 lead → following 的状态流转，被后端
+ * customerDetailService.updateCustomer 的流转守卫拒绝（400 当前状态不允许直接修改为目标状态）。
+ */
+const initialStatus = ref(null)
+
 const flatSourceOptions = computed(() => ALL_SOURCE_VALUES.map(v => ({ label: v, value: v })))
 
 const createEmptyContact = () => ({
@@ -211,6 +221,8 @@ const formRules = {
 watch(() => props.modelValue, (visible) => {
   if (visible) {
     if (props.customer) {
+      // 记录原始状态：列表行未带 status 时为 null（见 initialStatus 注释）
+      initialStatus.value = props.customer.status || null
       formData.value = {
         company_name: props.customer.company_name || '',
         contacts: [createEmptyContact()],
@@ -250,9 +262,14 @@ const handleSubmit = async () => {
         industry: formData.value.industry,
         source: formData.value.source,
         level: formData.value.level,
-        status: formData.value.status,
         address: formData.value.address,
         remark: formData.value.remark
+      }
+      // 仅当「列表行原本有状态」且「用户确实改过」时才提交 status：
+      // ① 行缺 status（/leads 潜客池）时提交会把客户从 lead 静默改成 following；
+      // ② 未变更时提交会无谓触发后端流转守卫校验。
+      if (initialStatus.value && formData.value.status && formData.value.status !== initialStatus.value) {
+        data.status = formData.value.status
       }
       res = await updateCustomer(data)
     } else {
