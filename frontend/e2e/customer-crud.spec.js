@@ -194,9 +194,38 @@ test.describe('客户管理 CRUD', () => {
     await expect(page.locator('.el-dialog:has-text("编辑客户")')).toBeVisible({ timeout: 5000 })
     await fillByLabel(page, '备注', 'E2E 自动测试备注')
 
+    // 诊断埋点：CI 未上传 artifact，失败时把「现场证据」写进报错，避免只能靠猜
+    const consoleErrors = []
+    const apiFailures = []
+    page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text()) })
+    page.on('response', async (r) => {
+      const u = r.url()
+      if (!/\/api\/v1\//.test(u)) return
+      if (r.status() >= 400) {
+        let body = ''
+        try { body = (await r.text()).slice(0, 300) } catch { /* 响应体不可读则跳过 */ }
+        apiFailures.push(`${r.status()} ${r.request().method()} ${u.replace(/^.*\/api\/v1\//, '/api/v1/')} :: ${body}`)
+      }
+    })
+
     const editSubmitBtn = page.locator('.el-dialog .el-button:has-text("确定")')
     await editSubmitBtn.click({ force: true })
-    await expect(page.locator('.el-dialog:has-text("编辑客户")')).not.toBeVisible({ timeout: 10000 })
+    try {
+      await expect(page.locator('.el-dialog:has-text("编辑客户")')).not.toBeVisible({ timeout: 10000 })
+    } catch (e) {
+      const invalidFields = await page.locator('.el-dialog .el-form-item.is-error').evaluateAll(
+        (els) => els.map((el) => el.querySelector('.el-form-item__label')?.textContent?.trim()).filter(Boolean)
+      ).catch(() => [])
+      const messages = await page.locator('.el-message').allTextContents().catch(() => [])
+      throw new Error(
+        '编辑客户弹窗未关闭（提交未成功）。现场证据：\n'
+        + `  · 校验未通过字段: ${JSON.stringify(invalidFields)}\n`
+        + `  · 页面提示: ${JSON.stringify(messages)}\n`
+        + `  · 失败 API: ${JSON.stringify(apiFailures)}\n`
+        + `  · 控制台错误(末 5 条): ${JSON.stringify(consoleErrors.slice(-5))}\n`
+        + `原始错误: ${e.message}`
+      )
+    }
 
     // 清理：通过 API 删除测试数据
     if (customerId) {

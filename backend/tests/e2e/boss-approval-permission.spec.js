@@ -138,10 +138,13 @@ describe('Boss / Manager / Sales 审批权限验证', () => {
       const token = makeToken({ userId: 3, roleId: 9, roleCode: 'boss', manageAll: true });
 
       mockAuth(1, 1, 'boss');
-      // quoteController.approve → quoteService.approveQuote: SELECT + UPDATE
+      // quoteController.approve → quoteService.approveQuote: SELECT + UPDATE + dismiss
+      // ⚠️ dismiss 这一步由 notificationService.dismissByBusiness 发起（原为内联 SQL），
+      //    顺序 mock 必须与之对齐，否则第 3 次调用拿到 undefined 会抛 TypeError → 500
       mockPool.query
         .mockResolvedValueOnce([[{ id: 300, approval_status: 1, status: 1 }]])  // SELECT quote
-        .mockResolvedValueOnce([{ affectedRows: 1 }]);                           // UPDATE
+        .mockResolvedValueOnce([{ affectedRows: 1 }])                            // UPDATE approval_status
+        .mockResolvedValueOnce([{ affectedRows: 1 }]);                           // dismiss notification
 
       const res = await request(app)
         .post('/api/v1/quote/approve')
