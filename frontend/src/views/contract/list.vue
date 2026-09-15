@@ -175,7 +175,7 @@ import { reportError, reportWarn } from '@/utils/error'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import PageToolbar from '@/components/common/PageToolbar.vue'
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onActivated, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh, View, Edit, Download, Coin, ArrowDown } from '@element-plus/icons-vue'
@@ -482,6 +482,11 @@ onMounted(() => {
     }
     formVisible.value = true
   }
+})
+
+// R-02 修复：keep-alive 缓存页面重新激活时刷新列表（含从报价转合同跳回）
+onActivated(() => {
+  fetchList()
 })
 </script>
 

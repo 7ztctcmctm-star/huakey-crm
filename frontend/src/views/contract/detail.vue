@@ -22,6 +22,23 @@
     </el-card>
 
     <el-card style="margin-top: 16px">
+      <template #header><span class="card-title">产品明细</span></template>
+      <el-table :data="contractItems" border size="small">
+        <el-table-column prop="product_name" label="产品名称" min-width="180" />
+        <el-table-column prop="product_code" label="编码" width="100" />
+        <el-table-column prop="quantity" label="数量" width="80" align="right" />
+        <el-table-column label="单价" width="120" align="right">
+          <template #default="{ row }">¥{{ fmt(row.unit_price) }}</template>
+        </el-table-column>
+        <el-table-column label="小计" width="130" align="right">
+          <template #default="{ row }">¥{{ fmt(row.total_price) }}</template>
+        </el-table-column>
+        <el-table-column prop="remark" label="备注" min-width="120" />
+      </el-table>
+      <EmptyState v-if="contractItems.length === 0" title="暂无产品明细" compact />
+    </el-card>
+
+    <el-card style="margin-top: 16px">
       <template #header><span class="card-title">回款计划</span></template>
       <el-table :data="detail.plans || []" border size="small">
         <el-table-column prop="plan_date" label="计划日期" width="120" />
@@ -123,12 +140,12 @@
 
 <script setup>
 import EmptyState from '@/components/common/EmptyState.vue'
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onActivated, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Plus } from '@element-plus/icons-vue'
 import request from '@/utils/request'
-import { getContractDetail, addPayment, deletePayment as deletePaymentApi } from '@/api/contract'
+import { getContractDetail, addPayment, deletePayment as deletePaymentApi, getContractItems } from '@/api/contract'
 import { recordVisit } from '@/composables/useRecentVisit'
 
 const route = useRoute()
@@ -136,6 +153,7 @@ const router = useRouter()
 
 const loading = ref(false)
 const detail = ref({})
+const contractItems = ref([])
 const showAddPayment = ref(false)
 const payLoading = ref(false)
 const payFormRef = ref(null)
@@ -170,6 +188,11 @@ const fetchDetail = async () => {
       detail.value = r.data
       // 记录最近访问
       recordVisit('contract', parseInt(route.params.id), r.data.contract_no || `合同#${route.params.id}`)
+      // R-02 修复：获取产品明细
+      try {
+        const ri = await getContractItems(route.params.id)
+        if (ri.code === 200) contractItems.value = ri.data || []
+      } catch { contractItems.value = [] }
     }
   } catch {
     ElMessage.error('加载详情失败')
@@ -210,6 +233,14 @@ const deletePayment = (row) => {
 }
 
 onMounted(() => { fetchDetail() })
+onActivated(() => {
+  // R-02 修复：keep-alive 缓存页面重新激活时刷新（含从报价转合同跳转）
+  if (route.params.id) fetchDetail()
+})
+watch(() => route.query._t, (newT) => {
+  // R-02 修复：_t 时间戳变化时强制刷新
+  if (newT && route.params.id) fetchDetail()
+})
 </script>
 
 <style scoped>

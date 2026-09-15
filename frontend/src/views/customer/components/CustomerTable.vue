@@ -114,8 +114,8 @@
       </el-table-column>
       <el-table-column prop="status" label="状态" width="100" align="center">
         <template #default="{ row }">
-          <el-tag :type="statusTagType(row.status)">
-            {{ statusMap[row.status] || '未知' }}
+          <el-tag :type="getStatusTagType(row.status)">
+            {{ getStatusLabel(row.status) }}
           </el-tag>
         </template>
       </el-table-column>
@@ -200,6 +200,14 @@ import { Plus, Upload, Download, DataAnalysis, ChatLineRound, Select, View, Edit
 import { relativeTime, fullTime, relativeNextTime } from '@/composables/useRelativeTime'
 import { hasPermission } from '@/utils/permission'
 import { forwardCustomer, backwardCustomer } from '@/api/customer'
+import {
+  CustomerStatus,
+  PIPELINE,
+  getStatusLabel,
+  getStatusTagType,
+  canForward as canForwardStatus,
+  canBackward as canBackwardStatus,
+} from '@/constants/customer'
 
 const props = defineProps({
   loading: { type: Boolean, default: false },
@@ -236,31 +244,6 @@ const levelLabel = (level) => {
   return map[level] || level || '-'
 }
 
-const statusTagType = (status) => {
-  const map = {
-    lead: '',
-    sea: 'info',
-    following: 'warning',
-    quoted: '',
-    negotiating: 'primary',
-    signed: 'success',
-    lost: 'danger',
-    paused: 'info'
-  }
-  return map[status] || 'info'
-}
-
-const statusMap = {
-  lead: '线索',
-  sea: '公海客户',
-  following: '跟进中',
-  quoted: '已报价',
-  negotiating: '谈判中',
-  signed: '已签约',
-  lost: '已流失',
-  paused: '暂停跟进'
-}
-
 const overdueDays = 15
 const isOverdue = (time) => {
   if (!time) return true
@@ -285,18 +268,9 @@ const handleMoreAction = (command, row) => {
   else if (command === 'delete') emit('delete', row)
 }
 
-// 状态流转
-const PIPELINE = ['lead', 'sea', 'following', 'quoted', 'negotiating', 'signed']
-
-const canForward = (row) => {
-  const idx = PIPELINE.indexOf(row.status)
-  return idx !== -1 && idx < PIPELINE.length - 1 && row.status !== 'lost' && row.status !== 'paused'
-}
-
-const canBackward = (row) => {
-  const idx = PIPELINE.indexOf(row.status)
-  return idx > 0 && row.status !== 'lost' && row.status !== 'paused'
-}
+// 状态流转（引用常量）
+const canForward = (row) => canForwardStatus(row.status)
+const canBackward = (row) => canBackwardStatus(row.status)
 
 const handleForward = async (row) => {
   try {

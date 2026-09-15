@@ -413,12 +413,24 @@ async function convertToContract(pool, quoteId, userId) {
     const contractNo = `HT-${dateStr}-${String(cnt + 1).padStart(3, '0')}`;
 
     // 4-3-2: 从报价单传递 opportunity_id 和 quote_id 到合同
+    // 【R-02 修复】金额取值：使用 ?? 替代 ||，避免 final_amount=0 时 falsy 陷阱
+    const contractAmount = quote.final_amount ?? quote.amount;
     const [result] = await conn.query(
       `INSERT INTO crm_contract (contract_no, customer_id, opportunity_id, quote_id, amount, status, remark, create_by, create_time)
        VALUES (?, ?, ?, ?, ?, 1, ?, ?, NOW())`,
-      [contractNo, quote.customer_id, quote.opportunity_id || null, quoteId, quote.final_amount || quote.amount, `从报价单${quote.quote_no}转入`, userId]
+      [contractNo, quote.customer_id, quote.opportunity_id || null, quoteId, contractAmount, `从报价单${quote.quote_no}转入`, userId]
     );
     const contractId = result.insertId;
+
+    // 【R-02 修复 P0】复制产品明细 crm_quote_item → crm_contract_item
+    await conn.query(
+      `INSERT INTO crm_contract_item
+        (contract_id, product_id, product_name, product_code, quantity, unit_price, total_price, remark, create_by, create_time)
+       SELECT ?, product_id, product_name, product_code, quantity, unit_price, total_price, remark, ?, NOW()
+       FROM crm_quote_item
+       WHERE quote_id = ? AND deleted_at IS NULL`,
+      [contractId, userId, quoteId]
+    );
 
     await conn.query("UPDATE crm_quote SET status = 3 WHERE id = ?", [quoteId]);
 

@@ -54,6 +54,33 @@ async function getContractDetail(req, res, next) {
   }
 }
 
+// R-02 修复：获取合同产品明细
+async function getContractItems(req, res, next) {
+  const { id } = req.params;
+
+  try {
+    const { clause: permissionClause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'c');
+    // 先验证合同存在且有权限
+    const contract = await contractCrudService.getContractDetail(pool, id, { clause: permissionClause, params: permParams });
+    if (!contract) {
+      throw new AppError(ErrorCodes.CONTRACT_NOT_FOUND, '合同不存在');
+    }
+
+    const [items] = await pool.query(
+      `SELECT id, product_id, product_name, product_code, quantity, unit_price, total_price, remark
+       FROM crm_contract_item
+       WHERE contract_id = ? AND deleted_at IS NULL
+       ORDER BY id`,
+      [id]
+    );
+
+    res.json({ code: 200, message: '查询成功', data: items });
+  } catch (error) {
+    logger.error('[合同] 查询产品明细失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    next(error);
+  }
+}
+
 async function createContract(req, res, next) {
   const { customer_id, amount } = req.body;
 
@@ -345,6 +372,7 @@ async function downloadPaymentImportTemplate(req, res, next) {
 module.exports = {
   listContracts,
   getContractDetail,
+  getContractItems,
   createContract,
   updateContract,
   deleteContract,

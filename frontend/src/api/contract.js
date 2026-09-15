@@ -11,6 +11,7 @@ export const exportContracts = (params) => request.post('/contract/export', para
 export const getContractOpportunityList = (customerId) => request.get('/contract/opportunity-list', { params: { customer_id: customerId } })
 export const getContractTemplates = () => request.get('/contract-template/list')
 export const searchContract = (keyword) => request.get('/contract/search', { params: { keyword } })
+export const getContractItems = (contractId) => request.get(`/contract/items/${contractId}`)
 
 // ============ 回款管理 ============
 export const getPaymentList = (params) => request.post('/contract/payment/list', params)

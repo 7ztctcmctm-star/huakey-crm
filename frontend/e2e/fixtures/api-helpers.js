@@ -129,6 +129,22 @@ export async function convertLeadToFormal(request, csrfToken, customerId) {
 }
 
 /**
+ * 认领公海客户（POST /pool/claim）
+ * 前置条件（customerService.claimPoolCustomer）：pool_status='sea' 且 business_status!=='lead'
+ * 效果：pool_status='private'、owner_id=当前用户
+ * @param {import('@playwright/test').APIRequestContext} request
+ * @param {string} csrfToken
+ * @param {number} customerId
+ */
+export async function claimPoolCustomer(request, csrfToken, customerId) {
+  const res = await request.post('/api/v1/pool/claim', {
+    data: { id: customerId },
+    headers: { 'X-CSRF-Token': csrfToken }
+  })
+  return res.json()
+}
+
+/**
  * 查询客户详情（取 owner_id / pool_status / business_status 用于断言归属规则）
  * 注意：响应结构为 { customer, contacts, followRecords }，owner_id 在 data.customer 下。
  * @param {import('@playwright/test').APIRequestContext} request

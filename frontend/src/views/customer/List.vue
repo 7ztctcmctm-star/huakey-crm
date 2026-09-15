@@ -107,6 +107,7 @@ import BatchFollowDialog from './components/BatchFollowDialog.vue'
 import { get } from '@/utils/request'
 import { getFormalCustomers, deleteCustomer, batchAssignCustomer, exportCustomers, getSalesUsers, getMySubordinates } from '@/api/customer'
 import { SOURCE_SEARCH_OPTIONS } from '@/constants/source'
+import { FILTER_STATUS_OPTIONS, EDIT_STATUS_OPTIONS, FILTER_TAB_OPTIONS } from '@/constants/customer'
 import { useUser } from '@/composables/useUser'
 
 const router = useRouter()
@@ -230,23 +231,9 @@ const levelOptions = [
   { label: 'D级 - 非意向客户', value: 'D' }
 ]
 
-const statusOptions = [
-  { label: '跟进中', value: 'following' },
-  { label: '已报价', value: 'quoted' },
-  { label: '谈判中', value: 'negotiating' },
-  { label: '已签约', value: 'signed' },
-  { label: '已流失', value: 'lost' },
-  { label: '暂停跟进', value: 'paused' }
-]
+const statusOptions = FILTER_STATUS_OPTIONS
 
-const editStatusOptions = [
-  { label: '跟进中', value: 'following' },
-  { label: '已报价', value: 'quoted' },
-  { label: '谈判中', value: 'negotiating' },
-  { label: '已签约', value: 'signed' },
-  { label: '已流失', value: 'lost' },
-  { label: '暂停跟进', value: 'paused' }
-]
+const editStatusOptions = EDIT_STATUS_OPTIONS
 
 const tableData = ref([])
 const total = ref(0)

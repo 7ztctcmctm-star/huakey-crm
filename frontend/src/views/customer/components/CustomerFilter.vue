@@ -86,13 +86,7 @@
   <!-- 状态筛选 Tabs -->
   <el-card class="tab-card" style="margin-bottom: 12px;">
     <el-tabs :model-value="activeTab" @tab-change="$emit('tab-change', $event)">
-      <el-tab-pane label="全部" name="all" />
-      <el-tab-pane label="跟进中" name="following" />
-      <el-tab-pane label="已报价" name="quoted" />
-      <el-tab-pane label="谈判中" name="negotiating" />
-      <el-tab-pane label="已签约" name="signed" />
-      <el-tab-pane label="已流失" name="lost" />
-      <el-tab-pane label="暂停跟进" name="paused" />
+      <el-tab-pane v-for="tab in filterTabOptions" :key="tab.value" :label="tab.label" :name="tab.value" />
     </el-tabs>
   </el-card>
 </template>
@@ -104,6 +98,7 @@ import { ref, onMounted } from 'vue'
 import { reportWarn } from '@/utils/error'
 import { getTagList } from '@/api/system'
 import { get } from '@/utils/request'
+import { FILTER_TAB_OPTIONS } from '@/constants/customer'
 
 const props = defineProps({
   searchForm: { type: Object, required: true },
@@ -116,6 +111,9 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['search', 'reset', 'tab-change', 'quick-tab-change', 'clear-overdue'])
+
+// 状态筛选 Tabs 统一走常量（R-01）
+const filterTabOptions = FILTER_TAB_OPTIONS
 
 const tagOptions = ref([])
 const overdueDays = ref(15)

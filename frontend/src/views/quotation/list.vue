@@ -119,7 +119,7 @@
                   <el-dropdown-item v-if="row.approval_status === 1 && isAdmin" command="approve">通过</el-dropdown-item>
                   <el-dropdown-item v-if="row.approval_status === 1 && isAdmin" command="reject">拒绝</el-dropdown-item>
                   <el-dropdown-item v-if="row.approval_status === 1" command="withdrawApproval">撤回</el-dropdown-item>
-                  <el-dropdown-item v-if="row.status === 3 || row.approval_status === 2" v-permission="'contract:add'" command="convertToContract">转合同</el-dropdown-item>
+                  <el-dropdown-item v-if="row.approval_status === 2" v-permission="'contract:add'" :disabled="convertingId === row.id" command="convertToContract">{{ convertingId === row.id ? '转换中...' : '转合同' }}</el-dropdown-item>
                   <el-dropdown-item v-if="row.status === 1 || row.status === 2" v-permission="'quotation:delete'" command="delete" divided class="text-danger">删除</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -406,7 +406,12 @@ const handleDelete = (row) => {
   })
 }
 
+// R-02 修复：转合同 loading 守卫（防重复提交 / 重复建合同）
+const convertingId = ref(null)
+
 const handleConvertToContract = (row) => {
+  if (convertingId.value !== null) return
+
   ElMessageBox.confirm(
     `确定要将报价单"${row.quote_no}"转为合同吗？`,
     '转合同确认',
@@ -416,15 +421,19 @@ const handleConvertToContract = (row) => {
       type: 'warning'
     }
   ).then(async () => {
+    convertingId.value = row.id
     try {
       const res = await quoteToContract(row.id)
       if (res.code === 200) {
         ElMessage.success(res.message)
         // [修复] 路由中无 /contract/edit/:id，改为已存在的合同详情页
-        router.push(`/contract/detail/${res.data.contract_id}`)
+        // R-02：携带 _t 时间戳，合同详情页 keep-alive 复用时可强制刷新
+        router.push({ path: `/contract/detail/${res.data.contract_id}`, query: { _t: Date.now() } })
       }
     } catch (error) {
       reportError('转合同失败:', error)
+    } finally {
+      convertingId.value = null
     }
   })
 }

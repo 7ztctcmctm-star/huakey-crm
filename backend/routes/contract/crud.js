@@ -161,6 +161,9 @@ router.post('/list', authenticateToken, cache(60), checkPermission('contract'), 
 
 router.get('/detail/:id', authenticateToken, checkDataPermission('contract', 'create_by'), contractController.getContractDetail);
 
+// R-02 修复：获取合同产品明细
+router.get('/items/:id', authenticateToken, checkDataPermission('contract', 'create_by'), contractController.getContractItems);
+
 router.post('/add', authenticateToken, checkPermission('contract:add'), validate(addContractSchema), contractController.createContract);
 
 router.post('/update', authenticateToken, checkPermission('contract:edit'), checkDataPermission('contract', 'create_by'), validate(updateContractSchema), contractController.updateContract);

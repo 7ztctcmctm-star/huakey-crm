@@ -18,7 +18,8 @@
         <el-button v-if="canForward(customer.status)" type="primary" :icon="ArrowRight" @click="handleForward">推进</el-button>
         <el-button v-if="canBackward(customer.status)" type="info" :icon="ArrowLeft" @click="openBackwardDialog">回退</el-button>
         <el-button type="primary" :icon="EditPen" @click="handleEdit">编辑</el-button>
-        <el-button v-if="customer.owner_id && customer.pool_status === 0" :icon="Share" @click="handleRelease">释放公海</el-button>
+        <!-- 097 迁移后 pool_status 为 VARCHAR('private'/'sea')，此处原为 TINYINT 0/1 比较，恒 false 导致按钮永不渲染（R-03 E2E 修复） -->
+        <el-button v-if="customer.owner_id && customer.pool_status === 'private'" :icon="Share" @click="handleRelease">释放公海</el-button>
       </div>
     </div>
 
@@ -65,10 +66,10 @@
             <el-icon><Location /></el-icon> {{ customer.address }}
           </div>
           <div class="hero-tags">
-            <el-tag v-if="customer.pool_status === 1" type="warning" effect="dark">公海客户</el-tag>
+            <el-tag v-if="customer.pool_status === 'sea'" type="warning" effect="dark">公海客户</el-tag>
             <el-tag v-else-if="isProtected()" type="success">保护期至 {{ formatTime(customer.protect_until) }}</el-tag>
             <el-tag :type="levelTagType(customer.level)" effect="dark">{{ customer.level }}级客户</el-tag>
-            <el-tag :type="statusTagType(customer.status)">{{ statusMap[customer.status] || customer.status }}</el-tag>
+            <el-tag :type="getStatusTagType(customer.status)">{{ getStatusLabel(customer.status) }}</el-tag>
             <el-tag v-if="customer.score > 0" type="warning" effect="dark">评分 {{ customer.score }}</el-tag>
           </div>
         </div>
@@ -557,6 +558,13 @@ import { recordVisit } from '@/composables/useRecentVisit'
 import { ALL_SOURCE_VALUES } from '@/constants/source'
 import { useUser } from '@/composables/useUser'
 import SalesTimeline from '@/components/customer/SalesTimeline.vue'
+import {
+  CustomerStatus,
+  getStatusLabel,
+  getStatusTagType,
+  canForward as canForwardStatus,
+  canBackward as canBackwardStatus,
+} from '@/constants/customer'
 
 const route = useRoute()
 const router = useRouter()
@@ -590,37 +598,10 @@ const handleAssignOwner = (newOwnerId) => {
 
 const activeTab = ref('follow')
 
-// 状态映射
-const PIPELINE = ['sea', 'following', 'quoted', 'negotiating', 'signed']
-const statusMap = {
-  sea: '公海客户',
-  following: '跟进中',
-  quoted: '已报价',
-  negotiating: '谈判中',
-  signed: '已签约',
-  lost: '已流失',
-  paused: '暂停跟进'
-}
+// 状态映射（引用常量）
 const levelTagType = (l) => ({ A: 'danger', B: 'warning', C: 'info', D: '' }[l] || 'info')
-const statusTagType = (s) => ({
-  sea: 'info',
-  following: 'warning',
-  quoted: '',
-  negotiating: 'primary',
-  signed: 'success',
-  lost: 'danger',
-  paused: 'info'
-}[s] || 'info')
-
-const canForward = (status) => {
-  const idx = PIPELINE.indexOf(status)
-  return idx !== -1 && idx < PIPELINE.length - 1 && status !== 'lost' && status !== 'paused'
-}
-
-const canBackward = (status) => {
-  const idx = PIPELINE.indexOf(status)
-  return idx > 0 && status !== 'lost' && status !== 'paused'
-}
+const canForward = (status) => canForwardStatus(status)
+const canBackward = (status) => canBackwardStatus(status)
 
 // 客户数据
 const customer = reactive({

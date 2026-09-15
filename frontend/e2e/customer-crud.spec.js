@@ -1,5 +1,13 @@
 import { test, expect } from './fixtures/auth.js'
-import { loginAsAdmin, createCustomer, deleteCustomer, listLeadsPoolCustomers } from './fixtures/api-helpers.js'
+import {
+  loginAsAdmin,
+  createCustomer,
+  deleteCustomer,
+  listLeadsPoolCustomers,
+  convertLeadToFormal,
+  claimPoolCustomer,
+  getCustomerDetail
+} from './fixtures/api-helpers.js'
 
 // 生成唯一公司名称，避免并发或重复运行冲突
 function uniqueCompanyName(prefix = 'E2E测试客户') {
@@ -194,6 +202,223 @@ test.describe('客户管理 CRUD', () => {
     if (customerId) {
       const delRes = await deleteCustomer(request, csrfToken, customerId)
       expect(delRes.code).toBe(200)
+    }
+  })
+})
+
+/**
+ * R-03 客户三类型 CRUD 矩阵 + 跨类型流转（Week 4）
+ *
+ * 三类型（Customer Center 拆分设计）：
+ *   潜客池 /leads        → business_status='lead'（已有用例覆盖 CRUD）
+ *   正式客户 /customer/list → pool_status='private' 且 business_status∈(following/quoted/negotiating/signed)
+ *   公海池 /pool          → pool_status='sea' 且 owner_id IS NULL
+ *
+ * 流转链：lead --代转化(admin)--> sea --认领--> private --释放--> sea
+ * （归属规则 2026-09-11 产品决策：admin 代转化 → 置公海；认领 → private+owner）
+ */
+test.describe('R-03 客户三类型 CRUD 矩阵与跨类型流转', () => {
+  const skipMobile = (testInfo) =>
+    test.skip(
+      testInfo.project.name.includes('iPhone') ||
+      testInfo.project.name.includes('Mobile Chrome') ||
+      testInfo.project.name === 'firefox',
+      '复杂表单流程在 chromium/webkit 桌面浏览器覆盖'
+    )
+
+  /**
+   * 准备一个「正式客户」（pool_status='private'、owner=当前 admin）
+   * 链路：建客户(lead) → admin 代转化(→sea) → admin 认领(→private)
+   */
+  async function setupFormalCustomer(request) {
+    const { csrfToken, userId } = await loginAsAdmin(request)
+    const companyName = uniqueCompanyName('E2E正式客户')
+    const createRes = await createCustomer(request, csrfToken, { companyName })
+    expect(createRes.code).toBe(200)
+    const customerId = createRes.data?.id
+    expect(customerId).toBeTruthy()
+
+    const convRes = await convertLeadToFormal(request, csrfToken, customerId)
+    expect(convRes.code).toBe(200)
+
+    const claimRes = await claimPoolCustomer(request, csrfToken, customerId)
+    expect(claimRes.code, `admin 认领应成功，实际: ${JSON.stringify(claimRes)}`).toBe(200)
+
+    return { csrfToken, userId, companyName, customerId }
+  }
+
+  test('正式客户：搜索可见 + 行内编辑 + UI 软删除', async ({ authenticatedPage: page, request }, testInfo) => {
+    skipMobile(testInfo)
+    test.setTimeout(60000)
+    await ensureDesktopViewport(page)
+    const { csrfToken, companyName, customerId } = await setupFormalCustomer(request)
+
+    try {
+      // 1. 正式客户列表搜索可见
+      await page.goto('/customer/list')
+      await page.locator('.customer-list').waitFor({ state: 'visible', timeout: 10000 })
+      await disableAnimations(page)
+      await searchCustomer(page, companyName)
+      const row = page.locator('.customer-list .el-table__row').filter({ hasText: companyName })
+      await expect(row).toBeVisible()
+
+      // 2. 行内编辑：改备注
+      await row.locator('button:has-text("编辑")').click({ force: true })
+      await expect(page.locator('.el-dialog:has-text("编辑客户")')).toBeVisible({ timeout: 5000 })
+      await fillByLabel(page, '备注', 'R-03 正式客户编辑验证')
+      await page.locator('.el-dialog .el-button:has-text("确定")').click({ force: true })
+      await expect(page.locator('.el-dialog:has-text("编辑客户")')).not.toBeVisible({ timeout: 10000 })
+
+      // 3. 行内 UI 删除（更多 dropdown → 删除 → 确认框「确定删除」）
+      await searchCustomer(page, companyName)
+      await expect(page.locator('.customer-list .el-table__row').filter({ hasText: companyName })).toBeVisible()
+      await row.locator('button:has-text("更多")').click({ force: true })
+      await page.locator('.el-dropdown-menu__item:has-text("删除")').first().click({ force: true })
+      const confirmBtn = page.locator('.el-message-box__btns .el-button--primary:has-text("确定删除")')
+      await confirmBtn.waitFor({ state: 'visible', timeout: 5000 })
+      await confirmBtn.click({ force: true })
+      await page.waitForTimeout(1500)
+
+      // 4. 删除后列表不再出现（软删除）
+      await searchCustomer(page, companyName)
+      await expect(page.locator('.customer-list .el-table__row').filter({ hasText: companyName })).toHaveCount(0)
+    } finally {
+      // 兜底清理（UI 删除失败时防残留）
+      if (customerId) {
+        await deleteCustomer(request, csrfToken, customerId)
+      }
+    }
+  })
+
+  test('公海池：待认领搜索 + UI 认领 + 全部客户视图显示负责人', async ({ authenticatedPage: page, request }, testInfo) => {
+    skipMobile(testInfo)
+    test.setTimeout(60000)
+    await ensureDesktopViewport(page)
+
+    const { csrfToken, userId } = await loginAsAdmin(request)
+    const companyName = uniqueCompanyName('E2E公海客户')
+    const createRes = await createCustomer(request, csrfToken, { companyName })
+    expect(createRes.code).toBe(200)
+    const customerId = createRes.data?.id
+    expect(customerId).toBeTruthy()
+
+    // admin 代转化 → 置入公海（sea + owner=NULL）
+    const convRes = await convertLeadToFormal(request, csrfToken, customerId)
+    expect(convRes.code).toBe(200)
+
+    try {
+      // 1. 公海「待认领」视图（默认 scope）搜索可见，且显示「待认领」标识
+      await page.goto('/pool')
+      await page.locator('.pool-list').waitFor({ state: 'visible', timeout: 10000 })
+      await disableAnimations(page)
+      await searchCustomer(page, companyName, '.pool-list')
+      const row = page.locator('.pool-list .el-table__row').filter({ hasText: companyName })
+      await expect(row).toBeVisible()
+      await expect(row.locator('.el-tag:has-text("待认领")')).toBeVisible()
+
+      // 2. UI 认领：点「认领」→ 确认框「确定认领」
+      await row.locator('button:has-text("认领")').click({ force: true })
+      const claimConfirm = page.locator('.el-message-box__btns .el-button--primary:has-text("确定认领")')
+      await claimConfirm.waitFor({ state: 'visible', timeout: 5000 })
+      await claimConfirm.click({ force: true })
+      await page.waitForTimeout(1500)
+
+      // 3. 认领成功 → 待认领视图不再出现该客户
+      await searchCustomer(page, companyName, '.pool-list')
+      await expect(page.locator('.pool-list .el-table__row').filter({ hasText: companyName })).toHaveCount(0)
+
+      // 4. 切「全部客户」视图 → 可见且负责人列不再显示「待认领」
+      await page.locator('.pool-list .el-radio-button:has-text("全部客户")').click()
+      await page.waitForTimeout(1200)
+      await searchCustomer(page, companyName, '.pool-list')
+      const allRow = page.locator('.pool-list .el-table__row').filter({ hasText: companyName })
+      await expect(allRow).toBeVisible()
+      await expect(allRow.locator('.el-tag:has-text("待认领")')).toHaveCount(0)
+
+      // 5. API 复核归属：owner=admin、pool_status='private'
+      const detail = await getCustomerDetail(request, csrfToken, customerId)
+      expect(detail.code).toBe(200)
+      const c = detail.data?.customer
+      expect(Number(c?.owner_id)).toBe(Number(userId))
+      expect(c?.pool_status).toBe('private')
+    } finally {
+      if (customerId) {
+        await deleteCustomer(request, csrfToken, customerId)
+      }
+    }
+  })
+
+  test('跨类型全链路：lead→公海→认领→正式客户→释放回公海', async ({ authenticatedPage: page, request }, testInfo) => {
+    skipMobile(testInfo)
+    test.setTimeout(90000)
+    await ensureDesktopViewport(page)
+
+    const { csrfToken } = await loginAsAdmin(request)
+    const companyName = uniqueCompanyName('E2E全链路')
+    const createRes = await createCustomer(request, csrfToken, { companyName })
+    expect(createRes.code).toBe(200)
+    const customerId = createRes.data?.id
+    expect(customerId).toBeTruthy()
+
+    try {
+      // ── 阶段 1：lead → 潜客池可见 ──
+      await page.goto('/leads')
+      await page.locator('.leads-pool').waitFor({ state: 'visible', timeout: 10000 })
+      await disableAnimations(page)
+      await searchCustomer(page, companyName, '.leads-pool')
+      await expect(page.locator('.leads-pool .el-table__row').filter({ hasText: companyName })).toBeVisible()
+
+      // ── 阶段 2：admin 代转化 → 公海待认领可见 ──
+      const convRes = await convertLeadToFormal(request, csrfToken, customerId)
+      expect(convRes.code).toBe(200)
+      await page.goto('/pool')
+      await page.locator('.pool-list').waitFor({ state: 'visible', timeout: 10000 })
+      await searchCustomer(page, companyName, '.pool-list')
+      const poolRow = page.locator('.pool-list .el-table__row').filter({ hasText: companyName })
+      await expect(poolRow).toBeVisible()
+
+      // ── 阶段 3：UI 认领 → 正式客户列表可见 ──
+      await poolRow.locator('button:has-text("认领")').click({ force: true })
+      const claimConfirm = page.locator('.el-message-box__btns .el-button--primary:has-text("确定认领")')
+      await claimConfirm.waitFor({ state: 'visible', timeout: 5000 })
+      await claimConfirm.click({ force: true })
+      await page.waitForTimeout(1500)
+
+      await page.goto('/customer/list')
+      await page.locator('.customer-list').waitFor({ state: 'visible', timeout: 10000 })
+      await searchCustomer(page, companyName)
+      await expect(page.locator('.customer-list .el-table__row').filter({ hasText: companyName })).toBeVisible()
+
+      // ── 阶段 4：详情页「释放公海」（R-03 修复回归：原 pool_status===0 恒 false，按钮永不渲染）──
+      await page.goto(`/customer/detail/${customerId}`)
+      const releaseBtn = page.locator('button:has-text("释放公海")')
+      await expect(releaseBtn, '私有客户详情页应显示「释放公海」按钮').toBeVisible({ timeout: 10000 })
+      await releaseBtn.click({ force: true })
+      const releaseConfirm = page.locator('.el-message-box__btns .el-button--primary').first()
+      await releaseConfirm.waitFor({ state: 'visible', timeout: 5000 })
+      await releaseConfirm.click({ force: true })
+      await page.waitForTimeout(2000)
+
+      // 释放后详情页 hero-tags 出现「公海客户」标识（R-03 修复的第二个回归点）
+      await expect(page.locator('.customer-360 .el-tag:has-text("公海客户")')).toBeVisible({ timeout: 10000 })
+
+      // ── 阶段 5：API 复核释放效果（sea + owner=NULL + status='sea'）──
+      const detail = await getCustomerDetail(request, csrfToken, customerId)
+      expect(detail.code).toBe(200)
+      const c = detail.data?.customer
+      expect(c?.owner_id ?? null).toBeNull()
+      expect(c?.pool_status).toBe('sea')
+      expect(c?.status).toBe('sea')
+
+      // ── 阶段 6：公海待认领再次可见（流转闭环）──
+      await page.goto('/pool')
+      await page.locator('.pool-list').waitFor({ state: 'visible', timeout: 10000 })
+      await searchCustomer(page, companyName, '.pool-list')
+      await expect(page.locator('.pool-list .el-table__row').filter({ hasText: companyName })).toBeVisible()
+    } finally {
+      if (customerId) {
+        await deleteCustomer(request, csrfToken, customerId)
+      }
     }
   })
 })

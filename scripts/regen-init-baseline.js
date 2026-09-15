@@ -135,6 +135,13 @@ function main() {
     .replace(/^(-- Host:.*Database: ).*$/m, (_m, p1) => `${p1}huakey_crm`)
     // 剥离 DEFINER（`root`@`localhost` / `crm_user`@`localhost` 等），提升跨环境可移植性
     .replace(/DEFINER=`[^`]*`@`[^`]*` /g, '')
+    // 剥离 AUTO_INCREMENT=N 计数器（P3-1）：计数器随「导出所用源库的历史」变化，
+    // 基线表内**无数据**，该值无语义；不剥离会让每次 regen 产生十几行纯噪声 diff，
+    // 掩盖真实结构变更。剥离后「连续两次 regen 产物 diff 为空」。
+    .replace(/ AUTO_INCREMENT=\d+/g, '')
+    // 归一化 dump 时间戳（P3-1 同源问题）：mysqldump 尾行带「Dump completed on <时间>」，
+    // 会让同结构产物每次字节不同。去掉时间后「连续两次 regen 产物 diff 为空」。
+    .replace(/^-- Dump completed on .*$/m, '-- Dump completed')
     .replace(/\n{3,}/g, '\n\n');
 
   // 在 banner（-- Server version 行）之后插入基线说明

@@ -88,7 +88,7 @@
         </el-table-column>
         <el-table-column prop="business_status" label="业务状态" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="statusTagType(row.business_status)" size="small">{{ statusLabel(row.business_status) }}</el-tag>
+            <el-tag :type="getStatusTagType(row.business_status)" size="small">{{ getStatusLabel(row.business_status) }}</el-tag>
           </template>
         </el-table-column>
         <!-- 客户总览核心：负责人。老板据此一眼看清「客户在谁手上」 -->
@@ -184,6 +184,7 @@ import StateWrapper from '@/components/common/StateWrapper.vue'
 import PageToolbar from '@/components/common/PageToolbar.vue'
 import { getPoolList, claimPoolCustomer, createTransfer, getTransferCandidates } from '@/api/pool'
 import { getCustomerList } from '@/api/customer'
+import { getStatusLabel, getStatusTagType } from '@/constants/customer'
 
 const router = useRouter()
 
@@ -218,28 +219,7 @@ const levelTagType = (level) => {
   return map[level] || ''
 }
 
-const statusLabel = (status) => {
-  const map = {
-    following: '跟进中',
-    quoted: '已报价',
-    negotiating: '谈判中',
-    signed: '已签约',
-    lost: '已流失'
-  }
-  return map[status] || status || '-'
-}
-
-const statusTagType = (status) => {
-  const map = {
-    following: '',
-    quoted: 'info',
-    negotiating: 'warning',
-    signed: 'success',
-    lost: 'danger'
-  }
-  return map[status] || ''
-}
-
+// 业务状态标签统一走常量（R-01）：本地 statusLabel/statusTagType 已删除
 const fetchList = async () => {
   // 两种视图的业务用语不同，错误文案跟随当前查看范围
   const label = scope.value === 'pending' ? '待认领客户' : '客户'
