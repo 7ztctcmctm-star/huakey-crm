@@ -31,14 +31,32 @@
 | `routes/leads.js` | 潜客池 API（`/api/v1/leads`） | 潜客=客户生命周期前段 |
 | `routes/pool.js` | 公海 API（`/api/v1/pool/*`） | 入口层 |
 
-> 当前白名单写点合计 **17 处**（脚本实测，见 `ALLOWED` 输出）。
+> 当前白名单写点合计 **20 处**（脚本实测，见 `ALLOWED` 输出）：
+> 其中 17 处为原有业务写点，另 3 处为**新增的对外受控入口**（见下）。
 > **新增写点必须同时改本表与脚本白名单** —— 这道人工摩擦是刻意的。
+
+**对外受控入口（非 Customer 域模块唯一可用的写入方式）**
+
+| 函数 | 用途 | 行为约束 |
+|---|---|---|
+| `customerService.systemAssignOwner(pool, customerId, toUserId)` | 系统级归属变更（自动化分配、轮询分配） | 仅 `owner_id` 一条 UPDATE；**不做** pool_status / 审计日志等副作用（区别于业务级 `assignCustomer`） |
+| `customerService.systemUpdateField(pool, customerId, field, value)` | 系统级字段更新 | 白名单 `SYSTEM_UPDATABLE_FIELDS`；`field='status'` 时用**单一来源** `mapStatusToBusinessStatus` 同步 `business_status`（未知值回退 `following`） |
+
+> ⚠️ 已知瑕疵（本次未顺手改，建议单独提 issue）：白名单里的 `assignee` 在 `crm_customer` 上**并不存在**（疑似历史笔误），
+> 命中时会在 SQL 层报错 —— 这与收敛前的表现完全一致，故本次保持原状以保证「行为不变」。
 
 ### 2.2 非 Customer 模块（存量债所在）
 
+**已收敛（2026-09-16，本轮）**：
+
+| 文件 | 原越界写点 | 收敛方式 |
+|---|---|---|
+| `services/automationService.js` | 4 处 UPDATE | 改调 `customerService.systemAssignOwner` / `systemUpdateField`；**并删除其内联的 `status→business_status` CASE 映射（重复实现）** |
+
+**剩余存量债（12 处）**：
+
 | 文件 | 模块 | 现状（越界写点数） |
 |---|---|---|
-| `services/automationService.js` | 自动化引擎 | 4 |
 | `services/followUpService.js` | 跟进 | 4 |
 | `scripts/verify-transfer-sql.js` | 运维验证脚本（测试性质） | 2 |
 | `services/cronService.js` | 定时任务 | 1 |
@@ -48,7 +66,7 @@
 | `services/userRouteService.js` | 用户/离职交接 | 1 |
 | `scripts/auto_release.js` | 运维脚本 | 1 |
 
-**合计 16 处**（= 基线放行量）+ **2 个跨模块 cron 作业**：
+**合计 12 处**（= 基线放行量）+ **2 个跨模块 cron 作业**：
 
 | cron | 调用模块 | 说明 |
 |---|---|---|
@@ -83,7 +101,7 @@
 |---|---|---|
 | 1 | 2.1 的 Customer 域文件清单是否完整/正确？ | 按代码职责推断，请确认是否有遗漏（如「客户导入」是否属客户域） |
 | 2 | 是否认可「先拦新增、存量债限期整改」的 ratchet 策略？ | 建议认可；否则需先清零才能启用卡点 |
-| 3 | 存量债整改顺序 | 建议：**automationService（4 处，无归属守卫，风险最高）→ cronService 公海回收 → scoringRouteService → followUpService → importService → scripts** |
+| 3 | 存量债整改顺序 | 建议：~~automationService（4 处，风险最高）~~ → **✅ 已完成** → cronService 公海回收 → scoringRouteService → followUpService → importService → scripts |
 | 4 | `sys_data_permission` 是否给 manager 配 `data_scope='dept'`？ | 影响全系统所有模块（含 R-05 团队筛选可见性），需单独拍板 |
 
 签字：____________（产品）　　　____________（架构）　　　日期：__________

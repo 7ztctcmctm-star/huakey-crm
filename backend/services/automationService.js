@@ -1,9 +1,15 @@
 /**
  * 自动化服务层
  * 从 routes/automation.js 提取的业务逻辑：工作流、智能提醒、分配规则
+ *
+ * [R-06 边界收敛 2026-09-16] 本模块属**非 Customer 域**，不得直接写 crm_customer。
+ * 原先 4 处直接 UPDATE 已改为调用客户域受控入口：
+ *   customerService.systemAssignOwner(...)  /  customerService.systemUpdateField(...)
+ * 行为逐字保持不变（含 status→business_status 同步，改由客户域单一来源负责）。
  */
 
 const sseManager = require('../utils/sseManager');
+const customerService = require('./customerService');
 
 // ============ 工作流 ============
 
@@ -81,7 +87,8 @@ async function executeActions(pool, ruleId, targetType, targetId, actions) {
       let detail = '';
       switch (action.type) {
         case 'assign':
-          await pool.query('UPDATE crm_customer SET owner_id = ? WHERE id = ?', [action.params.user_id, targetId]);
+          // 经客户域受控入口（R-06）；行为与原先直接 UPDATE 一致
+          await customerService.systemAssignOwner(pool, targetId, action.params.user_id);
           detail = `分配客户给用户${action.params.user_id}`;
           break;
         case 'notify':
@@ -104,23 +111,10 @@ async function executeActions(pool, ruleId, targetType, targetId, actions) {
             detail = `字段 ${action.params.field} 不在白名单中，跳过`;
             break;
           }
-          await pool.query(`UPDATE crm_customer SET ${action.params.field} = ? WHERE id = ?`, [action.params.value, targetId]);
-          // 更新 status 时同步 business_status（sea/paused 映射为 following，与 mapStatusToBusinessStatus 规则一致）
-          if (action.params.field === 'status') {
-            await pool.query(
-              `UPDATE crm_customer
-               SET business_status = CASE ?
-                 WHEN 'lead' THEN 'lead'
-                 WHEN 'quoted' THEN 'quoted'
-                 WHEN 'negotiating' THEN 'negotiating'
-                 WHEN 'signed' THEN 'signed'
-                 WHEN 'lost' THEN 'lost'
-                 ELSE 'following'
-               END
-               WHERE id = ?`,
-              [action.params.value, targetId]
-            );
-          }
+          // 经客户域受控入口（R-06）：字段更新 + status→business_status 同步由客户域统一负责
+          // （原先此处内联了一份 CASE 映射，属「同一规则多份实现」，已收敛到
+          //   customerService.mapStatusToBusinessStatus 单一来源）
+          await customerService.systemUpdateField(pool, targetId, action.params.field, action.params.value);
           detail = `更新字段${action.params.field}=${action.params.value}`;
           break;
         }
@@ -303,7 +297,8 @@ async function applyAssignRule(pool, { customer_id, customer_ids }) {
         if (userIds.length > 0) {
           const idx = (rule.last_assigned_index || 0) % userIds.length;
           const selectedUser = userIds[idx];
-          await pool.query('UPDATE crm_customer SET owner_id = ? WHERE id = ?', [selectedUser, cid]);
+          // 经客户域受控入口（R-06）
+          await customerService.systemAssignOwner(pool, cid, selectedUser);
           await pool.query('UPDATE crm_assign_rule SET last_assigned_index = ? WHERE id = ?', [idx + 1, rule.id]);
           results.push({ id: cid, rule: rule.rule_name, user_id: selectedUser });
           assigned = true;

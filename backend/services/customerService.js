@@ -1130,6 +1130,61 @@ async function claimPoolCustomer(pool, customerId, userId) {
   }
 }
 
+/**
+ * ══════════════════════════════════════════════════════════════════════════
+ * 【客户域受控写入口 · 仅供非 Customer 域模块调用】
+ *
+ * 背景（PRD 架构铁律 R-06）：非 Customer 模块**不得**直接 UPDATE/DELETE `crm_customer`，
+ * 必须经客户域受控入口。以下两个函数即为该入口，供自动化/评分/导入等模块调用。
+ *
+ * ⚠️ 与 assignCustomer 的区别（**不要混用**）：
+ *   assignCustomer 是「业务级归属变更」——会同步 pool_status='private'、清 protect_until、
+ *   写 crm_assign_log，并要求 operatorId；这些副作用不属于「系统级自动写入」的场景。
+ *   下面两个函数刻意只做「调用方原本就在做的事」，**逐字复刻原行为**，不做额外守卫与副作用。
+ *   （是否给自动化加「归属守卫」属产品决策，另行评估，不在本次边界收敛范围内。）
+ * ══════════════════════════════════════════════════════════════════════════
+ */
+
+/** 系统级归属变更（原 automationService 的 assign / 轮询分配写点行为） */
+async function systemAssignOwner(pool, customerId, toUserId) {
+  const [result] = await pool.query(
+    'UPDATE crm_customer SET owner_id = ? WHERE id = ?',
+    [toUserId, customerId]
+  );
+  return { affectedRows: result.affectedRows };
+}
+
+/**
+ * 系统可更新的客户字段白名单
+ * ⚠️ 与原 automationService 的 ALLOWED_FIELDS **保持逐字一致**（含 'assignee'）以保证行为不变；
+ *    注：'assignee' 在 crm_customer 上并不存在（疑似历史笔误），命中时会在 SQL 层报错，
+ *    与改动前表现一致。是否清理该字段建议单独提 issue，不在边界收敛中顺手改。
+ */
+const SYSTEM_UPDATABLE_FIELDS = ['level', 'status', 'industry', 'source', 'assignee', 'lifecycle_status', 'remark'];
+
+/**
+ * 系统级字段更新（原 automationService 的 update_field 写点行为）
+ * · 白名单外 → 抛错（与改动前「绕过校验直接执行 SQL 报错」的失败形态一致，便于上层记录 failed 日志）
+ * · field=status 时同步 business_status —— **改用单一来源 mapStatusToBusinessStatus**
+ *   （原为内联 CASE；未知值回退 following 以与原来的 ELSE 分支逐字一致）
+ */
+async function systemUpdateField(pool, customerId, field, value) {
+  if (!SYSTEM_UPDATABLE_FIELDS.includes(field)) {
+    const err = new Error(`字段 ${field} 不在系统可更新白名单中`);
+    err.code = 'FIELD_NOT_ALLOWED';
+    throw err;
+  }
+
+  await pool.query(`UPDATE crm_customer SET ${field} = ? WHERE id = ?`, [value, customerId]);
+
+  if (field === 'status') {
+    const bizStatus = mapStatusToBusinessStatus(value) ?? BUSINESS_STATUS.FOLLOWING;
+    await pool.query('UPDATE crm_customer SET business_status = ? WHERE id = ?', [bizStatus, customerId]);
+  }
+
+  return { success: true };
+}
+
 module.exports = {
   // [2026-09-14 阶段4] 移除零引用导出面：VALID_SOURCES / SOURCE_PARENT_MAP /
   // batchAssignCustomers / loadStatusConfig / loadStatusTransitions /
@@ -1145,6 +1200,10 @@ module.exports = {
   claimCustomer,
   releaseCustomer,
   canTransition,
+  // 【R-06 客户域受控写入口】供非 Customer 域模块调用（见文件内注释）
+  systemAssignOwner,
+  systemUpdateField,
+  SYSTEM_UPDATABLE_FIELDS,
   getOverdueCustomers,
   getNearRecycleCustomersList,
   // Phase 2: 三页面查询

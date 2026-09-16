@@ -184,3 +184,41 @@ PRD 的验收是「静态扫描 + **CI 卡点 PASS**」。存量 16 处 + 2 个 
 
 **剩余唯一决策**：存量债的整改顺序（建议 automationService → cronService → scoring → followUp → import → scripts），
 以及 `sys_data_permission` 是否给 manager 配 `data_scope='dept'`。
+
+---
+
+## 九、存量债整改（第 1 项已完成）：automationService 4 处 → 客户域受控入口
+
+按建议顺序，先做风险最高、且**可以做到行为完全不变**的一项：`services/automationService.js`（4 处直接写 + 重复实现状态映射）。
+
+### 9.1 做法
+
+| 位置 | 收敛方式 |
+|---|---|
+| 新增 `customerService.systemAssignOwner(pool, customerId, toUserId)` | 系统级归属变更（原 `assign` 与「轮询分配」两处写点）；**刻意不做** pool_status / 审计日志等副作用（区别于业务级 `assignCustomer`） |
+| 新增 `customerService.systemUpdateField(pool, customerId, field, value)` | 系统级字段更新；白名单与原 `ALLOWED_FIELDS` **逐字一致**；`status` 变更时用**单一来源** `mapStatusToBusinessStatus` 同步（`?? 'following'` 以复刻原 `ELSE` 分支） |
+| `automationService` 4 处直接 UPDATE | 全部改为调用上述两个入口；**删除其内联的 `status→business_status` CASE 映射** |
+
+**边界账变化**：白名单 17 → **20**（新增受控入口自身 3 处写点）；存量债 16 → **12**；新增越界 0。
+
+### 9.2 「行为不变」的三重证据
+
+| # | 证据 | 结果 |
+|---|---|---|
+| 1 | 单测**行为等价对照**：以改动前的内联 CASE 为参照实现，对 `lead/following/quoted/negotiating/signed/lost/sea/paused/未知值/null/undefined` **逐个比对** business_status 落库值 | ✅ 12/12 一致 |
+| 2 | 既有 `services-automationService.test.js`（回归） | ✅ 通过（其中 1 条断言原为「必须出现 `business_status = CASE`」的实现细节，已更新为「必须出现 `SET business_status = ?` 同步」——**意图不变**） |
+| 3 | **真库冒烟**（并还原原值） | ✅ `systemAssignOwner(1,2)`→owner_id=2；`status=negotiating`→同步 negotiating；`status=paused`→business_status=**following**；`level=B`→不触发同步；白名单外字段→抛 `FIELD_NOT_ALLOWED`；随后原值全部还原 |
+
+附带效果：系统性发现①「同一规则多份实现」的**第一项（状态映射 ×2）已消除**。
+
+### 9.3 回归与副作用
+
+- 后端全量：**117 套件通过 / 1 失败**（1150 用例中 1148 通过）；唯一失败为 `tests/db/contactSinglePrimary.test.js`，
+  属**已知的本地测试库现象**（跑 `tests/db` 会令 `schema_migrations` 回退到 109、唯一索引消失），与本次改动无关；
+  跑完后已按迁移重建并复核（max=114、索引在位）。
+- 未发现行为变化；`assignee` 白名单字段的**历史笔误**（该列并不存在）保持原样以保证行为不变，建议单独提 issue。
+
+### 9.4 下一步（按同一顺序）
+
+`cronService`（公海自动回收）→ `scoringRouteService` → `followUpService`（4 处）→ `importService` → `scripts`（3 处）。
+其中「加归属守卫」属行为变更，需产品确认；**纯收敛（行为不变）可继续按本轮方式推进**。

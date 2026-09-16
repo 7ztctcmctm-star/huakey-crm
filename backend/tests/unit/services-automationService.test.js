@@ -189,11 +189,12 @@ describe('automationService', () => {
       expect(result[0].result).toBe('success');
       // 原 status 更新仍执行
       expect(pool.query).toHaveBeenCalledWith('UPDATE crm_customer SET status = ? WHERE id = ?', ['quoted', 10]);
-      // 追加 business_status 同步（CASE 映射，sea/paused 兜底 following）
-      const syncCall = pool.query.mock.calls.find(c => c[0].includes('business_status = CASE'));
+      // 追加 business_status 同步（[R-06 边界收敛 2026-09-16] 原为 automationService 内联 CASE 映射，
+      // 现改为调用客户域受控入口 customerService.systemUpdateField →
+      // 由单一来源 customerService.mapStatusToBusinessStatus 负责映射；本用例的「防漂移」意图不变）
+      const syncCall = pool.query.mock.calls.find(c => c[0].includes('SET business_status = ?'));
       expect(syncCall).toBeTruthy();
       expect(syncCall[1]).toEqual(['quoted', 10]);
-      expect(syncCall[0]).toContain("WHEN 'quoted' THEN 'quoted'");
     });
 
     it('update_field 更新非 status 字段不应触发 business_status 同步', async () => {
@@ -201,7 +202,7 @@ describe('automationService', () => {
       pool.query.mockResolvedValue([{ affectedRows: 1 }]);
 
       await automationService.executeWorkflow(pool, { rule_id: 1, target_type: 'customer', target_id: 10 });
-      expect(pool.query.mock.calls.some(c => c[0].includes('business_status = CASE'))).toBe(false);
+      expect(pool.query.mock.calls.some(c => c[0].includes('SET business_status = ?'))).toBe(false);
     });
 
     it('create_followup 动作应创建跟进计划', async () => {
