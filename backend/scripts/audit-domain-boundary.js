@@ -16,9 +16,14 @@
  *
  * 用法：
  *   node scripts/audit-domain-boundary.js              # 只报告（默认，永远 exit 0）
- *   node scripts/audit-domain-boundary.js --strict     # 有违规时 exit 1（CI 卡点用）
+ *   node scripts/audit-domain-boundary.js --strict     # 有**新增**越界时 exit 1（CI 卡点用）
  *
- * 退出码：0 = 通过 / 1 = 有违规（仅 --strict）/ 2 = 脚本自身错误
+ * 卡点口径（ratchet 模式）：
+ *   存量债登记在 scripts/domain-boundary-baseline.json（按「文件+动词+允许条数」），卡点只看**新增**；
+ *   债务整改后需下调基线，脚本会提示可收缩条目；基线超过 review_by 日期即判 FAIL（强制重评审）。
+ *   用 BOUNDARY_BASELINE=<path> 可指向自定义基线（便于自测）。
+ *
+ * 退出码：0 = 通过 / 1 = 有新增越界或基线过期（仅 --strict）/ 2 = 脚本自身错误
  */
 
 const fs = require('fs');
@@ -36,6 +41,25 @@ const SKIP_DIRS = new Set(['node_modules', 'coverage', 'backups', 'uploads', 'lo
 
 /** 定时任务注册表（调度块所在文件）——换注册文件时只改这里 */
 const CRON_REGISTRY = 'cron/scheduler.js';
+
+/**
+ * 「已知越界」基线（ratchet 模式）
+ * 目的：让卡点**立刻可用**——存量债被登记为已知，只拦**新增**；
+ * 债务被整改后必须同步收缩基线，否则脚本会提示（见 stale 报告）。
+ * 可用环境变量 BOUNDARY_BASELINE 指向自定义基线路径。
+ */
+function loadBaseline() {
+  const p = process.env.BOUNDARY_BASELINE || path.join(BACKEND, 'scripts/domain-boundary-baseline.json');
+  if (!fs.existsSync(p)) return { path: p, data: { crm_customer_writes: {}, cross_module_cron: {} }, missing: true };
+  return { path: p, data: JSON.parse(fs.readFileSync(p, 'utf8')), missing: false };
+}
+
+/** 基线是否过期（review_by）——过期即视为失败，强制重新评审 */
+function baselineExpired(data) {
+  if (!data?.review_by) return false;
+  const today = new Date().toISOString().slice(0, 10);
+  return today > data.review_by;
+}
 
 /**
  * Customer 域白名单：**只有这些文件允许写 crm_customer**。
@@ -236,8 +260,44 @@ function main() {
     }
   }
 
+  // ---- 与基线比对：区分「存量债（已知）」与「新增越界（拦停）」----
+  const baseline = loadBaseline();
+  const allowedByFileVerb = baseline.data.crm_customer_writes || {};
+  const knownViolations = [];
+  const newViolations = [];
+  const grouped = {};
+  for (const v of violations) {
+    const key = `${v.rel}||${v.verb}`;
+    (grouped[key] ||= []).push(v);
+  }
+  const usedBaseline = {};
+  for (const [key, list] of Object.entries(grouped)) {
+    const [rel, verb] = key.split('||');
+    const budget = allowedByFileVerb[rel]?.[verb] ?? 0;
+    list.sort((a, b) => a.line - b.line);
+    for (let i = 0; i < list.length; i++) {
+      if (i < budget) knownViolations.push(list[i]); else newViolations.push(list[i]);
+    }
+    usedBaseline[rel] ||= {};
+    usedBaseline[rel][verb] = list.length;
+  }
+  // 基线登记了但实际已清掉/条数变少 → 提示收缩基线
+  const staleEntries = [];
+  for (const [rel, verbs] of Object.entries(allowedByFileVerb)) {
+    for (const [verb, budget] of Object.entries(verbs)) {
+      const actual = usedBaseline[rel]?.[verb] || 0;
+      if (actual < budget) staleEntries.push(`${rel} ${verb}: 基线 ${budget} → 实际 ${actual}`);
+    }
+  }
+
   const cronJobs = scanCron(writeIndex);
   const cronCustomerWrites = cronJobs.filter((j) => j.writesCustomer);
+  // 基线键容错：允许写成 "45 0 * * *" 或 "[45 0 * * *]"
+  const cronBaseline = baseline.data.cross_module_cron || {};
+  const normExpr = (s) => String(s || '').replace(/[[\]]/g, '').trim();
+  const cronKnown = (expr) => Object.keys(cronBaseline).some((k) => normExpr(k) === normExpr(expr));
+  const knownCron = cronCustomerWrites.filter((j) => cronKnown(j.expr));
+  const newCron = cronCustomerWrites.filter((j) => !cronKnown(j.expr));
 
   console.log('=== 领域边界静态审计（R-06） ===');
   console.log(`扫描目录: ${SCAN_DIRS.join(', ')}`);
@@ -246,17 +306,26 @@ function main() {
   console.log(`【A】crm_customer 写操作共 ${allowed.length + violations.length} 处`);
   console.log(`  · 白名单（Customer 域内，允许）: ${allowed.length} 处`);
   for (const a of allowed) console.log(`      ALLOWED   ${a.rel}:${a.line}  ${a.verb}  ← ${a.reason}`);
-  console.log(`  · 越界（非 Customer 域，禁止）: ${violations.length} 处`);
+  console.log(`  · 越界（非 Customer 域，禁止）: ${violations.length} 处`
+    + ` = 存量债（基线放行）${knownViolations.length} + **新增 ${newViolations.length}**`);
   const byFile = {};
   for (const v of violations) (byFile[v.rel] ||= []).push(v);
   for (const [rel, list] of Object.entries(byFile)) {
     console.log(`      ${rel}  (${list.length} 处)`);
-    for (const v of list) console.log(`         line ${v.line}  ${v.verb}\n                ${v.snippet}`);
+    for (const v of list) {
+      const isNew = newViolations.includes(v);
+      console.log(`         ${isNew ? '🆕 NEW ' : '  已知 '} line ${v.line}  ${v.verb}`);
+      console.log(`                ${v.snippet}`);
+    }
   }
   console.log('');
   console.log(`【B】定时任务 ${cronJobs.length} 个（源: ${CRON_REGISTRY}）`);
   for (const j of cronJobs) {
-    const flag = j.writesCustomer ? '  ❌ 写 crm_customer（跨模块 cron 同步，禁止）' : '';
+    const isKnown = cronCustomerWrites.includes(j) && baseline.data.cross_module_cron?.[j.expr];
+    const isNew = cronCustomerWrites.includes(j) && !isKnown;
+    const flag = isNew
+      ? '  🆕 NEW 写 crm_customer（跨模块 cron 同步，禁止）'
+      : (isKnown ? '  已知（基线放行）写 crm_customer' : '');
     console.log(`      [${j.expr}]${flag}`);
     console.log(`        调用模块: ${j.modules.join(', ') || '(块内无相对 require)'}`);
     console.log(`        写入表: ${j.tables.join(', ') || '(无)'}`);
@@ -270,11 +339,19 @@ function main() {
   }
   console.log('');
 
-  const failed = violations.length > 0 || cronCustomerWrites.length > 0;
+  const expired = baselineExpired(baseline.data);
+  const failed = newViolations.length > 0 || newCron.length > 0 || expired || baseline.missing;
   console.log('=== 结论 ===');
-  console.log(`越界写 crm_customer: ${violations.length} 处（涉及 ${Object.keys(byFile).length} 个文件）`);
-  console.log(`跨模块 cron 写 crm_customer: ${cronCustomerWrites.length} 个作业`);
-  console.log(failed ? 'RESULT: FAIL' : 'RESULT: PASS');
+  console.log(`白名单（Customer 域内）: ${allowed.length} 处`);
+  console.log(`存量债（基线放行）: ${knownViolations.length} 处 + ${knownCron.length} 个 cron 作业`
+    + `  [基线: ${baseline.missing ? '❌ 未找到' : path.relative(path.resolve(BACKEND, '..'), baseline.path).split(path.sep).join('/')}]`);
+  console.log(`🆕 新增越界: ${newViolations.length} 处 + ${newCron.length} 个 cron 作业  ← 卡点只看这个`);
+  if (staleEntries.length) {
+    console.log(`♻️ 基线可收缩 ${staleEntries.length} 条（债务已清，请同步下调基线，避免基线"注水"）：`);
+    for (const s of staleEntries) console.log(`      ${s}`);
+  }
+  if (expired) console.log(`⏰ 基线已过期（review_by=${baseline.data.review_by}）—— 需重新评审后更新日期`);
+  console.log(failed ? 'RESULT: FAIL' : 'RESULT: PASS（存量债未清，但无新增越界）');
 
   if (STRICT && failed) process.exit(1);
 }

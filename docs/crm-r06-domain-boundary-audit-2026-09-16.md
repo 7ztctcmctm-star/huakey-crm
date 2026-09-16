@@ -137,3 +137,50 @@ node scripts/audit-domain-boundary.js --strict   # 有违规 exit 1（CI 卡点�
 | 后端单元测试全量（`npx jest`） | 111 套件通过；3 套件失败 —— 失败原因全为 `Access denied for user 'root'@'localhost' (using password: NO)`（**是我漏传 DB 凭据的环境问题**，非代码缺陷） |
 | 带凭据复跑 `tests/db`（真连库） | ✅ **6 套件 / 78 用例全部通过** |
 | 结论 | **R-04 判定 PASS**（CI 的 `backend-test` 作业亦为绿）；本地跑库测试必须带 `DB_USER/DB_PASSWORD/DB_HOST/DB_PORT/DB_NAME` |
+
+---
+
+## 八、卡点落地（同日追加）：ratchet 模式 + 模块归属矩阵
+
+### 8.1 为什么用 ratchet 而不是直接清零
+
+PRD 的验收是「静态扫描 + **CI 卡点 PASS**」。存量 16 处 + 2 个 cron 不可能一轮清零，
+若卡点直接判 FAIL 则永远进不去 CI。故采用业界常用的 **ratchet（棘轮）**：
+存量债登记为已知，**只拦新增**；债务清掉后基线必须同步收缩，否则脚本报"可收缩"提示 —— 防止基线悄悄注水。
+
+### 8.2 新增文件
+
+| 文件 | 作用 |
+|---|---|
+| `backend/scripts/domain-boundary-baseline.json` | 存量债基线：按「文件 + 写入动词 + 允许条数」登记（**不记行号**，避免行号漂移误判）；含 `review_by`（2026-10-15，过期即 FAIL） |
+| `docs/crm-module-ownership-matrix-2026-09-16.md` | 《模块归属与写入权限矩阵》草案：把「谁是 Customer 域」写死（7 个文件），并列出 9 个存量债文件的模块归属；附 4 条待签字确认项 |
+
+### 8.3 脚本增强
+
+- 新增 `loadBaseline()` / `baselineExpired()`；支持 `BOUNDARY_BASELINE=<path>` 指向自定义基线（便于自测）
+- 输出区分 **白名单 / 存量债（基线放行）/ 🆕 新增**；`--strict` **只在有新增越界或基线过期时 exit 1**
+- 新增三处防护：基线缺失 → FAIL；基线过期 → FAIL；条目可收缩 → 提示
+- cron 基线键容错（`45 0 * * *` 与 `[45 0 * * *]` 均可）
+
+### 8.4 鉴别力验证（5/5，全部实测）
+
+| 场景 | 期望 | 实测 |
+|---|---|---|
+| 基线现状 | PASS / exit 0 | ✅ exit=0（白名单 17 + 存量债 16 + 2 cron + 新增 0） |
+| 注入新增越界文件 | FAIL / exit 1 | ✅ exit=1（新增 1 处） |
+| 基线条数收紧（4→3） | FAIL / exit 1 | ✅ exit=1（新增 1 处） |
+| 基线过期（review_by=2020-01-01） | FAIL / exit 1 | ✅ exit=1（含过期提示） |
+| 债务已清（放宽到 5） | PASS + 收缩提示 | ✅ exit=0 + ♻️ 提示 1 条 |
+| 基线文件缺失 | FAIL / exit 1 | ✅ exit=1（防"没有基线就当通过"） |
+
+### 8.5 结论更新
+
+| 项 | 之前 | 现在 |
+|---|---|---|
+| R-06「静态扫描」 | ✅ 有工具 | ✅ 工具 + 基线 + 矩阵文档 |
+| R-06「CI 卡点 PASS」 | ❌ 无卡点，且存量 16 处直接判 FAIL | ✅ **卡点已可用**（`npm run audit:boundary:strict` → exit 0），CI 接入待你确认后执行（本次未改 `ci.yml`） |
+| 存量债 | 未登记 | ✅ 已登记 16 处 + 2 cron，含 `review_by` 到期强制重评审 |
+| 边界定义（元问题） | 无任何文档 | ✅ 矩阵草案待签字（4 条确认项） |
+
+**剩余唯一决策**：存量债的整改顺序（建议 automationService → cronService → scoring → followUp → import → scripts），
+以及 `sys_data_permission` 是否给 manager 配 `data_scope='dept'`。

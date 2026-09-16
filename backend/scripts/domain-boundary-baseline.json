@@ -1,0 +1,26 @@
+{
+  "_desc": "R-06 领域边界「已知越界」基线：只用于放行存量债，使卡点可以立刻启用；新增写点仍会被拦下。基线按「文件 + 写入动词 + 允许条数」登记（不记行号，避免行号漂移导致误判）。",
+  "_rule": "非 Customer 模块仅允许 SELECT crm_customer；禁止 UPDATE/DELETE；禁止跨模块 cron 同步。",
+  "_howto": [
+    "收缩基线：整改掉一处后，把对应数字减 1（脚本会提示哪些条目可以收缩）",
+    "整文件清干净：删除该文件的条目",
+    "基线过期：超过 review_by 后脚本会判 FAIL，强制重新评审"
+  ],
+  "review_by": "2026-10-15",
+  "owner": "David",
+  "crm_customer_writes": {
+    "services/automationService.js": { "UPDATE": 4 },
+    "services/followUpService.js": { "UPDATE": 4 },
+    "scripts/verify-transfer-sql.js": { "UPDATE": 2 },
+    "services/cronService.js": { "UPDATE": 1 },
+    "services/importService.js": { "INSERT INTO": 1 },
+    "services/scoringRouteService.js": { "UPDATE": 1 },
+    "services/transferService.js": { "UPDATE": 1 },
+    "services/userRouteService.js": { "UPDATE": 1 },
+    "scripts/auto_release.js": { "UPDATE": 1 }
+  },
+  "cross_module_cron": {
+    "45 0 * * *": "services/transferService.js::expireTransfers —— 客户转移本属客户域能力，待收敛到客户域受控接口",
+    "0 1 * * *": "services/cronService.js::autoReleaseCustomers —— 公海自动回收，待收敛到客户域受控接口"
+  }
+}
