@@ -38,6 +38,7 @@ async function getSalesFunnel(pool, params = {}) {
     const row = rows.find(r => Number(r.stage) === i);
     result.push({
       stage: stageNames[i],
+      stage_code: i,               // 保留数值阶段号（前端下钻/筛选需要；原先只回中文标签，数值被丢弃）
       count: row?.count || 0,
       amount: row?.amount?.toString() || '0.00'
     });
@@ -866,7 +867,7 @@ async function getAnalyticsFunnel(pool, params = {}) {
   const total = funnel.reduce((s, r) => s + (Number(r.count) || 0), 0);
   const won = funnel.find(r => r.stage === '成交')?.count || 0;
   return {
-    stages: funnel.map(r => ({ stage_name: r.stage, count: r.count, amount: r.amount })),
+    stages: funnel.map(r => ({ stage: r.stage_code, stage_name: r.stage, count: r.count, amount: r.amount })),
     win_rate: total > 0 ? ((won / total) * 100).toFixed(1) : 0
   };
 }

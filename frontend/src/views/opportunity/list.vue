@@ -754,6 +754,11 @@ const createContractFromOpportunity = (data) => {
 }
 
 onMounted(() => {
+  // R-05 首页商机漏斗下钻：/opportunity?stage=N 预置「阶段」筛选（只读查看，数据范围仍由后端强制）
+  const stageFromQuery = Number(route.query.stage)
+  if (Number.isInteger(stageFromQuery) && stageFromQuery >= 1 && stageFromQuery <= 6) {
+    searchForm.stage = stageFromQuery
+  }
   fetchFunnel()
   fetchList()
   if (route.query.customer_id) {
