@@ -1,9 +1,32 @@
 /**
  * 报表分析服务层
  * 从 routes/report/analytics.js 提取的业务逻辑，供路由层复用
+ *
+ * [数据范围修复 2026-09-16]
+ * 客户域统计（客户/合同/回款/商机/跟进）此前**完全没有数据范围**：路由只有
+ * checkPermission('dashboard')，服务函数也不接收用户，SQL 里没有归属过滤
+ * ⇒ 任何有 dashboard 权限的人都看到**全公司**数据。
+ * 现统一改为「路由 checkDataPermission('report') → 服务内 buildDataPermissionWhere」，
+ * 与 dashboardService / customerDetailService 等模块保持一致。
+ * 语义：boss/super_admin(view_all=1) → all；其余按 sys_data_permission 配置，缺省 self。
  */
 
 const XLSX = require('xlsx');
+const { buildDataPermissionWhere } = require('../middleware/permission');
+
+/**
+ * 构造某表的数据范围子句（各表归属列不同：customer→owner_id / contract→create_by /
+ * opportunity→owner_id / payment·payment_plan→经合同 create_by）
+ * @param {object} dataPermission - checkDataPermission 注入的 req.dataPermission
+ * @param {string} ownerColumn
+ * @param {string} alias - SQL 表别名
+ * @returns {Promise<{clause: string, params: Array}>}
+ */
+async function scopeFor(dataPermission, ownerColumn, alias) {
+  if (!dataPermission) return { clause: '1=1', params: [] };
+  return buildDataPermissionWhere({ ...dataPermission, ownerColumn }, alias);
+}
+
 
 /**
  * 销售漏斗统计
@@ -11,15 +34,17 @@ const XLSX = require('xlsx');
  * @param {object} params - { startDate, endDate }
  * @returns {Array} 各阶段 [{ stage, count, amount }]
  */
-async function getSalesFunnel(pool, params = {}) {
+async function getSalesFunnel(pool, params = {}, dataPermission) {
   const { startDate, endDate } = params;
-  let dateFilter = '';
+  let dateCond = '';
   const queryParams = [];
 
   if (startDate && endDate) {
-    dateFilter = 'WHERE so.create_time BETWEEN ? AND ?';
+    dateCond = 'AND so.create_time BETWEEN ? AND ?';
     queryParams.push(startDate, endDate + ' 23:59:59');
   }
+
+  const customerScope = await scopeFor(dataPermission, 'owner_id', 'so');
 
   const [rows] = await pool.query(`
     SELECT
@@ -27,10 +52,10 @@ async function getSalesFunnel(pool, params = {}) {
       COUNT(so.id) as count,
       COALESCE(SUM(so.expected_amount), 0) as amount
     FROM crm_opportunity so
-    ${dateFilter}
+    WHERE so.deleted_at IS NULL ${dateCond} AND ${customerScope.clause}
     GROUP BY so.stage
     ORDER BY so.stage ASC
-  `, queryParams);
+  `, [...queryParams, ...customerScope.params]);
 
   const stageNames = ['', '询盘', '需求确认', '方案报价', '谈判', '成交', '失败'];
   const result = [];
@@ -53,7 +78,7 @@ async function getSalesFunnel(pool, params = {}) {
  * @param {object} params - { startDate, endDate }
  * @returns {Array} 各销售 [{ user_id, name, contract_amount, payment_amount }]
  */
-async function getPerformance(pool, params = {}) {
+async function getPerformance(pool, params = {}, dataPermission) {
   const { startDate, endDate } = params;
   let dateFilter = '';
   const queryParams = [];
@@ -65,6 +90,9 @@ async function getPerformance(pool, params = {}) {
     dateFilter = `AND c.sign_date >= DATE_FORMAT(NOW(), '%Y-%m-01') AND c.sign_date < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH`;
   }
 
+  // 范围过滤放 WHERE：非全量范围下同时隐去其他销售的行（业绩排行只应看到范围内的数据）
+  const contractScope = await scopeFor(dataPermission, 'create_by', 'c');
+
   const [rows] = await pool.query(`
     SELECT
       u.id as user_id,
@@ -74,10 +102,10 @@ async function getPerformance(pool, params = {}) {
     FROM sys_user u
     LEFT JOIN crm_contract c ON u.id = c.create_by ${dateFilter}
     LEFT JOIN crm_payment p ON c.id = p.contract_id
-    WHERE u.status = 1
+    WHERE u.status = 1 AND ${contractScope.clause}
     GROUP BY u.id, u.real_name
     ORDER BY contract_amount DESC
-  `, queryParams);
+  `, [...queryParams, ...contractScope.params]);
 
   return rows;
 }
@@ -88,7 +116,7 @@ async function getPerformance(pool, params = {}) {
  * @param {object} params - { startDate, endDate }
  * @returns {{ month_new: number, source_dist: Array, source_detail_dist: Array, level_dist: Array }}
  */
-async function getCustomerStats(pool, params = {}) {
+async function getCustomerStats(pool, params = {}, dataPermission) {
   const { startDate, endDate } = params;
   let dateFilter = '';
   const queryParams = [];
@@ -98,12 +126,15 @@ async function getCustomerStats(pool, params = {}) {
     queryParams.push(startDate, endDate + ' 23:59:59');
   }
 
+  const customerScope = await scopeFor(dataPermission, 'owner_id', 'c');
+  const baseParams = [...queryParams, ...customerScope.params];
+
   const [monthCount] = await pool.query(`
     SELECT COUNT(*) as count FROM crm_customer c
-    WHERE 1=1 ${dateFilter || `AND create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH`}
-  `, queryParams);
+    WHERE 1=1 ${dateFilter || `AND c.create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND c.create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH`}
+      AND ${customerScope.clause}
+  `, baseParams);
 
-  const sourceParams = [...queryParams];
   const [sourceDist] = await pool.query(`
     SELECT
       CASE
@@ -112,29 +143,29 @@ async function getCustomerStats(pool, params = {}) {
       END as source,
       COUNT(*) as count
     FROM crm_customer c
-    WHERE deleted_at IS NULL ${dateFilter}
+    WHERE c.deleted_at IS NULL ${dateFilter} AND ${customerScope.clause}
     GROUP BY CASE
       WHEN source IN ('Facebook','Instagram','LinkedIn','独立站','其他网络渠道') THEN '网络'
       ELSE source
     END
     ORDER BY count DESC
-  `, sourceParams);
+  `, baseParams);
 
   const [sourceDetailDist] = await pool.query(`
     SELECT source, COUNT(*) as count
     FROM crm_customer c
-    WHERE deleted_at IS NULL ${dateFilter}
+    WHERE c.deleted_at IS NULL ${dateFilter} AND ${customerScope.clause}
     GROUP BY source
     ORDER BY count DESC
-  `, [...queryParams]);
+  `, baseParams);
 
   const [levelDist] = await pool.query(`
     SELECT level, COUNT(*) as count
     FROM crm_customer c
-    WHERE 1=1 ${dateFilter}
+    WHERE 1=1 ${dateFilter} AND ${customerScope.clause}
     GROUP BY level
     ORDER BY CASE level WHEN 'A' THEN 1 WHEN 'B' THEN 2 WHEN 'C' THEN 3 WHEN 'D' THEN 4 ELSE 5 END
-  `, [...queryParams]);
+  `, baseParams);
 
   return {
     month_new: monthCount[0].count,
@@ -150,7 +181,7 @@ async function getCustomerStats(pool, params = {}) {
  * @param {object} params - { startDate, endDate }
  * @returns {{ plan_amount: string, pay_amount: string, overdue_amount: string }}
  */
-async function getPaymentStats(pool, params = {}) {
+async function getPaymentStats(pool, params = {}, dataPermission) {
   const { startDate, endDate } = params;
 
   let planDateFilter, payDateFilter;
@@ -166,30 +197,36 @@ async function getPaymentStats(pool, params = {}) {
     payDateFilter = `p.pay_date >= DATE_FORMAT(NOW(), '%Y-%m-01') AND p.pay_date < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH`;
   }
 
+  // 回款/回款计划表本身没有归属列，范围经「合同 create_by」透传
+  const contractScope = await scopeFor(dataPermission, 'create_by', 'c');
+
   const [planAmount] = await pool.query(`
-    SELECT COALESCE(SUM(plan_amount), 0) as amount
+    SELECT COALESCE(SUM(pp.plan_amount), 0) as amount
     FROM crm_payment_plan pp
-    WHERE ${planDateFilter}
-  `, planParams);
+    LEFT JOIN crm_contract c ON c.id = pp.contract_id
+    WHERE ${planDateFilter} AND ${contractScope.clause}
+  `, [...planParams, ...contractScope.params]);
 
   const [payAmount] = await pool.query(`
-    SELECT COALESCE(SUM(pay_amount), 0) as amount
+    SELECT COALESCE(SUM(p.pay_amount), 0) as amount
     FROM crm_payment p
-    WHERE ${payDateFilter}
-  `, payParams);
+    LEFT JOIN crm_contract c ON c.id = p.contract_id
+    WHERE ${payDateFilter} AND ${contractScope.clause}
+  `, [...payParams, ...contractScope.params]);
 
   const [overdueRows] = await pool.query(`
     SELECT COALESCE(SUM(
       GREATEST(pp.plan_amount - COALESCE(paid.total, 0), 0)
     ), 0) as amount
     FROM crm_payment_plan pp
+    LEFT JOIN crm_contract c ON c.id = pp.contract_id
     LEFT JOIN (
       SELECT plan_id, SUM(pay_amount) as total
       FROM crm_payment
       GROUP BY plan_id
     ) paid ON pp.id = paid.plan_id
-    WHERE pp.plan_date < CURRENT_DATE
-  `);
+    WHERE pp.plan_date < CURRENT_DATE AND ${contractScope.clause}
+  `, [...contractScope.params]);
 
   const overdueTotal = parseFloat(overdueRows[0].amount) || 0;
 
@@ -206,7 +243,7 @@ async function getPaymentStats(pool, params = {}) {
  * @param {object} params - { startDate, endDate }
  * @returns {Array} [{ month, contract_count, amount }]
  */
-async function getSalesTrend(pool, params = {}) {
+async function getSalesTrend(pool, params = {}, dataPermission) {
   const { startDate, endDate } = params;
   let dateFilter;
   const queryParams = [];
@@ -218,16 +255,18 @@ async function getSalesTrend(pool, params = {}) {
     dateFilter = `c.sign_date >= NOW() - INTERVAL 12 MONTH`;
   }
 
+  const contractScope = await scopeFor(dataPermission, 'create_by', 'c');
+
   const [rows] = await pool.query(`
     SELECT
       DATE_FORMAT(c.sign_date, '%Y-%m') as month,
       COUNT(c.id) as contract_count,
       COALESCE(SUM(c.amount), 0) as amount
     FROM crm_contract c
-    WHERE ${dateFilter}
+    WHERE ${dateFilter} AND ${contractScope.clause}
     GROUP BY DATE_FORMAT(c.sign_date, '%Y-%m')
     ORDER BY month
-  `, queryParams);
+  `, [...queryParams, ...contractScope.params]);
 
   return rows;
 }
@@ -240,8 +279,7 @@ async function getSalesTrend(pool, params = {}) {
  * @param {number} roleId
  * @returns {{ list: Array, total: number, page: number, pageSize: number }}
  */
-async function getOverdueCustomers(pool, params = {}, userId, roleId) {
-  const ROLES = require('../config/roles');
+async function getOverdueCustomers(pool, params = {}, dataPermission) {
   const { getOverdueDays } = require('../utils/config');
   const { POOL_STATUS } = require('../constants/poolStatus');
 
@@ -250,22 +288,16 @@ async function getOverdueCustomers(pool, params = {}, userId, roleId) {
   const offset = (Math.max(1, parseInt(page) || 1) - 1) * safePageSize;
   const overdueDays = await getOverdueDays();
 
-  const isAdmin = roleId === ROLES.ADMIN || roleId === ROLES.MANAGER;
-  const isDeptManager = roleId === ROLES.MANAGER;
+  // [数据范围修复] 原用 `roleId === ROLES.ADMIN/MANAGER` 判权（与现库角色错位：现库 id2 是财务），
+  // 现统一走 dataPermission；dept 范围由 buildDataPermissionWhere 的部门子查询表达
+  const scope = await scopeFor(dataPermission, 'owner_id', 'c');
 
-  let whereClause = `WHERE c.pool_status = ? AND c.deleted_at IS NULL AND c.owner_id IS NOT NULL
+  const whereClause = `WHERE c.pool_status = ? AND c.deleted_at IS NULL AND c.owner_id IS NOT NULL
     AND ((c.last_follow_time IS NULL AND c.create_time < NOW() - INTERVAL ${overdueDays} DAY)
-      OR c.last_follow_time < NOW() - INTERVAL ${overdueDays} DAY)`;
+      OR c.last_follow_time < NOW() - INTERVAL ${overdueDays} DAY)
+    AND ${scope.clause}`;
 
-  if (!isAdmin) {
-    if (isDeptManager) {
-      whereClause += ' AND c.owner_id IN (SELECT id FROM sys_user WHERE dept_id = (SELECT dept_id FROM sys_user WHERE id = ?))';
-    } else {
-      whereClause += ' AND c.owner_id = ?';
-    }
-  }
-
-  const queryParams = isAdmin ? [POOL_STATUS.PRIVATE] : [POOL_STATUS.PRIVATE, userId];
+  const queryParams = [POOL_STATUS.PRIVATE, ...scope.params];
 
   const [countResult] = await pool.query(
     `SELECT COUNT(*) as total FROM crm_customer c ${whereClause}`, queryParams
@@ -849,12 +881,13 @@ async function getSupplierPerformance(pool, params = {}) {
  * 销售总览（仪表盘）
  * @returns {object} { opportunity_amount }
  */
-async function getAnalyticsOverview(pool) {
+async function getAnalyticsOverview(pool, dataPermission) {
+  const scope = await scopeFor(dataPermission, 'owner_id', 'o');
   const [rows] = await pool.query(`
-    SELECT COALESCE(SUM(expected_amount), 0) as amount
-    FROM crm_opportunity
-    WHERE deleted_at IS NULL
-  `);
+    SELECT COALESCE(SUM(o.expected_amount), 0) as amount
+    FROM crm_opportunity o
+    WHERE o.deleted_at IS NULL AND ${scope.clause}
+  `, scope.params);
   return { opportunity_amount: rows[0]?.amount?.toString() || '0.00' };
 }
 
@@ -862,8 +895,8 @@ async function getAnalyticsOverview(pool) {
  * 销售漏斗（仪表盘结构：stages + win_rate）
  * @returns {object} { stages: [{ stage_name, count, amount }], win_rate }
  */
-async function getAnalyticsFunnel(pool, params = {}) {
-  const funnel = await getSalesFunnel(pool, params);
+async function getAnalyticsFunnel(pool, params = {}, dataPermission) {
+  const funnel = await getSalesFunnel(pool, params, dataPermission);
   const total = funnel.reduce((s, r) => s + (Number(r.count) || 0), 0);
   const won = funnel.find(r => r.stage === '成交')?.count || 0;
   return {
@@ -877,7 +910,8 @@ async function getAnalyticsFunnel(pool, params = {}) {
  * 状态: 1=草稿 2=生效中 3=已完成 4=已取消
  * @returns {object} { total_amount, active_amount, completed_amount, cancelled_amount }
  */
-async function getContractRevenue(pool) {
+async function getContractRevenue(pool, dataPermission) {
+  const scope = await scopeFor(dataPermission, 'create_by', 'c');
   const [rows] = await pool.query(`
     SELECT
       COALESCE(SUM(c.amount), 0) as total_amount,
@@ -885,8 +919,8 @@ async function getContractRevenue(pool) {
       COALESCE(SUM(CASE WHEN c.status = 3 THEN c.amount ELSE 0 END), 0) as completed_amount,
       COALESCE(SUM(CASE WHEN c.status = 4 THEN c.amount ELSE 0 END), 0) as cancelled_amount
     FROM crm_contract c
-    WHERE c.deleted_at IS NULL
-  `);
+    WHERE c.deleted_at IS NULL AND ${scope.clause}
+  `, scope.params);
   const r = rows[0];
   return {
     total_amount: r.total_amount?.toString() || '0.00',
@@ -900,8 +934,8 @@ async function getContractRevenue(pool) {
  * 回款情况（仪表盘结构）
  * @returns {object} { receivable_amount, received_amount, outstanding_amount, overdue_amount, collection_rate }
  */
-async function getAnalyticsPaymentCollection(pool, params = {}) {
-  const stats = await getPaymentStats(pool, params);
+async function getAnalyticsPaymentCollection(pool, params = {}, dataPermission) {
+  const stats = await getPaymentStats(pool, params, dataPermission);
   const receivable = parseFloat(stats.plan_amount) || 0;
   const received = parseFloat(stats.pay_amount) || 0;
   const outstanding = Math.max(receivable - received, 0);

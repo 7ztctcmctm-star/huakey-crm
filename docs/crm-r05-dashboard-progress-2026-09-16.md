@@ -97,3 +97,59 @@
   （单测已覆盖三种范围的 SQL 构造，但未做真实账号的接口对比）。
 - `dept` 范围在当前配置下与 `all` 结果相同属正常：`sys_data_permission` 中 **role 4(manager) 无任何配置行**
   → 实际落到默认 `self`。若产品要求「manager 看团队」，需补 `data_scope='dept'` 配置（**影响全系统所有模块**，需先拍板）。
+
+---
+
+## 七、追加修复（同日）：`/report/analytics/*` 客户域接口补齐数据范围
+
+**§四-1 的 P0 数据泄漏已闭环。**
+
+### 7.1 范围界定
+
+原以为只有 4 个接口，实际扫出**客户域共 10 个**（`routes/report/analytics.js`）：
+`/sales-funnel`、`/performance`、`/customer`、`/payment`、`/sales-trend`、
+`/analytics/sales/overview`、`/analytics/sales/funnel`、`/analytics/contract/revenue`、
+`/analytics/payment/collection`、`/overdue`。
+
+- 其中前 9 个此前**只有** `checkPermission('dashboard')`，服务函数签名为 `(pool, params)` **不接收用户**；
+- `/overdue` 更严重：它自带一套 `roleId === ROLES.ADMIN || ROLES.MANAGER` 判权，
+  而 `ROLES.MANAGER = 2` 在**现库是财务**（现库 id1=boss / id2=finance / id3=super_admin / id4=manager / id5=sales）
+  ⇒ 财务会被当成「部门经理」拿到部门子查询。
+
+### 7.2 改法
+
+| 层 | 改动 |
+|---|---|
+| 路由 | 10 个接口统一加 `checkDataPermission('report')`，并传 `req.dataPermission` |
+| 服务 | 新增统一助手 `scopeFor(dataPermission, ownerColumn, alias)`（内部调 `buildDataPermissionWhere`）；10 个函数接收 `dataPermission` 并在 SQL 中注入范围 |
+| 归属列口径 | `crm_customer → owner_id`｜`crm_contract → create_by`｜`crm_opportunity → owner_id`；`crm_payment` / `crm_payment_plan` 无归属列，**经合同 create_by 透传**（新增 `LEFT JOIN crm_contract c`） |
+| 语义 | `boss/super_admin(view_all=1) → all`；其余按 `sys_data_permission` 配置，缺省 `self` |
+| 其它 | 删除 `getOverdueCustomers` 的 roleId 判权；`getSalesFunnel` 的 `dateFilter` 由「带 WHERE」改为「纯条件」以便叠加范围 |
+
+### 7.3 验证证据
+
+| # | 项 | 结果 |
+|---|---|---|
+| 1 | 新增单测 `tests/unit/reportAnalyticsScope.test.js` | ✅ 与 dashboardScope 合计 **23/23 通过**（含架构守卫「源码不得再出现 roleId ===」） |
+| 2 | **真库冒烟**（10 个函数 × all/self/dept，12 条 SQL 在真实 schema 执行） | ✅ 无 Unknown column；范围生效（见下表） |
+| 3 | 后端全量回归（带 DB 凭据） | 见下 |
+
+真库冒烟（样本 `userId=2 demo_admin`）：
+
+| 指标 | all | self | dept |
+|---|---|---|---|
+| 商机金额 | 4,500,000 | **1,000,000** | 4,500,000 |
+| 漏斗总数 / win_rate | 5 / 20.0% | 4 / 0% | 5 / 20.0% |
+| 合同收入 | 3,500,000 | **0** | 3,500,000 |
+| 回款（应收/已收/回款率） | 1,050,000 / 1,050,000 / 100% | **0** | 同上 |
+| 本月新增客户 | 10 | **2** | 10 |
+| 业绩排行行数 | 4（Demo销售 3,500,000） | **0** | 4 |
+| 销售趋势点数 | 1 | 0 | 1 |
+
+### 7.4 仍未覆盖（如实登记）
+
+- **非客户域报表接口仍无数据范围**：`/purchase-trend`、`/purchase-by-supplier`、`/purchase-cost`、
+  `/supplier-performance`、`/export`、`/finance`、`/finance/export`、`/business`。
+  它们不属于 R-05 的客户域范围，但同属「报表越权可见」缺陷类，建议随后统一处理。
+- 团队筛选（PRD 要求）与 `sys_data_permission` 里 manager 的 `dept` 配置仍未做。
+
