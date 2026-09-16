@@ -144,9 +144,10 @@ import {
   TrendCharts, Plus, Document, Service, ArrowDown, Star,
   Histogram, List, PieChart, Search, Trophy, Setting
 } from '@element-plus/icons-vue'
-import { ref, onMounted, onActivated } from 'vue'
+import { ref, onMounted, onActivated, watch } from 'vue'
 import { formatAmount } from '@/composables/useFormat'
 import { useChart } from '@/composables/useChart'
+import { useDashboardFilters } from '@/composables/useDashboardFilters'
 import { PARENT_SOURCE_COLORS } from '@/constants/source'
 import {
   getReportPerformance,
@@ -161,6 +162,7 @@ const performanceRank = ref([])
 const rankLoading = ref(false)
 
 const { refs, echarts, initChart } = useChart('trendChartRef', 'sourceChartRef', 'funnelChartRef')
+const { query: dashQuery, revision: dashRevision } = useDashboardFilters()
 const trendChartRef = refs.trendChartRef
 const trendChartRef2 = ref(null)
 const sourceChartRef = refs.sourceChartRef
@@ -169,7 +171,7 @@ const funnelChartRef = refs.funnelChartRef
 const fetchPerformanceRank = async () => {
   rankLoading.value = true
   try {
-    const res = await getReportPerformance()
+    const res = await getReportPerformance(dashQuery())
     if (res.code === 200) performanceRank.value = res.data.filter(item => item.contract_amount > 0).slice(0, 5)
   } catch (error) { /* log ignored */ }
   finally { rankLoading.value = false }
@@ -177,7 +179,7 @@ const fetchPerformanceRank = async () => {
 
 const fetchSalesTrend = async () => {
   try {
-    const res = await getReportSalesTrend()
+    const res = await getReportSalesTrend(dashQuery())
     if (res.code === 200) renderTrendChart(res.data)
   } catch (error) { /* log ignored */ }
 }
@@ -204,7 +206,7 @@ const renderTrendChart = (data) => {
 
 const fetchCustomerSource = async () => {
   try {
-    const res = await getReportCustomerAnalysis()
+    const res = await getReportCustomerAnalysis(dashQuery())
     if (res.code === 200) renderSourceChart(res.data.source_dist)
   } catch (error) { /* log ignored */ }
 }
@@ -229,7 +231,7 @@ const renderSourceChart = (data) => {
 
 const fetchSalesFunnel = async () => {
   try {
-    const res = await getReportSalesFunnel()
+    const res = await getReportSalesFunnel(dashQuery())
     if (res.code === 200) renderFunnelChart(res.data)
   } catch (error) { /* log ignored */ }
 }
@@ -265,6 +267,9 @@ const loadCharts = () => {
 
 onMounted(() => { loadCharts() })
 onActivated(() => { loadCharts() })
+
+// R-05 顶栏筛选变化 → 重取数并重绘图表
+watch(dashRevision, () => loadCharts())
 </script>
 
 <style scoped>

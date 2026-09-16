@@ -14,7 +14,7 @@
  * ⚠️ 本文件只读（SELECT），符合 PRD R-05「不触及冻结」约束。
  */
 
-const { buildDataPermissionWhere } = require('../middleware/permission');
+const { buildDataPermissionWhere, buildOwnerOverrideFilter } = require('../middleware/permission');
 const { getOverdueDays } = require('../utils/config');
 const { POOL_STATUS } = require('../constants/poolStatus');
 
@@ -31,13 +31,34 @@ async function scopeFor(dataPermission, ownerColumn, alias) {
   return buildDataPermissionWhere({ ...dataPermission, ownerColumn }, alias);
 }
 
-/** 概览数据（首页仪表盘） */
-async function getOverview(pool, dataPermission) {
+/** 概览数据（首页仪表盘）
+ * @param {object} filters - { startDate, endDate, ownerId }（R-05 顶栏筛选）
+ *   时间范围作用于「销售额/新增客户/合同数/回款/进行中商机」五项；缺省=本月。
+ *   ownerId 为「团队筛选」，**授权由 buildOwnerOverrideFilter 在服务端强制**（仅 all / 同部门 dept 生效）。
+ */
+async function getOverview(pool, dataPermission, filters = {}) {
+  const { startDate, endDate, ownerId } = filters;
+  const hasRange = !!(startDate && endDate);
+  const rangeParams = hasRange ? [startDate, `${endDate} 23:59:59`] : [];
+  /** 时间窗口条件：给了范围用范围，否则沿用「本月」 */
+  const win = (col) => (hasRange
+    ? `${col} BETWEEN ? AND ?`
+    : `${col} >= DATE_FORMAT(NOW(), '%Y-%m-01') AND ${col} < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH`);
+
   const [customerScope, contractScope, opportunityScope] = await Promise.all([
     scopeFor(dataPermission, 'owner_id', 'cu'),
     scopeFor(dataPermission, 'create_by', 'c'),
     scopeFor(dataPermission, 'owner_id', 'o')
   ]);
+
+  // 团队成员筛选（服务端授权；无权限时返回 null → 不加条件）
+  const [customerOwner, contractOwner, opportunityOwner] = await Promise.all([
+    buildOwnerOverrideFilter(pool, dataPermission, ownerId, 'owner_id', 'cu'),
+    buildOwnerOverrideFilter(pool, dataPermission, ownerId, 'create_by', 'c'),
+    buildOwnerOverrideFilter(pool, dataPermission, ownerId, 'owner_id', 'o')
+  ]);
+  const andOwner = (f) => (f ? ` AND ${f.clause}` : '');
+  const ownerParams = (f) => (f ? f.params : []);
 
   const [
     [monthSales],
@@ -52,49 +73,51 @@ async function getOverview(pool, dataPermission) {
       SELECT COALESCE(SUM(c.amount), 0) as amount
       FROM crm_contract c
       WHERE c.deleted_at IS NULL
-        AND c.sign_date >= DATE_FORMAT(NOW(), '%Y-%m-01') AND c.sign_date < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH
-        AND ${contractScope.clause}
-    `, contractScope.params),
+        AND ${win('c.sign_date')}
+        AND ${contractScope.clause}${andOwner(contractOwner)}
+    `, [...rangeParams, ...contractScope.params, ...ownerParams(contractOwner)]),
     pool.query(`
       SELECT COUNT(*) as count
       FROM crm_customer cu
       WHERE cu.deleted_at IS NULL
-        AND cu.create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND cu.create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH
-        AND ${customerScope.clause}
-    `, customerScope.params),
+        AND ${win('cu.create_time')}
+        AND ${customerScope.clause}${andOwner(customerOwner)}
+    `, [...rangeParams, ...customerScope.params, ...ownerParams(customerOwner)]),
     pool.query(`
       SELECT COUNT(*) as count
       FROM crm_contract c
       WHERE c.deleted_at IS NULL
-        AND c.create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND c.create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH
-        AND ${contractScope.clause}
-    `, contractScope.params),
+        AND ${win('c.create_time')}
+        AND ${contractScope.clause}${andOwner(contractOwner)}
+    `, [...rangeParams, ...contractScope.params, ...ownerParams(contractOwner)]),
     pool.query(`
       SELECT COALESCE(SUM(p.pay_amount), 0) as amount
       FROM crm_payment p
       LEFT JOIN crm_contract c ON p.contract_id = c.id AND c.deleted_at IS NULL
       WHERE p.deleted_at IS NULL
-        AND p.pay_date >= DATE_FORMAT(NOW(), '%Y-%m-01') AND p.pay_date < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH
-        AND ${contractScope.clause}
-    `, contractScope.params),
+        AND ${win('p.pay_date')}
+        AND ${contractScope.clause}${andOwner(contractOwner)}
+    `, [...rangeParams, ...contractScope.params, ...ownerParams(contractOwner)]),
     pool.query(`
       SELECT COALESCE(SUM(o.expected_amount), 0) as amount
       FROM crm_opportunity o
       WHERE o.deleted_at IS NULL
         AND o.stage NOT IN (5, 6)
-        AND ${opportunityScope.clause}
-    `, opportunityScope.params),
+        AND ${opportunityScope.clause}${andOwner(opportunityOwner)}
+    `, [...opportunityScope.params, ...ownerParams(opportunityOwner)]),
     pool.query(
       `SELECT COUNT(*) as count FROM crm_customer cu
         WHERE cu.deleted_at IS NULL
-          AND cu.create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND cu.create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH
-          AND cu.status = 'following' AND ${customerScope.clause}`,
-      customerScope.params
+          AND ${win('cu.create_time')}
+          AND cu.status = 'following'
+          AND ${customerScope.clause}${andOwner(customerOwner)}`,
+      [...rangeParams, ...customerScope.params, ...ownerParams(customerOwner)]
     ),
     pool.query(
       `SELECT COUNT(*) as count FROM crm_customer cu
-        WHERE cu.deleted_at IS NULL AND cu.converted_at >= NOW() - INTERVAL 30 DAY AND ${customerScope.clause}`,
-      customerScope.params
+        WHERE cu.deleted_at IS NULL AND cu.converted_at >= NOW() - INTERVAL 30 DAY
+          AND ${customerScope.clause}${andOwner(customerOwner)}`,
+      [...customerScope.params, ...ownerParams(customerOwner)]
     )
   ]);
 
@@ -105,7 +128,9 @@ async function getOverview(pool, dataPermission) {
     month_converted: monthConverted[0].count,
     month_contracts: monthContracts[0].count,
     month_payments: monthPayments[0].amount?.toString() || '0.00',
-    opportunity_amount: opportunityAmount[0].amount?.toString() || '0.00'
+    opportunity_amount: opportunityAmount[0].amount?.toString() || '0.00',
+    // 回显实际生效的窗口，便于前端给出准确标签（避免「本月」与自定义范围混淆）
+    range_applied: hasRange ? { startDate, endDate } : null
   };
 }
 
@@ -168,9 +193,12 @@ async function getTodayTasks(pool, dataPermission) {
   };
 }
 
-/** 快捷操作统计 */
-async function getQuickStats(pool, dataPermission) {
+/** 快捷操作统计（「当下」指标：不随时间范围变化；团队筛选对合同口径生效） */
+async function getQuickStats(pool, dataPermission, filters = {}) {
   const [contractScope] = await Promise.all([scopeFor(dataPermission, 'create_by', 'c')]);
+  const contractOwner = await buildOwnerOverrideFilter(pool, dataPermission, filters.ownerId, 'create_by', 'c');
+  const ownerClause = contractOwner ? ` AND ${contractOwner.clause}` : '';
+  const ownerParams = contractOwner ? contractOwner.params : [];
 
   // 公海池（owner_id IS NULL）本质是**共享池**，计数为全局量：
   // 旧实现给它传了 userId 参数但 SQL 里没有占位符（参数被静默丢弃，属死参数 bug）。
@@ -182,8 +210,8 @@ async function getQuickStats(pool, dataPermission) {
 
   const [pendingContract] = await pool.query(`
     SELECT COUNT(*) as count FROM crm_contract c
-    WHERE c.deleted_at IS NULL AND c.status = 1 AND ${contractScope.clause}
-  `, contractScope.params);
+    WHERE c.deleted_at IS NULL AND c.status = 1 AND ${contractScope.clause}${ownerClause}
+  `, [...contractScope.params, ...ownerParams]);
 
   const [pendingPayment] = await pool.query(`
     SELECT COUNT(*) as count
@@ -193,8 +221,8 @@ async function getQuickStats(pool, dataPermission) {
       AND pp.id NOT IN (
         SELECT COALESCE(plan_id, 0) FROM crm_payment WHERE plan_id IS NOT NULL
       )
-      AND ${contractScope.clause}
-  `, contractScope.params);
+      AND ${contractScope.clause}${ownerClause}
+  `, [...contractScope.params, ...ownerParams]);
 
   return {
     customer_pool: customerPool[0].count,
@@ -203,21 +231,24 @@ async function getQuickStats(pool, dataPermission) {
   };
 }
 
-/** 逾期统计（仪表盘用） */
-async function getOverdueStats(pool, dataPermission) {
+/** 逾期统计（仪表盘用；「当下」指标，团队筛选对归属生效） */
+async function getOverdueStats(pool, dataPermission, filters = {}) {
   const overdueDays = await getOverdueDays();
   const scope = await scopeFor(dataPermission, 'owner_id', 'c');
+  const owner = await buildOwnerOverrideFilter(pool, dataPermission, filters.ownerId, 'owner_id', 'c');
+  const ownerClause = owner ? ` AND ${owner.clause}` : '';
+  const ownerParams = owner ? owner.params : [];
 
   const whereClause = `c.pool_status = ?
     AND c.deleted_at IS NULL
     AND c.owner_id IS NOT NULL
     AND ((c.last_follow_time IS NULL AND c.create_time < NOW() - INTERVAL ${overdueDays} DAY)
       OR c.last_follow_time < NOW() - INTERVAL ${overdueDays} DAY)
-    AND ${scope.clause}`;
+    AND ${scope.clause}${ownerClause}`;
 
   const [result] = await pool.query(
     `SELECT COUNT(*) as total FROM crm_customer c WHERE ${whereClause}`,
-    [POOL_STATUS.PRIVATE, ...scope.params]
+    [POOL_STATUS.PRIVATE, ...scope.params, ...ownerParams]
   );
 
   return { overdue_count: result[0].total || 0, overdue_days: overdueDays };

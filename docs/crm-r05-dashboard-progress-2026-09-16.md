@@ -60,14 +60,17 @@
 - 修法（与本轮 dashboard 同款，已验证可行）：路由加 `checkDataPermission('report')`，服务内用
   `buildDataPermissionWhere` 构造 `c.create_by / c.owner_id / o.owner_id` 条件 + 补单测。
 
-### 2. 🟠 图表 `useChart` 的 ref 写法有一类**静默不渲染**陷阱（未全面修，需全仓排查）
+### 2. 🟠 图表 `useChart` 的 ref 写法有一类**静默不渲染**陷阱（已核实影响面很小，结论已更正）
 
 - 现象：`const { refs } = useChart('funnelChartRef')` + 模板 `ref="funnelChartRef"` 时，
   Vue 3 不会把元素写回 `refs[name].value` → `initChart` 拿到 null → **图表静默不渲染，无任何报错**。
 - 证据：本组件首版即如此，浏览器实测 `.funnel-chart` 容器存在（936×260）但 **canvas = 0**；
   改为解构写法（`const { refs: { funnelChartRef } } = useChart(...)`，与 `TeamDashboard.vue` 一致）后立即渲染。
-- 影响面：同写法出现在 `components/dashboard/SalesChart.vue`、`views/analysis/index.vue`、
-  `views/report/index.vue` 等（**尚未逐个实测**，仅静态确认写法相同）。建议下一轮逐页实测 + 统一改用解构写法。
+- **【更正 2026-09-16】影响面**：原先推测 `SalesChart.vue` / `views/analysis` / `views/report` 可能同样受影响 ——
+  **核实后不成立**。全仓 5 个使用 `useChart` 的文件均为安全写法：
+  `TeamDashboard`/`analysis`/`report` 用**解构**（`refs: { a, b }`），`SalesChart` 用**桥接**（`const trendChartRef = refs.trendChartRef`）——
+  两者都能让字符串 ref 落到同名 setup 绑定上。**受影响的只有本轮新增的组件**（已修）。
+  ⇒ 结论：这是「新增图表时必须遵守的写法约束」，不是存量缺陷。
 
 ### 3. 🟡 本地测试库会被 `tests/db` 套件改坏（环境问题，已修复本地库）
 
@@ -152,4 +155,67 @@
   `/supplier-performance`、`/export`、`/finance`、`/finance/export`、`/business`。
   它们不属于 R-05 的客户域范围，但同属「报表越权可见」缺陷类，建议随后统一处理。
 - 团队筛选（PRD 要求）与 `sys_data_permission` 里 manager 的 `dept` 配置仍未做。
+
+---
+
+## 八、追加：顶栏「时间范围 + 团队筛选」（PRD §4.1 顶栏，已完成）
+
+### 8.1 实现
+
+| 层 | 内容 |
+|---|---|
+| 新组件 | `components/dashboard/DashboardToolbar.vue`：角色欢迎语 + 当天日期(周几) + 日期范围选择器 + 团队筛选（**仅具备全局查看能力时显示**）+ 重置 + 口径提示 |
+| 新 composable | `composables/useDashboardFilters.js`：模块级单例状态 + `revision` 计数（供各面板 watch 重取数）+ `rangeLabel` 动态标签 + `query()` 组装参数 |
+| 挂载点 | `views/Dashboard.vue`（角色分发壳）顶部 —— 三种角色面板共用同一份筛选 |
+| 联动 | `SalesDashboard` / `ManagerDashboard`（overview/quick-stats/overdue-stats）、`SalesAnalytics`（漏斗/合同收入/回款/概览）、`SalesChart`（业绩/趋势/客户分析/漏斗）全部 watch `revision` 重取数并重绘 |
+| 标签 | `StatsCards` 新增 `periodLabel` prop：受范围影响的 4 张卡（销售额/新增客户/合同数/回款）显示实际周期；**采购/服务/财务卡保持「本月」**（它们的接口不受该范围影响，避免误导） |
+| 缓存 | 后端 5 个 `createCache` 自定义键**补上 query**（否则改筛选仍命中旧缓存）；`cache(ttl)` 类型本就以 `originalUrl` 为键，无需改 |
+
+### 8.2 团队成员筛选的**服务端授权**（安全关键）
+
+新增 `middleware/permission.buildOwnerOverrideFilter(pool, dataPermission, ownerId, ownerColumn, alias)`：
+
+| 数据范围 | 行为 |
+|---|---|
+| 未传 / 非法 ownerId | 不加条件 |
+| `all`（boss / super_admin） | 允许按成员筛选 |
+| `dept` | 仅当目标成员与当前用户**同部门**才允许，跨部门**静默忽略** |
+| `self` / `custom` / 缺省 | **一律忽略**（sales 不得借筛选看他人数据） |
+
+> 前端下拉框不是权限边界 —— 该判定在服务端强制执行；新增单测 11 例覆盖全部分支。
+
+### 8.3 验证证据
+
+| # | 项 | 结果 |
+|---|---|---|
+| 1 | 前端构建 | ✅ `✓ built in 1m 8s`（无错误） |
+| 2 | 后端单测（dashboardScope + reportAnalyticsScope + ownerOverrideFilter） | ✅ **34/34 通过** |
+| 3 | 浏览器实测（demo_sales，销售面板） | ✅ 顶栏渲染（含团队筛选，因该账号 viewAll=true）；**范围联动见下表**；控制台 0 错误 |
+| 4 | 重置回滚 | ✅ 数字与标签均回到「本月」 |
+
+范围联动实测（选 2020-01-01 ~ 2020-01-31，库内无数据）：
+
+| KPI 卡 | 筛选前（本月） | 选中历史区间 | 重置后 |
+|---|---|---|---|
+| 销售额 | ¥3,500,000.00 | **¥0.00** | ¥3,500,000.00 |
+| 新增客户 | 1 | **0** | 1 |
+| 合同数 | 1 | **0** | 1 |
+| 回款 | ¥1,050,000.00 | **¥0.00** | ¥1,050,000.00 |
+| 卡片标签 | 本月销售额 | **2020-01-01 ~ 2020-01-31销售额** | 本月销售额 |
+| 「当下」指标（待执行合同/逾期客户/今日待跟进） | 1 / 0 / 0 | 1 / 0 / 0（**不随范围变，符合设计**） | 1 / 0 / 0 |
+
+### 8.4 过程中的两次自我纠正（记录以免误导）
+
+1. **误判 1**：以 `demo_sales` 首次访问 `/dashboard` 落到 404，一度以为是「`dashboard` 权限缺失」。
+   实为两件事叠加：① 我的排查 SQL 用错列名（`permission_code` 应为 `code`）→ 误报"权限不存在"；
+   ② 运行中的后端持有**权限缓存**（服务在补权限前启动）→ 重启即恢复。
+   核实结论：`dashboard` 权限存在且已授予 boss/finance/manager/sales/hr/purchase/engineer；
+   全仓 **86 个路由权限码与字典 100% 命中**（附核查脚本）。
+2. **误判 2**：`useChart` ref 陷阱的影响面（已在 §四-2 更正）——实际只有本轮新增组件受影响。
+
+### 8.5 仍未做
+
+- 团队筛选下拉在**当前配置下对 manager 不可见**（manager 无 `sys_data_permission` 配置 → 范围=self → `canViewAll=false`）；
+  若产品要「manager 看团队」，需补 `data_scope='dept'`（影响全系统）。
+- 非客户域报表接口（`/purchase-*`、`/finance*`、`/export`、`/business`）仍无数据范围。
 

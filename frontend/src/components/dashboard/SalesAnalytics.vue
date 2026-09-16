@@ -68,19 +68,21 @@
 
 <script setup>
 import EmptyState from '@/components/common/EmptyState.vue'
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { TrendCharts, Document, Wallet } from '@element-plus/icons-vue'
 import { getAnalyticsOverview, getAnalyticsFunnel, getAnalyticsContractRevenue, getAnalyticsPaymentCollection } from '@/api/analytics'
 import { formatAmount } from '@/composables/useFormat'
 import { useChart } from '@/composables/useChart'
 import { chartColors, presetColors, cssVar } from '@/utils/chartTheme'
+import { useDashboardFilters } from '@/composables/useDashboardFilters'
 
 const router = useRouter()
 // ⚠️ 必须解构出 ref（项目既定可用写法）：Vue 3 的字符串 ref 只在「同名 setup 绑定」上赋值，
 // 若只拿 `refs` 对象再写 ref="funnelChartRef"，元素不会写回 refs[name].value，
 // initChart 拿到 null → 图表静默不渲染（本组件首版即踩此坑，浏览器实测 canvas=0）。
 const { refs: { funnelChartRef }, initChart, getChart } = useChart('funnelChartRef')
+const { query: dashQuery, revision: dashRevision } = useDashboardFilters()
 
 const loading = ref(false)
 const error = ref('')
@@ -157,7 +159,7 @@ async function fetchAll() {
   error.value = ''
   try {
     const [ov, fu, rev, col] = await Promise.all([
-      getAnalyticsOverview(), getAnalyticsFunnel(), getAnalyticsContractRevenue(), getAnalyticsPaymentCollection()
+      getAnalyticsOverview(dashQuery()), getAnalyticsFunnel(dashQuery()), getAnalyticsContractRevenue(dashQuery()), getAnalyticsPaymentCollection(dashQuery())
     ])
     overview.value = ov.data || {}
     funnel.value = fu.data || { stages: [], win_rate: 0 }
@@ -174,6 +176,9 @@ async function fetchAll() {
 }
 
 onMounted(fetchAll)
+
+// R-05 顶栏筛选变化 → 重取数并重绘漏斗
+watch(dashRevision, () => fetchAll())
 defineExpose({ fetchAll, getChart })
 </script>
 

@@ -177,6 +177,50 @@ async function getSubDeptIds(parentId) {
 }
 
 /**
+ * 「按指定成员筛选」的**服务端强制授权**（首页/报表的「团队筛选」用）
+ *
+ * 安全要点：前端下拉框不是权限边界。本函数在服务端判定当前用户能否按 ownerId 过滤：
+ *   · 无 ownerId                → null（不追加过滤）
+ *   · data_scope = 'all'        → 允许（老板/超管）
+ *   · data_scope = 'dept'       → 仅当目标成员与当前用户**同部门**才允许
+ *   · 其它（self/custom/无配置）→ **一律忽略**（返回 null），防止 sales 借此看到他人数据
+ *
+ * ⚠️ 返回值必须与「数据范围子句」是 AND 关系（即在范围之内再收窄），不能替换范围。
+ *
+ * @param {object} pool
+ * @param {object} dataPermission - checkDataPermission 注入
+ * @param {number|string} ownerId - 前端传入的成员 ID
+ * @param {string} ownerColumn - 归属列名
+ * @param {string} alias - SQL 表别名
+ * @returns {Promise<{clause: string, params: Array}|null>}
+ */
+async function buildOwnerOverrideFilter(pool, dataPermission, ownerId, ownerColumn = 'owner_id', alias = 'c') {
+  const target = Number(ownerId);
+  if (!ownerId || !Number.isInteger(target) || target <= 0) return null;
+  if (!dataPermission) return null;
+
+  const column = `${alias}.${ownerColumn}`;
+  const type = dataPermission.type;
+
+  if (type === 'all') {
+    return { clause: `${column} = ?`, params: [target] };
+  }
+
+  if (type === 'dept') {
+    const [rows] = await pool.query(
+      'SELECT u1.dept_id AS target_dept, u2.dept_id AS self_dept FROM sys_user u1, sys_user u2 WHERE u1.id = ? AND u2.id = ?',
+      [target, dataPermission.userId]
+    );
+    const sameDept = rows[0] && rows[0].target_dept != null && rows[0].target_dept === rows[0].self_dept;
+    if (sameDept) return { clause: `${column} = ?`, params: [target] };
+    return null;   // 跨部门：静默忽略（不报错，也不放行）
+  }
+
+  // self / custom / 缺省：不具备看他人数据的能力 → 忽略筛选条件
+  return null;
+}
+
+/**
  * 字段级权限中间件
  * 根据敏感字段注册表，为非管理员用户设置 restrictedFields
  * @param {string} module - 模块名称
@@ -223,6 +267,7 @@ module.exports = {
   checkPermission,
   checkDataPermission,
   buildDataPermissionWhere,
+  buildOwnerOverrideFilter,
   checkFieldPermission,
   stripRestrictedFields
 };

@@ -9,7 +9,7 @@
           </div>
           <div class="stat-info">
             <div class="stat-value"><AnimatedNumber :value="overview.month_sales" prefix="¥" :decimals="2" /></div>
-            <div class="stat-label">本月销售额</div>
+            <div class="stat-label">{{ periodLabel }}销售额</div>
           </div>
         </div>
       </el-card>
@@ -22,7 +22,7 @@
           </div>
           <div class="stat-info">
             <div class="stat-value"><AnimatedNumber :value="overview.month_customers" /></div>
-            <div class="stat-label">本月新增客户</div>
+            <div class="stat-label">{{ periodLabel }}新增客户</div>
           </div>
         </div>
       </el-card>
@@ -35,7 +35,7 @@
           </div>
           <div class="stat-info">
             <div class="stat-value"><AnimatedNumber :value="overview.month_contracts" /></div>
-            <div class="stat-label">本月合同数</div>
+            <div class="stat-label">{{ periodLabel }}合同数</div>
           </div>
         </div>
       </el-card>
@@ -48,7 +48,7 @@
           </div>
           <div class="stat-info">
             <div class="stat-value"><AnimatedNumber :value="overview.month_payments" prefix="¥" :decimals="2" /></div>
-            <div class="stat-label">本月回款</div>
+            <div class="stat-label">{{ periodLabel }}回款</div>
           </div>
         </div>
       </el-card>
@@ -331,7 +331,9 @@ defineProps({
   isSales: { type: Boolean, default: false },
   isFinance: { type: Boolean, default: false },
   isPurchase: { type: Boolean, default: false },
-  isService: { type: Boolean, default: false }
+  isService: { type: Boolean, default: false },
+  // R-05 顶栏筛选：受时间范围影响的卡片（销售额/新增客户/合同数/回款）显示实际周期
+  periodLabel: { type: String, default: '本月' }
 })
 
 defineEmits(['quick-action', 'go-tasks'])

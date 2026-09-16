@@ -1,5 +1,7 @@
 <template>
   <div class="dashboard">
+    <!-- R-05 顶栏：角色欢迎 / 日期 / 时间范围 / 团队筛选（仅全局查看角色） -->
+    <DashboardToolbar />
     <SalesDashboard v-if="dashboardType === 'sales'" />
     <PurchaseDashboard v-else-if="dashboardType === 'purchase'" />
     <ManagerDashboard v-else />
@@ -9,6 +11,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useUser } from '@/composables/useUser'
+import DashboardToolbar from '@/components/dashboard/DashboardToolbar.vue'
 import SalesDashboard from '@/components/dashboard/SalesDashboard.vue'
 import PurchaseDashboard from '@/components/dashboard/PurchaseDashboard.vue'
 import ManagerDashboard from '@/components/dashboard/ManagerDashboard.vue'

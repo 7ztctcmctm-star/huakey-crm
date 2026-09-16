@@ -12,6 +12,7 @@
       :overdue-days="overdueDays"
       :is-admin="false"
       :is-sales="true"
+      :period-label="rangeLabel"
       @quick-action="handleQuickAction"
       @go-tasks="goToTasks"
     />
@@ -59,7 +60,7 @@
 
 <script setup>
 import { reportError, reportWarn } from '@/utils/error'
-import { ref, reactive, computed, onMounted, onActivated } from 'vue'
+import { ref, reactive, computed, onMounted, onActivated, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { TrendCharts } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -70,10 +71,12 @@ import SalesAnalytics from '@/components/dashboard/SalesAnalytics.vue'
 import QuickFollowDialog from '@/components/dashboard/QuickFollowDialog.vue'
 import BatchFollowDialog from '@/components/dashboard/BatchFollowDialog.vue'
 import { formatAmount } from '@/composables/useFormat'
+import { useDashboardFilters } from '@/composables/useDashboardFilters'
 import { getReportOverview, getReportQuickStats, getReportTodayTasks, getReportOverdueStats } from '@/api/report'
 import { getFollowUpTaskStats, getOverdueCustomers, getNearRecycleCustomers } from '@/api/customer'
 
 const router = useRouter()
+const { query: dashQuery, revision: dashRevision, rangeLabel } = useDashboardFilters()
 
 const financeData = reactive({ month_plan: 0, month_paid: 0, month_rate: 0, overdue_amount: 0 })
 const purchaseData = reactive({ month_amount: 0, pending_approval: 0, stock_alerts: 0 })
@@ -120,14 +123,14 @@ const handleQuickAction = (action) => {
 
 const fetchOverview = async () => {
   try {
-    const res = await getReportOverview()
+    const res = await getReportOverview(dashQuery())
     if (res.code === 200) Object.assign(overview, res.data)
   } catch (e) { reportError('获取概览失败:', e) }
 }
 
 const fetchQuickStats = async () => {
   try {
-    const res = await getReportQuickStats()
+    const res = await getReportQuickStats(dashQuery())
     if (res.code === 200) Object.assign(quickStats, res.data)
   } catch (e) { reportError('获取快捷统计失败:', e) }
 }
@@ -144,7 +147,7 @@ const fetchTodayTasks = async () => {
 
 const fetchOverdueStats = async () => {
   try {
-    const res = await getReportOverdueStats()
+    const res = await getReportOverdueStats(dashQuery())
     if (res.code === 200) {
       overdueCount.value = res.data.overdue_count
       if (res.data.overdue_days) overdueDays.value = res.data.overdue_days
@@ -193,6 +196,9 @@ const load = () => {
 
 onMounted(() => load())
 onActivated(() => load())
+
+// R-05 顶栏筛选变化 → 重取数
+watch(dashRevision, () => load())
 </script>
 
 <style scoped>

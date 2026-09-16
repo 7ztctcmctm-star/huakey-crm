@@ -12,7 +12,7 @@
  */
 
 const XLSX = require('xlsx');
-const { buildDataPermissionWhere } = require('../middleware/permission');
+const { buildDataPermissionWhere, buildOwnerOverrideFilter } = require('../middleware/permission');
 
 /**
  * 构造某表的数据范围子句（各表归属列不同：customer→owner_id / contract→create_by /
@@ -45,6 +45,9 @@ async function getSalesFunnel(pool, params = {}, dataPermission) {
   }
 
   const customerScope = await scopeFor(dataPermission, 'owner_id', 'so');
+  const owner = await buildOwnerOverrideFilter(pool, dataPermission, params.ownerId, 'owner_id', 'so');
+  const ownerClause = owner ? ` AND ${owner.clause}` : '';
+  const ownerParams = owner ? owner.params : [];
 
   const [rows] = await pool.query(`
     SELECT
@@ -52,10 +55,10 @@ async function getSalesFunnel(pool, params = {}, dataPermission) {
       COUNT(so.id) as count,
       COALESCE(SUM(so.expected_amount), 0) as amount
     FROM crm_opportunity so
-    WHERE so.deleted_at IS NULL ${dateCond} AND ${customerScope.clause}
+    WHERE so.deleted_at IS NULL ${dateCond} AND ${customerScope.clause}${ownerClause}
     GROUP BY so.stage
     ORDER BY so.stage ASC
-  `, [...queryParams, ...customerScope.params]);
+  `, [...queryParams, ...customerScope.params, ...ownerParams]);
 
   const stageNames = ['', '询盘', '需求确认', '方案报价', '谈判', '成交', '失败'];
   const result = [];
@@ -199,20 +202,24 @@ async function getPaymentStats(pool, params = {}, dataPermission) {
 
   // 回款/回款计划表本身没有归属列，范围经「合同 create_by」透传
   const contractScope = await scopeFor(dataPermission, 'create_by', 'c');
+  const owner = await buildOwnerOverrideFilter(pool, dataPermission, params.ownerId, 'create_by', 'c');
+  const cScope = owner
+    ? { clause: `${contractScope.clause} AND ${owner.clause}`, params: [...contractScope.params, ...owner.params] }
+    : contractScope;
 
   const [planAmount] = await pool.query(`
     SELECT COALESCE(SUM(pp.plan_amount), 0) as amount
     FROM crm_payment_plan pp
     LEFT JOIN crm_contract c ON c.id = pp.contract_id
-    WHERE ${planDateFilter} AND ${contractScope.clause}
-  `, [...planParams, ...contractScope.params]);
+    WHERE ${planDateFilter} AND ${cScope.clause}
+  `, [...planParams, ...cScope.params]);
 
   const [payAmount] = await pool.query(`
     SELECT COALESCE(SUM(p.pay_amount), 0) as amount
     FROM crm_payment p
     LEFT JOIN crm_contract c ON c.id = p.contract_id
-    WHERE ${payDateFilter} AND ${contractScope.clause}
-  `, [...payParams, ...contractScope.params]);
+    WHERE ${payDateFilter} AND ${cScope.clause}
+  `, [...payParams, ...cScope.params]);
 
   const [overdueRows] = await pool.query(`
     SELECT COALESCE(SUM(
@@ -225,8 +232,8 @@ async function getPaymentStats(pool, params = {}, dataPermission) {
       FROM crm_payment
       GROUP BY plan_id
     ) paid ON pp.id = paid.plan_id
-    WHERE pp.plan_date < CURRENT_DATE AND ${contractScope.clause}
-  `, [...contractScope.params]);
+    WHERE pp.plan_date < CURRENT_DATE AND ${cScope.clause}
+  `, [...cScope.params]);
 
   const overdueTotal = parseFloat(overdueRows[0].amount) || 0;
 
@@ -881,13 +888,15 @@ async function getSupplierPerformance(pool, params = {}) {
  * 销售总览（仪表盘）
  * @returns {object} { opportunity_amount }
  */
-async function getAnalyticsOverview(pool, dataPermission) {
+async function getAnalyticsOverview(pool, dataPermission, params = {}) {
   const scope = await scopeFor(dataPermission, 'owner_id', 'o');
+  const owner = await buildOwnerOverrideFilter(pool, dataPermission, params.ownerId, 'owner_id', 'o');
+  const ownerClause = owner ? ` AND ${owner.clause}` : '';
   const [rows] = await pool.query(`
     SELECT COALESCE(SUM(o.expected_amount), 0) as amount
     FROM crm_opportunity o
-    WHERE o.deleted_at IS NULL AND ${scope.clause}
-  `, scope.params);
+    WHERE o.deleted_at IS NULL AND ${scope.clause}${ownerClause}
+  `, [...scope.params, ...(owner ? owner.params : [])]);
   return { opportunity_amount: rows[0]?.amount?.toString() || '0.00' };
 }
 
@@ -910,8 +919,10 @@ async function getAnalyticsFunnel(pool, params = {}, dataPermission) {
  * 状态: 1=草稿 2=生效中 3=已完成 4=已取消
  * @returns {object} { total_amount, active_amount, completed_amount, cancelled_amount }
  */
-async function getContractRevenue(pool, dataPermission) {
+async function getContractRevenue(pool, dataPermission, params = {}) {
   const scope = await scopeFor(dataPermission, 'create_by', 'c');
+  const owner = await buildOwnerOverrideFilter(pool, dataPermission, params.ownerId, 'create_by', 'c');
+  const ownerClause = owner ? ` AND ${owner.clause}` : '';
   const [rows] = await pool.query(`
     SELECT
       COALESCE(SUM(c.amount), 0) as total_amount,
@@ -919,8 +930,8 @@ async function getContractRevenue(pool, dataPermission) {
       COALESCE(SUM(CASE WHEN c.status = 3 THEN c.amount ELSE 0 END), 0) as completed_amount,
       COALESCE(SUM(CASE WHEN c.status = 4 THEN c.amount ELSE 0 END), 0) as cancelled_amount
     FROM crm_contract c
-    WHERE c.deleted_at IS NULL AND ${scope.clause}
-  `, scope.params);
+    WHERE c.deleted_at IS NULL AND ${scope.clause}${ownerClause}
+  `, [...scope.params, ...(owner ? owner.params : [])]);
   const r = rows[0];
   return {
     total_amount: r.total_amount?.toString() || '0.00',

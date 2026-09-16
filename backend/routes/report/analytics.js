@@ -148,9 +148,9 @@ router.get('/sales-trend', authenticateToken, checkPermission('dashboard'), chec
 // === 仪表盘销售分析（前端 api/analytics.js，Phase 5.5.2） ===
 
 // 销售总览
-router.get('/analytics/sales/overview', authenticateToken, checkPermission('dashboard'), checkDataPermission('report'), createCache(300, (req) => `report:analytics-overview:${req.user.userId}`), async (req, res, next) => {
+router.get('/analytics/sales/overview', authenticateToken, checkPermission('dashboard'), checkDataPermission('report'), createCache(300, (req) => `report:analytics-overview:${req.user.userId}:${JSON.stringify(req.query)}`), async (req, res, next) => {
   try {
-    const data = await reportAnalyticsService.getAnalyticsOverview(pool, req.dataPermission);
+    const data = await reportAnalyticsService.getAnalyticsOverview(pool, req.dataPermission, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -159,7 +159,7 @@ router.get('/analytics/sales/overview', authenticateToken, checkPermission('dash
 });
 
 // 销售漏斗
-router.get('/analytics/sales/funnel', authenticateToken, checkPermission('dashboard'), checkDataPermission('report'), createCache(600, (req) => `report:analytics-funnel:${req.user.userId}`), async (req, res, next) => {
+router.get('/analytics/sales/funnel', authenticateToken, checkPermission('dashboard'), checkDataPermission('report'), createCache(600, (req) => `report:analytics-funnel:${req.user.userId}:${JSON.stringify(req.query)}`), async (req, res, next) => {
   try {
     const data = await reportAnalyticsService.getAnalyticsFunnel(pool, req.query, req.dataPermission);
     res.json({ code: 200, message: '查询成功', data });
@@ -170,9 +170,9 @@ router.get('/analytics/sales/funnel', authenticateToken, checkPermission('dashbo
 });
 
 // 合同收入
-router.get('/analytics/contract/revenue', authenticateToken, checkPermission('dashboard'), checkDataPermission('report'), createCache(300, (req) => `report:analytics-revenue:${req.user.userId}`), async (req, res, next) => {
+router.get('/analytics/contract/revenue', authenticateToken, checkPermission('dashboard'), checkDataPermission('report'), createCache(300, (req) => `report:analytics-revenue:${req.user.userId}:${JSON.stringify(req.query)}`), async (req, res, next) => {
   try {
-    const data = await reportAnalyticsService.getContractRevenue(pool, req.dataPermission);
+    const data = await reportAnalyticsService.getContractRevenue(pool, req.dataPermission, req.query);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -181,7 +181,7 @@ router.get('/analytics/contract/revenue', authenticateToken, checkPermission('da
 });
 
 // 回款情况
-router.get('/analytics/payment/collection', authenticateToken, checkPermission('dashboard'), checkDataPermission('report'), createCache(300, (req) => `report:analytics-collection:${req.user.userId}`), async (req, res, next) => {
+router.get('/analytics/payment/collection', authenticateToken, checkPermission('dashboard'), checkDataPermission('report'), createCache(300, (req) => `report:analytics-collection:${req.user.userId}:${JSON.stringify(req.query)}`), async (req, res, next) => {
   try {
     const data = await reportAnalyticsService.getAnalyticsPaymentCollection(pool, req.query, req.dataPermission);
     res.json({ code: 200, message: '查询成功', data });
