@@ -43,6 +43,9 @@
 | `customerService.systemUpdateField(pool, customerId, field, value)` | 系统级字段更新 | 白名单 `SYSTEM_UPDATABLE_FIELDS`；`field='status'` 时用**单一来源** `mapStatusToBusinessStatus` 同步 `business_status`（未知值回退 `following`） |
 | `customerService.systemUpdateScore(pool, customerId, score)` | 系统级评分写入（评分模块） | 仅 `score` 一列 |
 | `customerService.systemAcceptTransfer(pool, customerId, toUserId, fromUserId)` | 转移接收的归属变更（转移模块） | 带**原负责人并发守卫**（`AND owner_id = ?`）；`affectedRows=0` 表示期间被他人接手，由调用方在同事务内回滚 |
+| `customerService.systemApplyFollowUpEffect(pool, customerId)` | 记录跟进后的客户派生状态（跟进模块） | `last_follow_time=NOW()`；跟进状态 NULL/「初次联系」→「跟进中」；生命周期 `new`→`nurturing` |
+| `customerService.systemTouchLastFollowTime(pool, customerId)` | 刷新最后跟进时间（批量补录 / 完成计划） | `last_follow_time=NOW()`；批量场景**透传事务连接** |
+| `customerService.systemSetLastFollowTime(pool, customerId, at)` | 最后跟进时间设为指定值或**置空**（删除跟进后回退） | 置空传 `null` |
 
 **本域内新增（原越界实现迁入）**
 
@@ -65,22 +68,22 @@
 | `services/scoringRouteService.js` | 1 处 UPDATE | 改调 `customerService.systemUpdateScore` |
 | `services/transferService.js` | 1 处 UPDATE（+ 曾被判为跨模块 cron） | 改调 `customerService.systemAcceptTransfer`（守卫语义不变）；连带 **cron 作业不再被标记 → 跨模块 cron 归零** |
 | `scripts/auto_release.js` | 1 处 UPDATE | 改为薄封装调用 `poolService.autoReleaseCustomers`；**同时修掉三个真实缺陷**（见下） |
+| `services/followUpService.js` | 4 处 UPDATE | 跟进派生状态改经 3 个受控入口（`systemApplyFollowUpEffect` / `systemTouchLastFollowTime` / `systemSetLastFollowTime`），批量场景透传事务连接 |
 
 > 🔧 **`scripts/auto_release.js` 修掉的三处真实缺陷**（David 已确认可改）：
 > ① 选客条件 `status != 0` 在 status 改为字符串后**恒不成立**（MySQL 把 `'following'` 当 0）——实测该脚本**从未释放过任何客户**；
 > ② 释放时未同步 `status='sea'`，会留下 `pool_status='sea'` 而 `status='following'` 的**不一致状态**；
 > ③ 逐条 autocommit 无事务，中途失败会留半释放状态。现统一走客户域规则：事务 + 日志 + 状态同步 + SSE。
 
-**剩余存量债（8 处）**：
+**剩余存量债（4 处）**：
 
 | 文件 | 模块 | 现状（越界写点数） |
 |---|---|---|
-| `services/followUpService.js` | 跟进 | 4 |
-| `scripts/verify-transfer-sql.js` | 运维验证脚本（测试性质） | 2 |
+| `scripts/verify-transfer-sql.js` | 运维验证脚本（**测试负例性质**，建议改口径移出扫描范围） | 2 |
 | `services/importService.js` | 数据导入 | 1 |
-| `services/userRouteService.js` | 用户/离职交接 | 1 |
+| `services/userRouteService.js` | 用户/离职交接（注意与 R-07「经理账号」的边界） | 1 |
 
-**合计 8 处**（= 基线放行量）+ **0 个跨模块 cron 作业** ✅（已清零）
+**合计 4 处**（= 基线放行量）+ **0 个跨模块 cron 作业** ✅（已清零）
 
 ---
 

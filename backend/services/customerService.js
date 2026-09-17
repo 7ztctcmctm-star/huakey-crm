@@ -1210,6 +1210,44 @@ async function systemAcceptTransfer(pool, customerId, toUserId, fromUserId) {
   return { affectedRows: result.affectedRows };
 }
 
+/**
+ * 【客户域受控写入口】记录跟进后的客户派生状态刷新（follow_up 模块调用）
+ * 语义（逐字复刻原 followUpService.addFollowUp 的 UPDATE）：
+ *   最后跟进时间 = 当前时间；跟进状态 NULL/「初次联系」→「跟进中」；生命周期 new → nurturing
+ */
+async function systemApplyFollowUpEffect(pool, customerId) {
+  await pool.query(
+    `UPDATE crm_customer
+     SET last_follow_time = NOW(),
+         follow_status = CASE
+           WHEN follow_status IS NULL OR follow_status = '初次联系' THEN '跟进中'
+           ELSE follow_status
+         END,
+         lifecycle_status = CASE
+           WHEN lifecycle_status = 'new' THEN 'nurturing'
+           ELSE lifecycle_status
+         END
+     WHERE id = ?`,
+    [customerId]
+  );
+  return { success: true };
+}
+
+/** 【客户域受控写入口】把最后跟进时间刷新为「当前时间」（批量补录跟进 / 完成跟进计划后调用） */
+async function systemTouchLastFollowTime(pool, customerId) {
+  await pool.query('UPDATE crm_customer SET last_follow_time = NOW() WHERE id = ?', [customerId]);
+  return { success: true };
+}
+
+/**
+ * 【客户域受控写入口】把最后跟进时间设为指定值或置空
+ * 用于「删除跟进记录后回退到最近一条的时间」；无剩余记录时传 null 置空（与原实现一致）
+ */
+async function systemSetLastFollowTime(pool, customerId, at) {
+  await pool.query('UPDATE crm_customer SET last_follow_time = ? WHERE id = ?', [at ?? null, customerId]);
+  return { success: true };
+}
+
 module.exports = {
   // [2026-09-14 阶段4] 移除零引用导出面：VALID_SOURCES / SOURCE_PARENT_MAP /
   // batchAssignCustomers / loadStatusConfig / loadStatusTransitions /
@@ -1231,6 +1269,9 @@ module.exports = {
   SYSTEM_UPDATABLE_FIELDS,
   systemUpdateScore,
   systemAcceptTransfer,
+  systemApplyFollowUpEffect,
+  systemTouchLastFollowTime,
+  systemSetLastFollowTime,
   getOverdueCustomers,
   getNearRecycleCustomersList,
   // Phase 2: 三页面查询

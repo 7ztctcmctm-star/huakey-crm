@@ -9,7 +9,6 @@
   "review_by": "2026-10-15",
   "owner": "David",
   "crm_customer_writes": {
-    "services/followUpService.js": { "UPDATE": 4 },
     "scripts/verify-transfer-sql.js": { "UPDATE": 2 },
     "services/importService.js": { "INSERT INTO": 1 },
     "services/userRouteService.js": { "UPDATE": 1 }

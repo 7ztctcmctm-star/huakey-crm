@@ -5,7 +5,12 @@
 const followUpService = require('../../services/followUpService');
 
 jest.mock('../../services/customerService', () => ({
-  transitionStatus: jest.fn().mockResolvedValue()
+  transitionStatus: jest.fn().mockResolvedValue(),
+  // [R-06 边界收敛 2026-09-17] followUpService 不再直接写 crm_customer，
+  // 客户派生状态改经客户域受控入口（本测试只关心调用编排，故 mock 掉）
+  systemApplyFollowUpEffect: jest.fn().mockResolvedValue({ success: true }),
+  systemTouchLastFollowTime: jest.fn().mockResolvedValue({ success: true }),
+  systemSetLastFollowTime: jest.fn().mockResolvedValue({ success: true })
 }));
 
 jest.mock('../../config/logger', () => ({

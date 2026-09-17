@@ -317,3 +317,61 @@ PRD 的验收是「静态扫描 + **CI 卡点 PASS**」。存量 16 处 + 2 个 
 | `scripts/verify-transfer-sql.js` | 2 | 测试性质的验证脚本；其写入用于负例验证，可能更适合移出扫描范围（需先确认口径） |
 | `services/importService.js` | 1 | 数据导入 |
 | `services/userRouteService.js` | 1 | 用户/离职交接（需注意与 R-07「经理账号」的边界） |
+
+---
+
+## 十二、存量债整改（第 4 批已完成）：跟进模块 4 处
+
+### 12.1 判断：跟进动作引发的**客户派生状态**属客户域
+
+`followUpService` 的 4 处写点全部是「记录/删除跟进、完成计划之后，维护**客户表上的派生状态**」——
+客户自己的派生状态由客户域维护，因此新增 3 个受控入口（跟进模块调用）：
+
+| 新入口 | 语义（逐字复刻原实现） | 原写点 |
+|---|---|---|
+| `customerService.systemApplyFollowUpEffect(pool, customerId)` | `last_follow_time=NOW()`；`follow_status`：NULL/「初次联系」→「跟进中」；`lifecycle_status`：`new`→`nurturing` | `addFollowUp` |
+| `customerService.systemTouchLastFollowTime(pool, customerId)` | `last_follow_time=NOW()` | `batchAddFollowUp`、`completePlan` |
+| `customerService.systemSetLastFollowTime(pool, customerId, at)` | 设为指定值；**传 null 置空**（删除最后一条跟进后回退） | `deleteFollowUp` |
+
+> 批量补录处**把事务连接透传**给客户域（`systemTouchLastFollowTime(connection, …)`），保证仍是同一事务。
+
+### 12.2 边界账
+
+| 项 | 变化 |
+|---|---|
+| 白名单 | 23 → **26**（新增 3 个受控入口） |
+| 存量债 | 8 → **4** |
+| 新增越界 | 0（`--strict` exit 0；脚本先报 ♻️「followUpService 可收缩」→ 已同步下调基线） |
+
+### 12.3 验证
+
+| # | 证据 | 结果 |
+|---|---|---|
+| 1 | 新增 `tests/unit/customerSystemWrite3.test.js`（3 个入口的 SQL 语义 + 置空分支 + 源码守卫 + 事务连接透传） | ✅ 与 followUp 相关回归合计 **14/14 通过** |
+| 2 | **真库冒烟（含还原）** | ✅ 造出 `follow_status=NULL / lifecycle_status='new' / last_follow_time=NULL` → `systemApplyFollowUpEffect` 后变为 **「跟进中」/`nurturing`/时间已刷新**；**幂等复调保持**（CASE 的 ELSE 分支）；`set(时间)`/`set(null)` 均正确；`touch` 刷新时间；随后原值还原 |
+| 3 | 后端全量回归 | 119 套件通过 / 1 失败（1162/1164 用例） |
+| 4 | 既有 `services-followUpService.test.js` 的 6 个用例曾失败 | ✅ 已修复：其 `jest.mock('../../services/customerService')` **只 mock 了 `transitionStatus`**，新增 3 个入口未在 mock 中 ⇒ 补进 mock（**未改任何业务断言**） |
+
+### 12.4 关于「测试库回退到 109」的补充事实（本轮新增实测）
+
+之前只到「触发链指向 `tests/setup-integration.js`」。本轮的**决定性实验**收窄了范围：
+
+| 实验 | 结果 |
+|---|---|
+| **单独**运行 `npx jest tests/db/contactSinglePrimary.test.js`（带 DB 凭据） | ✅ 套件 5/5 通过，且**库完全未变**（`max=114`、`crm_customer_transfer` 在、唯一索引在） |
+| **全量**运行 `npx jest`（含 tests/db） | ❌ 跑完后 `max=109`、`crm_customer_transfer` 与唯一索引消失（**本轮稳定复现 3 次**） |
+| 恢复方式 | 重跑 `database/migrations/run_migrations.js` → 提示「本次执行了 5 个迁移」→ `max=114`、对象全部恢复 |
+| 已排除 | `tests/backup.test.js` **mock 了 `execFile`**，不会真执行 mysqldump/恢复 ⇒ **不是它** |
+
+⇒ 结论：**是「全量套件中的某个套件」导致回退，而非 `tests/db` 本身**；具体触发者**待定位**（候选方向：某套件写迁移账本或调用迁移回滚）。
+在定位前，**建议约定：跑完后端全量测试后，若紧接着要跑 E2E，先核对测试库对象并在必要时重跑迁移**。
+
+### 12.5 剩余存量债（4 处）
+
+| 文件 | 处数 | 备注 |
+|---|---|---|
+| `scripts/verify-transfer-sql.js` | 2 | **口径问题**：其写入用于测试负例验证，建议改扫描口径移出范围（需确认） |
+| `services/importService.js` | 1 | 数据导入 |
+| `services/userRouteService.js` | 1 | 用户/离职交接（注意与 R-07「经理账号」的边界） |
+
+> 累计成果：越界写 **16 → 4**；跨模块 cron **2 → 0**；占位白名单 **17 → 26**（受控入口 + 迁入的领域规则）。

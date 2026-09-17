@@ -43,20 +43,8 @@ async function addFollowUp(pool, params, userId) {
   }
 
   // 更新客户的最后跟进时间、跟进状态、生命周期状态
-  await pool.query(
-    `UPDATE crm_customer
-     SET last_follow_time = NOW(),
-         follow_status = CASE
-           WHEN follow_status IS NULL OR follow_status = '初次联系' THEN '跟进中'
-           ELSE follow_status
-         END,
-         lifecycle_status = CASE
-           WHEN lifecycle_status = 'new' THEN 'nurturing'
-           ELSE lifecycle_status
-         END
-     WHERE id = ?`,
-    [customer_id]
-  );
+  // [R-06 边界收敛 2026-09-17] 客户派生状态由客户域维护，经受控入口调用（行为不变）
+  await customerService.systemApplyFollowUpEffect(pool, customer_id);
 
   // 自动解除该客户的逾期提醒
   await pool.query(
@@ -120,10 +108,8 @@ async function batchAddFollowUp(pool, items, userId) {
         [item.customer_id, item.follow_type || '电话', item.content, item.next_time || null, userId]
       );
 
-      await connection.query(
-        'UPDATE crm_customer SET last_follow_time = NOW() WHERE id = ?',
-        [item.customer_id]
-      );
+      // [R-06 边界收敛 2026-09-17] 经客户域受控入口（事务连接透传，仍在同一事务内）
+      await customerService.systemTouchLastFollowTime(connection, item.customer_id);
 
       await connection.query(
         'UPDATE crm_follow_up_reminder SET is_dismissed = 1 WHERE customer_id = ? AND is_dismissed = 0',
@@ -370,10 +356,8 @@ async function deleteFollowUp(pool, id, user) {
     'SELECT MAX(create_time) as latest_time FROM crm_follow_up WHERE customer_id = ? AND deleted_at IS NULL',
     [rows[0].customer_id]
   );
-  await pool.query(
-    'UPDATE crm_customer SET last_follow_time = ? WHERE id = ?',
-    [latest[0].latest_time || null, rows[0].customer_id]
-  );
+  // [R-06 边界收敛 2026-09-17] 经客户域受控入口；无剩余跟进记录时置 NULL（与原实现一致）
+  await customerService.systemSetLastFollowTime(pool, rows[0].customer_id, latest[0].latest_time || null);
 }
 
 /**
@@ -536,7 +520,8 @@ async function completePlan(pool, params) {
   );
 
   const customerId = rows[0].customer_id;
-  await pool.query('UPDATE crm_customer SET last_follow_time = NOW() WHERE id = ?', [customerId]);
+  // [R-06 边界收敛 2026-09-17] 经客户域受控入口
+  await customerService.systemTouchLastFollowTime(pool, customerId);
   await pool.query(
     'UPDATE crm_follow_up_reminder SET is_dismissed = 1 WHERE customer_id = ? AND is_dismissed = 0',
     [customerId]
