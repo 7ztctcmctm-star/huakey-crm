@@ -6,6 +6,8 @@ const { POOL_STATUS } = require('../constants/poolStatus');
 const notification = require('../utils/notification');
 const sseManager = require('../utils/sseManager');
 const logger = require('../config/logger');
+// [R-06 边界收敛 2026-09-16] 公海自动回收实现已迁入客户域（poolService），本模块仅保留薄委托
+const poolService = require('./poolService');
 
 /**
  * 清理超过指定天数的操作日志
@@ -108,63 +110,14 @@ async function notifyPreReleaseCustomers(pool, recycleDays) {
  * @param {number} [releaseDays] - 未跟进天数阈值，默认读取 sys_config.recycle_days
  * @returns {Promise<number>} - 已释放的客户数
  */
-async function autoReleaseCustomers(pool, releaseDays) {
-  const threshold = releaseDays || await getRecycleDays();
-
-  const connection = await pool.getConnection();
-  try {
-    await connection.beginTransaction();
-
-    const [customers] = await connection.query(
-      `SELECT id, company_name, owner_id FROM crm_customer
-       WHERE pool_status = ? AND deleted_at IS NULL AND owner_id IS NOT NULL
-         AND status = 'following'
-         AND (last_follow_time IS NULL AND create_time < NOW() - INTERVAL ? DAY
-           OR last_follow_time < NOW() - INTERVAL ? DAY)`,
-      [POOL_STATUS.PRIVATE, threshold, threshold]
-    );
-
-    if (!customers || customers.length === 0) {
-      await connection.commit();
-      return 0;
-    }
-
-    const ids = customers.map(c => c.id);
-    const logValues = customers.map(c => [c.id, 'auto_release', c.owner_id, null]);
-
-    await connection.query(
-      'UPDATE crm_customer SET pool_status = ?, owner_id = NULL, protect_until = NULL, status = ? WHERE id IN (?)',
-      [POOL_STATUS.SEA, 'sea', ids]
-    );
-
-    await connection.query(
-      'INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id) VALUES ?',
-      [logValues]
-    );
-
-    await connection.commit();
-
-    // 发送释放通知（不阻塞）
-    for (const customer of customers) {
-      try {
-        sseManager.send(customer.owner_id, {
-          type: 'customer_released',
-          customer_id: customer.id,
-          customer_name: customer.company_name,
-          message: `客户 ${customer.company_name} 因超期未跟进已自动释放到公海`
-        });
-      } catch (e) {
-        logger.error('[公海回收] SSE通知失败:', e.message);
-      }
-    }
-
-    return ids.length;
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
+/**
+ * 【R-06 边界收敛 2026-09-16】公海自动回收的**实现已迁入客户域**：
+ *   services/poolService.autoReleaseCustomers(pool, releaseDays)
+ * 本模块属非 Customer 域，不再直接写 crm_customer；此处保留同名薄委托，
+ * 以免改动既有调用方（cron/scheduler.js 的 `0 1 * * *` 作业、routes/cronJobs.js 的手动触发）。
+ */
+function autoReleaseCustomers(pool, releaseDays) {
+  return poolService.autoReleaseCustomers(pool, releaseDays);
 }
 
 module.exports = {

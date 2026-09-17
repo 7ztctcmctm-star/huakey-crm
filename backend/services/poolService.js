@@ -15,6 +15,10 @@ const { CUSTOMER_STATUS } = require('../constants/customerStatus')
 const { POOL_STATUS, BUSINESS_STATUS } = require('../constants/poolStatus')
 const AppError = require('../errors/AppError')
 const ErrorCodes = require('../errors/codes')
+// [R-06 边界收敛 2026-09-16] 系统侧公海自动回收迁入本域，需以下依赖
+const { getRecycleDays } = require('../utils/config')
+const sseManager = require('../utils/sseManager')
+const logger = require('../config/logger')
 
 // 注：原 canManagePrivatePool() 随「私有池」概念一并下线（2026-09-10 产品决策）。
 // 私有池取消后，认领不再按 pool_type 区分权限，该判定已无调用方。
@@ -330,11 +334,88 @@ async function getPoolLogs(pool, { customer_id, page = 1, pageSize = 20 }) {
   return { list, total, page: parseInt(page), pageSize: parseInt(pageSize) }
 }
 
+/**
+ * 【客户域 · 系统侧公海自动回收】
+ *
+ * [R-06 边界收敛 2026-09-16] 原实现位于 services/cronService.js（非 Customer 域，属越界写），
+ * 现整体迁入公海域；cronService 仅保留同名薄委托，避免改动既有调用方（cron/scheduler.js、routes/cronJobs.js）。
+ *
+ * ⚠️ 与 batchReleaseCustomers 的区别（**不要混用**）：
+ *   · batchReleaseCustomers = 「用户侧释放」：逐条校验权限、单次上限 100 条、action='release'
+ *   · 本函数 = 「系统侧自动回收」：按超期天数批量释放、action='auto_release'、释放后 SSE 通知原负责人
+ *
+ * 行为与迁移前逐字一致：事务边界、批量 SQL、公海日志、SSE 通知、返回释放条数均未改动。
+ * （其中 status 写入沿用原字面量 'sea'，等价于 CUSTOMER_STATUS.SEA）
+ *
+ * @param {object} pool
+ * @param {number} [releaseDays] 超期天数，缺省取系统配置 getRecycleDays()
+ * @returns {Promise<number>} 实际释放的客户数
+ */
+async function autoReleaseCustomers(pool, releaseDays) {
+  const threshold = releaseDays || await getRecycleDays();
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [customers] = await connection.query(
+      `SELECT id, company_name, owner_id FROM crm_customer
+       WHERE pool_status = ? AND deleted_at IS NULL AND owner_id IS NOT NULL
+         AND status = 'following'
+         AND (last_follow_time IS NULL AND create_time < NOW() - INTERVAL ? DAY
+           OR last_follow_time < NOW() - INTERVAL ? DAY)`,
+      [POOL_STATUS.PRIVATE, threshold, threshold]
+    );
+
+    if (!customers || customers.length === 0) {
+      await connection.commit();
+      return 0;
+    }
+
+    const ids = customers.map(c => c.id);
+    const logValues = customers.map(c => [c.id, 'auto_release', c.owner_id, null]);
+
+    await connection.query(
+      'UPDATE crm_customer SET pool_status = ?, owner_id = NULL, protect_until = NULL, status = ? WHERE id IN (?)',
+      [POOL_STATUS.SEA, 'sea', ids]
+    );
+
+    await connection.query(
+      'INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id) VALUES ?',
+      [logValues]
+    );
+
+    await connection.commit();
+
+    // 发送释放通知（不阻塞）
+    for (const customer of customers) {
+      try {
+        sseManager.send(customer.owner_id, {
+          type: 'customer_released',
+          customer_id: customer.id,
+          customer_name: customer.company_name,
+          message: `客户 ${customer.company_name} 因超期未跟进已自动释放到公海`
+        });
+      } catch (e) {
+        logger.error('[公海回收] SSE通知失败:', e.message);
+      }
+    }
+
+    return ids.length;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
 module.exports = {
   listPoolCustomers,
   claimCustomer,
   batchClaimCustomers,
   releaseCustomer,
   batchReleaseCustomers,
-  getPoolLogs
+  getPoolLogs,
+  autoReleaseCustomers
 }

@@ -31,8 +31,8 @@
 | `routes/leads.js` | 潜客池 API（`/api/v1/leads`） | 潜客=客户生命周期前段 |
 | `routes/pool.js` | 公海 API（`/api/v1/pool/*`） | 入口层 |
 
-> 当前白名单写点合计 **20 处**（脚本实测，见 `ALLOWED` 输出）：
-> 其中 17 处为原有业务写点，另 3 处为**新增的对外受控入口**（见下）。
+> 当前白名单写点合计 **21 处**（脚本实测，见 `ALLOWED` 输出）：
+> 其中 17 处为原有业务写点，3 处为新增的对外受控入口，1 处为**迁入客户域的系统侧公海回收**（见下）。
 > **新增写点必须同时改本表与脚本白名单** —— 这道人工摩擦是刻意的。
 
 **对外受控入口（非 Customer 域模块唯一可用的写入方式）**
@@ -42,36 +42,46 @@
 | `customerService.systemAssignOwner(pool, customerId, toUserId)` | 系统级归属变更（自动化分配、轮询分配） | 仅 `owner_id` 一条 UPDATE；**不做** pool_status / 审计日志等副作用（区别于业务级 `assignCustomer`） |
 | `customerService.systemUpdateField(pool, customerId, field, value)` | 系统级字段更新 | 白名单 `SYSTEM_UPDATABLE_FIELDS`；`field='status'` 时用**单一来源** `mapStatusToBusinessStatus` 同步 `business_status`（未知值回退 `following`） |
 
+**本域内新增（原越界实现迁入）**
+
+| 函数 | 原位置 | 说明 |
+|---|---|---|
+| `poolService.autoReleaseCustomers(pool, releaseDays)` | `services/cronService.js`（非客户域） | 系统侧公海自动回收（事务内批量释放 + 公海日志 + SSE 通知）。**「公海回收」本属客户域规则**，故整条迁入；`cronService` 仅保留同名薄委托以免改动调用方 |
+| ⚠️ 与 `batchReleaseCustomers` 的区别 | — | 后者是**用户侧释放**（逐条权限校验、上限 100、`action='release'`）；前者是**系统侧自动回收**（按超期天数批量、`action='auto_release'`）。**不要混用** |
+
 > ⚠️ 已知瑕疵（本次未顺手改，建议单独提 issue）：白名单里的 `assignee` 在 `crm_customer` 上**并不存在**（疑似历史笔误），
 > 命中时会在 SQL 层报错 —— 这与收敛前的表现完全一致，故本次保持原状以保证「行为不变」。
 
 ### 2.2 非 Customer 模块（存量债所在）
 
-**已收敛（2026-09-16，本轮）**：
+**已收敛（2026-09-16 / 09-17）**：
 
 | 文件 | 原越界写点 | 收敛方式 |
 |---|---|---|
 | `services/automationService.js` | 4 处 UPDATE | 改调 `customerService.systemAssignOwner` / `systemUpdateField`；**并删除其内联的 `status→business_status` CASE 映射（重复实现）** |
+| `services/cronService.js` | 1 处 UPDATE + **1 个跨模块 cron 作业写入** | 公海自动回收整条规则**迁入** `poolService.autoReleaseCustomers`；cron 作业不再直接写客户表（该 cron 基线条目已删除） |
 
-**剩余存量债（12 处）**：
+**剩余存量债（11 处）**：
 
 | 文件 | 模块 | 现状（越界写点数） |
 |---|---|---|
 | `services/followUpService.js` | 跟进 | 4 |
 | `scripts/verify-transfer-sql.js` | 运维验证脚本（测试性质） | 2 |
-| `services/cronService.js` | 定时任务 | 1 |
 | `services/importService.js` | 数据导入 | 1 |
 | `services/scoringRouteService.js` | 客户评分 | 1 |
 | `services/transferService.js` | 客户转移 | 1 |
 | `services/userRouteService.js` | 用户/离职交接 | 1 |
 | `scripts/auto_release.js` | 运维脚本 | 1 |
 
-**合计 12 处**（= 基线放行量）+ **2 个跨模块 cron 作业**：
+**合计 11 处**（= 基线放行量）+ **1 个跨模块 cron 作业**：
 
 | cron | 调用模块 | 说明 |
 |---|---|---|
 | `45 0 * * *` | `services/transferService.js`（`expireTransfers`） | 转移超时回收 |
-| `0 1 * * *` | `services/cronService.js`（`autoReleaseCustomers`） | 公海自动回收 |
+
+> 📌 顺带发现（未修，建议单独提 issue）：`scripts/auto_release.js` 的释放 SQL **独缺 `status='sea'`**
+> （客户域内的释放都会同步 status）⇒ 用该脚本释放的客户会停在 `pool_status='sea'` 但 `status='following'` 的不一致状态。
+> 修复属行为变更，需确认。
 
 ---
 
@@ -101,7 +111,7 @@
 |---|---|---|
 | 1 | 2.1 的 Customer 域文件清单是否完整/正确？ | 按代码职责推断，请确认是否有遗漏（如「客户导入」是否属客户域） |
 | 2 | 是否认可「先拦新增、存量债限期整改」的 ratchet 策略？ | 建议认可；否则需先清零才能启用卡点 |
-| 3 | 存量债整改顺序 | 建议：~~automationService（4 处，风险最高）~~ → **✅ 已完成** → cronService 公海回收 → scoringRouteService → followUpService → importService → scripts |
+| 3 | 存量债整改顺序 | 建议：~~automationService（4 处）~~ ✅ → ~~cronService 公海回收~~ ✅ → scoringRouteService → followUpService → importService → scripts |
 | 4 | `sys_data_permission` 是否给 manager 配 `data_scope='dept'`？ | 影响全系统所有模块（含 R-05 团队筛选可见性），需单独拍板 |
 
 签字：____________（产品）　　　____________（架构）　　　日期：__________

@@ -222,3 +222,49 @@ PRD 的验收是「静态扫描 + **CI 卡点 PASS**」。存量 16 处 + 2 个 
 
 `cronService`（公海自动回收）→ `scoringRouteService` → `followUpService`（4 处）→ `importService` → `scripts`（3 处）。
 其中「加归属守卫」属行为变更，需产品确认；**纯收敛（行为不变）可继续按本轮方式推进**。
+
+---
+
+## 十、存量债整改（第 2 项已完成）：公海自动回收迁入客户域
+
+### 10.1 判断：这不只是「写点位置不对」，而是**规则放错了域**
+
+`cronService.autoReleaseCustomers` 是一整条业务规则：选超期未跟进客户 → 事务内批量释放 → 写公海日志 → SSE 通知原负责人。
+「公海回收」本属**客户域**规则，却落在定时任务服务里。因此本轮不是把一条 SQL 搬走，而是**整条规则迁入 `poolService`**。
+
+| 项 | 内容 |
+|---|---|
+| 迁入 | `poolService.autoReleaseCustomers(pool, releaseDays)`（实现逐字迁移：事务边界、批量 SQL、公海日志、SSE 通知、返回条数均未改） |
+| 保留 | `cronService.autoReleaseCustomers` 改为**同名薄委托**，避免改动既有调用方（`cron/scheduler.js`、`routes/cronJobs.js`） |
+| 注意 | 与 `poolService.batchReleaseCustomers`（**用户侧释放**：逐条权限校验、上限 100、`action='release'`）语义不同，**不可混用**；已在两处写明区别 |
+
+### 10.2 边界账
+
+| 项 | 变化 |
+|---|---|
+| 白名单 | 20 → **21**（公海域新增 1 处批量释放写点） |
+| 存量债 | 12 → **11** |
+| **跨模块 cron 作业** | **2 → 1**（`0 1 * * *` 作业不再直接写客户表 ⇒ 该 cron 基线条目同步删除） |
+| 新增越界 | 0（卡点 PASS，`--strict` exit 0） |
+
+> ✅ **棘轮机制按设计工作**：本次改完**未动基线**时，脚本主动报
+> `♻️ 基线可收缩：services/cronService.js UPDATE 基线 1 → 实际 0` —— 正是「防基线注水」那道防线。
+
+### 10.3 验证
+
+| # | 证据 | 结果 |
+|---|---|---|
+| 1 | cron 相关测试（`services-cronService` / `cron` / `cronJobs`） | ✅ **26/26 通过**（3 套件） |
+| 2 | **真库冒烟（可完全还原）** | ✅ 把样本客户改成「100 天未跟进」→ 调用 `autoReleaseCustomers(15)` 返回 **1**；释放后 `pool_status=sea / owner_id=NULL / protect_until=NULL / status=sea`；公海日志新增 1 条（`action='auto_release', from_user_id=3`）；随后**原值全部还原、新增日志已删** |
+| 3 | 后端全量回归 | ✅ **118 套件 / 1150 用例 全过**（本轮无任何失败） |
+| 4 | 依赖与循环 | ✅ 两个模块均可正常加载；`poolService` 不反向依赖 `cronService` |
+
+### 10.4 顺带发现（未修，建议单独提 issue）
+
+`scripts/auto_release.js` 的释放 SQL **独缺 `status='sea'`** —— 客户域内的释放（`poolService` 单条/批量、已迁入的自动回收）都会同步 `status`，
+唯独该脚本只改 `pool_status/owner_id/protect_until`。用它释放的客户会停在 `pool_status='sea'` 而 `status='following'` 的**不一致状态**。
+修复属行为变更（且该脚本可能是历史运维工具），需确认后再动。
+
+### 10.5 下一步
+
+`scoringRouteService`（1 处）→ `followUpService`（4 处）→ `importService`（1 处）→ `scripts`（3 处）+ `transferService` 的跨模块 cron。
