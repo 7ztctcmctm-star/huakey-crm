@@ -41,6 +41,8 @@
 |---|---|---|
 | `customerService.systemAssignOwner(pool, customerId, toUserId)` | 系统级归属变更（自动化分配、轮询分配） | 仅 `owner_id` 一条 UPDATE；**不做** pool_status / 审计日志等副作用（区别于业务级 `assignCustomer`） |
 | `customerService.systemUpdateField(pool, customerId, field, value)` | 系统级字段更新 | 白名单 `SYSTEM_UPDATABLE_FIELDS`；`field='status'` 时用**单一来源** `mapStatusToBusinessStatus` 同步 `business_status`（未知值回退 `following`） |
+| `customerService.systemUpdateScore(pool, customerId, score)` | 系统级评分写入（评分模块） | 仅 `score` 一列 |
+| `customerService.systemAcceptTransfer(pool, customerId, toUserId, fromUserId)` | 转移接收的归属变更（转移模块） | 带**原负责人并发守卫**（`AND owner_id = ?`）；`affectedRows=0` 表示期间被他人接手，由调用方在同事务内回滚 |
 
 **本域内新增（原越界实现迁入）**
 
@@ -60,28 +62,25 @@
 |---|---|---|
 | `services/automationService.js` | 4 处 UPDATE | 改调 `customerService.systemAssignOwner` / `systemUpdateField`；**并删除其内联的 `status→business_status` CASE 映射（重复实现）** |
 | `services/cronService.js` | 1 处 UPDATE + **1 个跨模块 cron 作业写入** | 公海自动回收整条规则**迁入** `poolService.autoReleaseCustomers`；cron 作业不再直接写客户表（该 cron 基线条目已删除） |
+| `services/scoringRouteService.js` | 1 处 UPDATE | 改调 `customerService.systemUpdateScore` |
+| `services/transferService.js` | 1 处 UPDATE（+ 曾被判为跨模块 cron） | 改调 `customerService.systemAcceptTransfer`（守卫语义不变）；连带 **cron 作业不再被标记 → 跨模块 cron 归零** |
+| `scripts/auto_release.js` | 1 处 UPDATE | 改为薄封装调用 `poolService.autoReleaseCustomers`；**同时修掉三个真实缺陷**（见下） |
 
-**剩余存量债（11 处）**：
+> 🔧 **`scripts/auto_release.js` 修掉的三处真实缺陷**（David 已确认可改）：
+> ① 选客条件 `status != 0` 在 status 改为字符串后**恒不成立**（MySQL 把 `'following'` 当 0）——实测该脚本**从未释放过任何客户**；
+> ② 释放时未同步 `status='sea'`，会留下 `pool_status='sea'` 而 `status='following'` 的**不一致状态**；
+> ③ 逐条 autocommit 无事务，中途失败会留半释放状态。现统一走客户域规则：事务 + 日志 + 状态同步 + SSE。
+
+**剩余存量债（8 处）**：
 
 | 文件 | 模块 | 现状（越界写点数） |
 |---|---|---|
 | `services/followUpService.js` | 跟进 | 4 |
 | `scripts/verify-transfer-sql.js` | 运维验证脚本（测试性质） | 2 |
 | `services/importService.js` | 数据导入 | 1 |
-| `services/scoringRouteService.js` | 客户评分 | 1 |
-| `services/transferService.js` | 客户转移 | 1 |
 | `services/userRouteService.js` | 用户/离职交接 | 1 |
-| `scripts/auto_release.js` | 运维脚本 | 1 |
 
-**合计 11 处**（= 基线放行量）+ **1 个跨模块 cron 作业**：
-
-| cron | 调用模块 | 说明 |
-|---|---|---|
-| `45 0 * * *` | `services/transferService.js`（`expireTransfers`） | 转移超时回收 |
-
-> 📌 顺带发现（未修，建议单独提 issue）：`scripts/auto_release.js` 的释放 SQL **独缺 `status='sea'`**
-> （客户域内的释放都会同步 status）⇒ 用该脚本释放的客户会停在 `pool_status='sea'` 但 `status='following'` 的不一致状态。
-> 修复属行为变更，需确认。
+**合计 8 处**（= 基线放行量）+ **0 个跨模块 cron 作业** ✅（已清零）
 
 ---
 

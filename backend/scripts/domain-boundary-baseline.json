@@ -12,12 +12,7 @@
     "services/followUpService.js": { "UPDATE": 4 },
     "scripts/verify-transfer-sql.js": { "UPDATE": 2 },
     "services/importService.js": { "INSERT INTO": 1 },
-    "services/scoringRouteService.js": { "UPDATE": 1 },
-    "services/transferService.js": { "UPDATE": 1 },
-    "services/userRouteService.js": { "UPDATE": 1 },
-    "scripts/auto_release.js": { "UPDATE": 1 }
+    "services/userRouteService.js": { "UPDATE": 1 }
   },
-  "cross_module_cron": {
-    "45 0 * * *": "services/transferService.js::expireTransfers —— 客户转移本属客户域能力，待收敛到客户域受控接口"
-  }
+  "cross_module_cron": {}
 }

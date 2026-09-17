@@ -17,6 +17,8 @@
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
 const notificationService = require('./notificationService');
+// [R-06 边界收敛 2026-09-17] 本模块属非 Customer 域，写客户表须经客户域受控入口
+const customerService = require('./customerService');
 
 /** 转移状态机：刻意没有 cancelled（申请不可撤回） */
 const TRANSFER_STATUS = {
@@ -139,12 +141,9 @@ async function acceptTransfer(pool, transferId, userId) {
       throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该申请已超过有效期，请让对方重新发起');
     }
 
-    // 客户归属变更：以「期望的原负责人」为条件，期间被他人接手则中止
-    const [claimResult] = await connection.query(
-      `UPDATE crm_customer
-          SET owner_id = ?, pool_status = 'private', last_follow_time = NOW(), update_time = NOW()
-        WHERE id = ? AND owner_id = ? AND deleted_at IS NULL`,
-      [userId, transfer.customer_id, transfer.from_user_id]
+    // 客户归属变更：经客户域受控入口（R-06）；以「期望的原负责人」为条件，期间被他人接手则中止
+    const claimResult = await customerService.systemAcceptTransfer(
+      connection, transfer.customer_id, userId, transfer.from_user_id
     );
     if (claimResult.affectedRows !== 1) {
       throw new AppError(

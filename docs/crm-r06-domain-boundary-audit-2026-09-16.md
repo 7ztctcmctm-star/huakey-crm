@@ -268,3 +268,52 @@ PRD 的验收是「静态扫描 + **CI 卡点 PASS**」。存量 16 处 + 2 个 
 ### 10.5 下一步
 
 `scoringRouteService`（1 处）→ `followUpService`（4 处）→ `importService`（1 处）→ `scripts`（3 处）+ `transferService` 的跨模块 cron。
+
+---
+
+## 十一、存量债整改（第 3 批已完成）：评分 / 转移 / 运维脚本 —— **跨模块 cron 清零**
+
+### 11.1 三处收敛
+
+| 目标 | 做法 | 备注 |
+|---|---|---|
+| `services/scoringRouteService.js`（1 处） | 新增 `customerService.systemUpdateScore(pool, customerId, score)`，评分写入改走该入口 | 窄接口，仅 `score` 一列 |
+| `services/transferService.js`（1 处） | 新增 `customerService.systemAcceptTransfer(pool, customerId, toUserId, fromUserId)`，**保留原并发守卫**（`AND owner_id = fromUserId`，`affectedRows=0` 表示期间被他人接手，由调用方在同事务回滚） | 与 `assignCustomer` 区分：不清 `protect_until`、不写 `assign_log` |
+| `scripts/auto_release.js`（1 处） | 改为**薄封装**调用 `poolService.autoReleaseCustomers` | 同时修掉三个真实缺陷，见 11.2 |
+
+### 11.2 `auto_release.js` 的三个真实缺陷（David 已确认可改）
+
+| # | 缺陷 | 证据 |
+|---|---|---|
+| ① | 选客条件 `status != 0` 在 status 改为**字符串**后**恒不成立**（MySQL 将 `'following'` 当 0 比较） | 实测：`status IS NOT NULL = 1` 而 **`status != 0 = 0`** ⇒ **该脚本从未释放过任何客户** |
+| ② | 释放时**未同步** `status='sea'` ⇒ 留下 `pool_status='sea'` 而 `status='following'` 的不一致状态 | 对比 `poolService` 内所有释放路径均同步 status |
+| ③ | 逐条 autocommit、**无事务** ⇒ 中途失败留半释放状态 | 原实现为 for 循环内两条独立 `pool.query` |
+
+⇒ 现统一走客户域规则：**事务 + 公海日志 + status 同步 + SSE 通知**，与系统定时任务（`cron/scheduler.js` 01:00 作业）实现完全一致；`AUTO_RELEASE_DAYS` 环境变量仍可覆盖超期天数，缺省取系统配置。
+
+### 11.3 边界账
+
+| 项 | 变化 |
+|---|---|
+| 白名单 | 21 → **23** |
+| 存量债 | 11 → **8** |
+| **跨模块 cron 作业** | **1 → 0 ✅ 已清零**（transferService 不再写客户表 ⇒ 其 cron 作业不再被标记） |
+| 新增越界 | 0（`--strict` exit 0，且基线无"可收缩"提示） |
+
+### 11.4 验证
+
+| # | 证据 | 结果 |
+|---|---|---|
+| 1 | 新增单测 `tests/unit/customerSystemWrite2.test.js`（评分 SQL / 转移守卫 SQL / 守卫失效返回 0 / 无额外副作用 / 三个源码守卫） | ✅ 与既有相关套件合计 **53/53 通过**（含 `transferService`、`scoring` 回归） |
+| 2 | **真库冒烟（含还原）** | ✅ `systemUpdateScore(77)`→库内 77；`systemAcceptTransfer` 守卫**未命中**（错 from）→ `affectedRows=0` 且 owner 不变；**命中** → `affectedRows=1`、owner 变更、`pool_status=private`、`last_follow_time` 刷新；随后原值全部还原 |
+| 3 | **子进程真实运行 `auto_release.js`**（`AUTO_RELEASE_DAYS=15`，样本客户改为 100 天未跟进） | ✅ 输出「已释放 1 个客户（含公海日志与状态同步）」；库内 `pool_status=sea / owner_id=NULL / status=sea`（**不再不一致**）；公海日志 +1；随后还原并删除该日志 |
+| 4 | 后端全量回归 | 118 套件通过 / 1 失败（1156/1158 用例）；唯一失败为 `tests/db/contactSinglePrimary` —— **已知的本地测试库现象**（跑 `tests/db` 后 `schema_migrations` 回退 109、唯一索引消失），与本次改动无关；跑完后已按迁移重建并复核（max=114、索引在位） |
+
+### 11.5 剩余存量债（8 处，跨模块 cron 已清零）
+
+| 文件 | 处数 | 备注 |
+|---|---|---|
+| `services/followUpService.js` | 4 | 跟进模块（最大一块） |
+| `scripts/verify-transfer-sql.js` | 2 | 测试性质的验证脚本；其写入用于负例验证，可能更适合移出扫描范围（需先确认口径） |
+| `services/importService.js` | 1 | 数据导入 |
+| `services/userRouteService.js` | 1 | 用户/离职交接（需注意与 R-07「经理账号」的边界） |

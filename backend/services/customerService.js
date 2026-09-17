@@ -1185,6 +1185,31 @@ async function systemUpdateField(pool, customerId, field, value) {
   return { success: true };
 }
 
+/** 系统级评分写入（原 scoringRouteService 的写点行为） */
+async function systemUpdateScore(pool, customerId, score) {
+  await pool.query('UPDATE crm_customer SET score = ? WHERE id = ?', [score, customerId]);
+  return { success: true };
+}
+
+/**
+ * 系统级「转移接收」：带**原负责人并发守卫**的归属变更
+ * （原 transferService.acceptTransfer 的写点行为，逐字复刻）
+ * 语义：接收人接手后客户转为私有、跟进时钟重置；若期间被他人接手（owner_id 已变）则 affectedRows=0，
+ * 由调用方判定为「转移无法完成」并使用**同一事务**回滚。
+ * ⚠️ 与 assignCustomer 的区别：不做 protect_until 清空、不写 assign_log（转移日志由 transferService 自己写）。
+ * @param {object} pool 连接或事务连接（调用方在事务中传入 connection）
+ * @returns {Promise<{affectedRows: number}>}
+ */
+async function systemAcceptTransfer(pool, customerId, toUserId, fromUserId) {
+  const [result] = await pool.query(
+    `UPDATE crm_customer
+        SET owner_id = ?, pool_status = 'private', last_follow_time = NOW(), update_time = NOW()
+      WHERE id = ? AND owner_id = ? AND deleted_at IS NULL`,
+    [toUserId, customerId, fromUserId]
+  );
+  return { affectedRows: result.affectedRows };
+}
+
 module.exports = {
   // [2026-09-14 阶段4] 移除零引用导出面：VALID_SOURCES / SOURCE_PARENT_MAP /
   // batchAssignCustomers / loadStatusConfig / loadStatusTransitions /
@@ -1204,6 +1229,8 @@ module.exports = {
   systemAssignOwner,
   systemUpdateField,
   SYSTEM_UPDATABLE_FIELDS,
+  systemUpdateScore,
+  systemAcceptTransfer,
   getOverdueCustomers,
   getNearRecycleCustomersList,
   // Phase 2: 三页面查询

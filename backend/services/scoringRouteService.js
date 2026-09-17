@@ -4,6 +4,8 @@
  */
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
+// [R-06 边界收敛 2026-09-17] 本模块属非 Customer 域，写客户表须经客户域受控入口
+const customerService = require('./customerService');
 
 /**
  * 辅助函数：获取字段值
@@ -155,7 +157,8 @@ async function getCustomerStats(pool, customerId) {
  * @param {Array} matchedRules
  */
 async function saveScoreResult(pool, customerId, totalScore, matchedRules) {
-  await pool.query('UPDATE crm_customer SET score = ? WHERE id = ?', [totalScore, customerId]);
+  // 经客户域受控入口（R-06）；行为与原先直接 UPDATE 一致
+  await customerService.systemUpdateScore(pool, customerId, totalScore);
 
   await pool.query('DELETE FROM crm_customer_score_log WHERE customer_id = ?', [customerId]);
   if (matchedRules.length > 0) {
