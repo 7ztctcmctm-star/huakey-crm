@@ -43,6 +43,19 @@ const SKIP_DIRS = new Set(['node_modules', 'coverage', 'backups', 'uploads', 'lo
 const CRON_REGISTRY = 'cron/scheduler.js';
 
 /**
+ * 非生产代码（测试 / 真库核验脚本）排除规则
+ *
+ * 这些文件的写入是**测试夹具或负例验证**（例如 verify-transfer-sql.js 在事务内执行后 ROLLBACK，
+ * 且不被任何生产代码引用），不属于「生产模块越界写」的治理范围。
+ *
+ * ⚠️ 规则必须**窄**且**显式**：仅匹配 `scripts/verify-*.js` 这类核验工具；
+ *    **禁止**用它排除 `services/`、`routes/`、`cron/`（那才是治理对象）。
+ * 排除结果会在报告里**显式列出数量与文件名**，不做静默排除。
+ */
+const NON_PROD_SCRIPT_PATTERNS = [/^scripts\/verify-[^/]+\.js$/];
+const isNonProdScript = (rel) => NON_PROD_SCRIPT_PATTERNS.some((re) => re.test(rel));
+
+/**
  * 「已知越界」基线（ratchet 模式）
  * 目的：让卡点**立刻可用**——存量债被登记为已知，只拦**新增**；
  * 债务被整改后必须同步收缩基线，否则脚本会提示（见 stale 报告）。
@@ -246,10 +259,12 @@ function main() {
   const allowed = [];
   const relatedWrites = [];
   const writeIndex = {};
+  const excludedNonProd = [];
 
   for (const f of files) {
-    const { hits, related, allWrites } = scanFile(f);
     const rel = path.relative(BACKEND, f).split(path.sep).join('/');
+    if (isNonProdScript(rel)) { excludedNonProd.push(rel); continue; }
+    const { hits, related, allWrites } = scanFile(f);
     writeIndex[rel] = allWrites;
     relatedWrites.push(...related);
     for (const h of hits) {
@@ -339,6 +354,10 @@ function main() {
   }
   console.log('');
 
+  console.log('');
+  console.log(`【D】按口径排除的非生产脚本: ${excludedNonProd.length} 个${excludedNonProd.length ? '（测试/真库核验工具，其写入为夹具或负例验证）' : ''}`);
+  for (const p of excludedNonProd) console.log(`      EXCLUDED  ${p}`);
+
   const expired = baselineExpired(baseline.data);
   const failed = newViolations.length > 0 || newCron.length > 0 || expired || baseline.missing;
   console.log('=== 结论 ===');
@@ -351,7 +370,12 @@ function main() {
     for (const s of staleEntries) console.log(`      ${s}`);
   }
   if (expired) console.log(`⏰ 基线已过期（review_by=${baseline.data.review_by}）—— 需重新评审后更新日期`);
-  console.log(failed ? 'RESULT: FAIL' : 'RESULT: PASS（存量债未清，但无新增越界）');
+  const debtClear = knownViolations.length === 0 && knownCron.length === 0;
+  console.log(failed
+    ? 'RESULT: FAIL'
+    : (debtClear
+      ? 'RESULT: PASS（领域边界干净：无越界写、无跨模块 cron）'
+      : 'RESULT: PASS（存量债未清，但无新增越界）'));
 
   if (STRICT && failed) process.exit(1);
 }

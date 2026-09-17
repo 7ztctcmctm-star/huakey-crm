@@ -375,3 +375,57 @@ PRD 的验收是「静态扫描 + **CI 卡点 PASS**」。存量 16 处 + 2 个 
 | `services/userRouteService.js` | 1 | 用户/离职交接（注意与 R-07「经理账号」的边界） |
 
 > 累计成果：越界写 **16 → 4**；跨模块 cron **2 → 0**；占位白名单 **17 → 26**（受控入口 + 迁入的领域规则）。
+
+---
+
+## 十三、存量债清零（第 5 批）——**R-06 的 PRD 严格口径达成**
+
+### 13.1 最后两处代码收敛
+
+| 目标 | 做法 |
+|---|---|
+| `services/importService.js`（1 处 INSERT） | 新增 `customerService.systemCreateImportedCustomer(pool, fields)`；**取值与截断仍留在导入域**（导入解析属导入域职责），域内只负责落库并回传 `insertId` 供后续建主联系人 |
+| `services/userRouteService.js`（1 处 UPDATE，离职交接） | 新增 `customerService.systemReleaseOwnedCustomersOnLeave(pool, userId)`；SQL **逐字保留**（含 `pool_type='public'`） |
+
+### 13.2 扫描口径：把「真库核验脚本」显式排除（David 已确认）
+
+`scripts/verify-transfer-sql.js` 是**真库核验工具**（文档头自述 + 事务内执行后 `ROLLBACK` + **无任何生产代码引用**），
+其写入属**测试夹具/负例验证**，不属「生产模块越界写」的治理范围。故在扫描器中新增排除规则：
+
+| 设计点 | 做法 |
+|---|---|
+| 规则要**窄** | 仅匹配 `^scripts/verify-[^/]+\.js$`；**禁止**排除 `services/`、`routes/`、`cron/`（那才是治理对象） |
+| 不做**静默**排除 | 报告新增【D】段，显式列出排除数量与文件名（本轮：1 个） |
+| 有元测试守住 | 单测断言该正则命中 `scripts/verify-transfer-sql.js`、**放过** `scripts/auto_release.js` / `services/*` / `routes/*` |
+| 报告文案修正 | 存量债为 0 时输出 `RESULT: PASS（领域边界干净：无越界写、无跨模块 cron）`，不再沿用"存量债未清"（并复测 FAIL 分支未被破坏） |
+
+### 13.3 边界账：**全部归零**
+
+| 项 | 初值 | 现值 |
+|---|---|---|
+| 越界写 `crm_customer` | 16 | **0** ✅ |
+| 跨模块 cron 作业 | 2 | **0** ✅ |
+| 基线（已知债） | 16 + 2 | **空**（卡点已从 ratchet 升级为**零容忍门**） |
+| 白名单（域内合法写点） | 17 | 28（受控入口 + 迁入的领域规则） |
+| 新增越界 | — | 0 |
+
+**⇒ 达成 PRD 对该项的验收口径**：「静态扫描证明**无**违规写操作与跨模块 cron」+ 卡点可入 CI。
+
+### 13.4 验证
+
+| # | 证据 | 结果 |
+|---|---|---|
+| 1 | 新增 `tests/unit/customerSystemWrite4.test.js`（两个入口的列/参数逐字对齐 + `insertId` 回传 + 排除规则元测试 + 源码守卫） | ✅ 随全量通过 |
+| 2 | **真库冒烟（临时行，跑完删除）** | ✅ 导入建客户：`insertId` 有效、8 列值与传入一致；离职释放：`owner_id=NULL / pool_status=sea / pool_type=public`；临时行清理干净 |
+| 3 | 全量回归 | 120 套件通过 / 1 失败（1168/1170 用例）；唯一失败为 `tests/db/contactSinglePrimary` 的**已知本地测试库现象** |
+| 4 | **零容忍门复测**：注入探针文件 → `RESULT: FAIL`（rc=1）；清理后 → `RESULT: PASS（领域边界干净）`（rc=0） | ✅ 门仍然"有牙" |
+| 5 | 基线文档与规则同步 | ✅ `domain-boundary-baseline.json` 的 `_desc/_howto` 已改为「当前为空 = 存量债已清零」并保留登记方法 |
+
+### 13.5 遗留（不阻塞 R-06 验收，建议单独跟踪）
+
+1. **`userRouteService` 离职释放与其它释放路径不一致**（本次收敛**刻意保持原行为**）：
+   它**不同步 `status='sea'`**、**不写 `crm_pool_log`**；而 `poolService` 单条/批量释放、公海自动回收都会同步 status 并记公海日志。
+   ⇒ 后果：离职释放的客户会停在 `pool_status='sea'` 但保留原 status；且**该次释放没有审计痕迹**。是否统一需产品确认。
+2. `services/auto_release.js` 的历史问题已在本轮修掉（见 §十一），同类「状态不一致」问题建议做一次全局复查。
+3. `crm_customer` 之外的客户域表（如 `crm_contact` / `crm_opportunity`）**尚未纳入边界扫描** —— 本轮口径只覆盖 `crm_customer`；
+   如需扩展，建议下一轮扩大扫描面（口径变更需评审）。

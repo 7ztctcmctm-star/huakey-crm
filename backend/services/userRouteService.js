@@ -7,6 +7,8 @@ const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
 const { clearPermissionCache } = require('./permissionService');
 const { POOL_STATUS } = require('../constants/poolStatus');
+// [R-06 边界收敛 2026-09-17] 本模块属非 Customer 域，写客户表须经客户域受控入口
+const customerService = require('./customerService');
 
 /**
  * 获取用户列表
@@ -200,16 +202,8 @@ async function deleteUser(pool, { id }, currentUserId) {
     );
 
     // 3. 名下客户 → 释放到公海池
-    const [customerResult] = await connection.query(
-      `UPDATE crm_customer
-       SET owner_id = NULL,
-           pool_status = ?,
-           pool_type = 'public',
-           protect_until = NULL,
-           update_time = NOW()
-       WHERE owner_id = ? AND deleted_at IS NULL`,
-      [POOL_STATUS.SEA, id]
-    );
+    // [R-06 边界收敛 2026-09-17] 经客户域受控入口；SQL 逐字保留（含 pool_type='public'）
+    const customerResult = await customerService.systemReleaseOwnedCustomersOnLeave(connection, id);
 
     // 4. 名下商机 → 优先转移给直属上级，无上级或上级不可用时再释放为待分配
     const [oppResult] = await connection.query(

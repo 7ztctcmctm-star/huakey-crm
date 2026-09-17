@@ -1248,6 +1248,39 @@ async function systemSetLastFollowTime(pool, customerId, at) {
   return { success: true };
 }
 
+/**
+ * 【客户域受控写入口】导入创建客户（importService 调用）
+ * 列与用途同原 INSERT；**取值与截断仍由导入域负责**（导入解析属导入域职责）
+ * @returns {Promise<object>} mysql 结果（调用方需要 insertId 继续创建主联系人）
+ */
+async function systemCreateImportedCustomer(pool, fields) {
+  const [result] = await pool.query(
+    `INSERT INTO crm_customer (company_name, address, industry, source, level, status, remark, owner_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      fields.company_name, fields.address, fields.industry, fields.source,
+      fields.level, fields.status, fields.remark, fields.owner_id
+    ]
+  );
+  return result;
+}
+
+/**
+ * 【客户域受控写入口】离职交接：把某用户名下客户整体释放到公海
+ * ⚠️ 与原 `userRouteService.deleteUser` 的 SQL **逐字一致**（含 `pool_type='public'`）：
+ *    **不同步 `status='sea'`、不写 `crm_pool_log`** —— 这两点与客户域其它释放路径（poolService 单条/批量、
+ *    公海自动回收）不一致，属**已知差异**；是否统一需产品确认，本次收敛刻意保持原行为。
+ */
+async function systemReleaseOwnedCustomersOnLeave(pool, userId) {
+  const [result] = await pool.query(
+    `UPDATE crm_customer
+       SET owner_id = NULL, pool_status = ?, pool_type = 'public', protect_until = NULL, update_time = NOW()
+     WHERE owner_id = ? AND deleted_at IS NULL`,
+    [POOL_STATUS.SEA, userId]
+  );
+  return { affectedRows: result.affectedRows };
+}
+
 module.exports = {
   // [2026-09-14 阶段4] 移除零引用导出面：VALID_SOURCES / SOURCE_PARENT_MAP /
   // batchAssignCustomers / loadStatusConfig / loadStatusTransitions /
@@ -1272,6 +1305,8 @@ module.exports = {
   systemApplyFollowUpEffect,
   systemTouchLastFollowTime,
   systemSetLastFollowTime,
+  systemCreateImportedCustomer,
+  systemReleaseOwnedCustomersOnLeave,
   getOverdueCustomers,
   getNearRecycleCustomersList,
   // Phase 2: 三页面查询

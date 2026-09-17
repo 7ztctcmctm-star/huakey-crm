@@ -46,6 +46,8 @@
 | `customerService.systemApplyFollowUpEffect(pool, customerId)` | 记录跟进后的客户派生状态（跟进模块） | `last_follow_time=NOW()`；跟进状态 NULL/「初次联系」→「跟进中」；生命周期 `new`→`nurturing` |
 | `customerService.systemTouchLastFollowTime(pool, customerId)` | 刷新最后跟进时间（批量补录 / 完成计划） | `last_follow_time=NOW()`；批量场景**透传事务连接** |
 | `customerService.systemSetLastFollowTime(pool, customerId, at)` | 最后跟进时间设为指定值或**置空**（删除跟进后回退） | 置空传 `null` |
+| `customerService.systemCreateImportedCustomer(pool, fields)` | 导入创建客户（导入模块） | 列与顺序同原 INSERT；**取值/截断仍由导入域负责**；回传 `insertId` |
+| `customerService.systemReleaseOwnedCustomersOnLeave(pool, userId)` | 离职交接：名下客户整体释放到公海 | SQL 逐字保留（含 `pool_type='public'`）；⚠️ **不同步 `status`、不写 `crm_pool_log`** —— 已知差异，见 §2.3 |
 
 **本域内新增（原越界实现迁入）**
 
@@ -69,21 +71,40 @@
 | `services/transferService.js` | 1 处 UPDATE（+ 曾被判为跨模块 cron） | 改调 `customerService.systemAcceptTransfer`（守卫语义不变）；连带 **cron 作业不再被标记 → 跨模块 cron 归零** |
 | `scripts/auto_release.js` | 1 处 UPDATE | 改为薄封装调用 `poolService.autoReleaseCustomers`；**同时修掉三个真实缺陷**（见下） |
 | `services/followUpService.js` | 4 处 UPDATE | 跟进派生状态改经 3 个受控入口（`systemApplyFollowUpEffect` / `systemTouchLastFollowTime` / `systemSetLastFollowTime`），批量场景透传事务连接 |
+| `services/importService.js` | 1 处 INSERT | 改经 `systemCreateImportedCustomer`（取值/截断留在导入域） |
+| `services/userRouteService.js` | 1 处 UPDATE | 改经 `systemReleaseOwnedCustomersOnLeave`（离职交接释放） |
+
+### 2.3 扫描口径（重要）
+
+| 项 | 约定 |
+|---|---|
+| 扫描对象 | `services/` `routes/` `cron/` `scripts/` 下的生产代码（`tests/` 本就排除） |
+| **排除项** | `scripts/verify-*.js` —— **真库核验脚本**：写入为测试夹具/负例验证（事务内执行后 ROLLBACK，无生产引用）。规则必须窄，**禁止**用它排除 `services/`、`routes/`、`cron/`；排除数量在报告【D】段**显式列出**（不静默排除） |
+| 表覆盖 | **仅 `crm_customer`**（本轮口径）。`crm_contact` / `crm_opportunity` 等尚未纳入，扩展需评审 |
+
+**剩余存量债（0 处）** ✅：
+
+> **已清零**：越界写 16 → **0**、跨模块 cron 2 → **0**。基线文件已置空 ⇒ 卡点由「棘轮」升级为**零容忍门**：
+> 任何新增越界写/跨模块 cron 直接 FAIL（实测注入探针 → FAIL，清理后 → PASS）。
+
+### 2.4 已知差异（未统一，需产品确认）
+
+| 项 | 差异 | 影响 |
+|---|---|---|
+| `systemReleaseOwnedCustomersOnLeave`（离职释放） | 与客户域其它释放路径（`poolService` 单条/批量、公海自动回收）相比，**不同步 `status='sea'`**、**不写 `crm_pool_log`** | 客户会停在 `pool_status='sea'` 但保留原 status；该次释放**无审计痕迹** |
 
 > 🔧 **`scripts/auto_release.js` 修掉的三处真实缺陷**（David 已确认可改）：
 > ① 选客条件 `status != 0` 在 status 改为字符串后**恒不成立**（MySQL 把 `'following'` 当 0）——实测该脚本**从未释放过任何客户**；
 > ② 释放时未同步 `status='sea'`，会留下 `pool_status='sea'` 而 `status='following'` 的**不一致状态**；
 > ③ 逐条 autocommit 无事务，中途失败会留半释放状态。现统一走客户域规则：事务 + 日志 + 状态同步 + SSE。
 
-**剩余存量债（4 处）**：
+**剩余存量债（0 处）** ✅：
 
 | 文件 | 模块 | 现状（越界写点数） |
 |---|---|---|
-| `scripts/verify-transfer-sql.js` | 运维验证脚本（**测试负例性质**，建议改口径移出扫描范围） | 2 |
-| `services/importService.js` | 数据导入 | 1 |
-| `services/userRouteService.js` | 用户/离职交接（注意与 R-07「经理账号」的边界） | 1 |
+| — | — | **无** |
 
-**合计 4 处**（= 基线放行量）+ **0 个跨模块 cron 作业** ✅（已清零）
+**合计 0 处** + **0 个跨模块 cron 作业** ✅（**均已清零**，PRD 严格口径达成）
 
 ---
 
@@ -113,7 +134,7 @@
 |---|---|---|
 | 1 | 2.1 的 Customer 域文件清单是否完整/正确？ | 按代码职责推断，请确认是否有遗漏（如「客户导入」是否属客户域） |
 | 2 | 是否认可「先拦新增、存量债限期整改」的 ratchet 策略？ | 建议认可；否则需先清零才能启用卡点 |
-| 3 | 存量债整改顺序 | 建议：~~automationService（4 处）~~ ✅ → ~~cronService 公海回收~~ ✅ → scoringRouteService → followUpService → importService → scripts |
+| 3 | 存量债整改顺序 | ✅ **全部完成**：automationService → cronService（含 cron）→ scoringRouteService → transferService → auto_release.js → followUpService → importService → userRouteService（`verify-transfer-sql.js` 按口径排除）。**存量债 16→0、跨模块 cron 2→0** |
 | 4 | `sys_data_permission` 是否给 manager 配 `data_scope='dept'`？ | 影响全系统所有模块（含 R-05 团队筛选可见性），需单独拍板 |
 
 签字：____________（产品）　　　____________（架构）　　　日期：__________

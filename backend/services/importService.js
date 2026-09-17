@@ -8,6 +8,8 @@ const ErrorCodes = require('../errors/codes');
 const DataCleaner = require('../utils/dataCleaner');
 const DataValidator = require('../utils/validator');
 const { createRouteLogger } = require('../middleware/logger');
+// [R-06 边界收敛 2026-09-17] 本模块属非 Customer 域，建客户须经客户域受控入口
+const customerService = require('./customerService');
 
 const logAction = createRouteLogger('客户管理');
 
@@ -149,13 +151,17 @@ async function batchImport(pool, customers, userId) {
 
     for (const record of newRecords) {
       try {
-        const [result] = await connection.query(
-          `INSERT INTO crm_customer (company_name, address, industry, source, level, status, remark, owner_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [truncate(record.company_name, 200), truncate(record.address, 500), truncate(record.industry, 50),
-           truncate(record.source, 50), truncate(record.level, 20), record.status,
-           record.remark ? record.remark.substring(0, 2000) : null, userId]
-        );
+        // [R-06 边界收敛 2026-09-17] 建客户改经客户域受控入口（取值/截断仍由导入域负责）
+        const result = await customerService.systemCreateImportedCustomer(connection, {
+          company_name: truncate(record.company_name, 200),
+          address: truncate(record.address, 500),
+          industry: truncate(record.industry, 50),
+          source: truncate(record.source, 50),
+          level: truncate(record.level, 20),
+          status: record.status,
+          remark: record.remark ? record.remark.substring(0, 2000) : null,
+          owner_id: userId
+        });
 
         // 同步创建主联系人（仅当联系人姓名存在时）
         if (record.contact_name && String(record.contact_name).trim() !== '') {
