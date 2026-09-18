@@ -3,7 +3,7 @@
  * 从 routes/teamDashboard.js 提取的业务逻辑
  */
 
-const ROLES = require('../config/roles');
+const { ROLE_CODES } = require('../config/roles');
 const { getOverdueDays, getConfig } = require('../utils/config');
 
 /**
@@ -365,13 +365,13 @@ async function getPendingApprovals(pool, { roleId }) {
 /**
  * 卡住的商机（阶段停留超过N天未推进）
  */
-async function getStuckOpportunities(pool, { userId, viewAll, roleId }) {
+async function getStuckOpportunities(pool, { userId, viewAll, roleCode }) {
   const stuckDays = parseInt(await getConfig('opportunity_stuck_days', '14')) || 14;
 
   let deptFilter = '';
   const params = [stuckDays];
 
-  if (!viewAll && roleId !== ROLES.ADMIN) {
+  if (!viewAll && roleCode !== ROLE_CODES.BOSS) {
     const [deptUsers] = await pool.query(
       'SELECT id FROM sys_user WHERE dept_id = (SELECT dept_id FROM sys_user WHERE id = ?)',
       [userId]

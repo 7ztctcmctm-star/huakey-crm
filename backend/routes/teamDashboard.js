@@ -3,7 +3,7 @@ const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
-const ROLES = require('../config/roles');
+const { ROLE_CODES } = require('../config/roles');
 const teamDashboardService = require('../services/teamDashboardService');
 const logger = require('../config/logger');
 const { validate, Joi } = require('../middleware/validate');
@@ -24,7 +24,7 @@ const urgeFollowupSchema = Joi.object({
 // 1. 团队总览卡片数据
 router.get('/overview', authenticateToken, checkPermission('team-dashboard'), async (req, res, next) => {
   try {
-    const isBoss = req.user.viewAll || ROLES.ADMIN_ROLE_CODES.has(req.user.roleCode);
+    const isBoss = req.user.viewAll || req.user.roleCode === ROLE_CODES.BOSS || req.user.roleCode === ROLE_CODES.MANAGER;
     const { startDate, endDate } = req.query;
     const data = await teamDashboardService.getOverview(pool, {
       userId: req.user.userId, isBoss, startDate, endDate
@@ -39,7 +39,7 @@ router.get('/overview', authenticateToken, checkPermission('team-dashboard'), as
 // 2. 每个销售的实况卡片
 router.get('/sales-breakdown', authenticateToken, checkPermission('team-dashboard'), async (req, res, next) => {
   try {
-    const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
+    const isBoss = req.user.viewAll || req.user.roleCode === ROLE_CODES.BOSS || req.user.roleCode === ROLE_CODES.MANAGER;
     const data = await teamDashboardService.getSalesBreakdown(pool, {
       userId: req.user.userId, isBoss
     });
@@ -84,7 +84,7 @@ router.post('/sales-customers', authenticateToken, checkPermission('team-dashboa
 router.post('/urge-followup', authenticateToken, checkPermission('team-dashboard'), validate(urgeFollowupSchema), async (req, res, next) => {
   try {
     const { customer_id, user_id } = req.body;
-    const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
+    const isBoss = req.user.viewAll || req.user.roleCode === ROLE_CODES.BOSS || req.user.roleCode === ROLE_CODES.MANAGER;
 
     if (!isBoss) {
       return res.status(403).json({ code: 403, message: '仅主管/管理员可催办', data: null });
@@ -114,7 +114,7 @@ router.post('/urge-followup', authenticateToken, checkPermission('team-dashboard
 // 6. 获取待审批列表（报价+合同，供团队看板直接审批）
 router.get('/pending-approvals', authenticateToken, checkPermission('team-dashboard'), async (req, res, next) => {
   try {
-    const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
+    const isBoss = req.user.viewAll || req.user.roleCode === ROLE_CODES.BOSS || req.user.roleCode === ROLE_CODES.MANAGER;
     if (!isBoss) {
       return res.status(403).json({ code: 403, message: '无权限', data: null });
     }
@@ -129,12 +129,12 @@ router.get('/pending-approvals', authenticateToken, checkPermission('team-dashbo
 // 8. 卡住的商机（阶段停留超过N天未推进）
 router.get('/stuck-opportunities', authenticateToken, checkPermission('team-dashboard'), async (req, res, next) => {
   try {
-    const isBoss = req.user.viewAll || req.user.roleId === ROLES.ADMIN || req.user.roleId === ROLES.MANAGER;
+    const isBoss = req.user.viewAll || req.user.roleCode === ROLE_CODES.BOSS || req.user.roleCode === ROLE_CODES.MANAGER;
     if (!isBoss) {
       return res.status(403).json({ code: 403, message: '仅主管可查看', data: null });
     }
     const data = await teamDashboardService.getStuckOpportunities(pool, {
-      userId: req.user.userId, isBoss, viewAll: req.user.viewAll, roleId: req.user.roleId
+      userId: req.user.userId, isBoss, viewAll: req.user.viewAll, roleCode: req.user.roleCode
     });
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {

@@ -355,8 +355,9 @@ async function approveQuote(pool, id, approvalStatus, approvalRemark, userId) {
 
   await notificationService.dismissByBusiness(pool, 'quote', id);
 
-  // 4-3-5: 报价审批通过时推进商机到 stage 3（方案报价）（不阻塞主流程）
-  if (approvalStatus === 1) {
+  // 4-3-5: 报价审批通过(approval_status=2)时推进商机到 stage 3（方案报价）（不阻塞主流程）
+  // 注意：路由/controller 仅接受 2(通过)/3(驳回)，原 `=== 1` 永远不成立，导致通过时商机不推进（P1 修复）
+  if (approvalStatus === 2) {
     try {
       const [quoteRows] = await pool.query('SELECT opportunity_id FROM crm_quote WHERE id = ? AND deleted_at IS NULL', [id]);
       if (quoteRows.length > 0 && quoteRows[0].opportunity_id) {
