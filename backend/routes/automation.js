@@ -1,8 +1,8 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const requireAdmin = require('../middleware/admin');
+const { requireAdmin, requireManager } = require('../middleware/admin');
 const { validate, Joi } = require('../middleware/validate');
 const automationService = require('../services/automationService');
 const logger = require('../config/logger');
@@ -303,7 +303,7 @@ router.post('/smart-reminders/run', authenticateToken, requireAdmin, validate(em
 
 // 我的待处理提醒
 // [权限说明] 个人待处理提醒，仅需认证
-router.get('/smart-reminders/pending', authenticateToken, requireAdmin, async (req, res, next) => {
+router.get('/smart-reminders/pending', authenticateToken, requireManager, async (req, res, next) => {
   try {
     const rows = await automationService.getPendingReminders(pool, req.user.userId);
     res.json({ code: 200, message: '查询成功', data: rows });
@@ -315,7 +315,7 @@ router.get('/smart-reminders/pending', authenticateToken, requireAdmin, async (r
 
 // 标记已读
 // [权限说明] 个人提醒标记已读，仅需认证
-router.put('/smart-reminders/log/:id/seen', authenticateToken, requireAdmin, validate(emptySchema), async (req, res, next) => {
+router.put('/smart-reminders/log/:id/seen', authenticateToken, requireManager, validate(emptySchema), async (req, res, next) => {
   try {
     await automationService.markReminderSeen(pool, req.params.id, req.user.userId);
     res.json({ code: 200, message: '已标记', data: null });

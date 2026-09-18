@@ -159,10 +159,10 @@ const cancelContractSchema = Joi.object({
 
 router.post('/list', authenticateToken, cache(60), checkPermission('contract'), checkDataPermission('contract', 'create_by'), validate(listSchema), contractController.listContracts);
 
-router.get('/detail/:id', authenticateToken, checkDataPermission('contract', 'create_by'), contractController.getContractDetail);
+router.get('/detail/:id', authenticateToken, checkPermission('contract'), checkDataPermission('contract', 'create_by'), contractController.getContractDetail);
 
 // R-02 修复：获取合同产品明细
-router.get('/items/:id', authenticateToken, checkDataPermission('contract', 'create_by'), contractController.getContractItems);
+router.get('/items/:id', authenticateToken, checkPermission('contract'), checkDataPermission('contract', 'create_by'), contractController.getContractItems);
 
 router.post('/add', authenticateToken, checkPermission('contract:add'), validate(addContractSchema), contractController.createContract);
 
@@ -172,7 +172,7 @@ router.post('/delete', authenticateToken, checkPermission('contract:delete'), ch
 
 router.post('/cancel', authenticateToken, checkPermission('contract:edit'), checkDataPermission('contract', 'create_by'), validate(cancelContractSchema), contractController.cancelContract);
 
-router.get('/opportunity-list', authenticateToken, checkDataPermission('opportunity', 'owner_id'), contractController.getOpportunityList);
+router.get('/opportunity-list', authenticateToken, checkPermission('contract'), checkDataPermission('opportunity', 'owner_id'), contractController.getOpportunityList);
 
 // 合同搜索（轻量级，供快速回款录入选择合同）
 router.get('/search', authenticateToken, checkPermission('contract'), checkDataPermission('contract', 'create_by'), contractController.searchContracts);

@@ -38,6 +38,13 @@ jest.mock('../config/logger', () => ({
   warn: jest.fn()
 }));
 
+// ---- Mock permissionService（新权限中间件 checkPermission 需要） ----
+// sales 用户应有 opportunity:view 权限才能访问商机列表等
+jest.mock('../services/permissionService', () => ({
+  getUserPermissions: jest.fn().mockResolvedValue(['opportunity:view']),
+  getDataPermissions: jest.fn().mockResolvedValue([])
+}));
+
 // ---- 构造 app ----
 const app = express();
 app.use(express.json());

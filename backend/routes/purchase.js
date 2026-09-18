@@ -370,7 +370,7 @@ router.post('/receipt/add', authenticateToken, checkPermission('purchase:add'), 
   }
 });
 
-router.get('/statistics', authenticateToken, async (req, res, next) => {
+router.get('/statistics', authenticateToken, checkPermission('purchase'), async (req, res, next) => {
   try {
     const data = await purchaseService.getStatistics(pool);
     res.json({ code: 200, message: '查询成功', data });

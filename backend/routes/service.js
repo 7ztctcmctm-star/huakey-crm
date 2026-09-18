@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
@@ -103,8 +103,7 @@ router.post('/add', authenticateToken, checkPermission('service:add'), validate(
     res.json({ code: 200, message: '创建工单成功', data: result });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.httpStatus || error.status || 500;
-    res.status(status).json({ code: status, message: error.message || '创建工单失败', data: null });
+    next(error);
   }
 });
 
@@ -115,8 +114,7 @@ router.post('/update', authenticateToken, checkPermission('service:edit'), valid
     res.json({ code: 200, message: '修改工单成功', data: null });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.httpStatus || error.status || 500;
-    res.status(status).json({ code: status, message: error.message || '修改工单失败', data: null });
+    next(error);
   }
 });
 
@@ -127,8 +125,7 @@ router.post('/delete', authenticateToken, checkPermission('service:delete'), val
     res.json({ code: 200, message: '删除工单成功', data: null });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.httpStatus || error.status || 500;
-    res.status(status).json({ code: status, message: error.message || '删除工单失败', data: null });
+    next(error);
   }
 });
 
@@ -140,8 +137,7 @@ router.post('/assign', authenticateToken, checkPermission('service:edit'), valid
     res.json({ code: 200, message: '分配成功', data: null });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.httpStatus || error.status || 500;
-    res.status(status).json({ code: status, message: error.message || '分配失败', data: null });
+    next(error);
   }
 });
 
@@ -174,8 +170,7 @@ router.post('/start', authenticateToken, checkPermission('service:edit'), valida
     res.json({ code: 200, message: '开始处理', data: null });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.httpStatus || error.status || 500;
-    res.status(status).json({ code: status, message: error.message || '操作失败', data: null });
+    next(error);
   }
 });
 
@@ -187,8 +182,7 @@ router.post('/finish', authenticateToken, checkPermission('service:edit'), valid
     res.json({ code: 200, message: '处理完成，请等待客户确认', data: null });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.httpStatus || error.status || 500;
-    res.status(status).json({ code: status, message: error.message || '操作失败', data: null });
+    next(error);
   }
 });
 
@@ -200,8 +194,7 @@ router.post('/confirm', authenticateToken, checkPermission('service:edit'), vali
     res.json({ code: 200, message: '确认完成', data: null });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.httpStatus || error.status || 500;
-    res.status(status).json({ code: status, message: error.message || '操作失败', data: null });
+    next(error);
   }
 });
 

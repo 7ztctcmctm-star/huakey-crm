@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
@@ -346,9 +346,8 @@ router.post('/submit', authenticateToken, checkPermission('approval'), validate(
     await approvalService.submitApproval(pool, business_type, business_id, req.user.userId);
     res.json({ code: 200, message: '已提交审批', data: null });
   } catch (error) {
-    const status = error.httpStatus || error.status || 500;
     logger.error('[审批] 提交审批失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
+    next(error);
   }
 });
 
@@ -358,9 +357,8 @@ router.post('/approve/:id', authenticateToken, checkPermission('approval'), vali
     const result = await approvalService.approveRecord(pool, req.params.id, req.body.remark, req.user.userId, req.user.manageAll);
     res.json({ code: 200, message: '审批通过', data: result });
   } catch (error) {
-    const status = error.httpStatus || error.status || 500;
     logger.error('[审批] 审批通过失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
+    next(error);
   }
 });
 
@@ -370,9 +368,8 @@ router.post('/reject/:id', authenticateToken, checkPermission('approval'), valid
     await approvalService.rejectRecord(pool, req.params.id, req.body.remark, req.user.userId, req.user.manageAll);
     res.json({ code: 200, message: '已驳回', data: null });
   } catch (error) {
-    const status = error.httpStatus || error.status || 500;
     logger.error('[审批] 驳回失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
+    next(error);
   }
 });
 
@@ -383,9 +380,8 @@ router.delete('/withdraw/:business_type/:business_id', authenticateToken, checkP
     await approvalService.withdrawApproval(pool, business_type, business_id, req.user.userId);
     res.json({ code: 200, message: '审批已撤回', data: null });
   } catch (error) {
-    const status = error.httpStatus || error.status || 500;
     logger.error('[审批] 撤回审批失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
+    next(error);
   }
 });
 
@@ -481,9 +477,8 @@ router.post('/rules', authenticateToken, checkPermission('approval'), validate(c
     const result = await approvalService.createApprovalRule(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
-    const status = error.httpStatus || error.status || 500;
     logger.error('[审批] 创建规则失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
+    next(error);
   }
 });
 
@@ -493,9 +488,8 @@ router.put('/rules/:id', authenticateToken, checkPermission('approval'), validat
     await approvalService.updateApprovalRule(pool, req.params.id, req.body);
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
-    const status = error.httpStatus || error.status || 500;
     logger.error('[审批] 更新规则失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
+    next(error);
   }
 });
 
@@ -518,9 +512,8 @@ router.post('/transfer/:id', authenticateToken, checkPermission('approval'), val
     const result = await approvalService.transferApproval(pool, req.params.id, to_user_id, remark, req.user.userId, req.user.manageAll);
     res.json({ code: 200, message: '转交成功', data: result });
   } catch (error) {
-    const status = error.httpStatus || error.status || 500;
     logger.error('[审批] 转交失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
+    next(error);
   }
 });
 
@@ -544,9 +537,8 @@ router.get('/detail-full/:business_type/:business_id', authenticateToken, checkP
     const data = await approvalService.getApprovalDetailFull(pool, business_type, business_id);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    const status = error.httpStatus || error.status || 500;
     logger.error('[审批] 获取审批完整详情失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
+    next(error);
   }
 });
 

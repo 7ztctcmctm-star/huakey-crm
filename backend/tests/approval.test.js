@@ -36,6 +36,13 @@ app.use(express.json());
 const approvalRoutes = require('../routes/approval');
 app.use('/api/v1/approval', approvalRoutes);
 
+// [P1-5 fix] 单元测试必须挂载错误处理中间件以捕获 next(error)
+// （项目约束：AGENTS.md 明确要求；之前手写 res.status 绕过了 errorHandler，
+//  现在统一 next(error) 后必须显式挂载）
+const { appErrorHandler, globalErrorHandler } = require('../middleware/errorHandler');
+app.use(appErrorHandler);
+app.use(globalErrorHandler);
+
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
@@ -155,7 +162,8 @@ describe('审批流程模块', () => {
         .send({ remark: '同意' });
 
       expect(res.status).toBe(404);
-      expect(res.body.code).toBe(404);
+      // AppError.toJSON() 返回业务码（404006=RECORD_NOT_FOUND），不是 HTTP 状态码
+      expect(res.body.code).toBe(404006);
       expect(mockConnection.rollback).toHaveBeenCalled();
     });
   });

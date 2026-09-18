@@ -203,7 +203,7 @@ router.post('/overdue', authenticateToken, checkPermission('dashboard'), checkDa
 });
 
 // 采购趋势（近12个月）
-router.get('/purchase-trend', authenticateToken, queryValidate(dateRangeQuerySchema), async (req, res, next) => {
+router.get('/purchase-trend', authenticateToken, checkPermission('purchase'), queryValidate(dateRangeQuerySchema), async (req, res, next) => {
   try {
     const data = await reportAnalyticsService.getPurchaseTrend(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
@@ -214,7 +214,7 @@ router.get('/purchase-trend', authenticateToken, queryValidate(dateRangeQuerySch
 });
 
 // 采购按供应商分布
-router.get('/purchase-by-supplier', authenticateToken, queryValidate(dateRangeQuerySchema), async (req, res, next) => {
+router.get('/purchase-by-supplier', authenticateToken, checkPermission('purchase'), queryValidate(dateRangeQuerySchema), async (req, res, next) => {
   try {
     const data = await reportAnalyticsService.getPurchaseBySupplier(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
@@ -225,7 +225,7 @@ router.get('/purchase-by-supplier', authenticateToken, queryValidate(dateRangeQu
 });
 
 // 采购成本分析
-router.get('/purchase-cost', authenticateToken, queryValidate(purchaseCostQuerySchema), async (req, res, next) => {
+router.get('/purchase-cost', authenticateToken, checkPermission('purchase'), queryValidate(purchaseCostQuerySchema), async (req, res, next) => {
   try {
     const data = await reportAnalyticsService.getPurchaseCost(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
@@ -236,7 +236,7 @@ router.get('/purchase-cost', authenticateToken, queryValidate(purchaseCostQueryS
 });
 
 // 供应商绩效分析
-router.get('/supplier-performance', authenticateToken, queryValidate(supplierPerformanceQuerySchema), async (req, res, next) => {
+router.get('/supplier-performance', authenticateToken, checkPermission('purchase'), queryValidate(supplierPerformanceQuerySchema), async (req, res, next) => {
   try {
     const data = await reportAnalyticsService.getSupplierPerformance(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });

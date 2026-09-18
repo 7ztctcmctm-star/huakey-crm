@@ -332,8 +332,9 @@ apiRouter.use('/contract', contractRoutes);
 apiRouter.use('/service', serviceRoutes);
 apiRouter.use('/supplier', supplierRoutes);
 apiRouter.use('/purchase', purchaseRoutes);
-apiRouter.use('/purchase', require('./routes/purchase/request'));
-apiRouter.use('/purchase', require('./routes/purchase/comparison'));
+// [P0-1 fix] 子路由加显式前缀，否则与主 /purchase 路由路径冲突（前端期望 /purchase/request/list 等）
+apiRouter.use('/purchase/request', require('./routes/purchase/request'));
+apiRouter.use('/purchase/comparison', require('./routes/purchase/comparison'));
 apiRouter.use('/role', roleRoutes);
 apiRouter.use('/dept', deptRoutes);
 // report 已通过 registry 挂载

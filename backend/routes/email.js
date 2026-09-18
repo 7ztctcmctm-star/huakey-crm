@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
@@ -88,8 +88,7 @@ router.put('/account/:id', authenticateToken, checkPermission('email'), validate
     res.json({ code: 200, message: '更新成功', data: result });
   } catch (error) {
     logger.error('[邮件] 更新账号失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.httpStatus || error.status || 500;
-    res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
+    next(error);
   }
 });
 
@@ -100,8 +99,7 @@ router.delete('/account/:id', authenticateToken, checkPermission('email'), async
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     logger.error('[邮件] 删除账号失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.httpStatus || error.status || 500;
-    res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
+    next(error);
   }
 });
 
@@ -112,8 +110,7 @@ router.post('/account/:id/test', authenticateToken, checkPermission('email'), va
     res.json({ code: 200, message: results.smtp ? '连接测试成功' : 'SMTP连接失败', data: results });
   } catch (error) {
     logger.error('[邮件] 测试连接失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.httpStatus || error.status || 500;
-    res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
+    next(error);
   }
 });
 
@@ -198,8 +195,7 @@ router.put('/:id/star', authenticateToken, checkPermission('email'), validate(em
     res.json({ code: 200, message: result.is_starred ? '已星标' : '已取消星标', data: result });
   } catch (error) {
     logger.error('[邮件] 星标操作失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.httpStatus || error.status || 500;
-    res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
+    next(error);
   }
 });
 
@@ -213,8 +209,7 @@ router.post('/:id/link-customer', authenticateToken, checkPermission('email'), v
     res.json({ code: 200, message: '关联成功', data: null });
   } catch (error) {
     logger.error('[邮件] 关联客户失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.httpStatus || error.status || 500;
-    res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
+    next(error);
   }
 });
 
@@ -225,8 +220,7 @@ router.post('/sync/:account_id', authenticateToken, checkPermission('email'), va
     res.json({ code: 200, message: '同步完成（完整IMAP同步需配置IMAP服务）', data: null });
   } catch (error) {
     logger.error('[邮件] 同步失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.httpStatus || error.status || 500;
-    res.status(status).json({ code: status, message: error.message || '同步失败', data: null });
+    next(error);
   }
 });
 

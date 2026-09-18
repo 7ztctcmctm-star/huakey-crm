@@ -49,7 +49,7 @@ const alertConfigSchema = Joi.object({
 });
 
 // 库存列表
-router.get('/list', authenticateToken, queryValidate(inventoryListSchema), async (req, res, next) => {
+router.get('/list', authenticateToken, checkPermission('purchase'), queryValidate(inventoryListSchema), async (req, res, next) => {
   try {
     const data = await inventoryService.listInventory(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
@@ -60,7 +60,7 @@ router.get('/list', authenticateToken, queryValidate(inventoryListSchema), async
 });
 
 // 库存变动记录
-router.get('/movements', authenticateToken, queryValidate(movementsSchema), async (req, res, next) => {
+router.get('/movements', authenticateToken, checkPermission('purchase'), queryValidate(movementsSchema), async (req, res, next) => {
   try {
     const data = await inventoryService.getMovements(pool, req.query);
     res.json({ code: 200, message: '查询成功', data });
@@ -107,7 +107,7 @@ router.post('/adjust', authenticateToken, checkPermission('purchase:add'), valid
 });
 
 // 库存预警列表
-router.get('/alerts', authenticateToken, async (req, res, next) => {
+router.get('/alerts', authenticateToken, checkPermission('purchase'), async (req, res, next) => {
   try {
     const rows = await inventoryService.getAlerts(pool);
     res.json({ code: 200, message: '查询成功', data: rows });
@@ -118,7 +118,7 @@ router.get('/alerts', authenticateToken, async (req, res, next) => {
 });
 
 // 配置预警阈值
-router.put('/alert-config/:product_id', authenticateToken, validate(alertConfigSchema), async (req, res, next) => {
+router.put('/alert-config/:product_id', authenticateToken, checkPermission('purchase'), validate(alertConfigSchema), async (req, res, next) => {
   try {
     const result = await inventoryService.updateAlertConfig(pool, req.params.product_id, req.body);
     if (result.error) return res.status(result.status).json({ code: result.status, message: result.message, data: null });
@@ -130,7 +130,7 @@ router.put('/alert-config/:product_id', authenticateToken, validate(alertConfigS
 });
 
 // 库存统计
-router.get('/stats', authenticateToken, async (req, res, next) => {
+router.get('/stats', authenticateToken, checkPermission('purchase'), async (req, res, next) => {
   try {
     const data = await inventoryService.getStats(pool);
     res.json({ code: 200, message: '查询成功', data });
@@ -141,7 +141,7 @@ router.get('/stats', authenticateToken, async (req, res, next) => {
 });
 
 // 产品分类列表
-router.get('/categories', authenticateToken, async (req, res, next) => {
+router.get('/categories', authenticateToken, checkPermission('purchase'), async (req, res, next) => {
   try {
     const data = await inventoryService.getCategories(pool);
     res.json({ code: 200, message: '查询成功', data });

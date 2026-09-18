@@ -142,7 +142,7 @@ const deleteOpportunitySchema = Joi.object({
 });
 
 // 1. 商机列表
-router.post('/list', authenticateToken, checkDataPermission('opportunity', 'owner_id'), validate(opportunityListSchema), opportunityController.list);
+router.post('/list', authenticateToken, checkPermission('opportunity:view'), checkDataPermission('opportunity', 'owner_id'), validate(opportunityListSchema), opportunityController.list);
 
 // 2. 添加商机
 router.post('/add', authenticateToken, checkPermission('opportunity:add'), validate(addOpportunitySchema), opportunityController.add);
@@ -157,27 +157,27 @@ router.post('/update-stage', authenticateToken, checkPermission('opportunity:edi
 router.post('/backward-stage', authenticateToken, checkPermission('opportunity:edit'), checkDataPermission('opportunity', 'owner_id'), validate(backwardStageSchema), opportunityController.backwardStage);
 
 // 4.2 商机阶段停留时间统计（带数据权限）
-router.get('/stage-stats/:id', authenticateToken, checkDataPermission('opportunity', 'owner_id'), opportunityController.stageStats);
+router.get('/stage-stats/:id', authenticateToken, checkPermission('opportunity:view'), checkDataPermission('opportunity', 'owner_id'), opportunityController.stageStats);
 
 // 5. 删除商机
 router.post('/delete', authenticateToken, checkPermission('opportunity:delete'), validate(deleteOpportunitySchema), opportunityController.delete);
 
 // 6. 商机详情
-router.get('/detail/:id', authenticateToken, checkDataPermission('opportunity', 'owner_id'), opportunityController.detail);
+router.get('/detail/:id', authenticateToken, checkPermission('opportunity:view'), checkDataPermission('opportunity', 'owner_id'), opportunityController.detail);
 
 // 7. 销售漏斗统计
-router.get('/funnel', authenticateToken, checkDataPermission('opportunity', 'owner_id'), opportunityController.funnel);
+router.get('/funnel', authenticateToken, checkPermission('opportunity:view'), checkDataPermission('opportunity', 'owner_id'), opportunityController.funnel);
 
 // 8. 商机阶段变更日志（带数据权限）
-router.get('/stage-log/:id', authenticateToken, checkDataPermission('opportunity', 'owner_id'), opportunityController.stageLogWithPermission);
+router.get('/stage-log/:id', authenticateToken, checkPermission('opportunity:view'), checkDataPermission('opportunity', 'owner_id'), opportunityController.stageLogWithPermission);
 
 // 9. 商机销售时间轴（Prompt 4-3-7）
-router.get('/timeline/:id', authenticateToken, checkDataPermission('opportunity', 'owner_id'), opportunityController.timeline);
+router.get('/timeline/:id', authenticateToken, checkPermission('opportunity:view'), checkDataPermission('opportunity', 'owner_id'), opportunityController.timeline);
 
 // 10. v1.1: 获取商机来源字典
-router.get('/sources', authenticateToken, opportunityController.getSources);
+router.get('/sources', authenticateToken, checkPermission('opportunity:view'), opportunityController.getSources);
 
 // 11. v1.1: 导出商机列表（CSV）
-router.get('/export', authenticateToken, checkDataPermission('opportunity', 'owner_id'), opportunityController.exportOpportunities);
+router.get('/export', authenticateToken, checkPermission('opportunity:view'), checkDataPermission('opportunity', 'owner_id'), opportunityController.exportOpportunities);
 
 module.exports = router;

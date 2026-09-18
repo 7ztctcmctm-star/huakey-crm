@@ -106,10 +106,13 @@ async function generateSuggestions(pool, userId) {
     const existingSet = new Set(existRows.map(r => r.ref_id));
     const newItems = overdueCustomers.filter(c => !existingSet.has(c.id));
     if (newItems.length > 0) {
-      const values = newItems.map(c =>
-        `('follow_up', ${c.id}, '客户"${c.company_name}"已${c.overdue_days}天未跟进，建议立即安排回访或联系沟通。', 0.85, ${userId})`
-      ).join(', ');
-      await pool.query(`INSERT INTO crm_ai_suggestion (type, ref_id, suggestion, confidence, create_by) VALUES ${values}`);
+      // [P0-3 fix] 用参数化 VALUES ? 防止 SQL 二次注入（company_name 含引号可破坏 SQL）
+      const rows = newItems.map(c => [
+        'follow_up', c.id,
+        `客户"${c.company_name}"已${c.overdue_days}天未跟进，建议立即安排回访或联系沟通。`,
+        0.85, userId
+      ]);
+      await pool.query('INSERT INTO crm_ai_suggestion (type, ref_id, suggestion, confidence, create_by) VALUES ?', [rows]);
       created += newItems.length;
     }
   }
@@ -133,10 +136,13 @@ async function generateSuggestions(pool, userId) {
     const existingSet = new Set(existRows.map(r => r.ref_id));
     const newItems = staleOpps.filter(o => !existingSet.has(o.id));
     if (newItems.length > 0) {
-      const values = newItems.map(o =>
-        `('opportunity', ${o.id}, '商机"${o.name}"（${o.company_name}）在当前阶段已停滞${o.stale_days}天，建议推进或重新评估。', 0.75, ${userId})`
-      ).join(', ');
-      await pool.query(`INSERT INTO crm_ai_suggestion (type, ref_id, suggestion, confidence, create_by) VALUES ${values}`);
+      // [P0-3 fix] 参数化 VALUES ? 防 SQL 注入
+      const rows = newItems.map(o => [
+        'opportunity', o.id,
+        `商机"${o.name}"（${o.company_name}）在当前阶段已停滞${o.stale_days}天，建议推进或重新评估。`,
+        0.75, userId
+      ]);
+      await pool.query('INSERT INTO crm_ai_suggestion (type, ref_id, suggestion, confidence, create_by) VALUES ?', [rows]);
       created += newItems.length;
     }
   }
@@ -159,10 +165,13 @@ async function generateSuggestions(pool, userId) {
     const existingSet = new Set(existRows.map(r => r.ref_id));
     const newItems = lowWinOpps.filter(o => !existingSet.has(o.id));
     if (newItems.length > 0) {
-      const values = newItems.map(o =>
-        `('pricing', ${o.id}, '商机"${o.name}"（${o.company_name}）预期金额¥${Number(o.expected_amount).toLocaleString()}但赢率仅${o.win_rate || 0}%，建议重新评估定价策略或加强需求沟通。', 0.70, ${userId})`
-      ).join(', ');
-      await pool.query(`INSERT INTO crm_ai_suggestion (type, ref_id, suggestion, confidence, create_by) VALUES ${values}`);
+      // [P0-3 fix] 参数化 VALUES ? 防 SQL 注入
+      const rows = newItems.map(o => [
+        'pricing', o.id,
+        `商机"${o.name}"（${o.company_name}）预期金额¥${Number(o.expected_amount).toLocaleString()}但赢率仅${o.win_rate || 0}%，建议重新评估定价策略或加强需求沟通。`,
+        0.70, userId
+      ]);
+      await pool.query('INSERT INTO crm_ai_suggestion (type, ref_id, suggestion, confidence, create_by) VALUES ?', [rows]);
       created += newItems.length;
     }
   }
