@@ -409,7 +409,12 @@ async function approveRecord(pool, recordId, remark, userId, manageAll) {
       await conn.query('INSERT INTO crm_approval_record (workflow_id, business_type, business_id, step_id, step_order, approver_id) VALUES (?, ?, ?, ?, ?, ?)',
         [record.workflow_id, record.business_type, record.business_id, nextStep.id, nextStep.step_order, nextApproverId]);
     } else {
-      await conn.query(`UPDATE ${validateTable(tableName)} SET approval_status = 2 WHERE id = ?`, [record.business_id]);
+      // 合同审批通过：将「待执行(1)」自动流转到「执行中(2)」（修复 #3 卡待执行，与 simpleApproveContract 一致）
+      // 仅 contract 业务类型做此流转；其余业务(quote/purchase/discount)状态模型不同，保持原逻辑
+      const finalSet = record.business_type === 'contract'
+        ? 'approval_status = 2, status = CASE WHEN status = 1 THEN 2 ELSE status END'
+        : 'approval_status = 2';
+      await conn.query(`UPDATE ${validateTable(tableName)} SET ${finalSet} WHERE id = ?`, [record.business_id]);
     }
 
     await conn.commit();
@@ -593,7 +598,12 @@ async function batchApprove(pool, ids, remark, userId, manageAll) {
         await conn.query('INSERT INTO crm_approval_record (workflow_id, business_type, business_id, step_id, step_order, approver_id) VALUES (?, ?, ?, ?, ?, ?)',
           [record.workflow_id, record.business_type, record.business_id, nextStep.id, nextStep.step_order, nextApproverId]);
       } else {
-        await conn.query(`UPDATE ${validateTable(tableName)} SET approval_status = 2 WHERE id = ?`, [record.business_id]);
+        // 合同审批通过：将「待执行(1)」自动流转到「执行中(2)」（修复 #3 卡待执行，与 simpleApproveContract 一致）
+      // 仅 contract 业务类型做此流转；其余业务(quote/purchase/discount)状态模型不同，保持原逻辑
+      const finalSet = record.business_type === 'contract'
+        ? 'approval_status = 2, status = CASE WHEN status = 1 THEN 2 ELSE status END'
+        : 'approval_status = 2';
+      await conn.query(`UPDATE ${validateTable(tableName)} SET ${finalSet} WHERE id = ?`, [record.business_id]);
       }
       await conn.commit(); success++;
     } catch (e) { try { await conn.rollback(); } catch (_) { /* 已回滚则忽略 */ } failed++; } finally { conn.release(); }
@@ -633,9 +643,19 @@ async function simpleApproveContract(pool, id, approval_status, approval_remark,
     throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '合同不存在');
   }
 
+  // 审批通过(approval_status=2)时，将合同从「待执行(1)」自动流转到「执行中(2)」，
+  // 解决审批通过后合同仍停留在「待执行」导致业务卡住的问题（#3 P2）。
+  // 详见 docs/contract-status-definition.md §6（审批通过 → 1→2）。
+  // 仅在当前为「待执行(1)」时流转；终态(3/4)或已「执行中(2)」保持不变。
+  // 拒绝(approval_status=3)不改 status，合同维持「待执行」，与流转表一致。
   await pool.query(
-    'UPDATE crm_contract SET approval_status = ?, approver_id = ?, approval_remark = ? WHERE id = ?',
-    [approval_status, userId, approval_remark || null, id]
+    `UPDATE crm_contract
+       SET approval_status = ?,
+           approver_id = ?,
+           approval_remark = ?,
+           status = CASE WHEN ? = 2 AND status = 1 THEN 2 ELSE status END
+     WHERE id = ? AND deleted_at IS NULL`,
+    [approval_status, userId, approval_remark || null, approval_status, id]
   );
 
   await notificationService.dismissByBusiness(pool, 'contract', id);

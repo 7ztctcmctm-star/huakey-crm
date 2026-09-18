@@ -85,7 +85,7 @@
 | 审批拒绝 | 1（待执行） | 3（已拒绝） |
 | 履行完成 | 3（已完成） | 2（已通过） |
 
-> `status` 与 `approval_status` 解耦：审批状态变化不自动改 contract.status，需人工推进。
+> `status` 与 `approval_status` 两字段独立存储（解耦），但**审批通过会自动流转 `status`：`1→2`（待执行→执行中）**——由 `simpleApproveContract` 与通用工作流审批末步（`approveRecord`/`batchApprove`，仅 `business_type=contract` 时）实现，原子 `CASE` 仅在当前为「待执行(1)」时流转、终态/已执行中不受影响（详见 `backend/services/approvalService.js`）；而 `2→3`（执行中→已完成）仍需人工或回款驱动推进。
 > **已知问题**：数据库 `approval_status` 默认值为 `2`（已通过）而非 `0`（未提交），导致新建合同默认为"已通过"状态，前端"提交审批"按钮不可达。此为数据模型遗留问题，需在后续迁移中修复 `DEFAULT` 值。
 
 ---

@@ -131,7 +131,7 @@
 
 **已知坑**
 - **合同编号双前缀/双日期格式**：直接建 `CON-YYMMDD-NNN`，报价转合同 `HT-YYYYMMDD-NNN`（前缀与日期格式都不同）→ 数据不一致。
-- 状态机与审批解耦：审批通过不会自动让合同进入"执行中"，易卡在待执行。
+- 状态机与审批解耦（已修复 2026-09-18）：原审批通过不会自动让合同进入"执行中"、易卡在待执行（#3）；现 `simpleApproveContract` 与通用工作流审批末步（`approveRecord`/`batchApprove`，仅 `business_type=contract`）均会在审批通过时把 `status` 由 1 流转到 2。
 - 合同 `amount` 直接存储、`paid_amount` 用 `parseFloat` 累加，未走 `money.js`。
 
 ### 3.4 财务与收款（finance-enhanced / invoice）
