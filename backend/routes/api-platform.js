@@ -13,6 +13,11 @@ const logger = require('../config/logger');
 
 // --- Joi schemas ---
 
+// [P2-7] 通用 URL path id 参数校验（DELETE 路由补）
+const idParamSchema = Joi.object({
+  id: Joi.number().integer().positive().required()
+});
+
 const createKeySchema = Joi.object({
   name: Joi.string().required().max(100),
   permissions: Joi.alternatives().try(Joi.array().items(Joi.string()), Joi.string()).optional(),
@@ -101,7 +106,7 @@ router.put('/keys/:id', authenticateToken, requireAdmin, validate(updateKeySchem
   }
 });
 
-router.delete('/keys/:id', authenticateToken, requireAdmin, async (req, res, next) => {
+router.delete('/keys/:id', authenticateToken, requireAdmin, validate(idParamSchema, 'params'), async (req, res, next) => {
   try {
     await svc.deleteKey(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });
@@ -172,7 +177,7 @@ router.put('/webhooks/:id', authenticateToken, requireAdmin, validate(updateWebh
   }
 });
 
-router.delete('/webhooks/:id', authenticateToken, requireAdmin, async (req, res, next) => {
+router.delete('/webhooks/:id', authenticateToken, requireAdmin, validate(idParamSchema, 'params'), async (req, res, next) => {
   try {
     await svc.deleteWebhook(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });

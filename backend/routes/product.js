@@ -35,6 +35,11 @@ const router = express.Router();
  *         description: 产品列表
  */
 
+// [P2-7] 通用 URL path id 参数校验（DELETE /price/:id 补）
+const idParamSchema = Joi.object({
+  id: Joi.number().integer().positive().required()
+});
+
 const productAddSchema = Joi.object({
   name: Joi.string().required().max(200),
   code: Joi.string().max(100).allow('', null),
@@ -228,7 +233,7 @@ router.put('/price/:id', authenticateToken, requireAdmin, validate(productPriceU
 });
 
 // 10. 删除产品价格
-router.delete('/price/:id', authenticateToken, requireAdmin, async (req, res, next) => {
+router.delete('/price/:id', authenticateToken, requireAdmin, validate(idParamSchema, 'params'), async (req, res, next) => {
   try {
     await productService.deletePrice(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });

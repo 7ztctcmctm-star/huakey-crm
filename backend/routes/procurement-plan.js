@@ -4,9 +4,14 @@ const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
-const requireAdmin = require('../middleware/admin');
+const { requireAdmin, requireManager } = require('../middleware/admin');
 const purchaseService = require('../services/purchaseService');
 const logger = require('../config/logger');
+
+// [P2-7] 通用 URL path id 参数校验（DELETE 路由补）
+const idParamSchema = Joi.object({
+  id: Joi.number().integer().positive().required()
+});
 
 const planItemSchema = Joi.object({
   product_id: Joi.number().integer().positive().required(),
@@ -85,7 +90,7 @@ router.put('/:id', authenticateToken, validate(updatePlanSchema), async (req, re
 });
 
 // 删除计划
-router.delete('/:id', authenticateToken, checkPermission('purchase'), async (req, res, next) => {
+router.delete('/:id', authenticateToken, checkPermission('purchase'), validate(idParamSchema, 'params'), async (req, res, next) => {
   try {
     const result = await purchaseService.deletePlan(pool, req.params.id);
     if (result.error) return res.status(result.code).json({ code: result.code, message: result.error, data: null });
@@ -108,8 +113,8 @@ router.post('/:id/submit', authenticateToken, validate(emptyPlanActionSchema), a
   }
 });
 
-// 批准计划
-router.post('/:id/approve', authenticateToken, requireAdmin, validate(emptyPlanActionSchema), async (req, res, next) => {
+// 批准计划 - 经理及以上（[P2-8] requireAdmin 过度限制，采购经理应能审批）
+router.post('/:id/approve', authenticateToken, checkPermission('purchase'), requireManager, validate(emptyPlanActionSchema), async (req, res, next) => {
   try {
     const result = await purchaseService.approvePlan(pool, req.params.id, req.user.userId);
     if (result.error) return res.status(result.code).json({ code: result.code, message: result.error, data: null });

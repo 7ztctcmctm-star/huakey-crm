@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
@@ -8,6 +8,11 @@ const automationService = require('../services/automationService');
 const logger = require('../config/logger');
 
 // --- Joi schemas ---
+
+// [P2-7] 通用 URL path id 参数校验（DELETE 路由补）
+const idParamSchema = Joi.object({
+  id: Joi.number().integer().positive().required()
+});
 
 const createWorkflowSchema = Joi.object({
   name: Joi.string().required().max(100),
@@ -122,7 +127,7 @@ router.put('/workflows/:id', authenticateToken, requireAdmin, validate(updateWor
 });
 
 // 删除规则
-router.delete('/workflows/:id', authenticateToken, requireAdmin, async (req, res, next) => {
+router.delete('/workflows/:id', authenticateToken, requireAdmin, validate(idParamSchema, 'params'), async (req, res, next) => {
   try {
     await automationService.deleteWorkflow(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });
@@ -220,7 +225,7 @@ router.put('/assign-rules/:id', authenticateToken, requireAdmin, validate(update
   }
 });
 
-router.delete('/assign-rules/:id', authenticateToken, requireAdmin, async (req, res, next) => {
+router.delete('/assign-rules/:id', authenticateToken, requireAdmin, validate(idParamSchema, 'params'), async (req, res, next) => {
   try {
     await automationService.deleteAssignRule(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });
@@ -280,7 +285,7 @@ router.put('/smart-reminders/:id', authenticateToken, requireAdmin, validate(upd
   }
 });
 
-router.delete('/smart-reminders/:id', authenticateToken, requireAdmin, async (req, res, next) => {
+router.delete('/smart-reminders/:id', authenticateToken, requireAdmin, validate(idParamSchema, 'params'), async (req, res, next) => {
   try {
     await automationService.deleteSmartReminder(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });

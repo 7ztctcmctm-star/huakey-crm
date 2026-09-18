@@ -469,6 +469,7 @@ const router = createRouter({
           path: 'profile',
           name: 'Profile',
           component: () => import('../views/profile/index.vue'),
+          // [P2-3 fix] 个人中心是基础功能，所有登录用户可访问；permission 留空即跳过守卫
           meta: { title: '个人中心' }
         },
         {
