@@ -14,6 +14,8 @@
     </div>
 
     <div v-loading="loading">
+      <TextToSqlQuery />
+
       <div v-if="suggestions.length === 0 && !loading" class="empty-state">
         <EmptyState title="暂无AI建议，点击「生成建议」开始扫描">
           <el-button type="primary" @click="handleGenerate" :loading="generating">生成建议</el-button>
@@ -45,6 +47,7 @@
 
 <script setup>
 import EmptyState from '@/components/common/EmptyState.vue'
+import TextToSqlQuery from './TextToSqlQuery.vue'
 import { reportError, reportWarn } from '@/utils/error'
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'

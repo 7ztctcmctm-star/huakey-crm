@@ -88,7 +88,7 @@ const fetchList = async () => {
   loading.value = true
   try {
     const res = await getKnowledgeScripts(search)
-    if (res.code === 200) list.value = res.data
+    if (res.code === 200) list.value = res.data.list || []
   } catch (e) { /* */ }
   finally { loading.value = false }
 }
@@ -126,7 +126,7 @@ const handleSubmit = async () => {
     submitLoading.value = true
     try {
       let res
-      if (isEdit.value) res = await updateKnowledgeScript({ id: editId.value, ...form })
+      if (isEdit.value) res = await updateKnowledgeScript(editId.value, form)
       else res = await addKnowledgeScript(form)
       if (res.code === 200) { ElMessage.success(isEdit.value ? '修改成功' : '新增成功'); dialogVisible.value = false; fetchList(); fetchScenes() }
     } finally { submitLoading.value = false }

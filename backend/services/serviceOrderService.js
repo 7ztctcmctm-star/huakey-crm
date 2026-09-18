@@ -45,10 +45,12 @@ async function buildServicePermissionClause(pool, dataPermission, tableAlias = '
  * @returns {boolean}
  */
 async function canManageService(pool, user, serviceOrder) {
-  if (user.manageAll || user.roleId === ROLES.ADMIN || user.roleId === ROLES.MANAGER) {
+  // [R-14] 权限判定一律走 roleCode，禁止硬编码 roleId
+  const { BOSS, MANAGER, SALES } = ROLES.ROLE_CODES;
+  if (user.manageAll || user.roleCode === BOSS || user.roleCode === MANAGER) {
     return true;
   }
-  if (user.roleId === ROLES.SALES) {
+  if (user.roleCode === SALES) {
     const [users] = await pool.query(
       'SELECT dept_id FROM sys_user WHERE id = ?',
       [user.userId]

@@ -35,10 +35,11 @@
         <el-table-column prop="create_time" label="提交时间" width="160">
           <template #default="{ row }">{{ formatTime(row.create_time) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
             <el-button type="success" link @click="handleApprove(row)">通过</el-button>
             <el-button type="danger" link @click="handleReject(row)">驳回</el-button>
+            <el-button type="primary" link @click="handleTransfer(row)">转交</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -76,6 +77,24 @@
         <el-button :type="dialogType" :loading="submitLoading" @click="handleSubmit">{{ dialogType === 'success' ? '确认通过' : '确认驳回' }}</el-button>
       </template>
     </el-dialog>
+
+    <!-- 转交弹窗 -->
+    <el-dialog v-model="transferVisible" title="转交审批" width="500px">
+      <el-form label-width="80px">
+        <el-form-item label="转交给" required>
+          <el-select v-model="transferTo" placeholder="选择审批人" filterable style="width:100%">
+            <el-option v-for="u in userList" :key="u.id" :label="u.real_name" :value="u.id" :disabled="u.id === currentRecord?.approver_id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="转交说明">
+          <el-input v-model="transferRemark" type="textarea" :rows="3" placeholder="输入转交说明（可选）" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="transferVisible = false">取消</el-button>
+        <el-button type="primary" :loading="transferLoading" @click="handleSubmitTransfer">确认转交</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -85,7 +104,8 @@ import StateWrapper from '@/components/common/StateWrapper.vue'
 import { reportError, reportWarn } from '@/utils/error'
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getMyPending, getApprovalDetail, approveRequest, rejectRequest, batchApprove, batchReject } from '@/api/tools'
+import { getMyPending, getApprovalDetail, approveRequest, rejectRequest, batchApprove, batchReject, transferApproval } from '@/api/tools'
+import { getSalesUsers } from '@/api/customer'
 import { formatTime } from '@/composables/useFormat'
 
 const typeNameMap = { quote: '报价', contract: '合同', purchase: '采购', discount: '折扣' }
@@ -103,6 +123,13 @@ const remark = ref('')
 const currentRecord = ref(null)
 const selectedRows = ref([])
 const customerHistory = ref(null)
+
+// 转交
+const transferVisible = ref(false)
+const transferTo = ref(null)
+const transferRemark = ref('')
+const transferLoading = ref(false)
+const userList = ref([])
 
 const fetchCustomerHistory = async (row) => {
   try {
@@ -179,6 +206,30 @@ const handleBatchReject = () => {
     const res = await batchReject(ids, value || '批量驳回')
     if (res.code === 200) { ElMessage.success(res.message); fetchList() }
   }).catch(e => reportError('[pending] 批量驳回失败:', e))
+}
+
+const handleTransfer = (row) => {
+  currentRecord.value = row
+  transferTo.value = null
+  transferRemark.value = ''
+  transferVisible.value = true
+  if (userList.value.length === 0) {
+    getSalesUsers().then(res => { if (res.code === 200) userList.value = res.data }).catch(e => reportError('[pending] 获取用户失败:', e))
+  }
+}
+
+const handleSubmitTransfer = async () => {
+  if (!currentRecord.value) return
+  if (!transferTo.value) { ElMessage.warning('请选择转交的审批人'); return }
+  transferLoading.value = true
+  try {
+    const res = await transferApproval(currentRecord.value.id, transferTo.value, transferRemark.value)
+    if (res.code === 200) {
+      ElMessage.success('转交成功')
+      transferVisible.value = false
+      fetchList()
+    }
+  } finally { transferLoading.value = false }
 }
 
 onMounted(() => { fetchList() })

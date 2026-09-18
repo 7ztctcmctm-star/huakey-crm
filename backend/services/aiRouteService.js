@@ -171,6 +171,105 @@ async function generateSuggestions(pool, userId) {
 }
 
 /**
+ * Text-to-SQL 维度白名单
+ * PRD R-09：自然语言查询仅限「商机 / 客户（只读）/ 合同」维度可用。
+ * 任何触及白名单之外的表（含 crm_supplier / crm_product / crm_follow_up 等）一律拒绝。
+ */
+const ALLOWED_QUERY_TABLES = ['crm_opportunity', 'crm_customer', 'crm_contract'];
+
+/**
+ * 从 SQL 中提取被查询的表名（FROM / JOIN 之后，单个标识符）。
+ * 仅用于白名单校验，不追求穷尽所有 SQL 写法（如逗号连接会只拿到第一张表）；
+ * 取不到表名时由调用方按「无法识别维度」拒绝，宁严勿松。
+ * @param {string} sql
+ * @returns {string[]}
+ */
+function extractTables(sql) {
+  const matches = sql.match(/\b(?:FROM|JOIN)\s+`?([a-zA-Z0-9_]+)`?/gi) || [];
+  return matches.map(m =>
+    m.replace(/\b(?:FROM|JOIN)\s+`?/i, '').replace(/`/g, '').toLowerCase()
+  );
+}
+
+/**
+ * 校验 AI 生成的 SQL 是否仅在允许的维度内（商机/客户/合同）。
+ * 即便路由层已挡过系统表，这里再做一次维度收敛，符合 PRD R-09。
+ * @param {string} sql
+ * @returns {{ ok: boolean, reason?: string }}
+ */
+function validateQueryDimension(sql) {
+  const tables = extractTables(sql);
+  if (tables.length === 0) {
+    return { ok: false, reason: '无法识别查询维度。AI 查询仅支持「商机 / 客户 / 合同」维度，请换个问法。' };
+  }
+  const forbidden = [...new Set(tables)].filter(t => !ALLOWED_QUERY_TABLES.includes(t));
+  if (forbidden.length > 0) {
+    return {
+      ok: false,
+      reason: `不支持查询「${forbidden.join('、')}」。AI 查询仅限「商机 / 客户（只读）/ 合同」维度。`
+    };
+  }
+  return { ok: true };
+}
+
+/** 是否为数值（含 DECIMAL 返回的字符串形态） */
+function isNumericCell(v) {
+  if (v === null || v === undefined) return true; // NULL 视为可参与数值列
+  return /^-?\d+(\.\d+)?$/.test(String(v).trim());
+}
+
+/**
+ * 根据 SQL 与结果集，给出确定性的图表建议（不依赖 LLM，避免 Ollama 不可用时失效）。
+ * @param {string} sql
+ * @param {Array<object>} rows
+ * @returns {{ type: 'bar'|'pie'|'line'|'table', reason: string }}
+ */
+function buildChartSuggestion(sql, rows) {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return { type: 'table', reason: '查询结果为空，建议以表格查看。' };
+  }
+
+  const cols = Object.keys(rows[0]);
+  const numericCols = cols.filter(c => rows.every(r => isNumericCell(r[c])));
+  let dimCols = cols.filter(c => !numericCols.includes(c));
+  // 整数维度列（如 owner_id）按 GROUP BY 分组时语义是维度而非度量 → 补回，
+  // 否则会被当作度量、dimCols 为空而误判为「结构复杂 → table」（R-09 图表建议）。
+  if (dimCols.length === 0) {
+    const gm = /group\s+by\s+([`\w.]+)/i.exec(sql || '');
+    const g = gm && gm[1].replace(/`/g, '').split('.').pop();
+    if (g && cols.includes(g)) dimCols = [g];
+  }
+
+  // 单一汇总值（如 COUNT(*)）→ 数字即可，无需图表
+  if (rows.length === 1 && numericCols.length >= 1 && dimCols.length === 0) {
+    return { type: 'table', reason: '结果为单一汇总数值，直接查看数字即可。' };
+  }
+
+  if (numericCols.length === 0) {
+    return { type: 'table', reason: '结果无数值列，建议以表格查看。' };
+  }
+
+  const measure = numericCols.find(c => !dimCols.includes(c)) || numericCols[0];
+  // 含日期/时间维度的趋势 → 折线图
+  const timeCol = dimCols.find(c => /date|time|月份|月|year|month|day|日期|周/i.test(c));
+  if (timeCol) {
+    return { type: 'line', reason: `检测到时间维度「${timeCol}」，建议用折线图观察「${measure}」趋势。` };
+  }
+
+  if (dimCols.length >= 1) {
+    const dim = dimCols[0];
+    const catCount = new Set(rows.map(r => r[dim])).size;
+    const type = catCount <= 6 ? 'pie' : 'bar';
+    return {
+      type,
+      reason: `检测到维度「${dim}」与数值「${measure}」，建议用${type === 'pie' ? '饼图对比占比' : '柱状图对比大小'}。`
+    };
+  }
+
+  return { type: 'table', reason: '字段结构较复杂，建议以表格查看。' };
+}
+
+/**
  * 执行只读查询（Text-to-SQL 专用）
  * @param {object} pool - 数据库连接池（readOnlyPool）
  * @param {string} sql  - 已校验的 SELECT 语句
@@ -196,4 +295,14 @@ async function executeReadOnlyQuery(pool, sql) {
   return rows;
 }
 
-module.exports = { getAiStatus, getAiSuggestions, submitFeedback, generateSuggestions, executeReadOnlyQuery };
+module.exports = {
+  getAiStatus,
+  getAiSuggestions,
+  submitFeedback,
+  generateSuggestions,
+  executeReadOnlyQuery,
+  ALLOWED_QUERY_TABLES,
+  extractTables,
+  validateQueryDimension,
+  buildChartSuggestion
+};

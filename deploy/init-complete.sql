@@ -121,6 +121,33 @@ CREATE TABLE `crm_approval_record` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `crm_approval_rule`
+--
+
+DROP TABLE IF EXISTS `crm_approval_rule`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `crm_approval_rule` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `business_type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '业务类型：quote/contract/purchase/discount',
+  `min_amount` decimal(15,2) NOT NULL DEFAULT '0.00' COMMENT '金额下限（含）',
+  `max_amount` decimal(15,2) DEFAULT NULL COMMENT '金额上限（不含，NULL 表示无上限）',
+  `approver_type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '审批人类型：manager/role/user',
+  `approver_ref` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'roleCode 或 用户ID（approver_type=user 时）',
+  `priority` int NOT NULL DEFAULT '0' COMMENT '优先级，数值越大越优先',
+  `status` tinyint(1) DEFAULT '1' COMMENT '状态：1启用 0禁用',
+  `description` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '规则说明',
+  `created_by` int DEFAULT NULL COMMENT '创建人',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_arule_type` (`business_type`),
+  KEY `idx_arule_amount` (`business_type`,`min_amount`,`max_amount`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='审批阈值规则（阈值→审批人矩阵）';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `crm_approval_step`
 --
 

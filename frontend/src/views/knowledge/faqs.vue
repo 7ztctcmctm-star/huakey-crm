@@ -94,7 +94,7 @@ const fetchList = async () => {
   loading.value = true
   try {
     const res = await getKnowledgeFaqs(search)
-    if (res.code === 200) list.value = res.data
+    if (res.code === 200) list.value = res.data.list || []
   } catch (e) { /* */ }
   finally { loading.value = false }
 }
@@ -123,7 +123,7 @@ const handleSubmit = async () => {
     submitLoading.value = true
     try {
       let res
-      if (isEdit.value) res = await updateKnowledgeFaq({ id: editId.value, ...form })
+      if (isEdit.value) res = await updateKnowledgeFaq(editId.value, form)
       else res = await addKnowledgeFaq(form)
       if (res.code === 200) { ElMessage.success(isEdit.value ? '修改成功' : '新增成功'); dialogVisible.value = false; fetchList(); fetchCategories() }
     } finally { submitLoading.value = false }

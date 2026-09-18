@@ -257,6 +257,39 @@ const batchApprovalSchema = Joi.object({
   remark: Joi.string().allow('', null).optional().max(500)
 });
 
+// 审批规则（阈值→审批人矩阵）
+const createRuleSchema = Joi.object({
+  business_type: Joi.string().valid('quote', 'contract', 'purchase', 'discount').required(),
+  min_amount: Joi.number().precision(2).min(0).required(),
+  max_amount: Joi.number().precision(2).min(0).allow(null).optional(),
+  approver_type: Joi.string().valid('manager', 'role', 'user').required(),
+  // role 类型存 roleCode（禁止硬编码 roleId）；user 类型存用户 id；manager 留空
+  approver_ref: Joi.when('approver_type', {
+    is: 'manager',
+    then: Joi.any().allow(null, '').optional(),
+    otherwise: Joi.string().required().max(50)
+  }),
+  priority: Joi.number().integer().min(0).max(9999).optional(),
+  status: Joi.number().integer().valid(0, 1).optional(),
+  description: Joi.string().allow('', null).optional().max(200)
+});
+
+const updateRuleSchema = Joi.object({
+  business_type: Joi.string().valid('quote', 'contract', 'purchase', 'discount').optional(),
+  min_amount: Joi.number().precision(2).min(0).optional(),
+  max_amount: Joi.number().precision(2).min(0).allow(null).optional(),
+  approver_type: Joi.string().valid('manager', 'role', 'user').optional(),
+  approver_ref: Joi.string().allow('', null).optional().max(50),
+  priority: Joi.number().integer().min(0).max(9999).optional(),
+  status: Joi.number().integer().valid(0, 1).optional(),
+  description: Joi.string().allow('', null).optional().max(200)
+});
+
+const transferSchema = Joi.object({
+  to_user_id: Joi.number().integer().required(),
+  remark: Joi.string().allow('', null).optional().max(500)
+});
+
 // 获取所有审批流程
 router.get('/workflows', authenticateToken, checkPermission('approval'), async (req, res, next) => {
   try {
@@ -430,6 +463,95 @@ router.post('/batch-reject', authenticateToken, checkPermission('approval'), val
   } catch (error) {
     logger.error('[审批] 批量驳回错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     next(error);
+  }
+});
+
+// ============ 审批规则（阈值→审批人矩阵） ============
+
+// 列表
+router.get('/rules', authenticateToken, checkPermission('approval'), async (req, res, next) => {
+  try {
+    const { business_type } = req.query;
+    const data = await approvalService.listApprovalRules(pool, business_type);
+    res.json({ code: 200, message: '查询成功', data });
+  } catch (error) {
+    logger.error('[审批] 获取规则列表失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    next(error);
+  }
+});
+
+// 创建
+router.post('/rules', authenticateToken, checkPermission('approval'), validate(createRuleSchema), async (req, res, next) => {
+  try {
+    const result = await approvalService.createApprovalRule(pool, req.body, req.user.userId);
+    res.json({ code: 200, message: '创建成功', data: result });
+  } catch (error) {
+    const status = error.status || error.httpStatus || error.code || 500;
+    logger.error('[审批] 创建规则失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
+  }
+});
+
+// 更新
+router.put('/rules/:id', authenticateToken, checkPermission('approval'), validate(updateRuleSchema), async (req, res, next) => {
+  try {
+    await approvalService.updateApprovalRule(pool, req.params.id, req.body);
+    res.json({ code: 200, message: '更新成功', data: null });
+  } catch (error) {
+    const status = error.status || error.httpStatus || error.code || 500;
+    logger.error('[审批] 更新规则失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
+  }
+});
+
+// 删除（软删除）
+router.delete('/rules/:id', authenticateToken, checkPermission('approval'), async (req, res, next) => {
+  try {
+    await approvalService.deleteApprovalRule(pool, req.params.id);
+    res.json({ code: 200, message: '删除成功', data: null });
+  } catch (error) {
+    logger.error('[审批] 删除规则失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    next(error);
+  }
+});
+
+// ============ 转交 ============
+
+router.post('/transfer/:id', authenticateToken, checkPermission('approval'), validate(transferSchema), async (req, res, next) => {
+  try {
+    const { to_user_id, remark } = req.body;
+    const result = await approvalService.transferApproval(pool, req.params.id, to_user_id, remark, req.user.userId, req.user.manageAll);
+    res.json({ code: 200, message: '转交成功', data: result });
+  } catch (error) {
+    const status = error.status || error.httpStatus || error.code || 500;
+    logger.error('[审批] 转交失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
+  }
+});
+
+// ============ 已办结 ============
+
+router.get('/my-completed', authenticateToken, checkPermission('approval'), async (req, res, next) => {
+  try {
+    const data = await approvalService.getMyCompleted(pool, req.user.userId);
+    res.json({ code: 200, message: '查询成功', data });
+  } catch (error) {
+    logger.error('[审批] 获取已办结列表失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    next(error);
+  }
+});
+
+// ============ 详情（申请人/金额/折扣率/关联客户只读卡片/审批历史时间线） ============
+
+router.get('/detail-full/:business_type/:business_id', authenticateToken, checkPermission('approval'), async (req, res, next) => {
+  try {
+    const { business_type, business_id } = req.params;
+    const data = await approvalService.getApprovalDetailFull(pool, business_type, business_id);
+    res.json({ code: 200, message: '查询成功', data });
+  } catch (error) {
+    const status = error.status || error.httpStatus || error.code || 500;
+    logger.error('[审批] 获取审批完整详情失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
   }
 });
 

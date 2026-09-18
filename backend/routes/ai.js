@@ -125,7 +125,7 @@ router.post('/query', authenticateToken, checkPermission('ai'), checkDataPermiss
 
     // 白名单安全校验：禁止多条语句（分号分隔）
     if ((sql.match(/;/g) || []).length > 0) {
-      return res.json({ code: 200, message: 'success', data: { sql: '', answer: '不支持多条语句。', rows: [] } });
+      return res.json({ code: 200, message: 'success', data: { sql: '', answer: '不支持多条语句。', rows: [], chartSuggestion: null } });
     }
     // 现在去掉分号
     sql = sql.replace(/;/g, '').trim();
@@ -136,19 +136,30 @@ router.post('/query', authenticateToken, checkPermission('ai'), checkDataPermiss
       sql = match ? match[0] : '';
     }
     if (!sql || !sql.toUpperCase().startsWith('SELECT')) {
-      return res.json({ code: 200, message: 'success', data: { sql: '', answer: '抱歉，无法理解该问题，请换个问法。', rows: [] } });
+      return res.json({ code: 200, message: 'success', data: { sql: '', answer: '抱歉，无法理解该问题，请换个问法。', rows: [], chartSuggestion: null } });
     }
 
     // 禁止危险操作和信息泄露
     const blocked = /\b(UNION|INTO\s+(OUTFILE|DUMPFILE)|LOAD\s+DATA|INFORMATION_SCHEMA|SLEEP|BENCHMARK|WAITFOR\s+DELAY|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE)\b/i;
     if (blocked.test(sql)) {
-      return res.json({ code: 200, message: 'success', data: { sql: '', answer: '此操作不被允许（仅支持查询）。', rows: [] } });
+      return res.json({ code: 200, message: 'success', data: { sql: '', answer: '此操作不被允许（仅支持查询）。', rows: [], chartSuggestion: null } });
     }
 
     // 禁止查询系统敏感表
     const sensitiveTables = /\b(sys_user|sys_role|sys_permission|sys_config|sys_backup_record)\b/i;
     if (sensitiveTables.test(sql)) {
-      return res.json({ code: 200, message: 'success', data: { sql: '', answer: '不允许查询系统表。', rows: [] } });
+      return res.json({ code: 200, message: 'success', data: { sql: '', answer: '不允许查询系统表。', rows: [], chartSuggestion: null } });
+    }
+
+    // 【R-09】维度白名单：自然语言查询仅限「商机 / 客户（只读）/ 合同」
+    const dimCheck = aiService.validateQueryDimension(sql);
+    if (!dimCheck.ok) {
+      logger.warn('[AI查询] 已拒绝：超出允许维度', {
+        userId: req.user && req.user.userId,
+        reason: dimCheck.reason,
+        traceId: req.traceId || 'N/A'
+      });
+      return res.json({ code: 200, message: 'success', data: { sql: '', answer: dimCheck.reason, rows: [], chartSuggestion: null } });
     }
 
     // 【P1-2】数据范围守卫：AI 查询同样必须受数据权限约束。
@@ -182,7 +193,8 @@ router.post('/query', authenticateToken, checkPermission('ai'), checkDataPermiss
             sql: '',
             answer:
               '该问题涉及全量业务数据，当前账号的数据范围不支持 AI 直接查询。如需查看您负责的客户，请前往「客户管理」页面。',
-            rows: []
+            rows: [],
+            chartSuggestion: null
           }
         });
       }
@@ -205,11 +217,11 @@ router.post('/query', authenticateToken, checkPermission('ai'), checkDataPermiss
       rows = await aiService.executeReadOnlyQuery(readOnlyPool, safeSql);
     } catch (dbError) {
       logger.error('[AI查询] SQL执行失败:', { sql: sql, error: dbError.message, traceId: req.traceId || 'N/A' });
-      return res.json({ code: 200, message: 'success', data: { sql, answer: '生成的SQL有误，请换个问法。', rows: [] } });
+      return res.json({ code: 200, message: 'success', data: { sql, answer: '生成的SQL有误，请换个问法。', rows: [], chartSuggestion: null } });
     }
 
     if (!rows || rows.length === 0) {
-      return res.json({ code: 200, message: 'success', data: { sql, answer: '查询结果为空。', rows: [] } });
+      return res.json({ code: 200, message: 'success', data: { sql, answer: '查询结果为空。', rows: [], chartSuggestion: { type: 'table', reason: '查询结果为空，建议以表格查看。' } } });
     }
 
     // 第三步：AI 格式化结果
@@ -225,7 +237,14 @@ router.post('/query', authenticateToken, checkPermission('ai'), checkDataPermiss
       system: '将以下查询结果用简洁中文总结，不超过200字。'
     })) || '查询完成';
 
-    res.json({ code: 200, message: 'success', data: { sql, answer, rows: rows.slice(0, 20), total: rows.length } });
+    // 确定性图表建议（不依赖 LLM，Ollama 不可用时同样可用）
+    const chartSuggestion = aiService.buildChartSuggestion(sql, rows);
+
+    res.json({
+      code: 200,
+      message: 'success',
+      data: { sql, answer, rows: rows.slice(0, 20), total: rows.length, chartSuggestion }
+    });
   } catch (error) {
     const msg = error.name === 'TimeoutError' ? '查询超时' : 'AI调用失败';
     res.status(503).json({ code: 503, message: msg, data: null });

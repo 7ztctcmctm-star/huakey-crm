@@ -53,6 +53,7 @@ describe('AI模块', () => {
 
   beforeEach(() => {
     mockPool.query.mockReset();
+    mockReadOnlyPool.query.mockReset();
     chatCompletion.mockReset();
   });
 
@@ -120,17 +121,14 @@ describe('AI模块', () => {
       expect(res.body.data.answer).toContain('数据范围不支持');
     });
 
-    it('P1-2：非全局数据范围账号查询非敏感表应正常执行', async () => {
+    // R-09：维度白名单 —— 即便非全局账号，AI 查询也仅限「商机 / 客户（只读）/ 合同」。
+    // crm_product 不在白名单内，必须被拒绝（降级提示），而非执行。
+    it('R-09：非全局账号查询白名单外维度(crm_product)应被拒绝并降级', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0 }]]); // role query
 
-      chatCompletion
-        .mockResolvedValueOnce('SELECT COUNT(*) FROM crm_product') // SQL 生成
-        .mockResolvedValueOnce('共 50 个产品'); // 结果格式化
-
-      // 注意：AI 生成的 SQL 由只读连接池执行（非主库池）
-      mockReadOnlyPool.query.mockResolvedValueOnce([[{ 'COUNT(*)': 50 }]]);
+      chatCompletion.mockResolvedValueOnce('SELECT COUNT(*) FROM crm_product'); // SQL 生成（维度检查前即被拒）
 
       const res = await request(app)
         .post('/api/v1/ai/query')
@@ -138,7 +136,11 @@ describe('AI模块', () => {
         .send({ question: '有多少产品' });
 
       expect(res.status).toBe(200);
-      expect(res.body.data.answer).toBe('共 50 个产品');
+      expect(res.body.data.sql).toBe('');
+      expect(res.body.data.rows).toHaveLength(0);
+      expect(res.body.data.answer).toContain('crm_product');
+      // 只读连接池不应被调用（已拦截）
+      expect(mockReadOnlyPool.query).not.toHaveBeenCalled();
     });
   });
 

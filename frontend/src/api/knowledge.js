@@ -1,18 +1,16 @@
 import request from '@/utils/request'
 
 // ============ 知识库 ============
-export const getKnowledgeList = (params) => request.get('/knowledge/list', { params })
-export const addKnowledge = (data) => request.post('/knowledge/add', data)
-export const updateKnowledge = (data) => request.post('/knowledge/update', data)
-export const deleteKnowledge = (id) => request.post('/knowledge/delete', { id })
+// 注意：以下调用必须与 backend/routes/knowledge.js 的 RESTful 路由保持一致，
+// 后端只有 POST/PUT/DELETE /knowledge/{scripts,faqs}，不存在 /add、/update、/delete 后缀路由。
 export const getKnowledgeScripts = (params) => request.get('/knowledge/scripts', { params })
-export const addKnowledgeScript = (data) => request.post('/knowledge/scripts/add', data)
-export const updateKnowledgeScript = (data) => request.post('/knowledge/scripts/update', data)
-export const deleteKnowledgeScript = (id) => request.post('/knowledge/scripts/delete', { id })
+export const addKnowledgeScript = (data) => request.post('/knowledge/scripts', data)
+export const updateKnowledgeScript = (id, data) => request.put(`/knowledge/scripts/${id}`, data)
+export const deleteKnowledgeScript = (id) => request.delete(`/knowledge/scripts/${id}`)
 export const getKnowledgeFaqs = (params) => request.get('/knowledge/faqs', { params })
-export const addKnowledgeFaq = (data) => request.post('/knowledge/faqs/add', data)
-export const updateKnowledgeFaq = (data) => request.post('/knowledge/faqs/update', data)
-export const deleteKnowledgeFaq = (id) => request.post('/knowledge/faqs/delete', { id })
+export const addKnowledgeFaq = (data) => request.post('/knowledge/faqs', data)
+export const updateKnowledgeFaq = (id, data) => request.put(`/knowledge/faqs/${id}`, data)
+export const deleteKnowledgeFaq = (id) => request.delete(`/knowledge/faqs/${id}`)
 export const getKnowledgeStats = () => request.get('/knowledge/stats')
 export const getKnowledgeScript = (id) => request.get(`/knowledge/scripts/${id}`)
 export const getKnowledgeScriptsScenes = () => request.get('/knowledge/scripts-meta/scenes')

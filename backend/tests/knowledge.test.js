@@ -156,5 +156,65 @@ describe('知识库模块', () => {
       expect(res.status).toBe(401);
     });
   });
+
+  describe('GET /api/v1/knowledge/documents (检索)', () => {
+    it('应该按关键词返回文档列表', async () => {
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ total: 1 }]]) // count
+        .mockResolvedValueOnce([[ // list
+          { id: 1, name: '报价模板.pdf', type: 'quote', file_type: 'pdf', download_count: 3 }
+        ]]);
+
+      const res = await request(app)
+        .get('/api/v1/knowledge/documents')
+        .set('Authorization', `Bearer ${token}`)
+        .query({ keyword: '报价' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.code).toBe(200);
+      expect(res.body.data.list).toHaveLength(1);
+      expect(res.body.data.list[0].name).toContain('报价');
+    });
+  });
+
+  describe('POST /api/v1/knowledge/documents (资料上传)', () => {
+    it('应该返回400当文件类型不被允许', async () => {
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]); // user status
+
+      const res = await request(app)
+        .post('/api/v1/knowledge/documents')
+        .set('Authorization', `Bearer ${token}`)
+        .field('name', '病毒样本')
+        .field('type', 'general')
+        .attach('file', Buffer.from('x'), 'virus.exe');
+
+      expect(res.status).toBe(400);
+    });
+
+    it('应该返回200当上传允许的文档类型', async () => {
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([{ insertId: 1 }]); // insert
+
+      const res = await request(app)
+        .post('/api/v1/knowledge/documents')
+        .set('Authorization', `Bearer ${token}`)
+        .field('name', '产品手册')
+        .field('type', 'general')
+        .attach('file', Buffer.from('hello'), 'manual.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.code).toBe(200);
+      expect(res.body.data).toHaveProperty('id');
+    });
+  });
 });
 

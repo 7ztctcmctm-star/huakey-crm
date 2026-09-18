@@ -508,6 +508,18 @@ const router = createRouter({
           meta: { title: '我的审批', permission: 'approval' }
         },
         {
+          path: 'approval/completed',
+          name: 'ApprovalCompleted',
+          component: () => import('../views/approval/completed.vue'),
+          meta: { title: '已办结', permission: 'approval' }
+        },
+        {
+          path: 'approval/rule-config',
+          name: 'ApprovalRuleConfig',
+          component: () => import('../views/approval/ruleConfig.vue'),
+          meta: { title: '审批规则配置', permission: 'approval', admin: true }
+        },
+        {
           path: 'system/dept',
           name: 'DeptManage',
           component: () => import('../views/system/dept.vue'),

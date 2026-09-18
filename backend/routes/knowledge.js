@@ -85,11 +85,30 @@ if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
+    const ext = path.extname(file.originalname).toLowerCase();
     cb(null, `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`);
   }
 });
-const upload = multer({ storage, limits: { fileSize: 20 * 1024 * 1024 } });
+
+// 允许的扩展名白名单：拒绝危险类型，防止恶意文件上传（约定要求限制扩展名/MIME/大小）
+const ALLOWED_DOC_EXT = new Set(['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.zip', '.rar', '.txt', '.csv']);
+const ALLOWED_IMG_EXT = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp']);
+
+function makeFileFilter(allowed) {
+  return (req, file, cb) => {
+    if (!file || !file.originalname || file.originalname.includes('..') || file.originalname.includes('/')) {
+      return cb(Object.assign(new Error('非法的文件名'), { status: 400 }));
+    }
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!allowed.has(ext)) {
+      return cb(Object.assign(new Error(`不支持的文件类型：${ext || '未知'}`), { status: 400 }));
+    }
+    cb(null, true);
+  };
+}
+
+const uploadDoc = multer({ storage, limits: { fileSize: 20 * 1024 * 1024 }, fileFilter: makeFileFilter(ALLOWED_DOC_EXT) });
+const uploadImg = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: makeFileFilter(ALLOWED_IMG_EXT) });
 
 /**
  * @swagger
@@ -708,7 +727,7 @@ router.delete('/products/:id', authenticateToken, requireAdmin, async (req, res,
   }
 });
 
-router.post('/products/:id/images', authenticateToken, requireAdmin, upload.array('images', 9), validate(emptySchema), async (req, res, next) => {
+router.post('/products/:id/images', authenticateToken, requireAdmin, uploadImg.array('images', 9), validate(emptySchema), async (req, res, next) => {
   try {
     const filePaths = req.files.map(f => `/uploads/knowledge/${f.filename}`);
     const allImages = await knowledgeService.addProductImages(pool, req.params.id, filePaths);
@@ -888,7 +907,7 @@ router.get('/documents/:id', authenticateToken, checkPermission('knowledge'), as
   }
 });
 
-router.post('/documents', authenticateToken, upload.single('file'), validate(documentSchema), async (req, res, next) => {
+router.post('/documents', authenticateToken, uploadDoc.single('file'), validate(documentSchema), async (req, res, next) => {
   try {
     const { name, type, description } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ code: 400, message: '文档名称不能为空', data: null });

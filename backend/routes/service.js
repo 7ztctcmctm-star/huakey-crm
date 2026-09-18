@@ -78,7 +78,7 @@ router.post('/list', authenticateToken, checkPermission('service'), checkDataPer
 });
 
 // 获取工单详情
-router.get('/detail/:id', authenticateToken, async (req, res, next) => {
+router.get('/detail/:id', authenticateToken, checkPermission('service'), async (req, res, next) => {
   try {
     const data = await serviceOrderService.getServiceOrderDetail(pool, req.params.id);
     if (!data) {
