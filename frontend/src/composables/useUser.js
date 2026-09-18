@@ -35,6 +35,20 @@ export function useUser() {
     const perms = userInfo.value?.permissions || []
     return userInfo.value?.manageAll === true || perms.includes('customer:claim')
   })
+  /**
+   * 是否能按「团队成员」筛选（即看得到他人数据）
+   *
+   * 判据来自后端 /auth/me 的 dataPermissions（[{ module, data_scope }]），而不是只看 viewAll：
+   * manager 角色 sys_role.view_all=0/manage_all=0，但 sys_data_permission 配了 dept_and_sub
+   * ⇒ 能看本部门及下级部门数据；若只用 viewAll 判断会把这类角色误判为"只能看自己"。
+   * 前端仅用于控制筛选器显隐；**真正的可见范围由后端强制**（见 buildOwnerOverrideFilter）。
+   */
+  const canViewTeam = computed(() => {
+    if (userInfo.value?.viewAll === true || userInfo.value?.manageAll === true) return true
+    const dps = userInfo.value?.dataPermissions
+    if (!Array.isArray(dps)) return false
+    return dps.some((d) => ['all', 'dept', 'dept_and_sub'].includes(d?.data_scope))
+  })
 
   function setUser(info) {
     userInfo.value = info
@@ -45,5 +59,5 @@ export function useUser() {
     authChecked = false
   }
 
-  return { userInfo, userId, roleId, isBoss, isAdmin, canViewAll, canClaim, setUser, clearUser, verifyAuth }
+  return { userInfo, userId, roleId, isBoss, isAdmin, canViewAll, canViewTeam, canClaim, setUser, clearUser, verifyAuth }
 }

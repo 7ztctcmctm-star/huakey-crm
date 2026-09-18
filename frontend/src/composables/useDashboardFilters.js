@@ -1,6 +1,5 @@
 import { reactive, ref, computed } from 'vue'
 import { useUser } from '@/composables/useUser'
-
 /**
  * 首页 Dashboard 顶栏筛选（PRD R-05 §4.1）
  *
@@ -21,11 +20,15 @@ const state = reactive({
 const revision = ref(0)
 
 export function useDashboardFilters() {
-  const { canViewAll } = useUser()
+  const { canViewTeam } = useUser()
 
   const hasRange = computed(() => !!(state.startDate && state.endDate))
-  /** 仅具备全局查看能力（老板/超管）时提供「团队筛选」 */
-  const ownerFilterEnabled = computed(() => canViewAll.value === true)
+  /**
+   * 是否提供「团队筛选」：判据是**能否看到他人数据**（全局 or 部门范围），
+   * 而非只看 view_all 标志 —— manager 角色 view_all=0 但数据范围是 dept_and_sub，
+   * 若只认 viewAll 会把 PRD §4.1 要求的「manager 也有团队筛选」漏掉。
+   */
+  const ownerFilterEnabled = computed(() => canViewTeam.value === true)
 
   /** 动态标签：未选范围=「本月」，选本月=「本月」，否则显示区间 */
   const rangeLabel = computed(() => {

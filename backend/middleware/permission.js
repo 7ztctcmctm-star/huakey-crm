@@ -160,12 +160,15 @@ const buildDataPermissionWhere = async (dataPermission, tableAlias = 't') => {
 
 /**
  * 递归获取所有子部门ID
+ * @param {number} parentId
+ * @param {object} [poolOverride] 可选：显式传入连接/事务（便于受控入口在单测中注入，生产默认用模块级 pool）
  */
-async function getSubDeptIds(parentId) {
+async function getSubDeptIds(parentId, poolOverride) {
+  const db = poolOverride || pool;
   const ids = [parentId];
   const queue = [parentId];
   while (queue.length > 0) {
-    const [children] = await pool.query(
+    const [children] = await db.query(
       'SELECT id FROM sys_dept WHERE parent_id = ?', [queue.shift()]
     );
     for (const child of children) {
@@ -183,7 +186,9 @@ async function getSubDeptIds(parentId) {
  *   · 无 ownerId                → null（不追加过滤）
  *   · data_scope = 'all'        → 允许（老板/超管）
  *   · data_scope = 'dept'       → 仅当目标成员与当前用户**同部门**才允许
- *   · 其它（self/custom/无配置）→ **一律忽略**（返回 null），防止 sales 借此看到他人数据
+ *   · data_scope = 'dept_and_sub' → 目标成员在本部门或**其子部门**才允许（manager 角色的现有配置）
+ *   · data_scope = 'custom'     → 目标成员在 custom_dept_ids 指定的部门集内才允许
+ *   · 其它（self/无配置）        → **忽略**（返回 null），防止 sales 借此看到他人数据
  *
  * ⚠️ 返回值必须与「数据范围子句」是 AND 关系（即在范围之内再收窄），不能替换范围。
  *
@@ -206,17 +211,34 @@ async function buildOwnerOverrideFilter(pool, dataPermission, ownerId, ownerColu
     return { clause: `${column} = ?`, params: [target] };
   }
 
-  if (type === 'dept') {
-    const [rows] = await pool.query(
-      'SELECT u1.dept_id AS target_dept, u2.dept_id AS self_dept FROM sys_user u1, sys_user u2 WHERE u1.id = ? AND u2.id = ?',
-      [target, dataPermission.userId]
-    );
-    const sameDept = rows[0] && rows[0].target_dept != null && rows[0].target_dept === rows[0].self_dept;
-    if (sameDept) return { clause: `${column} = ?`, params: [target] };
-    return null;   // 跨部门：静默忽略（不报错，也不放行）
+  if (type === 'dept' || type === 'dept_and_sub' || type === 'custom') {
+    // 目标成员是否落在当前用户的数据范围内：
+    //   dept         → 本部门
+    //   dept_and_sub → 本部门 + 所有子部门（manager 角色的现有配置）
+    //   custom       → sys_data_permission.custom_dept_ids 指定的部门集
+    const [targetRows] = await pool.query('SELECT dept_id FROM sys_user WHERE id = ?', [target]);
+    const targetDept = targetRows[0]?.dept_id ?? null;
+    if (targetDept == null) return null;   // 查不到人 / 无部门 → 不放行
+
+    let allowedDepts;
+    if (type === 'custom') {
+      allowedDepts = String(dataPermission.customDeptIds || '')
+        .split(',')
+        .map((s) => Number(s.trim()))
+        .filter((n) => Number.isInteger(n) && n > 0);
+    } else {
+      const [selfRows] = await pool.query('SELECT dept_id FROM sys_user WHERE id = ?', [dataPermission.userId]);
+      const selfDept = selfRows[0]?.dept_id ?? null;
+      if (selfDept == null) return null;
+      allowedDepts = type === 'dept' ? [selfDept] : await getSubDeptIds(selfDept, pool);
+    }
+
+    return allowedDepts.includes(targetDept)
+      ? { clause: `${column} = ?`, params: [target] }
+      : null;   // 超范围：静默忽略（不报错，也不放行）
   }
 
-  // self / custom / 缺省：不具备看他人数据的能力 → 忽略筛选条件
+  // self / 缺省：不具备看他人数据的能力 → 忽略筛选条件
   return null;
 }
 
@@ -268,6 +290,7 @@ module.exports = {
   checkDataPermission,
   buildDataPermissionWhere,
   buildOwnerOverrideFilter,
+  getSubDeptIds,
   checkFieldPermission,
   stripRestrictedFields
 };

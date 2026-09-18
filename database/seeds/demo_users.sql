@@ -1,6 +1,6 @@
 -- ============================================================
--- Demo 种子数据：用户（3 个 Demo 账号）
--- 账号：demo_admin / demo_sales / demo_purchase
+-- Demo 种子数据：用户（5 个 Demo 账号）
+-- 账号：demo_admin / demo_sales / demo_purchase / demo_sales2 / demo_manager
 -- 密码：Demo@123456（bcrypt 哈希，统一）
 -- 幂等：username 为 UNIQUE，INSERT IGNORE 保证重复执行跳过
 -- 安全：不覆盖真实用户（INSERT IGNORE 命中已存在记录时保留原密码）
@@ -74,6 +74,26 @@ SELECT
   'demo_sales2@huakey-demo.com',
   (SELECT id FROM sys_dept WHERE name = 'Demo演示部门' LIMIT 1),
   (SELECT id FROM sys_role WHERE LOWER(code) = 'sales' LIMIT 1),
+  1, 0, NOW(), 1, NOW();
+
+-- ------------------------------------------------------------
+-- 5. demo_manager（部门经理，manager 角色）
+--    【新增 2026-09-17 · PRD R-07】提供可登录的 manager 演示账号。
+--    验收：可用 manager 账号登录；权限码仅含 manager 范围；roleCode 驱动，无硬编码 roleId。
+--    说明：manager 角色 sys_role.view_all=0/manage_all=0，但 sys_data_permission 上配置了
+--    dept_and_sub（12 个模块）⇒ 「看本部门及下级部门的数据」，因此可与 demo_sales/demo_sales2
+--    （同属「Demo演示部门」）形成「经理看团队」的演示闭环。
+-- ------------------------------------------------------------
+INSERT IGNORE INTO sys_user
+  (username, password, real_name, phone, email, dept_id, role_id, status, must_change_password, password_changed_at, is_demo, create_time)
+SELECT
+  'demo_manager',
+  '$2b$10$gzztXX6gGQ.dpgvSKiFuc.7LxrOX4VNIab6LJqP9PGoyWkV/7qMBK',
+  'Demo部门经理',
+  '13900000005',
+  'demo_manager@huakey-demo.com',
+  (SELECT id FROM sys_dept WHERE name = 'Demo演示部门' LIMIT 1),
+  (SELECT id FROM sys_role WHERE LOWER(code) = 'manager' LIMIT 1),
   1, 0, NOW(), 1, NOW();
 
 -- ------------------------------------------------------------

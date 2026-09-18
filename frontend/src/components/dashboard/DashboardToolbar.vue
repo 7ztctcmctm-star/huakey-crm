@@ -50,9 +50,8 @@ import { ref, computed, onMounted } from 'vue'
 import { QuestionFilled } from '@element-plus/icons-vue'
 import { useUser } from '@/composables/useUser'
 import { useDashboardFilters } from '@/composables/useDashboardFilters'
-import { getUserList } from '@/api/system'
+import { getDashboardTeamMembers } from '@/api/report'
 import { reportWarn } from '@/utils/error'
-
 const { userInfo } = useUser()
 const { filters, hasRange, ownerFilterEnabled, setRange, setOwner, reset } = useDashboardFilters()
 
@@ -90,14 +89,15 @@ function onReset() {
 async function fetchMembers() {
   if (!ownerFilterEnabled.value) return
   try {
-    const res = await getUserList({ page: 1, pageSize: 200, status: 1 })
+    // 后端按调用者数据范围返回（manager=本部门及子部门，boss=全部）
+    const res = await getDashboardTeamMembers()
     if (res.code === 200) {
       const list = res.data?.list || res.data || []
       members.value = Array.isArray(list) ? list : []
     }
   } catch (e) {
     // 成员列表失败不影响仪表盘主体，仅记录（P1-11：不允许空 catch 静默吞掉）
-    reportWarn('获取成员列表失败:', e)
+    reportWarn('获取团队成员列表失败:', e)
   }
 }
 

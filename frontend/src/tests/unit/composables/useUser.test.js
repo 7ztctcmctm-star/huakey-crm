@@ -79,4 +79,53 @@ describe('useUser', () => {
     setUser({ id: 3, viewAll: false, manageAll: false })
     expect(canViewAll.value).toBe(false)
   })
+
+  // ── R-05/R-07：团队筛选显隐判据 ────────────────────────────────
+  describe('canViewTeam（能否按成员筛选 = 能否看到他人数据）', () => {
+    it('viewAll / manageAll 为真 → true', async () => {
+      const useUser = await getUseUser()
+      const { setUser, canViewTeam } = useUser()
+      setUser({ id: 1, viewAll: true })
+      expect(canViewTeam.value).toBe(true)
+      setUser({ id: 2, manageAll: true })
+      expect(canViewTeam.value).toBe(true)
+    })
+
+    it('**manager 场景**：viewAll/manageAll 均为 false，但 dataPermissions 含 dept_and_sub → true', async () => {
+      const useUser = await getUseUser()
+      const { setUser, canViewTeam, canViewAll } = useUser()
+      setUser({
+        id: 10,
+        roleCode: 'manager',
+        viewAll: false,
+        manageAll: false,
+        dataPermissions: [
+          { module: 'customer', data_scope: 'dept_and_sub' },
+          { module: 'report', data_scope: 'dept_and_sub' }
+        ]
+      })
+      expect(canViewAll.value).toBe(false)   // 仍非全局可见
+      expect(canViewTeam.value).toBe(true)   // 但可按成员筛选
+    })
+
+    it('all / dept / dept_and_sub 均视为可看他人数据；self 不算', async () => {
+      const useUser = await getUseUser()
+      const { setUser, canViewTeam } = useUser()
+      for (const scope of ['all', 'dept', 'dept_and_sub']) {
+        setUser({ id: 1, dataPermissions: [{ module: 'customer', data_scope: scope }] })
+        expect(canViewTeam.value, `scope=${scope}`).toBe(true)
+      }
+      setUser({ id: 2, dataPermissions: [{ module: 'customer', data_scope: 'self' }] })
+      expect(canViewTeam.value).toBe(false)
+    })
+
+    it('数据范围为空 / 非数组 → false（sales 场景）', async () => {
+      const useUser = await getUseUser()
+      const { setUser, canViewTeam } = useUser()
+      setUser({ id: 5, roleCode: 'sales', viewAll: false, manageAll: false, dataPermissions: [] })
+      expect(canViewTeam.value).toBe(false)
+      setUser({ id: 6 })
+      expect(canViewTeam.value).toBe(false)
+    })
+  })
 })

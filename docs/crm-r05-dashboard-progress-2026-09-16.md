@@ -98,8 +98,13 @@
 - 「图表 ref 写法影响面」仅做了静态比对，**未逐页实测**（`/analysis`、`/report` 未打开验证）。
 - 角色隔离的端到端验证使用了 `demo_admin`（boss 类角色）；**manager / sales 的实测未做**
   （单测已覆盖三种范围的 SQL 构造，但未做真实账号的接口对比）。
-- `dept` 范围在当前配置下与 `all` 结果相同属正常：`sys_data_permission` 中 **role 4(manager) 无任何配置行**
-  → 实际落到默认 `self`。若产品要求「manager 看团队」，需补 `data_scope='dept'` 配置（**影响全系统所有模块**，需先拍板）。
+- ~~`dept` 范围在当前配置下与 `all` 结果相同属正常：`sys_data_permission` 中 **role 4(manager) 无任何配置行**
+  → 实际落到默认 `self`。若产品要求「manager 看团队」，需补 `data_scope='dept'` 配置（**影响全系统所有模块**，需先拍板）。~~
+  > ❌ **【2026-09-17 更正】上面这句是错的**（我排查时 SQL 口径有误）。实际数据：
+  > `sys_data_permission` 中 **manager(4) = `dept_and_sub`（12 个模块）**、sales(5) = `self`、boss(1) = `all`。
+  > 即「manager 看本部门及下级部门」**本来就是配置好的，无需拍板**。
+  > 真正的缺陷是**前端判据过窄**（只看 `viewAll/manageAll`）导致 manager 看不到团队筛选 —— 已在 R-07 一并修复，
+  > 详见 `docs/crm-r07-manager-account-2026-09-17.md` §二 / §三。
 
 ---
 

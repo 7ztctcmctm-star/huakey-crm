@@ -13,6 +13,11 @@ export const getReportOverdue = (params) => request.post('/report/overdue', para
 export const getReportOverdueStats = (params) => request.get('/report/overdue-stats', { params })
 export const getReportTodayTasks = () => request.get('/report/today-tasks')
 export const getReportQuickStats = (params) => request.get('/report/quick-stats', { params })
+/**
+ * 首页「团队筛选」成员列表 —— 后端**按调用者数据范围**返回（all / dept_and_sub / custom），
+ * 不用 /user/list（系统管理接口，需 system:user 权限，manager 无权且不该拿到全公司用户表）
+ */
+export const getDashboardTeamMembers = () => request.get('/report/team-members')
 export const getReportPurchaseTrend = (params) => request.get('/report/purchase-trend', { params })
 export const getReportPurchaseBySupplier = (params) => request.get('/report/purchase-by-supplier', { params })
 export const getReportPurchaseCost = (params) => request.get('/report/purchase-cost', { params })

@@ -43,6 +43,16 @@ router.get('/quick-stats', authenticateToken, checkPermission('dashboard'), chec
 });
 
 // 逾期统计（仪表盘用）
+router.get('/team-members', authenticateToken, checkPermission('dashboard'), checkDataPermission('report'), cache(300), async (req, res, next) => {
+  try {
+    const data = await dashboardService.getTeamMembers(pool, req.dataPermission);
+    res.json({ code: 200, message: '查询成功', data });
+  } catch (error) {
+    logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
+    next(error);
+  }
+});
+
 router.get('/overdue-stats', authenticateToken, checkPermission('dashboard'), checkDataPermission('report'), async (req, res, next) => {
   try {
     const data = await dashboardService.getOverdueStats(pool, req.dataPermission, req.query);

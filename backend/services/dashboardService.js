@@ -14,7 +14,7 @@
  * ⚠️ 本文件只读（SELECT），符合 PRD R-05「不触及冻结」约束。
  */
 
-const { buildDataPermissionWhere, buildOwnerOverrideFilter } = require('../middleware/permission');
+const { buildDataPermissionWhere, buildOwnerOverrideFilter, getSubDeptIds } = require('../middleware/permission');
 const { getOverdueDays } = require('../utils/config');
 const { POOL_STATUS } = require('../constants/poolStatus');
 
@@ -254,9 +254,59 @@ async function getOverdueStats(pool, dataPermission, filters = {}) {
   return { overdue_count: result[0].total || 0, overdue_days: overdueDays };
 }
 
+/**
+ * 首页「团队筛选」下拉的成员列表 —— **按调用者的数据范围返回**，而不是全公司用户表。
+ *
+ * 为什么不用 /user/list：那是**系统管理**接口（需 system:user 权限），
+ * manager 没有该权限（正确），会导致下拉为空；且即便有权限也不该把全公司用户列表给到经理。
+ *
+ * 范围映射（与 buildDataPermissionWhere 口径一致）：
+ *   all          → 全部在职用户
+ *   dept         → 本部门
+ *   dept_and_sub → 本部门 + 子部门
+ *   custom       → customDeptIds
+ *   其它(self)   → 仅自己（前端此时本就不显示筛选器）
+ */
+async function getTeamMembers(pool, dataPermission) {
+  const base = 'SELECT id, username, real_name, dept_id FROM sys_user WHERE status = 1 AND deleted_at IS NULL';
+  const order = ' ORDER BY real_name, id LIMIT 500';
+
+  if (!dataPermission) return [];
+
+  const type = dataPermission.type;
+  if (type === 'all') {
+    const [rows] = await pool.query(base + order);
+    return rows;
+  }
+
+  let deptIds = [];
+  if (type === 'custom') {
+    deptIds = String(dataPermission.customDeptIds || '')
+      .split(',').map((s) => Number(s.trim())).filter((n) => Number.isInteger(n) && n > 0);
+  } else if (type === 'dept' || type === 'dept_and_sub') {
+    const [me] = await pool.query('SELECT dept_id FROM sys_user WHERE id = ?', [dataPermission.userId]);
+    const myDept = me[0]?.dept_id ?? null;
+    if (myDept == null) return [];
+    deptIds = type === 'dept' ? [myDept] : await getSubDeptIds(myDept, pool);
+  }
+
+  if (!deptIds.length) {
+    // self / 无部门：只返回自己
+    const [self] = await pool.query(base + ' AND id = ?' + order, [dataPermission.userId]);
+    return self;
+  }
+
+  const [rows] = await pool.query(
+    `${base} AND dept_id IN (${deptIds.map(() => '?').join(',')})${order}`,
+    deptIds
+  );
+  return rows;
+}
+
 module.exports = {
   getOverview,
   getTodayTasks,
   getQuickStats,
-  getOverdueStats
+  getOverdueStats,
+  getTeamMembers
 };

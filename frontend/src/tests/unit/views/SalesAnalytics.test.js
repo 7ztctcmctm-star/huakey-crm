@@ -27,6 +27,27 @@ vi.mock('@/composables/useFormat', () => ({
   formatAmount: (v) => String(v ?? 0)
 }))
 
+/**
+ * [R-05 后补 2026-09-17] 商机漏斗改为 ECharts 真渲染后，jsdom 环境**没有 canvas**
+ * （`Cannot read properties of null (reading 'clearRect')`）。
+ * 故把图表层整体 mock 掉；用 `vi.hoisted` 保留一个可被断言的 `initChart` spy，
+ * 把原本「阶段名出现在文本中」的校验改为「阶段名进入了图表 option」
+ * —— 漏斗数据绑定的意图不变，只是校验点从 DOM 文本挪到图表配置。
+ */
+const { mockInitChart } = vi.hoisted(() => {
+  const initChart = vi.fn(() => ({ off: () => {}, on: () => {} }))
+  return { mockInitChart: initChart }
+})
+vi.mock('@/composables/useChart', () => ({
+  useChart: () => ({
+    refs: {},
+    echarts: null,
+    initChart: mockInitChart,
+    getChart: () => null,
+    dispose: () => {}
+  })
+}))
+
 import SalesAnalytics from '@/components/dashboard/SalesAnalytics.vue'
 
 // Mock Element Plus 组件（jsdom 下避免真实渲染，渲染 attributes 使 title/description 可见）
@@ -77,12 +98,16 @@ describe('SalesAnalytics', () => {
     await flushPromises()
 
     const text = wrapper.text()
-    // 销售漏斗数据
+    // 销售漏斗数据（KPI：总数/金额/Win Rate 仍以文本绑定）
     expect(text).toContain('商机总数')
-    expect(text).toContain('13') // 商机总数
+    expect(text).toContain('13') // 商机总数 = 10 + 3
     expect(text).toContain('23.08%') // win rate
-    expect(text).toContain('询盘')
-    expect(text).toContain('成交')
+    // 漏斗阶段名已迁入 ECharts 配置（jsdom 无 canvas，故校验 option 而非 DOM 文本）
+    expect(mockInitChart).toHaveBeenCalled()
+    const funnelOption = mockInitChart.mock.calls[0][1]
+    const stageNames = funnelOption.series[0].data.map((d) => d.name)
+    expect(stageNames).toContain('询盘')
+    expect(stageNames).toContain('成交')
     // 合同收入
     expect(text).toContain('5000.00')
     // 回款
