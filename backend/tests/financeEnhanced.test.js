@@ -66,6 +66,59 @@ describe('财务增强模块', () => {
     });
   });
 
+  describe('GET /api/v1/finance/reconciliation/supplier', () => {
+    it('应返回真实已付金额（回归 #17：原实现 payments=[] 且 paid_amount 恒为 0）', async () => {
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 7, name: '测试供应商', contact_person: '李四', phone: '13900139000' }]]) // supplier
+        .mockResolvedValueOnce([[ // purchase orders
+          { id: 101, order_no: 'PO-260918-001', total_amount: '100000.00', create_time: '2026-09-01', status: '已完成' },
+          { id: 102, order_no: 'PO-260918-002', total_amount: '50000.00', create_time: '2026-09-02', status: '已完成' }
+        ]])
+        .mockResolvedValueOnce([[ // purchase payments (真实付款)
+          { id: 1, order_id: 101, order_no: 'PO-260918-001', amount: '60000.00', pay_method: '银行转账', pay_date: '2026-09-10', payer_name: '王五' },
+          { id: 2, order_id: 102, order_no: 'PO-260918-002', amount: '50000.00', pay_method: '电汇', pay_date: '2026-09-12', payer_name: '王五' }
+        ]]);
+
+      const res = await request(app)
+        .get('/api/v1/finance/reconciliation/supplier')
+        .set('Authorization', `Bearer ${token}`)
+        .query({ supplier_id: 7 });
+
+      expect(res.status).toBe(200);
+      expect(res.body.code).toBe(200);
+      expect(res.body.data.supplier.name).toBe('测试供应商');
+      expect(res.body.data.orders).toHaveLength(2);
+      // 关键回归：payments 不再写死为空
+      expect(res.body.data.payments).toHaveLength(2);
+      expect(res.body.data.summary.total_amount).toBe(150000);
+      expect(res.body.data.summary.paid_amount).toBe(110000); // 不再恒为 0
+      expect(res.body.data.summary.unpaid_amount).toBe(40000);
+    });
+
+    it('供应商无采购单时应返回 0（payments 为空、不发起付款查询）', async () => {
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 8, name: '空供应商', contact_person: null, phone: null }]]) // supplier
+        .mockResolvedValueOnce([[]]); // 无采购单 → 不再查询 crm_purchase_payment
+
+      const res = await request(app)
+        .get('/api/v1/finance/reconciliation/supplier')
+        .set('Authorization', `Bearer ${token}`)
+        .query({ supplier_id: 8 });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.orders).toHaveLength(0);
+      expect(res.body.data.payments).toHaveLength(0);
+      expect(res.body.data.summary.paid_amount).toBe(0);
+      expect(res.body.data.summary.unpaid_amount).toBe(0);
+    });
+  });
+
   describe('GET /api/v1/finance/reconciliation/list', () => {
     it('应该返回对账单列表', async () => {
       mockPool.query

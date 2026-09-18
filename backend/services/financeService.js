@@ -3,6 +3,9 @@
  * 从 routes/finance-enhanced.js 提取的业务逻辑
  */
 
+// 【#4/#17 金额统一】财务金额求和/差额一律走 money 工具，禁止浮点运算后写入或比对
+const money = require('../utils/money');
+
 // ============ 回款提醒 ============
 
 /**
@@ -160,11 +163,34 @@ async function getSupplierReconciliation(pool, { supplier_id, start_date, end_da
     ORDER BY create_time
   `, [supplier_id, startDate, endDate + ' 23:59:59']);
 
-  const totalAmount = orders.reduce((s, o) => s + parseFloat(o.total_amount || 0), 0);
+  const totalAmount = money.sum(orders.map(o => o.total_amount || 0));
+
+  // 【#17 修复】原实现 payments 写死 []、paid_amount 写死 0，供应商对账永远看不到已付款。
+  // 现按该供应商名下采购单聚合 crm_purchase_payment（真实付款记录，排除软删）。
+  const orderIds = orders.map(o => o.id);
+  let payments = [];
+  let paidAmount = 0;
+  if (orderIds.length > 0) {
+    const placeholders = orderIds.map(() => '?').join(',');
+    [payments] = await pool.query(`
+      SELECT pp.id, pp.order_id, o.order_no, pp.amount, pp.pay_method, pp.pay_date,
+             pp.remark, pp.payer_id, pp.create_time, u.real_name as payer_name
+      FROM crm_purchase_payment pp
+      JOIN crm_purchase_order o ON pp.order_id = o.id
+      LEFT JOIN sys_user u ON pp.payer_id = u.id
+      WHERE pp.order_id IN (${placeholders}) AND pp.deleted_at IS NULL
+      ORDER BY pp.pay_date, pp.create_time
+    `, orderIds);
+    paidAmount = money.sum(payments.map(p => p.amount || 0));
+  }
 
   return {
-    supplier, orders, payments: [],
-    summary: { total_amount: totalAmount, paid_amount: 0, unpaid_amount: totalAmount }
+    supplier, orders, payments,
+    summary: {
+      total_amount: totalAmount,
+      paid_amount: paidAmount,
+      unpaid_amount: money.sub(totalAmount, paidAmount)
+    }
   };
 }
 
