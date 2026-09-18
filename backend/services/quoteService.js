@@ -409,9 +409,12 @@ async function convertToContract(pool, quoteId, userId) {
       );
     }
 
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const [[{ cnt }]] = await conn.query("SELECT COUNT(*) as cnt FROM crm_contract WHERE contract_no LIKE ?", [`HT-${dateStr}-%`]);
-    const contractNo = `HT-${dateStr}-${String(cnt + 1).padStart(3, '0')}`;
+    // 修复 #2：统一合同编号规则，避免「双前缀/双日期格式」导致的数据不一致。
+    // 与直接建合同(contractService.createContract)保持一致：前缀 CON- + YYMMDD(6位) + 3位序号。
+    // 注意：两处生成逻辑必须同步修改，新增来源时复用此规则。
+    const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
+    const [[{ cnt }]] = await conn.query("SELECT COUNT(*) as cnt FROM crm_contract WHERE contract_no LIKE ?", [`CON-${dateStr}-%`]);
+    const contractNo = `CON-${dateStr}-${String(cnt + 1).padStart(3, '0')}`;
 
     // 4-3-2: 从报价单传递 opportunity_id 和 quote_id 到合同
     // 【R-02 修复】金额取值：使用 ?? 替代 ||，避免 final_amount=0 时 falsy 陷阱

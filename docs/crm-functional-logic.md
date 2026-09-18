@@ -130,7 +130,7 @@
 - 模板（`contractTemplateService`）：纯 CRUD（`crm_contract_template`），**模板数据不注入新建合同**，仅作参考。
 
 **已知坑**
-- **合同编号双前缀/双日期格式**：直接建 `CON-YYMMDD-NNN`，报价转合同 `HT-YYYYMMDD-NNN`（前缀与日期格式都不同）→ 数据不一致。
+- ~~**合同编号双前缀/双日期格式**~~（✅ 已修 2026-09-18）：原直接建 `CON-YYMMDD-NNN`、报价转合同 `HT-YYYYMMDD-NNN`，前缀与日期格式都不同 → 数据不一致。已统一为 `CON-YYMMDD-NNN`（`quoteService.convertToContract` 对齐 `contractService.createContract`）。
 - 状态机与审批解耦（已修复 2026-09-18）：原审批通过不会自动让合同进入"执行中"、易卡在待执行（#3）；现 `simpleApproveContract` 与通用工作流审批末步（`approveRecord`/`batchApprove`，仅 `business_type=contract`）均会在审批通过时把 `status` 由 1 流转到 2。
 - 合同 `amount` 直接存储、`paid_amount` 用 `parseFloat` 累加，未走 `money.js`。
 
@@ -265,7 +265,7 @@
 | # | 模块 | 问题 | 严重度 | 状态 |
 |---|---|---|---|---|
 | 1 | 报价审批 | 路由收 `2/3`、服务判 `===1` 推进商机 → 通过时不推进商机（疑似笔误） | P1 | ✅ 已修(2026-09-18) |
-| 2 | 合同 | 编号双前缀/双日期格式（CON vs HT、YYMMDD vs YYYYMMDD） | P2 | 未修 |
+| 2 | 合同 | 编号双前缀/双日期格式（CON vs HT、YYMMDD vs YYYYMMDD） | P2 | ✅ 已修(2026-09-18) |
 | 3 | 合同 | 审批通过不自动流转合同 `status`，易卡待执行 | P2 | 未修 |
 | 4 | 合同/回款/发票/财务 | 金额未统一走 `money.js`（仅报价严格） | P2 | 部分 |
 | 5 | 团队看板 | 硬编码 `ROLES.ADMIN/roleId` 判 boss（与 dashboard 不一致） | P2 | ✅ 已修(2026-09-18) |

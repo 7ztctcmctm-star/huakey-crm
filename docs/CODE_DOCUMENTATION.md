@@ -1703,7 +1703,7 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 | `data.payment_terms` / `data.remark` | 付款条件/备注 |
 | `data.plans` | 回款计划数组 `[{ plan_date, plan_amount, remark }]` |
 
-**编号格式**: `CON-YYYYMMDD-NNN`  
+**编号格式**: `CON-YYMMDD-NNN`（6 位日期 YYMMDD，全系统唯一编号规则）  
 **校验**: 客户必须为 `signed` 状态、商机与客户匹配  
 **事务**: 开始 → 校验 → 生成编号 → INSERT 合同 → 批量 INSERT 回款计划 → 提交
 
@@ -1851,7 +1851,7 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 
 **流程**:
 1. 查询报价单 → 校验存在
-2. 生成合同编号 `HT-YYYYMMDD-NNN`
+2. 生成合同编号 `CON-YYMMDD-NNN`（2026-09-18 起与直接建合同统一，原 `HT-YYYYMMDD-NNN` 已废弃）
 3. INSERT 合同（传递 `opportunity_id` 和 `quote_id`）
 4. 更新报价单 `status=3`（已确认）
 5. 提交事务
@@ -2733,7 +2733,7 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 | GET | `/detail/:id` | — | `quote`, `create_by` | 报价单详情（含 items） |
 | POST | `/update` | `quotation:edit` | — | 修改报价单（草稿/失效不可改） |
 | POST | `/delete` | `quotation:delete` | — | 删除报价单（已确认不可删；非 ADMIN/MANAGER 且非创建者无权删） |
-| POST | `/to-contract` | `quotation:edit` | — | 报价转合同（HT-YYMMDD-NNN 编号，推进商机 stage5） |
+| POST | `/to-contract` | `quotation:edit` | — | 报价转合同（CON-YYMMDD-NNN 编号，推进商机 stage5） |
 | POST | `/approve` | — | — | 审批报价单（仅管理员，approval_status 2=通过/3=驳回） |
 
 **Joi Schemas**:
