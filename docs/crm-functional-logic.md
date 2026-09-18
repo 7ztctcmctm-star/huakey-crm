@@ -33,7 +33,7 @@
 非 Customer 域模块（user/transfer/automation/scoring/import/followup/approval 的关联读）写 `crm_customer` 必须统一经 `customerService` 受控入口（`systemAssignOwner` / `systemUpdateField` / `systemUpdateScore` / `systemAcceptTransfer` / `systemApplyFollowUpEffect` / `systemTouchLastFollowTime` / `systemSetLastFollowTime` / `systemReleaseOwnedCustomersOnLeave`）。越界写已在存量治理中清零，并设为零容忍门禁。
 
 ### 0.4 金额计算
-权威工具 `backend/utils/money.js`（BigInt 消除浮点误差，仅最后一次 half-up 舍入）。**目前仅 `quoteService` 完整采用**；合同/回款/发票/财务分析多为 `parseFloat` 直接相加或前端传值，存在 IEEE 754 误差风险（4 位小数单价场景已实测偏 1 分）。
+权威工具 `backend/utils/money.js`（BigInt 消除浮点误差，仅最后一次 half-up 舍入）。**已采用：`quoteService`（完整）、`purchaseService`（采购单价/折扣/税额/总额，2026-09-18 补齐采购单汇总）、`approvalService`（折扣率判定）、`paymentService`（回款计划已回金额，2026-09-18）**。其余如报表/财务分析中的 `parseFloat` 多为**读取 SQL 聚合结果仅作展示或比较**（不写回 DECIMAL 列），无写入误差风险；若后续要在其中做金额计算并入库，须改走 `money.js`。
 
 ### 0.5 软删除与状态约定
 - 客户/线索/标签/知识库/产品/供应商/竞品/日志等用 `deleted_at IS NULL` 逻辑删除。
@@ -132,7 +132,7 @@
 **已知坑**
 - ~~**合同编号双前缀/双日期格式**~~（✅ 已修 2026-09-18）：原直接建 `CON-YYMMDD-NNN`、报价转合同 `HT-YYYYMMDD-NNN`，前缀与日期格式都不同 → 数据不一致。已统一为 `CON-YYMMDD-NNN`（`quoteService.convertToContract` 对齐 `contractService.createContract`）。
 - 状态机与审批解耦（已修复 2026-09-18）：原审批通过不会自动让合同进入"执行中"、易卡在待执行（#3）；现 `simpleApproveContract` 与通用工作流审批末步（`approveRecord`/`batchApprove`，仅 `business_type=contract`）均会在审批通过时把 `status` 由 1 流转到 2。
-- 合同 `amount` 直接存储、`paid_amount` 用 `parseFloat` 累加，未走 `money.js`。
+- ~~合同 `amount` 直接存储、`paid_amount` 用 `parseFloat` 累加，未走 `money.js`。~~（✅ 部分已修 2026-09-18）：回款计划 `paid_amount` 落库已改走 `money.js`（`round2` 归一化，避免浮点尾数写入）；合同 `amount` 仍为前端直传（无后端计算，无误差引入）。
 
 ### 3.4 财务与收款（finance-enhanced / invoice）
 - 回款提醒（`financeService.generateReminders`）：未来 7 天未完成 → `upcoming`；已逾期 → `overdue`；`INSERT IGNORE` 去重键为 contract_id+plan_id+type+date（仅防同日重复，跨天再生成）。
@@ -267,7 +267,7 @@
 | 1 | 报价审批 | 路由收 `2/3`、服务判 `===1` 推进商机 → 通过时不推进商机（疑似笔误） | P1 | ✅ 已修(2026-09-18) |
 | 2 | 合同 | 编号双前缀/双日期格式（CON vs HT、YYMMDD vs YYYYMMDD） | P2 | ✅ 已修(2026-09-18) |
 | 3 | 合同 | 审批通过不自动流转合同 `status`，易卡待执行 | P2 | 未修 |
-| 4 | 合同/回款/发票/财务 | 金额未统一走 `money.js`（仅报价严格） | P2 | 部分 |
+| 4 | 合同/回款/发票/财务 | 金额未统一走 `money.js`（仅报价严格） | P2 | 🟡 部分已修(2026-09-18) |
 | 5 | 团队看板 | 硬编码 `ROLES.ADMIN/roleId` 判 boss（与 dashboard 不一致） | P2 | ✅ 已修(2026-09-18) |
 | 6 | 报表 | 经营看板/分析无数据范围隔离 | P2 | 设计待文档化 |
 | 7 | 知识库 | 产品更新未清缓存（stale≤300s） | P3 | 未修 |
@@ -284,6 +284,8 @@
 | 18 | 财务 | 账龄用 sign_date 而非 plan_date，与回款逾期口径不符 | P3 | 未修 |
 | 19 | 采购申请/比价 | 与采购计划/采购单无代码级自动衔接 | P3 | 人工衔接 |
 | 20 | 审批前端 | 折扣类型重复选项 | P3 | UI 残留 |
+
+> **#4 剩余项（未修）**：报表/财务分析（`financeService`/`reportAnalyticsService`/`analysisService`/`customerDetailService`）与回款统计汇总中的浮点求和目前**只用于展示/比较、不写回 DECIMAL 列**，故未强制改造；若后续在这些路径新增「计算后入库」逻辑，须改走 `money.js`。合同 `amount` 无后端计算，属前端直传。
 
 ---
 

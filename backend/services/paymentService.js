@@ -5,6 +5,8 @@
 
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
+// 【#4 金额统一】回款金额一律走 money 工具，禁止浮点运算后写入 DECIMAL 列
+const money = require('../utils/money');
 
 /**
  * 重新计算回款计划的 paid_amount / status / overdue_days
@@ -22,11 +24,14 @@ async function recalculatePlanStatus(pool, planId) {
     'SELECT COALESCE(SUM(pay_amount), 0) as total FROM crm_payment WHERE plan_id = ? AND deleted_at IS NULL',
     [planId]
   );
-  const paidAmount = parseFloat(sumRows[0].total);
+  // 【#4 金额统一】保留 SUM 返回的十进制字符串精度，避免经 number 往返后写入 DECIMAL 引入尾数偏差。
+  // 仅比较/落库使用字符串（MySQL 会按列精度正确解析），数值比较用 round2 归一化。
+  const paidAmountRaw = money.toDecimalString(sumRows[0].total);
+  const paidAmount = money.round2(paidAmountRaw);
 
   // 计算状态
   let status = 'pending';
-  if (paidAmount >= parseFloat(plan.plan_amount)) {
+  if (paidAmount >= money.round2(plan.plan_amount)) {
     status = 'completed';
   } else if (paidAmount > 0) {
     status = 'partial';
@@ -81,11 +86,12 @@ async function recalculatePlanStatusWithConn(conn, planId) {
     'SELECT COALESCE(SUM(pay_amount), 0) as total FROM crm_payment WHERE plan_id = ? AND deleted_at IS NULL',
     [planId]
   );
-  const paidAmount = parseFloat(sumRows[0].total);
+  // 【#4 金额统一】同 recalculatePlanStatus：字符串精度 + round2 归一化，避免浮点写入偏差
+  const paidAmount = money.round2(money.toDecimalString(sumRows[0].total));
 
   let status = 'pending';
   let overdueDays = 0;
-  if (paidAmount >= plan.plan_amount) {
+  if (paidAmount >= money.round2(plan.plan_amount)) {
     status = 'completed';
   } else if (paidAmount > 0) {
     status = 'partial';

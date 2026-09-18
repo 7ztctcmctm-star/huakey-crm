@@ -279,7 +279,8 @@ async function convertToPurchase(pool, planId, userId) {
 
     for (const [supplierId, groupItems] of Object.entries(groups)) {
       const orderNo = `PO-${dateStr}-${String(seq + createdOrderIds.length + 1).padStart(3, '0')}`;
-      const totalAmount = groupItems.reduce((s, i) => s + parseFloat(i.amount || 0), 0);
+      // 【#4 金额统一】采购单总额必须走 money.js，禁止浮点求和后写入 DECIMAL 列
+      const totalAmount = money.sum(groupItems.map(i => i.amount || 0));
 
       const [orderResult] = await conn.query(
         `INSERT INTO crm_purchase_order (order_no, supplier_id, title, total_amount, status, create_by, create_time)
