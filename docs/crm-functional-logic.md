@@ -275,7 +275,7 @@
 | 9 | 公海/离职 | 离职释放与自动回收 SQL 不一致 | P3 | 已知差异 |
 | 10 | 智能化提醒 | boss 通知硬编码 `user_id=1` | P3 | 未修 |
 | 11 | 自动化 | `update_field` 白名单含 `'assignee'`（crm_customer 无此列，命中报错） | P3 | 刻意不改 |
-| 12 | 前端 api 命名 | finance→hr、follow-up→customer、payment→contract 错位 | P2 | 全局风险 |
+| 12 | 前端 api 命名 | finance→hr、follow-up→customer、payment→contract 错位 | P2 | ✅ 核查通过（非缺陷，2026-09-18） |
 | 13 | 回收站 | 后端齐全但前端无视图 | P3 | 待补 |
 | 14 | 邮件 | `syncEmails` 占位（不真正拉取 IMAP） | P2 | 待补 |
 | 15 | 问卷 | 启动活动未真实投放邮件/短信 | P3 | 待补 |
@@ -286,6 +286,8 @@
 | 20 | 审批前端 | 折扣类型重复选项 | P3 | UI 残留 |
 
 > **#4 剩余项（未修）**：报表/财务分析（`financeService`/`reportAnalyticsService`/`analysisService`/`customerDetailService`）与回款统计汇总中的浮点求和目前**只用于展示/比较、不写回 DECIMAL 列**，故未强制改造；若后续在这些路径新增「计算后入库」逻辑，须改走 `money.js`。合同 `amount` 无后端计算，属前端直传。
+
+> **#12 核查结论（2026-09-18，非缺陷）**：原判「api 命名错位」经全量交叉核验**不成立**。脚本统计后端挂载前缀 **60 个**（含 `ModuleRegistry` 动态注册的 `/product`、`/report`、`/data-quality`），前端 30 个 api 文件的所有 URL **0 处断链**。实际情况：`hr.js` 同时定义 `/hr/*` 与 `/finance/*`（HR+财务聚合，URL 各自正确）；`customer.js` 内含 `/follow-up/*`（后端 `/follow-up` 为独立路由 app.js:327，URL 正确，仅文件归属不直观）；`contract.js` 内含 `/contract/payment/*`（后端回款确实挂在该前缀，归属正确）。**结论：属合理文件聚合，无断链、无错路由。**
 
 ---
 
