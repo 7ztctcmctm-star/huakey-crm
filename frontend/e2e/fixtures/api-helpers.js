@@ -508,3 +508,68 @@ export async function listCustomers(request, csrfToken, params = {}) {
   })
   return res.json()
 }
+
+// ============ 销售资料库（R-16）============
+// 后端为 RESTful（POST/PUT/DELETE /knowledge/{scripts,faqs}(/:id)）；
+// 不存在 /scripts/add、/scripts/update、/scripts/delete 等动词端点（历史 bug 已修）。
+
+/** 创建销售话术（POST /knowledge/scripts） */
+export async function createKnowledgeScript(request, csrfToken, data) {
+  const res = await request.post('/api/v1/knowledge/scripts', {
+    data: { title: data.title, content: data.content, scene: data.scene || '' },
+    headers: { 'X-CSRF-Token': csrfToken }
+  })
+  return res.json()
+}
+
+/** 删除销售话术（DELETE /knowledge/scripts/:id） */
+export async function deleteKnowledgeScript(request, csrfToken, id) {
+  const res = await request.delete(`/api/v1/knowledge/scripts/${id}`, {
+    headers: { 'X-CSRF-Token': csrfToken }
+  })
+  return res.json()
+}
+
+/** 创建常见问题（POST /knowledge/faqs） */
+export async function createKnowledgeFaq(request, csrfToken, data) {
+  const res = await request.post('/api/v1/knowledge/faqs', {
+    data: { question: data.question, answer: data.answer, category: data.category || '' },
+    headers: { 'X-CSRF-Token': csrfToken }
+  })
+  return res.json()
+}
+
+/** 删除常见问题（DELETE /knowledge/faqs/:id） */
+export async function deleteKnowledgeFaq(request, csrfToken, id) {
+  const res = await request.delete(`/api/v1/knowledge/faqs/${id}`, {
+    headers: { 'X-CSRF-Token': csrfToken }
+  })
+  return res.json()
+}
+
+// ============ 审批规则（阈值→审批人，R-11）============
+
+/** 创建审批规则（POST /approval/rules） */
+export async function createApprovalRule(request, csrfToken, data) {
+  const res = await request.post('/api/v1/approval/rules', {
+    data: {
+      business_type: data.businessType || 'contract',
+      min_amount: data.minAmount ?? 0,
+      max_amount: data.maxAmount ?? null,
+      approver_type: data.approverType || 'manager',
+      approver_ref: data.approverRef ?? null,
+      priority: data.priority ?? 0,
+      description: data.description || 'E2E 自动创建'
+    },
+    headers: { 'X-CSRF-Token': csrfToken }
+  })
+  return res.json()
+}
+
+/** 删除审批规则（DELETE /approval/rules/:id） */
+export async function deleteApprovalRule(request, csrfToken, id) {
+  const res = await request.delete(`/api/v1/approval/rules/${id}`, {
+    headers: { 'X-CSRF-Token': csrfToken }
+  })
+  return res.json()
+}
