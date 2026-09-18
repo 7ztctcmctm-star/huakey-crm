@@ -74,7 +74,6 @@ const documentUpdateSchema = Joi.object({
   description: Joi.string().max(1000).allow('', null)
 });
 
-const requireAdmin = require('../middleware/admin');
 const logger = require('../config/logger');
 
 // 文件上传配置（multer 中间件留在路由层）
@@ -694,7 +693,7 @@ router.get('/products/:id', authenticateToken, checkPermission('knowledge'), asy
   }
 });
 
-router.post('/products', authenticateToken, requireAdmin, validate(productSchema), async (req, res, next) => {
+router.post('/products', authenticateToken, checkPermission('knowledge'), validate(productSchema), async (req, res, next) => {
   try {
     if (!req.body.name || !req.body.name.trim()) return res.status(400).json({ code: 400, message: '产品名称不能为空', data: null });
     const result = await knowledgeService.createProduct(pool, req.body, req.user.userId);
@@ -706,7 +705,7 @@ router.post('/products', authenticateToken, requireAdmin, validate(productSchema
   }
 });
 
-router.put('/products/:id', authenticateToken, requireAdmin, validate(productUpdateSchema), async (req, res, next) => {
+router.put('/products/:id', authenticateToken, checkPermission('knowledge'), validate(productUpdateSchema), async (req, res, next) => {
   try {
     await knowledgeService.updateProduct(pool, req.params.id, req.body);
     res.json({ code: 200, message: '更新成功', data: null });
@@ -716,7 +715,7 @@ router.put('/products/:id', authenticateToken, requireAdmin, validate(productUpd
   }
 });
 
-router.delete('/products/:id', authenticateToken, requireAdmin, async (req, res, next) => {
+router.delete('/products/:id', authenticateToken, checkPermission('knowledge'), async (req, res, next) => {
   try {
     await knowledgeService.deleteProduct(pool, req.params.id);
     await invalidateCache(['cache:*:/api/knowledge/*']);
@@ -727,7 +726,7 @@ router.delete('/products/:id', authenticateToken, requireAdmin, async (req, res,
   }
 });
 
-router.post('/products/:id/images', authenticateToken, requireAdmin, uploadImg.array('images', 9), validate(emptySchema), async (req, res, next) => {
+router.post('/products/:id/images', authenticateToken, checkPermission('knowledge'), uploadImg.array('images', 9), validate(emptySchema), async (req, res, next) => {
   try {
     const filePaths = req.files.map(f => `/uploads/knowledge/${f.filename}`);
     const allImages = await knowledgeService.addProductImages(pool, req.params.id, filePaths);
@@ -771,7 +770,7 @@ router.get('/scripts/:id', authenticateToken, checkPermission('knowledge'), asyn
   }
 });
 
-router.post('/scripts', authenticateToken, validate(scriptSchema), async (req, res, next) => {
+router.post('/scripts', authenticateToken, checkPermission('knowledge'), validate(scriptSchema), async (req, res, next) => {
   try {
     if (!req.body.title || !req.body.title.trim()) return res.status(400).json({ code: 400, message: '话术标题不能为空', data: null });
     if (!req.body.content || !req.body.content.trim()) return res.status(400).json({ code: 400, message: '话术内容不能为空', data: null });
@@ -784,7 +783,7 @@ router.post('/scripts', authenticateToken, validate(scriptSchema), async (req, r
   }
 });
 
-router.put('/scripts/:id', authenticateToken, validate(scriptUpdateSchema), async (req, res, next) => {
+router.put('/scripts/:id', authenticateToken, checkPermission('knowledge'), validate(scriptUpdateSchema), async (req, res, next) => {
   try {
     await knowledgeService.updateScript(pool, req.params.id, req.body);
     await invalidateCache(['cache:*:/api/knowledge/*']);
@@ -839,7 +838,7 @@ router.get('/faqs/:id', authenticateToken, checkPermission('knowledge'), async (
   }
 });
 
-router.post('/faqs', authenticateToken, validate(faqSchema), async (req, res, next) => {
+router.post('/faqs', authenticateToken, checkPermission('knowledge'), validate(faqSchema), async (req, res, next) => {
   try {
     if (!req.body.question || !req.body.question.trim()) return res.status(400).json({ code: 400, message: '问题不能为空', data: null });
     if (!req.body.answer || !req.body.answer.trim()) return res.status(400).json({ code: 400, message: '答案不能为空', data: null });
@@ -852,7 +851,7 @@ router.post('/faqs', authenticateToken, validate(faqSchema), async (req, res, ne
   }
 });
 
-router.put('/faqs/:id', authenticateToken, validate(faqUpdateSchema), async (req, res, next) => {
+router.put('/faqs/:id', authenticateToken, checkPermission('knowledge'), validate(faqUpdateSchema), async (req, res, next) => {
   try {
     await knowledgeService.updateFaq(pool, req.params.id, req.body);
     await invalidateCache(['cache:*:/api/knowledge/*']);
@@ -907,7 +906,7 @@ router.get('/documents/:id', authenticateToken, checkPermission('knowledge'), as
   }
 });
 
-router.post('/documents', authenticateToken, uploadDoc.single('file'), validate(documentSchema), async (req, res, next) => {
+router.post('/documents', authenticateToken, checkPermission('knowledge'), uploadDoc.single('file'), validate(documentSchema), async (req, res, next) => {
   try {
     const { name, type, description } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ code: 400, message: '文档名称不能为空', data: null });
@@ -929,7 +928,7 @@ router.post('/documents', authenticateToken, uploadDoc.single('file'), validate(
   }
 });
 
-router.put('/documents/:id', authenticateToken, validate(documentUpdateSchema), async (req, res, next) => {
+router.put('/documents/:id', authenticateToken, checkPermission('knowledge'), validate(documentUpdateSchema), async (req, res, next) => {
   try {
     await knowledgeService.updateDocument(pool, req.params.id, req.body);
     await invalidateCache(['cache:*:/api/knowledge/*']);

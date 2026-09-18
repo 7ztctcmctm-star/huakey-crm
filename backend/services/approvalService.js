@@ -311,12 +311,15 @@ async function transferApproval(pool, recordId, toUserId, remark, userId, manage
 
 async function getMyCompleted(pool, userId) {
   const results = [];
+  // [安全] types 为代码内硬编码常量，非用户输入；表名在 BUSINESS_TABLE_MAP 白名单内
   const types = [
     { type: 'quote', table: 'crm_quote', no: 'quote_no' },
     { type: 'contract', table: 'crm_contract', no: 'contract_no' },
     { type: 'purchase', table: 'crm_purchase_order', no: 'order_no' }
   ];
   for (const t of types) {
+    // [安全] 表名/业务类型/字段名均来自上方常量数组，非用户输入；仅 userId 参数化
+    validateTable(t.table);
     const [rows] = await pool.query(
       `SELECT '${t.type}' as business_type, q.id as business_id, q.${t.no} as business_title,
              q.approval_status, q.create_time, q.amount, q.discount,
@@ -524,12 +527,15 @@ async function getMyPending(pool, userId) {
 
 async function getMySubmitted(pool, userId) {
   const results = [];
+  // [安全] types 为代码内硬编码常量，非用户输入；表名在 BUSINESS_TABLE_MAP 白名单内
   const types = [
     { type: 'quote', table: 'crm_quote', no: 'quote_no' },
     { type: 'contract', table: 'crm_contract', no: 'contract_no' },
     { type: 'purchase', table: 'crm_purchase_order', no: 'order_no' }
   ];
   for (const t of types) {
+    // [安全] 表名/业务类型/字段名均来自上方常量数组，非用户输入；仅 userId 参数化
+    validateTable(t.table);
     const [rows] = await pool.query(`
       SELECT '${t.type}' as business_type, q.id as business_id, q.${t.no} as business_title,
              q.approval_status, q.create_time,
@@ -547,28 +553,42 @@ async function getMySubmitted(pool, userId) {
 }
 
 // ============ 批量操作 ============
+// [安全] 逐条独立事务 + FOR UPDATE 锁行，防止 TOCTOU 竞态；
+//        role 类型步骤用 resolveRoleApproverId 解析，与单条 approveRecord 保持一致
 
 async function batchApprove(pool, ids, remark, userId, manageAll) {
   let success = 0, failed = 0;
   for (const id of ids) {
     const conn = await pool.getConnection();
     try {
-      const [records] = await pool.query('SELECT id, workflow_id, business_type, business_id, step_id, step_order, approver_id, status FROM crm_approval_record WHERE id = ? AND status = "pending"', [id]);
-      if (records.length === 0) { failed++; continue; }
-      const record = records[0];
-      if (record.approver_id !== userId && !manageAll) { failed++; continue; }
-
       await conn.beginTransaction();
+      // [安全] 在事务内用 conn + FOR UPDATE 读取，防止并发竞态
+      const [records] = await conn.query(
+        'SELECT id, workflow_id, business_type, business_id, step_id, step_order, approver_id, status FROM crm_approval_record WHERE id = ? AND status = "pending" FOR UPDATE',
+        [id]
+      );
+      if (records.length === 0) { await conn.rollback(); failed++; continue; }
+      const record = records[0];
+      if (record.approver_id !== userId && !manageAll) { await conn.rollback(); failed++; continue; }
+
       await conn.query('UPDATE crm_approval_record SET status = "approved", remark = ? WHERE id = ?', [remark || null, id]);
-      const [nextSteps] = await pool.query('SELECT id, workflow_id, step_order, step_name, approver_type, approver_id, is_required FROM crm_approval_step WHERE workflow_id = ? AND step_order > ? ORDER BY step_order LIMIT 1', [record.workflow_id, record.step_order]);
+
+      // [安全] 事务内查询 nextStep，用 conn 而非 pool
+      const [nextSteps] = await conn.query(
+        'SELECT id, workflow_id, step_order, step_name, approver_type, approver_id, is_required FROM crm_approval_step WHERE workflow_id = ? AND step_order > ? ORDER BY step_order LIMIT 1',
+        [record.workflow_id, record.step_order]
+      );
       const tableName = BUSINESS_TABLE_MAP[record.business_type];
 
       if (nextSteps.length > 0) {
         const nextStep = nextSteps[0];
         let nextApproverId = nextStep.approver_id;
         if (nextStep.approver_type === 'manager') {
-          const [user] = await pool.query('SELECT manager_id FROM sys_user WHERE id = ?', [record.approver_id]);
+          const [user] = await conn.query('SELECT manager_id FROM sys_user WHERE id = ?', [record.approver_id]);
           if (user.length > 0 && user[0].manager_id) nextApproverId = user[0].manager_id;
+        } else if (nextStep.approver_type === 'role') {
+          // [修复] role 步骤的 approver_id 是角色 id，须解析为在职用户（同单条 approveRecord L402-404）
+          nextApproverId = await resolveRoleApproverId(conn, nextStep);
         }
         await conn.query('INSERT INTO crm_approval_record (workflow_id, business_type, business_id, step_id, step_order, approver_id) VALUES (?, ?, ?, ?, ?, ?)',
           [record.workflow_id, record.business_type, record.business_id, nextStep.id, nextStep.step_order, nextApproverId]);
@@ -576,7 +596,7 @@ async function batchApprove(pool, ids, remark, userId, manageAll) {
         await conn.query(`UPDATE ${validateTable(tableName)} SET approval_status = 2 WHERE id = ?`, [record.business_id]);
       }
       await conn.commit(); success++;
-    } catch (e) { await conn.rollback(); failed++; } finally { conn.release(); }
+    } catch (e) { try { await conn.rollback(); } catch (_) { /* 已回滚则忽略 */ } failed++; } finally { conn.release(); }
   }
   return { success, failed };
 }
@@ -586,17 +606,21 @@ async function batchReject(pool, ids, remark, userId, manageAll) {
   for (const id of ids) {
     const conn = await pool.getConnection();
     try {
-      const [records] = await pool.query('SELECT id, workflow_id, business_type, business_id, step_id, step_order, approver_id, status FROM crm_approval_record WHERE id = ? AND status = "pending"', [id]);
-      if (records.length === 0) { failed++; continue; }
-      const record = records[0];
-      if (record.approver_id !== userId && !manageAll) { failed++; continue; }
-
       await conn.beginTransaction();
+      // [安全] 在事务内用 conn + FOR UPDATE 读取，防止并发竞态
+      const [records] = await conn.query(
+        'SELECT id, workflow_id, business_type, business_id, step_id, step_order, approver_id, status FROM crm_approval_record WHERE id = ? AND status = "pending" FOR UPDATE',
+        [id]
+      );
+      if (records.length === 0) { await conn.rollback(); failed++; continue; }
+      const record = records[0];
+      if (record.approver_id !== userId && !manageAll) { await conn.rollback(); failed++; continue; }
+
       await conn.query('UPDATE crm_approval_record SET status = "rejected", remark = ? WHERE id = ?', [remark || null, id]);
       const tableName = BUSINESS_TABLE_MAP[record.business_type];
       await conn.query(`UPDATE ${validateTable(tableName)} SET approval_status = 3 WHERE id = ?`, [record.business_id]);
       await conn.commit(); success++;
-    } catch (e) { await conn.rollback(); failed++; } finally { conn.release(); }
+    } catch (e) { try { await conn.rollback(); } catch (_) { /* 已回滚则忽略 */ } failed++; } finally { conn.release(); }
   }
   return { success, failed };
 }

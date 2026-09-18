@@ -305,12 +305,7 @@ router.get('/workflows', authenticateToken, checkPermission('approval'), async (
 router.post('/workflows', authenticateToken, checkPermission('approval'), validate(createWorkflowSchema), async (req, res, next) => {
   try {
     const { name, type, description, steps } = req.body;
-    if (!name || !name.trim()) return res.status(400).json({ code: 400, message: '流程名称不能为空', data: null });
-    if (!type) return res.status(400).json({ code: 400, message: '流程类型不能为空', data: null });
-    if (!steps || steps.length === 0) return res.status(400).json({ code: 400, message: '至少需要一个审批步骤', data: null });
-    const validTypes = ['quote', 'contract', 'purchase', 'discount'];
-    if (!validTypes.includes(type)) return res.status(400).json({ code: 400, message: '无效的流程类型', data: null });
-
+    // [已由 Joi createWorkflowSchema 校验] name required/trim/max100, type required/valid, steps min(1)
     const result = await approvalService.createWorkflow(pool, { name, type, description, steps }, req.user.userId);
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
@@ -347,11 +342,11 @@ router.delete('/workflows/:id', authenticateToken, checkPermission('approval'), 
 router.post('/submit', authenticateToken, checkPermission('approval'), validate(submitApprovalSchema), async (req, res, next) => {
   try {
     const { business_type, business_id } = req.body;
-    if (!business_type || !business_id) return res.status(400).json({ code: 400, message: '业务类型和ID不能为空', data: null });
+    // [已由 Joi submitApprovalSchema 校验] business_type required/valid, business_id required/integer
     await approvalService.submitApproval(pool, business_type, business_id, req.user.userId);
     res.json({ code: 200, message: '已提交审批', data: null });
   } catch (error) {
-    const status = error.status || error.httpStatus || error.code || 500;
+    const status = error.httpStatus || error.status || 500;
     logger.error('[审批] 提交审批失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
   }
@@ -363,7 +358,7 @@ router.post('/approve/:id', authenticateToken, checkPermission('approval'), vali
     const result = await approvalService.approveRecord(pool, req.params.id, req.body.remark, req.user.userId, req.user.manageAll);
     res.json({ code: 200, message: '审批通过', data: result });
   } catch (error) {
-    const status = error.status || error.httpStatus || error.code || 500;
+    const status = error.httpStatus || error.status || 500;
     logger.error('[审批] 审批通过失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
   }
@@ -375,7 +370,7 @@ router.post('/reject/:id', authenticateToken, checkPermission('approval'), valid
     await approvalService.rejectRecord(pool, req.params.id, req.body.remark, req.user.userId, req.user.manageAll);
     res.json({ code: 200, message: '已驳回', data: null });
   } catch (error) {
-    const status = error.status || error.httpStatus || error.code || 500;
+    const status = error.httpStatus || error.status || 500;
     logger.error('[审批] 驳回失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
   }
@@ -388,7 +383,7 @@ router.delete('/withdraw/:business_type/:business_id', authenticateToken, checkP
     await approvalService.withdrawApproval(pool, business_type, business_id, req.user.userId);
     res.json({ code: 200, message: '审批已撤回', data: null });
   } catch (error) {
-    const status = error.status || error.httpStatus || error.code || 500;
+    const status = error.httpStatus || error.status || 500;
     logger.error('[审批] 撤回审批失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
   }
@@ -444,7 +439,7 @@ router.get('/my-submitted', authenticateToken, checkPermission('approval'), asyn
 router.post('/batch-approve', authenticateToken, checkPermission('approval'), validate(batchApprovalSchema), async (req, res, next) => {
   try {
     const { ids, remark } = req.body;
-    if (!ids || !Array.isArray(ids) || ids.length === 0) return res.status(400).json({ code: 400, message: '请选择要审批的记录', data: null });
+    // [已由 Joi batchApprovalSchema 校验] ids array min(1) items(integer)
     const result = await approvalService.batchApprove(pool, ids, remark, req.user.userId, req.user.manageAll);
     res.json({ code: 200, message: `批量审批完成：成功${result.success}条，失败${result.failed}条`, data: result });
   } catch (error) {
@@ -457,7 +452,7 @@ router.post('/batch-approve', authenticateToken, checkPermission('approval'), va
 router.post('/batch-reject', authenticateToken, checkPermission('approval'), validate(batchApprovalSchema), async (req, res, next) => {
   try {
     const { ids, remark } = req.body;
-    if (!ids || !Array.isArray(ids) || ids.length === 0) return res.status(400).json({ code: 400, message: '请选择要驳回的记录', data: null });
+    // [已由 Joi batchApprovalSchema 校验] ids array min(1) items(integer)
     const result = await approvalService.batchReject(pool, ids, remark, req.user.userId, req.user.manageAll);
     res.json({ code: 200, message: `批量驳回完成：成功${result.success}条，失败${result.failed}条`, data: result });
   } catch (error) {
@@ -486,7 +481,7 @@ router.post('/rules', authenticateToken, checkPermission('approval'), validate(c
     const result = await approvalService.createApprovalRule(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
-    const status = error.status || error.httpStatus || error.code || 500;
+    const status = error.httpStatus || error.status || 500;
     logger.error('[审批] 创建规则失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
   }
@@ -498,7 +493,7 @@ router.put('/rules/:id', authenticateToken, checkPermission('approval'), validat
     await approvalService.updateApprovalRule(pool, req.params.id, req.body);
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
-    const status = error.status || error.httpStatus || error.code || 500;
+    const status = error.httpStatus || error.status || 500;
     logger.error('[审批] 更新规则失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
   }
@@ -523,7 +518,7 @@ router.post('/transfer/:id', authenticateToken, checkPermission('approval'), val
     const result = await approvalService.transferApproval(pool, req.params.id, to_user_id, remark, req.user.userId, req.user.manageAll);
     res.json({ code: 200, message: '转交成功', data: result });
   } catch (error) {
-    const status = error.status || error.httpStatus || error.code || 500;
+    const status = error.httpStatus || error.status || 500;
     logger.error('[审批] 转交失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
   }
@@ -549,7 +544,7 @@ router.get('/detail-full/:business_type/:business_id', authenticateToken, checkP
     const data = await approvalService.getApprovalDetailFull(pool, business_type, business_id);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
-    const status = error.status || error.httpStatus || error.code || 500;
+    const status = error.httpStatus || error.status || 500;
     logger.error('[审批] 获取审批完整详情失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
   }

@@ -43,7 +43,7 @@ router.post('/records', authenticateToken, checkPermission('social'), validate(s
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
     logger.error('[社媒] 创建记录失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.status || error.httpStatus || error.code || 500;
+    const status = error.httpStatus || error.status || 500;
     res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
   }
 });
@@ -55,7 +55,7 @@ router.put('/records/:id', authenticateToken, checkPermission('social'), validat
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
     logger.error('[社媒] 更新记录失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.status || error.httpStatus || error.code || 500;
+    const status = error.httpStatus || error.status || 500;
     res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
   }
 });
@@ -67,7 +67,7 @@ router.delete('/records/:id', authenticateToken, checkPermission('social'), asyn
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     logger.error('[社媒] 删除记录失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.status || error.httpStatus || error.code || 500;
+    const status = error.httpStatus || error.status || 500;
     res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
   }
 });

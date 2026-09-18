@@ -86,7 +86,7 @@ router.post('/add', authenticateToken, checkPermission('customer:edit'), validat
     res.json({ code: 200, message: '添加跟进记录成功', data: result });
   } catch (error) {
     logger.error('添加跟进记录错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.code && typeof error.code === 'number' ? error.code : 500;
+    const status = error.httpStatus || error.status || 500;
     res.status(status).json({ code: status, message: error.message || '添加跟进记录失败', data: null });
   }
 });
@@ -181,7 +181,7 @@ router.post('/update', authenticateToken, checkPermission('customer:edit'), vali
     res.json({ code: 200, message: '修改跟进记录成功', data: null });
   } catch (error) {
     logger.error('修改跟进记录错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.code && typeof error.code === 'number' ? error.code : 500;
+    const status = error.httpStatus || error.status || 500;
     res.status(status).json({ code: status, message: error.message || '修改跟进记录失败', data: null });
   }
 });
@@ -193,7 +193,7 @@ router.post('/delete', authenticateToken, checkPermission('customer:delete'), va
     res.json({ code: 200, message: '删除跟进记录成功', data: null });
   } catch (error) {
     logger.error('删除跟进记录错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.code && typeof error.code === 'number' ? error.code : 500;
+    const status = error.httpStatus || error.status || 500;
     res.status(status).json({ code: status, message: error.message || '删除跟进记录失败', data: null });
   }
 });
@@ -222,7 +222,7 @@ router.post('/plan/add', authenticateToken, checkPermission('customer:edit'), va
     res.json({ code: 200, message: '创建跟进计划成功', data: { id: result.id } });
   } catch (error) {
     logger.error('创建跟进计划错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.code && typeof error.code === 'number' ? error.code : 500;
+    const status = error.httpStatus || error.status || 500;
     res.status(status).json({ code: status, message: error.message || '创建跟进计划失败', data: null });
   }
 });
@@ -246,7 +246,7 @@ router.post('/plan/complete', authenticateToken, checkPermission('customer:edit'
     res.json({ code: 200, message: '跟进计划已完成', data: null });
   } catch (error) {
     logger.error('完成跟进计划错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.code && typeof error.code === 'number' ? error.code : 500;
+    const status = error.httpStatus || error.status || 500;
     res.status(status).json({ code: status, message: error.message || '完成跟进计划失败', data: null });
   }
 });
@@ -260,7 +260,7 @@ router.post('/plan/cancel', authenticateToken, validate(followPlanCancelSchema),
     res.json({ code: 200, message: '跟进计划已取消', data: null });
   } catch (error) {
     logger.error('取消跟进计划错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.code && typeof error.code === 'number' ? error.code : 500;
+    const status = error.httpStatus || error.status || 500;
     res.status(status).json({ code: status, message: error.message || '取消跟进计划失败', data: null });
   }
 });

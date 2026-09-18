@@ -33,7 +33,7 @@ router.post('/create', authenticateToken, checkPermission('backup:add'), require
     res.json({ code: 200, message: '备份任务已创建，正在后台执行', data: result });
   } catch (error) {
     logger.error('[备份] 创建备份失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.status || error.httpStatus || error.code || 500;
+    const status = error.httpStatus || error.status || 500;
     res.status(status).json({ code: status, message: error.message || '服务器内部错误', data: null });
   }
 });
@@ -58,7 +58,7 @@ router.post('/restore', authenticateToken, checkPermission('backup:restore'), re
     res.json({ code: 200, message: '恢复任务已执行', data: null });
   } catch (error) {
     logger.error('[备份] 恢复备份失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.status || error.httpStatus || error.code || 500;
+    const status = error.httpStatus || error.status || 500;
     res.status(status).json({ code: status, message: error.message || '恢复失败', data: null });
   }
 });
@@ -83,7 +83,7 @@ router.post('/delete', authenticateToken, checkPermission('backup:add'), require
     res.json({ code: 200, message: '备份已删除', data: null });
   } catch (error) {
     logger.error('[备份] 删除备份失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.status || error.httpStatus || error.code || 500;
+    const status = error.httpStatus || error.status || 500;
     res.status(status).json({ code: status, message: error.message || '删除失败', data: null });
   }
 });

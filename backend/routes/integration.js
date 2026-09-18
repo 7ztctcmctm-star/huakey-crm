@@ -40,7 +40,7 @@ router.post('/update', authenticateToken, checkPermission('system'), validate(in
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
     logger.error('集成配置更新错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.status || error.httpStatus || error.code || 500;
+    const status = error.httpStatus || error.status || 500;
     res.status(status).json({ code: status, message: error.message || '更新失败', data: null });
   }
 });
@@ -63,7 +63,7 @@ router.post('/send-email', authenticateToken, checkPermission('system'), validat
     res.json({ code: 200, message: '邮件发送成功', data: null });
   } catch (error) {
     logger.error('邮件发送错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    const status = error.status || error.httpStatus || error.code || 500;
+    const status = error.httpStatus || error.status || 500;
     res.status(status).json({ code: status, message: error.message || '邮件发送失败', data: null });
   }
 });
