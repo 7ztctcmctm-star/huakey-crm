@@ -5,6 +5,8 @@
 
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
+// 【#16】业务事件派发（Webhook）
+const webhookDispatcher = require('./webhookDispatcher');
 
 // 合同状态映射（统一权威定义，详见 docs/contract-status-definition.md）
 // 1=待执行(默认,新建)  2=执行中  3=已完成(终态,不可变更)  4=已取消(终态)
@@ -227,6 +229,13 @@ async function createContract(pool, data, createBy) {
     }
 
     await connection.commit();
+
+    // 【#16】合同创建事件派发（事务提交后、非阻塞；失败不影响建合同结果）
+    webhookDispatcher.dispatch(pool, 'contract.signed', {
+      contract_id: contractId, contract_no: contractNo,
+      customer_id, opportunity_id: opportunity_id || null, quote_id: quote_id || null, amount
+    }).catch(() => { /* 派发器内部已记日志，此处仅兜底吞异常 */ });
+
     return { id: contractId, contract_no: contractNo };
   } catch (error) {
     await connection.rollback();

@@ -7,6 +7,8 @@ const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
 // 【#4 金额统一】回款金额一律走 money 工具，禁止浮点运算后写入 DECIMAL 列
 const money = require('../utils/money');
+// 【#16】业务事件派发（Webhook）
+const webhookDispatcher = require('./webhookDispatcher');
 
 /**
  * 重新计算回款计划的 paid_amount / status / overdue_days
@@ -141,6 +143,13 @@ async function recordPayment(pool, data) {
     }
 
     await conn.commit();
+
+    // 【#16】回款成功事件派发（事务提交后、非阻塞；失败不影响回款结果）
+    webhookDispatcher.dispatch(pool, 'payment.received', {
+      payment_id: result.insertId, contract_id, plan_id: plan_id || null,
+      pay_amount, pay_date, pay_method: pay_method || null
+    }).catch(() => { /* 派发器内部已记日志，此处仅兜底吞异常 */ });
+
     return { id: result.insertId };
   } catch (err) {
     await conn.rollback();

@@ -228,7 +228,7 @@
 | 邮件（email） | 个人账号 IMAP/SMTP 配置（aes-256-cbc 加密）+ 收发 + 自动关联客户；发送走 nodemailer | 收发/配置/关联/统计完整；**`syncEmails` 为占位（仅置状态，不真正拉取 IMAP）【待补】** |
 | 社媒（social） | 各平台与客户沟通记录台账，形成客户时间线 | 完整（纯手工录入，无平台 API） |
 | 集成（integration） | 系统级 SMTP 配置 + 测试发送 + 邮件日志（区别于个人账号） | 完整（仅邮件通道，"集成"命名偏宽） |
-| API 平台（api-platform） | API Key + Webhook 管理，Webhook 测试含 SSRF 防护 | 密钥/Webhook CRUD+测试完整；**业务事件→Webhook 主动派发逻辑未在本模块可见【待补】** |
+| API 平台（api-platform） | API Key + Webhook 管理，Webhook 测试含 SSRF 防护，**业务事件自动派发（已接线）** | 密钥/Webhook CRUD+测试+派发完整 |
 | 日历（calendar） | 个人/团队日程，关联客户/业务对象，提醒分钟数+参与人 | 完整（弹窗依赖 SSE/cron） |
 
 ---
@@ -279,7 +279,7 @@
 | 13 | 回收站 | 后端齐全但前端无视图 | P3 | 待补 |
 | 14 | 邮件 | `syncEmails` 占位（不真正拉取 IMAP） | P2 | 待补 |
 | 15 | 问卷 | 启动活动未真实投放邮件/短信 | P3 | 待补 |
-| 16 | API 平台 | Webhook 业务事件派发逻辑未接线 | P2 | 待补 |
+| 16 | API 平台 | Webhook 业务事件派发逻辑未接线 | P2 | ✅ 已修(2026-09-18) |
 | 17 | 财务 | 供应商对账 `paid_amount` 恒为 0 | P2 | ✅ 已修(2026-09-18) |
 | 18 | 财务 | 账龄用 sign_date 而非 plan_date，与回款逾期口径不符 | P3 | 未修 |
 | 19 | 采购申请/比价 | 与采购计划/采购单无代码级自动衔接 | P3 | 人工衔接 |
@@ -288,6 +288,18 @@
 > **#4 剩余项（未修）**：报表/财务分析（`financeService`/`reportAnalyticsService`/`analysisService`/`customerDetailService`）与回款统计汇总中的浮点求和目前**只用于展示/比较、不写回 DECIMAL 列**，故未强制改造；若后续在这些路径新增「计算后入库」逻辑，须改走 `money.js`。合同 `amount` 无后端计算，属前端直传。
 
 > **#12 核查结论（2026-09-18，非缺陷）**：原判「api 命名错位」经全量交叉核验**不成立**。脚本统计后端挂载前缀 **60 个**（含 `ModuleRegistry` 动态注册的 `/product`、`/report`、`/data-quality`），前端 30 个 api 文件的所有 URL **0 处断链**。实际情况：`hr.js` 同时定义 `/hr/*` 与 `/finance/*`（HR+财务聚合，URL 各自正确）；`customer.js` 内含 `/follow-up/*`（后端 `/follow-up` 为独立路由 app.js:327，URL 正确，仅文件归属不直观）；`contract.js` 内含 `/contract/payment/*`（后端回款确实挂在该前缀，归属正确）。**结论：属合理文件聚合，无断链、无错路由。**
+
+> **#16 修复说明（2026-09-18）**
+> **原缺口**：Webhook 的 CRUD / 日志 / 手动 `/test` 发送 / SSRF 防护**均已存在**，但**业务事件发生时没有任何自动派发**——`insertWebhookLog` / `updateWebhookTrigger` 仅在手动 test 路径被调用，导致「订阅了事件却永远收不到」。前端 `api-platform.vue:144` 已定义 7 个事件名而后端从未使用。
+> **修复内容**：
+> 1. 新建 `backend/services/webhookDispatcher.js`，导出 `dispatch(pool, eventType, data)`：查 `crm_webhook`（`status=1 AND deleted_at IS NULL`）→ 按 `events` JSON 数组过滤订阅者 → 逐个 POST。复用 `/test` 的 SSRF 防护（仅 http/https + 内网/保留地址黑名单）、10s `AbortController` 超时、`X-Webhook-Secret` / `X-Webhook-Event` 头。
+> 2. 接入 2 处业务事件（均**事务 commit 后**、fire-and-forget、失败不影响主业务）：
+>    - `paymentService.recordPayment` → `payment.received`
+>    - `contractService.createContract` → `contract.signed`
+> 3. 全程 **fail-safe**：内部 try/catch 吞掉一切异常，`dispatch` 绝不 throw。
+> **返回值语义（重要）**：`dispatched` = **HTTP 2xx 投递成功**的条数。网络错误 / 超时 / SSRF 拒绝 / 对端非 2xx 均不计入，但都会在 `crm_webhook_log` 留下 `failed`/`timeout` 记录并 `fail_count++`。
+> **⚠️ 未接入的事件（4 个）**：前端定义的 `customer.created`、`customer.updated`、`contract.completed`、`opportunity.won`、`opportunity.lost` 中，**除已接的 `contract.signed`/`payment.received` 外，其余 5 个仍是「可订阅但不会自动触发」状态**——均为待接线项，派发器已就绪，后续在各服务对应写入点加一行 `dispatch` 即可。
+> **验证**：新增 `backend/tests/webhookDispatcher.test.js` **18 条用例全绿**（含 parseEvents 容错 4、isUrlAllowed 5、dispatch 9）；对 `paymentService`/`contractService` 回归 **23/23 通过**；ESLint `--max-warnings=0` EXIT 0。已做**反向验证**：按行号注入 `return true`（伪造成功）→ 测试如期失败（`Expected: 0 / Received: 1`），恢复后复跑全绿。
 
 ---
 
@@ -298,7 +310,7 @@
 | 核心 CRM 域 | 客户/线索/公海/跟进/商机/报价/合同/回款/审批/权限/ Dashboard | 回收站（前端缺失） |
 | 采购域 | 库存/采购单/计划/申请/比价/供应商/产品/货币/竞品 | 供应商评分随机抖动 hack |
 | 协同赋能 | AI 助手/知识库/服务工单/报表/分析/自定义报表 | 知识库产品缓存、团队看板硬编码 |
-| 外部协同 | 社媒/集成/API平台/日历 | 邮件同步、问卷投放、Webhook 派发 |
+| 外部协同 | 社媒/集成/API平台(含Webhook派发)/日历 | 邮件同步、问卷投放 |
 | 系统支撑 | 配置/日志/备份/上传/搜索/HR/数据质量/cron/SSE | 供应商付款录入、备份依赖环境客户端 |
 
 ---
