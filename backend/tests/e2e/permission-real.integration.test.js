@@ -41,8 +41,53 @@ const userIds = {};
 const tokens = {};
 let permIds = {};
 
+/**
+ * ⭐ 基线快照 —— afterAll 只清理"本测试新建"的行、并还原"本测试删除"的行。
+ *
+ * 背景（历史缺陷，见 docs/ci-failure-analysis-2026-09-20.md §10.4）：
+ * 原 afterAll 按 **code** 删除 sys_permission / sys_role_permission，会把基线里本来就有的
+ * 同名记录一并删掉（实测把本机 sys_permission 由 114 删到 108、sys_role_permission 由 315 删到 300）；
+ * 且 beforeAll 第 4b 步删掉 role 3 的 approval 关联后**从不还原**。
+ * 这类"删了不还"的副作用在 CI 一次性库上无害，但会破坏本机/共享库的基线数据。
+ */
+const baseline = {
+  permissionIds: new Set(), // 测试开始前，这 6 个权限码下已存在的 sys_permission.id
+  permissionRows: new Map(), // id -> {name, type, parent_id}：步骤 3 的 ON DUPLICATE KEY UPDATE 会覆盖 name，需还原
+  rolePerms: new Set(), // 测试开始前，受影响角色×这 6 个权限码 已存在的关联（'roleId:permId'）
+  removedRolePerms: [], // 本测试主动删除的关联（4b），afterAll 需还原
+  dataPerm: null // 测试开始前 (role 3, customer) 的 data_scope；null 表示原本不存在
+};
+
+async function captureBaseline() {
+  const codes = PERMISSIONS.map(p => p.code);
+  const roleIds = Object.keys(ROLE_PERMISSIONS).map(Number);
+
+  const [perms] = await pool.query(
+    `SELECT id, name, type, parent_id FROM sys_permission WHERE code IN (${codes.map(() => '?').join(',')})`, codes);
+  perms.forEach(r => {
+    baseline.permissionIds.add(r.id);
+    baseline.permissionRows.set(r.id, { name: r.name, type: r.type, parent_id: r.parent_id });
+  });
+
+  const [rps] = await pool.query(
+    `SELECT rp.role_id, rp.permission_id
+       FROM sys_role_permission rp
+       JOIN sys_permission p ON rp.permission_id = p.id
+      WHERE rp.role_id IN (${roleIds.map(() => '?').join(',')})
+        AND p.code IN (${codes.map(() => '?').join(',')})`,
+    [...roleIds, ...codes]);
+  rps.forEach(r => baseline.rolePerms.add(`${r.role_id}:${r.permission_id}`));
+
+  const [dp] = await pool.query(
+    `SELECT data_scope FROM sys_data_permission WHERE role_id = 3 AND module = 'customer'`);
+  baseline.dataPerm = dp.length ? dp[0].data_scope : null;
+}
+
 describe('权限链路测试（真实数据库）', () => {
   beforeAll(async () => {
+    // 0. 先记录基线（必须在任何写入之前）—— 决定 afterAll 能删什么、要还原什么
+    await captureBaseline();
+
     // 1. 确保角色存在
     await pool.query(
       `INSERT IGNORE INTO sys_role (id, name, code, description, status, view_all, manage_all)
@@ -106,11 +151,21 @@ describe('权限链路测试（真实数据库）', () => {
     // approvalService，并因审批记录不存在而返回 404（而非被权限层拦下）。
     // 显式 DELETE 让前提自洽，不依赖库的初始状态。
     // 用 JOIN 按 code 删除：sys_permission.code 未必有唯一约束，按 code 匹配可覆盖重复行。
-    await pool.query(
+    // ⚠️ 这是**破坏性**操作 ⇒ 先记下被删的行，afterAll 必须还原（否则会永久削弱基线角色的权限）。
+    const [removedRp] = await pool.query(
+      `SELECT rp.role_id, rp.permission_id
+         FROM sys_role_permission rp
+         JOIN sys_permission p ON rp.permission_id = p.id
+        WHERE rp.role_id = 3 AND p.code = 'approval'`
+    );
+    const [delResult] = await pool.query(
       `DELETE rp FROM sys_role_permission rp
        JOIN sys_permission p ON rp.permission_id = p.id
        WHERE rp.role_id = 3 AND p.code = 'approval'`
     );
+    if (delResult.affectedRows > 0) {
+      baseline.removedRolePerms.push(...removedRp.map(r => [r.role_id, r.permission_id]));
+    }
 
     // 5. 配置数据权限：sales 为 self 模式
     await pool.query(
@@ -133,23 +188,63 @@ describe('权限链路测试（真实数据库）', () => {
   });
 
   afterAll(async () => {
-    // 清理：先删关联表，再删权限和用户
-    const codes = PERMISSIONS.map(p => p.code);
-    if (codes.length > 0) {
-      const [perms] = await pool.query(
-        `SELECT id FROM sys_permission WHERE code IN (${codes.map(() => '?').join(',')})`, codes
+    // ⭐ 只清理"本测试新建"的行、并还原"本测试删除"的行 —— 绝不碰基线数据（见 §10.4）。
+    // 判据：新建 = 当前存在但不在 baseline.permissionIds 里的 id。
+
+    // 1. 还原 4b 主动删掉的 role 3 approval 关联
+    for (const [roleId, permId] of baseline.removedRolePerms) {
+      await pool.query(
+        `INSERT IGNORE INTO sys_role_permission (role_id, permission_id) VALUES (?, ?)`,
+        [roleId, permId]
       );
-      const pids = perms.map(p => p.id);
-      if (pids.length > 0) {
+    }
+
+    const createdPermIds = Object.values(permIds).filter(id => !baseline.permissionIds.has(id));
+
+    // 2. 只删"本测试新建"的角色权限关联（基线既有授权一律保留）
+    if (createdPermIds.length > 0) {
+      const [pairs] = await pool.query(
+        `SELECT role_id, permission_id FROM sys_role_permission
+          WHERE permission_id IN (${createdPermIds.map(() => '?').join(',')})`, createdPermIds
+      );
+      const toDelete = pairs.filter(r => !baseline.rolePerms.has(`${r.role_id}:${r.permission_id}`));
+      for (const r of toDelete) {
         await pool.query(
-          `DELETE FROM sys_role_permission WHERE permission_id IN (${pids.map(() => '?').join(',')})`, pids
-        );
-        await pool.query(
-          `DELETE FROM sys_permission WHERE id IN (${pids.map(() => '?').join(',')})`, pids
+          `DELETE FROM sys_role_permission WHERE role_id = ? AND permission_id = ?`,
+          [r.role_id, r.permission_id]
         );
       }
     }
-    await pool.query('DELETE FROM sys_data_permission WHERE role_id = 3 AND module = ?', ['customer']);
+
+    // 3. 只删"本测试新建"的权限行；基线已有的同名 code 行**保留**
+    if (createdPermIds.length > 0) {
+      await pool.query(
+        `DELETE FROM sys_permission WHERE id IN (${createdPermIds.map(() => '?').join(',')})`,
+        createdPermIds
+      );
+    }
+
+    // 4. 还原基线行的字段：步骤 3 的 ON DUPLICATE KEY UPDATE 会把基线行的 name 覆盖成本测试的名字
+    for (const [id, row] of baseline.permissionRows) {
+      await pool.query(
+        `UPDATE sys_permission SET name = ?, type = ?, parent_id = ? WHERE id = ?`,
+        [row.name, row.type, row.parent_id, id]
+      );
+    }
+
+    // 5. 还原 (role 3, customer) 的数据权限：基线有则改回原值，本来没有才删
+    if (baseline.dataPerm === null) {
+      await pool.query(
+        `DELETE FROM sys_data_permission WHERE role_id = 3 AND module = ?`, ['customer']
+      );
+    } else {
+      await pool.query(
+        `UPDATE sys_data_permission SET data_scope = ? WHERE role_id = 3 AND module = ?`,
+        [baseline.dataPerm, 'customer']
+      );
+    }
+
+    // 6. 清理测试用户
     for (const user of Object.values(USERS)) {
       await pool.query('DELETE FROM sys_user WHERE username = ?', [user.username]);
     }
@@ -238,6 +333,11 @@ describe('权限链路测试（真实数据库）', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.code).toBe(200);
+
+    // 清理：本用例创建的客户必须删掉（原实现漏了，会在库里留残留数据）
+    if (res.body.data && res.body.data.id) {
+      await pool.query('DELETE FROM crm_customer WHERE id = ?', [res.body.data.id]);
+    }
   });
 
   test('6. sales 访问 POST /api/v1/approval/approve/1 → 403（无 approval 权限）', async () => {
