@@ -50,6 +50,14 @@ app.use(express.json());
 const backupRoutes = require('../routes/backup');
 app.use('/api/v1/backup', backupRoutes);
 
+// [P1-5 补齐] 单元测试必须挂载错误处理中间件以捕获 next(error)
+// 依据：AGENTS.md 项目约束 + approval.test.js / auth.test.js / boundary.test.js 既有范式。
+// 漏挂的后果：路由内 next(error) 会落到 Express 默认错误处理器，返回 text/html，
+//             supertest 的 res.body 为空对象 ⇒ 所有断言 res.body.code 的用例恒得 undefined。
+const { appErrorHandler, globalErrorHandler } = require('../middleware/errorHandler');
+app.use(appErrorHandler);
+app.use(globalErrorHandler);
+
 const generateToken = () => {
   return jwt.sign({ userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
@@ -111,7 +119,7 @@ describe('数据备份模块', () => {
         .send({ id: 1, confirm_code: 'WRONG-CODE' });
 
       expect(res.status).toBe(400);
-      expect(res.body.code).toBe(400);
+      expect(res.body.code).toBe(400001); // VALIDATION_ERROR 业务码（errors/codes.js），口径同 import/currency/upload 测试
     });
 
     it('应该返回200当正常恢复备份', async () => {
