@@ -70,18 +70,21 @@ router.get('/sales-users', authenticateToken, checkPermission('customer:assign')
 router.get('/my-subordinates', authenticateToken, customerController.getMySubordinates);
 
 // ========== 分配规则管理 ==========
+// [2026-09-20] 4 个规则端点原仅 requireManager（无功能码）。requireManager 语义修正后
+//   会把它们放宽给**所有**经理；此处配对 checkPermission('customer:assign')，
+//   与同文件 /assign、/batch-assign、/auto-assign 同级 —— manager 持有该码，属有意放宽。
 
 // 获取分配规则列表
-router.get('/assign-rules', authenticateToken, requireManager, customerController.getAssignRules);
+router.get('/assign-rules', authenticateToken, checkPermission('customer:assign'), requireManager, customerController.getAssignRules);
 
 // 添加分配规则
-router.post('/assign-rules/add', authenticateToken, requireManager, validate(assignRuleSchema), customerController.createAssignRule);
+router.post('/assign-rules/add', authenticateToken, checkPermission('customer:assign'), requireManager, validate(assignRuleSchema), customerController.createAssignRule);
 
 // 更新分配规则
-router.post('/assign-rules/update', authenticateToken, requireManager, validate(updateAssignRuleSchema), customerController.updateAssignRule);
+router.post('/assign-rules/update', authenticateToken, checkPermission('customer:assign'), requireManager, validate(updateAssignRuleSchema), customerController.updateAssignRule);
 
 // 删除分配规则
-router.post('/assign-rules/delete', authenticateToken, requireManager, validate(deleteAssignRuleSchema), customerController.deleteAssignRule);
+router.post('/assign-rules/delete', authenticateToken, checkPermission('customer:assign'), requireManager, validate(deleteAssignRuleSchema), customerController.deleteAssignRule);
 
 // 轮询自动分配：将公海客户均匀分配给销售团队
 router.post('/auto-assign', authenticateToken, checkPermission('customer:assign'), requireManager, validate(autoAssignSchema), customerController.autoAssign);

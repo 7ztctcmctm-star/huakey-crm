@@ -5,6 +5,7 @@ const { authenticateToken } = require('../middleware/auth');
 
 const requireAdmin = require('../middleware/admin');
 const { requireManager } = require('../middleware/admin');
+const { checkPermission } = require('../middleware/permission');
 const currencyService = require('../services/currencyService');
 const { validate, Joi } = require('../middleware/validate');
 
@@ -46,8 +47,11 @@ router.put('/:id', authenticateToken, requireAdmin, validate(updateCurrencySchem
   }
 });
 
-// 删除货币（软删除，仅管理员/经理）
-router.delete('/:id', authenticateToken, requireManager, async (req, res, next) => {
+// 删除货币（软删除，仅管理员）
+// ⚠️ 配对 checkPermission('system:currency')（仅 boss 持有）：
+//    requireManager 语义修正后会放行 manager，若不配对会把「删除货币」放宽给部门经理；
+//    与同文件 PUT /:id 的 requireAdmin 级别保持一致（2026-09-20）。
+router.delete('/:id', authenticateToken, checkPermission('system:currency'), requireManager, async (req, res, next) => {
   try {
     await currencyService.deleteCurrency(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });

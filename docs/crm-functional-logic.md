@@ -285,7 +285,8 @@
 | 18 | 财务 | 账龄用 sign_date 而非 plan_date，与回款逾期口径不符 | P3 | 未修 |
 | 19 | 采购申请/比价 | 与采购计划/采购单无代码级自动衔接 | P3 | 人工衔接 |
 | 20 | 审批前端 | 折扣类型重复选项 | P3 | UI 残留 |
-| 21 | 权限闸门 | `requireManager` 只放行 `manageAll`/`super_admin`/`roleId===1`，**manager（`manage_all=0`）与 hr 角色被 403**；分析域 10 端点「manager 持有 `analysis` 权限、菜单可见却全 403」→ 已修；**另有 13 个路由文件仍为同型隐患**（清单见下方 #21 说明） | P2 | 🔶 分析域已修(2026-09-20)，余项待决策 |
+| 21 | 权限闸门 | `requireManager` 只放行 `manageAll`/`super_admin`/`roleId===1`，**manager（`manage_all=0`）被 403**；分析域 10 端点「manager 持有 `analysis` 权限、菜单可见却全 403」（并顺带补数据范围） | P2 | ✅ 已修(2026-09-20) |
+| 22 | 权限闸门 | 同上缺陷的**系统性扩散**：全库 **47 处** `requireManager` 挂载 / 15 个路由文件；中间件语义排除 manager ⇒ 约 **35 个**「角色已持有功能权限码 + 前端菜单可见」端点对**部门经理全部 403**（hr 角色亦被挡在自己模块外） | P2（可达的「功能不可用」而非越权） | ✅ 中间件与配对已修(2026-09-20)；`hr.js`(17 端点) 待产品决策 |
 
 > **#4 剩余项（未修）**：报表/财务分析（`financeService`/`reportAnalyticsService`/`analysisService`/`customerDetailService`）与回款统计汇总中的浮点求和目前**只用于展示/比较、不写回 DECIMAL 列**，故未强制改造；若后续在这些路径新增「计算后入库」逻辑，须改走 `money.js`。合同 `amount` 无后端计算，属前端直传。
 
@@ -344,6 +345,32 @@
 > `routes/survey.js`(7 端点,`survey`)、`routes/tag.js`(2,`tag`)、`routes/scoring.js`(2,`scoring`)、`routes/contractTemplate.js`(1,`contract_template`)、`routes/followupTemplate.js`(1,`followup:template`)、`routes/customer/assign.js`(7,`customer:assign` 等)、`routes/contract/approval.js`(1,`contract`)、`routes/procurement-plan.js`(1,`purchase`) —— 以上 manager 均持有对应权限；
 > **另有 `routes/hr.js`（17 端点,`hr`）**：`hr` 角色同样 `manage_all=0`，**被挡在自己的 hr 模块外**（此条与 manager 无关，属独立同型问题）。
 > 余下 `routes/config.js`(`system`)、`routes/permission.js`、`routes/currency.js`、`routes/automation.js`（后三者无 `checkPermission`）语义上更像「仅管理员」，需产品确认是否保留。**因涉及多模块产品语义，未在本轮擅自修改。**
+> ⇨ 上述「未收口」已于同日后续轮次处理，**详见下方 #22**。
+
+> **#22 修复说明（2026-09-20，`requireManager` 语义缺陷的系统性收敛）**
+> **口径决策**：与 #6 / #21 一致 —— **修中间件语义**（让 manager 通过），而不是给每个端点补 403。理由：这些端点的功能权限早已配置正确（`init_role_permissions.js` 是唯一事实来源），菜单也已可见，**唯一错的就是这道「管理层」闸门把它自己的名字排除了**；再补 403 等于把「功能不可用」固化。
+> **精确盘点（脚本统计，非估算）**：`backend/routes/**` 共 69 个文件、519 条路由声明，其中 **47 处**挂载 `requireManager`，分三组：
+> | 组 | 数量 | 特征 | 处理 |
+> |---|---|---|---|
+> | ① 真缺陷 | **35** | 同时挂 `checkPermission('<code>')`，且该码**非 boss 角色也持有**（manager 持有：`survey`/`tag`/`scoring`/`contract_template`/`followup:template`/`customer:assign`/`contract`/`purchase`/`hr` 等） | 中间件修好后**自动放行 manager**，无需改路由 |
+> | ② 语义即「仅管理员」 | **2** | `config.js` 挂 `checkPermission('system')`，该码**仅 boss 持有** | 单角色码已天然收口，**语义不变**，不额外改动 |
+> | ③ 无功能码（隐性越权风险） | **10** | 只有 `requireManager`，**没有任何 `checkPermission`**；一旦中间件放宽就会**泄漏给所有经理** | **补配对功能码**（下条） |
+> **修复内容**：
+> 1. `middleware/admin.js`：`requireManager` 纳入 `roleCode === ROLE_CODES.MANAGER`（保留原 `manageAll` / `ADMIN_ROLE_CODES` / `roleId === ROLES.ADMIN` 判据以向后兼容）。同时写入**使用约束注释**：本中间件只判「是不是管理层」、不判「有没有该功能权限」，**必须与 `checkPermission` 成对使用**。
+> 2. 为组③ 的 **10 个端点补配对 `checkPermission`**，且刻意选择**仅 boss 持有**的码以**保持原「仅管理员」语义**（不因中间件放宽而扩权）：
+>    | 文件 | 端点数 | 补挂的权限码 | 该码持有者 |
+>    |---|---|---|---|
+>    | `routes/permission.js` | 3（`/list`、`/role/:roleId`、`/data-scope/:roleId`） | `system:permission` | 仅 boss |
+>    | `routes/currency.js` | 1（`DELETE /:id`） | `system:currency` | 仅 boss（与同文件 `PUT` 的 `requireAdmin` 同级） |
+>    | `routes/automation.js` | 2（`/smart-reminders/pending`、`/smart-reminders/log/:id/seen`） | `automation` | 仅 boss |
+>    | `routes/customer/assign.js` | 4（`/assign-rules` 增删改查 4 端点） | `customer:assign` | boss + manager（**有意放宽**：这是客户分配规则，属经理职责） |
+> **验证**：
+> - 新增 `tests/unit/middleware-requireManager.test.js` **12 条**（manager 放行**核心不变式**、boss/super_admin 放行、sales/hr/purchase/finance/engineer/unknown 403、未认证 403、缺 roleId 时不得侥幸通过）。
+> - 新增 `tests/unit/requireManagerUsage.test.js` **7 条静态守卫**：① 扫描到 ≥30 个路由文件、≥40 处 `requireManager` 挂载（防扫描逻辑失效造成**假绿**）；② **每一处 `requireManager` 必须与 `checkPermission` 配对**；③ `routes/**` 不得出现 `roleId === <数字>` 硬编码判权；④ `requireManager` 必须含 `ROLE_CODES.MANAGER`（防修复回退）；⑤ 必须保留 `manageAll`/`ADMIN_ROLE_CODES` 判据；⑥⑦ `checkPermission` 必须委托 `permissionService` 按 `sys_permission.code` 判定、不得比较 roleId 数值。
+> - 全量审计：**47/47 配对，0 处遗漏**。
+> - **反向验证**：删掉 `|| req.user.roleCode === ROLE_CODES.MANAGER` 后，`middleware-requireManager.test.js` 中 manager 放行相关 **2 条如期失败**（`Expected 200 / Received 403`），恢复后复跑 19/19 全绿。
+> - ESLint `--max-warnings=0` EXIT 0。
+> **⚠️ 仍未收口（1 项，需产品决策，未擅自改）**：`routes/hr.js` **17 个端点**挂 `checkPermission('hr') + requireManager`，而 **`hr` 角色本身 `manage_all=0` 且不是 manager** ⇒ **中间件修好后 hr 角色仍被挡在自己的 hr 模块之外**（菜单可见、17 个接口全 403）。这与 manager 无关，属独立同型问题。两条候选路径：(a) 作为「模块所有者」直接移除 `requireManager`，仅留 `checkPermission('hr')`（与 #21 分析域口径一致，但会放开 `hr` 角色读取全员薪资）；(b) 在中间件中再加入 `ROLE_CODES.HR`（会同时放开 hr 角色到**其他**所有挂了 `requireManager` 的模块，风险更大）。**建议 (a) 并配合 hr 域数据范围**，但涉及薪资可见性产品规则，需拍板后再动。
 
 ---
 

@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { validate, Joi } = require('../middleware/validate');
+const { checkPermission } = require('../middleware/permission');
 
 const requireAdmin = require('../middleware/admin');
 const { requireManager } = require('../middleware/admin');
@@ -60,8 +61,10 @@ router.get('/my-permissions', authenticateToken, async (req, res, next) => {
   }
 });
 
-// 获取所有权限列表（树形结构，仅管理员/经理）
-router.get('/list', authenticateToken, requireManager, async (req, res, next) => {
+// 获取所有权限列表（树形结构，仅管理员）
+// ⚠️ 配对 checkPermission('system:permission')：requireManager 只判「管理层」，
+//    若不配仅 boss 持有的功能码，会把权限矩阵读取放宽给所有经理（2026-09-20 补齐）
+router.get('/list', authenticateToken, checkPermission('system:permission'), requireManager, async (req, res, next) => {
   try {
     const tree = await permRouteService.listPermissions(pool);
     res.json({ code: 200, message: '查询成功', data: tree });
@@ -71,8 +74,8 @@ router.get('/list', authenticateToken, requireManager, async (req, res, next) =>
   }
 });
 
-// 获取角色权限（仅管理员/经理）
-router.get('/role/:roleId', authenticateToken, requireManager, async (req, res, next) => {
+// 获取角色权限（仅管理员）
+router.get('/role/:roleId', authenticateToken, checkPermission('system:permission'), requireManager, async (req, res, next) => {
   try {
     const permissionIds = await permRouteService.getRolePermissions(pool, req.params.roleId);
     res.json({ code: 200, message: '查询成功', data: permissionIds });
@@ -94,8 +97,8 @@ router.post('/role/update', authenticateToken, requireAdmin, validate(rolePermis
   }
 });
 
-// 获取数据权限配置（仅管理员/经理）
-router.get('/data-scope/:roleId', authenticateToken, requireManager, async (req, res, next) => {
+// 获取数据权限配置（仅管理员）
+router.get('/data-scope/:roleId', authenticateToken, checkPermission('system:permission'), requireManager, async (req, res, next) => {
   try {
     const configs = await permRouteService.getDataScope(pool, req.params.roleId);
     res.json({ code: 200, message: '查询成功', data: configs });

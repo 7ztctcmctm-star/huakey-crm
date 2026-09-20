@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { requireAdmin, requireManager } = require('../middleware/admin');
+const { checkPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const automationService = require('../services/automationService');
 const logger = require('../config/logger');
@@ -308,7 +309,10 @@ router.post('/smart-reminders/run', authenticateToken, requireAdmin, validate(em
 
 // 我的待处理提醒
 // [权限说明] 个人待处理提醒，仅需认证
-router.get('/smart-reminders/pending', authenticateToken, requireManager, async (req, res, next) => {
+// ⚠️ 待办：注释称「仅需认证」但实际被 requireManager 限为 boss-only（与注释不符，属另一类缺陷）。
+//    2026-09-20 补 checkPermission('automation') 仅为阻止 requireManager 语义修正后泄漏给 manager，
+//    保持现有行为不变；是否真正放开为「任意登录用户」待产品确认。
+router.get('/smart-reminders/pending', authenticateToken, checkPermission('automation'), requireManager, async (req, res, next) => {
   try {
     const rows = await automationService.getPendingReminders(pool, req.user.userId);
     res.json({ code: 200, message: '查询成功', data: rows });
@@ -320,7 +324,8 @@ router.get('/smart-reminders/pending', authenticateToken, requireManager, async 
 
 // 标记已读
 // [权限说明] 个人提醒标记已读，仅需认证
-router.put('/smart-reminders/log/:id/seen', authenticateToken, requireManager, validate(emptySchema), async (req, res, next) => {
+// ⚠️ 同 `/smart-reminders/pending`：注释与 requireManager 不一致，本次仅阻止语义修正后泄漏给 manager。
+router.put('/smart-reminders/log/:id/seen', authenticateToken, checkPermission('automation'), requireManager, validate(emptySchema), async (req, res, next) => {
   try {
     await automationService.markReminderSeen(pool, req.params.id, req.user.userId);
     res.json({ code: 200, message: '已标记', data: null });
