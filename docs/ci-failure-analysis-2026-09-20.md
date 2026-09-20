@@ -320,22 +320,29 @@ npm ci --no-audit --no-fund      # 期望 added 1 package / EXIT=0
 | `tests/e2e/` 全量 | **10 suites / 69 tests 全绿** |
 | ESLint `--max-warnings=0`（5 个改动文件） | EXIT 0 |
 
-**CI 侧观测**（run `35496862377`，sha `78b825e`，截至 2026-09-20T08:00Z，尚未收敛）：
+**CI 侧观测（最终：已收敛为全绿）**
 
-| job | 状态 |
-|---|---|
-| `backend-test` | **`npm test` success（07:26:34→07:26:51，17s）** —— 本轮 uploads 修复已被 CI 确认；`npm audit` 亦 success |
-| `frontend-test` / `frontend-build` | success |
-| `integration-test` | 卡在 `Import baseline schema + verify invariants`（07:26:51 起，>30 分钟未完成），jest 步骤尚未开始 |
-| `migration-test` | 同上（07:26:50 起） |
-| `e2e-test` | 卡在 `cd frontend && npm ci --legacy-peer-deps`（07:26:50 起） |
-| `image-scan` | 卡在 `Build`（docker build，07:26:21 起） |
-| `security-scan` | 卡在 CodeQL `analyze`（07:26:31 起） |
+run **`35498110675`**（sha `78b825e` 的后继文档提交 `9d10a5b`），触发 2026-09-20T07:54:15Z、完成 07:58:15Z，
+run 级 `conclusion = "success"`，**9 个 job 中 8 个 success + 1 个 skipped**：
 
-> ⚠️ **5 个 job 同时从同一时刻起卡住，且连 `backend-test` 的 `Post Run actions/cache@v4`
-> （仅保存缓存、不跑任何业务代码）也卡了 27 分钟以上** ⇒ 属 runner / GitHub 服务侧异常，
-> **与本次代码改动无关**。故 `integration-test` 的修复结论目前依据**本机等价库实测**，
-> CI 侧需待该步骤实际执行后复核。
+| job | 结论 | 关键步骤（job/step 级 API 实测） |
+|---|---|---|
+| `backend-test` | success | `npm test` / `npm audit` 均 success —— §10.1 的 uploads 修复被 CI 确认 |
+| `integration-test` | **success** | `Import baseline schema + verify invariants` 07:54:49→07:54:59；**`npx jest tests/e2e/ --config jest.integration.config.js` 07:54:59→07:55:05 success** |
+| `migration-test` | **success** | baseline 07:54:56→07:55:05；`jest tests/db/migration-roundtrip.test.js` 07:55:05→07:55:06 success（⚠️ 见 §10.6） |
+| `e2e-test` | **success** | seed 07:55:20、权限初始化 07:55:21、**`Playwright E2E tests` 07:55:49→07:58:10 success** |
+| `frontend-test` / `frontend-build` | success | — |
+| `security-scan`（CodeQL）/ `image-scan`（Trivy） | success | — |
+| `cross-browser-test` | skipped | 触发条件未满足（历史一致行为） |
+
+补充旁证三条：
+
+1. 此前「卡死」的 run `35496862377`（sha `78b825e`）在**网络恢复后自行跑完，同样为 `success`**
+   ⇒ 当时的卡住确系 runner / 网络侧故障，**与代码无关**，本节 §10.1/§10.2 的结论由此获得 CI 侧独立确认。
+2. **`integration-test` 确在真执行**：历史上存在 `integration-test` job 为 `failure` 而其 jest 步骤耗时
+   7–9s 的 run（如 `34946115747` / `34938334928`）⇒ 该步骤会真跑、会真红，本次 6s success 是真实通过。
+3. ⚠️ Actions 的 job 日志接口（`/actions/jobs/{id}/logs`）对本仓库仍返回 **403**（需 admin），
+   故**无法**从日志核对 CI 侧的用例条数；本节全部结论基于 job/step 级 API 的结论与时间戳。
 
 ### 10.3 ⚠️ 定位过程中必须避开的一个陷阱：本机默认跑集成测试会得到「假失败图」
 
@@ -367,6 +374,45 @@ npm ci --no-audit --no-fund      # 期望 added 1 package / EXIT=0
 - 故本机为**近似**复刻。但其中 **4 个套件是纯 mock（不连库）**，其结论与 CI **逐字一致**，
   可信度最高；真库套件（`permission-real`）的改法已刻意选为「对环境鲁棒」。
 
+### 10.6 ⚠️ 顺带发现：`migration-test` 的 55 个往返用例疑为「静默跳过即通过」（**既有现象，非本轮引入**）
+
+CI 变绿后复核 `migration-test`，发现其 jest 步骤只用 **1 秒**（07:55:05→07:55:06），
+而该文件实际应当执行 **55 个数据库往返用例**（`ROUNDTRIP_VERSIONS` = `TEST_VERSIONS`(3) +
+`NEW_DOWN_VERSIONS`(49) + 收尾 3 项，每例两次 `node run_migrations.js` 子进程 + 5 次 `SHOW CREATE TABLE`）。
+1 秒与之不相容，遂深查。
+
+**根因（测试写法，不是产品缺陷）**：`tests/db/migration-roundtrip.test.js` 的用例体带**早退分支**：
+
+```js
+if (!pool) { console.warn('[migration-roundtrip] 跳过：数据库不可达'); return; }
+```
+
+而 `pool` 只在 `beforeAll` 中「端口可达 → 用 root 建库/选库 → `runMigration('--rollback 002')` →
+`runMigration()` 全量重放」**四步全部成功**后才被赋值；任一环节失败（端口不可达 / 认证失败 /
+迁移执行抛错）都会 `return`，此后 **55 个用例全部静默通过**（`return` 等同于 pass），job 显示 success。
+
+**本机非破坏性复现（DB 指向无人监听的端口，不触碰任何数据）**：55 个用例全部输出
+`跳过：数据库不可达`，**退出码 0** —— 假绿发生在**断言层**（不同于 §10.3 的连接层假失败图）。
+
+**旁证：job/step 级 API 横向扫描（8 个 run，跨 09-11 → 09-20）**
+
+| 步骤 | 各 run 实测耗时 | 判读 |
+|---|---|---|
+| `migration-test` 的 jest（往返） | **恒为 1–2s** | 110 次 node 子进程（按 40–80ms 冷启动估算约 4–8s）+ 275 次查询，**下界明显高于 2s** ⇒ 与"真跑"不相容 |
+| `integration-test` 的 jest | 恒为 7–9s，且**曾 failure** | 该步骤确在真跑（见 §10.2 旁证 2） |
+
+⇒ **`migration-test` 的 success 自 09-11 起即是既有状态**（09-12 / 09-14 / 09-15 / 09-16 / 09-17 / 09-18
+各绿 run 的该步骤耗时均为 1–2s）——本轮只是让它**第一次能跑到这一步**，并非本轮改动引入的回归。
+其中**真正形成断言的只有文件级审计用例**（`expect(audit.total).toBeGreaterThan(0)`、
+`expect(audit.withDown).toBeGreaterThanOrEqual(17)`），55 个数据库往返用例**很可能从未在 CI 上执行过**。
+
+> **证据强度声明（诚实标注）**：上述为「耗时下界 + 早退分支」的**推断**，**未获 CI 日志直接确认**
+> （日志接口 403，见 §10.2 旁证 3）。它与 §10.4 的 `permission-real` 清理隐患并列为**本轮新登记的两项既有技术债**，
+> 均**未在本轮修改**（避免在"收口 CI 红"这一目标外引入新变量）。
+>
+> 建议后续单独开一项处理：把早退改为 `test.skip`（可见地跳过）或 `expect(pool).toBeDefined()`
+> （显式失败），让「没连上库」不再伪装成 success。
+
 ---
 
-*分析人：David ｜ 日期：2026-09-20 ｜ 依据：GitHub Actions job/step 级 API + lockfile 静态体检 + 本地 npm ci 对照实测 + 逐 commit 二分定位 + 本机等价库集成测试实测*
+*分析人：David ｜ 日期：2026-09-20 ｜ 依据：GitHub Actions job/step 级 API（含终态全绿复核 run `35498110675`）+ lockfile 静态体检 + 本地 npm ci 对照实测 + 逐 commit 二分定位 + 本机等价库集成测试实测*
