@@ -247,9 +247,9 @@ router.get('/supplier-performance', authenticateToken, checkPermission('purchase
 });
 
 // 导出报表
-router.post('/export', authenticateToken, checkPermission('report'), validate(exportSchema), async (req, res, next) => {
+router.post('/export', authenticateToken, checkPermission('report'), checkDataPermission('report'), validate(exportSchema), async (req, res, next) => {
   try {
-    const buf = await reportAnalyticsService.exportReport(pool, req.body);
+    const buf = await reportAnalyticsService.exportReport(pool, req.body, req.dataPermission);
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=report.xlsx');
@@ -265,9 +265,9 @@ router.post('/export', authenticateToken, checkPermission('report'), validate(ex
 
 // ============ 财务报表 ============
 
-router.get('/finance', authenticateToken, checkPermission('report'), queryValidate(financeQuerySchema), async (req, res, next) => {
+router.get('/finance', authenticateToken, checkPermission('report'), checkDataPermission('report'), queryValidate(financeQuerySchema), async (req, res, next) => {
   try {
-    const data = await reportAnalyticsService.getFinanceReport(pool, req.query);
+    const data = await reportAnalyticsService.getFinanceReport(pool, req.query, req.dataPermission);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[报表] 财务报表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -276,9 +276,9 @@ router.get('/finance', authenticateToken, checkPermission('report'), queryValida
 });
 
 // 财务报表导出CSV
-router.get('/finance/export', authenticateToken, checkPermission('report'), queryValidate(financeExportQuerySchema), async (req, res, next) => {
+router.get('/finance/export', authenticateToken, checkPermission('report'), checkDataPermission('report'), queryValidate(financeExportQuerySchema), async (req, res, next) => {
   try {
-    const { rows, filename } = await reportAnalyticsService.exportFinance(pool, req.query);
+    const { rows, filename } = await reportAnalyticsService.exportFinance(pool, req.query, req.dataPermission);
 
     if (rows.length === 0) {
       return res.status(404).json({ code: 404, message: '无数据可导出', data: null });
@@ -297,9 +297,9 @@ router.get('/finance/export', authenticateToken, checkPermission('report'), quer
 
 // ============ 经营分析看板 ============
 
-router.get('/business', authenticateToken, checkPermission('report'), async (req, res, next) => {
+router.get('/business', authenticateToken, checkPermission('report'), checkDataPermission('report'), async (req, res, next) => {
   try {
-    const data = await reportAnalyticsService.getBusinessDashboard(pool);
+    const data = await reportAnalyticsService.getBusinessDashboard(pool, req.dataPermission);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[报表] 经营分析查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });

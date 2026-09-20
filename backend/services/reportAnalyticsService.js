@@ -27,6 +27,17 @@ async function scopeFor(dataPermission, ownerColumn, alias) {
   return buildDataPermissionWhere({ ...dataPermission, ownerColumn }, alias);
 }
 
+/**
+ * 参与「业绩排行 / 业绩明细」的角色集合（用 roleCode 子查询，禁止硬编码 role_id）。
+ *
+ * 原实现为 `u.role_id IN (1, 2, 3)`——既不透明又依赖 role_id 数值，
+ * 一旦角色重排即静默错位（项目铁律：禁止硬编码 roleId）。
+ * 业务口径不变：仅承担业绩的 boss / manager / sales 参与排名，
+ * 排除 hr / purchase / finance / engineer 等非销售编制。
+ */
+const BUSINESS_ROLE_CODES = ['boss', 'manager', 'sales'];
+const BUSINESS_ROLE_IDS_SQL = `SELECT r.id FROM sys_role r WHERE r.code IN (${BUSINESS_ROLE_CODES.map(c => `'${c}'`).join(', ')})`;
+
 
 /**
  * 销售漏斗统计
@@ -393,12 +404,21 @@ async function getPurchaseBySupplier(pool, params = {}) {
  * 导出报表（业绩排行 + 销售漏斗 + 客户来源 + 采购分析，多Sheet）
  * @param {object} pool
  * @param {object} params - { startDate, endDate }
+ * @param {object} dataPermission - checkDataPermission('report') 注入
  * @returns {Buffer} XLSX 文件 buffer
  */
-async function exportReport(pool, params = {}) {
+async function exportReport(pool, params = {}, dataPermission) {
   const { startDate, endDate } = params;
   const dateFilter = startDate && endDate;
   const wb = XLSX.utils.book_new();
+
+  // [数据范围 #6] 各 Sheet 的归属列：业绩排行→sys_user.id / 合同 create_by；
+  // 漏斗→opportunity.owner_id；来源→customer.owner_id；采购→purchase_order.owner_id
+  const us = await scopeFor(dataPermission, 'id', 'u');
+  const cs = await scopeFor(dataPermission, 'create_by', 'c');
+  const os = await scopeFor(dataPermission, 'owner_id', 'so');
+  const cus = await scopeFor(dataPermission, 'owner_id', 'c');
+  const pos = await scopeFor(dataPermission, 'owner_id', 'po');
 
   // 业绩排行
   let perfDateFilter = '';
@@ -416,10 +436,10 @@ async function exportReport(pool, params = {}) {
     FROM sys_user u
     LEFT JOIN crm_contract c ON u.id = c.create_by ${perfDateFilter}
     LEFT JOIN crm_payment p ON c.id = p.contract_id
-    WHERE u.status = 1
+    WHERE u.status = 1 AND ${us.clause} AND ${cs.clause}
     GROUP BY u.id, u.real_name
     ORDER BY '成交金额' DESC
-  `, perfParams);
+  `, [...perfParams, ...us.params, ...cs.params]);
   const perfSheet = XLSX.utils.json_to_sheet(perfRows.length > 0 ? perfRows : [{ '销售姓名': '暂无数据' }]);
   XLSX.utils.book_append_sheet(wb, perfSheet, '业绩排行');
 
@@ -432,9 +452,9 @@ async function exportReport(pool, params = {}) {
   }
   const [funnelRows] = await pool.query(`
     SELECT so.stage as '阶段编码', COUNT(so.id) as '商机数量', COALESCE(SUM(so.expected_amount), 0) as '预期金额'
-    FROM crm_opportunity so ${funnelDateFilter}
+    FROM crm_opportunity so ${funnelDateFilter ? `${funnelDateFilter} AND ${os.clause}` : `WHERE ${os.clause}`}
     GROUP BY so.stage ORDER BY so.stage
-  `, funnelParams);
+  `, [...funnelParams, ...os.params]);
   const stageNames = { 1: '询盘', 2: '需求确认', 3: '方案报价', 4: '谈判', 5: '成交', 6: '失败' };
   const funnelData = funnelRows.map(r => ({ '阶段': stageNames[r['阶段编码']] || r['阶段编码'], '商机数量': r['商机数量'], '预期金额': r['预期金额'] }));
   const funnelSheet = XLSX.utils.json_to_sheet(funnelData.length > 0 ? funnelData : [{ '阶段': '暂无数据' }]);
@@ -449,9 +469,9 @@ async function exportReport(pool, params = {}) {
   }
   const [sourceRows] = await pool.query(`
     SELECT source as '客户来源', COUNT(*) as '客户数量'
-    FROM crm_customer c WHERE deleted_at IS NULL ${custDateFilter}
+    FROM crm_customer c WHERE deleted_at IS NULL ${custDateFilter} AND ${cus.clause}
     GROUP BY source ORDER BY '客户数量' DESC
-  `, custParams);
+  `, [...custParams, ...cus.params]);
   const sourceSheet = XLSX.utils.json_to_sheet(sourceRows.length > 0 ? sourceRows : [{ '客户来源': '暂无数据' }]);
   XLSX.utils.book_append_sheet(wb, sourceSheet, '客户来源');
 
@@ -466,9 +486,9 @@ async function exportReport(pool, params = {}) {
     SELECT s.name as '供应商', COUNT(po.id) as '采购单数', COALESCE(SUM(po.total_with_tax), 0) as '采购总额'
     FROM crm_purchase_order po
     JOIN crm_supplier s ON po.supplier_id = s.id
-    WHERE po.status != '已取消' AND po.deleted_at IS NULL ${purchaseDateFilter}
+    WHERE po.status != '已取消' AND po.deleted_at IS NULL ${purchaseDateFilter} AND ${pos.clause}
     GROUP BY s.name ORDER BY '采购总额' DESC
-  `, purchaseParams);
+  `, [...purchaseParams, ...pos.params]);
   const purchaseSheet = XLSX.utils.json_to_sheet(purchaseRows.length > 0 ? purchaseRows : [{ '供应商': '暂无数据' }]);
   XLSX.utils.book_append_sheet(wb, purchaseSheet, '采购分析');
 
@@ -479,9 +499,10 @@ async function exportReport(pool, params = {}) {
  * 财务报表（月/季/年合同、回款、采购汇总 + 应收账款 + 趋势）
  * @param {object} pool
  * @param {object} params - { start_date, end_date }
+ * @param {object} dataPermission - checkDataPermission('report') 注入
  * @returns {object} { overview, receivables, trend }
  */
-async function getFinanceReport(pool, params = {}) {
+async function getFinanceReport(pool, params = {}, dataPermission) {
   const { start_date, end_date } = params;
   const now = new Date();
   const monthStart = start_date || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
@@ -491,6 +512,11 @@ async function getFinanceReport(pool, params = {}) {
   const quarter = Math.ceil((now.getMonth() + 1) / 3);
   const quarterStart = `${year}-${String((quarter - 1) * 3 + 1).padStart(2, '0')}-01`;
   const yearStart = `${year}-01-01`;
+
+  // [数据范围 #6] 合同按 create_by、采购单按 owner_id 过滤；
+  // 回款表(crm_payment)无归属列，范围经「合同 create_by」透传（与 getPaymentStats 同口径）
+  const cs = await scopeFor(dataPermission, 'create_by', 'c');
+  const ps = await scopeFor(dataPermission, 'owner_id', 'po');
 
   const [
     [[monthContract]],
@@ -503,15 +529,15 @@ async function getFinanceReport(pool, params = {}) {
     [[quarterPurchase]],
     [[yearPurchase]]
   ] = await Promise.all([
-    pool.query("SELECT COALESCE(SUM(amount), 0) as total FROM crm_contract WHERE deleted_at IS NULL AND sign_date BETWEEN ? AND ?", [monthStart, monthEnd]),
-    pool.query("SELECT COALESCE(SUM(amount), 0) as total FROM crm_contract WHERE deleted_at IS NULL AND sign_date BETWEEN ? AND ?", [quarterStart, monthEnd]),
-    pool.query("SELECT COALESCE(SUM(amount), 0) as total FROM crm_contract WHERE deleted_at IS NULL AND sign_date BETWEEN ? AND ?", [yearStart, monthEnd]),
-    pool.query("SELECT COALESCE(SUM(pay_amount), 0) as total FROM crm_payment WHERE deleted_at IS NULL AND pay_date BETWEEN ? AND ?", [monthStart, monthEnd]),
-    pool.query("SELECT COALESCE(SUM(pay_amount), 0) as total FROM crm_payment WHERE deleted_at IS NULL AND pay_date BETWEEN ? AND ?", [quarterStart, monthEnd]),
-    pool.query("SELECT COALESCE(SUM(pay_amount), 0) as total FROM crm_payment WHERE deleted_at IS NULL AND pay_date BETWEEN ? AND ?", [yearStart, monthEnd]),
-    pool.query("SELECT COALESCE(SUM(total_amount), 0) as total FROM crm_purchase_order WHERE deleted_at IS NULL AND create_time BETWEEN ? AND ?", [monthStart, monthEnd + ' 23:59:59']),
-    pool.query("SELECT COALESCE(SUM(total_amount), 0) as total FROM crm_purchase_order WHERE deleted_at IS NULL AND create_time BETWEEN ? AND ?", [quarterStart, monthEnd + ' 23:59:59']),
-    pool.query("SELECT COALESCE(SUM(total_amount), 0) as total FROM crm_purchase_order WHERE deleted_at IS NULL AND create_time BETWEEN ? AND ?", [yearStart, monthEnd + ' 23:59:59'])
+    pool.query(`SELECT COALESCE(SUM(c.amount), 0) as total FROM crm_contract c WHERE c.deleted_at IS NULL AND c.sign_date BETWEEN ? AND ? AND ${cs.clause}`, [monthStart, monthEnd, ...cs.params]),
+    pool.query(`SELECT COALESCE(SUM(c.amount), 0) as total FROM crm_contract c WHERE c.deleted_at IS NULL AND c.sign_date BETWEEN ? AND ? AND ${cs.clause}`, [quarterStart, monthEnd, ...cs.params]),
+    pool.query(`SELECT COALESCE(SUM(c.amount), 0) as total FROM crm_contract c WHERE c.deleted_at IS NULL AND c.sign_date BETWEEN ? AND ? AND ${cs.clause}`, [yearStart, monthEnd, ...cs.params]),
+    pool.query(`SELECT COALESCE(SUM(p.pay_amount), 0) as total FROM crm_payment p LEFT JOIN crm_contract c ON c.id = p.contract_id WHERE p.deleted_at IS NULL AND p.pay_date BETWEEN ? AND ? AND ${cs.clause}`, [monthStart, monthEnd, ...cs.params]),
+    pool.query(`SELECT COALESCE(SUM(p.pay_amount), 0) as total FROM crm_payment p LEFT JOIN crm_contract c ON c.id = p.contract_id WHERE p.deleted_at IS NULL AND p.pay_date BETWEEN ? AND ? AND ${cs.clause}`, [quarterStart, monthEnd, ...cs.params]),
+    pool.query(`SELECT COALESCE(SUM(p.pay_amount), 0) as total FROM crm_payment p LEFT JOIN crm_contract c ON c.id = p.contract_id WHERE p.deleted_at IS NULL AND p.pay_date BETWEEN ? AND ? AND ${cs.clause}`, [yearStart, monthEnd, ...cs.params]),
+    pool.query(`SELECT COALESCE(SUM(po.total_amount), 0) as total FROM crm_purchase_order po WHERE po.deleted_at IS NULL AND po.create_time BETWEEN ? AND ? AND ${ps.clause}`, [monthStart, monthEnd + ' 23:59:59', ...ps.params]),
+    pool.query(`SELECT COALESCE(SUM(po.total_amount), 0) as total FROM crm_purchase_order po WHERE po.deleted_at IS NULL AND po.create_time BETWEEN ? AND ? AND ${ps.clause}`, [quarterStart, monthEnd + ' 23:59:59', ...ps.params]),
+    pool.query(`SELECT COALESCE(SUM(po.total_amount), 0) as total FROM crm_purchase_order po WHERE po.deleted_at IS NULL AND po.create_time BETWEEN ? AND ? AND ${ps.clause}`, [yearStart, monthEnd + ' 23:59:59', ...ps.params])
   ]);
 
   const [receivables] = await pool.query(`
@@ -522,28 +548,29 @@ async function getFinanceReport(pool, params = {}) {
     FROM crm_contract c
     LEFT JOIN crm_customer cu ON c.customer_id = cu.id
     LEFT JOIN crm_payment p ON c.id = p.contract_id AND p.deleted_at IS NULL
-    WHERE c.deleted_at IS NULL AND c.status IN (1, 2)
+    WHERE c.deleted_at IS NULL AND c.status IN (1, 2) AND ${cs.clause}
     GROUP BY c.id
     HAVING unpaid_amount > 0
     ORDER BY overdue_days DESC
     LIMIT 50
-  `);
+  `, [...cs.params]);
 
   const [trend] = await pool.query(`
-    SELECT DATE_FORMAT(sign_date, '%Y-%m') as month,
-           COALESCE(SUM(amount), 0) as contract_amount
-    FROM crm_contract
-    WHERE deleted_at IS NULL AND sign_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+    SELECT DATE_FORMAT(c.sign_date, '%Y-%m') as month,
+           COALESCE(SUM(c.amount), 0) as contract_amount
+    FROM crm_contract c
+    WHERE c.deleted_at IS NULL AND c.sign_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH) AND ${cs.clause}
     GROUP BY month ORDER BY month
-  `);
+  `, [...cs.params]);
 
   const [paymentTrend] = await pool.query(`
-    SELECT DATE_FORMAT(pay_date, '%Y-%m') as month,
-           COALESCE(SUM(pay_amount), 0) as payment_amount
-    FROM crm_payment
-    WHERE deleted_at IS NULL AND pay_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+    SELECT DATE_FORMAT(p.pay_date, '%Y-%m') as month,
+           COALESCE(SUM(p.pay_amount), 0) as payment_amount
+    FROM crm_payment p
+    LEFT JOIN crm_contract c ON c.id = p.contract_id
+    WHERE p.deleted_at IS NULL AND p.pay_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH) AND ${cs.clause}
     GROUP BY month ORDER BY month
-  `);
+  `, [...cs.params]);
 
   const trendMap = {};
   trend.forEach(t => { trendMap[t.month] = { month: t.month, contract_amount: parseFloat(t.contract_amount), payment_amount: 0 }; });
@@ -569,13 +596,18 @@ async function getFinanceReport(pool, params = {}) {
  * 财务报表导出CSV
  * @param {object} pool
  * @param {object} params - { type, start_date, end_date }
+ * @param {object} dataPermission - checkDataPermission('report') 注入
  * @returns {{ rows: Array, headers: Array, filename: string }}
  */
-async function exportFinance(pool, params = {}) {
+async function exportFinance(pool, params = {}, dataPermission) {
   const { type = 'receivable', start_date, end_date } = params;
   const now = new Date();
   const monthStart = start_date || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
   const monthEnd = end_date || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-31`;
+
+  // [数据范围 #6] 应收/收入走合同 create_by；成本表(crm_purchase_order, 别名 p)走 owner_id
+  const cs = await scopeFor(dataPermission, 'create_by', 'c');
+  const pos = await scopeFor(dataPermission, 'owner_id', 'p');
 
   let rows, filename;
 
@@ -587,27 +619,27 @@ async function exportFinance(pool, params = {}) {
       FROM crm_contract c
       LEFT JOIN crm_customer cu ON c.customer_id = cu.id
       LEFT JOIN crm_payment p ON c.id = p.contract_id AND p.deleted_at IS NULL
-      WHERE c.deleted_at IS NULL AND c.status IN (1, 2)
+      WHERE c.deleted_at IS NULL AND c.status IN (1, 2) AND ${cs.clause}
       GROUP BY c.id HAVING ` + '`未回款`' + ` > 0 ORDER BY ` + '`逾期天数`' + ` DESC
-    `);
+    `, [...cs.params]);
     filename = '应收账款.csv';
   } else if (type === 'income') {
     [rows] = await pool.query(`
       SELECT c.contract_no as '合同编号', cu.company_name as '客户名称', c.amount as '合同金额',
              c.sign_date as '签订日期', c.status as '状态'
       FROM crm_contract c LEFT JOIN crm_customer cu ON c.customer_id = cu.id
-      WHERE c.deleted_at IS NULL AND c.sign_date BETWEEN ? AND ?
+      WHERE c.deleted_at IS NULL AND c.sign_date BETWEEN ? AND ? AND ${cs.clause}
       ORDER BY c.sign_date DESC
-    `, [monthStart, monthEnd]);
+    `, [monthStart, monthEnd, ...cs.params]);
     filename = '收入报表.csv';
   } else {
     [rows] = await pool.query(`
       SELECT p.order_no as '采购单号', s.name as '供应商', p.total_amount as '采购金额',
              p.create_time as '采购日期', p.status as '状态'
       FROM crm_purchase_order p LEFT JOIN crm_supplier s ON p.supplier_id = s.id
-      WHERE p.deleted_at IS NULL AND p.create_time BETWEEN ? AND ?
+      WHERE p.deleted_at IS NULL AND p.create_time BETWEEN ? AND ? AND ${pos.clause}
       ORDER BY p.create_time DESC
-    `, [monthStart, monthEnd + ' 23:59:59']);
+    `, [monthStart, monthEnd + ' 23:59:59', ...pos.params]);
     filename = '成本报表.csv';
   }
 
@@ -617,9 +649,10 @@ async function exportFinance(pool, params = {}) {
 /**
  * 经营分析看板（KPI、团队排名、分布、趋势、预警）
  * @param {object} pool
+ * @param {object} dataPermission - checkDataPermission('report') 注入
  * @returns {object} { kpi, teamRanking, sellerDetails, distribution, trends, warnings }
  */
-async function getBusinessDashboard(pool) {
+async function getBusinessDashboard(pool, dataPermission) {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
@@ -627,6 +660,14 @@ async function getBusinessDashboard(pool) {
   const lastMonthEnd = new Date(year, month - 1, 0);
   const lastMonthStart = `${lastMonthEnd.getFullYear()}-${String(lastMonthEnd.getMonth() + 1).padStart(2, '0')}-01`;
   const lastMonthEndStr = `${lastMonthEnd.getFullYear()}-${String(lastMonthEnd.getMonth() + 1).padStart(2, '0')}-31`;
+
+  // [数据范围 #6] 各表归属列不同：customer→owner_id / contract→create_by /
+  // payment→经合同 create_by 透传 / opportunity→owner_id / sys_user(排名)→id。
+  // 「可见成员」用 scopeFor(dp,'id','u') 表达：self→u.id=?，dept_and_sub→u.id IN (部门集)，all→1=1。
+  const cus = await scopeFor(dataPermission, 'owner_id', 'c');
+  const cs = await scopeFor(dataPermission, 'create_by', 'c');
+  const os = await scopeFor(dataPermission, 'owner_id', 'o');
+  const us = await scopeFor(dataPermission, 'id', 'u');
 
   const [
     [[customerTotal]],
@@ -639,16 +680,16 @@ async function getBusinessDashboard(pool) {
     [[lastCustomerNew]],
     [[lastContractTotal]]
   ] = await Promise.all([
-    pool.query("SELECT COUNT(*) as cnt FROM crm_customer WHERE deleted_at IS NULL"),
-    pool.query("SELECT COUNT(*) as cnt FROM crm_customer WHERE deleted_at IS NULL AND create_time >= ?", [thisMonthStart]),
-    pool.query("SELECT COALESCE(SUM(amount), 0) as total FROM crm_contract WHERE deleted_at IS NULL AND sign_date >= ?", [thisMonthStart]),
-    pool.query("SELECT COALESCE(SUM(pay_amount), 0) as total FROM crm_payment WHERE deleted_at IS NULL AND pay_date >= ?", [thisMonthStart]),
-    pool.query("SELECT COUNT(*) as cnt FROM crm_contract WHERE deleted_at IS NULL AND sign_date >= ?", [thisMonthStart]),
-    pool.query("SELECT COUNT(*) as cnt FROM crm_opportunity WHERE deleted_at IS NULL"),
-    pool.query("SELECT COUNT(*) as cnt FROM crm_opportunity WHERE deleted_at IS NULL AND stage = 5"),
-    pool.query("SELECT COUNT(*) as cnt FROM crm_customer WHERE deleted_at IS NULL AND create_time BETWEEN ? AND ?", [lastMonthStart, lastMonthEndStr]),
-    pool.query("SELECT COALESCE(SUM(amount), 0) as total FROM crm_contract WHERE deleted_at IS NULL AND sign_date BETWEEN ? AND ?", [lastMonthStart, lastMonthEndStr]),
-    pool.query("SELECT COALESCE(SUM(pay_amount), 0) as total FROM crm_payment WHERE deleted_at IS NULL AND pay_date BETWEEN ? AND ?", [lastMonthStart, lastMonthEndStr])
+    pool.query(`SELECT COUNT(*) as cnt FROM crm_customer c WHERE c.deleted_at IS NULL AND ${cus.clause}`, [...cus.params]),
+    pool.query(`SELECT COUNT(*) as cnt FROM crm_customer c WHERE c.deleted_at IS NULL AND c.create_time >= ? AND ${cus.clause}`, [thisMonthStart, ...cus.params]),
+    pool.query(`SELECT COALESCE(SUM(c.amount), 0) as total FROM crm_contract c WHERE c.deleted_at IS NULL AND c.sign_date >= ? AND ${cs.clause}`, [thisMonthStart, ...cs.params]),
+    pool.query(`SELECT COALESCE(SUM(p.pay_amount), 0) as total FROM crm_payment p LEFT JOIN crm_contract c ON c.id = p.contract_id WHERE p.deleted_at IS NULL AND p.pay_date >= ? AND ${cs.clause}`, [thisMonthStart, ...cs.params]),
+    pool.query(`SELECT COUNT(*) as cnt FROM crm_contract c WHERE c.deleted_at IS NULL AND c.sign_date >= ? AND ${cs.clause}`, [thisMonthStart, ...cs.params]),
+    pool.query(`SELECT COUNT(*) as cnt FROM crm_opportunity o WHERE o.deleted_at IS NULL AND ${os.clause}`, [...os.params]),
+    pool.query(`SELECT COUNT(*) as cnt FROM crm_opportunity o WHERE o.deleted_at IS NULL AND o.stage = 5 AND ${os.clause}`, [...os.params]),
+    pool.query(`SELECT COUNT(*) as cnt FROM crm_customer c WHERE c.deleted_at IS NULL AND c.create_time BETWEEN ? AND ? AND ${cus.clause}`, [lastMonthStart, lastMonthEndStr, ...cus.params]),
+    pool.query(`SELECT COALESCE(SUM(c.amount), 0) as total FROM crm_contract c WHERE c.deleted_at IS NULL AND c.sign_date BETWEEN ? AND ? AND ${cs.clause}`, [lastMonthStart, lastMonthEndStr, ...cs.params]),
+    pool.query(`SELECT COALESCE(SUM(p.pay_amount), 0) as total FROM crm_payment p LEFT JOIN crm_contract c ON c.id = p.contract_id WHERE p.deleted_at IS NULL AND p.pay_date BETWEEN ? AND ? AND ${cs.clause}`, [lastMonthStart, lastMonthEndStr, ...cs.params])
   ]);
 
   const calcChange = (curr, prev) => prev > 0 ? Math.round((curr - prev) / prev * 100) : (curr > 0 ? 100 : 0);
@@ -676,9 +717,9 @@ async function getBusinessDashboard(pool) {
              (SELECT COUNT(*) FROM crm_customer cu WHERE cu.owner_id = u.id AND cu.deleted_at IS NULL AND cu.create_time >= ?) as new_customers
       FROM sys_user u
       LEFT JOIN crm_contract c ON c.create_by = u.id AND c.deleted_at IS NULL AND c.sign_date >= ?
-      WHERE u.status = 1 AND u.role_id IN (1, 2, 3)
+      WHERE u.status = 1 AND u.role_id IN (${BUSINESS_ROLE_IDS_SQL}) AND ${us.clause}
       GROUP BY u.id ORDER BY contract_amount DESC LIMIT 10
-    `, [thisMonthStart, thisMonthStart, thisMonthStart]),
+    `, [thisMonthStart, thisMonthStart, thisMonthStart, ...us.params]),
     pool.query(`
       SELECT u.id, u.real_name,
         COALESCE(SUM(c.amount), 0) as contract_amount,
@@ -690,26 +731,27 @@ async function getBusinessDashboard(pool) {
         COALESCE((SELECT target_amount FROM crm_sales_target st WHERE st.user_id = u.id AND st.year = YEAR(CURDATE()) AND st.month = MONTH(CURDATE())), 0) as target_amount
       FROM sys_user u
       LEFT JOIN crm_contract c ON c.create_by = u.id AND c.sign_date >= ? AND c.deleted_at IS NULL
-      WHERE u.status = 1 AND u.role_id IN (1, 2, 3)
+      WHERE u.status = 1 AND u.role_id IN (${BUSINESS_ROLE_IDS_SQL}) AND ${us.clause}
       GROUP BY u.id ORDER BY contract_amount DESC LIMIT 20
-    `, [thisMonthStart, thisMonthStart]),
-    pool.query(`SELECT level as name, COUNT(*) as value FROM crm_customer WHERE deleted_at IS NULL GROUP BY level`),
-    pool.query(`SELECT COALESCE(industry, '未填写') as name, COUNT(*) as value FROM crm_customer WHERE deleted_at IS NULL GROUP BY industry ORDER BY value DESC LIMIT 10`),
+    `, [thisMonthStart, thisMonthStart, ...us.params]),
+    pool.query(`SELECT c.level as name, COUNT(*) as value FROM crm_customer c WHERE c.deleted_at IS NULL AND ${cus.clause} GROUP BY c.level`, [...cus.params]),
+    pool.query(`SELECT COALESCE(c.industry, '未填写') as name, COUNT(*) as value FROM crm_customer c WHERE c.deleted_at IS NULL AND ${cus.clause} GROUP BY c.industry ORDER BY value DESC LIMIT 10`, [...cus.params]),
     pool.query(`
-      SELECT DATE_FORMAT(create_time, '%Y-%m') as month, COUNT(*) as count
-      FROM crm_customer WHERE deleted_at IS NULL AND create_time >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+      SELECT DATE_FORMAT(c.create_time, '%Y-%m') as month, COUNT(*) as count
+      FROM crm_customer c WHERE c.deleted_at IS NULL AND c.create_time >= DATE_SUB(NOW(), INTERVAL 12 MONTH) AND ${cus.clause}
       GROUP BY month ORDER BY month
-    `),
+    `, [...cus.params]),
     pool.query(`
-      SELECT DATE_FORMAT(sign_date, '%Y-%m') as month, COUNT(*) as count, COALESCE(SUM(amount), 0) as amount
-      FROM crm_contract WHERE deleted_at IS NULL AND sign_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+      SELECT DATE_FORMAT(c.sign_date, '%Y-%m') as month, COUNT(*) as count, COALESCE(SUM(c.amount), 0) as amount
+      FROM crm_contract c WHERE c.deleted_at IS NULL AND c.sign_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH) AND ${cs.clause}
       GROUP BY month ORDER BY month
-    `),
+    `, [...cs.params]),
     pool.query(`
-      SELECT DATE_FORMAT(pay_date, '%Y-%m') as month, COALESCE(SUM(pay_amount), 0) as amount
-      FROM crm_payment WHERE deleted_at IS NULL AND pay_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+      SELECT DATE_FORMAT(p.pay_date, '%Y-%m') as month, COALESCE(SUM(p.pay_amount), 0) as amount
+      FROM crm_payment p LEFT JOIN crm_contract c ON c.id = p.contract_id
+      WHERE p.deleted_at IS NULL AND p.pay_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH) AND ${cs.clause}
       GROUP BY month ORDER BY month
-    `),
+    `, [...cs.params]),
     pool.query(`
       SELECT c.contract_no, cu.company_name, c.amount,
              COALESCE(SUM(p.pay_amount), 0) as paid,
@@ -718,16 +760,17 @@ async function getBusinessDashboard(pool) {
       FROM crm_contract c
       LEFT JOIN crm_customer cu ON c.customer_id = cu.id
       LEFT JOIN crm_payment p ON c.id = p.contract_id AND p.deleted_at IS NULL
-      WHERE c.deleted_at IS NULL AND c.status IN (1, 2)
+      WHERE c.deleted_at IS NULL AND c.status IN (1, 2) AND ${cs.clause}
       GROUP BY c.id HAVING unpaid > 0 AND days > 30
       ORDER BY days DESC LIMIT 10
-    `),
+    `, [...cs.params]),
     pool.query(`
       SELECT id, company_name, last_follow_time, DATEDIFF(NOW(), last_follow_time) as days
-      FROM crm_customer WHERE deleted_at IS NULL AND status = 'following'
-      AND (last_follow_time IS NULL OR last_follow_time < NOW() - INTERVAL 30 DAY)
+      FROM crm_customer c WHERE c.deleted_at IS NULL AND c.status = 'following'
+      AND (c.last_follow_time IS NULL OR c.last_follow_time < NOW() - INTERVAL 30 DAY)
+      AND ${cus.clause}
       ORDER BY days DESC LIMIT 10
-    `)
+    `, [...cus.params])
   ]);
 
   return {

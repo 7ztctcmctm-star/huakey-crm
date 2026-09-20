@@ -190,7 +190,7 @@
 
 ### 5.4 报表与仪表盘（report / dashboard / analysis / teamDashboard / target / metrics）
 - 首页仪表盘（`dashboardService`）：顶栏时间范围（默认本月）+ 团队筛选，统计销售额/新增客户/合同数/回款/进行中商机；各表归属列不同（customer→owner_id、contract→create_by、opportunity→owner_id），经 `buildOwnerOverrideFilter` 服务端强制团队筛选。已改为统一 `checkDataPermission`，boss/super_admin(view_all=1)→all。
-- 数据报表（`reportAnalyticsService`）：销售漏斗/业绩/客户/回款/趋势/采购；漏斗回传数值 `stage_code`（已修）。
+- 数据报表（`reportAnalyticsService`）：销售漏斗/业绩/客户/回款/趋势/采购；漏斗回传数值 `stage_code`（已修）。**数据范围已全量收口（2026-09-20）**：14 个端点挂 `checkDataPermission('report')`，服务内按各表归属列套 `buildDataPermissionWhere`（customer→`owner_id`、contract→`create_by`、payment→经合同 `create_by`、opportunity→`owner_id`、purchase_order→`owner_id`、成员排名→`sys_user.id`）。语义：boss/finance(`all`)→全量；manager(`dept_and_sub`)→本部门及下级；sales(`self`)→仅本人。
 - 团队看板（`teamDashboardService`）：boss 看全量否则看自己；销售拆解/催办/停滞商机(>14天)。
 - 销售目标（`targetService`）：左连接目标/实际算达成率；`ON DUPLICATE KEY UPDATE` 幂等。
 - 自定义报表（`customReportService`）：5 个数据源白名单，运行前字段白名单校验防注入。
@@ -199,7 +199,7 @@
 **已知坑**
 - `teamDashboard.js` 原多数接口硬编码 `ROLES.ADMIN/roleId` 判 boss（与 dashboard 修复口径不一致）。**已修复（2026-09-18）**：所有 `isBoss` 判定统一改为 `viewAll || roleCode∈{boss,manager}`，service 层 `getStuckOpportunities` 的 `ROLES.ADMIN` 硬比较也改为 `roleCode !== ROLE_CODES.BOSS`。
   - **已知限制（非回归）**：团队看板仍用「看全部 vs 看自己」二元 `isBoss`，未像 `dashboardService` 那样走 `checkDataPermission` + `buildDataPermissionWhere`（dept_and_sub 粒度）。彻底对齐需重构 service 查询，属更大改动，未在本轮做。
-- `/business`（经营看板）与 `analysis/*` **无数据范围隔离**（定位管理层全局视图，需文档化其无行级隔离）。
+- `/business`、`/finance`、`/finance/export`、`/export` 四个端点**曾无数据范围隔离**（仅 `checkPermission('report')`）→ **已修复（2026-09-20）**，详见第 10 节 #6。`analysis/*`（`analysisService`）仍为 `checkPermission('analysis') + requireManager`，**不按 sys_data_permission 分档**；注意 `requireManager` 实际只放行 `manageAll`/`super_admin`/`roleId===1`，**manager 角色（`view_all=0`/`manage_all=0`）会被挡**，故它不是「管理层」判定的可靠实现。
 - 图表建议整数 GROUP BY 维度缺口同 AI 模块（脆弱实现）。
 
 ---
@@ -269,7 +269,7 @@
 | 3 | 合同 | 审批通过不自动流转合同 `status`，易卡待执行 | P2 | 未修 |
 | 4 | 合同/回款/发票/财务 | 金额未统一走 `money.js`（仅报价严格） | P2 | 🟡 部分已修(2026-09-18) |
 | 5 | 团队看板 | 硬编码 `ROLES.ADMIN/roleId` 判 boss（与 dashboard 不一致） | P2 | ✅ 已修(2026-09-18) |
-| 6 | 报表 | 经营看板/分析无数据范围隔离 | P2 | 设计待文档化 |
+| 6 | 报表 | 经营看板/财务报表等 4 端点无数据范围隔离（**原判「分析无隔离」失实**，实为可获得全公司财务/业绩排名） | P2（实为可达越权，已按 P1 对待） | ✅ 已修(2026-09-20) |
 | 7 | 知识库 | 产品更新未清缓存（stale≤300s） | P3 | 未修 |
 | 8 | 服务工单 | 批量通知 business_id 取首单 | P3 | 未修 |
 | 9 | 公海/离职 | 离职释放与自动回收 SQL 不一致 | P3 | 已知差异 |
@@ -298,8 +298,28 @@
 >    - `contractService.createContract` → `contract.signed`
 > 3. 全程 **fail-safe**：内部 try/catch 吞掉一切异常，`dispatch` 绝不 throw。
 > **返回值语义（重要）**：`dispatched` = **HTTP 2xx 投递成功**的条数。网络错误 / 超时 / SSRF 拒绝 / 对端非 2xx 均不计入，但都会在 `crm_webhook_log` 留下 `failed`/`timeout` 记录并 `fail_count++`。
-> **⚠️ 未接入的事件（4 个）**：前端定义的 `customer.created`、`customer.updated`、`contract.completed`、`opportunity.won`、`opportunity.lost` 中，**除已接的 `contract.signed`/`payment.received` 外，其余 5 个仍是「可订阅但不会自动触发」状态**——均为待接线项，派发器已就绪，后续在各服务对应写入点加一行 `dispatch` 即可。
+> **⚠️ 未接入的事件（5 个）**：前端定义的 7 个事件中，**除已接的 `contract.signed`/`payment.received` 外，`customer.created`、`customer.updated`、`contract.completed`、`opportunity.won`、`opportunity.lost` 仍是「可订阅但不会自动触发」状态**——派发器已就绪，后续在各服务对应写入点加一行 `dispatch` 即可。
 > **验证**：新增 `backend/tests/webhookDispatcher.test.js` **18 条用例全绿**（含 parseEvents 容错 4、isUrlAllowed 5、dispatch 9）；对 `paymentService`/`contractService` 回归 **23/23 通过**；ESLint `--max-warnings=0` EXIT 0。已做**反向验证**：按行号注入 `return true`（伪造成功）→ 测试如期失败（`Expected: 0 / Received: 1`），恢复后复跑全绿。
+
+> **#6 修复说明（2026-09-20）**
+> **原判失实（两处）**：
+> ① 原文「**分析**无数据范围隔离」不成立——`reportAnalyticsService` 早在 2026-09-16 就已实现范围隔离（文件头注释即写明「现统一改为『路由 checkDataPermission → 服务内 buildDataPermissionWhere』」），10 个分析端点均有 `checkDataPermission('report')`。
+> ② 真正缺口只有 **4 个端点**，且性质**不是「缺文档」而是可达越权**，故按 P1 对待：`/report/business`、`/report/finance`、`/report/finance/export`、`/report/export` 仅挂 `checkPermission('report')`，其 service 函数不接收用户、SQL 无归属过滤 → 返回**全公司** KPI / 财务 / **全员业绩排名**。
+> **可达性证据链（四段闭合）**：
+> | 环节 | 证据 | 结果 |
+> |---|---|---|
+> | 功能权限 | `migrations/086_fix_sales_permissions.sql` §3i「数据报表」 | **`report` 授予 sales** |
+> | 数据范围 | `seeds/permission_data.sql:180` | sales 的 `report` = **`self`** |
+> | 前端菜单 | `Sidebar.vue:151-152` `v-if="hasMenuPermission('report')"` | 销售**看得到**菜单 |
+> | 前端路由 | `router/index.js:610`（`admin` 路由 = `manageAll` 放行 **或持有 permission 也放行**） | 销售**进得去**页面 |
+> **修复内容**：
+> 1. 路由层 4 端点补挂 `checkDataPermission('report')` 并透传 `req.dataPermission`（报表域挂载数 10 → **14**）。
+> 2. service 层 4 个函数（`getFinanceReport` / `exportFinance` / `exportReport` / `getBusinessDashboard`）接收 `dataPermission`，对**每条**业务查询套 `scopeFor`，按表选归属列：customer→`owner_id`、contract→`create_by`、payment→经合同 `create_by` 透传、opportunity→`owner_id`、purchase_order→`owner_id`、成员排名→`sys_user.id`。
+> 3. 顺带修铁律违规：`getBusinessDashboard` 两处 `u.role_id IN (1, 2, 3)` → 改为 `BUSINESS_ROLE_IDS_SQL`（`SELECT r.id FROM sys_role r WHERE r.code IN ('boss','manager','sales')`），业务口径不变但不再依赖 role_id 数值。
+> **语义（沿用 sys_data_permission.report 既有配置，未新增产品规则）**：boss/finance(`all`)→全量；manager(`dept_and_sub`)→本部门及下级；sales(`self`)→仅本人。**无人被锁死**（销售看到的是「自己的经营数据」而非 403）。
+> **⚠️ 为何不用 `requireManager` 加锁**：它判的是 `manageAll || ADMIN_ROLE_CODES.has(roleCode) || roleId===ROLES.ADMIN(1)`，而 `ADMIN_ROLE_CODES` 仅含 `super_admin`（`config/roles.js` 注释载明「现库已不存在」），且 `demo_users.sql:83` 明载 **manager 角色 `view_all=0`/`manage_all=0`**（靠 `sys_data_permission.dept_and_sub` 取数）⇒ 套用 `requireManager` 会把**部门经理一并 403**，属回归。`routes/analysis.js` 全量套用该中间件存在同一隐患（已记入 5.4 已知坑）。
+> **⚠️ 未收口（4 个端点）**：`/purchase-trend`、`/purchase-by-supplier`、`/purchase-cost`、`/supplier-performance` 为 `checkPermission('purchase')`（采购域），本次未动——`sys_data_permission` 仅 role 1/2 配了 `purchase`，其余角色会落到缺省 `self`，需先定采购域的数据归属口径再改。
+> **验证**：`tests/unit/reportAnalyticsScope.test.js` 由 13 条扩至 **29 条全绿**（新增：`getFinanceReport` all/self 各表归属、`exportFinance` 3 分支、`exportReport` 4 Sheet、`getBusinessDashboard` 19 条查询「无漏网」不变式、roleCode 架构守卫、路由挂载守卫）；`tests/unit` 全量回归 **479 passed / 36 suites / 0 failed**；ESLint `--max-warnings=0` EXIT 0。已做**反向验证**（按行号注入两处缺陷）：去掉一条查询的 scope + 还原硬编码 `role_id IN (1,2,3)` → **5 条对应用例如期失败**，恢复后复跑全绿。
 
 ---
 
@@ -309,7 +329,7 @@
 |---|---|---|
 | 核心 CRM 域 | 客户/线索/公海/跟进/商机/报价/合同/回款/审批/权限/ Dashboard | 回收站（前端缺失） |
 | 采购域 | 库存/采购单/计划/申请/比价/供应商/产品/货币/竞品 | 供应商评分随机抖动 hack |
-| 协同赋能 | AI 助手/知识库/服务工单/报表/分析/自定义报表 | 知识库产品缓存、团队看板硬编码 |
+| 协同赋能 | AI 助手/知识库/服务工单/报表(含数据范围)/分析/自定义报表 | 知识库产品缓存、团队看板硬编码、`analysis/*` 未按 sys_data_permission 分档 |
 | 外部协同 | 社媒/集成/API平台(含Webhook派发)/日历 | 邮件同步、问卷投放 |
 | 系统支撑 | 配置/日志/备份/上传/搜索/HR/数据质量/cron/SSE | 供应商付款录入、备份依赖环境客户端 |
 
