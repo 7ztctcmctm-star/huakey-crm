@@ -507,7 +507,38 @@ if (!pool) { console.warn('[migration-roundtrip] 跳过：数据库不可达'); 
 3. **先修量具再量**：探针自身的 env 错配会产出一份"看起来很合理"的错误结论 ——
    给量具加自检（本次：未收到口令即告警），比事后怀疑结论更省事。
 
+#### 10.7.6 ⚠️ 追加一处踩坑：**不能用 `process.env.CI` 当"严格模式"判据**
+
+`bf7560f` 首版把"不许静默跳过"的判据写成 `process.env.CI`，结果那次 run 的
+**`backend-test` 直接失败**：
+
+- GitHub Actions 在**所有** job 都设 `CI=true`，**不区分**有没有数据库；
+- 而 `backend-test` 会跑到本文件 —— `jest.config.js` 的 `testPathIgnorePatterns` 只排除了
+  `/tests/e2e/`、`/tests/security/`、`/tests/performance/` 与 `setup-integration.js`，
+  **并未排除 `tests/db/`**；
+- 该 job 没有 MySQL ⇒ "端口不可达"分支被 `throw` 命中 ⇒ 整个 `backend-test` 变红。
+
+**修法（`e3aa21a`）**：判据改为**显式开关** `MIGRATION_ROUNDTRIP_STRICT=1`，
+只在 `migration-test` job 的 jest 步骤上打开；四处出口统一按它分档。
+
+| 场景 | backend-test（无开关） | migration-test（`STRICT=1`） |
+|---|---|---|
+| DB 不可达 | warn + 跳过 ⇒ **绿** | throw ⇒ **红** |
+| DB 认证失败 | warn + 跳过 ⇒ **绿** | throw ⇒ **红** |
+| DB 就绪但迁移链失败 | 不可达该分支 | throw ⇒ **红** |
+| 用例体 `!pool` 兜底 | warn + 跳过 ⇒ **绿** | throw ⇒ **红** |
+
+（本机对照实测：前者 `exit 0`，后者 `exit 1`。）
+
+**最终验证（run `35502424789`，sha `e3aa21a`）**：9 个 job → **8 success + 1 skipped**，
+`migration-test` 的 jest 步骤 **444s** success。⇒ **CI 既是绿的，又是真的**：
+今后若再出现"没真跑"，该 job 会立刻变红，而不是继续伪装成 success。
+
+**通用教训**：给测试加"按环境变量收紧"的行为前，必须先确认**哪些 job 会跑到这个测试文件**；
+`CI` 这类平台级变量在 Actions 里是全局为真的，**不具备区分度**。有区分度的只能是显式开关。
+
 ---
+
 
 
 *分析人：David ｜ 日期：2026-09-20 ｜ 依据：GitHub Actions job/step 级 API（含终态全绿复核 run `35498110675`）+ lockfile 静态体检 + 本地 npm ci 对照实测 + 逐 commit 二分定位 + 本机等价库集成测试实测*
