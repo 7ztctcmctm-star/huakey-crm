@@ -355,16 +355,41 @@ run 级 `conclusion = "success"`，**9 个 job 中 8 个 success + 1 个 skipped
 
 ⇒ 分析集成测试失败**前**，必须先用健康检查套件当连通性探针。
 
-### 10.4 ⚠️ 顺带发现的既有隐患（本轮未改，如实记录）
+### 10.4 `permission-real` 测试"删了不还" —— 已修复（`7e68d94`）
 
-`permission-real.integration.test.js` 的 `afterAll` 会按 **code** 删除它插入的 6 个权限码对应的
-`sys_permission` 行 —— 若基线里本来就有同名 `code`，**基线记录会被一并删除**。
-实测本机 `huakey_crm_test`：`sys_permission` **114 → 108**、`sys_role_permission` **315 → 300**。
+**原实现共 5 处副作用**（前 3 处会破坏基线数据）：
 
-- 受影响 5 张表已备份至 `C:/Users/a8466/huakey-crm-backups/pre-permreal-20260920/` 并已恢复。
-- 若要补齐到权威终态，运行 `backend/scripts/init_role_permissions.js`
-  （注意该脚本会按配置**清理**不在配置中的历史权限行）。
-- 建议后续把该测试的清理改为「只删自己新建的行」（记录插入前的 id 集合做差集），而非按 code 删。
+| # | 位置 | 副作用 |
+|---|---|---|
+| 1 | `afterAll` 按 **code** 删 | 删掉这 6 个权限码下的**全部** `sys_permission` 行 ⇒ 基线同名记录一并被删（实测本机 **114 → 108**）；对应的 `sys_role_permission` 也被连带删除（**315 → 300**） |
+| 2 | `beforeAll` 第 4b 步 | 删掉 role 3 的 `approval` 关联后**从不还原** ⇒ 永久削弱该角色权限 |
+| 3 | `afterAll` 无条件删 | 删掉 (role 3, customer) 的 `data_permission` 行 —— 基线本来有也被删 |
+| 4 | 用例 5 | 创建客户后**不清理**（库中残留；本机实测残留 3 个测试公司） |
+| 5 | 步骤 3 的 upsert | `ON DUPLICATE KEY UPDATE name = VALUES(name)` 会**覆盖基线行的 `name`**（改了不还） |
+
+**修法**：`beforeAll` 第 0 步 `captureBaseline()` 记录基线（已存在的权限行 id 及字段、
+受影响角色的既有授权集合、4b 将删除的关联、原 `data_scope`）；`afterAll` 改为
+「还原 4b 删除的关联 → 只删本测试新建的关联 → 只删本测试新建的权限行 → 还原基线行被覆盖的字段
+→ `data_scope` 有则改回/无则删 → 清测试用户」。用例 5 补客户清理。
+
+**验证（数据护栏，实测"跑测试前后基线零变化"）**：新增两个本机工具
+`perm-test-guard.js`（受影响切片快照/比对）与 `perm-baseline-sim.js`（合成可辨识基线）。
+
+| 场景 | 用例 | 基线变化 |
+|---|---|---|
+| 无基线（这 6 个码在本机已不存在） | 7/7 通过 | **零变化**（108→108 / 300→300） |
+| **合成基线（复现上表破坏场景：6 权限 + 12 角色关联 + `data_scope='dept'`）** | 7/7 通过 | **零变化**（114→114 / 312→312 / 52→52） |
+
+合成基线场景覆盖了全部还原路径：`role3→approval` 被 4b 删除后**被还原**、`data_scope` 由 `self`
+**改回 `dept`**、基线权限行的 `name` **被还原**、本测试新建的行被清理。修复前同场景会丢 6 行权限 + 12 行关联。
+
+> ⚠️ **纠正一处此前的错误结论**：本节早先写「受影响 5 张表已备份…**并已恢复**」——
+> 本轮复核发现**并未恢复**：本机 `huakey_crm_test` 至今仍是 `sys_permission=108`、
+> `sys_role_permission=300`，且这 6 个权限码在本机**完全不存在**（另残留 3 个测试客户）。
+> 即当时那句"已恢复"是**假完成**（未复核就下结论），本节据实更正。
+> 如需补齐到权威终态，可运行 `backend/scripts/init_role_permissions.js`
+> （注意该脚本会按配置**清理**不在配置中的历史权限行 —— 执行前先备份）。
+> 另：**CI 不受影响**，其库每次由 `deploy/init-complete.sql` 重建。
 
 ### 10.5 本轮未能精确复刻 CI 的说明（诚实标注）
 
