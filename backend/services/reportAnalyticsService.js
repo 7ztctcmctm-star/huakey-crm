@@ -12,20 +12,9 @@
  */
 
 const XLSX = require('xlsx');
-const { buildDataPermissionWhere, buildOwnerOverrideFilter } = require('../middleware/permission');
-
-/**
- * 构造某表的数据范围子句（各表归属列不同：customer→owner_id / contract→create_by /
- * opportunity→owner_id / payment·payment_plan→经合同 create_by）
- * @param {object} dataPermission - checkDataPermission 注入的 req.dataPermission
- * @param {string} ownerColumn
- * @param {string} alias - SQL 表别名
- * @returns {Promise<{clause: string, params: Array}>}
- */
-async function scopeFor(dataPermission, ownerColumn, alias) {
-  if (!dataPermission) return { clause: '1=1', params: [] };
-  return buildDataPermissionWhere({ ...dataPermission, ownerColumn }, alias);
-}
+const { buildOwnerOverrideFilter } = require('../middleware/permission');
+// scopeFor 已抽到 utils/dataScope.js，供报表域与分析域共用同一实现（避免第二事实来源）
+const { scopeFor } = require('../utils/dataScope');
 
 /**
  * 参与「业绩排行 / 业绩明细」的角色集合（用 roleCode 子查询，禁止硬编码 role_id）。

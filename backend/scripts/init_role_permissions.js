@@ -244,12 +244,13 @@ const DATA_PERMISSIONS = {
   boss: {
     customer: 'all', opportunity: 'all', contract: 'all', supplier: 'all', purchase: 'all',
     quotation: 'all', service: 'all', finance: 'all', approval: 'all', knowledge: 'all',
-    competitor: 'all', report: 'all', survey: 'all', product: 'all'
+    competitor: 'all', report: 'all', survey: 'all', product: 'all',
+    analysis: 'all'
   },
   manager: {
     customer: 'dept_and_sub', opportunity: 'dept_and_sub', contract: 'dept_and_sub',
     quotation: 'dept_and_sub', supplier: 'dept_and_sub', purchase: 'dept_and_sub',
-    service: 'dept_and_sub', report: 'dept_and_sub',
+    service: 'dept_and_sub', report: 'dept_and_sub', analysis: 'dept_and_sub',
     approval: 'dept_and_sub', knowledge: 'dept_and_sub', survey: 'dept_and_sub',
     product: 'dept_and_sub'
   },

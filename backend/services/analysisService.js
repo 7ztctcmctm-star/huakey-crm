@@ -1,21 +1,34 @@
 /**
  * 数据分析服务层
  * 从 routes/analysis.js 提取的业务逻辑
+ *
+ * [数据范围修复 2026-09-20]
+ * 分析域此前**完全没有数据范围**：路由只有 checkPermission('analysis') + requireManager，
+ * 服务函数不接收用户，SQL 无归属过滤 ⇒ 一旦通过闸门即看到**全公司**分析数据。
+ * 而 requireManager 只放行 manageAll/super_admin/roleId===1，会把持有 analysis 权限的
+ * **部门经理**（manage_all=0）全部 403。
+ * 现改为「路由 checkDataPermission('analysis') → 服务内 scopeFor 拼归属子句」，与报表域一致。
+ * 归属列：crm_customer→owner_id · crm_contract→create_by · crm_opportunity→owner_id ·
+ *         crm_follow_up→create_by · crm_sales_target→user_id · sys_user(排名)→id
  */
+
+const { scopeFor } = require('../utils/dataScope');
 
 /**
  * 销售预测（移动平均）
  */
-async function getPrediction(pool) {
+async function getPrediction(pool, dataPermission) {
+  const sc = await scopeFor(dataPermission, 'create_by', 'crm_contract');
   const [rows] = await pool.query(`
     SELECT DATE_FORMAT(sign_date, '%Y-%m') as month,
            COUNT(*) as count,
            COALESCE(SUM(amount), 0) as amount
     FROM crm_contract
     WHERE deleted_at IS NULL AND sign_date >= NOW() - INTERVAL 12 MONTH
+      AND ${sc.clause}
     GROUP BY DATE_FORMAT(sign_date, '%Y-%m')
     ORDER BY month
-  `);
+  `, [...sc.params]);
 
   const history = [];
   const rowMap = {};
@@ -55,17 +68,20 @@ async function getPrediction(pool) {
 /**
  * 客户流失预警
  */
-async function getChurnAlert(pool, { page, pageSize }) {
+async function getChurnAlert(pool, { page, pageSize }, dataPermission) {
   const offset = (page - 1) * pageSize;
   const overdueDays = 30;
 
+  const scCount = await scopeFor(dataPermission, 'owner_id', 'crm_customer');
   const [countResult] = await pool.query(`
     SELECT COUNT(*) as total FROM crm_customer
     WHERE deleted_at IS NULL AND owner_id IS NOT NULL
       AND (last_follow_time IS NULL
         OR last_follow_time < NOW() - INTERVAL ? DAY)
-  `, [overdueDays]);
+      AND ${scCount.clause}
+  `, [overdueDays, ...scCount.params]);
 
+  const scList = await scopeFor(dataPermission, 'owner_id', 'c');
   const [list] = await pool.query(`
     SELECT c.id, c.company_name, pc.name as contact_name, pc.phone, c.level,
            c.last_follow_time, c.create_time, u.real_name as owner_name,
@@ -76,9 +92,10 @@ async function getChurnAlert(pool, { page, pageSize }) {
     WHERE c.deleted_at IS NULL AND c.owner_id IS NOT NULL
       AND (c.last_follow_time IS NULL
         OR c.last_follow_time < NOW() - INTERVAL ? DAY)
+      AND ${scList.clause}
     ORDER BY overdue_days DESC
     LIMIT ? OFFSET ?
-  `, [overdueDays, parseInt(pageSize), parseInt(offset)]);
+  `, [overdueDays, ...scList.params, parseInt(pageSize), parseInt(offset)]);
 
   return { list, total: countResult[0].total, overdueDays };
 }
@@ -86,16 +103,18 @@ async function getChurnAlert(pool, { page, pageSize }) {
 /**
  * 异常检测
  */
-async function getAnomaly(pool) {
+async function getAnomaly(pool, dataPermission) {
+  const sc = await scopeFor(dataPermission, 'create_by', 'crm_contract');
   const [rows] = await pool.query(`
     SELECT DATE(create_time) as date,
            COUNT(*) as count,
            COALESCE(SUM(amount), 0) as amount
     FROM crm_contract
     WHERE deleted_at IS NULL AND create_time >= NOW() - INTERVAL 30 DAY
+      AND ${sc.clause}
     GROUP BY DATE(create_time)
     ORDER BY date
-  `);
+  `, [...sc.params]);
 
   const daily = [];
   const rowMap = {};
@@ -131,20 +150,26 @@ async function getAnomaly(pool) {
 /**
  * 客户评分
  */
-async function getCustomerScore(pool, id) {
+async function getCustomerScore(pool, id, dataPermission) {
+  const scFollow = await scopeFor(dataPermission, 'create_by', 'crm_follow_up');
   const [followResult] = await pool.query(
-    `SELECT COUNT(*) as cnt FROM crm_follow_up WHERE customer_id = ? AND create_time >= NOW() - INTERVAL 90 DAY`,
-    [id]
+    `SELECT COUNT(*) as cnt FROM crm_follow_up WHERE customer_id = ? AND create_time >= NOW() - INTERVAL 90 DAY
+       AND ${scFollow.clause}`,
+    [id, ...scFollow.params]
   );
 
+  const scOpp = await scopeFor(dataPermission, 'owner_id', 'crm_opportunity');
   const [oppResult] = await pool.query(
-    "SELECT COUNT(*) as cnt, COALESCE(SUM(expected_amount), 0) as amount FROM crm_opportunity WHERE customer_id = ? AND stage NOT IN (5, 6)",
-    [id]
+    `SELECT COUNT(*) as cnt, COALESCE(SUM(expected_amount), 0) as amount FROM crm_opportunity WHERE customer_id = ? AND stage NOT IN (5, 6)
+       AND ${scOpp.clause}`,
+    [id, ...scOpp.params]
   );
 
+  const scContract = await scopeFor(dataPermission, 'create_by', 'crm_contract');
   const [contractResult] = await pool.query(
-    "SELECT COUNT(*) as cnt, COALESCE(SUM(amount), 0) as amount FROM crm_contract WHERE customer_id = ? AND deleted_at IS NULL AND status = 'signed'",
-    [id]
+    `SELECT COUNT(*) as cnt, COALESCE(SUM(amount), 0) as amount FROM crm_contract WHERE customer_id = ? AND deleted_at IS NULL AND status = 'signed'
+       AND ${scContract.clause}`,
+    [id, ...scContract.params]
   );
 
   const followCount = followResult[0].cnt;
@@ -175,13 +200,15 @@ async function getCustomerScore(pool, id) {
 /**
  * 赢单率分析
  */
-async function getWinRate(pool) {
+async function getWinRate(pool, dataPermission) {
+  const sc = await scopeFor(dataPermission, 'owner_id', 'crm_opportunity');
   const [rows] = await pool.query(`
     SELECT stage, COUNT(*) as count
     FROM crm_opportunity
+    WHERE ${sc.clause}
     GROUP BY stage
     ORDER BY stage ASC
-  `);
+  `, [...sc.params]);
 
   const stageNames = { 1: '询盘', 2: '需求确认', 3: '方案报价', 4: '谈判', 5: '成交', 6: '失败' };
   const stageCounts = {};
@@ -206,12 +233,14 @@ async function getWinRate(pool) {
 /**
  * 销售漏斗
  */
-async function getFunnel(pool) {
+async function getFunnel(pool, dataPermission) {
+  const sc = await scopeFor(dataPermission, 'owner_id', 'crm_opportunity');
   const [rows] = await pool.query(`
     SELECT stage, COUNT(*) as count, COALESCE(SUM(expected_amount), 0) as amount
     FROM crm_opportunity
+    WHERE ${sc.clause}
     GROUP BY stage ORDER BY stage
-  `);
+  `, [...sc.params]);
 
   const stageNames = { 1: '询盘', 2: '需求确认', 3: '方案报价', 4: '谈判', 5: '成交', 6: '失败' };
   const stageMap = {};
@@ -229,7 +258,8 @@ async function getFunnel(pool) {
 /**
  * 客户价值评分 RFM
  */
-async function getRFM(pool) {
+async function getRFM(pool, dataPermission) {
+  const sc = await scopeFor(dataPermission, 'owner_id', 'c');
   const [rows] = await pool.query(`
     SELECT c.id, c.company_name,
       DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as recency,
@@ -249,9 +279,10 @@ async function getRFM(pool) {
       GROUP BY customer_id
     ) ct ON ct.customer_id = c.id
     WHERE c.deleted_at IS NULL
+      AND ${sc.clause}
     ORDER BY monetary DESC
     LIMIT 200
-  `);
+  `, [...sc.params]);
 
   const scoreR = (v) => v <= 7 ? 5 : v <= 14 ? 4 : v <= 30 ? 3 : v <= 60 ? 2 : 1;
   const scoreF = (v) => v >= 10 ? 5 : v >= 5 ? 4 : v >= 3 ? 3 : v >= 1 ? 2 : 1;
@@ -277,7 +308,8 @@ async function getRFM(pool) {
 /**
  * 销售排行榜
  */
-async function getRanking(pool) {
+async function getRanking(pool, dataPermission) {
+  const sc = await scopeFor(dataPermission, 'id', 'u');
   const [rows] = await pool.query(`
     SELECT u.id, u.real_name,
       COUNT(DISTINCT c.id) as customer_count,
@@ -288,10 +320,11 @@ async function getRanking(pool) {
     LEFT JOIN crm_customer c ON c.owner_id = u.id AND c.deleted_at IS NULL
     LEFT JOIN crm_opportunity o ON o.owner_id = u.id
     WHERE u.status = 1
+      AND ${sc.clause}
     GROUP BY u.id, u.real_name
     ORDER BY win_amount DESC
     LIMIT 20
-  `);
+  `, [...sc.params]);
 
   return rows.map(r => ({
     id: r.id,
@@ -306,13 +339,15 @@ async function getRanking(pool) {
 /**
  * 增强版销售预测
  */
-async function getEnhancedPrediction(pool, monthsAhead) {
+async function getEnhancedPrediction(pool, monthsAhead, dataPermission) {
+  const sc = await scopeFor(dataPermission, 'create_by', 'crm_contract');
   const [history] = await pool.query(`
     SELECT DATE_FORMAT(sign_date, '%Y-%m') as month, COUNT(*) as count,
            COALESCE(SUM(amount), 0) as amount
     FROM crm_contract WHERE deleted_at IS NULL AND sign_date >= DATE_SUB(NOW(), INTERVAL 24 MONTH)
+      AND ${sc.clause}
     GROUP BY month ORDER BY month
-  `);
+  `, [...sc.params]);
 
   if (history.length < 3) return { history, predictions: [] };
 
@@ -387,10 +422,11 @@ async function getEnhancedPrediction(pool, monthsAhead) {
 /**
  * 增强版智能建议
  */
-async function getEnhancedSuggestions(pool) {
+async function getEnhancedSuggestions(pool, dataPermission) {
   const suggestions = [];
 
   // 商机跟进建议：停滞商机
+  const scStaleOpps = await scopeFor(dataPermission, 'owner_id', 'o');
   const [staleOpps] = await pool.query(`
     SELECT o.id, o.name, o.stage, o.expected_amount, o.update_time, c.company_name,
            DATEDIFF(NOW(), o.update_time) as stale_days
@@ -398,8 +434,9 @@ async function getEnhancedSuggestions(pool) {
     JOIN crm_customer c ON o.customer_id = c.id
     WHERE o.deleted_at IS NULL AND o.stage NOT IN (5, 6)
       AND DATEDIFF(NOW(), o.update_time) > 14
+      AND ${scStaleOpps.clause}
     ORDER BY o.expected_amount DESC LIMIT 5
-  `);
+  `, [...scStaleOpps.params]);
   staleOpps.forEach(o => {
     suggestions.push({
       type: 'opportunity', priority: o.stale_days > 30 ? 'high' : 'medium',
@@ -410,13 +447,15 @@ async function getEnhancedSuggestions(pool) {
   });
 
   // 客户挽回建议：流失预警客户
+  const scChurn = await scopeFor(dataPermission, 'owner_id', 'crm_customer');
   const [churnCustomers] = await pool.query(`
     SELECT id, company_name, last_follow_time, level,
            DATEDIFF(NOW(), COALESCE(last_follow_time, create_time)) as idle_days
     FROM crm_customer WHERE deleted_at IS NULL AND status = 'following'
       AND (last_follow_time IS NULL OR last_follow_time < NOW() - INTERVAL 30 DAY)
+      AND ${scChurn.clause}
     ORDER BY level, idle_days DESC LIMIT 5
-  `);
+  `, [...scChurn.params]);
   churnCustomers.forEach(c => {
     suggestions.push({
       type: 'customer', priority: c.level === 'A' ? 'high' : 'medium',
@@ -429,12 +468,16 @@ async function getEnhancedSuggestions(pool) {
   // 业绩冲刺建议
   const now = new Date();
   const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  const scMonth = await scopeFor(dataPermission, 'create_by', 'crm_contract');
   const [[{ monthAmount }]] = await pool.query(
-    "SELECT COALESCE(SUM(amount), 0) as monthAmount FROM crm_contract WHERE deleted_at IS NULL AND sign_date >= ?", [monthStart]
+    `SELECT COALESCE(SUM(amount), 0) as monthAmount FROM crm_contract WHERE deleted_at IS NULL AND sign_date >= ?
+       AND ${scMonth.clause}`, [monthStart, ...scMonth.params]
   );
+  const scTarget = await scopeFor(dataPermission, 'user_id', 'crm_sales_target');
   const [[{ targetAmount }]] = await pool.query(
-    "SELECT COALESCE(SUM(target_amount), 0) as targetAmount FROM crm_sales_target WHERE year = ? AND month = ? AND deleted_at IS NULL",
-    [now.getFullYear(), now.getMonth() + 1]
+    `SELECT COALESCE(SUM(target_amount), 0) as targetAmount FROM crm_sales_target WHERE year = ? AND month = ? AND deleted_at IS NULL
+       AND ${scTarget.clause}`,
+    [now.getFullYear(), now.getMonth() + 1, ...scTarget.params]
   );
   if (targetAmount > 0 && monthAmount < targetAmount) {
     const gap = targetAmount - monthAmount;
@@ -448,6 +491,7 @@ async function getEnhancedSuggestions(pool) {
   }
 
   // 交叉销售建议
+  const scCrossSell = await scopeFor(dataPermission, 'owner_id', 'c');
   const [crossSell] = await pool.query(`
     SELECT c.id, c.company_name, GROUP_CONCAT(DISTINCT p.name) as products
     FROM crm_customer c
@@ -455,9 +499,10 @@ async function getEnhancedSuggestions(pool) {
     LEFT JOIN crm_quote_item qi ON ct.id = qi.quote_id
     LEFT JOIN crm_product p ON qi.product_id = p.id
     WHERE c.deleted_at IS NULL AND c.status = 'signed'
+      AND ${scCrossSell.clause}
       AND NOT EXISTS (SELECT 1 FROM crm_opportunity o WHERE o.customer_id = c.id AND o.stage NOT IN (5, 6) AND o.deleted_at IS NULL)
     GROUP BY c.id LIMIT 5
-  `);
+  `, [...scCrossSell.params]);
   crossSell.forEach(c => {
     suggestions.push({
       type: 'cross_sell', priority: 'low',

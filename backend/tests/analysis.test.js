@@ -127,6 +127,94 @@ describe('数据分析模块', () => {
     });
   });
 
+  describe('数据范围与权限闸门（2026-09-20 修复：移除 requireManager + 补数据范围）', () => {
+    // 部门经理：roleCode='manager'、manage_all=0 —— 修复前会被 requireManager 全部 403
+    const managerToken = jwt.sign(
+      { userId: 7, username: 'mgr', roleId: 2, roleCode: 'manager' },
+      process.env.JWT_SECRET, { expiresIn: '1h' }
+    );
+
+    it('部门经理不应再被 403，且按 dept_and_sub 过滤（本部门及子部门）', async () => {
+      require('../services/permissionService').getDataPermissions.mockResolvedValueOnce([
+        { module: 'analysis', data_scope: 'dept_and_sub' }
+      ]);
+
+      mockPool.query
+        .mockResolvedValueOnce([[]])                               // blacklist
+        .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0 }]]) // role（经理：无 manageAll）
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]])    // user status
+        .mockResolvedValueOnce([[{ dept_id: 10 }]])                // dept_and_sub → 本人部门
+        .mockResolvedValueOnce([[]])                               // getSubDeptIds → 无子部门
+        .mockResolvedValueOnce([[{ stage: 1, count: 3 }]]);        // 业务主查询
+
+      const res = await request(app)
+        .get('/api/v1/analysis/win-rate')
+        .set('Authorization', `Bearer ${managerToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.message).not.toContain('管理员或经理');
+
+      const calls = mockPool.query.mock.calls;
+      const [mainSql, mainParams] = calls[calls.length - 1];
+      expect(String(mainSql)).toMatch(/owner_id IN \(SELECT id FROM sys_user WHERE dept_id IN \(/);
+      expect(mainParams).toContain(10);   // 部门集参数已注入
+    });
+
+    it('self 范围：只查本人数据（owner_id = ?）', async () => {
+      require('../services/permissionService').getDataPermissions.mockResolvedValueOnce([
+        { module: 'analysis', data_scope: 'self' }
+      ]);
+
+      mockPool.query
+        .mockResolvedValueOnce([[]])
+        .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0 }]])
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]])
+        .mockResolvedValueOnce([[{ stage: 1, count: 1 }]]);
+
+      const res = await request(app)
+        .get('/api/v1/analysis/win-rate')
+        .set('Authorization', `Bearer ${managerToken}`);
+
+      expect(res.status).toBe(200);
+
+      const calls = mockPool.query.mock.calls;
+      const [mainSql, mainParams] = calls[calls.length - 1];
+      expect(String(mainSql)).toMatch(/owner_id = \?/);
+      expect(mainParams).toContain(7);   // 本人 userId
+    });
+
+    it('GET /suggestions/enhanced：5 条业务查询必须全部带归属谓词（无漏网查询）', async () => {
+      require('../services/permissionService').getDataPermissions.mockResolvedValueOnce([
+        { module: 'analysis', data_scope: 'self' }
+      ]);
+
+      mockPool.query
+        .mockResolvedValueOnce([[]])
+        .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0 }]])
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]])
+        .mockResolvedValueOnce([[]])                     // 停滞商机
+        .mockResolvedValueOnce([[]])                     // 流失客户
+        .mockResolvedValueOnce([[{ monthAmount: 0 }]])   // 本月合同额
+        .mockResolvedValueOnce([[{ targetAmount: 0 }]])  // 本月目标
+        .mockResolvedValueOnce([[]]);                    // 交叉销售
+
+      const res = await request(app)
+        .get('/api/v1/analysis/suggestions/enhanced')
+        .set('Authorization', `Bearer ${managerToken}`);
+
+      expect(res.status).toBe(200);
+
+      const bizCalls = mockPool.query.mock.calls.filter(
+        (c) => /FROM\s+crm_(contract|customer|opportunity|sales_target)/i.test(String(c[0]))
+      );
+      expect(bizCalls).toHaveLength(5);   // 断言「没有一条业务查询被漏掉」
+      for (const [sql, params] of bizCalls) {
+        expect(String(sql)).toMatch(/(owner_id|create_by|user_id)\s*=\s*\?/);
+        expect(params).toContain(7);       // self 范围 → 必须是本人
+      }
+    });
+  });
+
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)

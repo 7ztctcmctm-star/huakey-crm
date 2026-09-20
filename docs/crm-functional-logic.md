@@ -194,12 +194,13 @@
 - 团队看板（`teamDashboardService`）：boss 看全量否则看自己；销售拆解/催办/停滞商机(>14天)。
 - 销售目标（`targetService`）：左连接目标/实际算达成率；`ON DUPLICATE KEY UPDATE` 幂等。
 - 自定义报表（`customReportService`）：5 个数据源白名单，运行前字段白名单校验防注入。
-- 经营分析 AI 增强（`analysisService`）：流失预警/异常检测/客户评分(RFM A-D)/增强预测(移动平均+线性回归+季节因子)/建议；全部 `requireManager`。
+- 经营分析 AI 增强（`analysisService`）：流失预警/异常检测/客户评分(RFM A-D)/增强预测(移动平均+线性回归+季节因子)/建议。**数据范围已收口（2026-09-20）**：10 个端点由 `checkPermission('analysis') + requireManager` 改为 `checkPermission('analysis') + checkDataPermission('analysis')`，服务内按各表归属列套 `scopeFor`（customer→`owner_id`、contract→`create_by`、opportunity→`owner_id`、follow_up→`create_by`、sales_target→`user_id`、成员排名→`sys_user.id`）；并在 `init_role_permissions.js` 为 `analysis` 模块新增数据范围（boss=`all`、manager=`dept_and_sub`）。详见第 10 节 #21。
 
 **已知坑**
 - `teamDashboard.js` 原多数接口硬编码 `ROLES.ADMIN/roleId` 判 boss（与 dashboard 修复口径不一致）。**已修复（2026-09-18）**：所有 `isBoss` 判定统一改为 `viewAll || roleCode∈{boss,manager}`，service 层 `getStuckOpportunities` 的 `ROLES.ADMIN` 硬比较也改为 `roleCode !== ROLE_CODES.BOSS`。
   - **已知限制（非回归）**：团队看板仍用「看全部 vs 看自己」二元 `isBoss`，未像 `dashboardService` 那样走 `checkDataPermission` + `buildDataPermissionWhere`（dept_and_sub 粒度）。彻底对齐需重构 service 查询，属更大改动，未在本轮做。
-- `/business`、`/finance`、`/finance/export`、`/export` 四个端点**曾无数据范围隔离**（仅 `checkPermission('report')`）→ **已修复（2026-09-20）**，详见第 10 节 #6。`analysis/*`（`analysisService`）仍为 `checkPermission('analysis') + requireManager`，**不按 sys_data_permission 分档**；注意 `requireManager` 实际只放行 `manageAll`/`super_admin`/`roleId===1`，**manager 角色（`view_all=0`/`manage_all=0`）会被挡**，故它不是「管理层」判定的可靠实现。
+- `/business`、`/finance`、`/finance/export`、`/export` 四个端点**曾无数据范围隔离**（仅 `checkPermission('report')`）→ **已修复（2026-09-20）**，详见第 10 节 #6。`analysis/*`（`analysisService`）亦为「挂了中间件但不分档」→ **已修复（2026-09-20）**，详见第 10 节 #21。
+- ⚠️ **`requireManager` 不是「管理层」判定的可靠实现**（两次踩坑）：`middleware/admin.js` 的 requireManager 只放行 `req.user.manageAll` / `ADMIN_ROLE_CODES`（仅 `super_admin`，且为遗留 code、现库不存在）/ `roleId === 1`(boss)；而 **manager 角色 `view_all=0`/`manage_all=0` 会被直接 403**，`hr` 角色同理被挡在自己的 hr 模块之外。判据：**若某角色持有该功能权限码、前端菜单对其可见，却在端点上被 requireManager 403，即为同型缺陷**。现存使用点与影响面清单见第 10 节 #21。
 - 图表建议整数 GROUP BY 维度缺口同 AI 模块（脆弱实现）。
 
 ---
@@ -284,6 +285,7 @@
 | 18 | 财务 | 账龄用 sign_date 而非 plan_date，与回款逾期口径不符 | P3 | 未修 |
 | 19 | 采购申请/比价 | 与采购计划/采购单无代码级自动衔接 | P3 | 人工衔接 |
 | 20 | 审批前端 | 折扣类型重复选项 | P3 | UI 残留 |
+| 21 | 权限闸门 | `requireManager` 只放行 `manageAll`/`super_admin`/`roleId===1`，**manager（`manage_all=0`）与 hr 角色被 403**；分析域 10 端点「manager 持有 `analysis` 权限、菜单可见却全 403」→ 已修；**另有 13 个路由文件仍为同型隐患**（清单见下方 #21 说明） | P2 | 🔶 分析域已修(2026-09-20)，余项待决策 |
 
 > **#4 剩余项（未修）**：报表/财务分析（`financeService`/`reportAnalyticsService`/`analysisService`/`customerDetailService`）与回款统计汇总中的浮点求和目前**只用于展示/比较、不写回 DECIMAL 列**，故未强制改造；若后续在这些路径新增「计算后入库」逻辑，须改走 `money.js`。合同 `amount` 无后端计算，属前端直传。
 
@@ -317,9 +319,31 @@
 > 2. service 层 4 个函数（`getFinanceReport` / `exportFinance` / `exportReport` / `getBusinessDashboard`）接收 `dataPermission`，对**每条**业务查询套 `scopeFor`，按表选归属列：customer→`owner_id`、contract→`create_by`、payment→经合同 `create_by` 透传、opportunity→`owner_id`、purchase_order→`owner_id`、成员排名→`sys_user.id`。
 > 3. 顺带修铁律违规：`getBusinessDashboard` 两处 `u.role_id IN (1, 2, 3)` → 改为 `BUSINESS_ROLE_IDS_SQL`（`SELECT r.id FROM sys_role r WHERE r.code IN ('boss','manager','sales')`），业务口径不变但不再依赖 role_id 数值。
 > **语义（沿用 sys_data_permission.report 既有配置，未新增产品规则）**：boss/finance(`all`)→全量；manager(`dept_and_sub`)→本部门及下级；sales(`self`)→仅本人。**无人被锁死**（销售看到的是「自己的经营数据」而非 403）。
-> **⚠️ 为何不用 `requireManager` 加锁**：它判的是 `manageAll || ADMIN_ROLE_CODES.has(roleCode) || roleId===ROLES.ADMIN(1)`，而 `ADMIN_ROLE_CODES` 仅含 `super_admin`（`config/roles.js` 注释载明「现库已不存在」），且 `demo_users.sql:83` 明载 **manager 角色 `view_all=0`/`manage_all=0`**（靠 `sys_data_permission.dept_and_sub` 取数）⇒ 套用 `requireManager` 会把**部门经理一并 403**，属回归。`routes/analysis.js` 全量套用该中间件存在同一隐患（已记入 5.4 已知坑）。
+> **⚠️ 为何不用 `requireManager` 加锁**：它判的是 `manageAll || ADMIN_ROLE_CODES.has(roleCode) || roleId===ROLES.ADMIN(1)`，而 `ADMIN_ROLE_CODES` 仅含 `super_admin`（`config/roles.js` 注释载明「现库已不存在」），且 `demo_users.sql:83` 明载 **manager 角色 `view_all=0`/`manage_all=0`**（靠 `sys_data_permission.dept_and_sub` 取数）⇒ 套用 `requireManager` 会把**部门经理一并 403**，属回归。`routes/analysis.js` 全量套用该中间件存在同一隐患 —— **已于 2026-09-20 修复，详见 #21**。
 > **⚠️ 未收口（4 个端点）**：`/purchase-trend`、`/purchase-by-supplier`、`/purchase-cost`、`/supplier-performance` 为 `checkPermission('purchase')`（采购域），本次未动——`sys_data_permission` 仅 role 1/2 配了 `purchase`，其余角色会落到缺省 `self`，需先定采购域的数据归属口径再改。
 > **验证**：`tests/unit/reportAnalyticsScope.test.js` 由 13 条扩至 **29 条全绿**（新增：`getFinanceReport` all/self 各表归属、`exportFinance` 3 分支、`exportReport` 4 Sheet、`getBusinessDashboard` 19 条查询「无漏网」不变式、roleCode 架构守卫、路由挂载守卫）；`tests/unit` 全量回归 **479 passed / 36 suites / 0 failed**；ESLint `--max-warnings=0` EXIT 0。已做**反向验证**（按行号注入两处缺陷）：去掉一条查询的 scope + 还原硬编码 `role_id IN (1,2,3)` → **5 条对应用例如期失败**，恢复后复跑全绿。
+
+> **#21 修复说明（2026-09-20，分析域 `requireManager` 缺陷 + 数据范围补挂）**
+> **缺陷本质**：`middleware/admin.js` 的 `requireManager` 判 `req.user.manageAll || ADMIN_ROLE_CODES.has(roleCode) || roleId === ROLES.ADMIN(1)`。而 `ADMIN_ROLE_CODES` 仅含 `super_admin`（`config/roles.js` 注释载明为**遗留 code、现库已不存在**），`ROLES.ADMIN = 1` 即 **boss**。⇒ 它实际只放行 **boss / manageAll**，**把名字里的 manager 排除在外**。
+> **可达性证据链（四段闭合）**：
+> | 环节 | 证据 | 结果 |
+> |---|---|---|
+> | 功能权限（权威源） | `backend/scripts/init_role_permissions.js:182`（CI 注释明示「权限的唯一事实来源」）manager 权限列表含 `'analysis'` | **manager 持有 `analysis`** |
+> | 数据范围 | 同文件 `DATA_PERMISSIONS`（修复前）**无 `analysis` 条目** | manager 落入缺省 `self`（若仅去闸门则「只看自己」） |
+> | 前端菜单 | `Sidebar.vue:156-162` `v-if="hasMenuPermission('analysis')"` | manager **看得到**「分析工具」 |
+> | 前端路由 | `router/index.js:415-418`、`374-376` `meta.permission:'analysis'` | manager **进得去** 分析首页/增强预测 |
+> ⇒ 结果：**菜单可见 → 点开 10 个接口全部 403，且文案为「需要管理员或经理权限」**（对一个经理说这句）。
+> **修复内容**：
+> 1. `routes/analysis.js`：**移除 `requireManager`**，10 个端点统一改为 `checkPermission('analysis') + checkDataPermission('analysis')`，并把 `req.dataPermission` 透传进 service。
+> 2. `services/analysisService.js`：10 个函数接收 `dataPermission`，对**每条**归属相关查询套 `scopeFor`，按表选归属列：customer→`owner_id`、contract→`create_by`、opportunity→`owner_id`、follow_up→`create_by`、sales_target→`user_id`、成员排名→`sys_user.id`（共 17 处查询）。
+> 3. `scripts/init_role_permissions.js` `DATA_PERMISSIONS` 新增 `analysis` 模块：**boss=`all`、manager=`dept_and_sub`**（其余角色无此权限码，脚本第 7 步会清理其历史残留行）。**为何必须显式配 boss**：`checkDataPermission` 对无条目角色注入缺省 `self`，boss 虽因 `manageAll` 走 bypass 注入 `all`，但显式声明可避免将来 boss 去掉 manageAll 时静默退化为「只看自己」。
+> 4. 抽出共享工具 `utils/dataScope.js`（`scopeFor`），`reportAnalyticsService.js` 的局部同名函数改为引用它 —— 避免出现第二事实来源。
+> **语义**：boss→全量；manager→本部门及下级；其余（无 `analysis` 码）→ 连入口都没有。**无人被误锁**。
+> **验证**：`tests/analysis.test.js` 由 5 条增至 **8 条全绿**（新增：manager 不再 403 且按 `dept_and_sub` 注入部门集参数、`self` 只查本人、`/suggestions/enhanced` **5 条业务查询「无漏网」不变式**）；`tests/unit` + analysis + report + email 全量回归 **501 passed / 39 suites / 0 failed**；ESLint `--max-warnings=0` EXIT 0。**反向验证两轮**：① 给 `/win-rate` 重新挂 `requireManager` → 3 条用例如期失败（2 条 `Expected 200 / Received 403`）；② 删掉「停滞商机」查询的归属子句 → 「无漏网」不变式如期失败（`Expected pattern /(owner_id|create_by|user_id)\s*=\s*\?/`），恢复后复跑全绿。
+> **⚠️ 未收口（同型缺陷仍存，需逐案决策）**：全库仍有 **13 个路由文件**在使用 `requireManager`。据角色权限表交叉核对，其中**至少 9 个构成同型缺陷**（角色持有该权限码、菜单可见，却被 403）：
+> `routes/survey.js`(7 端点,`survey`)、`routes/tag.js`(2,`tag`)、`routes/scoring.js`(2,`scoring`)、`routes/contractTemplate.js`(1,`contract_template`)、`routes/followupTemplate.js`(1,`followup:template`)、`routes/customer/assign.js`(7,`customer:assign` 等)、`routes/contract/approval.js`(1,`contract`)、`routes/procurement-plan.js`(1,`purchase`) —— 以上 manager 均持有对应权限；
+> **另有 `routes/hr.js`（17 端点,`hr`）**：`hr` 角色同样 `manage_all=0`，**被挡在自己的 hr 模块外**（此条与 manager 无关，属独立同型问题）。
+> 余下 `routes/config.js`(`system`)、`routes/permission.js`、`routes/currency.js`、`routes/automation.js`（后三者无 `checkPermission`）语义上更像「仅管理员」，需产品确认是否保留。**因涉及多模块产品语义，未在本轮擅自修改。**
 
 ---
 
@@ -329,7 +353,7 @@
 |---|---|---|
 | 核心 CRM 域 | 客户/线索/公海/跟进/商机/报价/合同/回款/审批/权限/ Dashboard | 回收站（前端缺失） |
 | 采购域 | 库存/采购单/计划/申请/比价/供应商/产品/货币/竞品 | 供应商评分随机抖动 hack |
-| 协同赋能 | AI 助手/知识库/服务工单/报表(含数据范围)/分析/自定义报表 | 知识库产品缓存、团队看板硬编码、`analysis/*` 未按 sys_data_permission 分档 |
+| 协同赋能 | AI 助手/知识库/服务工单/报表(含数据范围)/分析(含数据范围)/自定义报表 | 知识库产品缓存、团队看板硬编码 |
 | 外部协同 | 社媒/集成/API平台(含Webhook派发)/日历 | 邮件同步、问卷投放 |
 | 系统支撑 | 配置/日志/备份/上传/搜索/HR/数据质量/cron/SSE | 供应商付款录入、备份依赖环境客户端 |
 
