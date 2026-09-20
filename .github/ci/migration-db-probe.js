@@ -1,30 +1,35 @@
 #!/usr/bin/env node
 /**
- * ⚠️ 临时诊断脚本（取证用，不是测试）—— migration-test 的「空心绿」取证
+ * 手动诊断工具（**已不再接入 CI**）：migration-test 的「空心绿」取证
  *
- * 背景
- *   tests/db/migration-roundtrip.test.js 的用例体带早退分支：
- *       if (!pool) { console.warn('[migration-roundtrip] 跳过：数据库不可达'); return; }
- *   而 pool 只在 beforeAll 四步（端口可达 → root 建库选库 → --rollback 002 → 全量重放）
- *   **全部成功** 后才被赋值 ⇒ 任一环节失败都会让 55 个往返用例「静默通过」（exit 0）。
- *   CI 上该步骤常年只耗时 1–2s，与 55 例 × 2 次 node 子进程的下界不相容，
- *   故怀疑它从未真正执行 —— 本脚本负责把「怀疑」变成「实证」。
+ * 现状
+ *   2026-09-20 本轮已用它定位并修复了根因，并把测试本身改成"环境就绪即大声失败"，
+ *   故 CI 不再需要本工具（它会让该 job 耗时翻倍）。保留为手动排查工具。
+ *
+ * 何时再用
+ *   - 怀疑「migration 往返用例其实没执行，但 job 是绿的」；
+ *   - 迁移链（down/up 脚本）改动后想快速拿到首败版本与错误原文。
  *
  * 取证通道（为什么不用日志）
  *   `GET /actions/jobs/{id}/logs` 对本仓库恒为 403（Must have admin rights）。
  *   但 GitHub 的 **check-run 注解 API 不需要 admin**：
  *       GET /repos/{owner}/{repo}/check-runs/{check_run_id}/annotations
- *   而 `::warning::` 工作流命令会生成 check-run 注解 ⇒ 把关键事实打成注解，
- *   即可在无 admin 的条件下把 CI 现场取回本地（注解 message 必须是单行纯文本）。
+ *   而 `::warning::` 工作流命令会生成 check-run 注解 ⇒ 把它作为 CI 步骤跑，
+ *   即可在无 admin 的条件下把现场取回本地（注解 message 必须是单行纯文本）。
+ *
+ * ⚠️ 环境对齐（首次使用踩过的坑）
+ *   ci.yml 里 jest 步骤的口令是**行内**环境变量（`DB_PASSWORD=x npx jest ...`），
+ *   只作用于那一个 step、**不会传给后续 step** ⇒ 若把它当独立 step 跑，
+ *   必须自带同样 env，否则复现的是「无口令」场景，结论无效（脚本内已加自检告警）。
  *
  * 安全约定
- *   - 本脚本**恒 exit 0**，只做诊断，绝不改变 job 结论（调用方另配 continue-on-error）。
+ *   - 本脚本**恒 exit 0**，只做诊断，绝不改变 job 结论（如接入 CI 需配 continue-on-error）。
  *   - 不打印任何口令。
- *   - 会复跑 jest、并直接执行 `run_migrations.js --rollback 002`（破坏性，仅限一次性 CI 库）；
- *     调用方必须把它放在 `docker compose down -v` 之前。
+ *   - ④⑤ 会在目标库上真做回滚/重放（破坏性）⇒ 只对一次性库使用。
+ *   - 默认**不重复跑 jest**（实测 ~8 分钟）；需要时用 PROBE_RERUN_JEST=1 打开。
  *
- * 用法（migration 基线导入完成之后、docker compose down 之前）：
- *   node .github/ci/migration-db-probe.js
+ * 用法
+ *   DB_NAME=huakey_crm_test DB_PASSWORD=<口令> node .github/ci/migration-db-probe.js
  */
 'use strict'
 
@@ -110,33 +115,43 @@ async function main () {
   emit(`① 端口可达 = ${await checkTcp()}`)
 
   // ② 复跑 jest 并取精确计数（jest 自身 JSON 结果，免疫文本噪音）
-  const jsonFile = path.join(os.tmpdir(), 'mig-roundtrip-result.json')
-  const jsonArg = ` --json --outputFile=${jsonFile}`
-  const jest = runCapture(
-    `npx jest tests/db/migration-roundtrip.test.js --forceExit --testTimeout=240000${jsonArg}`,
-    { cwd: path.join(ROOT, 'backend'), env: { ...process.env, DB_NAME, DB_PASSWORD } }
-  )
-  const jestOut = jest.out || ''
+  //    实测这一步在"往返真跑"时要 ~8 分钟 ⇒ 默认关闭，按需用 PROBE_RERUN_JEST=1 打开
+  if (process.env.PROBE_RERUN_JEST !== '1') {
+    emit('② 跳过 jest 复跑（默认关闭，需 PROBE_RERUN_JEST=1）。'
+      + '提示：测试已改为 CI 上「环境就绪即大声失败」⇒ job 的红/绿本身就是判据。')
+  } else {
+    const jsonFile = path.join(os.tmpdir(), 'mig-roundtrip-result.json')
+    const jsonArg = ` --json --outputFile=${jsonFile}`
+    const jest = runCapture(
+      `npx jest tests/db/migration-roundtrip.test.js --forceExit --testTimeout=240000${jsonArg}`,
+      {
+        cwd: path.join(ROOT, 'backend'),
+        env: { ...process.env, DB_NAME, DB_PASSWORD },
+        timeout: 900000, // 往返真跑约 8 分钟，别用默认 240s（否则会被杀，得出"0 行跳过"的误导性读数）
+      }
+    )
+    const jestOut = jest.out || ''
 
-  let counts = 'JSON 结果不可读'
-  try {
-    const j = JSON.parse(fs.readFileSync(jsonFile, 'utf8'))
-    counts = `suites=${j.numTotalTestSuites} tests=${j.numTotalTests} passed=${j.numPassedTests} pending=${j.numPendingTests} failed=${j.numFailedTests}`
-  } catch (e) {
-    counts = `JSON 结果不可读: ${e.message}`
+    let counts = 'JSON 结果不可读'
+    try {
+      const j = JSON.parse(fs.readFileSync(jsonFile, 'utf8'))
+      counts = `suites=${j.numTotalTestSuites} tests=${j.numTotalTests} passed=${j.numPassedTests} pending=${j.numPendingTests} failed=${j.numFailedTests}`
+    } catch (e) {
+      counts = `JSON 结果不可读: ${e.message}`
+    }
+    emit(`② jest 复跑 exit=${jest.status} | ${counts}`)
+    // jest 会把 console.warn 正文与「代码帧」都印出来 ⇒ 只数正文行，避免把 `> 198 | console.warn(...)` 也算进去
+    const skipWarns = (jestOut.match(/^\s*\[migration-roundtrip\][^\n]*跳过[^\n]*$/gm) || []).length
+    emit(`② 早退告警实测 = ${skipWarns} 行（= 55 个往返用例 + 1 处 beforeAll；`
+      + '若 tests=56 且 pending=0 而本行不为 0 ⇒ 用例「通过」但并未执行）')
+    const testsLine = (jestOut.match(/^Tests:.*$/m) || ['(无 Tests: 行)'])[0].trim()
+    emit(`② jest 汇总: ${testsLine}`)
+    // beforeAll 的真实失败原因（不可达 / 认证失败 / 迁移执行失败）
+    const reason = jestOut.split('\n')
+      .map((l) => l.trim())
+      .find((l) => /^\[migration-roundtrip\].*(认证失败|迁移执行失败|迁移链执行失败|不可达)/.test(l))
+    if (reason) emit(`② beforeAll 根因: ${reason}`)
   }
-  emit(`② jest 复跑 exit=${jest.status} | ${counts}`)
-  // jest 会把 console.warn 正文与「代码帧」都印出来 ⇒ 只数正文行，避免把 `> 198 | console.warn(...)` 也算进去
-  const skipWarns = (jestOut.match(/^\s*\[migration-roundtrip\][^\n]*跳过[^\n]*$/gm) || []).length
-  emit(`② 早退告警实测 = ${skipWarns} 行（= 55 个往返用例 + 1 处 beforeAll；`
-    + '若 tests=56 且 pending=0 ⇒ 全部「通过」但并未执行）')
-  const testsLine = (jestOut.match(/^Tests:.*$/m) || ['(无 Tests: 行)'])[0].trim()
-  emit(`② jest 汇总: ${testsLine}`)
-  // beforeAll 的真实失败原因（不可达 / 认证失败 / 迁移执行失败）
-  const reason = jestOut.split('\n')
-    .map((l) => l.trim())
-    .find((l) => /^\[migration-roundtrip\].*(认证失败|迁移执行失败|不可达)/.test(l))
-  if (reason) emit(`② beforeAll 根因: ${reason}`)
 
   // ③ 迁移账本
   emit(`③ ${await countSchemaMigrations()}`)

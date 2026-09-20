@@ -70,8 +70,11 @@ function runMigration(args = '') {
 beforeAll(async () => {
   const reachable = await checkDbReachable();
   if (!reachable) {
-    console.warn(`[migration-roundtrip] CI MySQL 不可达 (端口 ${DB_PORT})，跳过迁移往返测试`);
-    return; // 后续 test 检测到 pool 为 undefined 后自行跳过
+    if (process.env.CI) {
+      throw new Error(`[migration-roundtrip] 数据库不可达（端口 ${DB_PORT}）：CI 上不允许静默跳过`);
+    }
+    console.warn(`[migration-roundtrip] MySQL 不可达 (端口 ${DB_PORT})，跳过迁移往返测试（本机便利跳过）`);
+    return; // 本机便利跳过：后续 test 检测到 pool 为 undefined 后自行跳过
   }
 
   // 确保测试库存在
@@ -88,9 +91,13 @@ beforeAll(async () => {
     );
     await adminPool.query(`USE \`${DB_NAME}\``);
   } catch (err) {
-    // 端口可达但认证失败（如本地无密码 root），优雅跳过而非让整个 describe 失败
-    console.warn(`[migration-roundtrip] DB 认证失败: ${err.message}，跳过迁移往返测试`);
     await adminPool.end();
+    if (process.env.CI) {
+      // CI 上认证失败 ⇒ 工作流 env 有误（如口令只写在单个 step 的行内变量里），必须显式失败
+      throw new Error(`[migration-roundtrip] DB 认证失败（CI 环境配置有误，不允许静默跳过）: ${err.message}`);
+    }
+    // 端口可达但认证失败（如本地无密码 root），本机优雅跳过
+    console.warn(`[migration-roundtrip] DB 认证失败: ${err.message}，跳过迁移往返测试（本机便利跳过）`);
     return;
   }
 
@@ -99,13 +106,20 @@ beforeAll(async () => {
   // 进入"迁移链重放态"：深回滚到最老测试版本后全量重放。
   // 背景：init-complete 基线快照与迁移链终态存在历史漂移（列注释/字符集等），
   // 以基线态为对比基准必然失败；roundtrip 的本意是验证 down→up 的往返保真，
-  // 故 before/after 统一取迁移链重放态（CI 基线导入 + 全版本标记后，runMigration 为空操作）
+  // 故 before/after 统一取迁移链重放态。
+  // ⚠️ 注意：这一步**不是空操作** —— 实测它会对每个有 down 脚本的版本执行一次回滚再重放
+  //    （CI 上约 7-8 分钟）。早期注释写"runMigration 为空操作"是错的，正是这个误判
+  //    让"迁移链早已断裂"长期无人发现（见 docs/ci-failure-analysis-2026-09-20.md §10.7）。
   try {
     runMigration('--rollback 002');
     runMigration();
   } catch (err) {
-    console.warn(`[migration-roundtrip] 迁移执行失败: ${err.message}，跳过往返测试`);
-    return;
+    // DB 已可达且认证成功 ⇒ 迁移链执行失败属**真实缺陷**，绝不允许静默跳过。
+    // 若此处 return，下游 55 个用例会因 `pool` 未赋值而走早退分支、以"全部通过"的
+    // 假象掩盖问题（CI 由此长期显示 success，而 55 个往返用例一个都没执行）。
+    throw new Error(
+      `[migration-roundtrip] 迁移链执行失败（DB 已就绪，属真实缺陷，不再静默跳过）: ${err.message}`
+    );
   }
 
   pool = mysql.createPool({
@@ -195,7 +209,10 @@ describe('数据库迁移 roundtrip 测试', () => {
   ROUNDTRIP_VERSIONS.forEach(version => {
     test(`版本 ${version}: down → up 往返后关键表结构一致`, async () => {
       if (!pool) {
-        console.warn('[migration-roundtrip] 跳过：数据库不可达');
+        if (process.env.CI) {
+          throw new Error('未建立数据库连接：CI 上不允许静默跳过（本往返用例并未执行）');
+        }
+        console.warn('[migration-roundtrip] 跳过：数据库不可达（本机便利跳过）');
         return;
       }
 
