@@ -269,6 +269,15 @@ jobs:
           done
           echo "Baseline ready."
       - run: cd backend && DB_NAME=huakey_crm_test DB_PASSWORD=test_root_pass npx jest tests/db/migration-roundtrip.test.js --forceExit --testTimeout=240000
+      # ⚠️ 临时诊断步骤（取证用，定位完成后删除）：
+      # 该测试的用例体带 `if (!pool) return;` 早退分支，任一前置失败都会让 55 个往返用例
+      # 「静默通过」。本步骤把现场事实打成 ::warning:: 注解，经 check-run 注解 API
+      # （无需 admin，绕过 403 的 job 日志接口）取回。恒 exit 0 + continue-on-error，
+      # 绝不改变本 job 结论。
+      - name: Diagnose migration roundtrip skip
+        if: always()
+        continue-on-error: true
+        run: node .github/ci/migration-db-probe.js
       - if: always()
         run: docker compose -f docker-compose.ci.yml down -v
 
