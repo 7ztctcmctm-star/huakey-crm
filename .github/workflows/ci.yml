@@ -274,9 +274,14 @@ jobs:
       # 「静默通过」。本步骤把现场事实打成 ::warning:: 注解，经 check-run 注解 API
       # （无需 admin，绕过 403 的 job 日志接口）取回。恒 exit 0 + continue-on-error，
       # 绝不改变本 job 结论。
+      # ⚠️ env 必须与上面 jest 步骤**逐字一致**（那是行内环境变量，只作用于该 step），
+      #    否则探针复现的是"无口令"场景，得出的结论无效。
       - name: Diagnose migration roundtrip skip
         if: always()
         continue-on-error: true
+        env:
+          DB_NAME: huakey_crm_test
+          DB_PASSWORD: test_root_pass
         run: node .github/ci/migration-db-probe.js
       - if: always()
         run: docker compose -f docker-compose.ci.yml down -v

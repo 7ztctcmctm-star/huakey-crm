@@ -100,6 +100,11 @@ async function countSchemaMigrations () {
 
 async function main () {
   emit(`env DB_HOST=${DB_HOST} DB_PORT=${DB_PORT} DB_USER=${DB_USER} DB_NAME=${DB_NAME} 口令已提供=${DB_PASSWORD ? 'yes' : 'no'}`)
+  // 自检：本探针必须与真实 jest 步骤的 env 逐字一致，否则复现的是"无口令"场景，结论无效
+  if (!DB_PASSWORD) {
+    emit('⚠️ 未收到 DB_PASSWORD ⇒ 本次复现的是「无口令」场景，**结论不可用于判定真实步骤**；'
+      + '请检查调用方 env（行内环境变量只作用于单个 step，不会传递给后续 step）')
+  }
 
   // ① 连通性（beforeAll 第一步）
   emit(`① 端口可达 = ${await checkTcp()}`)
