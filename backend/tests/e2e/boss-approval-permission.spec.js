@@ -187,6 +187,9 @@ describe('Boss / Manager / Sales 审批权限验证', () => {
       const token = makeToken({ userId: 10, roleId: 5, roleCode: 'sales', manageAll: false });
 
       mockAuth(0, 0, 'sales');
+      // 路由链: checkPermission('contract') → requireManager（routes/contract/approval.js:19）
+      // sales 无 contract 功能权限 → 403；必须显式给权限数组，避免 undefined.includes → 500
+      mockGetUserPermissions.mockResolvedValue([]);
 
       const res = await request(app)
         .post('/api/v1/contract/approve')

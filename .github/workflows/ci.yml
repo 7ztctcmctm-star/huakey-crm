@@ -29,6 +29,13 @@ jobs:
           key: backend-deps-${{ hashFiles('backend/package-lock.json') }}
       - run: cd backend && npm ci
       - run: cd backend && npm run lint
+      - name: Prepare upload directories
+        # backend/uploads/** 在 .gitignore 中，checkout 后不存在。
+        # routes/knowledge.js 依赖 ../uploads/knowledge 作为 multer 的磁盘目的地；
+        # 生产镜像由 Dockerfile 的 `RUN mkdir -p /app/uploads` 保证，CI 需等价准备，
+        # 否则 multer 写盘 ENOENT → 500（tests/knowledge.test.js「上传允许的文档类型」失败）。
+        # 注意：该测试 mock 了 fs.existsSync → true，因此代码内 `if (!existsSync) mkdir` 的自建逻辑不会生效。
+        run: mkdir -p backend/uploads/knowledge
       - run: cd backend && npm test
       - run: cd backend && npm audit --audit-level=high --production
 

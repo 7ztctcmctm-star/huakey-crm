@@ -152,6 +152,10 @@ describe('CRM Core v1 — RBAC 权限隔离测试', () => {
       const token = makeToken({ userId: 10, roleId: 5, roleCode: 'sales' });
 
       mockAuth(0, 0, 'sales');
+      // checkPermission('opportunity:view') 必须先通过，否则会被 403 提前拦下、测不到数据隔离。
+      // 这里显式给出权限码，避免 getUserPermissions 返回 undefined 导致
+      // middleware/permission.js:28 的 `userPermissions.includes(...)` 抛 TypeError → 500。
+      mockGetUserPermissions.mockResolvedValue(['opportunity:view']);
       // getDataPermissions → returns no config → defaults to self
       mockGetDataPermissions.mockResolvedValue([]);
       // getOpportunityWithPermission with self scope → empty (owner_id ≠ 10)
@@ -190,14 +194,17 @@ describe('CRM Core v1 — RBAC 权限隔离测试', () => {
       const token = makeToken({ userId: 10, roleId: 5, roleCode: 'sales' });
 
       mockAuth(0, 0, 'sales');
+      // 真实路由链（routes/contract/approval.js:19）:
+      //   authenticateToken → checkPermission('contract') → requireManager → controller
+      // sales 无 contract 功能权限 → 第一道 checkPermission 即 403。
+      // 必须显式给 getUserPermissions 返回值，否则 undefined.includes → TypeError → 500。
+      mockGetUserPermissions.mockResolvedValue([]);
 
       const res = await request(app)
         .post('/api/v1/contract/approve')
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 500, approval_status: 2 });
 
-      // requireAdmin 检查 manageAll || ADMIN_ROLE_CODES
-      // sales: manageAll=false, roleCode='sales' not in ADMIN_ROLE_CODES → 403
       expect(res.status).toBe(403);
     });
   });

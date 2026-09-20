@@ -264,6 +264,9 @@ describe('HuakeyCRM v1 Release Smoke Test', () => {
   // 7. 权限隔离：sales 不能审批合同
   it('7a. sales 审批合同被拒 403', async () => {
     mockAuthSales();
+    // 路由链: checkPermission('contract') → requireManager（routes/contract/approval.js:19）
+    // sales 无 contract 功能权限 → 第一道即 403；必须显式给权限数组，避免 undefined.includes → 500
+    mockGetUserPermissions.mockResolvedValue([]);
     const res = await request(app)
       .post('/api/v1/contract/approve')
       .set('Authorization', `Bearer ${salesToken()}`)
@@ -274,6 +277,8 @@ describe('HuakeyCRM v1 Release Smoke Test', () => {
   // 7b. 权限隔离：sales 数据范围=self，他人商机 404
   it('7b. sales 查看他人商机返回 404', async () => {
     mockAuthSales();
+    // checkPermission('opportunity:view') 先通过（有功能权限），再由数据范围 self 收敛到 404
+    mockGetUserPermissions.mockResolvedValue(['opportunity:view']);
     mockGetDataPermissions.mockResolvedValue([]);   // → type='self'
     mockPool.query.mockResolvedValueOnce([[]]);      // detail query empty
 

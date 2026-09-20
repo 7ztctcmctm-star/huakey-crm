@@ -308,6 +308,10 @@ describe('Opportunity Center v1 — 业务链集成测试', () => {
         .mockResolvedValueOnce([[]])                                   // auth: blacklist
         .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0 }]])    // auth: role (no manage_all)
         .mockResolvedValueOnce([[{ must_change_password: 0 }]])       // auth: user
+        // 路由链: authenticateToken → checkPermission('opportunity:view') → checkDataPermission → controller
+        // 本文件未 mock permissionService，checkPermission 会**真查库**取权限码
+        // （getUserPermissions 返回 rows.map(r => r.code)，见 services/permissionService.js）
+        .mockResolvedValueOnce([[{ code: 'opportunity:view' }]])      // checkPermission: 权限码
         // checkDataPermission: getDataPermissions → type='self'
         // → clause = '(o.owner_id = ? OR ...)' with userId=10
         .mockResolvedValueOnce([[]])                                   // data_permission query
@@ -328,6 +332,7 @@ describe('Opportunity Center v1 — 业务链集成测试', () => {
         .mockResolvedValueOnce([[]])                                   // auth: blacklist
         .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0 }]])    // auth: role
         .mockResolvedValueOnce([[{ must_change_password: 0 }]])       // auth: user
+        .mockResolvedValueOnce([[{ code: 'opportunity:view' }]])      // checkPermission: 权限码
         .mockResolvedValueOnce([[]])                                   // data_permission → type='self'
         .mockResolvedValueOnce([[]]);                                   // detail query → empty (owner_id=10 ≠ 20)
 

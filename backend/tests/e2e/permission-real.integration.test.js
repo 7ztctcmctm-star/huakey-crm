@@ -100,6 +100,18 @@ describe('权限链路测试（真实数据库）', () => {
       }
     }
 
+    // 4b. 显式撤销 role 3 (sales) 的 approval 功能权限。
+    // 用例 6 断言「sales 无 approval 权限 → 403」，但第 4 步的 INSERT IGNORE 只做新增，
+    // 无法移除 CI 基线 / 真实库中 role 3 已有的 approval 授权 —— 那样请求会穿透到
+    // approvalService，并因审批记录不存在而返回 404（而非被权限层拦下）。
+    // 显式 DELETE 让前提自洽，不依赖库的初始状态。
+    // 用 JOIN 按 code 删除：sys_permission.code 未必有唯一约束，按 code 匹配可覆盖重复行。
+    await pool.query(
+      `DELETE rp FROM sys_role_permission rp
+       JOIN sys_permission p ON rp.permission_id = p.id
+       WHERE rp.role_id = 3 AND p.code = 'approval'`
+    );
+
     // 5. 配置数据权限：sales 为 self 模式
     await pool.query(
       `INSERT INTO sys_data_permission (role_id, module, data_scope)
