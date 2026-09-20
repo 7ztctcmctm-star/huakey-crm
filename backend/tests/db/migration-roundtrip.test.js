@@ -19,6 +19,13 @@ const DB_USER = process.env.DB_USER || 'root';
 const DB_PASSWORD = process.env.DB_PASSWORD || '';
 const DB_NAME = process.env.DB_NAME || 'huakey_crm_test';
 
+// 严格模式：**仅由 migration-test job 显式开启**（MIGRATION_ROUNDTRIP_STRICT=1）。
+// ⚠️ 不能用 process.env.CI 判定 —— GitHub Actions 在**所有** job 都设 CI=true，
+//    而 backend-test 也会跑到本文件（jest.config 只排除了 tests/e2e//security//performance/，
+//    **未排除 tests/db/**）且那里没有 MySQL ⇒ 会把 backend-test 直接弄红。
+// 开严格模式的语义：DB 就绪即不许静默跳过，任何「没真跑」都必须让 job 红。
+const STRICT = process.env.MIGRATION_ROUNDTRIP_STRICT === '1';
+
 // 5 张核心业务表 — 往返后结构必须一致
 const KEY_TABLES = ['crm_customer', 'crm_opportunity', 'crm_quote', 'crm_contract', 'sys_user'];
 
@@ -70,8 +77,8 @@ function runMigration(args = '') {
 beforeAll(async () => {
   const reachable = await checkDbReachable();
   if (!reachable) {
-    if (process.env.CI) {
-      throw new Error(`[migration-roundtrip] 数据库不可达（端口 ${DB_PORT}）：CI 上不允许静默跳过`);
+    if (STRICT) {
+      throw new Error(`[migration-roundtrip] 数据库不可达（端口 ${DB_PORT}）：严格模式不允许静默跳过`);
     }
     console.warn(`[migration-roundtrip] MySQL 不可达 (端口 ${DB_PORT})，跳过迁移往返测试（本机便利跳过）`);
     return; // 本机便利跳过：后续 test 检测到 pool 为 undefined 后自行跳过
@@ -92,9 +99,9 @@ beforeAll(async () => {
     await adminPool.query(`USE \`${DB_NAME}\``);
   } catch (err) {
     await adminPool.end();
-    if (process.env.CI) {
-      // CI 上认证失败 ⇒ 工作流 env 有误（如口令只写在单个 step 的行内变量里），必须显式失败
-      throw new Error(`[migration-roundtrip] DB 认证失败（CI 环境配置有误，不允许静默跳过）: ${err.message}`);
+    if (STRICT) {
+      // 严格模式下认证失败 ⇒ 工作流 env 有误（如口令只写在单个 step 的行内变量里），必须显式失败
+      throw new Error(`[migration-roundtrip] DB 认证失败（严格模式，环境配置有误，不允许静默跳过）: ${err.message}`);
     }
     // 端口可达但认证失败（如本地无密码 root），本机优雅跳过
     console.warn(`[migration-roundtrip] DB 认证失败: ${err.message}，跳过迁移往返测试（本机便利跳过）`);
@@ -114,12 +121,17 @@ beforeAll(async () => {
     runMigration('--rollback 002');
     runMigration();
   } catch (err) {
-    // DB 已可达且认证成功 ⇒ 迁移链执行失败属**真实缺陷**，绝不允许静默跳过。
-    // 若此处 return，下游 55 个用例会因 `pool` 未赋值而走早退分支、以"全部通过"的
-    // 假象掩盖问题（CI 由此长期显示 success，而 55 个往返用例一个都没执行）。
-    throw new Error(
-      `[migration-roundtrip] 迁移链执行失败（DB 已就绪，属真实缺陷，不再静默跳过）: ${err.message}`
-    );
+    // DB 已可达且认证成功 ⇒ 迁移链执行失败属**真实缺陷**。
+    // 严格模式（migration-test job）下必须抛出；否则下游 55 个用例会因 `pool` 未赋值
+    // 而走早退分支、以「全部通过」的假象掩盖问题
+    // （CI 由此长期显示 success，而 55 个往返用例一个都没执行）。
+    if (STRICT) {
+      throw new Error(
+        `[migration-roundtrip] 迁移链执行失败（严格模式，属真实缺陷，不再静默跳过）: ${err.message}`
+      );
+    }
+    console.warn(`[migration-roundtrip] 迁移链执行失败: ${err.message}，跳过迁移往返测试（非严格模式）`);
+    return;
   }
 
   pool = mysql.createPool({
@@ -209,8 +221,8 @@ describe('数据库迁移 roundtrip 测试', () => {
   ROUNDTRIP_VERSIONS.forEach(version => {
     test(`版本 ${version}: down → up 往返后关键表结构一致`, async () => {
       if (!pool) {
-        if (process.env.CI) {
-          throw new Error('未建立数据库连接：CI 上不允许静默跳过（本往返用例并未执行）');
+        if (STRICT) {
+          throw new Error('未建立数据库连接：严格模式下不允许静默跳过（本往返用例并未执行）');
         }
         console.warn('[migration-roundtrip] 跳过：数据库不可达（本机便利跳过）');
         return;

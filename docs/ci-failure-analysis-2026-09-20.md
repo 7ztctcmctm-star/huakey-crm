@@ -413,6 +413,101 @@ if (!pool) { console.warn('[migration-roundtrip] 跳过：数据库不可达'); 
 > 建议后续单独开一项处理：把早退改为 `test.skip`（可见地跳过）或 `expect(pool).toBeDefined()`
 > （显式失败），让「没连上库」不再伪装成 success。
 
+### 10.7 §10.6 收口：空转根因已实证并修复（`81a112a` → `7d60170` → `bf7560f`）
+
+§10.6 当时只能写「推断，未获 CI 日志确认」。本轮把推断做成了实证，并**顺手挖出一处真实的迁移缺陷**。
+
+#### 10.7.1 取证通道：check-run 注解 API（**不需要 admin**）
+
+`GET /actions/jobs/{id}/logs` 对本仓库恒为 **403**（Must have admin rights），但另一条路可用：
+
+| 通道 | 是否需 admin | 用途 |
+|---|---|---|
+| `/actions/jobs/{id}/logs` | **需** ⇒ 403 | （不可用） |
+| `/actions/runs/{id}/jobs` | 否 | job/step 的**结论与时间戳** |
+| `/repos/{o}/{r}/check-runs/{check_run_id}/annotations` | **否，匿名 200** | **注解正文**（含 `::warning::` 打的内容） |
+
+流程：`::warning::` 工作流命令 → 生成 check-run 注解 → 用上面第三个接口取回。
+`check_run_id` 不在 Actions 的 jobs 响应里，需 `GET /repos/{o}/{r}/commits/{sha}/check-runs` 取。
+据此新增了手动/临时诊断工具 `.github/ci/migration-db-probe.js`（定位完成后已从 CI 撤下，
+保留为手动工具）。
+
+> ⚠️ **踩过的坑（第一次取证无效）**：ci.yml 里 jest 步骤的口令是**行内**环境变量
+> （`DB_PASSWORD=x npx jest ...`），**只作用于那一个 step、不会传给后续 step**。
+> 探针初次作为独立 step 运行时 `口令已提供=no`，复现的是「无口令」场景，
+> 注解里出现 `Access denied ... (using password: NO)` —— 看着像根因，其实**是探针自己的环境错配**。
+> 修法：探针 step 必须自带与 jest 步骤逐字一致的 `env:`，并在脚本里加"未收到口令即告警"的自检。
+
+#### 10.7.2 实证结果（环境对齐后，run `35500745480` 的注解原文）
+
+```
+[mig-probe] env DB_HOST=localhost DB_PORT=3306 DB_USER=root DB_NAME=huakey_crm_test 口令已提供=yes
+[mig-probe] ① 端口可达 = true
+[mig-probe] ③ schema_migrations 已标记执行 = 107
+[mig-probe] ④ run_migrations --rollback 002 exit=1 | 准备回滚 106 个迁移
+[mig-probe] ④ 首败：✗ 版本 109 回滚失败: You have an error in your SQL syntax;
+            check the manual ... near 'IF EXISTS opportunity_id' at line 1
+[mig-probe] ② beforeAll 根因: [migration-roundtrip] 迁移执行失败: Command failed: node ... --rollback 002
+[mig-probe] ② jest 复跑 exit=0 | suites=1 tests=56 passed=56 pending=0 failed=0
+[mig-probe] ② 早退告警实测 = 55 行
+```
+
+**根因（两层，互相放大）**：
+
+1. **产品级**：`109_follow_up_opportunity_down.sql` 用了 `ALTER TABLE ... DROP COLUMN IF EXISTS`
+   —— 那是 **MariaDB 语法，MySQL 8.0 不支持** ⇒ `--rollback 002` 在版本 109 首败，
+   `run_migrations.js` 走 `process.exit(1)`（同批还有 `108_contract_cancel_fields_down.sql` 两处）。
+2. **测试级**：`beforeAll` 的 `catch` 把上面的失败 `console.warn` 掉后 `return`，
+   于是 `pool` 永不赋值 ⇒ 55 个用例命中 `if (!pool) return;` 早退分支 ⇒
+   jest 报 **`tests=56 passed=56 pending=0 failed=0`**，job 显示 success。
+   **「用例全部通过」与「一个都没执行」在报告上完全不可区分。**
+
+历史上该步骤**恒为 1–2s**：`--rollback` 从最高版本倒序执行，109 以上多数版本没有 down 文件
+（`continue` 跳过），到 109 才真正执行并立刻失败 ⇒ 秒级。这也是 §10.6 用「耗时不合理」推断的依据。
+
+#### 10.7.3 修复
+
+| 提交 | 内容 |
+|---|---|
+| `81a112a` | 探针 env 与 jest 步骤对齐 + 自检告警（**先修量具，再量**） |
+| `7d60170` | **修 108/109 两个 down 脚本**：改用项目惯例模式（`information_schema` + `PREPARE/EXECUTE` 条件化 DDL）——`090_down` 与 108/109 的 **up** 脚本本来就用这个模式，只有这两个 down 脚本漏了 |
+| `bf7560f` | **测试说真话**：三处早退出口改为「本机可见跳过 / **CI 上 throw ⇒ job 红**」；撤下临时探针（保留为手动工具，jest 复跑改 `PROBE_RERUN_JEST=1` 按需） |
+
+**修复效果（job/step 级 API，无需日志）**：
+
+| | 修复前 | 修复后（run `35501113132`，sha `7d60170`） |
+|---|---|---|
+| jest 步骤耗时 | **1–2s** | **466s** ✅ |
+| 早退告警 | 55 行（全部静默跳过） | **0 行** |
+| run 结论 | success（空转绿） | success（**真跑**） |
+
+⇒ 55 个往返用例**第一次真正执行**（106 次回滚 + 106 次重放）并且**通过**。
+
+#### 10.7.4 ⚠️ 顺带观察到的两处现象（**在异常中间态上观察到，未复现，不作为已确认缺陷**）
+
+探针的第 ④ 步跑在「jest 步骤已回滚+重放过」的**中间态**上，因此它的读数不能直接等同于
+干净基线态。如实记录：
+
+1. `schema_migrations` 由基线 **107 → 95**（少 12 个版本标记）——回滚+重放后账本未回到原值，
+   提示 `migrateUp` 的重放可能未重新标记部分版本。
+2. 在该中间态上再跑 `--rollback 002`，首败变为 **版本 096**
+   （`Can't DROP 'idx_purchase_order_approval_status'; check that column/key exists`）。
+   **注意 `096_down` 本身是有 `information_schema` 保护的**，故这更像是"中间态不自洽"
+   导致的次生现象，而非 096 自身缺陷 —— 需在干净库上单独复现才能定性。
+
+两项均**未修改**，仅登记。
+
+#### 10.7.5 方法论沉淀（三条，已写入 `ci-failure-triage` 技能）
+
+1. **模式扫描必须先剥注释**：本轮初扫把 `090_down` 报成缺陷，实为**注释里**提到了
+   `DROP COLUMN IF EXISTS`；它恰恰是正确实现的样板。剥离注释后真实命中只有 2 文件 3 处。
+2. **"全绿"要反向核查**：`tests=56 passed=56 pending=0` 完全可能等于"一个都没跑"。
+   判据：① 单步骤耗时 vs 理论下界 ② 横向对比历史同步骤耗时（恒 1–2s 即为异常）
+   ③ 小写探针复现早退分支（指向无人监听端口，非破坏性）。
+3. **先修量具再量**：探针自身的 env 错配会产出一份"看起来很合理"的错误结论 ——
+   给量具加自检（本次：未收到口令即告警），比事后怀疑结论更省事。
+
 ---
+
 
 *分析人：David ｜ 日期：2026-09-20 ｜ 依据：GitHub Actions job/step 级 API（含终态全绿复核 run `35498110675`）+ lockfile 静态体检 + 本地 npm ci 对照实测 + 逐 commit 二分定位 + 本机等价库集成测试实测*

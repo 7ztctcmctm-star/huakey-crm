@@ -268,7 +268,9 @@ jobs:
               -e "INSERT IGNORE INTO schema_migrations (version, name) VALUES ('$v', '$n')"
           done
           echo "Baseline ready."
-      - run: cd backend && DB_NAME=huakey_crm_test DB_PASSWORD=test_root_pass npx jest tests/db/migration-roundtrip.test.js --forceExit --testTimeout=240000
+      # MIGRATION_ROUNDTRIP_STRICT=1：本 job 声明"DB 已就绪"，故测试里的任何静默跳过都必须变成失败
+      # （不能用 CI=true 判定 —— Actions 在所有 job 都设它，backend-test 也会跑到该文件且无 MySQL）
+      - run: cd backend && MIGRATION_ROUNDTRIP_STRICT=1 DB_NAME=huakey_crm_test DB_PASSWORD=test_root_pass npx jest tests/db/migration-roundtrip.test.js --forceExit --testTimeout=240000
       - if: always()
         run: docker compose -f docker-compose.ci.yml down -v
 
