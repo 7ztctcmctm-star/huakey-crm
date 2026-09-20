@@ -267,4 +267,106 @@ npm ci --no-audit --no-fund      # 期望 added 1 package / EXIT=0
 
 ---
 
-*分析人：David ｜ 日期：2026-09-20 ｜ 依据：GitHub Actions job/step 级 API + lockfile 静态体检 + 本地 npm ci 对照实测 + 逐 commit 二分定位*
+## 十、第二轮修复：`backend-test` uploads 目录 + `integration-test` 权限 mock 脱节（提交 `78b825e`）
+
+第一轮修复（`95c6f6a`：xlsx 地址 + `backup.test.js` 错误中间件）后，CI 由 **5 红 → 2 红**，剩余：
+
+| job | 首败步骤 |
+|---|---|
+| `backend-test` | #7 `Run cd backend && npm test` |
+| `integration-test` | #9 `Run cd backend && npx jest tests/e2e/ --config jest.integration.config.js --forceExit` |
+
+### 10.1 `backend-test`：`backend/uploads` 目录在 CI 上不存在
+
+**根因**：`backend/uploads/**` 在 `.gitignore` 中，`actions/checkout` 后不存在；
+`routes/knowledge.js:80-82` 以 `../uploads/knowledge` 作为 **multer 的磁盘目的地**。
+生产镜像由 `Dockerfile.synology` 的 `RUN mkdir -p /app/uploads` 保证，**CI 缺等价准备**
+⇒ multer 写盘 ENOENT → 500（`tests/knowledge.test.js`「应该返回200当上传允许的文档类型」）。
+
+> ⚠️ **不能指望代码自愈**：该测试 mock 了 `fs.existsSync → true`，因此
+> `knowledge.js` 里 `if (!existsSync) fs.mkdirSync(...)` 的自建逻辑**不会生效**。
+
+**修复**（`.github/workflows/ci.yml`，`backend-test` job）：
+
+```yaml
+- name: Prepare upload directories
+  run: mkdir -p backend/uploads/knowledge
+```
+
+**验证**：在「CI 等价工作区」（`git ls-files` 只复制被跟踪文件 + `node_modules` junction +
+移除 `.env`/未跟踪项）复跑 —— 修复前 `1 failed`，修复后 **129 suites / 1293 tests 全绿**。
+
+### 10.2 `integration-test`：5 套件 / 8 用例失败，**全部是测试与「权限加固」脱节，非产品缺陷**
+
+`fb15466 fix(security): 全项目审计修复 P0+P1（权限加固 …）` 给若干详情端点补了
+`checkPermission(...)`，此后这些 e2e 用例的 mock 序列与真实中间件链错位，自 8/7 起一直红
+（此前被 `npm ci` 的 E404 挡住，从未跑到）。
+
+| 症状 | 套件 / 用例 | 根因 | 修法 |
+|---|---|---|---|
+| **403** | `opportunity-flow.spec.js` 2.1（期望 200）、2.2（期望 404） | 该文件**未 mock `permissionService`**，`checkPermission('opportunity:view')` 会**真查库**取权限码；mock 序列漏掉这一次查询，本应给 `checkDataPermission` 的 `[[]]` 被 `checkPermission` 消费 ⇒ 权限判定为空 ⇒ 403 | 在 auth 三次查询之后补一次 `.mockResolvedValueOnce([[{ code: 'opportunity:view' }]])` |
+| **500** | `rbac-business-flow.spec.js` Case2-1 / Case3、`release-smoke-test.spec.js` 7a / 7b、`boss-approval-permission.spec.js`（sales 审批合同） | 这些文件已 mock `permissionService`，但相关用例**未给出 `getUserPermissions` 的返回值** ⇒ `middleware/permission.js:28` 的 `userPermissions.includes(code)` 对 `undefined` 抛 TypeError ⇒ catch 返回「权限校验异常」500 | 显式给出权限数组（有权限 → `['opportunity:view']`；无 `contract` 权限 → `[]`） |
+| **404** | `permission-real.integration.test.js` 用例 6（期望 403） | 断言前提是「sales 无 `approval` 权限 → 403」，但 `beforeAll` 的 `INSERT IGNORE` **只新增、不撤销**库中 role 3 已有的 `approval` 授权 ⇒ 请求穿透到 `approvalService`，因审批记录不存在返回 404 | `beforeAll` 显式撤销 role 3 的 approval 关联（JOIN 按 `code` 删除，覆盖同 code 多行），使前提自洽、不依赖库初始状态 |
+
+另将 `rbac-business-flow` Case 3 的注释更正为**真实路由链**：
+`routes/contract/approval.js:19` 是 `checkPermission('contract') → requireManager`，并非 `requireAdmin`。
+
+**验证（本机等价库）**：
+
+| 范围 | 结果 |
+|---|---|
+| 4 个纯 mock 套件（`opportunity-flow` / `rbac-business-flow` / `release-smoke-test` / `boss-approval-permission`） | **36 / 36 通过** |
+| `permission-real.integration.test.js`（真库） | **7 / 7 通过**（日志确认 `POST /api/v1/approval/approve/1 → statusCode:403`） |
+| `tests/e2e/` 全量 | **10 suites / 69 tests 全绿** |
+| ESLint `--max-warnings=0`（5 个改动文件） | EXIT 0 |
+
+**CI 侧观测**（run `35496862377`，sha `78b825e`，截至 2026-09-20T08:00Z，尚未收敛）：
+
+| job | 状态 |
+|---|---|
+| `backend-test` | **`npm test` success（07:26:34→07:26:51，17s）** —— 本轮 uploads 修复已被 CI 确认；`npm audit` 亦 success |
+| `frontend-test` / `frontend-build` | success |
+| `integration-test` | 卡在 `Import baseline schema + verify invariants`（07:26:51 起，>30 分钟未完成），jest 步骤尚未开始 |
+| `migration-test` | 同上（07:26:50 起） |
+| `e2e-test` | 卡在 `cd frontend && npm ci --legacy-peer-deps`（07:26:50 起） |
+| `image-scan` | 卡在 `Build`（docker build，07:26:21 起） |
+| `security-scan` | 卡在 CodeQL `analyze`（07:26:31 起） |
+
+> ⚠️ **5 个 job 同时从同一时刻起卡住，且连 `backend-test` 的 `Post Run actions/cache@v4`
+> （仅保存缓存、不跑任何业务代码）也卡了 27 分钟以上** ⇒ 属 runner / GitHub 服务侧异常，
+> **与本次代码改动无关**。故 `integration-test` 的修复结论目前依据**本机等价库实测**，
+> CI 侧需待该步骤实际执行后复核。
+
+### 10.3 ⚠️ 定位过程中必须避开的一个陷阱：本机默认跑集成测试会得到「假失败图」
+
+本机 MySQL **没有 `crm_test` 用户**（那是 CI 的 `docker-compose.ci.yml` 建的），
+而 `tests/setup-integration.js:11` 的兜底是 `process.env.DB_USER || 'crm_test'`
+⇒ 不显式传 `DB_USER` 就**连不上库**。
+
+此时失败面被放大为 **9 suites / 30 tests**，且 `health.integration.test.js`（只需库连通）也红。
+**判据：「连健康检查都红」就是"没连上库"的指纹。** 传对凭据后立刻收敛为 **5 suites / 8 tests**。
+
+⇒ 分析集成测试失败**前**，必须先用健康检查套件当连通性探针。
+
+### 10.4 ⚠️ 顺带发现的既有隐患（本轮未改，如实记录）
+
+`permission-real.integration.test.js` 的 `afterAll` 会按 **code** 删除它插入的 6 个权限码对应的
+`sys_permission` 行 —— 若基线里本来就有同名 `code`，**基线记录会被一并删除**。
+实测本机 `huakey_crm_test`：`sys_permission` **114 → 108**、`sys_role_permission` **315 → 300**。
+
+- 受影响 5 张表已备份至 `C:/Users/a8466/huakey-crm-backups/pre-permreal-20260920/` 并已恢复。
+- 若要补齐到权威终态，运行 `backend/scripts/init_role_permissions.js`
+  （注意该脚本会按配置**清理**不在配置中的历史权限行）。
+- 建议后续把该测试的清理改为「只删自己新建的行」（记录插入前的 id 集合做差集），而非按 code 删。
+
+### 10.5 本轮未能精确复刻 CI 的说明（诚实标注）
+
+- 本机 **docker daemon 未运行**（`npipe:////./pipe/dockerDesktopLinuxEngine` 不可达），
+  无法用 `docker-compose.ci.yml` 起 MySQL 8.0 精确复刻 CI 的库。
+- `crm_user` **无建库权限**，不能新建隔离库 ⇒ 只能复用本机 `huakey_crm_test`（含 400+ 客户的历史库）。
+- 故本机为**近似**复刻。但其中 **4 个套件是纯 mock（不连库）**，其结论与 CI **逐字一致**，
+  可信度最高；真库套件（`permission-real`）的改法已刻意选为「对环境鲁棒」。
+
+---
+
+*分析人：David ｜ 日期：2026-09-20 ｜ 依据：GitHub Actions job/step 级 API + lockfile 静态体检 + 本地 npm ci 对照实测 + 逐 commit 二分定位 + 本机等价库集成测试实测*
