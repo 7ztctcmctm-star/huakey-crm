@@ -30,7 +30,14 @@ function listJsFiles(dir) {
 
 /** 把文件按 `router.` 切成一条条路由声明，返回 { file, src } */
 function routeStatements(file) {
-  const content = fs.readFileSync(file, 'utf8');
+  const raw = fs.readFileSync(file, 'utf8');
+  // 先剥掉整行注释与块注释：否则「路由 A 之后的注释里提到 requireManager」会被
+  // 误当成路由 A 的声明，造成幻影语句（既可能虚增计数，也可能造成假失败）。
+  const content = raw
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .filter((l) => !/^\s*\/\//.test(l))
+    .join('\n');
   const parts = content.split(/\brouter\s*\.\s*/);
   const out = [];
   // parts[0] 是文件头（require/常量），从 parts[1] 起才是路由
@@ -48,8 +55,11 @@ describe('requireManager 使用约束（静态审计）', () => {
   const usingRequireManager = statements.filter((s) => /\brequireManager\b/.test(s.src));
 
   it('应扫描到路由文件与 requireManager 挂载点（防止扫描逻辑失效导致假绿）', () => {
-    expect(files.length).toBeGreaterThan(30);
-    expect(usingRequireManager.length).toBeGreaterThanOrEqual(40);
+    // 2026-09-20 实测基线：69 个路由文件 / 519 条路由声明 / 47 处 requireManager 挂载。
+    // 下界贴着实测值设，使「扫描被改坏」立刻红灯，而不是静默通过。
+    expect(files.length).toBeGreaterThanOrEqual(60);
+    expect(statements.length).toBeGreaterThanOrEqual(480);
+    expect(usingRequireManager.length).toBeGreaterThanOrEqual(45);
   });
 
   it('每一处 requireManager 都必须与 checkPermission 配对（否则会放宽到所有经理）', () => {
