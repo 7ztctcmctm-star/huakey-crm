@@ -157,10 +157,15 @@ async function testConnection(pool, id, userId) {
     results.smtp = true;
   } catch (e) { results.smtp_error = e.message; }
 
-  // 测试IMAP（简单检查配置）
-  if (account.imap_host) {
-    results.imap = true;
-  }
+  // 测试IMAP
+  // ⚠️ 本项目未引入 IMAP 依赖（package.json 仅有 nodemailer=SMTP 发信，无法收信；且 npm 在受管
+  //    环境被安全策略阻断、明示不可绕过，无法安装 imapflow/imap）。
+  //    因此这里**不做真实连接**，也**绝不能返回 imap: true** —— 那会在 data 里伪造一条
+  //    从未发生的成功（违反 AGENTS.md 第六章「禁止假完成」）。改为 null + 显式说明。
+  results.imap = null;
+  results.imap_note = account.imap_host
+    ? 'IMAP 未测试：当前未引入 IMAP 依赖，收信同步尚未实现'
+    : 'IMAP 未配置：账号缺少 imap_host';
 
   await pool.query('UPDATE crm_email_account SET sync_status = ? WHERE id = ?', [results.smtp ? 'active' : 'error', account.id]);
 
@@ -338,10 +343,20 @@ async function linkCustomer(pool, emailId, customerId) {
 }
 
 /**
- * 手动同步邮件
+ * 同步邮件（当前为**诚实占位**：不拉取任何邮件）
+ *
+ * ⚠️ 真实 IMAP 拉取的前置条件尚未满足，故本函数不做同步，只做配置可用性判定：
+ *    1) 需要引入 IMAP 依赖（本项目 `package.json` 仅有 nodemailer=SMTP 发信，无法收信）；
+ *    2) 当前受管环境 npm 被安全策略阻断（不可绕过），无法安装 imapflow/imap；
+ *    3) 需要真实邮箱凭证才能实测验证。
+ *    ⇒ 因此**不写 `last_sync_at`**（写它等于宣称「刚同步成功」，而实际一封都没拉），
+ *      并在返回值中显式声明未同步，避免调用方误读为成功。
+ *    详见 docs/crm-functional-logic.md 第 10 节 #14。
+ *
  * @param {object} pool
  * @param {number} accountId
  * @param {number} userId
+ * @returns {{ synced: false, reason: string, imap_host: string|null }}
  */
 async function syncEmails(pool, accountId, userId) {
   const [[account]] = await pool.query(
@@ -355,8 +370,11 @@ async function syncEmails(pool, accountId, userId) {
   try {
     await pool.query('UPDATE crm_email_account SET sync_status = "syncing" WHERE id = ?', [account.id]);
 
-    // 注意：完整的IMAP同步需要 imap 包，这里提供简化版本
-    await pool.query('UPDATE crm_email_account SET sync_status = "active", last_sync_at = NOW() WHERE id = ?', [account.id]);
+    // 仅反映「IMAP 配置是否就绪」，不代表发生过同步；同步时间保持不变
+    await pool.query('UPDATE crm_email_account SET sync_status = ? WHERE id = ?',
+      [account.imap_host ? 'active' : 'pending', account.id]);
+
+    return { synced: false, reason: 'IMAP_SYNC_NOT_IMPLEMENTED', imap_host: account.imap_host || null };
   } catch (error) {
     await pool.query('UPDATE crm_email_account SET sync_status = "error" WHERE id = ?', [accountId]).catch(() => {});
     throw error;

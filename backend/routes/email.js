@@ -107,7 +107,12 @@ router.delete('/account/:id', authenticateToken, checkPermission('email'), async
 router.post('/account/:id/test', authenticateToken, checkPermission('email'), validate(emptySchema), async (req, res, next) => {
   try {
     const results = await emailService.testConnection(pool, req.params.id, req.user.userId);
-    res.json({ code: 200, message: results.smtp ? '连接测试成功' : 'SMTP连接失败', data: results });
+    // message 只反映 SMTP；IMAP 未测试已在 data.imap(=null)/data.imap_note 中显式说明
+    res.json({
+      code: 200,
+      message: results.smtp ? 'SMTP 连接成功（IMAP 未测试）' : 'SMTP连接失败',
+      data: results,
+    });
   } catch (error) {
     logger.error('[邮件] 测试连接失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     next(error);
@@ -216,8 +221,14 @@ router.post('/:id/link-customer', authenticateToken, checkPermission('email'), v
 // 12. 手动同步邮件
 router.post('/sync/:account_id', authenticateToken, checkPermission('email'), validate(emptySchema), async (req, res, next) => {
   try {
-    await emailService.syncEmails(pool, req.params.account_id, req.user.userId);
-    res.json({ code: 200, message: '同步完成（完整IMAP同步需配置IMAP服务）', data: null });
+    const result = await emailService.syncEmails(pool, req.params.account_id, req.user.userId);
+    res.json({
+      code: 200,
+      message: result.synced
+        ? '同步完成'
+        : 'IMAP 同步未启用：当前未引入 IMAP 依赖，本次未拉取任何邮件',
+      data: result,
+    });
   } catch (error) {
     logger.error('[邮件] 同步失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     next(error);

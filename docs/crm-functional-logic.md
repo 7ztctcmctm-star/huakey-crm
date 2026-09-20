@@ -225,7 +225,7 @@
 
 | 模块 | 核心逻辑 | 完整性 |
 |---|---|---|
-| 邮件（email） | 个人账号 IMAP/SMTP 配置（aes-256-cbc 加密）+ 收发 + 自动关联客户；发送走 nodemailer | 收发/配置/关联/统计完整；**`syncEmails` 为占位（仅置状态，不真正拉取 IMAP）【待补】** |
+| 邮件（email） | 个人账号 IMAP/SMTP 配置（aes-256-cbc 加密）+ 收发 + 自动关联客户；发送走 nodemailer | 发送/配置/关联/统计完整；**收信同步（`syncEmails`/`testConnection` 的 IMAP 部分）未实现**——已消除假成功、改为诚实上报（详见第 10 节 #14） |
 | 社媒（social） | 各平台与客户沟通记录台账，形成客户时间线 | 完整（纯手工录入，无平台 API） |
 | 集成（integration） | 系统级 SMTP 配置 + 测试发送 + 邮件日志（区别于个人账号） | 完整（仅邮件通道，"集成"命名偏宽） |
 | API 平台（api-platform） | API Key + Webhook 管理，Webhook 测试含 SSRF 防护，**业务事件自动派发（已接线）** | 密钥/Webhook CRUD+测试+派发完整 |
@@ -277,7 +277,7 @@
 | 11 | 自动化 | `update_field` 白名单含 `'assignee'`（crm_customer 无此列，命中报错） | P3 | 刻意不改 |
 | 12 | 前端 api 命名 | finance→hr、follow-up→customer、payment→contract 错位 | P2 | ✅ 核查通过（非缺陷，2026-09-18） |
 | 13 | 回收站 | 后端齐全但前端无视图 | P3 | 待补 |
-| 14 | 邮件 | `syncEmails` 占位（不真正拉取 IMAP） | P2 | 待补 |
+| 14 | 邮件 | 两处 IMAP「假成功」已消除（2026-09-20）：`testConnection` 不再返回 `imap:true` 而置 `null`+`imap_note`；`syncEmails` 不再写 `last_sync_at`，返回 `{synced:false, reason:'IMAP_SYNC_NOT_IMPLEMENTED'}`。真实 IMAP 拉取**前置条件未满足**（缺 IMAP 依赖 + 受管环境 npm 被安全策略阻断不可安装），故功能**仍未实现**，仅从「静默成功」改为「诚实上报未实现」 | P2 | 🔶 诚实化已修(2026-09-20)，真接入受阻 |
 | 15 | 问卷 | 启动活动未真实投放邮件/短信 | P3 | 待补 |
 | 16 | API 平台 | Webhook 业务事件派发逻辑未接线 | P2 | ✅ 已修(2026-09-18) |
 | 17 | 财务 | 供应商对账 `paid_amount` 恒为 0 | P2 | ✅ 已修(2026-09-18) |

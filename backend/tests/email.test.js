@@ -138,6 +138,56 @@ describe('邮件模块', () => {
     });
   });
 
+  describe('POST /api/v1/email/sync/:account_id', () => {
+    it('应诚实返回未同步（synced=false），且不写入 last_sync_at', async () => {
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[ // account
+          { id: 1, user_id: 1, email: 'test@qq.com', imap_host: 'imap.qq.com', smtp_host: 'smtp.qq.com', sync_status: 'active' }
+        ]])
+        .mockResolvedValueOnce([{ affectedRows: 1 }]) // sync_status -> syncing
+        .mockResolvedValueOnce([{ affectedRows: 1 }]); // sync_status -> active
+
+      const res = await request(app)
+        .post('/api/v1/email/sync/1')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.code).toBe(200);
+      expect(res.body.data).toMatchObject({ synced: false, reason: 'IMAP_SYNC_NOT_IMPLEMENTED' });
+      expect(res.body.message).toContain('未启用');
+
+      // 关键不变式：不得给 last_sync_at 赋值（写它等于伪造一次成功同步）。
+      // 注意 SELECT 的列投影里本就含 last_sync_at，故只匹配赋值形式 `last_sync_at =`。
+      const sqls = mockPool.query.mock.calls.map((c) => String(c[0]));
+      expect(sqls.some((s) => /last_sync_at\s*=/i.test(s))).toBe(false);
+    });
+  });
+
+  describe('POST /api/v1/email/account/:id/test', () => {
+    it('IMAP 不得伪造成功：imap 应为 null 且带 imap_note', async () => {
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[ // account
+          { id: 1, user_id: 1, email: 'test@qq.com', imap_host: 'imap.qq.com', smtp_host: 'smtp.qq.com', smtp_port: 465, password_encrypted: 'deadbeef', use_ssl: 1 }
+        ]])
+        .mockResolvedValueOnce([{ affectedRows: 1 }]); // sync_status update
+
+      const res = await request(app)
+        .post('/api/v1/email/account/1/test')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.imap).toBeNull();
+      expect(res.body.data.imap_note).toContain('未实现');
+      expect(res.body.message).toContain('IMAP 未测试');
+    });
+  });
+
   describe('无token访问', () => {
     it('应该返回401当无token', async () => {
       const res = await request(app)
