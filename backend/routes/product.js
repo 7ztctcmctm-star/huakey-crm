@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkFieldPermission, stripRestrictedFields } = require('../middleware/permission');
@@ -9,6 +9,7 @@ const productService = require('../services/productService');
 
 const MODULE_NAME = '产品管理';
 const router = express.Router();
+const registry = require('../core/ModuleRegistry');
 
 /**
  * @swagger
@@ -99,7 +100,6 @@ const productPriceUpdateSchema = Joi.object({
   status: Joi.number().integer().valid(0, 1)
 });
 
-const requireAdmin = require('../middleware/admin');
 const logger = require('../config/logger');
 
 // 字段级权限：产品成本价仅管理员可见
@@ -119,7 +119,7 @@ router.post('/list', authenticateToken, cache(120), checkPermission('product'), 
 });
 
 // 2. 新增产品
-router.post('/add', authenticateToken, checkPermission('product:add'), requireAdmin, validate(productAddSchema), async (req, res, next) => {
+router.post('/add', authenticateToken, checkPermission('product:add'), validate(productAddSchema), async (req, res, next) => {
   try {
     const result = await productService.createProduct(pool, req.body);
     res.json({ code: 200, message: '新增产品成功', data: result });
@@ -130,7 +130,7 @@ router.post('/add', authenticateToken, checkPermission('product:add'), requireAd
 });
 
 // 3. 编辑产品
-router.post('/update', authenticateToken, checkPermission('product:edit'), requireAdmin, validate(productUpdateSchema), async (req, res, next) => {
+router.post('/update', authenticateToken, checkPermission('product:edit'), validate(productUpdateSchema), async (req, res, next) => {
   try {
     const { id, ...data } = req.body;
     const oldData = await productService.getProductFull(pool, id);
@@ -156,7 +156,7 @@ router.post('/update', authenticateToken, checkPermission('product:edit'), requi
 });
 
 // 4. 删除产品（逻辑删除）
-router.post('/delete', authenticateToken, checkPermission('product:delete'), requireAdmin, validate(productDeleteSchema), async (req, res, next) => {
+router.post('/delete', authenticateToken, checkPermission('product:delete'), validate(productDeleteSchema), async (req, res, next) => {
   try {
     await productService.deleteProduct(pool, req.body.id);
     await invalidateCache(['cache:*:/api/product/*']);
@@ -204,7 +204,7 @@ router.get('/:id/prices', authenticateToken, async (req, res, next) => {
 });
 
 // 8. 添加产品价格
-router.post('/:id/prices', authenticateToken, requireAdmin, validate(productPriceSchema), async (req, res, next) => {
+router.post('/:id/prices', authenticateToken, checkPermission('product'), validate(productPriceSchema), async (req, res, next) => {
   try {
     const productId = req.params.id;
     const { price_type, customer_level, unit_price, min_quantity, currency, valid_from, valid_to } = req.body;
@@ -222,7 +222,7 @@ router.post('/:id/prices', authenticateToken, requireAdmin, validate(productPric
 });
 
 // 9. 更新产品价格
-router.put('/price/:id', authenticateToken, requireAdmin, validate(productPriceUpdateSchema), async (req, res, next) => {
+router.put('/price/:id', authenticateToken, checkPermission('product'), validate(productPriceUpdateSchema), async (req, res, next) => {
   try {
     await productService.updatePrice(pool, req.params.id, req.body);
     res.json({ code: 200, message: '更新成功', data: null });
@@ -233,7 +233,7 @@ router.put('/price/:id', authenticateToken, requireAdmin, validate(productPriceU
 });
 
 // 10. 删除产品价格
-router.delete('/price/:id', authenticateToken, requireAdmin, validate(idParamSchema, 'params'), async (req, res, next) => {
+router.delete('/price/:id', authenticateToken, checkPermission('product'), validate(idParamSchema, 'params'), async (req, res, next) => {
   try {
     await productService.deletePrice(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });
@@ -253,6 +253,13 @@ router.get('/:id/price', authenticateToken, async (req, res, next) => {
     logger.error('[产品] 获取客户价格失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     next(error);
   }
+});
+
+
+// ModuleRegistry 注册（2026-09-21 迁移）
+registry.register('product', {
+  routes: router,
+  permissions: ['product']
 });
 
 module.exports = router;

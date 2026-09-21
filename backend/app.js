@@ -227,7 +227,8 @@ require('./routes/automation');
 // calendar 通过 ModuleRegistry 注册（2026-09-21 迁移）
 require('./routes/calendar');
 const socialRoutes = require('./routes/social');
-const apiPlatformRoutes = require('./routes/api-platform');
+// api-platform 通过 ModuleRegistry 注册（2026-09-21 迁移）
+require('./routes/api-platform');
 // competitor 通过 ModuleRegistry 注册（2026-09-21 迁移）
 require('./routes/competitor');
 const currencyRoutes = require('./routes/currency');
@@ -376,7 +377,7 @@ apiRouter.use('/finance', financeEnhancedRoutes);
 // automation 已通过 ModuleRegistry 自动挂载
 // calendar 已通过 ModuleRegistry 自动挂载
 apiRouter.use('/social', socialRoutes);
-apiRouter.use('/platform', apiPlatformRoutes);
+// api-platform 已通过 ModuleRegistry 自动挂载
 // competitor 已通过 ModuleRegistry 自动挂载
 apiRouter.use('/currency', currencyRoutes);
 apiRouter.use('/email', emailRoutes);
