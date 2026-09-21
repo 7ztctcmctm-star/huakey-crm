@@ -77,8 +77,8 @@ router.post('/create', authenticateToken, checkPermission('purchase:add'), valid
   }
 });
 
-// 更新计划
-router.put('/:id', authenticateToken, validate(updatePlanSchema), async (req, res, next) => {
+// 更新计划（2026-09-21：补 checkPermission('purchase')+requireManager，与 DELETE 保持一致）
+router.put('/:id', authenticateToken, checkPermission('purchase'), requireManager, validate(updatePlanSchema), async (req, res, next) => {
   try {
     const result = await purchaseService.updatePlan(pool, req.params.id, req.body);
     if (result.error) return res.status(result.code).json({ code: result.code, message: result.error, data: null });
@@ -101,8 +101,8 @@ router.delete('/:id', authenticateToken, checkPermission('purchase'), validate(i
   }
 });
 
-// 提交审批
-router.post('/:id/submit', authenticateToken, validate(emptyPlanActionSchema), async (req, res, next) => {
+// 提交审批（2026-09-21：补 checkPermission('purchase')+requireManager）
+router.post('/:id/submit', authenticateToken, checkPermission('purchase'), requireManager, validate(emptyPlanActionSchema), async (req, res, next) => {
   try {
     const result = await purchaseService.submitPlan(pool, req.params.id);
     if (result.error) return res.status(result.code).json({ code: result.code, message: result.error, data: null });
@@ -148,8 +148,8 @@ router.get('/stats', authenticateToken, async (req, res, next) => {
   }
 });
 
-// 采购计划转采购单
-router.post('/:id/convert-to-purchase', authenticateToken, validate(emptyPlanActionSchema), async (req, res, next) => {
+// 采购计划转采购单（2026-09-21：补 checkPermission('purchase')+requireManager）
+router.post('/:id/convert-to-purchase', authenticateToken, checkPermission('purchase'), requireManager, validate(emptyPlanActionSchema), async (req, res, next) => {
   try {
     const result = await purchaseService.convertToPurchase(pool, req.params.id, req.user.userId);
     if (result.error) return res.status(result.code).json({ code: result.code, message: result.error, data: null });

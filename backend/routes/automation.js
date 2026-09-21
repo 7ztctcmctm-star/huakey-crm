@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
@@ -128,7 +128,7 @@ router.put('/workflows/:id', authenticateToken, requireAdmin, validate(updateWor
 });
 
 // 删除规则
-router.delete('/workflows/:id', authenticateToken, requireAdmin, validate(idParamSchema, 'params'), async (req, res, next) => {
+router.delete('/workflows/:id', authenticateToken, checkPermission('automation'), requireManager, validate(idParamSchema, 'params'), async (req, res, next) => {
   try {
     await automationService.deleteWorkflow(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });
@@ -226,7 +226,7 @@ router.put('/assign-rules/:id', authenticateToken, requireAdmin, validate(update
   }
 });
 
-router.delete('/assign-rules/:id', authenticateToken, requireAdmin, validate(idParamSchema, 'params'), async (req, res, next) => {
+router.delete('/assign-rules/:id', authenticateToken, checkPermission('automation'), requireManager, validate(idParamSchema, 'params'), async (req, res, next) => {
   try {
     await automationService.deleteAssignRule(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });
@@ -286,7 +286,7 @@ router.put('/smart-reminders/:id', authenticateToken, requireAdmin, validate(upd
   }
 });
 
-router.delete('/smart-reminders/:id', authenticateToken, requireAdmin, validate(idParamSchema, 'params'), async (req, res, next) => {
+router.delete('/smart-reminders/:id', authenticateToken, checkPermission('automation'), requireManager, validate(idParamSchema, 'params'), async (req, res, next) => {
   try {
     await automationService.deleteSmartReminder(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });
