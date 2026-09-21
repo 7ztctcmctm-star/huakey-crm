@@ -1,3 +1,4 @@
+﻿/** @file 数据质量 API - 质量规则/检查/修复 */
 import request from '@/utils/request'
 
 // 数据质量检查（数据管理域，Prompt 4-5 从客户模块剥离）

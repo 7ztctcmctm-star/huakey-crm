@@ -1,3 +1,4 @@
+﻿/** @file 通知 API */
 import request from '@/utils/request'
 
 // ============ 通知中心 ============

@@ -1,3 +1,4 @@
+﻿/** @file AI 对话/智能查询 API */
 import request from '@/utils/request'
 
 // ============ AI助手 ============

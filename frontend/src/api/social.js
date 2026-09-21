@@ -1,3 +1,4 @@
+﻿/** @file 社交媒体 API */
 import request from '@/utils/request'
 
 // ============ 社媒沟通 ============

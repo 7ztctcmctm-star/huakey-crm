@@ -1,3 +1,4 @@
+﻿/** @file 搜索 API */
 import request from '@/utils/request'
 
 // ============ 全局搜索 ============

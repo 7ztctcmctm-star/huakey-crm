@@ -1,3 +1,4 @@
+﻿/** @file 产品 API - CRUD/价格 */
 import request from '@/utils/request'
 
 // ============ 产品管理 ============

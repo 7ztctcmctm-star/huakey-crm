@@ -1,3 +1,4 @@
+﻿/** @file 采购比价 API */
 import request from '@/utils/request'
 
 // 比价单列表

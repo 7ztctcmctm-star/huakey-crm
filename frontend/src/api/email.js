@@ -1,3 +1,4 @@
+﻿/** @file 邮箱 API - 账号/收发/同步 */
 import request from '@/utils/request'
 
 export const getEmailList = (params) => request.get('/email/list', { params })

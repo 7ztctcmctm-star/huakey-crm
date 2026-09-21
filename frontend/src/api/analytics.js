@@ -1,3 +1,4 @@
+﻿/** @file AI 智能分析 API - 销售预测/客户洞察 */
 import request from '@/utils/request'
 
 // ============ Sales Analytics (Phase 5.5.2) ============

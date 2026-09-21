@@ -1,3 +1,4 @@
+﻿/** @file 提醒 API */
 import request from '@/utils/request'
 
 // ============ 提醒/通知 ============

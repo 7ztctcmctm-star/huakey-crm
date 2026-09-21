@@ -1,3 +1,4 @@
+﻿/** @file 回收站 API */
 import request from '@/utils/request'
 
 // ============ 回收站 ============

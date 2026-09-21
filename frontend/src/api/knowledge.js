@@ -1,3 +1,4 @@
+﻿/** @file 知识库 API - 产品/脚本/FAQ/文档 */
 import request from '@/utils/request'
 
 // ============ 知识库 ============

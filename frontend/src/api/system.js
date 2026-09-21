@@ -1,3 +1,4 @@
+﻿/** @file 系统配置 API */
 import request from '@/utils/request'
 
 // ============ 用户管理 ============

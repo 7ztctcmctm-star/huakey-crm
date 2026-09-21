@@ -1,3 +1,4 @@
+﻿/** @file 竞品 API - 竞品/交锋/情报 */
 import request from '@/utils/request'
 
 // ============ 竞品分析 ============

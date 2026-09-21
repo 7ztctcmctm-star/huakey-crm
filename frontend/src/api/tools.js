@@ -1,3 +1,4 @@
+﻿/** @file 工具类 API */
 // 重导出所有拆分的模块（保持向后兼容）
 export * from './knowledge'
 export * from './ai'

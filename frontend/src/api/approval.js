@@ -1,3 +1,4 @@
+﻿/** @file 审批流程 API - 工作流/规则/批量审批 */
 import request from '@/utils/request'
 
 export const getMyPending = () => request.get('/approval/my-pending')
