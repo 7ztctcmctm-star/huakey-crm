@@ -213,7 +213,8 @@ const knowledgeRoutes = require('./routes/knowledge');
 const surveyRoutes = require('./routes/survey');
 const inventoryRoutes = require('./routes/inventory');
 const sseRoutes = require('./routes/sse');
-const procurementPlanRoutes = require('./routes/procurement-plan');
+// procurement-plan 通过 ModuleRegistry 注册（require 触发 register），不再赋值给变量
+require('./routes/procurement-plan');
 const financeEnhancedRoutes = require('./routes/finance-enhanced');
 const hrRoutes = require('./routes/hr');
 const automationRoutes = require('./routes/automation');
@@ -361,7 +362,7 @@ apiRouter.use('/approval', approvalRoutes);
 apiRouter.use('/knowledge', knowledgeRoutes);
 apiRouter.use('/inventory', inventoryRoutes);
 apiRouter.use('/sse', sseRoutes);
-apiRouter.use('/procurement-plan', procurementPlanRoutes);
+// procurement-plan 已通过 ModuleRegistry 自动挂载（2026-09-21 试点迁移）
 apiRouter.use('/finance', financeEnhancedRoutes);
 apiRouter.use('/hr', hrRoutes);
 apiRouter.use('/automation', automationRoutes);

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
+const registry = require('../core/ModuleRegistry');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
@@ -158,6 +159,12 @@ router.post('/:id/convert-to-purchase', authenticateToken, checkPermission('purc
     logger.error('[采购计划] 转采购单失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     next(error);
   }
+});
+
+// ========== ModuleRegistry 注册（2026-09-21 试点迁移：统一挂载 + 权限元数据）==========
+registry.register('procurement-plan', {
+  routes: router,
+  permissions: ['purchase', 'purchase:add']
 });
 
 module.exports = router;
