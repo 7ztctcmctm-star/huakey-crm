@@ -1,8 +1,8 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { requireAdmin, requireManager } = require('../middleware/admin');
+const { requireManager } = require('../middleware/admin');
 const { checkPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const automationService = require('../services/automationService');
@@ -91,8 +91,8 @@ const emptySchema = Joi.object({});
 // ============ 工作流规则 ============
 
 // 规则列表
-// [权限说明] 工作流列表供已登录用户查看；增删改用 requireAdmin 控制
-router.get('/workflows', authenticateToken, requireAdmin, async (req, res, next) => {
+// [2026-09-21] 全部改为 checkPermission(automation)：GET 列表给所有持有权限的用户；CRUD 加 requireManager 限经理以上
+router.get('/workflows', authenticateToken, checkPermission('automation'), async (req, res, next) => {
   try {
     const rows = await automationService.getWorkflows(pool);
     res.json({ code: 200, message: '查询成功', data: rows });
@@ -103,7 +103,7 @@ router.get('/workflows', authenticateToken, requireAdmin, async (req, res, next)
 });
 
 // 创建规则
-router.post('/workflows', authenticateToken, requireAdmin, validate(createWorkflowSchema), async (req, res, next) => {
+router.post('/workflows', authenticateToken, checkPermission('automation'), requireManager, validate(createWorkflowSchema), async (req, res, next) => {
   try {
     const { name, description, trigger_event, conditions, actions } = req.body;
     if (!name || !trigger_event || !actions) return res.status(400).json({ code: 400, message: '参数不完整', data: null });
@@ -116,7 +116,7 @@ router.post('/workflows', authenticateToken, requireAdmin, validate(createWorkfl
 });
 
 // 更新规则
-router.put('/workflows/:id', authenticateToken, requireAdmin, validate(updateWorkflowSchema), async (req, res, next) => {
+router.put('/workflows/:id', authenticateToken, checkPermission('automation'), requireManager, validate(updateWorkflowSchema), async (req, res, next) => {
   try {
     const updated = await automationService.updateWorkflow(pool, req.params.id, req.body);
     if (!updated) return res.status(400).json({ code: 400, message: '没有要更新的字段', data: null });
@@ -139,7 +139,7 @@ router.delete('/workflows/:id', authenticateToken, checkPermission('automation')
 });
 
 // 启用/禁用
-router.post('/workflows/:id/toggle', authenticateToken, requireAdmin, validate(emptySchema), async (req, res, next) => {
+router.post('/workflows/:id/toggle', authenticateToken, checkPermission('automation'), validate(emptySchema), async (req, res, next) => {
   try {
     const result = await automationService.toggleWorkflow(pool, req.params.id);
     if (!result) return res.status(404).json({ code: 404, message: '规则不存在', data: null });
@@ -151,7 +151,7 @@ router.post('/workflows/:id/toggle', authenticateToken, requireAdmin, validate(e
 });
 
 // 手动执行（测试）
-router.post('/workflows/execute', authenticateToken, requireAdmin, validate(executeWorkflowSchema), async (req, res, next) => {
+router.post('/workflows/execute', authenticateToken, checkPermission('automation'), validate(executeWorkflowSchema), async (req, res, next) => {
   try {
     const { rule_id, target_type, target_id } = req.body;
     const result = await automationService.executeWorkflow(pool, { rule_id, target_type, target_id });
@@ -165,7 +165,7 @@ router.post('/workflows/execute', authenticateToken, requireAdmin, validate(exec
 
 // 触发器入口
 // [权限说明] 工作流触发由业务事件驱动，仅需认证即可调用
-router.post('/workflows/trigger', authenticateToken, requireAdmin, validate(triggerWorkflowSchema), async (req, res, next) => {
+router.post('/workflows/trigger', authenticateToken, checkPermission('automation'), validate(triggerWorkflowSchema), async (req, res, next) => {
   try {
     const { event, target_type, target_id } = req.body;
     if (!event) return res.status(400).json({ code: 400, message: '事件不能为空', data: null });
@@ -179,7 +179,7 @@ router.post('/workflows/trigger', authenticateToken, requireAdmin, validate(trig
 
 // 执行日志
 // [权限说明] 执行日志供已登录用户查看，不涉及敏感操作
-router.get('/workflows/logs', authenticateToken, requireAdmin, async (req, res, next) => {
+router.get('/workflows/logs', authenticateToken, checkPermission('automation'), async (req, res, next) => {
   try {
     const { rule_id, page, pageSize } = req.query;
     const result = await automationService.getWorkflowLogs(pool, { rule_id, page, pageSize });
@@ -192,8 +192,8 @@ router.get('/workflows/logs', authenticateToken, requireAdmin, async (req, res, 
 
 // ============ 自动分配规则 ============
 
-// [权限说明] 分配规则列表供已登录用户查看；增删改用 requireAdmin 控制
-router.get('/assign-rules', authenticateToken, requireAdmin, async (req, res, next) => {
+// 同上（2026-09-21 迁移）
+router.get('/assign-rules', authenticateToken, checkPermission('automation'), async (req, res, next) => {
   try {
     const rows = await automationService.getAssignRules(pool);
     res.json({ code: 200, message: '查询成功', data: rows });
@@ -203,7 +203,7 @@ router.get('/assign-rules', authenticateToken, requireAdmin, async (req, res, ne
   }
 });
 
-router.post('/assign-rules', authenticateToken, requireAdmin, validate(createAssignRuleSchema), async (req, res, next) => {
+router.post('/assign-rules', authenticateToken, checkPermission('automation'), requireManager, validate(createAssignRuleSchema), async (req, res, next) => {
   try {
     const { rule_name, assign_type } = req.body;
     if (!rule_name || !assign_type) return res.status(400).json({ code: 400, message: '参数不完整', data: null });
@@ -215,7 +215,7 @@ router.post('/assign-rules', authenticateToken, requireAdmin, validate(createAss
   }
 });
 
-router.put('/assign-rules/:id', authenticateToken, requireAdmin, validate(updateAssignRuleSchema), async (req, res, next) => {
+router.put('/assign-rules/:id', authenticateToken, checkPermission('automation'), requireManager, validate(updateAssignRuleSchema), async (req, res, next) => {
   try {
     const updated = await automationService.updateAssignRule(pool, req.params.id, req.body);
     if (!updated) return res.status(400).json({ code: 400, message: '没有要更新的字段', data: null });
@@ -237,7 +237,7 @@ router.delete('/assign-rules/:id', authenticateToken, checkPermission('automatio
 });
 
 // 执行自动分配
-router.post('/assign-rules/apply', authenticateToken, requireAdmin, validate(applyAssignRuleSchema), async (req, res, next) => {
+router.post('/assign-rules/apply', authenticateToken, checkPermission('automation'), validate(applyAssignRuleSchema), async (req, res, next) => {
   try {
     const { customer_id, customer_ids } = req.body;
     const ids = customer_ids || (customer_id ? [customer_id] : []);
@@ -252,8 +252,8 @@ router.post('/assign-rules/apply', authenticateToken, requireAdmin, validate(app
 
 // ============ 智能提醒 ============
 
-// [权限说明] 智能提醒列表供已登录用户查看；增删改用 requireAdmin 控制
-router.get('/smart-reminders', authenticateToken, requireAdmin, async (req, res, next) => {
+// 同上（2026-09-21 迁移）
+router.get('/smart-reminders', authenticateToken, checkPermission('automation'), async (req, res, next) => {
   try {
     const rows = await automationService.getSmartReminders(pool);
     res.json({ code: 200, message: '查询成功', data: rows });
@@ -263,7 +263,7 @@ router.get('/smart-reminders', authenticateToken, requireAdmin, async (req, res,
   }
 });
 
-router.post('/smart-reminders', authenticateToken, requireAdmin, validate(createSmartReminderSchema), async (req, res, next) => {
+router.post('/smart-reminders', authenticateToken, checkPermission('automation'), requireManager, validate(createSmartReminderSchema), async (req, res, next) => {
   try {
     const { name, reminder_type, config } = req.body;
     if (!name || !reminder_type || !config) return res.status(400).json({ code: 400, message: '参数不完整', data: null });
@@ -275,7 +275,7 @@ router.post('/smart-reminders', authenticateToken, requireAdmin, validate(create
   }
 });
 
-router.put('/smart-reminders/:id', authenticateToken, requireAdmin, validate(updateSmartReminderSchema), async (req, res, next) => {
+router.put('/smart-reminders/:id', authenticateToken, checkPermission('automation'), requireManager, validate(updateSmartReminderSchema), async (req, res, next) => {
   try {
     const updated = await automationService.updateSmartReminder(pool, req.params.id, req.body);
     if (!updated) return res.status(400).json({ code: 400, message: '没有要更新的字段', data: null });
@@ -297,7 +297,7 @@ router.delete('/smart-reminders/:id', authenticateToken, checkPermission('automa
 });
 
 // 执行智能提醒扫描
-router.post('/smart-reminders/run', authenticateToken, requireAdmin, validate(emptySchema), async (req, res, next) => {
+router.post('/smart-reminders/run', authenticateToken, checkPermission('automation'), validate(emptySchema), async (req, res, next) => {
   try {
     const totalFound = await automationService.runSmartReminder(pool);
     res.json({ code: 200, message: `扫描完成，发现 ${totalFound} 条新提醒`, data: { found: totalFound } });
