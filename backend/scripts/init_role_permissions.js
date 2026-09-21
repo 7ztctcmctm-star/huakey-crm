@@ -274,6 +274,19 @@ const DATA_PERMISSIONS = {
 };
 
 async function main() {
+  // ---- CLI 参数解析（2026-09-21 新增：默认只增不删，--force-clean 才 DELETE）----
+  const args = {
+    forceClean: process.argv.includes('--force-clean') || process.argv.includes('--clean'),
+    diffCheck: !process.argv.includes('--no-diff')
+  };
+  if (!args.forceClean) {
+    console.log('[模式] 默认安全模式：仅 INSERT 缺失的权限/关联，不删除白名单外的数据。');
+    console.log('       如需强制清理白名单外的权限关联，请加 --force-clean 参数。');
+  } else {
+    console.log('[模式] 强制清理模式：将删除不在 ROLE_PERMISSIONS / DATA_PERMISSIONS 白名单中的关联。');
+  }
+  console.log('');
+
   // 1. 补齐菜单权限
   for (const p of MENU_PERMISSIONS) {
     await pool.query(
@@ -334,41 +347,73 @@ async function main() {
     }
   }
 
-  // 6. 清理不在配置中的历史残留权限（实现权限配置与数据库真正同步）
-  for (const [roleCode, codes] of Object.entries(ROLE_PERMISSIONS)) {
-    const roleId = roleMap[roleCode];
-    if (!roleId) continue;
-    if (codes.length === 0) {
-      await pool.query('DELETE FROM sys_role_permission WHERE role_id = ?', [roleId]);
-      continue;
+  // 6. diff 检查：发现白名单外的角色权限（2026-09-21 新增）
+  if (args.diffCheck) {
+    console.log('');
+    console.log('=== Diff 检查（白名单 vs 数据库实际 ===）');
+    for (const [roleCode, codes] of Object.entries(ROLE_PERMISSIONS)) {
+      const roleId = roleMap[roleCode];
+      if (!roleId) continue;
+      const [extra] = await pool.query(
+        `SELECT p.code FROM sys_role_permission rp
+         JOIN sys_permission p ON rp.permission_id = p.id
+         WHERE rp.role_id = ? AND p.code NOT IN (${codes.map(() => '?').join(',')})
+         ORDER BY p.code`,
+        [roleId, ...codes]
+      );
+      if (extra.length > 0) {
+        console.warn(`  ⚠️  [${roleCode}] 有 ${extra.length} 个权限码不在 ROLE_PERMISSIONS 白名单：`);
+        console.warn(`     ${extra.map(e => e.code).join(', ')}`);
+      } else {
+        console.log(`  ✅ [${roleCode}] 白名单与数据库一致`);
+      }
     }
-    const placeholders = codes.map(() => '?').join(',');
-    await pool.query(
-      `DELETE rp FROM sys_role_permission rp
-       WHERE rp.role_id = ?
-         AND rp.permission_id NOT IN (
-           SELECT id FROM sys_permission WHERE code IN (${placeholders})
-         )`,
-      [roleId, ...codes]
-    );
   }
 
-  // 7. 清理不在配置中的历史残留数据权限
-  for (const [roleCode, modules] of Object.entries(DATA_PERMISSIONS)) {
-    const roleId = roleMap[roleCode];
-    if (!roleId) continue;
-    const moduleCodes = Object.keys(modules);
-    if (moduleCodes.length === 0) {
-      await pool.query('DELETE FROM sys_data_permission WHERE role_id = ?', [roleId]);
-      continue;
+  // 7. 清理不在配置中的历史残留权限（仅 --force-clean 时执行）
+  //    安全默认：只增不删，防止 UI 端新增但白名单未登记的权限被部署脚本误删
+  if (args.forceClean) {
+    console.log('');
+    console.log('=== 执行 force-clean（清理白名单外的关联）===' );
+    for (const [roleCode, codes] of Object.entries(ROLE_PERMISSIONS)) {
+      const roleId = roleMap[roleCode];
+      if (!roleId) continue;
+      if (codes.length === 0) {
+        await pool.query('DELETE FROM sys_role_permission WHERE role_id = ?', [roleId]);
+        continue;
+      }
+      const placeholders = codes.map(() => '?').join(',');
+      await pool.query(
+        `DELETE rp FROM sys_role_permission rp
+         WHERE rp.role_id = ?
+           AND rp.permission_id NOT IN (
+             SELECT id FROM sys_permission WHERE code IN (${placeholders})
+           )`,
+        [roleId, ...codes]
+      );
     }
-    const placeholders = moduleCodes.map(() => '?').join(',');
-    await pool.query(
-      `DELETE FROM sys_data_permission
-       WHERE role_id = ?
-         AND module NOT IN (${placeholders})`,
-      [roleId, ...moduleCodes]
-    );
+
+    // 清理不在配置中的历史残留数据权限
+    for (const [roleCode, modules] of Object.entries(DATA_PERMISSIONS)) {
+      const roleId = roleMap[roleCode];
+      if (!roleId) continue;
+      const moduleCodes = Object.keys(modules);
+      if (moduleCodes.length === 0) {
+        await pool.query('DELETE FROM sys_data_permission WHERE role_id = ?', [roleId]);
+        continue;
+      }
+      const placeholders = moduleCodes.map(() => '?').join(',');
+      await pool.query(
+        `DELETE FROM sys_data_permission
+         WHERE role_id = ?
+           AND module NOT IN (${placeholders})`,
+        [roleId, ...moduleCodes]
+      );
+    }
+    console.log('  ✅ force-clean 完成');
+  } else {
+    console.log('');
+    console.log('  💡 提示：如需强制清理白名单外的关联，请加 --force-clean 参数。');
   }
 
   // 8. 对账输出

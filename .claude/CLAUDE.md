@@ -160,9 +160,12 @@ sys_data_permission (数据权限: all/dept_and_sub/dept/self/custom)
 2. `checkPermission('code')` — 功能权限，查 `sys_role_permission` + `crm_user_permission`，结果使用 **node-cache 缓存 5 分钟**；
 3. `checkDataPermission(module, ownerColumn)` — 数据范围过滤，查 `sys_data_permission`，结果同样使用 **node-cache 缓存 5 分钟**。
 
-**缓存失效**：
-- 用户直接权限（`crm_user_permission`）变更时会调用 `clearPermissionCache(userId)` 主动失效该用户缓存；
-- 角色权限（`sys_role_permission`）或数据权限（`sys_data_permission`）变更时，目前依赖 5 分钟 TTL 自然过期，未主动清除该角色下所有用户缓存；如需实时生效，应在角色权限保存后调用 `clearAllPermissionCache()`。
+**缓存失效**（2026-09-21 源码回验，已全部实现主动失效）：
+- 用户直接权限（`crm_user_permission`）变更 → `permissionService.setUserPermissions` 内部调 `clearPermissionCache(userId)` ✅
+- 角色权限变更 → `permissionRouteService.updateRolePermissions`（L83-85）清所有该角色用户 + `clearAllPermissionCache()` + `clearMeCache()` ✅
+- 数据权限变更 → `permissionRouteService.updateDataScope`（L138-140）同上 ✅
+- 角色修改/删除 → `roleRouteService.updateRole`/`deleteRole` 清所有该角色用户 + `clearAllPermissionCache()` ✅
+- 权限节点增删改 → `permissionRouteService.addPermission/updatePermission/deletePermission` 全部调 `clearAllPermissionCache()` + `clearMeCache()` ✅
 
 **敏感字段** (`config/fieldPermissions.js`)：
 - product: `cost_price`
