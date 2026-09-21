@@ -216,7 +216,8 @@ const sseRoutes = require('./routes/sse');
 // procurement-plan 通过 ModuleRegistry 注册（require 触发 register），不再赋值给变量
 require('./routes/procurement-plan');
 const financeEnhancedRoutes = require('./routes/finance-enhanced');
-const hrRoutes = require('./routes/hr');
+// hr 通过 ModuleRegistry 注册（require 触发 register），不再赋值给变量
+require('./routes/hr');
 const automationRoutes = require('./routes/automation');
 const calendarRoutes = require('./routes/calendar');
 const socialRoutes = require('./routes/social');
@@ -364,7 +365,7 @@ apiRouter.use('/inventory', inventoryRoutes);
 apiRouter.use('/sse', sseRoutes);
 // procurement-plan 已通过 ModuleRegistry 自动挂载（2026-09-21 试点迁移）
 apiRouter.use('/finance', financeEnhancedRoutes);
-apiRouter.use('/hr', hrRoutes);
+// hr 已通过 ModuleRegistry 自动挂载（2026-09-21 试点迁移）
 apiRouter.use('/automation', automationRoutes);
 apiRouter.use('/calendar', calendarRoutes);
 apiRouter.use('/social', socialRoutes);

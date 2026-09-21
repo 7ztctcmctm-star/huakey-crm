@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
+const registry = require('../core/ModuleRegistry');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const { requireManager } = require('../middleware/admin');
@@ -432,6 +433,12 @@ router.get('/org-tree/:deptId/employees', authenticateToken, checkPermission('hr
     logger.error('[HR] 部门员工查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     next(error);
   }
+});
+
+// ModuleRegistry 注册（2026-09-21 试点迁移）
+registry.register('hr', {
+  routes: router,
+  permissions: ['hr']
 });
 
 module.exports = router;
