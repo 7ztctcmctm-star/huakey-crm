@@ -1,15 +1,17 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
+const registry = require('../core/ModuleRegistry');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const crypto = require('crypto');
 const svc = require('../services/apiPlatformService');
 
-const requireAdmin = require('../middleware/admin');
+const { requireManager } = require('../middleware/admin');
 const logger = require('../config/logger');
 
-// [认证说明] 本模块所有端点均使用 authenticateToken + requireAdmin，无需额外 checkPermission
+// [2026-09-21 迁移] 本模块端点改为 authenticateToken + checkPermission("api_platform") + requireManager
 
 // --- Joi schemas ---
 
@@ -56,7 +58,7 @@ const generateKey = (prefix = '', length = 32) => {
 
 // ============ API密钥管理 ============
 
-router.get('/keys', authenticateToken, requireAdmin, async (req, res, next) => {
+router.get('/keys', authenticateToken, checkPermission('api_platform'), requireManager, async (req, res, next) => {
   try {
     const rows = await svc.listKeys(pool);
     // 遮蔽api_key，只显示后4位
@@ -71,7 +73,7 @@ router.get('/keys', authenticateToken, requireAdmin, async (req, res, next) => {
   }
 });
 
-router.post('/keys', authenticateToken, requireAdmin, validate(createKeySchema), async (req, res, next) => {
+router.post('/keys', authenticateToken, checkPermission('api_platform'), requireManager, validate(createKeySchema), async (req, res, next) => {
   try {
     const { name, permissions, rate_limit, expires_at } = req.body;
     if (!name) return res.status(400).json({ code: 400, message: '密钥名称不能为空', data: null });
@@ -88,7 +90,7 @@ router.post('/keys', authenticateToken, requireAdmin, validate(createKeySchema),
   }
 });
 
-router.put('/keys/:id', authenticateToken, requireAdmin, validate(updateKeySchema), async (req, res, next) => {
+router.put('/keys/:id', authenticateToken, checkPermission('api_platform'), requireManager, validate(updateKeySchema), async (req, res, next) => {
   try {
     const { name, permissions, rate_limit, status, expires_at } = req.body;
     const fields = [], values = [];
@@ -106,7 +108,7 @@ router.put('/keys/:id', authenticateToken, requireAdmin, validate(updateKeySchem
   }
 });
 
-router.delete('/keys/:id', authenticateToken, requireAdmin, validate(idParamSchema, 'params'), async (req, res, next) => {
+router.delete('/keys/:id', authenticateToken, checkPermission('api_platform'), requireManager, validate(idParamSchema, 'params'), async (req, res, next) => {
   try {
     await svc.deleteKey(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });
@@ -116,7 +118,7 @@ router.delete('/keys/:id', authenticateToken, requireAdmin, validate(idParamSche
   }
 });
 
-router.post('/keys/:id/regenerate', authenticateToken, requireAdmin, validate(emptySchema), async (req, res, next) => {
+router.post('/keys/:id/regenerate', authenticateToken, checkPermission('api_platform'), requireManager, validate(emptySchema), async (req, res, next) => {
   try {
     const newKey = generateKey('crm_', 32);
     const newSecret = generateKey('', 48);
@@ -130,7 +132,7 @@ router.post('/keys/:id/regenerate', authenticateToken, requireAdmin, validate(em
 
 // ============ Webhook管理 ============
 
-router.get('/webhooks', authenticateToken, requireAdmin, async (req, res, next) => {
+router.get('/webhooks', authenticateToken, checkPermission('api_platform'), requireManager, async (req, res, next) => {
   try {
     const rows = await svc.listWebhooks(pool);
     // 遮蔽secret字段
@@ -145,7 +147,7 @@ router.get('/webhooks', authenticateToken, requireAdmin, async (req, res, next) 
   }
 });
 
-router.post('/webhooks', authenticateToken, requireAdmin, validate(createWebhookSchema), async (req, res, next) => {
+router.post('/webhooks', authenticateToken, checkPermission('api_platform'), requireManager, validate(createWebhookSchema), async (req, res, next) => {
   try {
     const { name, url, events, secret } = req.body;
     if (!name || !url || !events) return res.status(400).json({ code: 400, message: '参数不完整', data: null });
@@ -160,7 +162,7 @@ router.post('/webhooks', authenticateToken, requireAdmin, validate(createWebhook
   }
 });
 
-router.put('/webhooks/:id', authenticateToken, requireAdmin, validate(updateWebhookSchema), async (req, res, next) => {
+router.put('/webhooks/:id', authenticateToken, checkPermission('api_platform'), requireManager, validate(updateWebhookSchema), async (req, res, next) => {
   try {
     const { name, url, events, status } = req.body;
     const fields = [], values = [];
@@ -177,7 +179,7 @@ router.put('/webhooks/:id', authenticateToken, requireAdmin, validate(updateWebh
   }
 });
 
-router.delete('/webhooks/:id', authenticateToken, requireAdmin, validate(idParamSchema, 'params'), async (req, res, next) => {
+router.delete('/webhooks/:id', authenticateToken, checkPermission('api_platform'), requireManager, validate(idParamSchema, 'params'), async (req, res, next) => {
   try {
     await svc.deleteWebhook(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });
@@ -188,7 +190,7 @@ router.delete('/webhooks/:id', authenticateToken, requireAdmin, validate(idParam
 });
 
 // 测试Webhook
-router.post('/webhooks/:id/test', authenticateToken, requireAdmin, validate(emptySchema), async (req, res, next) => {
+router.post('/webhooks/:id/test', authenticateToken, checkPermission('api_platform'), requireManager, validate(emptySchema), async (req, res, next) => {
   try {
     const webhook = await svc.getWebhookById(pool, req.params.id);
     if (!webhook) return res.status(404).json({ code: 404, message: 'Webhook不存在', data: null });
@@ -241,7 +243,7 @@ router.post('/webhooks/:id/test', authenticateToken, requireAdmin, validate(empt
 });
 
 // Webhook日志
-router.get('/webhooks/:id/logs', authenticateToken, requireAdmin, async (req, res, next) => {
+router.get('/webhooks/:id/logs', authenticateToken, checkPermission('api_platform'), requireManager, async (req, res, next) => {
   try {
     const rows = await svc.getWebhookLogs(pool, req.params.id);
     res.json({ code: 200, message: '查询成功', data: rows });
@@ -266,6 +268,13 @@ router.get('/docs', authenticateToken, (req, res) => {
       rate_limit: '默认100次/小时，可在密钥配置中调整'
     }
   });
+});
+
+
+// ModuleRegistry 注册（2026-09-21 迁移）
+registry.register('api-platform', {
+  routes: router,
+  permissions: ['api_platform','api_platform:view','api_platform:add','api_platform:edit','api_platform:delete']
 });
 
 module.exports = router;
