@@ -1,5 +1,6 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
+const registry = require('../core/ModuleRegistry');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission, buildDataPermissionWhere, checkFieldPermission, stripRestrictedFields } = require('../middleware/permission');
@@ -568,6 +569,13 @@ router.get('/compare', authenticateToken, checkPermission('supplier'), async (re
     logger.error('[供应商] 对比查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     next(error);
   }
+});
+
+
+// ModuleRegistry 注册（2026-09-21 迁移）
+registry.register('supplier', {
+  routes: router,
+  permissions: ['supplier']
 });
 
 module.exports = router;

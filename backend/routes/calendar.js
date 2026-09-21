@@ -1,5 +1,6 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
+const registry = require('../core/ModuleRegistry');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
@@ -136,6 +137,13 @@ router.get('/upcoming', authenticateToken, checkPermission('calendar'), async (r
     logger.error('[日程] 未来日程查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     next(error);
   }
+});
+
+
+// ModuleRegistry 注册（2026-09-21 迁移）
+registry.register('calendar', {
+  routes: router,
+  permissions: ['calendar']
 });
 
 module.exports = router;

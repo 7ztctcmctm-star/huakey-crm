@@ -1,5 +1,6 @@
 ﻿const express = require('express');
 const router = express.Router();
+const registry = require('../core/ModuleRegistry');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission } = require('../middleware/permission');
@@ -234,6 +235,13 @@ router.get('/priority-list', authenticateToken, (req, res) => {
     { value: 4, label: '低' }
   ];
   res.json({ code: 200, message: '查询成功', data: priorityList });
+});
+
+
+// ModuleRegistry 注册（2026-09-21 迁移）
+registry.register('service', {
+  routes: router,
+  permissions: ['service','service:add','service:edit','service:delete']
 });
 
 module.exports = router;

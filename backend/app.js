@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
@@ -185,15 +185,18 @@ const followUpRoutes = require('./routes/followUp');
 const opportunityRoutes = require('./routes/opportunity');
 const quoteRoutes = require('./routes/quote');
 const contractRoutes = require('./routes/contract');
-const serviceRoutes = require('./routes/service');
+// service 通过 ModuleRegistry 注册（2026-09-21 迁移）
+require('./routes/service');
 const roleRoutes = require('./routes/role');
 const deptRoutes = require('./routes/dept');
 const logRoutes = require('./routes/log');
 const teamDashboardRoutes = require('./routes/teamDashboard');
 const reminderRoutes = require('./routes/reminder');
-const notificationRoutes = require('./routes/notification');
+// notification 通过 ModuleRegistry 注册（2026-09-21 迁移）
+require('./routes/notification');
 const aiRoutes = require('./routes/ai');
-const supplierRoutes = require('./routes/supplier');
+// supplier 通过 ModuleRegistry 注册（2026-09-21 迁移）
+require('./routes/supplier');
 const purchaseRoutes = require('./routes/purchase');
 const configRoutes = require('./routes/config');
 const targetRoutes = require('./routes/target');
@@ -208,7 +211,8 @@ const tagRoutes = require('./routes/tag');
 const contractTemplateRoutes = require('./routes/contractTemplate');
 const followupTemplateRoutes = require('./routes/followupTemplate');
 const scoringRoutes = require('./routes/scoring');
-const approvalRoutes = require('./routes/approval');
+// approval 通过 ModuleRegistry 注册（2026-09-21 迁移）
+require('./routes/approval');
 const knowledgeRoutes = require('./routes/knowledge');
 const surveyRoutes = require('./routes/survey');
 const inventoryRoutes = require('./routes/inventory');
@@ -218,11 +222,14 @@ require('./routes/procurement-plan');
 const financeEnhancedRoutes = require('./routes/finance-enhanced');
 // hr 通过 ModuleRegistry 注册（require 触发 register），不再赋值给变量
 require('./routes/hr');
-const automationRoutes = require('./routes/automation');
-const calendarRoutes = require('./routes/calendar');
+// automation 通过 ModuleRegistry 注册（2026-09-21 迁移）
+require('./routes/automation');
+// calendar 通过 ModuleRegistry 注册（2026-09-21 迁移）
+require('./routes/calendar');
 const socialRoutes = require('./routes/social');
 const apiPlatformRoutes = require('./routes/api-platform');
-const competitorRoutes = require('./routes/competitor');
+// competitor 通过 ModuleRegistry 注册（2026-09-21 迁移）
+require('./routes/competitor');
 const currencyRoutes = require('./routes/currency');
 const emailRoutes = require('./routes/email');
 const invoiceRoutes = require('./routes/invoice');
@@ -331,8 +338,8 @@ apiRouter.use('/opportunity', opportunityRoutes);
 // product 已通过 registry 挂载
 apiRouter.use('/quote', quoteRoutes);
 apiRouter.use('/contract', contractRoutes);
-apiRouter.use('/service', serviceRoutes);
-apiRouter.use('/supplier', supplierRoutes);
+// service 已通过 ModuleRegistry 自动挂载
+// supplier 已通过 ModuleRegistry 自动挂载
 apiRouter.use('/purchase', purchaseRoutes);
 // [P0-1 fix] 子路由加显式前缀，否则与主 /purchase 路由路径冲突（前端期望 /purchase/request/list 等）
 apiRouter.use('/purchase/request', require('./routes/purchase/request'));
@@ -343,7 +350,7 @@ apiRouter.use('/dept', deptRoutes);
 apiRouter.use('/log', logRoutes);
 apiRouter.use('/team-dashboard', teamDashboardRoutes);
 apiRouter.use('/reminder', reminderRoutes);
-apiRouter.use('/notification', notificationRoutes);
+// notification 已通过 ModuleRegistry 自动挂载
 apiRouter.use('/config', configRoutes);
 apiRouter.use('/target', targetRoutes);
 apiRouter.use('/permission', permissionRoutes);
@@ -359,18 +366,18 @@ apiRouter.use('/tag', tagRoutes);
 apiRouter.use('/contract-template', contractTemplateRoutes);
 apiRouter.use('/followup-templates', followupTemplateRoutes);
 apiRouter.use('/scoring', scoringRoutes);
-apiRouter.use('/approval', approvalRoutes);
+// approval 已通过 ModuleRegistry 自动挂载
 apiRouter.use('/knowledge', knowledgeRoutes);
 apiRouter.use('/inventory', inventoryRoutes);
 apiRouter.use('/sse', sseRoutes);
 // procurement-plan 已通过 ModuleRegistry 自动挂载（2026-09-21 试点迁移）
 apiRouter.use('/finance', financeEnhancedRoutes);
 // hr 已通过 ModuleRegistry 自动挂载（2026-09-21 试点迁移）
-apiRouter.use('/automation', automationRoutes);
-apiRouter.use('/calendar', calendarRoutes);
+// automation 已通过 ModuleRegistry 自动挂载
+// calendar 已通过 ModuleRegistry 自动挂载
 apiRouter.use('/social', socialRoutes);
 apiRouter.use('/platform', apiPlatformRoutes);
-apiRouter.use('/competitor', competitorRoutes);
+// competitor 已通过 ModuleRegistry 自动挂载
 apiRouter.use('/currency', currencyRoutes);
 apiRouter.use('/email', emailRoutes);
 apiRouter.use('/invoice', invoiceRoutes);

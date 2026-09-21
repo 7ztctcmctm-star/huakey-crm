@@ -1,6 +1,7 @@
 ﻿const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
+const registry = require('../core/ModuleRegistry');
 const { authenticateToken } = require('../middleware/auth');
 const { requireManager } = require('../middleware/admin');
 const { checkPermission } = require('../middleware/permission');
@@ -333,6 +334,12 @@ router.put('/smart-reminders/log/:id/seen', authenticateToken, checkPermission('
     logger.error('[自动化] 标记已读失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     next(error);
   }
+});
+
+// ModuleRegistry 注册（2026-09-21 迁移）
+registry.register('automation', {
+  routes: router,
+  permissions: ['automation']
 });
 
 module.exports = router;

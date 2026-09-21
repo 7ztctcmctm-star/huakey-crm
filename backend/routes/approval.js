@@ -1,5 +1,6 @@
 ﻿const express = require('express');
 const router = express.Router();
+const registry = require('../core/ModuleRegistry');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
@@ -540,6 +541,13 @@ router.get('/detail-full/:business_type/:business_id', authenticateToken, checkP
     logger.error('[审批] 获取审批完整详情失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     next(error);
   }
+});
+
+
+// ModuleRegistry 注册（2026-09-21 迁移）
+registry.register('approval', {
+  routes: router,
+  permissions: ['approval']
 });
 
 module.exports = router;

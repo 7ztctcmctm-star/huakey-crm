@@ -1,5 +1,6 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
+const registry = require('../core/ModuleRegistry');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
@@ -255,6 +256,13 @@ router.get('/analysis/compare', authenticateToken, checkPermission('competitor:v
     logger.error('[竞品] 对比查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
     next(error);
   }
+});
+
+
+// ModuleRegistry 注册（2026-09-21 迁移）
+registry.register('competitor', {
+  routes: router,
+  permissions: ['competitor','competitor:view','competitor:add','competitor:edit','competitor:delete']
 });
 
 module.exports = router;
