@@ -2,6 +2,14 @@
 # 铧旗CRM — 群晖NAS 稳定版部署配置
 # 使用路径：/volume1/docker/crm-stack
 # 使用方法：docker compose -f docker-compose.synology.yml up -d --build
+#
+# ⚠️ 资源限制说明：
+#   AGENTS.md 第七章 26 节要求容器必须设置 mem_limit / cpus 资源限制，
+#   但 Synology DSM 内核不支持 cgroup v1 CPU CFS scheduler，
+#   因此本 compose 全部去掉 cpus / mem_limit，否则 docker compose up -d 报错：
+#   "NanoCPUs can not be set, as your kernel does not support CPU CFS scheduler"
+#   其他环境（Linux 服务器 / 本地 Docker Desktop）请使用
+#   docker-compose.prod.yml / docker-compose.yml（均带资源限制）。
 # ============================================
 
 services:
@@ -12,8 +20,6 @@ services:
     container_name: huakey-mysql
     restart: unless-stopped
     init: true
-    mem_limit: 1g
-    cpus: 1.5
     logging:
       driver: "json-file"
       options:
@@ -55,8 +61,6 @@ services:
     container_name: huakey-redis
     restart: unless-stopped
     init: true
-    mem_limit: 256m
-    cpus: 0.5
     logging:
       driver: "json-file"
       options:
@@ -89,8 +93,6 @@ services:
     container_name: huakey-app
     restart: unless-stopped
     init: true
-    mem_limit: 1g
-    cpus: 1.0
     logging:
       driver: "json-file"
       options:
@@ -172,8 +174,6 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       DATABASE: ${DB_NAME:-huakey_crm}
       TZ: ${TZ:-Asia/Shanghai}
-    mem_limit: 128m
-    cpus: 0.5
     depends_on:
       mysql:
         condition: service_healthy
@@ -188,8 +188,6 @@ services:
     image: nginx:alpine
     container_name: huakey-nginx
     restart: unless-stopped
-    mem_limit: 128m
-    cpus: 0.5
     ports:
       - "8443:8443"
     volumes:
