@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkFieldPermission, stripRestrictedFields } = require('../middleware/permission');
@@ -256,10 +256,10 @@ router.get('/:id/price', authenticateToken, async (req, res, next) => {
 });
 
 
-// ModuleRegistry 注册（2026-09-21 迁移）
+// ModuleRegistry 注册（2026-09-21 迁移；product/module.js 早期模板已删除，此处为唯一注册点）
 registry.register('product', {
   routes: router,
-  permissions: ['product']
+  permissions: ['product', 'product:add', 'product:edit', 'product:delete']
 });
 
 module.exports = router;

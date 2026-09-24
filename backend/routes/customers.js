@@ -207,5 +207,12 @@ router.post('/export',
   customerController.exportCustomers
 );
 
-registry.register('customers', { routes: router, permissions: ['customer', 'customer:view', 'customer:add', 'customer:edit', 'customer:delete'] });
+// --- 聚合客户域子路由（替代 app.js 里的单独 apiRouter.use 叠加挂载） ---
+// 每个子路由文件有独立 router 对象 + 独立中间件链，不冲突
+router.use('/contact', require('./customer/contact'));
+router.use('/', require('./customer/assign'));        // /customers/assign, /customers/claim 等
+router.use('/', require('./customer/import'));        // /customers/import, /customers/import-preview 等
+router.use('/', require('./customer/detailExtras'));  // /customers/:id/360, /customers/overdue 等
+
+registry.register('customers', { routes: router, permissions: ['customer', 'customer:view', 'customer:add', 'customer:edit', 'customer:delete', 'customer:assign', 'customer:import', 'pool:claim', 'customer:release'] });
 module.exports = router;

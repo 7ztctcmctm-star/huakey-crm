@@ -1,4 +1,5 @@
 const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
@@ -393,6 +394,15 @@ router.post('/payment/add', authenticateToken, checkPermission('purchase:add'), 
     logger.error('[采购] 添加付款错误:', { error: error.message, traceId: req.traceId || 'N/A' });
     next(error);
   }
+});
+
+// --- 聚合采购域子路由（替代 app.js 里的单独 apiRouter.use 挂载） ---
+router.use('/request', require('./purchase/request'));
+router.use('/comparison', require('./purchase/comparison'));
+
+registry.register('purchase', {
+  routes: router,
+  permissions: ['purchase', 'purchase:view', 'purchase:add', 'purchase:edit', 'purchase:delete']
 });
 
 module.exports = router;

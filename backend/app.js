@@ -174,7 +174,8 @@ const responseFormat = require('./middleware/responseFormat');
 // [2026-09-14 阶段4] customer 模块已下线：老树 /api/v1/customer/* 不再挂载。
 // 其能力路由（contact/assign/import/detailExtras）现由下方 apiRouter.use('/customers', ...) 直接挂载。
 const registry = require('./core/ModuleRegistry');
-require('./routes/product/module');
+// product 由 routes/product.js 尾部自带 registry.register；早期模板 product/module.js 已废弃删除
+require('./routes/product');
 require('./routes/report/module');
 require('./routes/dataManagement/module'); // 数据管理域（质量检查剥离，Prompt 4-5）
 
@@ -356,12 +357,9 @@ for (const { prefix, router } of registry.getAllRoutes()) {
 // pool 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 // customers 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 
-// 客户域「能力型」子路由（阶段3 复挂；阶段4 后为唯一挂载点）。
-// 复用这些 router 对象，无重复实现。（继续叠加挂载到 /customers prefix）
-apiRouter.use('/customers/contact', require('./routes/customer/contact'));
-apiRouter.use('/customers', require('./routes/customer/assign'));
-apiRouter.use('/customers', require('./routes/customer/import'));
-apiRouter.use('/customers', require('./routes/customer/detailExtras'));
+// 客户域「能力型」子路由（contact/assign/import/detailExtras）
+// [2026-09-24 优化] 已在 routes/customers.js 内部 router.use() 聚合，由 ModuleRegistry 统一挂载
+// 客户域完整路径覆盖 /customers/* 由单一 registry.register('customers') 搞定
 
 // follow-up 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 // opportunity 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
@@ -371,9 +369,7 @@ apiRouter.use('/customers', require('./routes/customer/detailExtras'));
 // service 已通过 ModuleRegistry 自动挂载
 // supplier 已通过 ModuleRegistry 自动挂载
 // purchase 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
-// [P0-1 fix] 子路由加显式前缀，否则与主 /purchase 路由路径冲突（前端期望 /purchase/request/list 等）
-apiRouter.use('/purchase/request', require('./routes/purchase/request'));
-apiRouter.use('/purchase/comparison', require('./routes/purchase/comparison'));
+// [2026-09-24 优化] request/comparison 已在 routes/purchase.js 内部 router.use() 聚合
 // role 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 // dept 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 // report 已通过 registry 挂载

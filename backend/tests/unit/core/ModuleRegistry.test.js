@@ -43,7 +43,7 @@ describe('ModuleRegistry', () => {
     // 模拟 app.js 加载模块
     // [2026-09-14 阶段4] 客户中心老树（routes/customer/module.js）已下线，
     // 客户接口改由 app.js 直接挂载 /customers 命名空间，不再走模块注册器。
-    require('../../../routes/product/module');
+    require('../../../routes/product');
     require('../../../routes/report/module');
 
     const mainRoutes = ModuleRegistry.getAllRoutes();
