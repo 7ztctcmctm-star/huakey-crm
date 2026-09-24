@@ -183,9 +183,13 @@ require('./routes/dataManagement/module'); // 数据管理域（质量检查剥�
 require('./routes/auth');
 // user 通过 ModuleRegistry 注册（2026-09-24 迁移）
 require('./routes/user');
-const followUpRoutes = require('./routes/followUp');
-const opportunityRoutes = require('./routes/opportunity');
-const quoteRoutes = require('./routes/quote');
+// follow-up 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/followUp');
+// opportunity 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/opportunity');
+// quote 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/quote');
+// contract 文件缺失（预存问题，暂不迁移）
 const contractRoutes = require('./routes/contract');
 // service 通过 ModuleRegistry 注册（2026-09-21 迁移）
 require('./routes/service');
@@ -196,17 +200,21 @@ const teamDashboardRoutes = require('./routes/teamDashboard');
 const reminderRoutes = require('./routes/reminder');
 // notification 通过 ModuleRegistry 注册（2026-09-21 迁移）
 require('./routes/notification');
-const aiRoutes = require('./routes/ai');
+// ai 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/ai');
 // supplier 通过 ModuleRegistry 注册（2026-09-21 迁移）
 require('./routes/supplier');
-const purchaseRoutes = require('./routes/purchase');
+// purchase 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/purchase');
 require('./routes/config');
 const targetRoutes = require('./routes/target');
 require('./routes/permission');
-const recycleRoutes = require('./routes/recycle');
+// recycle 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/recycle');
 // backup 通过 ModuleRegistry 注册（2026-09-24 迁移）
 require('./routes/backup');
-const analysisRoutes = require('./routes/analysis');
+// analysis 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/analysis');
 const integrationRoutes = require('./routes/integration');
 const uploadRoutes = require('./routes/upload');
 const searchRoutes = require('./routes/search');
@@ -229,7 +237,8 @@ require('./routes/hr');
 require('./routes/automation');
 // calendar 通过 ModuleRegistry 注册（2026-09-21 迁移）
 require('./routes/calendar');
-const socialRoutes = require('./routes/social');
+// social 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/social');
 // api-platform 通过 ModuleRegistry 注册（2026-09-21 迁移）
 require('./routes/api-platform');
 // competitor 通过 ModuleRegistry 注册（2026-09-21 迁移）
@@ -337,15 +346,14 @@ apiRouter.use('/customers', require('./routes/customer/assign'));
 apiRouter.use('/customers', require('./routes/customer/import'));
 apiRouter.use('/customers', require('./routes/customer/detailExtras'));
 
-// 跟进记录路由
-apiRouter.use('/follow-up', followUpRoutes);
-apiRouter.use('/opportunity', opportunityRoutes);
+// follow-up 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
+// opportunity 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 // product 已通过 registry 挂载
-apiRouter.use('/quote', quoteRoutes);
+// quote 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 apiRouter.use('/contract', contractRoutes);
 // service 已通过 ModuleRegistry 自动挂载
 // supplier 已通过 ModuleRegistry 自动挂载
-apiRouter.use('/purchase', purchaseRoutes);
+// purchase 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 // [P0-1 fix] 子路由加显式前缀，否则与主 /purchase 路由路径冲突（前端期望 /purchase/request/list 等）
 apiRouter.use('/purchase/request', require('./routes/purchase/request'));
 apiRouter.use('/purchase/comparison', require('./routes/purchase/comparison'));
@@ -359,11 +367,11 @@ apiRouter.use('/reminder', reminderRoutes);
 // config 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 apiRouter.use('/target', targetRoutes);
 // permission 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
-apiRouter.use('/recycle', recycleRoutes);
+// recycle 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 // backup 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 // [安全清理] /follow-plan 已合并到 /follow-up/plan/*，不再单独挂载
-apiRouter.use('/ai', aiRoutes);
-apiRouter.use('/analysis', analysisRoutes);
+// ai 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
+// analysis 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 apiRouter.use('/integration', integrationRoutes);
 apiRouter.use('/upload', uploadRoutes);
 apiRouter.use('/search', searchRoutes);
@@ -380,7 +388,7 @@ apiRouter.use('/finance', financeEnhancedRoutes);
 // hr 已通过 ModuleRegistry 自动挂载（2026-09-21 试点迁移）
 // automation 已通过 ModuleRegistry 自动挂载
 // calendar 已通过 ModuleRegistry 自动挂载
-apiRouter.use('/social', socialRoutes);
+// social 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 // api-platform 已通过 ModuleRegistry 自动挂载
 // competitor 已通过 ModuleRegistry 自动挂载
 // currency 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
@@ -479,8 +487,8 @@ apiRouter.get('/metrics', authenticateToken, async (req, res) => {
   res.end(await metricsRegister.metrics());
 });
 
-// 客户端性能指标（无需认证）
-apiRouter.use('/metrics', require('./routes/metrics'));
+// 客户端性能指标（无需认证）—— 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
+require('./routes/metrics');
 
 // 使用 /api/v1 前缀
 app.use('/api/v1', apiRouter);

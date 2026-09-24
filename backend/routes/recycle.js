@@ -1,4 +1,5 @@
 const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
@@ -126,4 +127,5 @@ router.post('/permanent-delete', authenticateToken, checkPermission('data:restor
   }
 });
 
+registry.register('recycle', { routes: router, permissions: ['system:recycle'] });
 module.exports = router;

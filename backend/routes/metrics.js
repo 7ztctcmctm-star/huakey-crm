@@ -1,4 +1,5 @@
 const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { validate, Joi } = require('../middleware/validate');
@@ -37,4 +38,5 @@ router.post('/client', authenticateToken, validate(clientMetricSchema), async (r
   res.status(204).end();
 });
 
+registry.register('metrics', { routes: router, permissions: [] });
 module.exports = router;

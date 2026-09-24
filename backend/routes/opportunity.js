@@ -1,4 +1,5 @@
 const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const { authenticateToken } = require('../middleware/auth');
 const { validate, Joi } = require('../middleware/validate');
 const { checkPermission, checkDataPermission } = require('../middleware/permission');
@@ -180,4 +181,5 @@ router.get('/sources', authenticateToken, checkPermission('opportunity:view'), o
 // 11. v1.1: 导出商机列表（CSV）
 router.get('/export', authenticateToken, checkPermission('opportunity:view'), checkDataPermission('opportunity', 'owner_id'), opportunityController.exportOpportunities);
 
+registry.register('opportunity', { routes: router, permissions: ['opportunity', 'opportunity:view'] });
 module.exports = router;

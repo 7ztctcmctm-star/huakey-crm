@@ -1,4 +1,5 @@
 const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission, checkFieldPermission } = require('../middleware/permission');
 const quoteController = require('../controllers/quoteController');
@@ -329,4 +330,5 @@ router.post('/to-contract', authenticateToken, checkPermission('quotation:edit')
 // 审批报价单（仅管理员）
 router.post('/approve', authenticateToken, validate(approveQuoteSchema), quoteController.approve);
 
+registry.register('quote', { routes: router, permissions: ['quote'] });
 module.exports = router;

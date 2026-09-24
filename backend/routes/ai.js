@@ -1,4 +1,5 @@
 const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission } = require('../middleware/permission');
@@ -285,4 +286,5 @@ router.post('/generate-suggestions', authenticateToken, checkPermission('ai'), v
   }
 });
 
+registry.register('ai', { routes: router, permissions: ['ai'] });
 module.exports = router;

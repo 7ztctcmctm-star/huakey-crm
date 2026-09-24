@@ -1,4 +1,5 @@
-﻿const express = require('express');
+const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
@@ -259,4 +260,5 @@ router.post('/plan/cancel', authenticateToken, validate(followPlanCancelSchema),
   }
 });
 
+registry.register('follow-up', { routes: router, permissions: ['follow-up'] });
 module.exports = router;
