@@ -1,4 +1,5 @@
 const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
@@ -180,4 +181,5 @@ router.post('/supplier/batch', authenticateToken, checkPermission('scoring'), re
   }
 });
 
+registry.register('scoring', { routes: router, permissions: ['scoring'] });
 module.exports = router;

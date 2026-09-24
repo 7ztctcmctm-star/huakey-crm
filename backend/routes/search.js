@@ -1,4 +1,5 @@
 const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
@@ -26,4 +27,5 @@ router.get('/global', authenticateToken, checkPermission('search'), queryValidat
   }
 });
 
+registry.register('search', { routes: router, permissions: ['search'] });
 module.exports = router;

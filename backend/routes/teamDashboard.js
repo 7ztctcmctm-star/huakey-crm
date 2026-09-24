@@ -1,4 +1,5 @@
 const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
@@ -143,4 +144,5 @@ router.get('/stuck-opportunities', authenticateToken, checkPermission('team-dash
   }
 });
 
+registry.register('team-dashboard', { routes: router, permissions: ['team-dashboard'] });
 module.exports = router;

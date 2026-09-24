@@ -196,8 +196,10 @@ require('./routes/service');
 require('./routes/role');
 require('./routes/dept');
 require('./routes/log');
-const teamDashboardRoutes = require('./routes/teamDashboard');
-const reminderRoutes = require('./routes/reminder');
+// team-dashboard 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/teamDashboard');
+// reminder 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/reminder');
 // notification 通过 ModuleRegistry 注册（2026-09-21 迁移）
 require('./routes/notification');
 // ai 通过 ModuleRegistry 注册（2026-09-24 迁移）
@@ -207,7 +209,8 @@ require('./routes/supplier');
 // purchase 通过 ModuleRegistry 注册（2026-09-24 迁移）
 require('./routes/purchase');
 require('./routes/config');
-const targetRoutes = require('./routes/target');
+// target 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/target');
 require('./routes/permission');
 // recycle 通过 ModuleRegistry 注册（2026-09-24 迁移）
 require('./routes/recycle');
@@ -215,22 +218,33 @@ require('./routes/recycle');
 require('./routes/backup');
 // analysis 通过 ModuleRegistry 注册（2026-09-24 迁移）
 require('./routes/analysis');
-const integrationRoutes = require('./routes/integration');
-const uploadRoutes = require('./routes/upload');
-const searchRoutes = require('./routes/search');
-const tagRoutes = require('./routes/tag');
-const contractTemplateRoutes = require('./routes/contractTemplate');
-const followupTemplateRoutes = require('./routes/followupTemplate');
-const scoringRoutes = require('./routes/scoring');
+// integration 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/integration');
+// upload 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/upload');
+// search 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/search');
+// tag 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/tag');
+// contract-template 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/contractTemplate');
+// followup-templates 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/followupTemplate');
+// scoring 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/scoring');
 // approval 通过 ModuleRegistry 注册（2026-09-21 迁移）
 require('./routes/approval');
-const knowledgeRoutes = require('./routes/knowledge');
+// knowledge 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/knowledge');
 const surveyRoutes = require('./routes/survey');
-const inventoryRoutes = require('./routes/inventory');
-const sseRoutes = require('./routes/sse');
+// inventory 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/inventory');
+// sse 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/sse');
 // procurement-plan 通过 ModuleRegistry 注册（require 触发 register），不再赋值给变量
 require('./routes/procurement-plan');
-const financeEnhancedRoutes = require('./routes/finance-enhanced');
+// finance 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/finance-enhanced');
 // hr 通过 ModuleRegistry 注册（require 触发 register），不再赋值给变量
 require('./routes/hr');
 // automation 通过 ModuleRegistry 注册（2026-09-21 迁移）
@@ -361,30 +375,30 @@ apiRouter.use('/purchase/comparison', require('./routes/purchase/comparison'));
 // dept 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 // report 已通过 registry 挂载
 // log 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
-apiRouter.use('/team-dashboard', teamDashboardRoutes);
-apiRouter.use('/reminder', reminderRoutes);
+// team-dashboard 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
+// reminder 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 // notification 已通过 ModuleRegistry 自动挂载
 // config 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
-apiRouter.use('/target', targetRoutes);
+// target 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 // permission 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 // recycle 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 // backup 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 // [安全清理] /follow-plan 已合并到 /follow-up/plan/*，不再单独挂载
 // ai 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 // analysis 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
-apiRouter.use('/integration', integrationRoutes);
-apiRouter.use('/upload', uploadRoutes);
-apiRouter.use('/search', searchRoutes);
-apiRouter.use('/tag', tagRoutes);
-apiRouter.use('/contract-template', contractTemplateRoutes);
-apiRouter.use('/followup-templates', followupTemplateRoutes);
-apiRouter.use('/scoring', scoringRoutes);
+// integration 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
+// upload 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
+// search 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
+// tag 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
+// contract-template 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
+// followup-templates 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
+// scoring 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 // approval 已通过 ModuleRegistry 自动挂载
-apiRouter.use('/knowledge', knowledgeRoutes);
-apiRouter.use('/inventory', inventoryRoutes);
-apiRouter.use('/sse', sseRoutes);
+// knowledge 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
+// inventory 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
+// sse 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 // procurement-plan 已通过 ModuleRegistry 自动挂载（2026-09-21 试点迁移）
-apiRouter.use('/finance', financeEnhancedRoutes);
+// finance 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 // hr 已通过 ModuleRegistry 自动挂载（2026-09-21 试点迁移）
 // automation 已通过 ModuleRegistry 自动挂载
 // calendar 已通过 ModuleRegistry 自动挂载

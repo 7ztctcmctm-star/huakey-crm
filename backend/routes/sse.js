@@ -1,4 +1,5 @@
 const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const { authenticateToken } = require('../middleware/auth');
 const sseManager = require('../utils/sseManager');
 const logger = require('../config/logger');
@@ -52,4 +53,5 @@ router.get('/notifications', authenticateToken, (req, res) => {
   res.on('finish', cleanup);
 });
 
+registry.register('sse', { routes: router, permissions: [] });
 module.exports = router;

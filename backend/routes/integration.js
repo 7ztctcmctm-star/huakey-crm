@@ -1,4 +1,5 @@
-﻿const express = require('express');
+const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
@@ -78,4 +79,5 @@ router.get('/email-log', authenticateToken, async (req, res, next) => {
   }
 });
 
+registry.register('integration', { routes: router, permissions: ['integration'] });
 module.exports = router;

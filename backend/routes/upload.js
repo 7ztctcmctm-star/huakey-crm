@@ -1,4 +1,5 @@
 const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
@@ -147,4 +148,5 @@ router.post('/delete', authenticateToken, checkPermission('file'), validate(dele
   }
 });
 
+registry.register('upload', { routes: router, permissions: ['upload'] });
 module.exports = router;

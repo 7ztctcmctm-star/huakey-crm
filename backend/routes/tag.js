@@ -1,4 +1,5 @@
 const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
@@ -75,4 +76,5 @@ router.post('/manage', authenticateToken, checkPermission('tag'), requireManager
   }
 });
 
+registry.register('tag', { routes: router, permissions: ['tag'] });
 module.exports = router;
