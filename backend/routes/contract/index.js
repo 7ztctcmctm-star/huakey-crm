@@ -1,4 +1,5 @@
 const express = require('express');
+const registry = require('../../core/ModuleRegistry');
 const router = express.Router();
 
 // 子模块挂载
@@ -7,5 +8,10 @@ router.use('/', require('./crud'));
 router.use('/', require('./payment'));
 router.use('/', require('./export'));
 router.use('/', require('./approval'));
+
+registry.register('contract', {
+  routes: router,
+  permissions: ['contract', 'contract:add', 'contract:edit', 'contract:delete', 'contract:view']
+});
 
 module.exports = router;

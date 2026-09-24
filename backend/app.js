@@ -189,8 +189,9 @@ require('./routes/followUp');
 require('./routes/opportunity');
 // quote 通过 ModuleRegistry 注册（2026-09-24 迁移）
 require('./routes/quote');
-// contract 文件缺失（预存问题，暂不迁移）
-const contractRoutes = require('./routes/contract');
+// contract 通过 ModuleRegistry 注册（2026-09-24 迁移）
+// 入口文件: routes/contract/index.js（聚合 crud + payment + export + approval 4 子路由）
+require('./routes/contract');
 // service 通过 ModuleRegistry 注册（2026-09-21 迁移）
 require('./routes/service');
 require('./routes/role');
@@ -364,7 +365,7 @@ apiRouter.use('/customers', require('./routes/customer/detailExtras'));
 // opportunity 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 // product 已通过 registry 挂载
 // quote 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
-apiRouter.use('/contract', contractRoutes);
+// contract 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 // service 已通过 ModuleRegistry 自动挂载
 // supplier 已通过 ModuleRegistry 自动挂载
 // purchase 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
