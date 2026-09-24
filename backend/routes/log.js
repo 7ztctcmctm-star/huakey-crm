@@ -76,7 +76,7 @@ router.get('/modules', authenticateToken, async (req, res, next) => {
   }
 });
 
-router.post('/delete', authenticateToken, requireAdmin, validate(deleteSchema), async (req, res, next) => {
+router.post('/delete', authenticateToken, checkPermission('log:delete'), validate(deleteSchema), async (req, res, next) => {
   try {
     const count = await logService.deleteLogs(pool, req.body.ids);
     res.json({ code: 200, message: `成功删除 ${count} 条日志`, data: null });
@@ -96,7 +96,7 @@ router.post('/clear', authenticateToken, requireAdmin, validate(clearSchema), as
   }
 });
 
-router.post('/export', authenticateToken, checkPermission('log:export'), requireAdmin, validate(exportSchema), async (req, res, next) => {
+router.post('/export', authenticateToken, checkPermission('log:export'), validate(exportSchema), async (req, res, next) => {
   try {
     const buf = await logService.exportLogs(pool, req.body);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

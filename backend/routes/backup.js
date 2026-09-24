@@ -1,9 +1,9 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
-const requireAdmin = require('../middleware/admin');
+const requireAdmin = require('../middleware/admin'); // 保留：POST restore / GET confirm-code 是高风险操作
 const { validate, Joi } = require('../middleware/validate');
 const backupService = require('../services/backupRouteService');
 const logger = require('../config/logger');
@@ -27,7 +27,7 @@ const deleteBackupSchema = Joi.object({
 const emptySchema = Joi.object({});
 
 // 创建备份
-router.post('/create', authenticateToken, checkPermission('backup:add'), requireAdmin, validate(emptySchema), async (req, res, next) => {
+router.post('/create', authenticateToken, checkPermission('backup:add'), validate(emptySchema), async (req, res, next) => {
   try {
     const result = await backupService.createBackup(pool, req.user.userId);
     res.json({ code: 200, message: '备份任务已创建，正在后台执行', data: result });
@@ -74,7 +74,7 @@ router.get('/confirm-code/:id', authenticateToken, checkPermission('backup:resto
 });
 
 // 删除备份文件
-router.post('/delete', authenticateToken, checkPermission('backup:add'), requireAdmin, validate(deleteBackupSchema), async (req, res, next) => {
+router.post('/delete', authenticateToken, checkPermission('backup:add'), validate(deleteBackupSchema), async (req, res, next) => {
   try {
     const { id } = req.body;
     await backupService.deleteBackup(pool, id);

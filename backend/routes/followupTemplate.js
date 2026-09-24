@@ -3,7 +3,7 @@ const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
-const { requireAdmin, requireManager } = require('../middleware/admin');
+const { requireManager } = require('../middleware/admin');
 const { validate, Joi } = require('../middleware/validate');
 const templateService = require('../services/followupTemplateRouteService');
 const logger = require('../config/logger');
@@ -46,7 +46,7 @@ router.post('/', authenticateToken, checkPermission('followup:template'), requir
 });
 
 // 更新模板（仅管理员）
-router.put('/:id', authenticateToken, checkPermission('followup:template'), requireAdmin, validate(templateUpdateSchema), async (req, res, next) => {
+router.put('/:id', authenticateToken, checkPermission('followup:template'), validate(templateUpdateSchema), async (req, res, next) => {
   try {
     await templateService.updateTemplate(pool, req.params.id, req.body, req.user.userId);
     res.json({ code: 200, message: '更新成功', data: null });
@@ -66,7 +66,7 @@ router.put('/:id', authenticateToken, checkPermission('followup:template'), requ
 });
 
 // 删除模板（仅管理员）
-router.delete('/:id', authenticateToken, checkPermission('followup:template'), requireAdmin, async (req, res, next) => {
+router.delete('/:id', authenticateToken, checkPermission('followup:template'), async (req, res, next) => {
   try {
     await templateService.deleteTemplate(pool, req.params.id, req.user.userId);
     res.json({ code: 200, message: '删除成功', data: null });

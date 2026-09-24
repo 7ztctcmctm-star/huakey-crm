@@ -3,7 +3,6 @@ const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
-const requireAdmin = require('../middleware/admin');
 const { requireManager } = require('../middleware/admin');
 const { checkPermission } = require('../middleware/permission');
 const currencyService = require('../services/currencyService');
@@ -37,8 +36,8 @@ router.get('/rates', authenticateToken, async (req, res, next) => {
   }
 });
 
-// 更新汇率（管理员）
-router.put('/:id', authenticateToken, requireAdmin, validate(updateCurrencySchema), async (req, res, next) => {
+// 更新汇率（system:currency 权限持有者可操作，已去掉 requireAdmin 硬锁）
+router.put('/:id', authenticateToken, checkPermission('system:currency'), validate(updateCurrencySchema), async (req, res, next) => {
   try {
     await currencyService.updateCurrency(pool, req.params.id, req.body);
     res.json({ code: 200, message: '更新成功', data: null });
