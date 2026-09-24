@@ -1,4 +1,5 @@
 const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
@@ -63,4 +64,5 @@ router.post('/test-notification', authenticateToken, checkPermission('system'), 
   }
 });
 
+registry.register('config', { routes: router, permissions: ['system'] });
 module.exports = router;

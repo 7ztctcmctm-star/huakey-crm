@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
@@ -179,17 +179,19 @@ require('./routes/report/module');
 require('./routes/dataManagement/module'); // 数据管理域（质量检查剥离，Prompt 4-5）
 
 // 加载路由
-const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/user');
+// auth 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/auth');
+// user 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/user');
 const followUpRoutes = require('./routes/followUp');
 const opportunityRoutes = require('./routes/opportunity');
 const quoteRoutes = require('./routes/quote');
 const contractRoutes = require('./routes/contract');
 // service 通过 ModuleRegistry 注册（2026-09-21 迁移）
 require('./routes/service');
-const roleRoutes = require('./routes/role');
-const deptRoutes = require('./routes/dept');
-const logRoutes = require('./routes/log');
+require('./routes/role');
+require('./routes/dept');
+require('./routes/log');
 const teamDashboardRoutes = require('./routes/teamDashboard');
 const reminderRoutes = require('./routes/reminder');
 // notification 通过 ModuleRegistry 注册（2026-09-21 迁移）
@@ -198,9 +200,9 @@ const aiRoutes = require('./routes/ai');
 // supplier 通过 ModuleRegistry 注册（2026-09-21 迁移）
 require('./routes/supplier');
 const purchaseRoutes = require('./routes/purchase');
-const configRoutes = require('./routes/config');
+require('./routes/config');
 const targetRoutes = require('./routes/target');
-const permissionRoutes = require('./routes/permission');
+require('./routes/permission');
 const recycleRoutes = require('./routes/recycle');
 const backupRoutes = require('./routes/backup');
 const analysisRoutes = require('./routes/analysis');
@@ -308,11 +310,9 @@ apiRouter.get('/health', async (req, res) => {
   });
 });
 
-// 认证路由（登录限流在 routes/auth.js 内单独挂载，避免验证码接口被误限）
-apiRouter.use('/auth', authRoutes);
-
-// 用户管理路由
-apiRouter.use('/user', userRoutes);
+// auth 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
+// （登录限流在 routes/auth.js 内单独挂载，避免验证码接口被误限 —— 不受 ModuleRegistry 影响）
+// user 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 
 // 试点模块：通过 ModuleRegistry 自动挂载
 for (const { prefix, router } of registry.getAllRoutes()) {
@@ -345,16 +345,16 @@ apiRouter.use('/purchase', purchaseRoutes);
 // [P0-1 fix] 子路由加显式前缀，否则与主 /purchase 路由路径冲突（前端期望 /purchase/request/list 等）
 apiRouter.use('/purchase/request', require('./routes/purchase/request'));
 apiRouter.use('/purchase/comparison', require('./routes/purchase/comparison'));
-apiRouter.use('/role', roleRoutes);
-apiRouter.use('/dept', deptRoutes);
+// role 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
+// dept 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 // report 已通过 registry 挂载
-apiRouter.use('/log', logRoutes);
+// log 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 apiRouter.use('/team-dashboard', teamDashboardRoutes);
 apiRouter.use('/reminder', reminderRoutes);
 // notification 已通过 ModuleRegistry 自动挂载
-apiRouter.use('/config', configRoutes);
+// config 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 apiRouter.use('/target', targetRoutes);
-apiRouter.use('/permission', permissionRoutes);
+// permission 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 apiRouter.use('/recycle', recycleRoutes);
 apiRouter.use('/backup', backupRoutes);
 // [安全清理] /follow-plan 已合并到 /follow-up/plan/*，不再单独挂载

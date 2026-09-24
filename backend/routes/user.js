@@ -1,4 +1,5 @@
 const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
@@ -137,4 +138,5 @@ router.post('/reset-password', authenticateToken, checkPermission('system:user:e
   }
 });
 
+registry.register('user', { routes: router, permissions: ['system:user', 'system:user:add', 'system:user:edit', 'system:user:delete'] });
 module.exports = router;

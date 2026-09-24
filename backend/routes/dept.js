@@ -1,4 +1,5 @@
 const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
@@ -72,4 +73,5 @@ router.post('/delete', authenticateToken, requireAdmin, validate(deptDeleteSchem
   }
 });
 
+registry.register('dept', { routes: router, permissions: ['system:dept'] });
 module.exports = router;

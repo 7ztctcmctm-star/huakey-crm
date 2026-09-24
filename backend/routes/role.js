@@ -1,4 +1,5 @@
 const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
@@ -74,4 +75,5 @@ router.post('/delete', authenticateToken, requireAdmin, validate(roleDeleteSchem
   }
 });
 
+registry.register('role', { routes: router, permissions: ['system:role'] });
 module.exports = router;

@@ -1,4 +1,5 @@
 const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const pool = require('../config/database');
@@ -416,4 +417,5 @@ router.post('/refresh', validate(refreshSchema), async (req, res, next) => {
   }
 });
 
+registry.register('auth', { routes: router, permissions: ['system:user:add', 'system:user'] });
 module.exports = router;
