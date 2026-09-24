@@ -13,6 +13,7 @@
  */
 
 const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const router = express.Router();
 
 const { authenticateToken } = require('../middleware/auth');
@@ -57,4 +58,5 @@ router.post('/convert',
   customerController.convertLeadToFormal
 );
 
+registry.register('leads', { routes: router, permissions: ['leads', 'leads:view', 'leads:convert'] });
 module.exports = router;

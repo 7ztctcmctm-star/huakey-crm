@@ -237,7 +237,9 @@ require('./routes/scoring');
 require('./routes/approval');
 // knowledge 通过 ModuleRegistry 注册（2026-09-24 迁移）
 require('./routes/knowledge');
-const surveyRoutes = require('./routes/survey');
+// survey 通过 ModuleRegistry 注册（2026-09-24 迁移）
+// 入口: routes/survey.js（含公开 POST /respond/:campaign_id，无 token，内部有自己的 rate limiter）
+require('./routes/survey');
 // inventory 通过 ModuleRegistry 注册（2026-09-24 迁移）
 require('./routes/inventory');
 // sse 通过 ModuleRegistry 注册（2026-09-24 迁移）
@@ -350,12 +352,12 @@ for (const { prefix, router } of registry.getAllRoutes()) {
 // 客户中心 API —— 唯一命名空间：/customers、/leads、/pool
 // [2026-09-14 阶段4] 老树 /api/v1/customer/* 已整树下线（ModuleRegistry 注册移除 +
 // routes/customer/{module,index,detail}.js 删除）；CRUD 由 routes/customers.js 承载。
-apiRouter.use('/leads', require('./routes/leads'));
-apiRouter.use('/pool', require('./routes/pool'));
-apiRouter.use('/customers', require('./routes/customers'));
+// leads 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
+// pool 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
+// customers 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 
 // 客户域「能力型」子路由（阶段3 复挂；阶段4 后为唯一挂载点）。
-// 复用这些 router 对象，无重复实现。
+// 复用这些 router 对象，无重复实现。（继续叠加挂载到 /customers prefix）
 apiRouter.use('/customers/contact', require('./routes/customer/contact'));
 apiRouter.use('/customers', require('./routes/customer/assign'));
 apiRouter.use('/customers', require('./routes/customer/import'));
@@ -508,8 +510,8 @@ require('./routes/metrics');
 // 使用 /api/v1 前缀
 app.use('/api/v1', apiRouter);
 
-// 调查模块单独注册（公开回复接口不需要token）
-app.use('/api/v1/survey', responseFormat, surveyRoutes);
+// survey 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
+// （公开回复端点 POST /respond/:campaign_id 无 token，已由路由本身不加 authenticateToken 处理）
 
 // 统一业务错误处理（AppError + Joi 校验错误）
 app.use(appErrorHandler);

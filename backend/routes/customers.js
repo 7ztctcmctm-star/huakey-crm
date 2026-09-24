@@ -24,6 +24,7 @@
  */
 
 const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const router = express.Router();
 
 const { authenticateToken } = require('../middleware/auth');
@@ -206,4 +207,5 @@ router.post('/export',
   customerController.exportCustomers
 );
 
+registry.register('customers', { routes: router, permissions: ['customer', 'customer:view', 'customer:add', 'customer:edit', 'customer:delete'] });
 module.exports = router;

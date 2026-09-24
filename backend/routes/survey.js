@@ -1,4 +1,5 @@
 const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
@@ -255,4 +256,5 @@ router.get('/analytics/:campaign_id', authenticateToken, checkPermission('survey
   }
 });
 
+registry.register('survey', { routes: router, permissions: ['survey'] });
 module.exports = router;

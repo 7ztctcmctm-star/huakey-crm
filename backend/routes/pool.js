@@ -14,6 +14,7 @@
  */
 
 const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const router = express.Router();
 
 const { authenticateToken } = require('../middleware/auth');
@@ -141,4 +142,5 @@ router.post('/transfer/candidates',
   transferController.candidates
 );
 
+registry.register('pool', { routes: router, permissions: ['pool', 'pool:view', 'pool:claim', 'customer:release'] });
 module.exports = router;
