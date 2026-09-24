@@ -1,4 +1,5 @@
 const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
@@ -118,4 +119,5 @@ router.post('/export', authenticateToken, checkPermission('invoice:export'), che
   }
 });
 
+registry.register('invoice', { routes: router, permissions: ['system:invoice'] });
 module.exports = router;

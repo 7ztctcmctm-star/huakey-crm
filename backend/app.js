@@ -204,7 +204,8 @@ require('./routes/config');
 const targetRoutes = require('./routes/target');
 require('./routes/permission');
 const recycleRoutes = require('./routes/recycle');
-const backupRoutes = require('./routes/backup');
+// backup 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/backup');
 const analysisRoutes = require('./routes/analysis');
 const integrationRoutes = require('./routes/integration');
 const uploadRoutes = require('./routes/upload');
@@ -233,9 +234,12 @@ const socialRoutes = require('./routes/social');
 require('./routes/api-platform');
 // competitor 通过 ModuleRegistry 注册（2026-09-21 迁移）
 require('./routes/competitor');
-const currencyRoutes = require('./routes/currency');
-const emailRoutes = require('./routes/email');
-const invoiceRoutes = require('./routes/invoice');
+// currency 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/currency');
+// email 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/email');
+// invoice 通过 ModuleRegistry 注册（2026-09-24 迁移）
+require('./routes/invoice');
 
 // API 路由前缀 /api
 const apiRouter = express.Router();
@@ -356,7 +360,7 @@ apiRouter.use('/reminder', reminderRoutes);
 apiRouter.use('/target', targetRoutes);
 // permission 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 apiRouter.use('/recycle', recycleRoutes);
-apiRouter.use('/backup', backupRoutes);
+// backup 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 // [安全清理] /follow-plan 已合并到 /follow-up/plan/*，不再单独挂载
 apiRouter.use('/ai', aiRoutes);
 apiRouter.use('/analysis', analysisRoutes);
@@ -379,13 +383,13 @@ apiRouter.use('/finance', financeEnhancedRoutes);
 apiRouter.use('/social', socialRoutes);
 // api-platform 已通过 ModuleRegistry 自动挂载
 // competitor 已通过 ModuleRegistry 自动挂载
-apiRouter.use('/currency', currencyRoutes);
-apiRouter.use('/email', emailRoutes);
-apiRouter.use('/invoice', invoiceRoutes);
+// currency 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
+// email 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
+// invoice 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 
+// cron 通过 ModuleRegistry 注册（2026-09-24 迁移）
 // Vercel Cron Jobs 端点（也兼容本地 node-cron）
-const cronJobRoutes = require('./routes/cronJobs');
-apiRouter.use('/cron', cronJobRoutes);
+require('./routes/cronJobs');
 
 // Swagger API 文档（开发/测试环境可用）
 const { authenticateToken } = require('./middleware/auth');

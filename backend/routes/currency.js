@@ -1,4 +1,5 @@
 const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
@@ -59,4 +60,5 @@ router.delete('/:id', authenticateToken, checkPermission('system:currency'), req
   }
 });
 
+registry.register('currency', { routes: router, permissions: ['system:currency'] });
 module.exports = router;

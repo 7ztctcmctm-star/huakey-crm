@@ -13,6 +13,7 @@
  */
 
 const express = require('express');
+const registry = require('../core/ModuleRegistry');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const requireAdmin = require('../middleware/admin');
@@ -76,4 +77,5 @@ router.get('/generate-reminders', authenticateToken, requireAdmin, async (req, r
   }
 });
 
+registry.register('cron', { routes: router, permissions: ['system:cron'] });
 module.exports = router;
