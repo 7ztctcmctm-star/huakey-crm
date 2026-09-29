@@ -128,11 +128,11 @@ async function updateEncounter(pool, id, data, dataPermission) {
     }
   }
   if (fields.length === 0) return;
-  values.push(id, ...permParams);
+  // 参数顺序: [...SET的值, outerId, innerId (EXISTS里), ...permParams]
   await pool.query(
     `UPDATE crm_competitor_encounter SET ${fields.join(', ')} WHERE id = ? AND deleted_at IS NULL
      AND EXISTS (SELECT 1 FROM crm_competitor c WHERE c.id = (SELECT competitor_id FROM crm_competitor_encounter WHERE id = ?) AND c.deleted_at IS NULL AND ${permClause})`,
-    [...values, id, ...permParams]
+    [...values, id, id, ...permParams]
   );
 }
 
@@ -141,7 +141,7 @@ async function deleteEncounter(pool, id, dataPermission) {
   await pool.query(
     `UPDATE crm_competitor_encounter SET deleted_at = NOW() WHERE id = ?
      AND EXISTS (SELECT 1 FROM crm_competitor c WHERE c.id = (SELECT competitor_id FROM crm_competitor_encounter WHERE id = ?) AND c.deleted_at IS NULL AND ${permClause})`,
-    [id, ...permParams, id, ...permParams]
+    [id, id, ...permParams]
   );
 }
 
@@ -188,11 +188,10 @@ async function updateIntel(pool, id, data, dataPermission) {
     }
   }
   if (fields.length === 0) return;
-  values.push(id, ...permParams);
   await pool.query(
     `UPDATE crm_competitor_intel SET ${fields.join(', ')} WHERE id = ? AND deleted_at IS NULL
      AND EXISTS (SELECT 1 FROM crm_competitor c WHERE c.id = (SELECT competitor_id FROM crm_competitor_intel WHERE id = ?) AND c.deleted_at IS NULL AND ${permClause})`,
-    [...values, id, ...permParams]
+    [...values, id, id, ...permParams]
   );
 }
 
@@ -201,7 +200,7 @@ async function deleteIntel(pool, id, dataPermission) {
   await pool.query(
     `UPDATE crm_competitor_intel SET deleted_at = NOW() WHERE id = ?
      AND EXISTS (SELECT 1 FROM crm_competitor c WHERE c.id = (SELECT competitor_id FROM crm_competitor_intel WHERE id = ?) AND c.deleted_at IS NULL AND ${permClause})`,
-    [id, ...permParams, id, ...permParams]
+    [id, id, ...permParams]
   );
 }
 
