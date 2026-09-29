@@ -3,7 +3,7 @@ const router = express.Router();
 const registry = require('../core/ModuleRegistry');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { checkPermission } = require('../middleware/permission');
+const { checkPermission, checkDataPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const competitorService = require('../services/competitorService');
 const logger = require('../config/logger');
@@ -95,20 +95,20 @@ const intelUpdateSchema = Joi.object({
 const competitorListHandler = async (req, res, next) => {
   const source = req.method === "GET" ? req.query : req.body;
   try {
-    const data = await competitorService.listCompetitors(pool, source);
+    const data = await competitorService.listCompetitors(pool, source, req.dataPermission);
     res.json({ code: 200, message: "查询成功", data });
   } catch (error) {
     logger.error("[竞品] 列表查询失败:", { error: error.stack || error.message, traceId: req.traceId || "N/A" });
     next(error);
   }
 };
-router.get("/list", authenticateToken, checkPermission("competitor:view"), competitorListHandler);
-router.post("/list", authenticateToken, checkPermission("competitor:view"), validate(competitorListSchema), competitorListHandler);
+router.get("/list", authenticateToken, checkPermission("competitor:view"), checkDataPermission('competitor', 'create_by'), competitorListHandler);
+router.post("/list", authenticateToken, checkPermission("competitor:view"), checkDataPermission('competitor', 'create_by'), validate(competitorListSchema), competitorListHandler);
 
 
-router.get('/:id', authenticateToken, checkPermission('competitor:view'), async (req, res, next) => {
+router.get('/:id', authenticateToken, checkPermission('competitor:view'), checkDataPermission('competitor', 'create_by'), async (req, res, next) => {
   try {
-    const row = await competitorService.getCompetitor(pool, req.params.id);
+    const row = await competitorService.getCompetitor(pool, req.params.id, req.dataPermission);
     if (!row) return res.status(404).json({ code: 404, message: '竞争对手不存在', data: null });
     res.json({ code: 200, message: '查询成功', data: row });
   } catch (error) {
@@ -117,7 +117,7 @@ router.get('/:id', authenticateToken, checkPermission('competitor:view'), async 
   }
 });
 
-router.post('/add', authenticateToken, checkPermission('competitor:add'), validate(competitorSchema), async (req, res, next) => {
+router.post('/add', authenticateToken, checkPermission('competitor:add'), checkDataPermission('competitor', 'create_by'), validate(competitorSchema), async (req, res, next) => {
   try {
     if (!req.body.name) return res.status(400).json({ code: 400, message: '名称不能为空', data: null });
     const result = await competitorService.createCompetitor(pool, req.body, req.user.userId);
@@ -128,9 +128,9 @@ router.post('/add', authenticateToken, checkPermission('competitor:add'), valida
   }
 });
 
-router.put('/:id', authenticateToken, checkPermission('competitor:edit'), validate(competitorUpdateSchema), async (req, res, next) => {
+router.put('/:id', authenticateToken, checkPermission('competitor:edit'), checkDataPermission('competitor', 'create_by'), validate(competitorUpdateSchema), async (req, res, next) => {
   try {
-    await competitorService.updateCompetitor(pool, req.params.id, req.body);
+    await competitorService.updateCompetitor(pool, req.params.id, req.body, req.dataPermission);
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
     logger.error('[竞品] 更新失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -138,9 +138,9 @@ router.put('/:id', authenticateToken, checkPermission('competitor:edit'), valida
   }
 });
 
-router.delete('/:id', authenticateToken, checkPermission('competitor:delete'), async (req, res, next) => {
+router.delete('/:id', authenticateToken, checkPermission('competitor:delete'), checkDataPermission('competitor', 'create_by'), async (req, res, next) => {
   try {
-    await competitorService.deleteCompetitor(pool, req.params.id);
+    await competitorService.deleteCompetitor(pool, req.params.id, req.dataPermission);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     logger.error('[竞品] 删除失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -150,9 +150,9 @@ router.delete('/:id', authenticateToken, checkPermission('competitor:delete'), a
 
 // ============ 交锋记录 ============
 
-router.get('/:id/encounters', authenticateToken, checkPermission('competitor:view'), async (req, res, next) => {
+router.get('/:id/encounters', authenticateToken, checkPermission('competitor:view'), checkDataPermission('competitor', 'create_by'), async (req, res, next) => {
   try {
-    const data = await competitorService.getEncounters(pool, req.params.id);
+    const data = await competitorService.getEncounters(pool, req.params.id, req.dataPermission);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[竞品] 交锋记录查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -160,10 +160,10 @@ router.get('/:id/encounters', authenticateToken, checkPermission('competitor:vie
   }
 });
 
-router.post('/encounters/add', authenticateToken, checkPermission('competitor:edit'), validate(encounterSchema), async (req, res, next) => {
+router.post('/encounters/add', authenticateToken, checkPermission('competitor:edit'), checkDataPermission('competitor', 'create_by'), validate(encounterSchema), async (req, res, next) => {
   try {
     if (!req.body.competitor_id || !req.body.encounter_type) return res.status(400).json({ code: 400, message: '参数不完整', data: null });
-    const result = await competitorService.addEncounter(pool, req.body, req.user.userId);
+    const result = await competitorService.addEncounter(pool, req.body, req.user.userId, req.dataPermission);
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
     logger.error('[竞品] 创建交锋记录失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -171,9 +171,9 @@ router.post('/encounters/add', authenticateToken, checkPermission('competitor:ed
   }
 });
 
-router.put('/encounters/:id', authenticateToken, checkPermission('competitor:edit'), validate(encounterUpdateSchema), async (req, res, next) => {
+router.put('/encounters/:id', authenticateToken, checkPermission('competitor:edit'), checkDataPermission('competitor', 'create_by'), validate(encounterUpdateSchema), async (req, res, next) => {
   try {
-    await competitorService.updateEncounter(pool, req.params.id, req.body);
+    await competitorService.updateEncounter(pool, req.params.id, req.body, req.dataPermission);
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
     logger.error('[竞品] 更新交锋记录失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -181,9 +181,9 @@ router.put('/encounters/:id', authenticateToken, checkPermission('competitor:edi
   }
 });
 
-router.delete('/encounters/:id', authenticateToken, checkPermission('competitor:delete'), async (req, res, next) => {
+router.delete('/encounters/:id', authenticateToken, checkPermission('competitor:delete'), checkDataPermission('competitor', 'create_by'), async (req, res, next) => {
   try {
-    await competitorService.deleteEncounter(pool, req.params.id);
+    await competitorService.deleteEncounter(pool, req.params.id, req.dataPermission);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     logger.error('[竞品] 删除交锋记录失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -193,9 +193,9 @@ router.delete('/encounters/:id', authenticateToken, checkPermission('competitor:
 
 // ============ 情报 ============
 
-router.get('/:id/intel', authenticateToken, checkPermission('competitor:view'), async (req, res, next) => {
+router.get('/:id/intel', authenticateToken, checkPermission('competitor:view'), checkDataPermission('competitor', 'create_by'), async (req, res, next) => {
   try {
-    const data = await competitorService.getIntel(pool, req.params.id);
+    const data = await competitorService.getIntel(pool, req.params.id, req.dataPermission);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[竞品] 情报查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -203,10 +203,10 @@ router.get('/:id/intel', authenticateToken, checkPermission('competitor:view'), 
   }
 });
 
-router.post('/intel/add', authenticateToken, checkPermission('competitor:edit'), validate(intelSchema), async (req, res, next) => {
+router.post('/intel/add', authenticateToken, checkPermission('competitor:edit'), checkDataPermission('competitor', 'create_by'), validate(intelSchema), async (req, res, next) => {
   try {
     if (!req.body.competitor_id || !req.body.intel_type || !req.body.title || !req.body.content) return res.status(400).json({ code: 400, message: '参数不完整', data: null });
-    const result = await competitorService.addIntel(pool, req.body, req.user.userId);
+    const result = await competitorService.addIntel(pool, req.body, req.user.userId, req.dataPermission);
     res.json({ code: 200, message: '创建成功', data: result });
   } catch (error) {
     logger.error('[竞品] 创建情报失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -214,9 +214,9 @@ router.post('/intel/add', authenticateToken, checkPermission('competitor:edit'),
   }
 });
 
-router.put('/intel/:id', authenticateToken, checkPermission('competitor:edit'), validate(intelUpdateSchema), async (req, res, next) => {
+router.put('/intel/:id', authenticateToken, checkPermission('competitor:edit'), checkDataPermission('competitor', 'create_by'), validate(intelUpdateSchema), async (req, res, next) => {
   try {
-    await competitorService.updateIntel(pool, req.params.id, req.body);
+    await competitorService.updateIntel(pool, req.params.id, req.body, req.dataPermission);
     res.json({ code: 200, message: '更新成功', data: null });
   } catch (error) {
     logger.error('[竞品] 更新情报失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -224,9 +224,9 @@ router.put('/intel/:id', authenticateToken, checkPermission('competitor:edit'), 
   }
 });
 
-router.delete('/intel/:id', authenticateToken, checkPermission('competitor:delete'), async (req, res, next) => {
+router.delete('/intel/:id', authenticateToken, checkPermission('competitor:delete'), checkDataPermission('competitor', 'create_by'), async (req, res, next) => {
   try {
-    await competitorService.deleteIntel(pool, req.params.id);
+    await competitorService.deleteIntel(pool, req.params.id, req.dataPermission);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     logger.error('[竞品] 删除情报失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -236,9 +236,9 @@ router.delete('/intel/:id', authenticateToken, checkPermission('competitor:delet
 
 // ============ 分析总览 ============
 
-router.get('/analysis/overview', authenticateToken, checkPermission('competitor:view'), async (req, res, next) => {
+router.get('/analysis/overview', authenticateToken, checkPermission('competitor:view'), checkDataPermission('competitor', 'create_by'), async (req, res, next) => {
   try {
-    const data = await competitorService.getAnalysisOverview(pool);
+    const data = await competitorService.getAnalysisOverview(pool, req.dataPermission);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[竞品] 分析总览查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -246,11 +246,11 @@ router.get('/analysis/overview', authenticateToken, checkPermission('competitor:
   }
 });
 
-router.get('/analysis/compare', authenticateToken, checkPermission('competitor:view'), async (req, res, next) => {
+router.get('/analysis/compare', authenticateToken, checkPermission('competitor:view'), checkDataPermission('competitor', 'create_by'), async (req, res, next) => {
   try {
     const ids = (req.query.ids || '').split(',').map(Number).filter(Boolean);
     if (ids.length === 0) return res.status(400).json({ code: 400, message: '请选择竞争对手', data: null });
-    const data = await competitorService.getComparison(pool, ids);
+    const data = await competitorService.getComparison(pool, ids, req.dataPermission);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('[竞品] 对比查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });

@@ -1,4 +1,4 @@
-﻿const request = require('supertest');
+const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -110,6 +110,7 @@ describe('竞争对手模块', () => {
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1 }]]) // parent competitor 权限验证
         .mockResolvedValueOnce([{ insertId: 10 }]);
 
       const res = await request(app)
@@ -129,6 +130,7 @@ describe('竞争对手模块', () => {
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1 }]]) // parent competitor 权限验证
         .mockResolvedValueOnce([{ insertId: 20 }]);
 
       const res = await request(app)
