@@ -345,6 +345,14 @@ apiRouter.get('/health', async (req, res) => {
 // （登录限流在 routes/auth.js 内单独挂载，避免验证码接口被误限 —— 不受 ModuleRegistry 影响）
 // user 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 
+// ⚠️ 客户域三大模块 — 必须在 registry.getAllRoutes() 循环之前 require
+// 它们的 registry.register() 在 route 文件尾部同步执行，
+// 必须先 require 文件，register 才会入表。
+// （commit 905d061 迁移时遗漏了 require，导致这三个最核心的模块从那时起一直 404）
+require('./routes/leads');
+require('./routes/pool');
+require('./routes/customers');
+
 // 试点模块：通过 ModuleRegistry 自动挂载
 for (const { prefix, router } of registry.getAllRoutes()) {
   apiRouter.use(prefix, router);
