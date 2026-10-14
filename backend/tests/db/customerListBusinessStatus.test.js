@@ -23,8 +23,12 @@ const customerService = require('../../services/customerService');
 
 const DB_HOST = process.env.DB_HOST || '127.0.0.1';
 const DB_PORT = parseInt(process.env.DB_PORT, 10) || 3306;
-const DB_USER = process.env.DB_USER || 'root';
-const DB_PASSWORD = process.env.DB_PASSWORD || '';
+const DB_USER = process.env.DB_USER || 'crm_test';
+// ⚠️ 默认值不可留空串：本机 MySQL root 有密码，空串会导致 'Access denied (using password: NO)'。
+// 回退到测试专用账号 crm_test/test_pass（与 tests/setup-integration.js:14-15 的默认值一致）。
+// 注意：不能回退到仓库根 .env —— 那配的是开发/生产账号 crm_user + huakey_crm 库，
+// 拿它连 huakey_crm_test 会权限不足。
+const DB_PASSWORD = process.env.DB_PASSWORD || 'test_pass';
 const DB_NAME = process.env.DB_NAME || 'huakey_crm_test';
 
 let pool;
