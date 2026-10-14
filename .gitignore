@@ -114,3 +114,6 @@ scripts/prepare_import_sql.py
 scripts/verify_import.py
 scripts/analyze_backup.py
 scripts/import_to_nas.bat
+
+# Agent 运行时数据（非项目资产）
+.agent-kernel/

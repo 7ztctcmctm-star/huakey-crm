@@ -17,6 +17,20 @@ const logger = require('./logger');
 const SLOW_QUERY_THRESHOLD = parseInt(process.env.SLOW_QUERY_THRESHOLD_MS, 10) || 1000;
 
 /**
+ * 安全截断日志值
+ * ⚠️ JSON.stringify(undefined) 返回 undefined（而非字符串），直接 .slice(0, 200) 会抛
+ * TypeError —— 无参查询（如 `pool.query('SELECT 1')`）一旦超过慢查询阈值，
+ * 日志代码本身就会把查询搞挂：成功路径顶替正常结果，失败路径顶替原始 DB 错误。
+ * （2026-10-14 上线前审计实测发现，transaction.integration 3 例失败即此根因）
+ * @param {*} value - 任意待日志值（string / array / object / undefined）
+ * @returns {string} 截断至 200 字符的字符串
+ */
+function safeSlice(value) {
+  const s = typeof value === 'string' ? value : JSON.stringify(value);
+  return (s === undefined ? '' : s).slice(0, 200);
+}
+
+/**
  * 替换目标连接池的 query 方法，自动记录耗时并标记慢查询
  * @param {object} targetPool - mysql2/promise 连接池实例
  * @param {string} poolName - 连接池名称，用于日志区分
@@ -40,8 +54,8 @@ function interceptSlowQuery(targetPool, poolName) {
         const { maskFieldValue } = require('../utils/mask');
         logger.warn('Slow query detected', {
           pool: poolName,
-          sql: typeof sql === 'string' ? sql.slice(0, 200) : JSON.stringify(sql).slice(0, 200),
-          params: JSON.stringify(maskFieldValue('params', params)).slice(0, 200),
+          sql: safeSlice(sql),
+          params: safeSlice(maskFieldValue('params', params)),
           durationMs: duration,
           thresholdMs: SLOW_QUERY_THRESHOLD
         });
@@ -53,8 +67,8 @@ function interceptSlowQuery(targetPool, poolName) {
       if (duration >= SLOW_QUERY_THRESHOLD) {
         logger.warn('Slow query failed', {
           pool: poolName,
-          sql: typeof sql === 'string' ? sql.slice(0, 200) : JSON.stringify(sql).slice(0, 200),
-          params: JSON.stringify(params).slice(0, 200),
+          sql: safeSlice(sql),
+          params: safeSlice(params),
           durationMs: duration,
           error: err.message
         });
