@@ -160,15 +160,16 @@ describe('Opportunity Center v1 — 业务链集成测试', () => {
     it('1.1 创建商机：应验证 customer_id 并生成 opportunity_no', async () => {
       // 构造 mock 序列:
       // auth ×3 (super_admin 绕过 checkPermission，中间件不查 DB)
-      // → controller: SELECT customer + generateOpportunityNo COUNT + INSERT
+      // → controller: [H-005] 数据权限校验 + SELECT customer + generateOpportunityNo COUNT + INSERT
       mockPool.query
         .mockResolvedValueOnce([[]])                                  // 1: blacklist
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])   // 2: role
         .mockResolvedValueOnce([[{ must_change_password: 0 }]])       // 3: user
-        // super_admin → ADMIN_ROLE_CODES.has → bypass checkPermission (无 DB 查询)
-        .mockResolvedValueOnce([[{ id: 100, status: 'following' }]])  // 4: SELECT customer
-        .mockResolvedValueOnce([[{ cnt: 0 }]])                        // 5: generateOpportunityNo COUNT
-        .mockResolvedValueOnce([{ insertId: 200 }]);                  // 6: INSERT opportunity
+      // super_admin → ADMIN_ROLE_CODES.has → bypass checkPermission (无 DB 查询)
+        .mockResolvedValueOnce([[{ id: 100 }]])                       // 4: [H-005] customer 数据权限校验
+        .mockResolvedValueOnce([[{ id: 100, status: 'following' }]])  // 5: SELECT customer
+        .mockResolvedValueOnce([[{ cnt: 0 }]])                        // 6: generateOpportunityNo COUNT
+        .mockResolvedValueOnce([{ insertId: 200 }]);                  // 7: INSERT opportunity
 
       const res = await request(app)
         .post('/api/v1/opportunity/add')
@@ -236,15 +237,16 @@ describe('Opportunity Center v1 — 业务链集成测试', () => {
         .mockResolvedValueOnce([{ insertId: 300 }])                       // INSERT quote
         .mockResolvedValueOnce([{ affectedRows: 1 }]);                    // INSERT quote_item
 
-      // pool.query for auth + notification (notification 在 try/catch 中，不阻塞)
+      // pool.query for auth + [H-003] 权限校验 + notification (notification 在 try/catch 中，不阻塞)
       mockPool.query
         .mockResolvedValueOnce([[]])                                     // 1: blacklist
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])      // 2: role
         .mockResolvedValueOnce([[{ must_change_password: 0 }]])          // 3: user
-        // super_admin → bypass checkPermission
-        .mockResolvedValueOnce([[{ company_name: '集成测试客户' }]])      // 4: notification SELECT customer_name
-        .mockResolvedValueOnce([[{ real_name: '管理员' }]])              // 5: notification SELECT user
-        .mockResolvedValueOnce([{ affectedRows: 0 }]);                   // 6: notification INSERT
+      // super_admin → bypass checkPermission
+        .mockResolvedValueOnce([[{ id: 100 }]])                          // 4: [H-003] customer 数据权限校验
+        .mockResolvedValueOnce([[{ company_name: '集成测试客户' }]])      // 5: notification SELECT customer_name
+        .mockResolvedValueOnce([[{ real_name: '管理员' }]])              // 6: notification SELECT user
+        .mockResolvedValueOnce([{ affectedRows: 0 }]);                   // 7: notification INSERT
 
       const res = await request(app)
         .post('/api/v1/quote/add')
@@ -277,7 +279,8 @@ describe('Opportunity Center v1 — 业务链集成测试', () => {
       mockPool.query
         .mockResolvedValueOnce([[]])                                     // 1: blacklist
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])      // 2: role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]);         // 3: user
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]])          // 3: user
+        .mockResolvedValueOnce([[{ id: 999 }]]);                         // 4: [H-003] customer 数据权限校验（999 可见）
       // super_admin → bypass checkPermission, enter controller
       // → createQuote with opportunity_id=200, customer_id=999
       // → opportunity belongs to customer 100 → 校验失败

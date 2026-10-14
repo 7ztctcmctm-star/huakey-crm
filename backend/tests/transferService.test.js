@@ -140,14 +140,14 @@ describe('transferService 客户转移（双方同意制）', () => {
       ).rejects.toThrow(/已有待处理的转移申请/);
     });
 
-    test('接收人不存在或已停用时拒绝', async () => {
+    test('接收人不存在、已停用或非业务角色时拒绝', async () => {
       const handlers = baseHandlers();
       handlers['FROM sys_user'] = [];
       const pool = makePool(makeConn(handlers));
 
       await expect(
         transferService.createTransfer(pool, { customer_id: 10, to_user_id: 999 }, 5)
-      ).rejects.toThrow(/接收人不存在或已停用/);
+      ).rejects.toThrow(/接收人不存在、已停用或非业务角色/);
     });
   });
 

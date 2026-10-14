@@ -67,7 +67,14 @@ async function create(req, res, next) {
 async function update(req, res, next) {
   try {
     const { id, ...updateFields } = req.body
-    const result = await customerDetailService.updateCustomer(pool, id, updateFields, req.user)
+    // [M-003] 纵深防御：路由层 validate(stripUnknown) 已移除未知字段，
+    // 此处再做白名单 pick，防止 service 被其他调用方直接调用时传入非法字段
+    const ALLOWED_UPDATE_FIELDS = ['company_name', 'address', 'industry', 'source', 'level', 'status', 'remark']
+    const safeFields = {}
+    for (const key of ALLOWED_UPDATE_FIELDS) {
+      if (key in updateFields) safeFields[key] = updateFields[key]
+    }
+    const result = await customerDetailService.updateCustomer(pool, id, safeFields, req.user)
     await logAction(req, 'update', `修改客户: ${result.customer.company_name}`)
     await logFieldChanges(req, {
       module: MODULE_NAME,
@@ -131,7 +138,8 @@ async function exportCustomers(req, res, next) {
 
 async function forward(req, res, next) {
   try {
-    const result = await customerService.forwardStatus(pool, req.body.customer_id, req.user.userId)
+    const { clause, params } = await buildDataPermissionWhere(req.dataPermission, 'c')
+    const result = await customerService.forwardStatus(pool, req.body.customer_id, req.user.userId, { clause, params })
     await rawLogAction({
       module: MODULE_NAME, action: 'forward', method: 'POST', url: '/api/customer/forward',
       params: { customer_id: req.body.customer_id },
@@ -147,7 +155,8 @@ async function forward(req, res, next) {
 
 async function backward(req, res, next) {
   try {
-    const result = await customerService.backwardStatus(pool, req.body.customer_id, req.user.userId, req.body.reason)
+    const { clause, params } = await buildDataPermissionWhere(req.dataPermission, 'c')
+    const result = await customerService.backwardStatus(pool, req.body.customer_id, req.user.userId, req.body.reason, { clause, params })
     await rawLogAction({
       module: MODULE_NAME, action: 'backward', method: 'POST', url: '/api/customer/backward',
       params: { customer_id: req.body.customer_id, reason: req.body.reason },
@@ -166,7 +175,7 @@ async function backward(req, res, next) {
 async function assign(req, res, next) {
   try {
     const { customer_id, to_user_id, remark } = req.body
-    const result = await assignService.manualAssign(pool, customer_id, to_user_id, req.user.userId, remark)
+    const result = await assignService.manualAssign(pool, customer_id, to_user_id, req.user.userId, remark, req.user)
     const actionDesc = to_user_id ? `分配给用户ID ${to_user_id}` : '回收为待分配'
     await logAction(req, 'assign', `${actionDesc}: ${result.company_name}`)
     res.json({ code: 200, message: result.message, data: null })
@@ -177,7 +186,7 @@ async function assign(req, res, next) {
 
 async function batchAssign(req, res, next) {
   try {
-    const result = await assignService.batchAssign(pool, req.body.customer_ids, req.body.to_user_id, req.user.userId, req.body.remark)
+    const result = await assignService.batchAssign(pool, req.body.customer_ids, req.body.to_user_id, req.user.userId, req.body.remark, req.user)
     await logAction(req, 'batch-assign', `批量分配 ${result.count} 个客户 → 用户ID ${req.body.to_user_id}`)
     res.json({ code: 200, message: `成功分配 ${result.count} 个客户`, data: { count: result.count } })
   } catch (error) {

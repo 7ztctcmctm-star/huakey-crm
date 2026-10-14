@@ -168,9 +168,11 @@ describe('客户全生命周期 - 端到端流程', () => {
 
   // Step 3: 创建商机
   it('Step 3: POST /api/v1/opportunity/add — 创建商机', async () => {
-    // opportunityService.createOpportunity: 3 次 pool.query
+    // [H-005] 创建商机前需用 pool.query 校验操作者对 customer_id 的数据权限
+    // （buildDataPermissionWhere 已被 mock 为 1=1，此处只需让客户查得到）
     mockPool.query
-      .mockResolvedValueOnce([[{ id: 100, status: 'signed' }]])   // 客户校验
+      .mockResolvedValueOnce([[{ id: 100 }]])                         // [H-005] 客户数据权限校验
+      .mockResolvedValueOnce([[{ id: 100, status: 'signed' }]])     // 客户校验
       .mockResolvedValueOnce([[{ cnt: 0 }]])                        // generateOpportunityNo
       .mockResolvedValueOnce([{ insertId: 300 }]);          // INSERT
 
@@ -189,6 +191,9 @@ describe('客户全生命周期 - 端到端流程', () => {
     mockConn.beginTransaction.mockResolvedValue(undefined);
     mockConn.commit.mockResolvedValue(undefined);
     mockConn.release.mockResolvedValue(undefined);
+    // [H-003] 报价创建前需用 pool.query 校验操作者对 customer_id 的数据权限
+    // （buildDataPermissionWhere 已被 mock 为 1=1，此处只需让客户查得到）
+    mockPool.query.mockResolvedValueOnce([[{ id: 100 }]]);
     mockConn.query
       .mockResolvedValueOnce([[{ id: 100 }]])                                          // 客户校验
       .mockResolvedValueOnce([[{ id: 300, customer_id: 100 }]])                       // 商机校验

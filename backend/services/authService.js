@@ -91,7 +91,8 @@ async function getCaptcha() {
     background: '#f5f5f7'
   });
 
-  const key = Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
+  // [M-002/L-001 安全修复] 用密码学安全随机数生成 key，替代可预测的 Date.now()+Math.random()
+  const key = crypto.randomBytes(16).toString('hex');
   await saveCaptcha(key, captcha.text.toLowerCase());
 
   return { key, svg: captcha.data };

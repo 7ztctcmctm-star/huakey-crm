@@ -26,6 +26,10 @@ function createTestLimiter(max = 5, windowMs = 60 * 1000) {
 function createApp(limiter) {
   const app = express();
   app.use(express.json());
+  // ⚠️ 必须开启 trust proxy，否则 express 取到的 req.ip 恒为 127.0.0.1，
+  //    「不同 X-Forwarded-For 视为不同 IP」的用例会全部落到同一计数器而误报 429。
+  //    （限流 keyGenerator 依赖 req.ip，见 createTestLimiter）
+  app.set('trust proxy', true);
   app.use(limiter);
 
   app.get('/api/v1/test', (req, res) => res.json({ code: 200, message: 'ok' }));

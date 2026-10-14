@@ -18,7 +18,7 @@ const registry = require('../core/ModuleRegistry');
 const router = express.Router();
 
 const { authenticateToken } = require('../middleware/auth');
-const { checkPermission } = require('../middleware/permission');
+const { checkPermission, checkDataPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const customerController = require('../controllers/customerController');
 const transferController = require('../controllers/transferController');
@@ -127,9 +127,11 @@ router.post('/transfer/my-pending',
 );
 
 // 某客户的转移记录
+// [M-005] 加 checkDataPermission 校验操作者对该客户有权限，防止查看他人客户的转移历史
 router.post('/transfer/by-customer',
   authenticateToken,
   checkPermission('customer:transfer'),
+  checkDataPermission('customer', 'owner_id'),
   validate(transferByCustomerSchema),
   transferController.byCustomer
 );

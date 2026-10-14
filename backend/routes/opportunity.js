@@ -146,7 +146,8 @@ const deleteOpportunitySchema = Joi.object({
 router.post('/list', authenticateToken, checkPermission('opportunity:view'), checkDataPermission('opportunity', 'owner_id'), validate(opportunityListSchema), opportunityController.list);
 
 // 2. 添加商机
-router.post('/add', authenticateToken, checkPermission('opportunity:add'), validate(addOpportunitySchema), opportunityController.add);
+// [H-005] 加 checkDataPermission('customer') 校验操作者对 customer_id 有权限，防止给他人客户创建商机
+router.post('/add', authenticateToken, checkPermission('opportunity:add'), checkDataPermission('customer', 'owner_id'), validate(addOpportunitySchema), opportunityController.add);
 
 // 3. 修改商机
 router.post('/update', authenticateToken, checkPermission('opportunity:edit'), checkDataPermission('opportunity', 'owner_id'), validate(updateOpportunitySchema), opportunityController.update);

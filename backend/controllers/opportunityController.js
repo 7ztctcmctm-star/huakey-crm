@@ -28,6 +28,17 @@ async function list(req, res, next) {
 
 async function add(req, res, next) {
   try {
+    // [H-005] 校验操作者对 customer_id 有数据权限，防止给他人客户创建商机
+    const { customer_id } = req.body;
+    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'c');
+    const [customers] = await pool.query(
+      `SELECT id FROM crm_customer c WHERE c.id = ? AND c.deleted_at IS NULL AND ${clause}`,
+      [customer_id, ...permParams]
+    );
+    if (customers.length === 0) {
+      return res.status(403).json({ code: 403, message: '客户不存在或无权操作', data: null });
+    }
+
     const result = await opportunityService.createOpportunity(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '添加商机成功', data: result });
   } catch (error) {

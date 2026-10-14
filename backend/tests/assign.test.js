@@ -90,6 +90,8 @@ describe('客户分配模块', () => {
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        // [H-002] validateTargetUser：目标用户是有效在职业务角色
+        .mockResolvedValueOnce([[{ id: 2 }]])
         .mockResolvedValueOnce([[{ id: 1, owner_id: 3, company_name: '测试公司' }]]) // customer lookup
         .mockResolvedValueOnce([{ affectedRows: 1 }]) // update owner
         .mockResolvedValueOnce([{ insertId: 1 }]); // assign_log insert
@@ -101,6 +103,23 @@ describe('客户分配模块', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
+    });
+
+    // [H-002] 分配给非业务角色（HR/管理员）应被拒绝
+    it('应该返回非200当to_user_id为非在职业务角色', async () => {
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        // [H-002] validateTargetUser 查无此人 → 抛错
+        .mockResolvedValueOnce([[]]);
+
+      const res = await request(app)
+        .post('/api/v1/customers/assign')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ customer_id: 1, to_user_id: 999 });
+
+      expect(res.status).not.toBe(200);
     });
   });
 
@@ -120,6 +139,9 @@ describe('客户分配模块', () => {
     it('应该返回200当正常批量分配', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
       mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+      mockPool.query.mockResolvedValueOnce([[{ must_change_password: 0 }]]); // user status
+      // [H-002] validateTargetUser：to_user_id=5 是有效在职业务角色
+      mockPool.query.mockResolvedValueOnce([[{ id: 5 }]]);
 
       // connection.query: 2 customers × (select + update + insert) = 6 calls
       mockConnection.query

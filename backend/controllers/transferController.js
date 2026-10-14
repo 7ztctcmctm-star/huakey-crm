@@ -8,6 +8,7 @@
 const pool = require('../config/database');
 const transferService = require('../services/transferService');
 const { logAction, getIpAddress } = require('../middleware/logger');
+const { buildDataPermissionWhere } = require('../middleware/permission');
 
 /** 发起转移（销售 A → 销售 B） */
 async function create(req, res, next) {
@@ -82,6 +83,15 @@ async function myPending(req, res, next) {
 /** 某客户的转移记录（含历史） */
 async function byCustomer(req, res, next) {
   try {
+    // [M-005] 校验操作者对该客户有数据权限，防止查看他人客户的转移历史
+    const { clause, params } = await buildDataPermissionWhere(req.dataPermission, 'c');
+    const [customers] = await pool.query(
+      `SELECT id FROM crm_customer c WHERE c.id = ? AND c.deleted_at IS NULL AND ${clause}`,
+      [req.body.customer_id, ...params]
+    );
+    if (customers.length === 0) {
+      return res.status(403).json({ code: 403, message: '客户不存在或无权操作', data: null });
+    }
     const data = await transferService.listByCustomer(pool, req.body.customer_id);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {

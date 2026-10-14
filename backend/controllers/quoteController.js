@@ -13,6 +13,16 @@ async function add(req, res, next) {
     if (!customer_id) return res.status(400).json({ code: 400, message: '客户ID不能为空', data: null });
     if (!items || items.length === 0) return res.status(400).json({ code: 400, message: '报价项不能为空', data: null });
 
+    // [H-003] 校验操作者对 customer_id 有数据权限，防止给他人客户创建报价
+    const { clause: custClause, params: custParams } = await buildDataPermissionWhere(req.dataPermission, 'c');
+    const [customers] = await pool.query(
+      `SELECT id FROM crm_customer c WHERE c.id = ? AND c.deleted_at IS NULL AND ${custClause}`,
+      [customer_id, ...custParams]
+    );
+    if (customers.length === 0) {
+      return res.status(403).json({ code: 403, message: '客户不存在或无权操作', data: null });
+    }
+
     const result = await quoteService.createQuote(pool, req.body, req.user.userId);
     res.json({ code: 200, message: '创建报价单成功', data: result });
   } catch (error) {
@@ -87,6 +97,11 @@ async function toContract(req, res, next) {
   try {
     const { id } = req.body;
     if (!id) return res.status(400).json({ code: 400, message: '报价单ID不能为空', data: null });
+
+    // [H-004] 校验操作者对该报价有数据权限（路由已挂 checkDataPermission('quote','create_by')）
+    const { clause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'q');
+    const quote = await quoteService.getQuote(pool, id, { clause, params: permParams });
+    if (!quote) return res.status(403).json({ code: 403, message: '报价单不存在或无权操作', data: null });
 
     const result = await quoteService.convertToContract(pool, id, req.user.userId);
     res.json({ code: 200, message: '转合同成功', data: result });

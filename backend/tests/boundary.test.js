@@ -12,6 +12,26 @@ const mockPool = {
   getConnection: jest.fn().mockResolvedValue({ release: jest.fn() })
 };
 
+/**
+ * [H-003/H-005 回归修复] 报价/商机创建入口新增了「校验操作者对 customer_id 的数据权限」查询，
+ * 本文件用 jest.clearAllMocks() 重置 mock，未给该查询返回值 → 解构 undefined 抛 TypeError → 500。
+ *
+ * 用 mockImplementation 而非 mockResolvedValue：clearAllMocks 只清调用记录不清实现，
+ * 故本实现可跨用例存活；需要精确控制的用例仍可用 mockResolvedValueOnce 覆盖。
+ * 当前 SQL 形态为 `SELECT id FROM crm_customer c WHERE c.id = ? AND c.deleted_at IS NULL AND <clause>`。
+ */
+const DATA_PERMISSION_GUARD = /SELECT\s+id\s+FROM\s+crm_customer/i;
+function installDefaultQuery() {
+  mockPool.query.mockImplementation((sql, params) => {
+    if (DATA_PERMISSION_GUARD.test(String(sql))) {
+      const id = (params && params[0]) || 1;
+      return Promise.resolve([[{ id }]]);
+    }
+    return Promise.resolve([[]]);
+  });
+}
+installDefaultQuery();
+
 jest.mock('../config/database', () => mockPool);
 
 // ============ Mock services ============
@@ -152,7 +172,10 @@ const MAX_SAFE_INT = Number.MAX_SAFE_INTEGER; // 9007199254740991
 //  1. 空数据场景
 // ================================================================
 describe('边界测试 - 空数据场景', () => {
-  beforeEach(() => mockPool.query.mockReset());
+  beforeEach(() => {
+    mockPool.query.mockReset();
+    installDefaultQuery(); // [H-003/H-005] mockReset 会清实现，需重装
+  });
 
   describe('客户 list 返回空数组', () => {
     it('空结果应返回 list=[] total=0', async () => {
@@ -418,7 +441,10 @@ describe('边界测试 - 极大值场景', () => {
 //  3. 特殊字符场景
 // ================================================================
 describe('边界测试 - 特殊字符场景', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    installDefaultQuery(); // [H-005] clearAllMocks 会清实现，需重装
+  });
 
   describe('SQL 注入字符串', () => {
     it('customer/add company_name 含 SQL 注入 应通过 Joi（由数据库层防御）', async () => {
@@ -571,7 +597,10 @@ describe('边界测试 - 特殊字符场景', () => {
 //  4. 并发模拟
 // ================================================================
 describe('边界测试 - 并发模拟 (10个同时请求)', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    installDefaultQuery(); // [H-005] clearAllMocks 会清实现，需重装
+  });
 
   it('customer/list 10个并发请求不报错', async () => {
     const svc = require('../services/customerService');
@@ -678,7 +707,10 @@ describe('边界测试 - 并发模拟 (10个同时请求)', () => {
 //  5. 类型错误场景
 // ================================================================
 describe('边界测试 - 类型错误场景', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    installDefaultQuery(); // [H-005] clearAllMocks 会清实现，需重装
+  });
 
   describe('数值字段传字符串', () => {
     it('customer/add phone 传纯字母 应被 Joi 拒绝', async () => {

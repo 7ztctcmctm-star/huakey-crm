@@ -65,12 +65,16 @@ async function createTransfer(pool, data, fromUserId) {
       throw new AppError(ErrorCodes.PERMISSION_DENIED, '只能转移自己负责的客户');
     }
 
+    // [M-008] 校验接收人为在职业务角色（sales/manager/boss/super_admin），防止转给管理员/HR 等非业务角色
     const [users] = await connection.query(
-      'SELECT id, real_name FROM sys_user WHERE id = ? AND deleted_at IS NULL AND status = 1',
+      `SELECT u.id, u.real_name FROM sys_user u
+       JOIN sys_role r ON u.role_id = r.id
+       WHERE u.id = ? AND u.deleted_at IS NULL AND u.status = 1
+         AND r.code IN ('sales', 'manager', 'boss', 'super_admin')`,
       [toUserId]
     );
     if (users.length === 0) {
-      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '接收人不存在或已停用');
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '接收人不存在、已停用或非业务角色');
     }
 
     // 同一客户不允许多个待处理申请，避免归属歧义

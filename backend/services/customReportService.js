@@ -1,6 +1,15 @@
 // 自定义报表服务
 // 从 routes/report/custom.js 提取的业务逻辑
 
+// [安全修复 C-001] 标识符白名单清洗：报表列别名（c.label）来自用户保存的 columns_config，
+// 直接拼入 SQL 反引号标识符存在存储型注入风险。仅允许字母/数字/下划线/中文，长度 ≤60，
+// 非法值兜底为 'col'，杜绝反引号/分号/空格逃逸。
+function sanitizeLabel(label) {
+  const s = String(label == null ? '' : label).slice(0, 60);
+  if (!/^[\w\u4e00-\u9fa5]+$/.test(s)) return 'col';
+  return s;
+}
+
 // 数据源字段映射
 const SOURCE_FIELDS = {
   customer: { table: 'crm_customer', alias: 't', fields: { id: 'ID', company_name: '客户名称', contact_name: '联系人', phone: '电话', source: '来源', level: '等级', status: '状态', industry: '行业', owner_id: '负责人', create_time: '创建时间' } },
@@ -109,10 +118,11 @@ async function runReport(pool, id, { page = 1, pageSize = 20, filters = {} }) {
   const selectParts = columns
     .filter(c => allowedFields.includes(c.field))
     .map(c => {
-      if (c.agg === 'count') return `COUNT(${src.alias}.${c.field}) as \`${c.label}\``;
-      if (c.agg === 'sum') return `COALESCE(SUM(${src.alias}.${c.field}), 0) as \`${c.label}\``;
-      if (c.agg === 'avg') return `COALESCE(AVG(${src.alias}.${c.field}), 0) as \`${c.label}\``;
-      return `${src.alias}.${c.field} as \`${c.label}\``;
+      const alias = sanitizeLabel(c.label); // [C-001] 标识符白名单，防存储型 SQL 注入
+      if (c.agg === 'count') return `COUNT(${src.alias}.${c.field}) AS \`${alias}\``;
+      if (c.agg === 'sum') return `COALESCE(SUM(${src.alias}.${c.field}), 0) AS \`${alias}\``;
+      if (c.agg === 'avg') return `COALESCE(AVG(${src.alias}.${c.field}), 0) AS \`${alias}\``;
+      return `${src.alias}.${c.field} AS \`${alias}\``;
     });
 
   let where = `${src.alias}.deleted_at IS NULL`;

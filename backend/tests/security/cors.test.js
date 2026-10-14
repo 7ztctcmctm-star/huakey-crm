@@ -7,12 +7,24 @@ const request = require('supertest');
 const express = require('express');
 const cors = require('cors');
 
-// 模拟生产 CORS 配置（与 app.js 保持一致）
+/**
+ * 模拟生产 CORS 配置（与 app.js:88-95 保持一致）
+ *
+ * ⚠️ 关键：app.js 把 CORS_ORIGIN 解析为**数组**（逗号分隔，单值也是长度为 1 的数组），
+ *    `cors` 中间件对数组才会逐项匹配请求 Origin；若传裸字符串，
+ *    `cors` 会对**任意** Origin 都回显该字符串（等于放开所有跨域）。
+ *    本测试早期版本传的是字符串，因此「不允许的 origin」用例长期误报，
+ *    且掩盖了「字符串 vs 数组」这个真实差异。现已对齐生产形态。
+ */
 function createApp(corsOrigin) {
   const app = express();
 
+  const allowed = Array.isArray(corsOrigin)
+    ? corsOrigin
+    : String(corsOrigin || 'https://crm.example.com').split(',').map(s => s.trim()).filter(Boolean);
+
   app.use(cors({
-    origin: corsOrigin || 'https://crm.example.com',
+    origin: allowed,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-Trace-Id'],

@@ -186,6 +186,7 @@ router.get('/detail/:id',
 router.post('/forward',
   authenticateToken,
   checkPermission('customer:edit'),
+  checkDataPermission('customer', 'owner_id'), // [H-001] 数据权限：防止越权推进他人客户状态
   validate(forwardSchema),
   customerController.forward
 );
@@ -194,6 +195,7 @@ router.post('/forward',
 router.post('/backward',
   authenticateToken,
   checkPermission('customer:edit'),
+  checkDataPermission('customer', 'owner_id'), // [H-001] 数据权限：防止越权回退他人客户状态
   validate(backwardSchema),
   customerController.backward
 );

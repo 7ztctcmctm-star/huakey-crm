@@ -16,6 +16,10 @@ const {
 const { paginatedQuery } = require('../utils/pagination');
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
+// [M-001] 状态配置/流转规则缓存改用 node-cache 设 TTL，管理员修改规则后 5 分钟内自动生效，
+// 不再需要重启服务。原模块级永久缓存（statusConfigCache/statusTransitionCache）已移除。
+const NodeCache = require('node-cache');
+const statusCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
 
 // 来源父子映射（'网络' → 子渠道列表）。VALID_SOURCES 白名单已随阶段4 死码清理移除
 // （权威定义见 services/customerDetailService.js 并从那里导出）。
@@ -30,9 +34,7 @@ const SORT_MAP = {
   'last_follow_time_desc': 'c.last_follow_time DESC'
 };
 
-// 状态配置缓存（启动时加载，可定时刷新）
-let statusConfigCache = null;
-let statusTransitionCache = null;
+// [M-001] 状态配置/流转规则缓存已迁移至 node-cache（statusCache），TTL 300s 自动过期
 
 /**
  * 旧数字状态兼容映射（用于过渡期间旧前端/旧数据查询）
@@ -79,11 +81,12 @@ function mapStatusToBusinessStatus(status) {
  * 加载客户状态配置
  */
 async function loadStatusConfig(pool) {
-  if (statusConfigCache) return statusConfigCache;
+  const cached = statusCache.get('statusConfig');
+  if (cached) return cached;
   const [rows] = await pool.query(
     'SELECT code, name, sort_order, is_default, is_end, color FROM sys_customer_status ORDER BY sort_order'
   );
-  statusConfigCache = rows;
+  statusCache.set('statusConfig', rows);
   return rows;
 }
 
@@ -91,11 +94,12 @@ async function loadStatusConfig(pool) {
  * 加载状态流转规则
  */
 async function loadStatusTransitions(pool) {
-  if (statusTransitionCache) return statusTransitionCache;
+  const cached = statusCache.get('statusTransitions');
+  if (cached) return cached;
   const [rows] = await pool.query(
     'SELECT from_code, to_code, require_permission, require_reason FROM sys_customer_status_transition'
   );
-  statusTransitionCache = rows;
+  statusCache.set('statusTransitions', rows);
   return rows;
 }
 
@@ -405,12 +409,16 @@ async function transitionStatus(pool, customerId, toCode, operatorId, reason) {
  * @param {object} pool
  * @param {number} customerId
  * @param {number} [operatorId]
+ * @param {object} [permission] - { clause, params } 数据权限片段，[H-001] 防越权
  * @returns {{ id: number, status: string, from_status: string }}
  */
-async function forwardStatus(pool, customerId, operatorId) {
+async function forwardStatus(pool, customerId, operatorId, permission = null) {
+  // [H-001] 归属校验：操作者必须对该客户有数据权限，无权限统一抛 NOT_FOUND 避免枚举
+  const permClause = permission && permission.clause ? permission.clause : '1=1';
+  const permParams = permission && permission.params ? permission.params : [];
   const [customers] = await pool.query(
-    'SELECT id, status FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
-    [customerId]
+    `SELECT id, status FROM crm_customer c WHERE c.id = ? AND c.deleted_at IS NULL AND ${permClause}`,
+    [customerId, ...permParams]
   );
   if (!customers.length) {
     throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);
@@ -432,12 +440,16 @@ async function forwardStatus(pool, customerId, operatorId) {
  * @param {number} customerId
  * @param {number} [operatorId]
  * @param {string} [reason]
+ * @param {object} [permission] - { clause, params } 数据权限片段，[H-001] 防越权
  * @returns {{ id: number, status: string, from_status: string }}
  */
-async function backwardStatus(pool, customerId, operatorId, reason) {
+async function backwardStatus(pool, customerId, operatorId, reason, permission = null) {
+  // [H-001] 归属校验：操作者必须对该客户有数据权限
+  const permClause = permission && permission.clause ? permission.clause : '1=1';
+  const permParams = permission && permission.params ? permission.params : [];
   const [customers] = await pool.query(
-    'SELECT id, status FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
-    [customerId]
+    `SELECT id, status FROM crm_customer c WHERE c.id = ? AND c.deleted_at IS NULL AND ${permClause}`,
+    [customerId, ...permParams]
   );
   if (!customers.length) {
     throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);

@@ -6,7 +6,6 @@ const bcrypt = require('bcryptjs');
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
 const { clearPermissionCache } = require('./permissionService');
-const { POOL_STATUS } = require('../constants/poolStatus');
 // [R-06 边界收敛 2026-09-17] 本模块属非 Customer 域，写客户表须经客户域受控入口
 const customerService = require('./customerService');
 

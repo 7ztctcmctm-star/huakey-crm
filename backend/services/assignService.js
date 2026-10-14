@@ -5,6 +5,29 @@
 
 const { CUSTOMER_STATUS } = require('../constants/customerStatus');
 const { POOL_STATUS, BUSINESS_STATUS } = require('../constants/poolStatus');
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
+
+/**
+ * [H-002] 校验目标用户是否为有效的销售人员（status=1 且角色为 sales/manager）
+ * 防止把客户分配给管理员/禁用用户/非业务角色，破坏客户归属完整性
+ * @param {object} pool
+ * @param {number|null} toUserId - 目标用户 ID，null 表示回收为无负责人（跳过校验）
+ * @returns {Promise<void>}
+ */
+async function validateTargetUser(pool, toUserId) {
+  if (!toUserId) return; // 回收为无负责人，无需校验
+  const [rows] = await pool.query(
+    `SELECT u.id FROM sys_user u
+     JOIN sys_role r ON u.role_id = r.id
+     WHERE u.id = ? AND u.status = 1 AND u.deleted_at IS NULL
+       AND r.code IN ('sales', 'manager', 'boss', 'super_admin')`,
+    [toUserId]
+  );
+  if (rows.length === 0) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '目标用户不是有效的在职业务人员');
+  }
+}
 
 // ========== 分配规则 ==========
 
@@ -186,7 +209,10 @@ async function autoAssignOwner(pool, customer) {
  * 分配/回收客户负责人
  * to_user_id 为 null 表示回收为无负责人状态
  */
-async function manualAssign(pool, customerId, toUserId, operatorId, remark) {
+async function manualAssign(pool, customerId, toUserId, operatorId, remark, operatorUser = null) {
+  // [H-002] 校验目标用户是否为有效的在职业务人员
+  await validateTargetUser(pool, toUserId);
+
   const [customers] = await pool.query(
     'SELECT id, owner_id, company_name FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [customerId]
@@ -198,6 +224,13 @@ async function manualAssign(pool, customerId, toUserId, operatorId, remark) {
 
   const customer = customers[0];
   const fromUserId = customer.owner_id;
+
+  // [H-002] 归属校验：非 manageAll 的操作者只能分配自己负责的或公海客户
+  if (operatorUser && !operatorUser.manageAll) {
+    if (customer.owner_id !== null && customer.owner_id !== operatorId) {
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '无权分配不属于自己的客户');
+    }
+  }
 
   // 更新负责人（to_user_id 为 null 表示回收为无负责人）
   // 回收时同步 pool_status='sea' 和 status=sea，分配时 pool_status='private'
@@ -228,7 +261,10 @@ async function manualAssign(pool, customerId, toUserId, operatorId, remark) {
 /**
  * 批量分配客户负责人（事务保护）
  */
-async function batchAssign(pool, customerIds, toUserId, operatorId, remark) {
+async function batchAssign(pool, customerIds, toUserId, operatorId, remark, operatorUser = null) {
+  // [H-002] 校验目标用户是否为有效的在职业务人员（事务前校验一次）
+  await validateTargetUser(pool, toUserId);
+
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -242,6 +278,11 @@ async function batchAssign(pool, customerIds, toUserId, operatorId, remark) {
 
       if (customers.length === 0) continue;
       const customer = customers[0];
+
+      // [H-002] 归属校验：非 manageAll 跳过不属于自己的客户（批量场景静默跳过，不中断整批）
+      if (operatorUser && !operatorUser.manageAll) {
+        if (customer.owner_id !== null && customer.owner_id !== operatorId) continue;
+      }
 
       const poolStatus = toUserId ? POOL_STATUS.PRIVATE : POOL_STATUS.SEA;
       let updateSql = 'UPDATE crm_customer SET owner_id = ?, pool_status = ?, protect_until = NULL';

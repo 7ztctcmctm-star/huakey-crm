@@ -111,11 +111,17 @@ describe('CRM Core v1 — RBAC 权限隔离测试', () => {
       mockAuth(0, 0, 'sales');
       // checkPermission → getUserPermissions → returns ['opportunity:add']
       mockGetUserPermissions.mockResolvedValue(['opportunity:add', 'opportunity:view', 'customer:view']);
-      // controller: SELECT customer + generateOpportunityNo + INSERT
+      // [H-005] checkDataPermission('customer') → sales 为 dataScope=self，
+      // buildDataPermissionWhere 走 self 分支不额外查库，此处只需让权限查询有值
+      mockGetDataPermissions.mockResolvedValue([
+        { module: 'customer', type: 'self', ownerColumn: 'owner_id' }
+      ]);
+      // controller: [H-005] 数据权限校验 + SELECT customer + generateOpportunityNo + INSERT
       mockPool.query
-        .mockResolvedValueOnce([[{ id: 100, status: 'following' }]])       // 4: SELECT customer
-        .mockResolvedValueOnce([[{ cnt: 0 }]])                              // 5: COUNT
-        .mockResolvedValueOnce([{ insertId: 200 }]);                        // 6: INSERT
+        .mockResolvedValueOnce([[{ id: 100 }]])                             // 4: [H-005] customer 数据权限校验
+        .mockResolvedValueOnce([[{ id: 100, status: 'following' }]])       // 5: SELECT customer
+        .mockResolvedValueOnce([[{ cnt: 0 }]])                              // 6: COUNT
+        .mockResolvedValueOnce([{ insertId: 200 }]);                        // 7: INSERT
 
       const res = await request(app)
         .post('/api/v1/opportunity/add')

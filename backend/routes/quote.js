@@ -310,7 +310,8 @@ const approveQuoteSchema = Joi.object({
 router.use(checkFieldPermission('quote'));
 
 // 1. 创建报价单
-router.post('/add', authenticateToken, checkPermission('quotation:add'), validate(addQuoteSchema), quoteController.add);
+// [H-003] 加 checkDataPermission('customer') 校验操作者对 customer_id 有权限，防止给他人客户创建报价
+router.post('/add', authenticateToken, checkPermission('quotation:add'), checkDataPermission('customer', 'owner_id'), validate(addQuoteSchema), quoteController.add);
 
 // 2. 报价单列表
 router.post('/list', authenticateToken, checkPermission('quotation'), checkDataPermission('quote', 'create_by'), validate(listQuoteSchema), quoteController.list);

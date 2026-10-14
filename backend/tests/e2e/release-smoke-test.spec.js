@@ -160,6 +160,8 @@ describe('HuakeyCRM v1 Release Smoke Test', () => {
   it('3. 创建商机成功，生成 opportunity_no', async () => {
     mockAuthAdmin();
     mockPool.query
+      // [H-005] 创建商机前校验操作者对 customer_id 的数据权限（admin → clause 1=1）
+      .mockResolvedValueOnce([[{ id: 100 }]])
       .mockResolvedValueOnce([[{ id: 100, status: 'following' }]])  // SELECT customer
       .mockResolvedValueOnce([[{ cnt: 0 }]])                         // generateOpportunityNo
       .mockResolvedValueOnce([{ insertId: 200 }]);                   // INSERT
@@ -208,6 +210,10 @@ describe('HuakeyCRM v1 Release Smoke Test', () => {
     conn.query
       .mockResolvedValueOnce([[{ id: 999 }]])                          // SELECT customer
       .mockResolvedValueOnce([[{ id: 200, customer_id: 100 }]]);       // opportunity 属于 100，非 999
+
+    // [H-003] 创建报价前用 pool.query 校验 customer 数据权限（admin → clause 1=1，客户查得到）
+    mockPool.query.mockReset();
+    mockPool.query.mockResolvedValueOnce([[{ id: 999 }]]);
 
     mockAuthAdmin();
 
@@ -292,6 +298,7 @@ describe('HuakeyCRM v1 Release Smoke Test', () => {
   it('8. 创建商机不触发 UPDATE crm_customer（领域边界）', async () => {
     mockAuthAdmin();
     mockPool.query
+      .mockResolvedValueOnce([[{ id: 100 }]])                        // [H-005] 数据权限校验
       .mockResolvedValueOnce([[{ id: 100, status: 'following' }]])
       .mockResolvedValueOnce([[{ cnt: 0 }]])
       .mockResolvedValueOnce([{ insertId: 201 }]);
