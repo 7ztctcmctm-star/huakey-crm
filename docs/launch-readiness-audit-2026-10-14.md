@@ -65,6 +65,10 @@
 
 ### P0-3 42 项变更未提交——10-09 两轮安全修复（14 个源码文件）不在任何提交里
 
+> **✅ 2026-10-14 已闭环（入库 + 推送，尚未部署 NAS）**：分 3 个提交推上 origin/main
+> （`833519d` 安全修复+测试 / `c9bd4ed` 测试基建+迁移守卫 / `9ef6983` slowQuery 修复+审计报告），
+> remote = local = `9ef6983`（全长 SHA 已验证）。**剩余动作：纳入下次 NAS 部署**（生产当前运行的代码仍不含这些修复）。
+
 - 工作区共 **42 项变更 = 30 个修改 + 12 个未跟踪**（初始快照曾因 `head -30` 截断误报为 27，特此更正）；
 - 未提交源码 14 文件 + `docker-compose.yml` + 14 个测试文件改动 + 5 个新测试文件
   （`migrationGuard` / `securityFixes20261009` / `securityFixes20261009b` / `securityFixesE2E` / 本次新增 `slowQuery`）+ 6 份报告；
@@ -148,8 +152,8 @@
 
 ```markdown
 第 0 步（今天就能做）
-□ 1. review + 提交 42 项变更（10-09 安全修复 14 源码 + compose 加固 + 19 个测试文件 + 6 报告）→ push   [P0-3]
-□ 2. 修复 slowQuery.js 两处 `?? null` + 补回归用例（P1-1，1 行级改动）
+■ 1. review + 提交 42 项变更（10-09 安全修复 14 源码 + compose 加固 + 19 个测试文件 + 6 报告）→ push   [P0-3] ✅ 2026-10-14 已完成：833519d / c9bd4ed / 9ef6983 已推 origin/main（remote=local 全长 SHA 验证）；剩余：纳入下次 NAS 部署
+■ 2. 修复 slowQuery.js 两处 `?? null` + 补回归用例（P1-1，1 行级改动）✅ 2026-10-14 已完成：safeSlice() 修复 + 4 回归用例（变异验证 3/4 报警），随 9ef6983 入库
 
 第 1 步（发版阻塞，需 0.5–1 天）
 □ 3. 依赖升级：npm audit fix（express/body-parser/compression/nodemailer/proxy-addr/qs）→ lint + 全量测试回归 → 提交   [P0-1a]
