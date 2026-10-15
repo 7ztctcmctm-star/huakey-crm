@@ -19,6 +19,25 @@ set -e
 # 群晖 NAS 的 docker 命令在 /usr/local/bin，SSH 非交互式 shell 默认 PATH 不含此路径
 export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
+# docker 权限自适应（2026-10-15）：
+# 群晖上 syadmin 用户对 docker.sock 无权限，sudoers 仅白名单放行
+# `NOPASSWD: /usr/local/bin/docker, /usr/local/bin/docker-compose`。
+# 若当前用户无法直接访问 docker（docker info 失败），则把 docker/docker-compose
+# 包装为经 sudo 调用；root 或已在 docker 组的用户不受影响（docker info 成功时不包装）。
+# （背景：08-31 首次部署以 root 运行故无需此处理；syadmin 直跑曾在 [5/12] 构建步
+#  permission denied 中断——注意 [4/12] 的 down 带 `|| true`，权限失败时静默无动作。）
+if ! docker info >/dev/null 2>&1; then
+    if sudo -n /usr/local/bin/docker info >/dev/null 2>&1; then
+        echo "  ✓ 检测到 docker 需要 sudo（已配置 NOPASSWD），自动启用包装"
+        docker() { sudo -n /usr/local/bin/docker "$@"; }
+        docker-compose() { sudo -n /usr/local/bin/docker-compose "$@"; }
+    else
+        echo "FATAL: 当前用户无 docker 权限，且 sudo NOPASSWD 不可用"
+        echo "请以 root 或 docker 组成员身份运行，或在 sudoers 中放行 /usr/local/bin/docker"
+        exit 1
+    fi
+fi
+
 echo "=========================================="
 echo "  铧旗CRM 部署开始"
 echo "=========================================="
