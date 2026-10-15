@@ -778,7 +778,8 @@ async function listLeads(pool, params = {}, permission = null) {
 }
 
 /**
- * 查询正式客户列表（business_status IN following/quoted/negotiating/signed 且 pool_status='private'）
+ * 查询正式客户列表（business_status IN following/quoted/negotiating/signed 且 **owner_id IS NOT NULL**）
+ * [2026-10-15 P0-2] 与 listPoolCustomersNew 同步收敛到 owner_id 判据（详见函数内注释）。
  * @param {object} pool
  * @param {object} params - { page, pageSize, company_name, contact_name, phone, source, level, business_status, owner_id, start_date, end_date, sort }
  * @param {object} [permission] - { clause, params }
@@ -800,10 +801,14 @@ async function listFormalCustomers(pool, params = {}, permission = null) {
   }
   queryParams.push(...permParams);
 
-  // 核心过滤：正式客户状态 + private + 未删除
+  // 核心过滤：正式客户状态 + **有负责人**（owner_id IS NOT NULL，判据权威）+ 未删除
+  // [2026-10-15 P0-2] 与 listPoolCustomersNew 同步收敛：旧判据 pool_status='private'
+  // 在数据错位时会把有主客户挡在正式列表外（实测唯一有主客户 pool_status='0' ⇒ 不显示），
+  // 同时把无主客户放进来 —— 三页面互相矛盾。改为 owner_id IS NOT NULL 后三页互斥且穷尽：
+  // 正式=有主非lead / 公海=无主非lead / 潜客=lead。
   const formalPlaceholders = FORMAL_BUSINESS_STATUSES.map(() => '?').join(',');
-  let whereClause = `WHERE ${permissionWhere} AND c.business_status IN (${formalPlaceholders}) AND c.pool_status = ? AND c.deleted_at IS NULL`;
-  queryParams.push(...FORMAL_BUSINESS_STATUSES, POOL_STATUS.PRIVATE);
+  let whereClause = `WHERE ${permissionWhere} AND c.business_status IN (${formalPlaceholders}) AND c.owner_id IS NOT NULL AND c.deleted_at IS NULL`;
+  queryParams.push(...FORMAL_BUSINESS_STATUSES);
 
   if (owner_id) {
     whereClause += ' AND c.owner_id = ?';
@@ -879,7 +884,9 @@ async function listFormalCustomers(pool, params = {}, permission = null) {
 }
 
 /**
- * 查询公海池列表（pool_status='sea' 且 business_status != 'lead'）
+ * 查询公海池列表（**owner_id IS NULL** 且 business_status != 'lead'）
+ * [2026-10-15 P0-2] 判据权威 = owner_id（MASTER_SPEC §3.3、poolService.js:33 同）；
+ * pool_status 降级为只读兼容字段（由 assign/release/claim 写入时同步维护）。
  * @param {object} pool
  * @param {object} params - { page, pageSize, company_name, industry, source, level, sort }
  * @param {object} [permission] - { clause, params }
@@ -900,9 +907,13 @@ async function listPoolCustomersNew(pool, params = {}, permission = null) {
   }
   queryParams.push(...permParams);
 
-  // 核心过滤：公海 + 排除 lead 客户 + 未删除
-  let whereClause = `WHERE ${permissionWhere} AND c.pool_status = ? AND c.business_status != ? AND c.deleted_at IS NULL`;
-  queryParams.push(POOL_STATUS.SEA, BUSINESS_STATUS.LEAD);
+  // 核心过滤：公海（**owner_id IS NULL**，判据权威）+ 排除 lead 客户 + 未删除
+  // [2026-10-15 P0-2] 判据从 pool_status='sea' 收敛为 owner_id IS NULL：
+  // 实测 423 条无主客户 pool_status 全非 'sea'（097 之后新建的行带 '0'/'private'），
+  // 旧判据下公海页恒返回空。对齐 poolService.js:33 与 MASTER_SPEC §3.3
+  // （pool_status 降级为只读兼容字段，由 assign/release 写入时同步维护）。
+  let whereClause = `WHERE ${permissionWhere} AND c.owner_id IS NULL AND c.business_status != ? AND c.deleted_at IS NULL`;
+  queryParams.push(BUSINESS_STATUS.LEAD);
 
   if (company_name) {
     whereClause += ' AND c.company_name LIKE ?';
@@ -1103,7 +1114,9 @@ async function claimPoolCustomer(pool, customerId, userId) {
     throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);
   }
   const customer = rows[0];
-  if (customer.pool_status !== POOL_STATUS.SEA) {
+  // [2026-10-15 P0-2] 判据从 pool_status='sea' 收敛为 owner_id IS NULL：
+  // 实测 423 条无主客户 pool_status 全非 'sea'，旧守卫把它们误判为「不在公海」。
+  if (customer.owner_id !== null) {
     throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户不在公海中');
   }
   if (customer.business_status === BUSINESS_STATUS.LEAD) {
@@ -1111,19 +1124,20 @@ async function claimPoolCustomer(pool, customerId, userId) {
   }
   // 【产品决策 2026-09-10】保护期已下线：释放到公海的客户可被立即认领。
 
-  const connection = await pool.getConnection();
-  try {
-    await connection.beginTransaction();
-    // 【P0-1 补齐】条件必须带 `owner_id IS NULL AND pool_status = 'sea'`。
-    // 原实现为 `WHERE id = ?`，仅靠事务无法防并发：REPEATABLE READ 下第二个事务的
-    // UPDATE 会在行锁释放后依据最新版本重新匹配 id = ?，仍会覆盖前者的认领结果。
-    // （注：poolService.claimCustomer 已先行修复，此处为同一缺陷的第二处实现。）
-    const [claimResult] = await connection.query(
-      `UPDATE crm_customer
-          SET pool_status = ?, owner_id = ?, protect_until = NULL, last_follow_time = NOW(), update_time = NOW()
-        WHERE id = ? AND owner_id IS NULL AND pool_status = ? AND deleted_at IS NULL`,
-      [POOL_STATUS.PRIVATE, userId, customerId, POOL_STATUS.SEA]
-    );
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      // 【P0-1 补齐】条件必须带 `owner_id IS NULL`（判据权威）。
+      // 原实现为 `WHERE id = ?`，仅靠事务无法防并发：REPEATABLE READ 下第二个事务的
+      // UPDATE 会在行锁释放后依据最新版本重新匹配 id = ?，仍会覆盖前者的认领结果。
+      // [2026-10-15] 一并去掉 `AND pool_status = 'sea'` —— 与守卫同步收敛到 owner_id，
+      // 否则数据错位时守卫放行、UPDATE 却 0 行（「已被他人认领」误报）。
+      const [claimResult] = await connection.query(
+        `UPDATE crm_customer
+            SET pool_status = ?, owner_id = ?, protect_until = NULL, last_follow_time = NOW(), update_time = NOW()
+          WHERE id = ? AND owner_id IS NULL AND deleted_at IS NULL`,
+        [POOL_STATUS.PRIVATE, userId, customerId]
+      );
     if (claimResult.affectedRows !== 1) {
       throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已被他人认领，请刷新后重试');
     }

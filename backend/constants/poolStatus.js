@@ -7,10 +7,15 @@
  *
  * 业务语义：
  *   线索池 = business_status='lead'（不论 pool_status）
- *   正式客户 = business_status IN (following/quoted/negotiating/signed) 且 pool_status='private'
- *   公海池 = pool_status='sea' 且 business_status != 'lead'
+ *   正式客户 = business_status IN (following/quoted/negotiating/signed) 且 owner_id IS NOT NULL
+ *   公海池 = owner_id IS NULL 且 business_status != 'lead'
  *
- * 注意：lead 客户即使 owner_id IS NULL，pool_status 仍为 'private'（不属于公海）
+ * ⚠️ 2026-10-15 P0-2 判据收敛：**owner_id 是公海/归属的唯一年事实源**
+ * （MASTER_SPEC §3.3）。历史上曾以 pool_status='sea' 为公海判据，但 097 之后新建的
+ * 无主客户 pool_status 并非 'sea'（实测 423 条全不命中）⇒ 公海页恒空。
+ * pool_status 降级为只读兼容字段：assign/claim 写 'private'、release 写 'sea'，
+ * 读取方一律以 owner_id 为准（listPoolCustomersNew / listFormalCustomers /
+ * claimPoolCustomer 已于 2026-10-15 全部收敛）。
  */
 
 // ========== pool_status 枚举 ==========
