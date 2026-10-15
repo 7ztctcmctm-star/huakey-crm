@@ -8,8 +8,28 @@ try { require('dotenv').config({ path: path.resolve(__dirname, '../../.env') }) 
 const MIGRATIONS_DIR = __dirname
 const args = process.argv.slice(2)
 const isRollback = args.includes('--rollback')
+// --force：允许在缺少回滚文件时跳过该版本（默认改为显式失败，见 rollback()）
+const FORCE = args.includes('--force')
 const targetVersion = args.find(a => /^\d{3}$/.test(a)) || null
 const DB_NAME = process.env.DB_NAME || 'huakey_crm'
+
+/**
+ * 按 version 前缀查找回滚文件（**不依赖 schema_migrations.name 的书写格式**）
+ *
+ * 历史包袱（2026-09-29 审计 P0-3 / 2026-10-14 复现）：
+ * 早期记账行的 name 不带 .sql 后缀（本机 112 行里大量如此），
+ * 旧逻辑 `name.replace('.sql', '_down.sql')` 对无后缀行是**空操作** ⇒ existsSync 必失败
+ * ⇒ 回滚被静默跳过，而版本行仍留在 schema_migrations ⇒ 版本表与真实结构漂移，
+ * 且「跳过」只打印 warning 不中断，回滚链断裂长期不可见。
+ * @param {string} version - 迁移版本号（如 '097'）
+ * @returns {string|null} 回滚文件名，找不到返回 null
+ */
+function findDownFile(version) {
+  const escaped = String(version).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const re = new RegExp(`^${escaped}_.*_down\\.sql$`)
+  const files = fs.readdirSync(MIGRATIONS_DIR)
+  return files.find(f => re.test(f)) || null
+}
 
 /**
  * 规范化迁移 SQL：
@@ -156,18 +176,26 @@ async function rollback(pool, targetVersion) {
   console.log(`准备回滚 ${toRollback.length} 个迁移`)
 
   let rolled = 0
+  let skipped = 0
   for (const { version, name } of toRollback) {
-    // 查找对应的 _down.sql 文件
-    const downFile = name.replace('.sql', '_down.sql')
-    const downPath = path.join(MIGRATIONS_DIR, downFile)
+    // 查找对应的 _down.sql 文件（按 version 前缀匹配，兼容 name 无 .sql 后缀的历史记账行）
+    const downFile = findDownFile(version)
 
-    if (!fs.existsSync(downPath)) {
-      console.warn(`  ⚠ 版本 ${version} 缺少回滚文件: ${downFile}，跳过（迁移不可逆）`)
-      continue
+    if (!downFile) {
+      // 2026-10-15：「迁移不可逆」绝不静默跳过 —— 旧行为只 warn+continue，
+      // 导致回滚链断裂（如 097_down 必崩）长期不可见、版本表与真实结构漂移。
+      // 默认显式失败；仅当调用方明确加 --force（如 roundtrip 测试建立重放态）才允许跳过。
+      if (FORCE) {
+        console.warn(`  ⚠ 版本 ${version} 缺少回滚文件，--force 下跳过（迁移不可逆）`)
+        skipped++
+        continue
+      }
+      console.error(`  ✗ 版本 ${version} 缺少回滚文件（迁移不可逆）。确认接受该风险请加 --force 重试。`)
+      process.exit(1)
     }
 
     console.log(`  回滚 ${name} (使用 ${downFile}) ...`)
-    const rawSql = fs.readFileSync(downPath, 'utf8')
+    const rawSql = fs.readFileSync(path.join(MIGRATIONS_DIR, downFile), 'utf8')
     const sql = normalizeMigrationSql(rawSql)
 
     try {
@@ -181,7 +209,8 @@ async function rollback(pool, targetVersion) {
     }
   }
 
-  console.log(`\n本次回滚了 ${rolled} 个迁移`)
+  const skipNote = skipped > 0 ? `（其中 ${skipped} 个因缺少回滚文件在 --force 下跳过）` : ''
+  console.log(`\n本次回滚了 ${rolled} 个迁移${skipNote}`)
 }
 
 run().catch(err => {

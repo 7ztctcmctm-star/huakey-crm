@@ -142,20 +142,27 @@ describe('迁移链完整性守卫', () => {
 
   it('120: manager 权限数应追平 boss（120 迁移目标）', async () => {
     if (!reachable) return;
+    // 2026-10-15：改按 roleCode（原硬编码 role_id IN (1,2) —— 角色 id 跨环境不可靠，
+    // 本项目铁律「一律 roleCode」。本机 boss=1/manager=2 巧合蒙对，但 finance 在
+    // 测试库是 31、生产库当年是 6，同类硬编码已让 121 的授权静默丢失过一次）。
     const [rows] = await pool.query(
-      'SELECT role_id, COUNT(*) AS n FROM sys_role_permission WHERE role_id IN (1,2) GROUP BY role_id'
+      `SELECT r.code, COUNT(*) AS n FROM sys_role_permission rp
+         JOIN sys_role r ON r.id = rp.role_id
+        WHERE r.code IN ('boss','manager') GROUP BY r.code`
     );
-    const map = new Map(rows.map(r => [Number(r.role_id), Number(r.n)]));
-    expect(map.get(2)).toBe(map.get(1));
+    const map = new Map(rows.map(r => [r.code, Number(r.n)]));
+    expect(map.get('manager')).toBe(map.get('boss'));
   });
 
   it('121: finance 应持有 quotation 权限码', async () => {
     if (!reachable) return;
     // 实测依据：quote.js list 路由 checkPermission('quotation')
+    // 2026-10-15：改按 roleCode（原硬编码 role_id=6，测试库 finance=31 ⇒ 数据已修好仍假红）
     const [rows] = await pool.query(
       `SELECT p.code FROM sys_role_permission rp
-        JOIN sys_permission p ON p.id = rp.permission_id
-       WHERE rp.role_id = 6 AND p.code = 'quotation'`
+         JOIN sys_role r ON r.id = rp.role_id
+         JOIN sys_permission p ON p.id = rp.permission_id
+        WHERE r.code = 'finance' AND p.code = 'quotation'`
     );
     expect(rows.length).toBe(1);
   });
@@ -163,10 +170,12 @@ describe('迁移链完整性守卫', () => {
   it('121: sales 应持有 competitor 系列权限码', async () => {
     if (!reachable) return;
     // 实测依据：competitor.js checkPermission('competitor:view' / 'competitor:add')
+    // 2026-10-15：改按 roleCode（原硬编码 role_id=3）
     const [rows] = await pool.query(
       `SELECT p.code FROM sys_role_permission rp
-        JOIN sys_permission p ON p.id = rp.permission_id
-       WHERE rp.role_id = 3 AND p.code LIKE 'competitor%'`
+         JOIN sys_role r ON r.id = rp.role_id
+         JOIN sys_permission p ON p.id = rp.permission_id
+        WHERE r.code = 'sales' AND p.code LIKE 'competitor%'`
     );
     expect(rows.length).toBeGreaterThanOrEqual(3);
   });

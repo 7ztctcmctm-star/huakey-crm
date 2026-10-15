@@ -167,6 +167,30 @@ describe('权限链路测试（真实数据库）', () => {
       baseline.removedRolePerms.push(...removedRp.map(r => [r.role_id, r.permission_id]));
     }
 
+    // 4c. 显式撤销 role 2 (manager) 的 system:user:add 功能权限。
+    // 用例 2 断言「manager 无 system:user:add → 403」。与 4b 同理：第 4 步的 INSERT IGNORE
+    // 只做新增，无法移除基线/真实库中 role 2 已有的该授权 —— 迁移 120（manager 拷贝 boss
+    // 全部功能权限，其中含 system:user:add）执行后，本机库的 manager 即持有它，
+    // 用例 2 会拿到 200 而假红（2026-10-15 实测）。
+    // 显式 DELETE 让前提自洽，不依赖库的初始状态 —— 与本文件 4b 的既定原则一致。
+    // ⚠️ manager 是否**应当**持有系统级权限属产品拍板事项（上线审计报告 §六-2）；
+    // 本用例维持「manager 无系统权限」的既定断言，拍板若反转再改期望值。
+    // ⚠️ 破坏性操作 ⇒ 记入 baseline.removedRolePerms，afterAll 第 1 步统一还原。
+    const [removedRp2] = await pool.query(
+      `SELECT rp.role_id, rp.permission_id
+         FROM sys_role_permission rp
+         JOIN sys_permission p ON rp.permission_id = p.id
+        WHERE rp.role_id = 2 AND p.code = 'system:user:add'`
+    );
+    const [delResult2] = await pool.query(
+      `DELETE rp FROM sys_role_permission rp
+       JOIN sys_permission p ON rp.permission_id = p.id
+       WHERE rp.role_id = 2 AND p.code = 'system:user:add'`
+    );
+    if (delResult2.affectedRows > 0) {
+      baseline.removedRolePerms.push(...removedRp2.map(r => [r.role_id, r.permission_id]));
+    }
+
     // 5. 配置数据权限：sales 为 self 模式
     await pool.query(
       `INSERT INTO sys_data_permission (role_id, module, data_scope)

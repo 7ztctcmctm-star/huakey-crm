@@ -117,21 +117,46 @@ beforeAll(async () => {
   // ⚠️ 注意：这一步**不是空操作** —— 实测它会对每个有 down 脚本的版本执行一次回滚再重放
   //    （CI 上约 7-8 分钟）。早期注释写"runMigration 为空操作"是错的，正是这个误判
   //    让"迁移链早已断裂"长期无人发现（见 docs/ci-failure-analysis-2026-09-20.md §10.7）。
+  //
+  // ⚠️⚠️ 2026-10-15 修复「毁库 landmine」（2026-10-14 审计实测三次复现）：
+  // 旧写法把 rollback 与 replay 放进**同一个 try** —— rollback 一旦抛错（如 097_down 崩），
+  // replay 永远不会执行，而 121~003 的 down 脚本已经跑完（删 crm_contract_item /
+  // crm_approval_rule 两张表、清空 manager 全部权限、删 7 条记账），库被毁；
+  // 非严格模式仅 warn+return ⇒ 55 个往返用例「被跳过」而套件报告 PASS。
+  // 新写法：**无论回滚成败都执行正向重放** —— 失败时重放即修复（up 脚本均为
+  // information_schema 守卫 + IF NOT EXISTS + INSERT IGNORE，可重建 down 脚本的删除）；
+  // 重放仍不正常才按严格/非严格分别处置。
+  let rollbackError = null;
   try {
-    runMigration('--rollback 002');
-    runMigration();
+    // --force：防御性开关 —— 若未来再出现无 down 的迁移，深回滚建立重放态时显式接受跳过而非硬失败
+    // （2026-10-15：119 已补 down，当前无缺口）
+    runMigration('--rollback 002 --force');
   } catch (err) {
-    // DB 已可达且认证成功 ⇒ 迁移链执行失败属**真实缺陷**。
-    // 严格模式（migration-test job）下必须抛出；否则下游 55 个用例会因 `pool` 未赋值
-    // 而走早退分支、以「全部通过」的假象掩盖问题
-    // （CI 由此长期显示 success，而 55 个往返用例一个都没执行）。
+    rollbackError = err;
+  }
+  try {
+    runMigration();
+  } catch (replayErr) {
     if (STRICT) {
       throw new Error(
-        `[migration-roundtrip] 迁移链执行失败（严格模式，属真实缺陷，不再静默跳过）: ${err.message}`
+        `[migration-roundtrip] 迁移链执行失败（严格模式，属真实缺陷，不再静默跳过）: `
+        + `回滚=${rollbackError ? rollbackError.message : '成功'}；重放修复=${replayErr.message}`
       );
     }
-    console.warn(`[migration-roundtrip] 迁移链执行失败: ${err.message}，跳过迁移往返测试（非严格模式）`);
+    console.warn(`[migration-roundtrip] 迁移链执行失败: 回滚=${rollbackError ? rollbackError.message : '成功'}，`
+      + `重放修复也失败=${replayErr.message}，跳过迁移往返测试（非严格模式）`);
     return;
+  }
+  if (rollbackError) {
+    // 回滚失败但已被正向重放修复 ⇒ DB 结构完整，55 个往返用例仍可执行、仍有价值。
+    // 但严格模式必须红：回滚链断裂本身就是要抓的真实缺陷，不能因"事后修好了"就放过。
+    if (STRICT) {
+      throw new Error(
+        `[migration-roundtrip] 回滚链断裂（严格模式，属真实缺陷）: ${rollbackError.message}`
+        + '（正向重放已完成修复，但回滚能力缺陷必须显性失败）'
+      );
+    }
+    console.warn(`[migration-roundtrip] 回滚失败但已通过正向重放修复: ${rollbackError.message}`);
   }
 
   pool = mysql.createPool({
@@ -145,7 +170,37 @@ beforeAll(async () => {
 }, 300000);
 
 afterAll(async () => {
-  if (pool) await pool.end();
+  // 无论用例成败都把共享测试库修回「健康态」——深回滚的破坏必须完全抹平。
+  // （2026-10-14 审计：用例在 rollback 后、replay 前失败时，库会被毁且后续套件假红。）
+  // 注意：这只是卫生保证 —— 用例失败本身已在上面显式报错，不会被这里掩盖。
+  //
+  // 2026-10-15 完善的「回滚后重建」序列（两次实测踩坑后固化）：
+  //   ① 正向重放 —— 恢复**结构**（表/索引/记账）
+  //   ② init_role_permissions.js —— 重建**权限字典**（唯一年事实源；重放不保证字典完整：
+  //      多个 down 脚本删 sys_permission 行，且 119 无 down 脚本被跳过导致其码不重播）
+  //   ③ 清空 manager 授权后重放 120/121 —— 恢复**120 的拷贝全量语义**。
+  //      为何必须清：120_up 是 INSERT IGNORE 加法语义，manager 若留有历史授权就会 > boss，
+  //      migrationGuard 的「manager 追平 boss」断言会红（两次实测 117 vs 116）。
+  if (pool) {
+    try {
+      runMigration();
+      const initPerm = path.join(__dirname, '../../scripts/init_role_permissions.js');
+      execSync(`node "${initPerm}"`, {
+        env: { ...process.env, DB_HOST, DB_PORT: String(DB_PORT), DB_USER, DB_PASSWORD, DB_NAME },
+        stdio: 'pipe'
+      });
+      await pool.query(
+        `DELETE rp FROM sys_role_permission rp
+           JOIN sys_role r ON r.id = rp.role_id
+          WHERE r.code = 'manager'`
+      );
+      await pool.query("DELETE FROM schema_migrations WHERE version IN ('120','121')");
+      runMigration();
+    } catch (err) {
+      console.warn(`[migration-roundtrip] afterAll 重建失败: ${err.message}`);
+    }
+    await pool.end();
+  }
 });
 
 /**
@@ -161,6 +216,10 @@ async function getTableSchema(tableName) {
  * SHOW CREATE TABLE 中 KEY/CONSTRAINT 的显示顺序 = 索引创建顺序，
  * down→up 重放后索引重建顺序天然可能与首轮不同（如 008/021 分批加的 deleted_at 索引），
  * 属 DDL 固有现象而非结构漂移。故列定义保持原序，键定义统一排序后对比。
+ *
+ * ⚠️ 2026-10-15：剔除 `AUTO_INCREMENT=n` —— 往返过程（DROP/CREATE + 种子数据插入）
+ * 会让自增值差 1，而自增计数**不属于表结构**，纳入对比只会造成假红
+ * （本机 55 个用例因 beforeAll 历史失败从未真正执行过，该脆弱性因此一直潜伏）。
  */
 function normalizeTableSchema(ddl) {
   if (!ddl) return ddl;
@@ -170,13 +229,24 @@ function normalizeTableSchema(ddl) {
   const body = lines.slice(1, closingIdx).map(l => l.trim().replace(/,$/, ''));
   const cols = body.filter(l => l.startsWith('`'));
   const keys = body.filter(l => /^(UNIQUE KEY|KEY|FULLTEXT KEY|SPATIAL KEY|PRIMARY KEY|CONSTRAINT)/.test(l)).sort();
-  return [lines[0], ...cols, ...keys, lines[closingIdx]].join('\n');
+  const closing = lines[closingIdx].replace(/\s*AUTO_INCREMENT=\d+/i, '');
+  return [lines[0], ...cols, ...keys, closing].join('\n');
 }
 
 
 /**
- * Phase 8 D1: 审计所有迁移的 down 脚本覆盖情况
+ * Phase 9R D1: 审计所有迁移的 down 脚本覆盖情况
+ *
+ * 2026-10-15 收紧（原断言 `withDown >= 17` 是 2025 年的过时弱断言，形同虚设）：
+ * 改为**显式白名单** —— 新增迁移若忘记写 down 脚本，本用例立即红，
+ * 逼着补脚本或把版本显式登记进 KNOWN_MISSING_DOWN 并说明理由。
+ *
+ * 2026-10-15 晚些时候：白名单已清空 —— 119 补上了 down 脚本
+ * （它曾是唯一缺口，且直接导致深回滚后 log:delete 码永久消失、守卫假红）。
+ * 现在要求：**每个 up 迁移都必须有配对的 down**。
  */
+const KNOWN_MISSING_DOWN = [] // 2026-10-15：119 已补 down，白名单清空
+
 function auditDownScripts() {
   const files = fs.readdirSync(MIGRATIONS_DIR)
     .filter(f => f.endsWith('.sql'));
@@ -214,7 +284,8 @@ describe('Phase 8 D1: 迁移 down 脚本审计', () => {
     console.log('================================\n');
 
     expect(audit.total).toBeGreaterThan(0);
-    expect(audit.withDown).toBeGreaterThanOrEqual(17);
+    // 白名单断言：缺失集合必须与已知清单逐项相等（多了=新迁移漏写 down，少了=请更新白名单）
+    expect(audit.missingList.slice().sort()).toEqual(KNOWN_MISSING_DOWN.slice().sort());
   }, 30000);
 });
 describe('数据库迁移 roundtrip 测试', () => {
@@ -239,7 +310,8 @@ describe('数据库迁移 roundtrip 测试', () => {
       }
 
       // 2. 回滚到目标版本（run_migrations.js 会回滚该版本及之后的所有迁移）
-      runMigration(`--rollback ${version}`);
+      // --force：防御性开关（2026-10-15：119 已补 down，当前无缺口）
+      runMigration(`--rollback ${version} --force`);
 
       // 3. 重新执行所有正向迁移
       runMigration();
