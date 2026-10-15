@@ -78,19 +78,6 @@ function mapStatusToBusinessStatus(status) {
 }
 
 /**
- * 加载客户状态配置
- */
-async function loadStatusConfig(pool) {
-  const cached = statusCache.get('statusConfig');
-  if (cached) return cached;
-  const [rows] = await pool.query(
-    'SELECT code, name, sort_order, is_default, is_end, color FROM sys_customer_status ORDER BY sort_order'
-  );
-  statusCache.set('statusConfig', rows);
-  return rows;
-}
-
-/**
  * 加载状态流转规则
  */
 async function loadStatusTransitions(pool) {
@@ -1317,8 +1304,9 @@ module.exports = {
   // [2026-09-14 阶段4] 移除零引用导出面：VALID_SOURCES / SOURCE_PARENT_MAP /
   // batchAssignCustomers / loadStatusConfig / loadStatusTransitions /
   // getDefaultStatus / clearStatusConfigCache。
-  // 其中 SOURCE_PARENT_MAP / loadStatusConfig / loadStatusTransitions 仍为
-  // 本文件内部实现（仅取消导出）；其余四项已随本次死码清理整体删除。
+  // 其中 SOURCE_PARENT_MAP / loadStatusTransitions 仍为
+  // 本文件内部实现（仅取消导出）；其余已随死码清理整体删除
+  // （loadStatusConfig 于 2026-10-15 交付前自检中删除：零调用 + eslint no-unused-vars 实证）。
   listCustomers,
   getCustomer,
   transitionStatus,
