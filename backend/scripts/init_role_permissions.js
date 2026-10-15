@@ -259,7 +259,10 @@ const DATA_PERMISSIONS = {
     report: 'self', approval: 'self'
   },
   hr: {
-    system: 'all', knowledge: 'dept', survey: 'dept'
+    // [2026-10-15] hr 域显式声明全量：hrService 不做数据范围过滤，隔离靠
+    // checkPermission('hr') 功能门（仅 hr 角色持有该权限码）；不写 'all' 的话
+    // checkDataPermission('hr') 会 fail-closed 成 self，与业务语义相反。
+    hr: 'all', system: 'all', knowledge: 'dept', survey: 'dept'
   },
   purchase: {
     supplier: 'dept', purchase: 'dept', product: 'dept'

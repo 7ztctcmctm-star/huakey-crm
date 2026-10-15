@@ -56,10 +56,12 @@ describe('requireManager 使用约束（静态审计）', () => {
 
   it('应扫描到路由文件与 requireManager 挂载点（防止扫描逻辑失效导致假绿）', () => {
     // 2026-09-20 实测基线：69 个路由文件 / 519 条路由声明 / 47 处 requireManager 挂载。
+    // 2026-10-15：hr.js 摘除 17 处 requireManager（hr 角色 manage_all=0 且非 manager，
+    // 被挡在自己模块外，P1 修复，隔离改由 checkPermission('hr') 单独承担）⇒ 挂载数 47→30。
     // 下界贴着实测值设，使「扫描被改坏」立刻红灯，而不是静默通过。
     expect(files.length).toBeGreaterThanOrEqual(60);
     expect(statements.length).toBeGreaterThanOrEqual(480);
-    expect(usingRequireManager.length).toBeGreaterThanOrEqual(45);
+    expect(usingRequireManager.length).toBeGreaterThanOrEqual(30);
   });
 
   it('每一处 requireManager 都必须与 checkPermission 配对（否则会放宽到所有经理）', () => {

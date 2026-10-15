@@ -81,6 +81,57 @@ describe('人力资源模块', () => {
     });
   });
 
+  describe('hr 角色访问控制（2026-10-15 P1 修复回归：hr 角色 manage_all=0 且非 manager，修复前被 requireManager 整体 403）', () => {
+    it('hr 角色应能访问员工列表（隔离由 checkPermission("hr") 功能门承担）', async () => {
+      const permissionService = require('../services/permissionService');
+      permissionService.getUserPermissions.mockResolvedValueOnce(['dashboard', 'hr']);
+
+      const hrToken = jwt.sign(
+        { userId: 4, username: 'hr', roleId: 4, roleCode: 'hr', manageAll: false },
+        process.env.JWT_SECRET, { expiresIn: '1h' }
+      );
+
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0, role_code: 'hr' }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ total: 1 }]]) // count
+        .mockResolvedValueOnce([[ // employee list
+          { id: 4, real_name: '王五', username: 'hr', dept_name: '人事部', role_name: '人力资源', hire_date: '2024-02-01' }
+        ]])
+        .mockResolvedValueOnce([[{ expiring: 0 }]]); // expiring contracts count
+
+      const res = await request(app)
+        .get('/api/v1/hr/employees')
+        .set('Authorization', `Bearer ${hrToken}`)
+        .query({ page: 1, pageSize: 20 });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.list).toHaveLength(1);
+    });
+
+    it('无 hr 权限码的角色应仍被 403 挡住（修复不放宽越权）', async () => {
+      const permissionService = require('../services/permissionService');
+      permissionService.getUserPermissions.mockResolvedValueOnce(['dashboard']);
+
+      const salesToken = jwt.sign(
+        { userId: 3, username: 'sales', roleId: 3, roleCode: 'sales', manageAll: false },
+        process.env.JWT_SECRET, { expiresIn: '1h' }
+      );
+
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0, role_code: 'sales' }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]); // user status
+
+      const res = await request(app)
+        .get('/api/v1/hr/employees')
+        .set('Authorization', `Bearer ${salesToken}`);
+
+      expect(res.status).toBe(403);
+    });
+  });
+
   describe('POST /api/v1/hr/employees/:id/profile', () => {
     it('应该返回400当没有要更新的字段', async () => {
       mockPool.query

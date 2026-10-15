@@ -4,7 +4,6 @@ const pool = require('../config/database');
 const registry = require('../core/ModuleRegistry');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
-const { requireManager } = require('../middleware/admin');
 const { validate, Joi } = require('../middleware/validate');
 const hrService = require('../services/hrService');
 const logger = require('../config/logger');
@@ -17,7 +16,7 @@ const logger = require('../config/logger');
  *
  * /api/hr/employees:
  *   get:
- *     summary: 获取员工列表（需管理者权限）
+ *     summary: 获取员工列表（需 hr 权限）
  *     tags: [员工管理]
  *     security: [{ bearerAuth: [] }]
  *     parameters:
@@ -55,7 +54,7 @@ const logger = require('../config/logger');
  *                     list: { type: array, items: { type: object } }
  *                     total: { type: integer }
  *       401: { description: 未登录或 token 过期 }
- *       403: { description: 无权限访问（需管理者） }
+ *       403: { description: 无权限访问（需 hr 权限） }
  *       500: { description: 服务器内部错误 }
  *
  * /api/hr/employees/{id}:
@@ -80,7 +79,7 @@ const logger = require('../config/logger');
  *                 message: { type: string }
  *                 data: { type: object }
  *       401: { description: 未登录或 token 过期 }
- *       403: { description: 无权限访问（需管理者） }
+ *       403: { description: 无权限访问（需 hr 权限） }
  *       404: { description: 员工不存在 }
  *       500: { description: 服务器内部错误 }
  *
@@ -134,7 +133,7 @@ const logger = require('../config/logger');
  *                 data: { type: object }
  *       400: { description: 参数错误或没有要更新的字段 }
  *       401: { description: 未登录或 token 过期 }
- *       403: { description: 无权限访问（需管理者） }
+ *       403: { description: 无权限访问（需 hr 权限） }
  *       404: { description: 员工不存在 }
  *       500: { description: 服务器内部错误 }
  *
@@ -155,7 +154,7 @@ const logger = require('../config/logger');
  *                 message: { type: string }
  *                 data: { type: object }
  *       401: { description: 未登录或 token 过期 }
- *       403: { description: 无权限访问（需管理者） }
+ *       403: { description: 无权限访问（需 hr 权限） }
  *       500: { description: 服务器内部错误 }
  *
  * /api/hr/employees/{id}/salary:
@@ -180,7 +179,7 @@ const logger = require('../config/logger');
  *                 message: { type: string }
  *                 data: { type: object }
  *       401: { description: 未登录或 token 过期 }
- *       403: { description: 无权限访问（需管理者） }
+ *       403: { description: 无权限访问（需 hr 权限） }
  *       500: { description: 服务器内部错误 }
  */
 
@@ -236,7 +235,7 @@ const batchIdsSchema = Joi.object({
 // ============ 员工档案 ============
 
 // 员工列表
-router.get('/employees', authenticateToken, checkPermission('hr'), requireManager, async (req, res, next) => {
+router.get('/employees', authenticateToken, checkPermission('hr'), async (req, res, next) => {
   try {
     const { dept_id, status, keyword, contract_expiring, page, pageSize } = req.query;
     const result = await hrService.getEmployees(pool, { dept_id, status, keyword, contract_expiring, page, pageSize });
@@ -248,7 +247,7 @@ router.get('/employees', authenticateToken, checkPermission('hr'), requireManage
 });
 
 // 员工统计
-router.get('/employees/stats', authenticateToken, checkPermission('hr'), requireManager, async (req, res, next) => {
+router.get('/employees/stats', authenticateToken, checkPermission('hr'), async (req, res, next) => {
   try {
     const result = await hrService.getEmployeeStats(pool);
     res.json({ code: 200, message: '查询成功', data: result });
@@ -259,7 +258,7 @@ router.get('/employees/stats', authenticateToken, checkPermission('hr'), require
 });
 
 // 员工详情
-router.get('/employees/:id', authenticateToken, checkPermission('hr'), requireManager, async (req, res, next) => {
+router.get('/employees/:id', authenticateToken, checkPermission('hr'), async (req, res, next) => {
   try {
     const row = await hrService.getEmployee(pool, req.params.id);
     if (!row) return res.status(404).json({ code: 404, message: '员工不存在', data: null });
@@ -271,7 +270,7 @@ router.get('/employees/:id', authenticateToken, checkPermission('hr'), requireMa
 });
 
 // 员工薪资信息（仅管理员可访问）
-router.get('/employees/:id/salary', authenticateToken, checkPermission('hr'), requireManager, async (req, res, next) => {
+router.get('/employees/:id/salary', authenticateToken, checkPermission('hr'), async (req, res, next) => {
   try {
     const result = await hrService.getEmployeeSalary(pool, req.params.id);
     res.json({ code: 200, message: '查询成功', data: result });
@@ -282,7 +281,7 @@ router.get('/employees/:id/salary', authenticateToken, checkPermission('hr'), re
 });
 
 // 创建/更新员工档案
-router.post('/employees/:id/profile', authenticateToken, checkPermission('hr'), requireManager, validate(employeeProfileSchema), async (req, res, next) => {
+router.post('/employees/:id/profile', authenticateToken, checkPermission('hr'), validate(employeeProfileSchema), async (req, res, next) => {
   try {
     const result = await hrService.saveEmployeeProfile(pool, req.params.id, req.body);
     if (result === null) return res.status(404).json({ code: 404, message: '员工不存在', data: null });
@@ -295,7 +294,7 @@ router.post('/employees/:id/profile', authenticateToken, checkPermission('hr'), 
 });
 
 // 员工佣金汇总
-router.get('/employees/:id/commission', authenticateToken, checkPermission('hr'), requireManager, async (req, res, next) => {
+router.get('/employees/:id/commission', authenticateToken, checkPermission('hr'), async (req, res, next) => {
   try {
     const result = await hrService.getEmployeeCommission(pool, req.params.id);
     res.json({ code: 200, message: '查询成功', data: result });
@@ -307,7 +306,7 @@ router.get('/employees/:id/commission', authenticateToken, checkPermission('hr')
 
 // ============ 佣金规则 ============
 
-router.get('/commission/rules', authenticateToken, checkPermission('hr'), requireManager, async (req, res, next) => {
+router.get('/commission/rules', authenticateToken, checkPermission('hr'), async (req, res, next) => {
   try {
     const rows = await hrService.getCommissionRules(pool);
     res.json({ code: 200, message: '查询成功', data: rows });
@@ -317,7 +316,7 @@ router.get('/commission/rules', authenticateToken, checkPermission('hr'), requir
   }
 });
 
-router.post('/commission/rules', authenticateToken, checkPermission('hr'), requireManager, validate(commissionRuleSchema), async (req, res, next) => {
+router.post('/commission/rules', authenticateToken, checkPermission('hr'), validate(commissionRuleSchema), async (req, res, next) => {
   try {
     const { name, rule_type, config } = req.body;
     if (!name || !rule_type || !config) return res.status(400).json({ code: 400, message: '参数不完整', data: null });
@@ -329,7 +328,7 @@ router.post('/commission/rules', authenticateToken, checkPermission('hr'), requi
   }
 });
 
-router.put('/commission/rules/:id', authenticateToken, checkPermission('hr'), requireManager, validate(commissionRuleUpdateSchema), async (req, res, next) => {
+router.put('/commission/rules/:id', authenticateToken, checkPermission('hr'), validate(commissionRuleUpdateSchema), async (req, res, next) => {
   try {
     const updated = await hrService.updateCommissionRule(pool, req.params.id, req.body);
     if (!updated) return res.status(400).json({ code: 400, message: '没有要更新的字段', data: null });
@@ -340,7 +339,7 @@ router.put('/commission/rules/:id', authenticateToken, checkPermission('hr'), re
   }
 });
 
-router.delete('/commission/rules/:id', authenticateToken, checkPermission('hr'), requireManager, async (req, res, next) => {
+router.delete('/commission/rules/:id', authenticateToken, checkPermission('hr'), async (req, res, next) => {
   try {
     await hrService.deleteCommissionRule(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });
@@ -351,7 +350,7 @@ router.delete('/commission/rules/:id', authenticateToken, checkPermission('hr'),
 });
 
 // 计算佣金
-router.post('/commission/calculate', authenticateToken, checkPermission('hr'), requireManager, validate(commissionCalculateSchema), async (req, res, next) => {
+router.post('/commission/calculate', authenticateToken, checkPermission('hr'), validate(commissionCalculateSchema), async (req, res, next) => {
   try {
     const { period, user_ids } = req.body;
     if (!period) return res.status(400).json({ code: 400, message: '请选择月份', data: null });
@@ -364,7 +363,7 @@ router.post('/commission/calculate', authenticateToken, checkPermission('hr'), r
 });
 
 // 佣金记录列表
-router.get('/commission/records', authenticateToken, checkPermission('hr'), requireManager, async (req, res, next) => {
+router.get('/commission/records', authenticateToken, checkPermission('hr'), async (req, res, next) => {
   try {
     const { period, user_id, status, page, pageSize } = req.query;
     const result = await hrService.getCommissionRecords(pool, { period, user_id, status, page, pageSize });
@@ -376,7 +375,7 @@ router.get('/commission/records', authenticateToken, checkPermission('hr'), requ
 });
 
 // 佣金统计
-router.get('/commission/stats', authenticateToken, checkPermission('hr'), requireManager, async (req, res, next) => {
+router.get('/commission/stats', authenticateToken, checkPermission('hr'), async (req, res, next) => {
   try {
     const result = await hrService.getCommissionStats(pool);
     res.json({ code: 200, message: '查询成功', data: result });
@@ -387,7 +386,7 @@ router.get('/commission/stats', authenticateToken, checkPermission('hr'), requir
 });
 
 // 批量确认
-router.post('/commission/records/batch-confirm', authenticateToken, checkPermission('hr'), requireManager, validate(batchIdsSchema), async (req, res, next) => {
+router.post('/commission/records/batch-confirm', authenticateToken, checkPermission('hr'), validate(batchIdsSchema), async (req, res, next) => {
   try {
     const { ids } = req.body;
     if (!ids || ids.length === 0) return res.status(400).json({ code: 400, message: '请选择记录', data: null });
@@ -400,7 +399,7 @@ router.post('/commission/records/batch-confirm', authenticateToken, checkPermiss
 });
 
 // 批量发放
-router.post('/commission/records/batch-pay', authenticateToken, checkPermission('hr'), requireManager, validate(batchIdsSchema), async (req, res, next) => {
+router.post('/commission/records/batch-pay', authenticateToken, checkPermission('hr'), validate(batchIdsSchema), async (req, res, next) => {
   try {
     const { ids } = req.body;
     if (!ids || ids.length === 0) return res.status(400).json({ code: 400, message: '请选择记录', data: null });
@@ -414,7 +413,7 @@ router.post('/commission/records/batch-pay', authenticateToken, checkPermission(
 
 // ============ 组织架构 ============
 
-router.get('/org-tree', authenticateToken, checkPermission('hr'), requireManager, async (req, res, next) => {
+router.get('/org-tree', authenticateToken, checkPermission('hr'), async (req, res, next) => {
   try {
     const result = await hrService.getOrgTree(pool);
     res.json({ code: 200, message: '查询成功', data: result });
@@ -425,7 +424,7 @@ router.get('/org-tree', authenticateToken, checkPermission('hr'), requireManager
 });
 
 // 部门员工列表
-router.get('/org-tree/:deptId/employees', authenticateToken, checkPermission('hr'), requireManager, async (req, res, next) => {
+router.get('/org-tree/:deptId/employees', authenticateToken, checkPermission('hr'), async (req, res, next) => {
   try {
     const rows = await hrService.getDeptEmployees(pool, req.params.deptId);
     res.json({ code: 200, message: '查询成功', data: rows });
