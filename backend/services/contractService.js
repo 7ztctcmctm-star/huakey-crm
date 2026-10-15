@@ -7,6 +7,7 @@ const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
 // 【#16】业务事件派发（Webhook）
 const webhookDispatcher = require('./webhookDispatcher');
+const money = require('../utils/money');
 
 // 合同状态映射（统一权威定义，详见 docs/contract-status-definition.md）
 // 1=待执行(默认,新建)  2=执行中  3=已完成(终态,不可变更)  4=已取消(终态)
@@ -156,8 +157,10 @@ async function getContract(pool, contractId) {
     ORDER BY p.pay_date DESC
   `, [contractId]);
 
-  const paidTotal = payments.reduce((sum, p) => sum + parseFloat(p.pay_amount || 0), 0);
-  const planTotal = plans.reduce((sum, p) => sum + parseFloat(p.plan_amount || 0), 0);
+  // 金额计算统一走 utils/money.js（BigInt 精确十进制，2026-10-15 收敛）：
+  // 原 reduce+parseFloat 在多位小数累加时产生 IEEE 754 误差并直接写入 DECIMAL 列。
+  const paidTotal = money.sum(payments.map(p => p.pay_amount || 0));
+  const planTotal = money.sum(plans.map(p => p.plan_amount || 0));
 
   return {
     ...contract[0],
@@ -169,14 +172,7 @@ async function getContract(pool, contractId) {
 }
 
 /**
- * 创建合同（事务保护，含回款计划）
- * @param {object} pool
- * @param {object} data - { customer_id, opportunity_id, amount, sign_date, delivery_date, payment_terms, remark, plans }
- * @param {number} createBy
- * @returns {{ id: number, contract_no: string }}
- */
-/**
- * 创建合同
+ * 创建合同（事务保护，含回款计划；幂等键防重复提交）
  * @param {object} pool
  * @param {object} data - 合同数据
  * @param {number} createBy
@@ -271,21 +267,21 @@ async function calculateAmount(pool, contractId) {
   );
   if (!contracts.length) return null;
 
-  const amount = parseFloat(contracts[0].amount || 0);
+  const amount = money.round2(contracts[0].amount || 0);
 
   const [paidRows] = await pool.query(
     'SELECT COALESCE(SUM(pay_amount), 0) as total FROM crm_payment WHERE contract_id = ? AND deleted_at IS NULL',
     [contractId]
   );
-  const paidAmount = parseFloat(paidRows[0].total);
+  const paidAmount = money.round2(paidRows[0].total);
 
   const [planRows] = await pool.query(
     'SELECT COALESCE(SUM(plan_amount), 0) as total FROM crm_payment_plan WHERE contract_id = ?',
     [contractId]
   );
-  const planTotal = parseFloat(planRows[0].total);
+  const planTotal = money.round2(planRows[0].total);
 
-  const remaining = amount - paidAmount;
+  const remaining = money.sub(amount, paidAmount);
   const progress = amount > 0 ? Math.round((paidAmount / amount) * 100) : 0;
 
   return { amount, paid_amount: paidAmount, plan_total: planTotal, remaining, progress };
@@ -373,13 +369,13 @@ async function getPaymentProgress(pool, contractId) {
     [contractId]
   );
 
-  const totalPlan = plans.reduce((sum, p) => sum + parseFloat(p.plan_amount || 0), 0);
+  const totalPlan = money.sum(plans.map(p => p.plan_amount || 0));
 
   const [paidRows] = await pool.query(
     'SELECT COALESCE(SUM(pay_amount), 0) as total FROM crm_payment WHERE contract_id = ? AND deleted_at IS NULL',
     [contractId]
   );
-  const totalPaid = parseFloat(paidRows[0].total);
+  const totalPaid = money.round2(paidRows[0].total);
 
   const rate = totalPlan > 0 ? Math.round((totalPaid / totalPlan) * 100) : 0;
 

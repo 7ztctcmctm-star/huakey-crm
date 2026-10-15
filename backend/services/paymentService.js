@@ -361,8 +361,9 @@ async function getMonthlySummary(pool, permission = null) {
     [monthStart, monthEnd, ...permParams]
   );
 
-  const planVal = parseFloat(planTotal.total) || 0;
-  const paidVal = parseFloat(paidTotal.total) || 0;
+  // 金额计算统一走 utils/money.js（BigInt 精确十进制，2026-10-15 收敛）
+  const planVal = money.round2(planTotal.total || 0);
+  const paidVal = money.round2(paidTotal.total || 0);
   const rate = planVal > 0 ? Math.round(paidVal / planVal * 100) : 0;
 
   return { month_plan_total: planVal, month_paid_total: paidVal, month_rate: rate };

@@ -99,7 +99,7 @@ async function getReminderSummary(pool) {
   const [[{ overdue }]] = await pool.query("SELECT COUNT(*) as overdue FROM crm_payment_reminder WHERE status = 'pending' AND remind_type = 'overdue'");
   const [[{ overdue_amount }]] = await pool.query("SELECT COALESCE(SUM(amount), 0) as overdue_amount FROM crm_payment_reminder WHERE status = 'pending' AND remind_type = 'overdue'");
 
-  return { today_pending, upcoming, overdue, overdue_amount: parseFloat(overdue_amount) };
+  return { today_pending, upcoming, overdue, overdue_amount: money.round2(overdue_amount) };
 }
 
 // ============ 对账管理 ============
@@ -136,12 +136,13 @@ async function getCustomerReconciliation(pool, { customer_id, start_date, end_da
     ORDER BY p.pay_date
   `, [customer_id, startDate, endDate]);
 
-  const totalAmount = contracts.reduce((s, c) => s + parseFloat(c.amount || 0), 0);
-  const paidAmount = payments.reduce((s, p) => s + parseFloat(p.pay_amount || 0), 0);
+  // 金额计算统一走 utils/money.js（BigInt 精确十进制，2026-10-15 收敛）
+  const totalAmount = money.sum(contracts.map(c => c.amount || 0));
+  const paidAmount = money.sum(payments.map(p => p.pay_amount || 0));
 
   return {
     customer, contracts, payments,
-    summary: { total_amount: totalAmount, paid_amount: paidAmount, unpaid_amount: totalAmount - paidAmount }
+    summary: { total_amount: totalAmount, paid_amount: paidAmount, unpaid_amount: money.sub(totalAmount, paidAmount) }
   };
 }
 
@@ -254,8 +255,11 @@ async function getAnalysis(pool, { start_date, end_date }) {
   const [[cost]] = await pool.query(
     "SELECT COALESCE(SUM(total_amount), 0) as total FROM crm_purchase_order WHERE deleted_at IS NULL AND create_time BETWEEN ? AND ?", [yearStart, yearEnd + ' 23:59:59']
   );
-  const grossProfit = parseFloat(income.total) - parseFloat(cost.total);
-  const grossMargin = parseFloat(income.total) > 0 ? (grossProfit / parseFloat(income.total) * 100).toFixed(1) : 0;
+  // 金额计算统一走 utils/money.js（BigInt 精确十进制，2026-10-15 收敛）
+  const incomeTotal = money.round2(income.total);
+  const costTotal = money.round2(cost.total);
+  const grossProfit = money.sub(incomeTotal, costTotal);
+  const grossMargin = incomeTotal > 0 ? (grossProfit / incomeTotal * 100).toFixed(1) : 0;
 
   const [costStructure] = await pool.query(`
     SELECT s.type as name, COALESCE(SUM(po.total_amount), 0) as value
@@ -274,14 +278,19 @@ async function getAnalysis(pool, { start_date, end_date }) {
     GROUP BY c.id HAVING (c.amount - paid) > 0
   `);
 
-  const aging = { '0-30': 0, '31-60': 0, '61-90': 0, '90+': 0 };
+  // aging 分桶收集后统一 money.sum 精确累加（原 += 浮点累加会在多笔时漂移）
+  const agingBuckets = { '0-30': [], '31-60': [], '61-90': [], '90+': [] };
   receivables.forEach(r => {
-    const unpaid = parseFloat(r.amount) - parseFloat(r.paid);
-    if (r.age_days <= 30) aging['0-30'] += unpaid;
-    else if (r.age_days <= 60) aging['31-60'] += unpaid;
-    else if (r.age_days <= 90) aging['61-90'] += unpaid;
-    else aging['90+'] += unpaid;
+    const unpaid = money.sub(r.amount, r.paid);
+    if (r.age_days <= 30) agingBuckets['0-30'].push(unpaid);
+    else if (r.age_days <= 60) agingBuckets['31-60'].push(unpaid);
+    else if (r.age_days <= 90) agingBuckets['61-90'].push(unpaid);
+    else agingBuckets['90+'].push(unpaid);
   });
+  const aging = {};
+  for (const bucket of Object.keys(agingBuckets)) {
+    aging[bucket] = money.sum(agingBuckets[bucket]);
+  }
 
   const [cashIn] = await pool.query(`
     SELECT DATE_FORMAT(pay_date, '%Y-%m') as month, COALESCE(SUM(pay_amount), 0) as amount
@@ -320,14 +329,14 @@ async function getAnalysis(pool, { start_date, end_date }) {
   `);
 
   const cashFlowMap = {};
-  cashIn.forEach(r => { cashFlowMap[r.month] = { month: r.month, inflow: parseFloat(r.amount), outflow: 0 }; });
+  cashIn.forEach(r => { cashFlowMap[r.month] = { month: r.month, inflow: money.round2(r.amount), outflow: 0 }; });
   cashOut.forEach(r => {
-    if (cashFlowMap[r.month]) cashFlowMap[r.month].outflow = parseFloat(r.amount);
-    else cashFlowMap[r.month] = { month: r.month, inflow: 0, outflow: parseFloat(r.amount) };
+    if (cashFlowMap[r.month]) cashFlowMap[r.month].outflow = money.round2(r.amount);
+    else cashFlowMap[r.month] = { month: r.month, inflow: 0, outflow: money.round2(r.amount) };
   });
 
   return {
-    profit: { income: parseFloat(income.total), cost: parseFloat(cost.total), gross_profit: grossProfit, gross_margin: parseFloat(grossMargin) },
+    profit: { income: incomeTotal, cost: costTotal, gross_profit: grossProfit, gross_margin: money.round2(grossMargin) },
     costStructure,
     aging: Object.entries(aging).map(([label, amount]) => ({ label, amount })),
     cashFlow: Object.values(cashFlowMap).sort((a, b) => a.month.localeCompare(b.month)),

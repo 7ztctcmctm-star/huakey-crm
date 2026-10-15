@@ -8,6 +8,7 @@ const paymentService = require('./paymentService');
 const XLSX = require('xlsx');
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
+const money = require('../utils/money');
 
 /**
  * 检查用户对合同的操作权限
@@ -252,7 +253,7 @@ async function getStatementExport(pool, params = {}, permission = null) {
     '合同总额': parseFloat(r.total_amount),
     '已回款': parseFloat(r.paid_amount),
     '未回款': parseFloat(r.outstanding_amount),
-    '回款率': r.total_amount > 0 ? Math.round(parseFloat(r.paid_amount) / parseFloat(r.total_amount) * 100) + '%' : '100%'
+    '回款率': money.round2(r.total_amount) > 0 ? Math.round(money.round2(r.paid_amount) / money.round2(r.total_amount) * 100) + '%' : '100%'
   }));
 
   let detailWhere = 'WHERE c.deleted_at IS NULL AND p.deleted_at IS NULL';
