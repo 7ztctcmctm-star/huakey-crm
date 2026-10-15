@@ -156,9 +156,9 @@
 ■ 2. 修复 slowQuery.js 两处 `?? null` + 补回归用例（P1-1，1 行级改动）✅ 2026-10-14 已完成：safeSlice() 修复 + 4 回归用例（变异验证 3/4 报警），随 9ef6983 入库
 
 第 1 步（发版阻塞，需 0.5–1 天）
-■ 3. 依赖升级：npm audit fix（express/body-parser/compression/nodemailer/proxy-addr/qs）→ lint + 全量测试回归 → 提交   [P0-1a] ✅ 2026-10-15 已完成：`npm audit fix --only=prod` + nodemailer 9.1.1→10.1.1（唯一破坏性变更为要求 Node≥20，两个 Dockerfile 均 node:22-alpine ✓）⇒ **npm audit 0 漏洞**；回归：后端 134 套件/1349 用例、前端 145 用例、build 全绿
+■ 3. 依赖升级 → CI 验证全绿 ✅ 2026-10-15 闭环（npm audit 0 漏洞；backend-test/Trivy×2 转绿；iPhone 作业实跑 4m23s 通过） ✅ 2026-10-15 已完成：`npm audit fix --only=prod` + nodemailer 9.1.1→10.1.1（唯一破坏性变更为要求 Node≥20，两个 Dockerfile 均 node:22-alpine ✓）⇒ **npm audit 0 漏洞**；回归：后端 134 套件/1349 用例、前端 145 用例、build 全绿
 ■ 4. 修 iPhone matrix（install webkit + device 描述符）→ 手动触发 cross-browser 验证   [P0-1b] ✅ 2026-10-15 代码已完成：matrix 拆分为 browser（安装目标）/project（--project 目标），iPhone 12 Pro → 装 webkit + 跑 device project；YAML 已校验。⏳ CI 实跑验证待手动触发 workflow_dispatch（本机 gh 未登录）
-□ 5. 取 Trivy 作业日志，定位漏洞并处理（升级基础镜像或评审 ignore）   [P0-1c] ⏳ 阻塞：作业日志需 admin 权限（匿名 403）。注：依赖升级后镜像内的 npm 漏洞已消除，若 Trivy 报的是同一批漏洞则应随之转绿——待验证
+■ 5. Trivy ✅ 2026-10-15 自行转绿（依赖升级后镜像内 npm 漏洞消除，两 scan-images + Trivy 工作流均 success，无需 admin 日志） ⏳ 阻塞：作业日志需 admin 权限（匿名 403）。注：依赖升级后镜像内的 npm 漏洞已消除，若 Trivy 报的是同一批漏洞则应随之转绿——待验证
 ■ 6. 公海判据修复：数据回填迁移（带 down）+ 判据统一 owner_id IS NULL + 不变量测试；先 NAS 核对生产库   [P0-2，依赖拍板#1] ✅ 2026-10-15 代码侧已完成：listPoolCustomersNew / listFormalCustomers / claimPoolCustomer 三处判据统一为 owner_id（含正式列表「挡掉有主客户」的连带修复）；constants 注释同步；新增行为回归 tests/db/poolCriteria.test.js（4/4 绿）。⏳ 数据回填迁移**未创建**（创建即会在下次部署自动执行，须先拍板#1 + NAS 核对生产库）
 ■ 7. 迁移回滚链修复：down 查找逻辑 + 097_down + 跳过改显式失败 + roundtrip 快照/恢复   [P0-4] ✅ 2026-10-15 已完成并本地实测：
   · run_migrations.js：down 文件按 **version 前缀**匹配（不再依赖 name 后缀——本机 112 行记账大量无后缀）；缺 down 文件默认**显式失败**（exit 1），仅 `--force` 允许跳过
