@@ -507,7 +507,7 @@ async function assignCustomer(pool, customerId, toUserId, operatorId, remark) {
  */
 async function claimCustomer(pool, customerId, userId) {
   const [customers] = await pool.query(
-    'SELECT id, pool_status, pool_type, owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+    'SELECT id, company_name, pool_status, pool_type, owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [customerId]
   );
   if (customers.length === 0) {
@@ -516,7 +516,11 @@ async function claimCustomer(pool, customerId, userId) {
 
   const customer = customers[0];
 
-  if (customer.pool_status !== POOL_STATUS.SEA) {
+  // [2026-10-15 P0-2] 判据从 pool_status='sea' 收敛为 owner_id IS NULL（与 listPoolCustomersNew /
+  // claimPoolCustomer / poolService.claimCustomer 统一）：实测无主客户 pool_status 全为 'private'，
+  // 旧守卫把它们误判为「不在公海」。本函数当前无生产调用方（路由走 poolService.claimCustomer
+  // 与 claimPoolCustomer），此处一并修正，避免将来被 wiring 时 reintroduce 同一缺陷。
+  if (customer.owner_id !== null) {
     throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户不在公海中');
   }
   // 【产品决策 2026-09-10】保护期已下线。
@@ -525,11 +529,13 @@ async function claimCustomer(pool, customerId, userId) {
   try {
     await connection.beginTransaction();
     // 【P0-1 补齐】同上：原子条件必须写进 UPDATE，事务本身防不住并发覆盖。
+    // [2026-10-15] 去掉 `AND pool_status = 'sea'` —— 与守卫同步收敛到 owner_id，
+    // 否则数据错位时守卫放行、UPDATE 却 0 行（「已被他人认领」误报）。
     const [claimResult] = await connection.query(
       `UPDATE crm_customer
           SET pool_status = ?, owner_id = ?, protect_until = NULL, last_follow_time = NOW()
-        WHERE id = ? AND owner_id IS NULL AND pool_status = ? AND deleted_at IS NULL`,
-      [POOL_STATUS.PRIVATE, userId, customerId, POOL_STATUS.SEA]
+        WHERE id = ? AND owner_id IS NULL AND deleted_at IS NULL`,
+      [POOL_STATUS.PRIVATE, userId, customerId]
     );
     if (claimResult.affectedRows !== 1) {
       throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已被他人认领，请刷新后重试');

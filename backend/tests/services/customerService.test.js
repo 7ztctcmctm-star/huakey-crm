@@ -186,6 +186,34 @@ describe('customerService.claimCustomer', () => {
       customerService.claimCustomer(mockPool, 1, 1)
     ).rejects.toMatchObject({ code: 400005, message: '该客户不在公海中' });
   });
+
+  it('数据错位（owner_id=NULL 但 pool_status=private）应放行认领', async () => {
+    // [2026-10-15 P0-2] 实测测试库 428 条无主客户 pool_status 全为 'private'（无一条 'sea'）。
+    // 旧守卫按 pool_status='sea' 判定会把这些客户误杀在公海页外；修正后按 owner_id 判定。
+    mockPool.query.mockResolvedValueOnce([[{
+      id: 1, company_name: '错位客户', pool_status: 'private', pool_type: null, protect_until: null, owner_id: null
+    }]]);
+    const conn = {
+      query: jest.fn()
+        .mockResolvedValueOnce([{ affectedRows: 1 }]) // UPDATE
+        .mockResolvedValueOnce([{}]),                // INSERT crm_pool_log
+      beginTransaction: jest.fn(),
+      commit: jest.fn(),
+      rollback: jest.fn(),
+      release: jest.fn()
+    };
+    mockPool.getConnection = jest.fn().mockResolvedValue(conn);
+
+    const result = await customerService.claimCustomer(mockPool, 1, 1);
+
+    expect(result).toEqual({ company_name: '错位客户' });
+    // UPDATE 的原子条件必须只有 owner_id IS NULL，WHERE 里不能再带 pool_status='sea'
+    // （SET 子句中的 pool_status = ? 是认领后置 'private'，属预期）
+    const updateCall = conn.query.mock.calls[0];
+    expect(updateCall[0]).toContain('owner_id IS NULL');
+    expect(updateCall[0]).not.toContain('AND pool_status = ?');
+    expect(updateCall[1]).toEqual(['private', 1, 1]);
+  });
 });
 
 // ---------------------------------------------------------------------------
