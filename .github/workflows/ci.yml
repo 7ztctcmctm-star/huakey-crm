@@ -270,7 +270,9 @@ jobs:
           echo "Baseline ready."
       # MIGRATION_ROUNDTRIP_STRICT=1：本 job 声明"DB 已就绪"，故测试里的任何静默跳过都必须变成失败
       # （不能用 CI=true 判定 —— Actions 在所有 job 都设它，backend-test 也会跑到该文件且无 MySQL）
-      - run: cd backend && MIGRATION_ROUNDTRIP_STRICT=1 DB_NAME=huakey_crm_test DB_PASSWORD=test_root_pass npx jest tests/db/migration-roundtrip.test.js --forceExit --testTimeout=240000
+      # --testPathIgnorePatterns 覆盖配置里对该文件的排除：roundtrip 是破坏性套件，
+      # 只允许在本 job（严格模式 + 一次性全新库）里单独显式运行，绝不进共享池。
+      - run: cd backend && MIGRATION_ROUNDTRIP_STRICT=1 DB_NAME=huakey_crm_test DB_PASSWORD=test_root_pass npx jest tests/db/migration-roundtrip.test.js --forceExit --testTimeout=240000 --testPathIgnorePatterns="/node_modules/"
       - if: always()
         run: docker compose -f docker-compose.ci.yml down -v
 
@@ -293,7 +295,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        browser: [chromium, firefox, webkit, 'iPhone 12 Pro']
+        # browser = `playwright install` 的目标（只接受浏览器名）；
+        # project = `playwright test --project` 的目标（playwright.config.js 里的项目名）。
+        # ⚠️ 旧写法 matrix.browser 同时充当两者，'iPhone 12 Pro' 是**设备描述符**不是浏览器名，
+        # 传给 `playwright install` 必败（1s 即败），导致该作业自创建以来从未真正执行过测试。
+        # iPhone 12 Pro 设备底层走 webkit，故安装 webkit、以 device 项目运行。
+        include:
+          - { browser: 'chromium', project: 'chromium' }
+          - { browser: 'firefox', project: 'firefox' }
+          - { browser: 'webkit', project: 'webkit' }
+          - { browser: 'webkit', project: 'iPhone 12 Pro' }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -360,6 +371,6 @@ jobs:
       - name: Run Playwright tests
         env:
           SKIP_DB_SETUP: 'true'
-        run: cd frontend && npx playwright test --project='${{ matrix.browser }}'
+        run: cd frontend && npx playwright test --project='${{ matrix.project }}'
       - if: always()
         run: docker compose -f docker-compose.ci.yml down -v
