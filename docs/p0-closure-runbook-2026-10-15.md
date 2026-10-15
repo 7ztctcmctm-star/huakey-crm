@@ -126,42 +126,27 @@ docker compose logs backend | grep -i "captcha" | tail -5
 - 潜客转化（convertLead）已按 owner 派生 pool_status，**不会再产生新的错位数据**
 - 测试库实测：428 条无主客户 pool_status 全为 `'private'`（无一条 `'sea'`）——旧判据下公海页恒空，新判据下全部可见
 
-### 4.2 NAS 生产库核对（只读，先做）
+### 4.2 NAS 生产库核对 —— ✅ 已完成（2026-10-15 15:10 实测）
 
-在 NAS 上对生产库执行（**只 SELECT，不改数据**）：
+通过 SSH（nas-crm = 192.168.0.200）对生产库执行只读查询（容器内 mysql，`deleted_at IS NULL`）：
 
-```sql
-SELECT owner_id IS NULL AS owner_null, pool_status, COUNT(*) AS n
-FROM crm_customer
-WHERE deleted_at IS NULL
-GROUP BY 1, 2;
-```
+| owner_id | pool_status | 条数 | business_status | 判定 |
+|---|---|---|---|---|
+| NULL | 'private' | **423** | 全部 `lead` | ✅ **正确**——潜客本就不属公海（poolStatus.js 既定语义） |
+| NULL | 'sea' | 2 | 全部 `following` | ✅ **正确**——真正在公海的客户 |
+| 非 NULL | — | **0** | — | 生产库没有任何有主客户 |
 
-**判断标准**：
-- 若存在 `owner_null=1 且 pool_status='private'` 的行 → 与测试库同型错位，这些客户目前**在旧代码下不可见、新代码下可见**；`pool_status` 字段值与事实不符
-- 若存在 `owner_null=0 且 pool_status='sea'` 的行 → 有主客户被错标成公海，会影响回收提醒查询（`cronService` / `getNearRecycleCustomersList` 按 `pool_status='private' AND owner_id IS NOT NULL` 过滤）
+**结论（重要反转）**：
+- 生产库**不存在**测试库那种错位（无主+following 却标 'private'）——423 条无主客户全是 lead，2 条 following 恰好都是 'sea'，数据与既定语义完全一致
+- 公海页在旧代码下显示 2 条、新代码下同样显示这 2 条（`owner_id IS NULL AND business_status != 'lead'`）——**生产上功能等价**，代码修复的价值在于测试环境行为与未来健壮性（防止再出现错位时公海页恒空）
+- 回收提醒类查询（`pool_status='private' AND owner_id IS NOT NULL`）在生产返回 0 行，无风险
+- **回填迁移 = 0 行变更的空操作 ⇒ 拍板#1 答案：不建**（建了只会给生产库增加一次无谓的自动 UPDATE）
 
-把查询结果发我，我按实际分布定回填迁移的精确形态。
+### 4.3 拍板#1：是否建回填迁移 —— ✅ 已定：不建
 
-### 4.3 拍板#1：是否建回填迁移
+依据 §4.2 实测：生产数据已与 owner 判据一致，回填是空操作。风险（自动执行的 UPDATE、down 脚本还原难题）大于收益（0）。
 
-**选项 A（建议）**：建回填迁移，让 `pool_status` 与 owner 事实对齐。形如（最终形态以 4.2 结果为准）：
-
-```sql
--- 无主且非线索 → 公海
-UPDATE crm_customer SET pool_status = 'sea'
-WHERE owner_id IS NULL AND business_status <> 'lead' AND deleted_at IS NULL;
--- 有主 → 私有
-UPDATE crm_customer SET pool_status = 'private'
-WHERE owner_id IS NOT NULL AND deleted_at IS NULL;
--- 配套 down（可逆）：记不清原值的只能按同样规则反向，故 down 记录迁移前分布由部署脚本负责备份
-```
-
-- 注意：lead 客户即使无主也保持 `'private'`（constants/poolStatus.js 既定语义），**不能**被刷成 'sea'
-- 软删行不动（历史保留）
-- 迁移创建后会**随下次部署自动执行**，所以必须 4.2 核对 + 你确认后才建
-
-**选项 B**：不建回填，仅靠代码判据。公海页/认领功能正常，但 `pool_status` 字段长期与事实不符，回收提醒类查询在有主客户被错标时会漏算——**不推荐**，除非 4.2 结果显示生产库无第二类错位。
+若未来数据再出现错位（例如分配流程缺陷产出「有主但 sea」），届时按同样 SQL 形态建迁移不迟。
 
 ### 4.4 回填后验证
 
