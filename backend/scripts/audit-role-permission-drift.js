@@ -88,6 +88,7 @@ function parseRolePermissions(src) {
     const lost = [...dbSet].filter(c => !wantSet.has(c)).sort();
     const added = [...wantSet].filter(c => !dbSet.has(c)).sort();
     totalLost += lost.length;
+    totalAdded += added.length;
     const note = r.manage_all ? '  ⚠️ manageAll=1，权限校验会被整体绕过，漂移对其无实际影响' : '';
     console.log(`【${r.code}】DB ${dbSet.size} 个 / 清单 ${wantSet.size} 个${note}`);
     if (lost.length) {
@@ -113,6 +114,6 @@ function parseRolePermissions(src) {
   }
 
   console.log('');
-  console.log(`=== 汇总：将丢失 ${totalLost} 个既有授权 ===`);
+  console.log(`=== 汇总：将丢失 ${totalLost} 个既有授权，将新增 ${totalAdded} 个授权 ===`);
   await conn.end();
 })().catch(e => { console.error('审计脚本异常:', e.message); process.exit(2); });

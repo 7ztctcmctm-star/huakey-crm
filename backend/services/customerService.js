@@ -1117,20 +1117,20 @@ async function claimPoolCustomer(pool, customerId, userId) {
   }
   // 【产品决策 2026-09-10】保护期已下线：释放到公海的客户可被立即认领。
 
-    const connection = await pool.getConnection();
-    try {
-      await connection.beginTransaction();
-      // 【P0-1 补齐】条件必须带 `owner_id IS NULL`（判据权威）。
-      // 原实现为 `WHERE id = ?`，仅靠事务无法防并发：REPEATABLE READ 下第二个事务的
-      // UPDATE 会在行锁释放后依据最新版本重新匹配 id = ?，仍会覆盖前者的认领结果。
-      // [2026-10-15] 一并去掉 `AND pool_status = 'sea'` —— 与守卫同步收敛到 owner_id，
-      // 否则数据错位时守卫放行、UPDATE 却 0 行（「已被他人认领」误报）。
-      const [claimResult] = await connection.query(
-        `UPDATE crm_customer
-            SET pool_status = ?, owner_id = ?, protect_until = NULL, last_follow_time = NOW(), update_time = NOW()
-          WHERE id = ? AND owner_id IS NULL AND deleted_at IS NULL`,
-        [POOL_STATUS.PRIVATE, userId, customerId]
-      );
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    // 【P0-1 补齐】条件必须带 `owner_id IS NULL`（判据权威）。
+    // 原实现为 `WHERE id = ?`，仅靠事务无法防并发：REPEATABLE READ 下第二个事务的
+    // UPDATE 会在行锁释放后依据最新版本重新匹配 id = ?，仍会覆盖前者的认领结果。
+    // [2026-10-15] 一并去掉 `AND pool_status = 'sea'` —— 与守卫同步收敛到 owner_id，
+    // 否则数据错位时守卫放行、UPDATE 却 0 行（「已被他人认领」误报）。
+    const [claimResult] = await connection.query(
+      `UPDATE crm_customer
+         SET pool_status = ?, owner_id = ?, protect_until = NULL, last_follow_time = NOW(), update_time = NOW()
+       WHERE id = ? AND owner_id IS NULL AND deleted_at IS NULL`,
+      [POOL_STATUS.PRIVATE, userId, customerId]
+    );
     if (claimResult.affectedRows !== 1) {
       throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已被他人认领，请刷新后重试');
     }

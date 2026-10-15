@@ -11,7 +11,7 @@
         "start": "node app.js",
         "dev": "nodemon app.js",
         "test": "jest --forceExit --coverage --coverageReporters=text-summary",
-        "lint": "eslint .",
+        "lint": "eslint . --max-warnings=0",
         "lint:fix": "eslint . --fix",
         "test:unit": "jest --forceExit --coverage --coverageReporters=text-summary",
         "test:integration": "jest tests/e2e/ --config jest.integration.config.js --forceExit",
