@@ -28,7 +28,7 @@ GitHub API 实测 commit `5133494` 的 check-runs（12 个）：
 | P0 | 代码侧 | 数据/部署侧 | 还差什么 |
 |---|---|---|---|
 | P0-3 安全修复未提交未部署 | ✅ 已入库推送（4 个提交，remote=local） | ❌ 生产 NAS 未部署 | **NAS 部署**（步骤见 §3） |
-| P0-1 CI 红 + 镜像 critical | ✅ 代码修复 + CI 实测转绿 | — | **手动触发 iPhone 作业验证**（步骤见 §2） |
+| P0-1 CI 红 + 镜像 critical | ✅ 代码修复 + CI 实测转绿 + iPhone 实跑验证 | — | **无，已闭环** |
 | P0-2 公海池不可用 | ✅ 判据已统一 owner_id + 回归测试 | ❌ 生产库数据错位未回填 | **NAS 数据核对 → 拍板 → 回填迁移 → 部署**（步骤见 §4） |
 | P0-4 回滚链毁库 | ✅ 已全修 + 破坏性实测通过 + CI 绿 | — | **无，已闭环** |
 
@@ -53,20 +53,22 @@ GitHub API 实测 commit `5133494` 的 check-runs（12 个）：
 
 ---
 
-## 2. P0-1 CI —— 剩余一步：手动触发 iPhone 跨浏览器作业
+## 2. P0-1 CI —— ✅ 已闭环（2026-10-15 14:30 实测验证）
 
-**为什么需要手动**：该作业只在 `schedule` / `workflow_dispatch` 时运行，push 自动跳过。代码已修（matrix 拆 browser/project 两维：iPhone 12 Pro → 装 webkit + 跑 device project），但**修复后从未真正跑过一次**。
+**验证记录**：workflow_dispatch 运行 `38692173966`（sha 9091f10，含当日全部修复），12 个作业 **11 success + e2e-test skipped**（e2e 按设计只在 push 触发，push 运行 38690906022 已 success）。
 
-**操作步骤**（你在浏览器点，不需要给我任何权限）：
-1. 打开 https://github.com/7ztctcmctm-star/huakey-crm/actions/workflows/ci.yml
-2. 右上角 **Run workflow** → 分支选 `main` → 点绿色 **Run workflow** 按钮
-3. 跑完后告诉我，我用 API 拉结果验证（匿名可读，无需授权）
+四个跨浏览器矩阵项**全部真实跑通**（修复前 iPhone 项 1 秒即败、从未执行过测试）：
 
-**通过标准**：
-- `cross-browser-test (chromium)` / `(firefox)` / `(webkit)` / `(iPhone 12 Pro)` 四个矩阵全 success
-- 若某个红，把作业页链接发我，我读 steps 定位（匿名 API 可读 steps 数组）
+| 矩阵项 | 结论 | 实际执行 |
+|---|---|---|
+| cross-browser-test (chromium, chromium) | ✅ success | 装 chromium，测试 4m15s |
+| cross-browser-test (firefox, firefox) | ✅ success | 装 firefox，测试 3m01s |
+| cross-browser-test (webkit, webkit) | ✅ success | 装 webkit，测试 4m41s |
+| **cross-browser-test (webkit, iPhone 12 Pro)** | ✅ **success** | **装 webkit + device project 实跑 4m23s**，17 步全 success |
 
-**备用**：不手动触发也行——下次定时跑（约 10-19）会自动验证，但建议上线前手动确认一次。
+关键步骤实证：`npx playwright install --with-deps webkit` success → `Run Playwright tests` success（旧写法把 `iPhone 12 Pro` 当浏览器名传给 install，1 秒即败）。
+
+**修复原理留档**：matrix 拆成 `browser`（playwright install 目标，只接受浏览器名）/ `project`（`playwright test --project` 目标）两维；iPhone 12 Pro 设备底层走 webkit，故安装 webkit、以 device 项目运行。
 
 ---
 
@@ -80,7 +82,7 @@ GitHub API 实测 commit `5133494` 的 check-runs（12 个）：
 # 1. 进入仓库目录（按实际部署路径调整）
 cd /volume1/docker/huakey-crm   # ← 路径以你的 NAS 实际为准
 
-# 2. 确认拉取后 HEAD 应为 5133494（本地当前 main 顶端）
+# 2. 确认拉取后 HEAD 应为 9091f10（本地当前 main 顶端）
 git fetch origin
 git log --oneline -1 origin/main
 
@@ -88,7 +90,7 @@ git log --oneline -1 origin/main
 git status --short
 ```
 
-**核对点**：`origin/main` 顶端 = `5133494`；`git status` 无输出。
+**核对点**：`origin/main` 顶端 = `9091f10`；`git status` 无输出。
 
 ### 3.2 执行部署
 
@@ -179,12 +181,12 @@ GROUP BY 1,2 HAVING (owner_null=1 AND pool_status<>'sea' AND business_status<>'l
 
 | 顺序 | 动作 | 执行人 | 闭环 |
 |---|---|---|---|
-| 1 | 触发 Run workflow（§2） | 你（点按钮） | P0-1 |
+| 1 ✅ | 触发 Run workflow + 我拉结果验证（§2） | 你 + 我 | **P0-1 已闭环** |
 | 2 | NAS 生产库只读核对（§4.2），把结果发我 | 你 | P0-2 数据侧 |
 | 3 | 拍板#1（§4.3 选项 A/B） | 你 | P0-2 数据侧 |
-| 4 | NAS 部署（§3），拉 5133494 + deploy.sh | 你 | **P0-3** + P0-2 代码侧生效 |
+| 4 | NAS 部署（§3），拉 9091f10 + deploy.sh + 冒烟 | 你 | **P0-3** + P0-2 代码侧生效 |
 | 5 | （若选 A）我建回填迁移 → 你再次部署 → §4.4 验证 | 我 + 你 | P0-2 完全闭环 |
-| 6 | 部署后冒烟 + 我拉 CI 结果确认 iPhone 作业 | 我 + 你 | P0-1 完全闭环 |
+| 6 | ~~部署后冒烟 + 我拉 CI 结果确认 iPhone 作业~~ | — | 已提前完成（§2） |
 
 第 1、2 步今天就能做；第 4 步建议约个部署窗口（生产最后一次部署是 08-31，积压较多，部署后冒烟要做细）。
 
