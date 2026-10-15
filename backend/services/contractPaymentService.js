@@ -31,13 +31,13 @@ async function checkContractPermission(pool, contractId, user, action) {
 /**
  * 登记回款
  * @param {object} pool
- * @param {object} data - { contract_id, plan_id, pay_date, pay_amount, pay_method, remark }
+ * @param {object} data - { contract_id, plan_id, pay_date, pay_amount, pay_method, remark, idempotency_key }
  * @param {object} user
  */
 async function addPayment(pool, data, user) {
-  const { contract_id, plan_id, pay_date, pay_amount, pay_method, remark } = data;
+  const { contract_id, plan_id, pay_date, pay_amount, pay_method, remark, idempotency_key } = data;
   await checkContractPermission(pool, contract_id, user, '为该合同登记回款');
-  await paymentService.recordPayment(pool, { contract_id, plan_id, pay_date, pay_amount, pay_method, remark });
+  await paymentService.recordPayment(pool, { contract_id, plan_id, pay_date, pay_amount, pay_method, remark }, idempotency_key);
 }
 
 /**

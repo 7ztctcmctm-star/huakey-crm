@@ -85,7 +85,10 @@ async function createContract(req, res, next) {
   const { customer_id, amount } = req.body;
 
   try {
-    const result = await contractService.createContract(pool, req.body, req.user.userId);
+    // 幂等键：优先请求头 Idempotency-Key，其次 body.idempotency_key（schema 已声明，否则被 stripUnknown 剥离）。
+    // 重复提交同 key 时直接返回首次结果，不重复建合同（2026-10-15 补，AGENTS.md 7.18）。
+    const idempotencyKey = req.headers['idempotency-key'] || req.body.idempotency_key || null;
+    const result = await contractService.createContract(pool, req.body, req.user.userId, idempotencyKey);
     await logAction(req, 'add', `新增合同: ${result.contract_no}`);
 
     // 通知审批人（不影响主流程）

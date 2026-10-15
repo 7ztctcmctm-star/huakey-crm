@@ -175,7 +175,18 @@ async function getContract(pool, contractId) {
  * @param {number} createBy
  * @returns {{ id: number, contract_no: string }}
  */
-async function createContract(pool, data, createBy) {
+/**
+ * 创建合同
+ * @param {object} pool
+ * @param {object} data - 合同数据
+ * @param {number} createBy
+ * @param {string} [idempotencyKey] - 幂等键（2026-10-15 补，AGENTS.md 7.18）；
+ *        重复 key 直接返回首次结果，不重复建合同；无 key 时行为不变
+ * @returns {{ id: number, contract_no: string }}
+ */
+async function createContract(pool, data, createBy, idempotencyKey) {
+  const { runIdempotent } = require('../utils/idempotency');
+  const { result } = await runIdempotent(pool, idempotencyKey, 'contract', async () => {
   const { customer_id, opportunity_id, quote_id, amount, sign_date, delivery_date, payment_terms, remark, plans } = data;
   const connection = await pool.getConnection();
 
@@ -214,12 +225,12 @@ async function createContract(pool, data, createBy) {
     const seq = String(count[0].cnt + 1).padStart(3, '0');
     const contractNo = `CON-${dateStr}-${seq}`;
 
-    const [result] = await connection.query(
+    const [insertResult] = await connection.query(
       'INSERT INTO crm_contract (contract_no, customer_id, opportunity_id, quote_id, amount, sign_date, delivery_date, payment_terms, remark, create_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [contractNo, customer_id, opportunity_id || null, quote_id || null, amount, sign_date, delivery_date, payment_terms, remark, createBy]
     );
 
-    const contractId = result.insertId;
+    const contractId = insertResult.insertId;
 
     // 批量插入回款计划
     if (plans && plans.length > 0) {
@@ -243,6 +254,8 @@ async function createContract(pool, data, createBy) {
   } finally {
     connection.release();
   }
+  });
+  return result;
 }
 
 /**

@@ -1326,6 +1326,23 @@ CREATE TABLE `crm_payment` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `crm_idempotency`
+--
+
+DROP TABLE IF EXISTS `crm_idempotency`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+SET character_set_client = utf8mb4 ;
+CREATE TABLE `crm_idempotency` (
+  `idempotency_key` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '幂等键（客户端生成的唯一请求标识）',
+  `biz_type` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '业务类型: payment=回款登记 contract=合同创建',
+  `result_json` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '首次成功的结果（JSON）',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`idempotency_key`),
+  KEY `idx_idem_biz` (`biz_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='幂等键记录表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `crm_payment_plan`
 --
 

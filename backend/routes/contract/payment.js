@@ -13,7 +13,8 @@ const paymentAddSchema = Joi.object({
   pay_date: Joi.date().iso().required(),
   pay_amount: Joi.number().precision(2).min(0).required(),
   pay_method: Joi.string().max(50).allow('', null),
-  remark: Joi.string().max(500).allow('', null)
+  remark: Joi.string().max(500).allow('', null),
+  idempotency_key: Joi.string().max(64).allow('', null)
 });
 
 const paymentUpdateSchema = Joi.object({

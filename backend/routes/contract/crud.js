@@ -123,7 +123,8 @@ const addContractSchema = Joi.object({
     plan_date: Joi.date().iso().required(),
     plan_amount: Joi.number().precision(2).min(0).required(),
     remark: Joi.string().max(500).allow('', null)
-  })).allow(null)
+  })).allow(null),
+  idempotency_key: Joi.string().max(64).allow('', null)
 });
 
 const updateContractSchema = Joi.object({

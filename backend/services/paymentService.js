@@ -117,46 +117,59 @@ async function recalculatePlanStatusWithConn(conn, planId) {
  * @param {object} data - { contract_id, plan_id, pay_date, pay_amount, pay_method, remark }
  * @returns {{ id: number }}
  */
-async function recordPayment(pool, data) {
-  const { contract_id, plan_id, pay_date, pay_amount, pay_method, remark } = data;
-  const conn = await pool.getConnection();
-  try {
-    await conn.beginTransaction();
+/**
+ * 登记回款
+ * @param {object} pool
+ * @param {object} data - { contract_id, plan_id, pay_date, pay_amount, pay_method, remark }
+ * @param {string} [idempotencyKey] - 幂等键（2026-10-15 补，AGENTS.md 7.18）；
+ *        重复 key 直接返回首次结果，不重复落库；无 key 时行为不变
+ * @returns {Promise<{id: number}>}
+ */
+async function recordPayment(pool, data, idempotencyKey) {
+  const { runIdempotent } = require('../utils/idempotency');
+  const { result } = await runIdempotent(pool, idempotencyKey, 'payment', async () => {
+    const { contract_id, plan_id, pay_date, pay_amount, pay_method, remark } = data;
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
 
-    const [contracts] = await conn.query(
-      'SELECT id, status FROM crm_contract WHERE id = ? AND deleted_at IS NULL',
-      [contract_id]
-    );
-    if (!contracts.length) {
-      throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '所属合同不存在')
+      const [contracts] = await conn.query(
+        'SELECT id, status FROM crm_contract WHERE id = ? AND deleted_at IS NULL',
+        [contract_id]
+      );
+      if (!contracts.length) {
+        throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '所属合同不存在')
+      }
+
+      const [insertResult] = await conn.query(
+        'INSERT INTO crm_payment (contract_id, plan_id, pay_date, pay_amount, pay_method, remark) VALUES (?, ?, ?, ?, ?, ?)',
+        [contract_id, plan_id || null, pay_date, pay_amount, pay_method || null, remark || null]
+      );
+
+      await conn.query('UPDATE crm_contract SET status = 2 WHERE id = ? AND status = 1', [contract_id]);
+
+      if (plan_id) {
+        await recalculatePlanStatusWithConn(conn, plan_id);
+      }
+
+      await conn.commit();
+
+      // 【#16】回款成功事件派发（事务提交后、非阻塞；失败不影响回款结果）
+      // 幂等命中时不会重新进入本函数，webhook 天然不会重复派发
+      webhookDispatcher.dispatch(pool, 'payment.received', {
+        payment_id: insertResult.insertId, contract_id, plan_id: plan_id || null,
+        pay_amount, pay_date, pay_method: pay_method || null
+      }).catch(() => { /* 派发器内部已记日志，此处仅兜底吞异常 */ });
+
+      return { id: insertResult.insertId };
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
     }
-
-    const [result] = await conn.query(
-      'INSERT INTO crm_payment (contract_id, plan_id, pay_date, pay_amount, pay_method, remark) VALUES (?, ?, ?, ?, ?, ?)',
-      [contract_id, plan_id || null, pay_date, pay_amount, pay_method || null, remark || null]
-    );
-
-    await conn.query('UPDATE crm_contract SET status = 2 WHERE id = ? AND status = 1', [contract_id]);
-
-    if (plan_id) {
-      await recalculatePlanStatusWithConn(conn, plan_id);
-    }
-
-    await conn.commit();
-
-    // 【#16】回款成功事件派发（事务提交后、非阻塞；失败不影响回款结果）
-    webhookDispatcher.dispatch(pool, 'payment.received', {
-      payment_id: result.insertId, contract_id, plan_id: plan_id || null,
-      pay_amount, pay_date, pay_method: pay_method || null
-    }).catch(() => { /* 派发器内部已记日志，此处仅兜底吞异常 */ });
-
-    return { id: result.insertId };
-  } catch (err) {
-    await conn.rollback();
-    throw err;
-  } finally {
-    conn.release();
-  }
+  });
+  return result;
 }
 
 /**
