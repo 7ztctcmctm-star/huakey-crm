@@ -94,3 +94,58 @@
 ---
 
 *本报告由交付前自检产生；所有「✅」均附本轮实测证据，「⚠️/未收口」均附文件路径与行号。*
+
+---
+
+# 附：优化执行记录（David 批准「按列出的顺序来」· 同日执行）
+
+## 执行结果总览
+
+| 序 | 项 | 提交 | 状态 |
+|---|---|---|---|
+| 1 | hr.js 17 端点 403（P1） | `08974f3` | ✅ 已修复并推送 |
+| 2 | 幂等核查与补齐（P2） | `2b608c5` | ✅ 回款/合同创建幂等键机制 |
+| 3 | money.js 收敛（P2） | `751834e` | ✅ 21 处计算 + aging 累加 |
+| 4 | CI lint 门槛 + 缩进（P3） | `611f1d5` | ✅ 全量 eslint 0/0 |
+| 5 | P0 域覆盖率补充（P2） | 待提交 | ✅ finance aging/profit/cashFlow 3 用例 + 合同幂等 1 用例 |
+
+## 各项明细
+
+### 1. hr.js（P1 → 闭环）
+- 17 处 `checkPermission('hr'), requireManager` → 仅保留 `checkPermission('hr')`；删除 import；swagger 描述同步
+- `DATA_PERMISSIONS.hr` 显式补 `hr: 'all'`（hrService 不做数据范围过滤，不配则 fail-closed 成 self，与业务语义相反）
+- `requireManagerUsage.test.js` 基线 47→30 同步留痕（守卫设计意图：删除必须显式更新基线）
+- `hr.test.js` 补双向用例：hr 角色 200（隔离由功能门承担）/ sales 403（不放宽越权）
+- 验证：守卫 7/7 + hr/permissionMatrix/中间件 58/58 + eslint 0/0
+
+### 2. 幂等机制（P2 → 闭环）
+查证结论：crm_payment 无任何唯一约束、recordPayment/createContract 无代码幂等（跟进创建业务上允许重复，不加）。
+- 迁移 122 `crm_idempotency`（key 主键 + biz_type + result_json，up/down 齐全）；`deploy/init-complete.sql` 同步建表；测试库已补记账（migrationGuard 10/10）
+- `utils/idempotency.js` `runIdempotent`：仅成功记 key / 并发撞主键读回抢先结果 / 无 key 退化直跑（不破坏现有前端）
+- 接入 recordPayment + createContract；Joi schema 显式声明 `idempotency_key`（`stripUnknown:true` 会剥离未声明字段）
+- 测试：util 4 用例 + recordPayment 2 用例 + createContract 1 用例
+
+### 3. money.js 收敛（P2 → 闭环，展示类除外）
+- contractService 8 处 / financeService 10 处（aging 改分桶收集后 money.sum，消除 += 累加漂移）/ paymentService 2 处 / contractPaymentService 回款率 1 处
+- 顺手删除 createContract 重复 JSDoc 块（幂等改造遗留）
+- **未动**：Excel 导出展示类 14 处 parseFloat（单步转换无累计误差，记录在案）
+- 验证：money 18 用例 + 财务/回款/合同/报价/hr/幂等/守卫 12 文件 128 用例全绿
+
+### 4. P3 治理（闭环）
+- CI lint 门槛统一：`eslint .` → `eslint . --max-warnings=0`（前置修复全量存量 1 个 warning：审计脚本 totalAdded 补累加与汇总输出）
+- claimPoolCustomer 事务块缩进修正（纯格式）
+- 验证：backend 全量 eslint 0 error 0 warning；customerService 相关 7 文件 61 用例全绿
+
+### 5. 覆盖率补充（闭环）
+- 新增 `tests/services/financeService.test.js`：aging 分桶 + 浮点陷阱断言（String(0.2)==='0.2'）+ profit 精确差额 + cashFlow 合并排序（3 用例）
+- contractService.test.js 补幂等键用例（1 用例）
+- 本回合累计新增测试用例 12 个
+
+## 过程中发现的事实
+- **David 全程并行推送**：46e5478（审计清单修正）在本回合期间到达，本地 main 快进无分叉；runbook 手稿已被 David 自行提交
+- 最终 HEAD = origin/main = 收尾提交后 SHA（见提交清单）
+
+## 剩余观察项（非阻塞）
+1. Excel 导出展示类 parseFloat 14 处（单步转换，无累计误差风险）
+2. addPayment 的审计日志在幂等命中时会重复记一条（金额记录不重复，属可接受痕迹）
+3. 前端未触碰（本回合全部为后端改动），前端 145 套件状态以 CI 为准

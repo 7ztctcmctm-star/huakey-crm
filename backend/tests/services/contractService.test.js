@@ -177,6 +177,24 @@ describe('contractService.createContract', () => {
     expect(planInsertCall[1]).toEqual([51, '2026-07-01', 5000, '首期', 51, '2026-12-01', 5000, '尾款']);
   });
 
+  it('幂等键重复提交应直接返回首次结果、不重复建合同（2026-10-15 补，AGENTS.md 7.18）', async () => {
+    const conn = createMockConnection();
+    mockPool.getConnection.mockResolvedValue(conn);
+    // 幂等键已存在（首次请求已成功并记录）
+    mockPool.query.mockResolvedValueOnce([[{ result_json: JSON.stringify({ id: 88, contract_no: 'CON-260101-001' }) }]]);
+
+    const result = await contractService.createContract(
+      mockPool,
+      { customer_id: 1, amount: 5000 },
+      1,
+      'idem-contract-001'
+    );
+
+    expect(result).toEqual({ id: 88, contract_no: 'CON-260101-001' });
+    expect(mockPool.getConnection).not.toHaveBeenCalled(); // 不进入建合同事务
+    expect(conn.query).not.toHaveBeenCalled();
+  });
+
   it('成功时应 commit 事务', async () => {
     const conn = createMockConnection();
     mockPool.getConnection.mockResolvedValue(conn);
