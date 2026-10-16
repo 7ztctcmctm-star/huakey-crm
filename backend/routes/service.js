@@ -69,8 +69,10 @@ const confirmSchema = Joi.object({
 // 获取工单列表
 router.post('/list', authenticateToken, checkPermission('service'), checkDataPermission('service', 'create_by'), validate(listSchema), async (req, res, next) => {
   try {
-    const permissionClause = await serviceOrderService.buildServicePermissionClause(pool, req.dataPermission);
-    const data = await serviceOrderService.listServiceOrders(pool, req.body, permissionClause);
+    // 数据权限统一走 utils/dataScope 标准实现（dept_and_sub 递归子部门、参数化），
+    // 返回 { clause, params }，由 listServiceOrders 回填到参数数组最前（占位符不错位）
+    const scope = await serviceOrderService.buildServiceScope(req.dataPermission, 'so');
+    const data = await serviceOrderService.listServiceOrders(pool, req.body, scope);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     logger.error('捕获到错误', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -156,7 +158,8 @@ router.post('/batch-assign', authenticateToken, checkPermission('service:edit'),
       return res.status(400).json({ code: 400, message: '单次批量分配不超过50条', data: null });
     }
 
-    const result = await serviceOrderService.batchAssignServiceOrders(pool, ids, assignee_id, req.user.userId);
+    // 逐条行级鉴权（与 /assign 一致）：传 req.user 而非仅 userId
+    const result = await serviceOrderService.batchAssignServiceOrders(pool, ids, assignee_id, req.user);
     res.json({ code: 200, message: `已批量分配 ${result.count} 个工单`, data: result });
   } catch (error) {
     logger.error('批量分配工单错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });

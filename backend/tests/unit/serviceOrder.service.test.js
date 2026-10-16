@@ -2,7 +2,7 @@
  * Service (服务工单) 模块单测 —— 覆盖 R-14 验收：
  *  - 工单 CRUD 可用 (create/list/detail/update/delete + filter)
  *  - 关联客户信息只读展示 (仅 SELECT crm_customer，绝不 UPDATE/DELETE)
- *  - 服务端数据权限 (buildServicePermissionClause + canManageService 基于 roleCode)
+ *  - 服务端数据权限 (buildServiceScope + canManageService 基于 roleCode)
  *
  * 全程 mock config/database，不依赖真实 MySQL。
  */
@@ -183,20 +183,29 @@ describe('Service 模块 R-14 验收', () => {
   });
 
   describe('服务端数据权限（serviceOrderService）', () => {
-    it('buildServicePermissionClause: type=all 放行', async () => {
-      const clause = await serviceOrderService.buildServicePermissionClause(mockPool, { type: 'all' });
-      expect(clause).toBe('1=1');
+    it('buildServiceScope: type=all 放行且不带参数', async () => {
+      const scope = await serviceOrderService.buildServiceScope({ type: 'all', userId: 7, module: 'service' }, 'so');
+      expect(scope.clause).toBe('1=1');
+      expect(scope.params).toEqual([]);
     });
 
-    it('buildServicePermissionClause: type=self 仅本人 create_by/assignee_id', async () => {
-      const clause = await serviceOrderService.buildServicePermissionClause(mockPool, { type: 'self', userId: 7 });
-      expect(clause).toContain('create_by = 7');
-      expect(clause).toContain('assignee_id = 7');
+    it('buildServiceScope: type=self 仅本人 create_by/assignee_id（参数化，不再拼字面量）', async () => {
+      const scope = await serviceOrderService.buildServiceScope({ type: 'self', userId: 7, module: 'service' }, 'so');
+      expect(scope.clause).toContain('so.create_by = ?');
+      expect(scope.clause).toContain('so.assignee_id = ?');
+      expect(scope.params).toEqual([7, 7]);
     });
 
-    it('buildServicePermissionClause: type=dept 本部门 IN 子句', async () => {
-      const clause = await serviceOrderService.buildServicePermissionClause(mockPool, { type: 'dept', userId: 7 });
-      expect(clause).toContain('IN');
+    it('buildServiceScope: type=dept 本部门 IN 子句且参数回填', async () => {
+      const scope = await serviceOrderService.buildServiceScope({ type: 'dept', userId: 7, module: 'service' }, 'so');
+      expect(scope.clause).toContain('IN (SELECT id FROM sys_user WHERE dept_id');
+      expect(scope.params).toEqual([7, 7]);
+    });
+
+    it('buildServiceScope: 无 dataPermission 时放行（中间件缺失不静默收窄为 0 行）', async () => {
+      const scope = await serviceOrderService.buildServiceScope(null, 'so');
+      expect(scope.clause).toBe('1=1');
+      expect(scope.params).toEqual([]);
     });
 
     it('canManageService: BOSS/MANAGER 角色直接放行', async () => {
