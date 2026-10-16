@@ -7,7 +7,7 @@
  * 测试范围:
  *   Case 1: Opportunity WON → 创建 Contract (验证 customer_id 一致性)
  *   Case 2: Quote → Contract (验证 quote_id 正确传递)
- *   Case 3: 权限隔离 — sales 不能修改/删除已终止合同
+ *   Case 3: 权限隔离 — sales 不能修改/删除终态合同
  *
  * 约束:
  *   - 不修改 Customer Center / Opportunity Center / 已冻结 API
@@ -247,8 +247,8 @@ describe('Contract Center v1 — 业务链集成测试', () => {
   describe('Case 3: 权限隔离 — sales 不能操作他人合同', () => {
     const salesToken = generateSalesToken(10);
 
-    it('3.1 sales 不能修改已终止的合同 (status=3)', async () => {
-      // 合同已终止 (status=3)，sales 尝试 update
+    it('3.1 sales 不能修改已完成(终态)的合同 (status=3)', async () => {
+      // 合同已完成 (status=3，终态)，sales 尝试 update
       mockPool.query
         .mockResolvedValueOnce([[]])
         .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0 }]])

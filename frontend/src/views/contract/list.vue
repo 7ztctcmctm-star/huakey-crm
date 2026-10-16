@@ -9,9 +9,9 @@
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="searchForm.status" placeholder="全部" clearable style="width:140px">
-            <!-- 合同状态以审计文档为准：1=执行中 2=已完结 3=已终止 4=已取消 -->
-            <el-option label="执行中" :value="1" /><el-option label="已完结" :value="2" />
-            <el-option label="已终止" :value="3" /><el-option label="已取消" :value="4" />
+            <!-- 合同状态以 docs/contract-status-definition.md 为准：1=待执行 2=执行中 3=已完成 4=已取消 -->
+            <el-option label="待执行" :value="1" /><el-option label="执行中" :value="2" />
+            <el-option label="已完成" :value="3" /><el-option label="已取消" :value="4" />
           </el-select>
         </el-form-item>
         <el-form-item label="审批">
@@ -120,7 +120,7 @@
         </el-form-item>
         <el-row :gutter="16">
           <el-col :span="12"><el-form-item label="合同金额" prop="amount"><el-input-number v-model="form.amount" :min="0" :precision="2" style="width:100%" controls-position="right" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="状态"><el-select v-model="form.status" style="width:100%"><!-- 合同状态以审计文档为准：1=执行中 2=已完结 3=已终止 4=已取消 --><el-option label="执行中" :value="1" /><el-option label="已完结" :value="2" /><el-option label="已终止" :value="3" /><el-option label="已取消" :value="4" /></el-select></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="状态"><el-select v-model="form.status" style="width:100%"><!-- 合同状态以 docs/contract-status-definition.md 为准：1=待执行 2=执行中 3=已完成 4=已取消 --><el-option label="待执行" :value="1" /><el-option label="执行中" :value="2" /><el-option label="已完成" :value="3" /><el-option label="已取消" :value="4" /></el-select></el-form-item></el-col>
         </el-row>
         <el-row :gutter="16">
           <el-col :span="12"><el-form-item label="签订日期"><el-date-picker v-model="form.sign_date" type="date" placeholder="选择日期" style="width:100%" value-format="YYYY-MM-DD" /></el-form-item></el-col>
@@ -221,9 +221,9 @@ const quickPayRules = {
 }
 
 const fmt = (v) => { const n = Number(v); if (isNaN(n)) return '0.00'; return n.toLocaleString('zh-CN', { minimumFractionDigits: 2 }) }
-// 合同状态以审计文档为准：1=执行中 2=已完结 3=已终止 4=已取消
-const statusType = (s) => ({ 1: '', 2: 'success', 3: 'danger', 4: 'info' }[s] || 'info')
-const statusText = (s) => ({ 1: '执行中', 2: '已完结', 3: '已终止', 4: '已取消' }[s] || '未知')
+// 合同状态以 docs/contract-status-definition.md 为准：1=待执行 2=执行中 3=已完成(终态) 4=已取消(终态)
+const statusType = (s) => ({ 1: 'info', 2: '', 3: 'success', 4: 'danger' }[s] || 'info')
+const statusText = (s) => ({ 1: '待执行', 2: '执行中', 3: '已完成', 4: '已取消' }[s] || '未知')
 // 审批状态
 const approvalMap = { 1: '待审批', 2: '已通过', 3: '已拒绝' }
 const approvalTagType = (s) => ({ 1: 'warning', 2: 'success', 3: 'danger' }[s] || 'info')

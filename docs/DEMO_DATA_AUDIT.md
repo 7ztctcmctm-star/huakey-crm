@@ -159,7 +159,7 @@ id=11 code=super_admin  (超级管理员)
 | amount | decimal(15,2) | 合同金额 |
 | sign_date / delivery_date | date | 签订/交付日 |
 | payment_terms | varchar(500) | 付款条款 |
-| status | tinyint | 1=执行中 ... |
+| status | tinyint | 1=待执行 2=执行中 3=已完成 4=已取消 |
 | approval_status | tinyint | 审批状态 |
 | create_by | int FK→sys_user | |
 | deleted_at | datetime | |

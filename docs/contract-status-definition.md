@@ -106,15 +106,19 @@
 **影响**：前端"提交审批"按钮（`v-if="approval_status === 0"`）对新建合同不可达。
 **修复建议**：执行 `ALTER TABLE crm_contract MODIFY approval_status TINYINT NOT NULL DEFAULT 0`（需业务方确认后执行）。
 
-### 7.3 历史文档待同步
+### 7.3 历史文档同步状态（2026-10-16 更新）
 
-以下文档仍引用旧版状态定义（`1=执行中 2=已完结 3=已终止 4=已取消`），以本文档为准：
-- `docs/crm-core-v1-freeze-audit.md` §2.4
-- `docs/contract-center-v1-freeze-report.md`
-- `docs/contract-center-audit-report.md`
-- `docs/DEMO_DATA_AUDIT.md`
+**已同步为权威定义（以本文档为准）**：
+- `docs/contract-center-v1-freeze-report.md`：已加顶部「状态定义已修订（2026-08-06）」横幅，指向本文档；正文旧值仅作 08-04 冻结时点历史记录保留。
+- `docs/DEMO_DATA_AUDIT.md` §2.9：`crm_contract.status` 说明已改为 `1=待执行 2=执行中 3=已完成 4=已取消`。
+- 前端 `views/contract/list.vue`、`views/contract/detail.vue`：`statusText` / `statusType` 已由旧审计文档口径统一为权威定义（原 `1=执行中 2=已完结 3=已终止 4=已取消`，与后端不一致；2026-10-16 修复）。
+- 后端实现（`services/contractService.js` STATUS_MAP、`services/contractExportService.js`、`routes/contract/crud.js` Swagger、`services/approvalService.js`、`services/contractCrudService.js`）本已为权威定义。
 
-**修复建议**：在下一次文档批量更新时同步，非 RC 阻塞项（历史冻结文档保留审计价值）。
+**保留为历史审计件（`docs/archive/`，保留审计价值，不再改写）**：
+- `docs/archive/crm-core-v1-freeze-audit.md` §2.4
+- `docs/archive/contract-center-audit-report.md`
+- `docs/archive/crm-core-v1-ui-review.md`（UI-CT-01）
+- `docs/archive/crm-ui-visual-optimization-spec.md`
 
 ---
 

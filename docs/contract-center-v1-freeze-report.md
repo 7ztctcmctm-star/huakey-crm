@@ -2,9 +2,11 @@
 
 > **文档类型**: 冻结声明
 > **冻结日期**: 2026-08-04
-> **基线**: [contract-center-audit-report.md](contract-center-audit-report.md) + 本报告
+> **基线**: [contract-center-audit-report.md](archive/contract-center-audit-report.md) + 本报告
 > **关联冻结**: [customer-center-freeze-v1.md](customer-center-freeze-v1.md), [opportunity-center-v1-mvp-scope.md](opportunity-center-v1-mvp-scope.md)
 > **状态**: ✅ Freeze Ready
+>
+> ⚠️ **状态定义已修订（2026-08-06）**：本文件 §2.1 / §2.3 / §3.1 / §6.1 中的合同 `status` 定义（旧：`1=执行中 2=已完结 3=已终止 4=已取消`）**已被取代**。合同状态权威定义以 [contract-status-definition.md](contract-status-definition.md) 为准：**`1=待执行 2=执行中 3=已完成(终态) 4=已取消(终态)`**。下文相应旧值仅作 2026-08-04 冻结时点的历史记录保留。
 
 ---
 
@@ -224,8 +226,8 @@ Tests:       112 passed, 112 total
 
 | 文档 | 路径 |
 |------|------|
-| Contract 架构审计 | [contract-center-audit-report.md](contract-center-audit-report.md) |
+| Contract 架构审计 | [contract-center-audit-report.md](archive/contract-center-audit-report.md) |
 | Customer 冻结声明 | [customer-center-freeze-v1.md](customer-center-freeze-v1.md) |
 | Opportunity MVP 基线 | [opportunity-center-v1-mvp-scope.md](opportunity-center-v1-mvp-scope.md) |
-| Opportunity 集成报告 | [opportunity-center-v1-integration-report.md](opportunity-center-v1-integration-report.md) |
+| Opportunity 集成报告 | [opportunity-center-v1-integration-report.md](archive/opportunity-center-v1-integration-report.md) |
 | 系统架构 | [architecture.md](architecture.md) |

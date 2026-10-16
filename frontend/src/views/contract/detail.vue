@@ -168,9 +168,9 @@ const fmt = (v) => {
   if (isNaN(n)) return '0.00'
   return n.toLocaleString('zh-CN', { minimumFractionDigits: 2 })
 }
-// 合同状态以审计文档为准：1=执行中 2=已完结 3=已终止 4=已取消
-const statusType = (s) => ({ 1: '', 2: 'success', 3: 'danger', 4: 'info' }[s] || 'info')
-const statusText = (s) => ({ 1: '执行中', 2: '已完结', 3: '已终止', 4: '已取消' }[s] || '未知')
+// 合同状态以 docs/contract-status-definition.md 为准：1=待执行 2=执行中 3=已完成(终态) 4=已取消(终态)
+const statusType = (s) => ({ 1: 'info', 2: '', 3: 'success', 4: 'danger' }[s] || 'info')
+const statusText = (s) => ({ 1: '待执行', 2: '执行中', 3: '已完成', 4: '已取消' }[s] || '未知')
 const planStatusType = (s) => ({ pending: 'info', partial: 'warning', completed: 'success', overdue: 'danger' }[s] || 'info')
 const planStatusText = (s) => ({ pending: '待回款', partial: '部分回款', completed: '已完成', overdue: '已逾期' }[s] || '未知')
 
