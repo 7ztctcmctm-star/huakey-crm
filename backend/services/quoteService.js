@@ -4,12 +4,46 @@
  */
 
 const logger = require('../config/logger');
-const opportunityService = require('../services/opportunityService');
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
 const notificationService = require('./notificationService');
 // 【P1-1】金额一律走 money 工具，禁止原生浮点运算（详见 utils/money.js 的缺陷说明）
 const money = require('../utils/money');
+
+/**
+ * 【循环依赖护城河】惰性取得 opportunityService —— 勿改回顶层 require
+ *
+ * opportunityService.js 顶层 require 了本模块（其 createOpportunity 需调用 quoteService.createQuote），
+ * 因此本模块**绝不可**再顶层 require opportunityService：
+ * 按 app.js 的加载顺序（routes/opportunity → routes/quote），本模块会被率先完整初始化，
+ * 并永久捕获到 opportunityService 尚未执行到 module.exports 赋值时的「半成品」exports（空对象 {}），
+ * 使 opportunityService.advanceStage 恒为 undefined —— 报价审批通过 / 转合同后的商机阶段推进
+ * 会抛 TypeError 并被下层 try/catch 静默吞掉，**该功能历史上从未真正生效**（2026-10-16 定位）。
+ *
+ * 改为调用时 require：此刻 Node 模块缓存中已是最终的 exports 对象。
+ * ⚠️ 同样不要把 require 结果存进模块级常量，否则等价退化成顶层 require。
+ */
+const getOpportunityService = () => require('./opportunityService');
+
+/**
+ * 【单向推进】仅当目标阶段 > 商机当前阶段时才调用 advanceStage。
+ *
+ * 补偿 opportunityService.advanceStage 不做前向单调校验的问题（它只拒绝 5 成交 / 6 失败终态）：
+ * 若商机已在 stage 4（谈判），此时审批通过一张历史报价单，直接推进会把商机**倒退**到
+ * stage 3（方案报价）。此处前置读一次 stage，不满足则跳过。
+ * 注：商机模块已冻结，不能改 opportunityService，故保护放在调用侧。
+ * @returns {Promise<boolean>} 是否真的推进了
+ */
+async function advanceStageForward(pool, opportunityId, targetStage, userId, changeReason) {
+  const [rows] = await pool.query(
+    'SELECT stage FROM crm_opportunity WHERE id = ? AND deleted_at IS NULL',
+    [opportunityId]
+  );
+  if (rows.length === 0) return false;
+  if (Number(rows[0].stage) >= targetStage) return false;
+  await getOpportunityService().advanceStage(pool, opportunityId, targetStage, userId, { changeReason });
+  return true;
+}
 
 async function generateQuoteNo(connection) {
   const now = new Date();
@@ -361,7 +395,7 @@ async function approveQuote(pool, id, approvalStatus, approvalRemark, userId) {
     try {
       const [quoteRows] = await pool.query('SELECT opportunity_id FROM crm_quote WHERE id = ? AND deleted_at IS NULL', [id]);
       if (quoteRows.length > 0 && quoteRows[0].opportunity_id) {
-        await opportunityService.advanceStage(pool, quoteRows[0].opportunity_id, 3, userId);
+        await advanceStageForward(pool, quoteRows[0].opportunity_id, 3, userId, '报价审批通过，商机推进到方案报价');
       }
     } catch (e) {
       logger.error('[报价审批] 推进商机阶段失败（不影响主流程）', {
@@ -443,7 +477,7 @@ async function convertToContract(pool, quoteId, userId) {
     // 4-3-5: 报价转合同后推进商机到 stage 5（成交）（不阻塞主流程）
     if (quote.opportunity_id) {
       try {
-        await opportunityService.advanceStage(pool, quote.opportunity_id, 5, userId);
+        await advanceStageForward(pool, quote.opportunity_id, 5, userId, '报价转合同，商机推进到成交');
       } catch (e) {
         logger.error('[报价转合同] 推进商机阶段失败（不影响主流程）', {
           opportunity_id: quote.opportunity_id,

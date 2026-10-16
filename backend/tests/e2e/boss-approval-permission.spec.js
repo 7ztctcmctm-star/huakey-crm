@@ -9,6 +9,7 @@
  *   - sales (manageAll=false) 不能审批合同 ❌
  *   - sales (manageAll=false) 不能审批报价 ❌（无 quotation:approve → 403）
  *   - 被拒/驳回路径不得推进商机 stage（advanceStage 不被调用）
+ *   - 审批通过 → 商机推进到 stage 3；但商机已在更后阶段时**不倒退**（A1.5 修循环依赖后回归锁定）
  *
  * 约束: 不修改冻结模块, mock pool 模式
  * 基线: 权限审计修复后 — 前端/后端均使用 manageAll，不再依赖固定数字 roleId
@@ -235,22 +236,24 @@ describe('Boss / Manager / Sales 审批权限验证', () => {
   // ==========================================================================
   describe('manager 可以审批报价', () => {
     // 按 SQL 分派，避免 mockResolvedValueOnce 顺序漂移（approveQuote 内部调用链较长）
-    const installManagerPool = (quoteRow) => {
+    // opportunityStage: 商机当前阶段，用于验证「只前进不倒退」
+    const installManagerPool = (quoteRow, opportunityStage = 2) => {
       mockPool.query.mockImplementation(async (sql) => {
         const s = String(sql);
         if (s.includes('sys_token_blacklist')) return [[]];
         if (s.includes('FROM sys_role')) return [[{ view_all: 0, manage_all: 0, role_code: 'manager' }]];
         if (s.includes('FROM sys_user')) return [[{ must_change_password: 0 }]];
         if (s.includes('opportunity_id FROM crm_quote')) return [quoteRow];
+        if (s.includes('FROM crm_opportunity')) return [[{ stage: opportunityStage }]];
         if (s.includes('FROM crm_quote')) return [[{ id: 300, approval_status: 1, status: 1 }]];
         return [{ affectedRows: 1 }];
       });
     };
 
-    it('manager (manageAll=false) 审批通过返回 200', async () => {
+    it('manager (manageAll=false) 审批通过返回 200 并推进商机', async () => {
       const token = makeToken({ userId: 2, roleId: 2, roleCode: 'manager', manageAll: false });
 
-      installManagerPool([{ opportunity_id: 77 }]);
+      installManagerPool([{ opportunity_id: 77 }], 2);
       mockGetUserPermissions.mockResolvedValue(['quotation:approve']);
 
       const res = await request(app)
@@ -260,12 +263,30 @@ describe('Boss / Manager / Sales 审批权限验证', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.message).toBe('审批通过');
-      // 说明：本用例**不**断言 advanceStage 被调用。2026-10-16 排查发现
-      //   quoteService ⇄ opportunityService 存在循环依赖（opportunityService.js:8 反向 require
-      //   quoteService），按 app.js 的加载顺序（routes/opportunity:190 → routes/quote:192）
-      //   quoteService 捕获到 opportunityService 的**过期 exports（空对象）**，
-      //   导致 advanceStage 实为 undefined、调用抛 TypeError 并被内层 try/catch 静默吞掉。
-      //   该缺陷独立于本次「报价审批权限门」修复，另行跟踪，不在此处固化错误行为。
+      // 正控：审批通过 → 商机推进到 stage 3（方案报价）
+      // 依赖 A1.5 修好的 quoteService ⇄ opportunityService 循环依赖；修好前此处 advanceStage
+      // 因拿到过期的空 exports 而是 undefined，调用抛 TypeError 并被内层 try/catch 静默吞掉
+      expect(advanceStageSpy).toHaveBeenCalledTimes(1);
+      expect(advanceStageSpy).toHaveBeenCalledWith(
+        mockPool, 77, 3, 2, expect.objectContaining({ changeReason: expect.stringContaining('报价审批通过') })
+      );
+    });
+
+    it('审批通过但商机已在更后阶段时不倒退（stage 4 谈判 → 不回退到 3）', async () => {
+      const token = makeToken({ userId: 2, roleId: 2, roleCode: 'manager', manageAll: false });
+
+      installManagerPool([{ opportunity_id: 77 }], 4);   // 商机已在「谈判」
+      mockGetUserPermissions.mockResolvedValue(['quotation:approve']);
+
+      const res = await request(app)
+        .post('/api/v1/quote/approve')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ id: 300, approval_status: 2 });
+
+      expect(res.status).toBe(200);
+      expect(res.body.message).toBe('审批通过');
+      // 调用侧单向推进保护：当前 stage(4) >= 目标 stage(3) → 不调用 advanceStage
+      expect(advanceStageSpy).not.toHaveBeenCalled();
     });
 
     it('manager 驳回报价 (approval_status=3) 返回 200 且不推进商机', async () => {
