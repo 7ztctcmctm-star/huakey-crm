@@ -3,8 +3,8 @@
 > **报告类型**: 集成验证最终报告
 > **报告日期**: 2026-08-04
 > **执行人**: HuakeyCRM 架构评审委员会
-> **基线**: [opportunity-center-v1-mvp-scope.md](opportunity-center-v1-mvp-scope.md) §1-§7
-> **关联**: [customer-center-freeze-v1.md](customer-center-freeze-v1.md) §领域边界
+> **基线**: [opportunity-center-v1-mvp-scope.md](../opportunity-center-v1-mvp-scope.md) §1-§7
+> **关联**: [customer-center-freeze-v1.md](../customer-center-freeze-v1.md) §领域边界
 
 ---
 
@@ -271,8 +271,8 @@ npm run test:integration
 
 | 文档 | 路径 |
 |------|------|
-| MVP 开发基线 | [opportunity-center-v1-mvp-scope.md](opportunity-center-v1-mvp-scope.md) |
-| Customer 冻结声明 | [customer-center-freeze-v1.md](customer-center-freeze-v1.md) |
+| MVP 开发基线 | [opportunity-center-v1-mvp-scope.md](../opportunity-center-v1-mvp-scope.md) |
+| Customer 冻结声明 | [customer-center-freeze-v1.md](../customer-center-freeze-v1.md) |
 | 集成验证计划 | [opportunity-center-integration-verification.md](opportunity-center-integration-verification.md) |
-| 系统架构 | [architecture.md](architecture.md) |
-| 原始设计参考 | [opportunity-domain-design.md](opportunity-domain-design.md) |
+| 系统架构 | [architecture.md](../architecture.md) |
+| 原始设计参考 | [opportunity-domain-design.md](../opportunity-domain-design.md) |

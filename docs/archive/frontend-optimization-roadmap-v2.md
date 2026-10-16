@@ -6,7 +6,7 @@
 > 目标：从「能用」到「好用 + 好看 + 快」
 >
 > 📦 **已完成条目已移出本文档**，归档于
-> [`docs/frontend-optimization-completed-archive.md`](frontend-optimization-completed-archive.md)
+> [`docs/frontend-optimization-completed-archive.md`]
 > （含 P0-1~P0-4、P1-4 防抖、P2-1 核查结论、P2-4 构建优化的原文与实测数据）。
 > 本文档**只保留未完成待办**，按优先级排列。
 

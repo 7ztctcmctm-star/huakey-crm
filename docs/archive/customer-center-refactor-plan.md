@@ -1,7 +1,7 @@
 # 客户中心重构实施计划
 
 > 制定日期：2026-08-04
-> 依据文档：[docs/customer-domain-audit.md](file:///c:/huakey-crm/docs/customer-domain-audit.md)
+> 依据文档：[docs/customer-domain-audit.md](./customer-domain-audit.md)
 > 当前分支：`refactor/customer-module-template`
 > 最新迁移编号：096（下一编号从 097 起）
 > 核心策略：**单表 `crm_customer` + 统一 `status` 生命周期模型**，渐进式 5 期改造，禁止一次性大范围重构
@@ -20,7 +20,7 @@
 |------|--------|----------|--------------|
 | 第 1 期 | P0 BUG 修复 + 097 迁移 | ✅ 完成 | 097 迁移实际范围**超出原方案**：原方案仅修复 `pool_status` 等价关系，实际 097 同时将 `status` 重命名为 `business_status`，并将 `pool_status` 从 TINYINT(0/1) 改为 VARCHAR('private'/'sea')。原 P0-2「releaseCustomer 不更新 status」因此**自动消解**——`sea` 已移出 `business_status`，由 `pool_status` 单独表达 |
 | 第 2 期 | 架构统一（claim/release/assign 收敛 + 删死代码） | ✅ 完成 | `leadsService.js` 因仍被 `customerController` 调用 7 个方法，未整文件删除，仅标记为已知技术债 #1 |
-| 第 3 期 | 状态字段统一（废弃 customer_type/lifecycle_status） | ✅ 完成 | 实际采用**双字段模型**（`business_status` + `pool_status`）而非原方案 §3.1 的单 `status` 字段模型，详见 [docs/customer-domain-audit.md](file:///c:/huakey-crm/docs/customer-domain-audit.md) Delta Audit §3 |
+| 第 3 期 | 状态字段统一（废弃 customer_type/lifecycle_status） | ✅ 完成 | 实际采用**双字段模型**（`business_status` + `pool_status`）而非原方案 §3.1 的单 `status` 字段模型，详见 [docs/customer-domain-audit.md](./customer-domain-audit.md) Delta Audit §3 |
 | 第 4 期 | 前端独立化（拆分 List.vue 为 leads/customer/pool） | ✅ 完成 | 路由 `/customer/list?tab=xxx` 已被 `/leads`、`/customers`、`/pool` 三条独立路由替代 |
 | 第 5 期 | API 独立化（新增 /api/v1/leads、/pool、/customers） | ✅ 完成 | 旧 `/api/v1/customer/*` 端点保留为兼容层，内部转发到新 controller；权限码经 098/100/101 三次迁移完成统一 |
 
@@ -47,7 +47,7 @@
 
 ### 4. 已知技术债（冻结时记录，不阻塞）
 
-详见 [docs/customer-center-freeze-v1.md](file:///c:/huakey-crm/docs/customer-center-freeze-v1.md) §「已知技术债」共 8 项，其中与原计划相关的：
+详见 [docs/customer-center-freeze-v1.md](../customer-center-freeze-v1.md) §「已知技术债」共 8 项，其中与原计划相关的：
 - `leadsService.js` @deprecated 标注矛盾（原计划第 2 期未完成项）
 - `/customer/*` 兼容层端点保留（原计划 §6.2 兼容层设计的执行结果）
 - `customer:list` 旧菜单码保留（原计划 §5.5 兼容策略的执行结果）

@@ -433,4 +433,4 @@ Login Readiness: PARTIAL
 |------|------|
 | [crm-v1-final-production-acceptance-report.md](./crm-v1-final-production-acceptance-report.md) | 最终生产验收报告 |
 | [crm-v1-business-readiness-audit.md](./crm-v1-business-readiness-audit.md) | 业务就绪审计 |
-| [crm-v1-backup-coverage-report.md](./crm-v1-backup-coverage-report.md) | 灾备覆盖报告 |
+| [crm-v1-backup-coverage-report.md] | 灾备覆盖报告 |

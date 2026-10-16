@@ -4,7 +4,7 @@
 > **系统版本**: HuakeyCRM Core v1（冻结基线 2026-08-04）
 > **测试日期**: 2026-08-06
 > **测试执行**: 产品负责人 + QA 负责人
-> **冻结基线**: [crm-v1-freeze-decision.md](crm-v1-freeze-decision.md)
+> **冻结基线**: [crm-v1-freeze-decision.md](../crm-v1-freeze-decision.md)
 
 ---
 

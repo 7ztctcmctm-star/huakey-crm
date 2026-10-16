@@ -319,8 +319,8 @@ bash /volume1/docker/crm-stack/deploy/backup/restore-test.sh
 
 | 文档 | 说明 |
 |------|------|
-| [crm-v1-file-backup-plan.md](./crm-v1-file-backup-plan.md) | 文件备份设计方案 |
-| [crm-v1-config-backup-security.md](./crm-v1-config-backup-security.md) | 配置文件备份安全策略 |
+| [crm-v1-file-backup-plan.md](../crm-v1-file-backup-plan.md) | 文件备份设计方案 |
+| [crm-v1-config-backup-security.md](../crm-v1-config-backup-security.md) | 配置文件备份安全策略 |
 | [crm-v1-backup-disaster-recovery-plan.md](./crm-v1-backup-disaster-recovery-plan.md) | 备份与灾备完整方案 |
 | [crm-v1-backup-verification-report.md](./crm-v1-backup-verification-report.md) | 备份验证报告 |
-| [crm-v1-backup-coverage-report.md](./crm-v1-backup-coverage-report.md) | 备份覆盖报告 |
+| [crm-v1-backup-coverage-report.md] | 备份覆盖报告 |

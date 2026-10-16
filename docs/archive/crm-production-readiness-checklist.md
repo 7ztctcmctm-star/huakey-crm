@@ -3,7 +3,7 @@
 > **文档类型**: 生产就绪检查清单
 > **适用版本**: Core v1（冻结基线）
 > **编制日期**: 2026-08-06
-> **基线参考**: [DEPLOYMENT_BLOCKERS.md](../DEPLOYMENT_BLOCKERS.md)（2026-07-23，P0/P1 已全部闭环）
+> **基线参考**: [DEPLOYMENT_BLOCKERS.md](../../DEPLOYMENT_BLOCKERS.md)（2026-07-23，P0/P1 已全部闭环）
 
 ---
 

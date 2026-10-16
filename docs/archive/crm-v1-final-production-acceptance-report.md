@@ -429,11 +429,11 @@ Acceptance Rate: 100% (84/84)
 
 | 文档 | 说明 |
 |------|------|
-| [crm-v1-go-live-approval.md](./crm-v1-go-live-approval.md) | 上线审批报告 |
-| [crm-v1-go-live-runbook.md](./crm-v1-go-live-runbook.md) | 上线运维手册 |
-| [crm-v1-production-checklist.md](./crm-v1-production-checklist.md) | 生产检查清单 |
+| [crm-v1-go-live-approval.md] | 上线审批报告 |
+| [crm-v1-go-live-runbook.md] | 上线运维手册 |
+| [crm-v1-production-checklist.md] | 生产检查清单 |
 | [crm-v1-internal-domain-deployment.md](./crm-v1-internal-domain-deployment.md) | 内网域名部署 |
-| [crm-v1-backup-coverage-report.md](./crm-v1-backup-coverage-report.md) | 灾备覆盖报告 |
-| [crm-v1-config-backup-audit.md](./crm-v1-config-backup-audit.md) | 配置备份审计 |
-| [crm-v1-config-restore.md](./crm-v1-config-restore.md) | 配置恢复流程 |
+| [crm-v1-backup-coverage-report.md] | 灾备覆盖报告 |
+| [crm-v1-config-backup-audit.md](../crm-v1-config-backup-audit.md) | 配置备份审计 |
+| [crm-v1-config-restore.md](../crm-v1-config-restore.md) | 配置恢复流程 |
 | [crm-v1-synology-backup-cron.md](./crm-v1-synology-backup-cron.md) | 群晖定时任务 |

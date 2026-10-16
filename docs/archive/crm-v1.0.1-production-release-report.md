@@ -377,11 +377,11 @@ curl http://192.168.0.200:6789/api/v1/health
 
 | 文档 | 路径 |
 |------|------|
-| 安全维护计划 | [crm-v1.0.1-security-maintenance-plan.md](file:///c:/huakey-crm/docs/crm-v1.0.1-security-maintenance-plan.md) |
-| 发布前检查清单 | [crm-v1.0.1-release-checklist.md](file:///c:/huakey-crm/docs/crm-v1.0.1-release-checklist.md) |
-| 业务就绪审计 | [crm-v1-business-readiness-audit.md](file:///c:/huakey-crm/docs/crm-v1-business-readiness-audit.md) |
-| 备份灾备方案 | [crm-v1-backup-disaster-recovery-plan.md](file:///c:/huakey-crm/docs/crm-v1-backup-disaster-recovery-plan.md) |
-| 运维 Runbook | [crm-v1-operation-runbook.md](file:///c:/huakey-crm/docs/crm-v1-operation-runbook.md) |
+| 安全维护计划 | [crm-v1.0.1-security-maintenance-plan.md](../crm-v1.0.1-security-maintenance-plan.md) |
+| 发布前检查清单 | [crm-v1.0.1-release-checklist.md](./crm-v1.0.1-release-checklist.md) |
+| 业务就绪审计 | [crm-v1-business-readiness-audit.md](./crm-v1-business-readiness-audit.md) |
+| 备份灾备方案 | [crm-v1-backup-disaster-recovery-plan.md](./crm-v1-backup-disaster-recovery-plan.md) |
+| 运维 Runbook | [crm-v1-operation-runbook.md](../crm-v1-operation-runbook.md) |
 
 ## 附录 B: Commit Diff 摘要
 

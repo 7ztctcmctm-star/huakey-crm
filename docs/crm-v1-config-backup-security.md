@@ -183,5 +183,5 @@ cp /volume1/docker/crm-stack/docker-compose.synology.yml /volume1/docker/crm-sta
 | 文档 | 说明 |
 |------|------|
 | [crm-v1-file-backup-plan.md](./crm-v1-file-backup-plan.md) | 文件备份设计方案 |
-| [crm-v1-synology-backup-cron.md](./crm-v1-synology-backup-cron.md) | 群晖定时任务配置 |
-| [crm-v1-backup-coverage-report.md](./crm-v1-backup-coverage-report.md) | 备份覆盖报告 |
+| [crm-v1-synology-backup-cron.md](archive/crm-v1-synology-backup-cron.md) | 群晖定时任务配置 |
+| [crm-v1-backup-coverage-report.md] | 备份覆盖报告 |

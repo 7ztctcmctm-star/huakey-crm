@@ -5,7 +5,7 @@
 > **编制日期**: 2026-08-06
 > **编制人**: Production Operations Engineer
 > **状态**: 待审批执行
-> **基于**: [crm-v1-user-login-readiness-audit.md](./crm-v1-user-login-readiness-audit.md)
+> **基于**: [crm-v1-user-login-readiness-audit.md](archive/crm-v1-user-login-readiness-audit.md)
 
 ---
 
@@ -13,7 +13,7 @@
 
 ### 0.1 背景
 
-基于 [用户登录就绪审计](./crm-v1-user-login-readiness-audit.md) 发现的 3 项安全问题，制定 v1.0.1 安全补丁计划。
+基于 [用户登录就绪审计](archive/crm-v1-user-login-readiness-audit.md) 发现的 3 项安全问题，制定 v1.0.1 安全补丁计划。
 
 ### 0.2 当前状态
 
@@ -382,7 +382,7 @@ curl -sk https://crm.huakey.local/api/v1/health
 
 | 文档 | 说明 |
 |------|------|
-| [crm-v1-user-login-readiness-audit.md](./crm-v1-user-login-readiness-audit.md) | 用户登录审计（本计划依据） |
-| [crm-v1-user-security-patch-plan.md](./crm-v1-user-security-patch-plan.md) | 用户安全补丁方案（详细版） |
+| [crm-v1-user-login-readiness-audit.md](archive/crm-v1-user-login-readiness-audit.md) | 用户登录审计（本计划依据） |
+| [crm-v1-user-security-patch-plan.md](archive/crm-v1-user-security-patch-plan.md) | 用户安全补丁方案（详细版） |
 | [crm-v1-user-management-and-security-policy.md](./crm-v1-user-management-and-security-policy.md) | 用户管理与安全策略 |
 | [crm-v1-operation-runbook.md](./crm-v1-operation-runbook.md) | 生产运维手册 |

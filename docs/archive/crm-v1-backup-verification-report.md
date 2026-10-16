@@ -282,5 +282,5 @@
 |------|------|
 | [crm-v1-backup-disaster-recovery-plan.md](./crm-v1-backup-disaster-recovery-plan.md) | 备份与灾备完整方案 |
 | [crm-v1-synology-backup-cron.md](./crm-v1-synology-backup-cron.md) | 群晖 DSM 定时任务配置指南 |
-| [crm-v1-go-live-runbook.md](./crm-v1-go-live-runbook.md) | 上线运维手册 |
-| [crm-v1-production-checklist.md](./crm-v1-production-checklist.md) | 生产检查清单 |
+| [crm-v1-go-live-runbook.md] | 上线运维手册 |
+| [crm-v1-production-checklist.md] | 生产检查清单 |

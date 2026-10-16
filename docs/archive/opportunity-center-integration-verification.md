@@ -2,8 +2,8 @@
 
 > **文档类型**: 集成验证计划
 > **创建日期**: 2026-08-04
-> **基线**: [opportunity-center-v1-mvp-scope.md](opportunity-center-v1-mvp-scope.md) §1-§7
-> **关联约束**: [customer-center-freeze-v1.md](customer-center-freeze-v1.md) §领域边界
+> **基线**: [opportunity-center-v1-mvp-scope.md](../opportunity-center-v1-mvp-scope.md) §1-§7
+> **关联约束**: [customer-center-freeze-v1.md](../customer-center-freeze-v1.md) §领域边界
 > **状态**: 执行中
 
 ---
@@ -213,7 +213,7 @@ sys_user (id)
 
 ## 附录 A: 引用文档
 
-- [opportunity-center-v1-mvp-scope.md](opportunity-center-v1-mvp-scope.md) — MVP 开发基线
-- [customer-center-freeze-v1.md](customer-center-freeze-v1.md) — Customer Center 冻结声明 + 领域边界约束
-- [architecture.md](architecture.md) — 系统架构概览
-- [opportunity-domain-design.md](opportunity-domain-design.md) — 原设计文档（参考）
+- [opportunity-center-v1-mvp-scope.md](../opportunity-center-v1-mvp-scope.md) — MVP 开发基线
+- [customer-center-freeze-v1.md](../customer-center-freeze-v1.md) — Customer Center 冻结声明 + 领域边界约束
+- [architecture.md](../architecture.md) — 系统架构概览
+- [opportunity-domain-design.md](../opportunity-domain-design.md) — 原设计文档（参考）

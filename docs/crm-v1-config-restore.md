@@ -234,5 +234,5 @@ echo "=== 恢复完成，请验证服务状态 ==="
 | 文档 | 说明 |
 |------|------|
 | [crm-v1-config-backup-audit.md](./crm-v1-config-backup-audit.md) | 配置备份审计 |
-| [crm-v1-backup-coverage-report.md](./crm-v1-backup-coverage-report.md) | 灾备覆盖报告 |
-| [crm-v1-synology-backup-cron.md](./crm-v1-synology-backup-cron.md) | 群晖定时任务 |
+| [crm-v1-backup-coverage-report.md] | 灾备覆盖报告 |
+| [crm-v1-synology-backup-cron.md](archive/crm-v1-synology-backup-cron.md) | 群晖定时任务 |

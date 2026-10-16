@@ -64,7 +64,7 @@
 
 ### 5. 权限
 - 统一命名规范：全项目 CRUD 使用 `add/edit/delete`，领域动词（claim/convert/release/approve）用于专用操作
-- 权限码清单：见 [docs/customer-permission-standard.md](file:///c:/huakey-crm/docs/customer-permission-standard.md)
+- 权限码清单：见 [docs/customer-permission-standard.md](customer-permission-standard.md)
 - 三模块权限码完全独立，无交叉污染
 - 旧码 `customer:pool` 已删除（迁移 100）
 - 旧码 `backup:create` / `leads:create` / `user:create` 已统一（迁移 101）
@@ -158,7 +158,7 @@
 
 ## 权限清单
 
-完整权限树见 [docs/customer-permission-standard.md](file:///c:/huakey-crm/docs/customer-permission-standard.md)。
+完整权限树见 [docs/customer-permission-standard.md](customer-permission-standard.md)。
 
 ### 客户中心权限码汇总
 

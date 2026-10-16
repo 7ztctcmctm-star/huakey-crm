@@ -4,7 +4,7 @@
 > **审计日期**: 2026-08-04
 > **扫描范围**: 全项目 65+ Service 文件 + cron 脚本
 > **规则**: 非 Customer Center 模块禁止 UPDATE/DELETE/INSERT crm_customer
-> **依据**: [customer-center-freeze-v1.md](customer-center-freeze-v1.md) §领域边界
+> **依据**: [customer-center-freeze-v1.md](../customer-center-freeze-v1.md) §领域边界
 
 ---
 

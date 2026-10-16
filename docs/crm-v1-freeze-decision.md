@@ -151,12 +151,12 @@ CRM Core v1 (Customer → Opportunity → Quote → Contract) 业务闭环已达
 
 | 文档 | 说明 |
 |------|------|
-| [crm-core-v1-freeze-audit.md](crm-core-v1-freeze-audit.md) | 全链路冻结审计（本报告） |
-| [cross-module-write-audit.md](cross-module-write-audit.md) | 跨模块写入审计 |
-| [database-schema-audit.md](database-schema-audit.md) | 数据库完整性检查 |
+| [crm-core-v1-freeze-audit.md](archive/crm-core-v1-freeze-audit.md) | 全链路冻结审计（本报告） |
+| [cross-module-write-audit.md](archive/cross-module-write-audit.md) | 跨模块写入审计 |
+| [database-schema-audit.md](archive/database-schema-audit.md) | 数据库完整性检查 |
 | [customer-center-freeze-v1.md](customer-center-freeze-v1.md) | Customer Center 冻结声明 |
 | [opportunity-center-v1-mvp-scope.md](opportunity-center-v1-mvp-scope.md) | Opportunity Center MVP 基线 |
-| [opportunity-center-v1-integration-report.md](opportunity-center-v1-integration-report.md) | Opportunity 集成报告 |
-| [contract-center-audit-report.md](contract-center-audit-report.md) | Contract 架构审计 |
+| [opportunity-center-v1-integration-report.md](archive/opportunity-center-v1-integration-report.md) | Opportunity 集成报告 |
+| [contract-center-audit-report.md](archive/contract-center-audit-report.md) | Contract 架构审计 |
 | [contract-center-v1-freeze-report.md](contract-center-v1-freeze-report.md) | Contract 冻结声明 |
 | [architecture.md](architecture.md) | 系统架构 |

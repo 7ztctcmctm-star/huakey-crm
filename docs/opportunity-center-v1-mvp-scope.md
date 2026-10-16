@@ -2,8 +2,8 @@
 
 > 制定日期：2026-08-04
 > 评审身份：HuakeyCRM 架构评审委员会（Architecture Review Board）
-> 评审对象：[docs/opportunity-domain-design.md](file:///c:/huakey-crm/docs/opportunity-domain-design.md)（Design Draft）
-> 基线约束：[Customer Center v1.0 冻结声明](file:///c:/huakey-crm/docs/customer-center-freeze-v1.md)
+> 评审对象：[docs/opportunity-domain-design.md](opportunity-domain-design.md)（Design Draft）
+> 基线约束：[Customer Center v1.0 冻结声明](customer-center-freeze-v1.md)
 > 状态：**已评审通过，作为唯一开发基线**
 > 原则：与 Customer Center Freeze 一致 ｜ 不做全局重构 ｜ 不修改无关模块 ｜ 最小可交付（MVP）
 
@@ -197,7 +197,7 @@ Opportunity Center v1 完成后，参照 Customer Center 模式冻结。后续�
 
 | 文档 | 状态 |
 |------|------|
-| [docs/opportunity-domain-design.md](file:///c:/huakey-crm/docs/opportunity-domain-design.md) | 保留作为完整设计参考（Design Draft），但在文件头标注"已被 MVP Scope 取代为开发基线" |
+| [docs/opportunity-domain-design.md](opportunity-domain-design.md) | 保留作为完整设计参考（Design Draft），但在文件头标注"已被 MVP Scope 取代为开发基线" |
 | 本文档（opportunity-center-v1-mvp-scope.md） | **唯一开发基线** |
 
 > 后续开发严格以本文档为准。原设计文档中的 Should Have / Could Have 项作为 v1.1 / v2.0 的需求池，不进入 v1 开发。
@@ -289,7 +289,7 @@ Opportunity Center v1 完成后，参照 Customer Center 模式冻结。后续�
 2. **权限码**：`opportunity:view` 的 code / name / parent 关系
 3. **API 契约**：`/api/v1/opportunity/{detail,stage-log,stage-stats,timeline}/:id` 的请求/响应格式
 4. **阶段模型**：`stage` 1-6 的语义与 `STAGE_MAP` 映射
-5. **领域边界约束**：非客户中心模块禁止写 `crm_customer`（架构级约束，详见 [customer-center-freeze-v1.md §领域边界](file:///c:/huakey-crm/docs/customer-center-freeze-v1.md)）
+5. **领域边界约束**：非客户中心模块禁止写 `crm_customer`（架构级约束，详见 [customer-center-freeze-v1.md §领域边界](customer-center-freeze-v1.md)）
 
 ### 7.5 已知限制与后续规划
 
@@ -306,5 +306,5 @@ Opportunity Center v1 完成后，参照 Customer Center 模式冻结。后续�
 - **评审身份**：HuakeyCRM 架构评审委员会
 - **冻结日期**：2026-08-04
 - **基线文档**：本文档（opportunity-center-v1-mvp-scope.md）§1-§7
-- **关联约束**：[customer-center-freeze-v1.md §领域边界](file:///c:/huakey-crm/docs/customer-center-freeze-v1.md)
+- **关联约束**：[customer-center-freeze-v1.md §领域边界](customer-center-freeze-v1.md)
 - **测试基线**：35 tests / 5 suites 全部通过（2026-08-04 17:02）

@@ -4,7 +4,7 @@
 > **版本**: Core v1（冻结基线）
 > **编制日期**: 2026-08-06
 > **编制人**: 产品负责人 + QA 负责人
-> **冻结基线**: [crm-v1-freeze-decision.md](crm-v1-freeze-decision.md)（2026-08-04 冻结）
+> **冻结基线**: [crm-v1-freeze-decision.md](../crm-v1-freeze-decision.md)（2026-08-04 冻结）
 
 ---
 

@@ -4,7 +4,7 @@
 > **审计日期**: 2026-08-04
 > **审计人**: HuakeyCRM 架构评审委员会
 > **审计范围**: Contract Center 全模块 (DB/Routes/Services/Controller/Tests)
-> **关联约束**: [customer-center-freeze-v1.md](customer-center-freeze-v1.md) §领域边界
+> **关联约束**: [customer-center-freeze-v1.md](../customer-center-freeze-v1.md) §领域边界
 
 ---
 

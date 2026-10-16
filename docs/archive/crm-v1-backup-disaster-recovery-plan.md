@@ -275,5 +275,5 @@ cat /volume1/docker/crm-stack/database/backups/restore-test.log
 |------|------|
 | [crm-v1-synology-backup-cron.md](./crm-v1-synology-backup-cron.md) | 群晖 DSM 任务计划配置指南 |
 | [crm-v1-backup-verification-report.md](./crm-v1-backup-verification-report.md) | 备份验证报告 |
-| [crm-v1-go-live-runbook.md](./crm-v1-go-live-runbook.md) | 上线运维手册 |
-| [crm-v1-production-checklist.md](./crm-v1-production-checklist.md) | 生产检查清单 |
+| [crm-v1-go-live-runbook.md] | 上线运维手册 |
+| [crm-v1-production-checklist.md] | 生产检查清单 |

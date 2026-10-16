@@ -156,4 +156,4 @@
 |------|------|
 | [crm-v1-config-restore.md](./crm-v1-config-restore.md) | 配置恢复流程 |
 | [crm-v1-config-backup-security.md](./crm-v1-config-backup-security.md) | 配置文件备份安全策略 |
-| [crm-v1-backup-coverage-report.md](./crm-v1-backup-coverage-report.md) | 灾备覆盖报告 |
+| [crm-v1-backup-coverage-report.md] | 灾备覆盖报告 |

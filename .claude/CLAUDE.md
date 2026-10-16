@@ -241,7 +241,7 @@ sys_data_permission (数据权限: all/dept_and_sub/dept/self/custom)
 
 ## 当前分支
 
-`fix/v1.0.1-security-patch` — 安全补丁（强制改密/CSRF/认证迁移）+ 2026-08-18 全项目审计修复（数据权限补齐、API 契约对齐、状态机修复，见 `docs/audit-report-2026-08-18.md`）
+`fix/v1.0.1-security-patch` — 安全补丁（强制改密/CSRF/认证迁移）+ 2026-08-18 全项目审计修复（数据权限补齐、API 契约对齐、状态机修复，见 `docs/archive/audit-report-2026-08-18.md`）
 
 ---
 

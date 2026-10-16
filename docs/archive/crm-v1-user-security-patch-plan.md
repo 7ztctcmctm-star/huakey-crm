@@ -599,4 +599,4 @@ curl -sk -X POST https://crm.huakey.local/api/v1/user/reset-password \
 |------|------|
 | [crm-v1-user-login-readiness-audit.md](./crm-v1-user-login-readiness-audit.md) | 用户登录审计报告 |
 | [crm-v1-final-production-acceptance-report.md](./crm-v1-final-production-acceptance-report.md) | 最终生产验收报告 |
-| [crm-v1-backup-coverage-report.md](./crm-v1-backup-coverage-report.md) | 灾备覆盖报告 |
+| [crm-v1-backup-coverage-report.md] | 灾备覆盖报告 |

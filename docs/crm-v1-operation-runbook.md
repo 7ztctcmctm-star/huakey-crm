@@ -332,7 +332,7 @@ echo "UPDATE sys_user SET password='$HASH', must_change_password=1 WHERE id=<use
 
 ### 4.1 备份策略概览
 
-引用 [crm-v1-backup-coverage-report.md](./crm-v1-backup-coverage-report.md)
+引用 [crm-v1-backup-coverage-report.md]
 
 | 备份类型 | 频率 | 脚本 | 保留 |
 |----------|------|------|------|
@@ -539,7 +539,7 @@ curl -sk https://crm.huakey.local/api/v1/health
 | 文档 | 说明 |
 |------|------|
 | [crm-v1-user-management-and-security-policy.md](./crm-v1-user-management-and-security-policy.md) | 用户管理与安全策略 |
-| [crm-v1-backup-coverage-report.md](./crm-v1-backup-coverage-report.md) | 灾备覆盖报告 |
+| [crm-v1-backup-coverage-report.md] | 灾备覆盖报告 |
 | [crm-v1-config-restore.md](./crm-v1-config-restore.md) | 配置恢复流程 |
-| [crm-v1-final-production-acceptance-report.md](./crm-v1-final-production-acceptance-report.md) | 生产验收报告 |
-| [crm-v1-internal-domain-deployment.md](./crm-v1-internal-domain-deployment.md) | 内网域名部署 |
+| [crm-v1-final-production-acceptance-report.md](archive/crm-v1-final-production-acceptance-report.md) | 生产验收报告 |
+| [crm-v1-internal-domain-deployment.md](archive/crm-v1-internal-domain-deployment.md) | 内网域名部署 |

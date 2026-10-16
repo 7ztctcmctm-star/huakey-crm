@@ -40,7 +40,7 @@
 
 **范围**：潜客池（leads）/ 正式客户（customer）/ 公海池（pool）/ 客户生命周期 / 客户权限体系 / 客户相关 API / 客户相关测试
 
-**冻结边界文件**：见 [docs/customer-center-freeze-v1.md](file:///c:/huakey-crm/docs/customer-center-freeze-v1.md) §「冻结边界文件清单」
+**冻结边界文件**：见 [docs/customer-center-freeze-v1.md](customer-center-freeze-v1.md) §「冻结边界文件清单」
 
 **关键架构约束**：
 
@@ -62,7 +62,7 @@
 
 ### 领域边界（Domain Boundary）— 全局架构约束
 
-> 此约束适用于所有 CRM 模块，详见 [docs/customer-center-freeze-v1.md](file:///c:/huakey-crm/docs/customer-center-freeze-v1.md) §「领域边界」。
+> 此约束适用于所有 CRM 模块，详见 [docs/customer-center-freeze-v1.md](customer-center-freeze-v1.md) §「领域边界」。
 
 **核心规则**：禁止任何非客户中心模块直接或间接修改 `crm_customer` 表。
 

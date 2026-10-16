@@ -53,10 +53,10 @@
 
 | 模块 | 版本 | 冻结日期 | 文档 | 状态 |
 |------|------|----------|------|------|
-| Customer Center | v1.0 | 2026-08-04 | [customer-center-freeze-v1.md](customer-center-freeze-v1.md) | 🔒 FROZEN |
-| Opportunity Center | v1 MVP | 2026-08-04 | [opportunity-center-v1-mvp-scope.md](opportunity-center-v1-mvp-scope.md) | 🔒 FROZEN |
+| Customer Center | v1.0 | 2026-08-04 | [customer-center-freeze-v1.md](../customer-center-freeze-v1.md) | 🔒 FROZEN |
+| Opportunity Center | v1 MVP | 2026-08-04 | [opportunity-center-v1-mvp-scope.md](../opportunity-center-v1-mvp-scope.md) | 🔒 FROZEN |
 | Quote Center | v1 | 2026-08-04 | Integration verified | ✅ STABLE |
-| Contract Center | v1 | 2026-08-04 | [contract-center-v1-freeze-report.md](contract-center-v1-freeze-report.md) | 🔒 FROZEN |
+| Contract Center | v1 | 2026-08-04 | [contract-center-v1-freeze-report.md](../contract-center-v1-freeze-report.md) | 🔒 FROZEN |
 
 ### 1.3 数据归属与边界
 
@@ -229,11 +229,11 @@ CRM Core v1 (Customer → Opportunity → Quote → Contract) 业务闭环已通
 
 ## 附录: 引用文档
 
-- [customer-center-freeze-v1.md](customer-center-freeze-v1.md)
-- [opportunity-center-v1-mvp-scope.md](opportunity-center-v1-mvp-scope.md)
+- [customer-center-freeze-v1.md](../customer-center-freeze-v1.md)
+- [opportunity-center-v1-mvp-scope.md](../opportunity-center-v1-mvp-scope.md)
 - [opportunity-center-v1-integration-report.md](opportunity-center-v1-integration-report.md)
 - [contract-center-audit-report.md](contract-center-audit-report.md)
-- [contract-center-v1-freeze-report.md](contract-center-v1-freeze-report.md)
+- [contract-center-v1-freeze-report.md](../contract-center-v1-freeze-report.md)
 - [cross-module-write-audit.md](cross-module-write-audit.md)
 - [database-schema-audit.md](database-schema-audit.md)
-- [architecture.md](architecture.md)
+- [architecture.md](../architecture.md)

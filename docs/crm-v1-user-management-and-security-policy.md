@@ -401,6 +401,6 @@ Content-Type: application/json
 |------|------|
 | [crm-v1-operation-runbook.md](./crm-v1-operation-runbook.md) | 生产运维手册 |
 | [crm-v1.0.1-security-maintenance-plan.md](./crm-v1.0.1-security-maintenance-plan.md) | v1.0.1 安全补丁计划 |
-| [crm-v1-user-login-readiness-audit.md](./crm-v1-user-login-readiness-audit.md) | 用户登录审计 |
-| [crm-v1-user-security-patch-plan.md](./crm-v1-user-security-patch-plan.md) | 用户安全补丁方案 |
-| [crm-v1-final-production-acceptance-report.md](./crm-v1-final-production-acceptance-report.md) | 生产验收报告 |
+| [crm-v1-user-login-readiness-audit.md](archive/crm-v1-user-login-readiness-audit.md) | 用户登录审计 |
+| [crm-v1-user-security-patch-plan.md](archive/crm-v1-user-security-patch-plan.md) | 用户安全补丁方案 |
+| [crm-v1-final-production-acceptance-report.md](archive/crm-v1-final-production-acceptance-report.md) | 生产验收报告 |

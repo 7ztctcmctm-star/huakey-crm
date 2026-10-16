@@ -193,5 +193,5 @@ docker start huakey-app
 | 文档 | 说明 |
 |------|------|
 | [crm-v1-config-backup-security.md](./crm-v1-config-backup-security.md) | 配置文件备份安全策略 |
-| [crm-v1-synology-backup-cron.md](./crm-v1-synology-backup-cron.md) | 群晖定时任务配置 |
-| [crm-v1-backup-coverage-report.md](./crm-v1-backup-coverage-report.md) | 备份覆盖报告 |
+| [crm-v1-synology-backup-cron.md](archive/crm-v1-synology-backup-cron.md) | 群晖定时任务配置 |
+| [crm-v1-backup-coverage-report.md] | 备份覆盖报告 |

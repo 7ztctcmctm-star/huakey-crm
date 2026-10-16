@@ -143,7 +143,7 @@ DB 中定义存在但无任何角色授予且无路由/前端使用的 12 个权
 
 ### 🟠 P1-4 NAS 凭据轮换待人工确认
 
-* 旧密码 `Aa123456` 已从全部脚本清除（现仅存在于审计文档 [audit-report-2026-08-18.md](../docs/audit-report-2026-08-18.md) L139 的 git 历史中）；但**用户名** **`syadmin`** **仍硬编码在 5 个 git 跟踪脚本**（push-prod.bat、sync-test.bat、deploy-test-full.bat、synology/update-nas.sh、setup-ssh-key.sh）。
+* 旧密码 `Aa123456` 已从全部脚本清除（现仅存在于审计文档 [audit-report-2026-08-18.md](./audit-report-2026-08-18.md) L139 的 git 历史中）；但**用户名** **`syadmin`** **仍硬编码在 5 个 git 跟踪脚本**（push-prod.bat、sync-test.bat、deploy-test-full.bat、synology/update-nas.sh、setup-ssh-key.sh）。
 
 * **需人工确认**：NAS 密码是否已在 08-18 审计后轮换。若未轮换，立即轮换并对文档脱敏；若已轮换，将文档中旧密码替换为 `***`。
 

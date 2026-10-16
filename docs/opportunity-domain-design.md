@@ -1,11 +1,11 @@
 # 商机（Opportunity）领域设计
 
 > 设计日期：2026-08-04
-> 基线：Customer Center v1.0（已冻结，见 [docs/customer-center-freeze-v1.md](file:///c:/huakey-crm/docs/customer-center-freeze-v1.md)）
+> 基线：Customer Center v1.0（已冻结，见 [docs/customer-center-freeze-v1.md](customer-center-freeze-v1.md)）
 > 当前分支：`refactor/customer-module-template`
 > 最新迁移编号：101（下一编号从 102 起）
 > 设计原则：基于现有代码与文档，不重新设计已存在功能，不修改 Customer 模块
-> 状态：**已被 [Opportunity Center v1 MVP Scope](file:///c:/huakey-crm/docs/opportunity-center-v1-mvp-scope.md) 取代为开发基线**
+> 状态：**已被 [Opportunity Center v1 MVP Scope](opportunity-center-v1-mvp-scope.md) 取代为开发基线**
 > ⚠️ 本文档为完整设计草稿（Design Draft），保留作为参考。实际开发以 MVP Scope 为准。
 
 ---
@@ -15,7 +15,7 @@
 | 约束 | 来源 |
 |------|------|
 | Customer Center v1.0 已冻结 | 只允许读取 `crm_customer` 数据，禁止修改其表结构、字段名、权限码、API 契约 |
-| 命名规范统一 | 全项目 CRUD 使用 `add/edit/delete`，禁止 `create/update/remove`（见 [docs/customer-permission-standard.md](file:///c:/huakey-crm/docs/customer-permission-standard.md)） |
+| 命名规范统一 | 全项目 CRUD 使用 `add/edit/delete`，禁止 `create/update/remove`（见 [docs/customer-permission-standard.md](customer-permission-standard.md)） |
 | MySQL 8.0 语法 | 参数占位符 `?`，`pool.query()`，禁用 `$$` / `DELIMITER` / `CREATE PROCEDURE` |
 | API 响应统一格式 | `{ code, message, data }` |
 | 软删除约定 | 所有业务表使用 `deleted_at DATETIME DEFAULT NULL` |
@@ -437,7 +437,7 @@ Customer ──1:N──→ Opportunity ──1:N──→ Quotation ──0..1:
 
 ### 6.1 权限码清单
 
-严格遵循 [docs/customer-permission-standard.md](file:///c:/huakey-crm/docs/customer-permission-standard.md) 的 `add/edit/delete` 命名规范。
+严格遵循 [docs/customer-permission-standard.md](customer-permission-standard.md) 的 `add/edit/delete` 命名规范。
 
 | 权限码 | 类型 | 父级 | 名称 | 现状 |
 |--------|------|------|------|------|
@@ -655,7 +655,7 @@ frontend/src/
 
 ### 8.2 兼容层策略
 
-参照 Customer Center 的兼容层设计（见 [docs/customer-center-freeze-v1.md](file:///c:/huakey-crm/docs/customer-center-freeze-v1.md) §「兼容层」）：
+参照 Customer Center 的兼容层设计（见 [docs/customer-center-freeze-v1.md](customer-center-freeze-v1.md) §「兼容层」）：
 
 | 旧端点 | 新端点 | 兼容期 |
 |--------|--------|--------|
@@ -881,11 +881,11 @@ Phase 1 (DB) ──→ Phase 2 (Backend) ──→ Phase 3 (Frontend) ──→ 
 - [database/seeds/permission_data.sql:27,65-67,139-177](file:///c:/huakey-crm/database/seeds/permission_data.sql) — 现有权限定义
 
 ### 冻结基线
-- [docs/customer-center-freeze-v1.md](file:///c:/huakey-crm/docs/customer-center-freeze-v1.md) — Customer Center v1.0 冻结声明
-- [docs/customer-permission-standard.md](file:///c:/huakey-crm/docs/customer-permission-standard.md) — 权限命名规范
-- [docs/architecture.md](file:///c:/huakey-crm/docs/architecture.md) — 系统架构（含冻结约束节）
-- [docs/customer-domain-audit.md](file:///c:/huakey-crm/docs/customer-domain-audit.md) — Delta Audit（含双字段模型说明）
+- [docs/customer-center-freeze-v1.md](customer-center-freeze-v1.md) — Customer Center v1.0 冻结声明
+- [docs/customer-permission-standard.md](customer-permission-standard.md) — 权限命名规范
+- [docs/architecture.md](architecture.md) — 系统架构（含冻结约束节）
+- [docs/customer-domain-audit.md](archive/customer-domain-audit.md) — Delta Audit（含双字段模型说明）
 
 ### 历史审计
-- [docs/PRODUCTION_AUDIT_REPORT.md](file:///c:/huakey-crm/docs/PRODUCTION_AUDIT_REPORT.md) — 生产审计（含 crm_opportunity FK 缺失问题）
-- [docs/archive/audit-round-3-database.md](file:///c:/huakey-crm/docs/archive/audit-round-3-database.md) — 数据库索引审计
+- [docs/PRODUCTION_AUDIT_REPORT.md] — 生产审计（含 crm_opportunity FK 缺失问题）
+- [docs/archive/audit-round-3-database.md] — 数据库索引审计

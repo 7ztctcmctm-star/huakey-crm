@@ -387,5 +387,5 @@ Business Readiness: READY
 | 文档 | 说明 |
 |------|------|
 | [crm-v1-final-production-acceptance-report.md](./crm-v1-final-production-acceptance-report.md) | 最终生产验收报告 |
-| [crm-v1-backup-coverage-report.md](./crm-v1-backup-coverage-report.md) | 灾备覆盖报告 |
+| [crm-v1-backup-coverage-report.md] | 灾备覆盖报告 |
 | [crm-v1-internal-domain-deployment.md](./crm-v1-internal-domain-deployment.md) | 内网域名部署 |

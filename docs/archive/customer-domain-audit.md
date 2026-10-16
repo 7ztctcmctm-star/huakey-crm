@@ -16,7 +16,7 @@
 ### 1. 冻结状态
 
 客户中心已于 2026-08-04 冻结为 **Customer Center v1.0**。
-冻结声明见 [docs/customer-center-freeze-v1.md](file:///c:/huakey-crm/docs/customer-center-freeze-v1.md)。
+冻结声明见 [docs/customer-center-freeze-v1.md](../customer-center-freeze-v1.md)。
 除 P0 Bug / 安全漏洞 / 数据错误 / 法规要求外，禁止修改客户中心架构、表结构、权限码、API 契约。
 
 ### 2. 原审计问题闭环状态
@@ -85,7 +85,7 @@
 - §4.3 P2 级问题清单 → 全部关闭（见本节 §2）
 - §6.1 方案 B 推荐字段定义 → 已被双字段模型替代（见本节 §3）
 - §7 数据迁移方案 → 已由 097/098/100/101 迁移实际执行，且 097 实际范围超出原方案
-- §8 实施步骤 → 已由 5 期重构实际执行完毕，详见 [docs/customer-center-refactor-plan.md](file:///c:/huakey-crm/docs/customer-center-refactor-plan.md) 实施状态节
+- §8 实施步骤 → 已由 5 期重构实际执行完毕，详见 [docs/customer-center-refactor-plan.md](./customer-center-refactor-plan.md) 实施状态节
 
 ### 6. 仍适用的章节
 
