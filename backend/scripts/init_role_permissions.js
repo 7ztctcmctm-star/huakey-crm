@@ -96,6 +96,11 @@ const BUTTON_PERMISSIONS = [
   { code: 'quotation:add', name: '新增报价', parent: 'quotation' },
   { code: 'quotation:edit', name: '编辑报价', parent: 'quotation' },
   { code: 'quotation:delete', name: '删除报价', parent: 'quotation' },
+  // [P0 修复 2026-10-16] 报价详情/审批此前无功能权限码：详情端点裸奔、审批端点无任何权限校验。
+  //   quotation:view   → 能看报价列表的角色都应能看详情
+  //   quotation:approve→ 仅 boss/manager 持有（销售不得审批）
+  { code: 'quotation:view', name: '查看报价', parent: 'quotation' },
+  { code: 'quotation:approve', name: '报价审批', parent: 'quotation' },
   { code: 'contract:add', name: '新增合同', parent: 'contract' },
   { code: 'contract:edit', name: '编辑合同', parent: 'contract' },
   { code: 'contract:delete', name: '删除合同', parent: 'contract' },
@@ -161,7 +166,7 @@ const ROLE_PERMISSIONS = {
     // 所有按钮
     'customer:add', 'customer:edit', 'customer:transfer', 'customer:view', 'customer:delete', 'customer:assign', 'customer:import', 'customer:export', 'customer:list',
     'opportunity:add', 'opportunity:edit', 'opportunity:delete', 'opportunity:view',
-    'quotation:add', 'quotation:edit', 'quotation:delete',
+    'quotation:add', 'quotation:edit', 'quotation:delete', 'quotation:view', 'quotation:approve',
     'contract:add', 'contract:edit', 'contract:delete',
     'product:add', 'product:edit', 'product:delete',
     'supplier:add', 'supplier:edit', 'supplier:delete',
@@ -183,7 +188,7 @@ const ROLE_PERMISSIONS = {
     'report', 'scoring', 'ai', 'approval', 'knowledge', 'email', 'notification', 'target', 'team-dashboard',
     'customer:add', 'customer:edit', 'customer:transfer', 'customer:view', 'customer:delete', 'customer:assign', 'customer:import', 'customer:export', 'customer:list',
     'opportunity:add', 'opportunity:edit', 'opportunity:delete', 'opportunity:view',
-    'quotation:add', 'quotation:edit', 'quotation:delete',
+    'quotation:add', 'quotation:edit', 'quotation:delete', 'quotation:view', 'quotation:approve',
     'contract:add', 'contract:edit', 'contract:delete',
     'product:add', 'product:edit', 'product:delete',
     'supplier:add', 'supplier:edit', 'supplier:delete',
@@ -201,7 +206,7 @@ const ROLE_PERMISSIONS = {
     'approval', 'knowledge', 'email', 'notification', 'survey', 'schedule:view',
     'customer:add', 'customer:edit', 'customer:transfer', 'customer:view', 'customer:delete', 'customer:import', 'customer:export', 'customer:list',
     'opportunity:add', 'opportunity:edit', 'opportunity:delete', 'opportunity:view',
-    'quotation:add', 'quotation:edit', 'quotation:delete',
+    'quotation:add', 'quotation:edit', 'quotation:delete', 'quotation:view',
     'contract:add', 'contract:edit', 'contract:delete',
     'approval:approve',
     'file', 'file:upload',

@@ -2,6 +2,7 @@ const express = require('express');
 const registry = require('../core/ModuleRegistry');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission, checkFieldPermission } = require('../middleware/permission');
+const { requireManager } = require('../middleware/admin');
 const quoteController = require('../controllers/quoteController');
 const { validate, Joi } = require('../middleware/validate');
 
@@ -226,7 +227,7 @@ const router = express.Router();
  *
  * /api/quote/approve:
  *   post:
- *     summary: 审批报价单（仅管理员）
+ *     summary: 审批报价单（仅管理员/经理，需 quotation:approve 权限码）
  *     tags: [报价管理]
  *     security: [{ bearerAuth: [] }]
  *     requestBody:
@@ -317,7 +318,9 @@ router.post('/add', authenticateToken, checkPermission('quotation:add'), checkDa
 router.post('/list', authenticateToken, checkPermission('quotation'), checkDataPermission('quote', 'create_by'), validate(listQuoteSchema), quoteController.list);
 
 // 3. 报价单详情
-router.get('/detail/:id', authenticateToken, checkDataPermission('quote', 'create_by'), quoteController.detail);
+// [P0 修复 2026-10-16] 原端点缺功能权限码；checkDataPermission 只注入数据范围、本身不过滤，
+// 必须由 service 用 buildDataPermissionWhere 落地。补 checkPermission('quotation:view') 后由功能门兜底。
+router.get('/detail/:id', authenticateToken, checkPermission('quotation:view'), checkDataPermission('quote', 'create_by'), quoteController.detail);
 
 // 4. 修改报价单
 router.post('/update', authenticateToken, checkPermission('quotation:edit'), checkDataPermission('quote', 'create_by'), validate(updateQuoteSchema), quoteController.update);
@@ -328,8 +331,10 @@ router.post('/delete', authenticateToken, checkPermission('quotation:delete'), c
 // 6. 报价转合同
 router.post('/to-contract', authenticateToken, checkPermission('quotation:edit'), checkDataPermission('quote', 'create_by'), validate(idOnlySchema), quoteController.toContract);
 
-// 审批报价单（仅管理员）
-router.post('/approve', authenticateToken, validate(approveQuoteSchema), quoteController.approve);
+// 审批报价单（仅管理员/经理）
+// [P0 修复 2026-10-16] 原端点仅 authenticateToken，任意登录用户可审批/驳回并推进商机 stage。
+// 现按项目既有成对约定：checkPermission('quotation:approve')（功能门，仅 boss/manager 持有）+ requireManager（层级门）。
+router.post('/approve', authenticateToken, checkPermission('quotation:approve'), requireManager, validate(approveQuoteSchema), quoteController.approve);
 
 registry.register('quote', { routes: router, permissions: ['quote'] });
 module.exports = router;

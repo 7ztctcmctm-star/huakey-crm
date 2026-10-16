@@ -114,7 +114,16 @@ async function toContract(req, res, next) {
 async function approve(req, res, next) {
   try {
     const { id, approval_status, approval_remark } = req.body;
-    if (!req.user.manageAll && !ROLES.ADMIN_ROLE_CODES.has(req.user.roleCode)) {
+    // 纵深防御：与路由层 requireManager 保持一致的「管理层」判据（boss/manager/超管）。
+    // 功能门（quotation:approve 权限码）由路由层 checkPermission 承担。
+    // [P0 修复 2026-10-16] 原判据为 `!manageAll && !ADMIN_ROLE_CODES.has(roleCode)`——
+    //   即仅放行 manageAll（boss）与 super_admin，把 department manager（manage_all=0）挡在门外，
+    //   与路由层新挂的 requireManager（manager 放行）自相矛盾，导致 manager 审批恒 403。
+    const isManagerLevel = Boolean(req.user.manageAll)
+      || ROLES.ADMIN_ROLE_CODES.has(req.user.roleCode)
+      || req.user.roleCode === ROLES.ROLE_CODES.MANAGER
+      || req.user.roleId === ROLES.ADMIN;
+    if (!isManagerLevel) {
       return res.status(403).json({ code: 403, message: '无审批权限', data: null });
     }
     if (!id || ![2, 3].includes(approval_status)) {

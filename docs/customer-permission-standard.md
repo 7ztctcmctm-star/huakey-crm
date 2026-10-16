@@ -243,9 +243,11 @@ opportunity（商机 - 菜单）
 └── opportunity:delete（删除商机）
 
 quotation（报价 - 菜单）
+├── quotation:view（查看报价/详情）
 ├── quotation:add（新增报价）
 ├── quotation:edit（编辑报价/发送/转合同）
-└── quotation:delete（删除报价）
+├── quotation:delete（删除报价）
+└── quotation:approve（报价审批 - 仅 boss/manager；2026-10-16 新增）
 
 contract（合同 - 菜单）
 ├── contract:view（查看合同）
