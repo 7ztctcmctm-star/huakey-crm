@@ -48,12 +48,15 @@ fi
 #   4 = 服务活着但登录这一步无法自动完成（验证码必填 / 初始密码已改），
 #       属环境限制而非故障，只告警——否则每次生产部署都会被这一步误判成失败。
 echo "[2/4] 登录测试..."
-LOGIN_RESP=$($CURL -X POST "$BASE_URL/api/v1/auth/login" \
+# 这里不能用 -f：验证码必填时后端返回 400 且带 body，-f 会连 body 一起吞掉，
+# 让人分不清「服务不可达」和「被业务规则拒绝」。改为自己判 curl 退出码。
+LOGIN_RESP=$(curl -sk -X POST "$BASE_URL/api/v1/auth/login" \
     -H "Content-Type: application/json" \
-    -d "{\"username\":\"admin\",\"password\":\"$ADMIN_PASS\"}" || echo "")
+    -d "{\"username\":\"admin\",\"password\":\"$ADMIN_PASS\"}")
+LOGIN_RC=$?
 
-if [ -z "$LOGIN_RESP" ]; then
-    echo "FAIL: 登录接口无响应（服务不可达或返回非 2xx）"
+if [ "$LOGIN_RC" -ne 0 ]; then
+    echo "FAIL: 登录接口无响应（服务不可达，curl 退出码 $LOGIN_RC）"
     exit 3
 fi
 # 生产开启验证码时后端直接拒绝无 captcha 的登录请求
