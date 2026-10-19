@@ -4,7 +4,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission, checkFieldPermission } = require('../middleware/permission');
 const { requireManager } = require('../middleware/admin');
 const quoteController = require('../controllers/quoteController');
-const { validate, Joi } = require('../middleware/validate');
+const { validate, Joi, idempotencyKeyField } = require('../middleware/validate');
 
 const router = express.Router();
 
@@ -301,6 +301,12 @@ const idOnlySchema = Joi.object({
   id: Joi.number().integer().positive().required()
 });
 
+// 转合同接受幂等键（双击/重试不得生成第二份合同）
+const toContractSchema = Joi.object({
+  id: Joi.number().integer().positive().required(),
+  ...idempotencyKeyField
+});
+
 const approveQuoteSchema = Joi.object({
   id: Joi.number().integer().positive().required(),
   approval_status: Joi.number().integer().valid(2, 3).required(),
@@ -329,7 +335,7 @@ router.post('/update', authenticateToken, checkPermission('quotation:edit'), che
 router.post('/delete', authenticateToken, checkPermission('quotation:delete'), checkDataPermission('quote', 'create_by'), validate(idOnlySchema), quoteController.remove);
 
 // 6. 报价转合同
-router.post('/to-contract', authenticateToken, checkPermission('quotation:edit'), checkDataPermission('quote', 'create_by'), validate(idOnlySchema), quoteController.toContract);
+router.post('/to-contract', authenticateToken, checkPermission('quotation:edit'), checkDataPermission('quote', 'create_by'), validate(toContractSchema), quoteController.toContract);
 
 // 审批报价单（仅管理员/经理）
 // [P0 修复 2026-10-16] 原端点仅 authenticateToken，任意登录用户可审批/驳回并推进商机 stage。

@@ -60,10 +60,13 @@ router.post('/create', validate(createSchema), async (req, res, next) => {
   }
 });
 
-// 提交采购申请
+// 提交走 /submit/:id（幂等键只能来自请求头，body 无 schema）
 router.post('/submit/:id', validate(idParamSchema, 'params'), async (req, res, next) => {
   try {
-    await purchaseRequestService.submitRequest(pool, req.params.id, req.user);
+    // ⚠️ 本端点没有 body schema，因此幂等键**只能**取自 Idempotency-Key 请求头；
+    // 若将来加 body 校验，需在该 schema 显式声明 idempotency_key（stripUnknown 会剥离未声明字段）。
+    const idempotencyKey = req.headers['idempotency-key'] || null;
+    await purchaseRequestService.submitRequest(pool, req.params.id, req.user, idempotencyKey);
     res.json({ code: 200, message: '提交成功', data: null });
   } catch (error) {
     next(error);

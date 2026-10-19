@@ -5,6 +5,7 @@
 
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
+const { withTransaction } = require('../utils/tx');
 const quoteService = require('./quoteService');
 const contractService = require('./contractService');
 
@@ -203,7 +204,15 @@ async function getOpportunity(pool, opportunityId) {
 
 /**
  * 推进商机阶段（可配置概率）
- * @param {object} pool
+ *
+ * 【B2 · 2026-10-19】本方法包含 3 步写（UPDATE 商机 stage/win_rate + INSERT stage_log），
+ * 原先直接跑在 pool 上、无事务边界 ⇒ 中途失败会留下「stage 已改但日志缺失」的半条数据。
+ * 现整段纳入 `withTransaction`：
+ *   · 入参是 pool（controller 直接调用）⇒ 自己开事务、提交/回滚、释放连接；
+ *   · 入参是已进入事务的连接（quoteService.approveQuote 内调用）⇒ 复用该事务，
+ *     由外层统一提交，保证「审批落库」与「商机推进」同生共死。
+ *
+ * @param {object} pool - mysql2 Pool 或已进入事务的 PoolConnection
  * @param {number} opportunityId
  * @param {number} newStage - 1-6
  * @param {number} changedBy
@@ -215,43 +224,45 @@ async function advanceStage(pool, opportunityId, newStage, changedBy, options = 
     throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '阶段值无效(1-6)');
   }
 
-  const [rows] = await pool.query(
-    'SELECT id, stage FROM crm_opportunity WHERE id = ? AND deleted_at IS NULL',
-    [opportunityId]
-  );
-  if (rows.length === 0) {
-    throw new AppError(ErrorCodes.PERMISSION_DENIED, '商机不存在或无权修改');
-  }
-
-  const oldStage = rows[0].stage;
-  if (oldStage === 5 || oldStage === 6) {
-    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, `商机已${oldStage === 5 ? '成交' : '失败'}，不可再推进`);
-  }
-
-  // 根据配置概率自动设置赢率
-  const probMap = options.stageProbability || DEFAULT_STAGE_PROBABILITY;
-  const autoWinRate = probMap[newStage] !== undefined ? probMap[newStage] : null;
-
-  if (autoWinRate !== null) {
-    await pool.query(
-      'UPDATE crm_opportunity SET stage = ?, win_rate = ?, update_time = NOW() WHERE id = ?',
-      [newStage, autoWinRate, opportunityId]
+  return withTransaction(pool, async (db) => {
+    const [rows] = await db.query(
+      'SELECT id, stage FROM crm_opportunity WHERE id = ? AND deleted_at IS NULL',
+      [opportunityId]
     );
-  } else {
-    await pool.query(
-      'UPDATE crm_opportunity SET stage = ?, update_time = NOW() WHERE id = ?',
-      [newStage, opportunityId]
+    if (rows.length === 0) {
+      throw new AppError(ErrorCodes.PERMISSION_DENIED, '商机不存在或无权修改');
+    }
+
+    const oldStage = rows[0].stage;
+    if (oldStage === 5 || oldStage === 6) {
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, `商机已${oldStage === 5 ? '成交' : '失败'}，不可再推进`);
+    }
+
+    // 根据配置概率自动设置赢率
+    const probMap = options.stageProbability || DEFAULT_STAGE_PROBABILITY;
+    const autoWinRate = probMap[newStage] !== undefined ? probMap[newStage] : null;
+
+    if (autoWinRate !== null) {
+      await db.query(
+        'UPDATE crm_opportunity SET stage = ?, win_rate = ?, update_time = NOW() WHERE id = ?',
+        [newStage, autoWinRate, opportunityId]
+      );
+    } else {
+      await db.query(
+        'UPDATE crm_opportunity SET stage = ?, update_time = NOW() WHERE id = ?',
+        [newStage, opportunityId]
+      );
+    }
+
+    // 记录阶段变更日志（含 change_reason，migration 103 新增字段）
+    const changeReason = options.changeReason || null;
+    await db.query(
+      'INSERT INTO crm_opportunity_stage_log (opportunity_id, from_stage, to_stage, change_reason, changed_by) VALUES (?, ?, ?, ?, ?)',
+      [opportunityId, oldStage, newStage, changeReason, changedBy]
     );
-  }
 
-  // 记录阶段变更日志（含 change_reason，migration 103 新增字段）
-  const changeReason = options.changeReason || null;
-  await pool.query(
-    'INSERT INTO crm_opportunity_stage_log (opportunity_id, from_stage, to_stage, change_reason, changed_by) VALUES (?, ?, ?, ?, ?)',
-    [opportunityId, oldStage, newStage, changeReason, changedBy]
-  );
-
-  return { oldStage, newStage, stageName: STAGE_MAP[newStage] };
+    return { oldStage, newStage, stageName: STAGE_MAP[newStage] };
+  });
 }
 
 /**

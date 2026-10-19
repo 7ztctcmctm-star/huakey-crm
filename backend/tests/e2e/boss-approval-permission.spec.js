@@ -26,15 +26,33 @@ process.env.NODE_ENV = 'test';
 // ============================================================================
 // Mocks
 // ============================================================================
+// 【B2 · 2026-10-19】approveQuote 已改为「整段单事务 + 非关键子步骤走 SAVEPOINT」，
+// 业务 SQL 全部走事务连接。连接上的 query 与 mockPool.query 共享同一套分派实现，
+// 这样既保留「按 SQL 分派、不依赖调用次序」的原设计，又能让两边的 mock 同步替换。
+const mockConnQuery = jest.fn();
+const mockConn = {
+  query: mockConnQuery,
+  beginTransaction: jest.fn().mockResolvedValue(undefined),
+  commit: jest.fn().mockResolvedValue(undefined),
+  rollback: jest.fn().mockResolvedValue(undefined),
+  release: jest.fn()
+};
+
 const mockPool = {
   query: jest.fn(),
-  getConnection: jest.fn().mockResolvedValue({
-    query: jest.fn(),
-    beginTransaction: jest.fn().mockResolvedValue(),
-    commit: jest.fn().mockResolvedValue(),
-    rollback: jest.fn().mockResolvedValue(),
-    release: jest.fn()
-  })
+  getConnection: jest.fn().mockResolvedValue(mockConn)
+};
+
+/**
+ * 让 pool.query 与 conn.query 采用同一套分派实现。
+ *
+ * ⚠️ 这里刻意**不**做 mockReset：调用方可能先用 mockPool.query.mockResolvedValueOnce(...)
+ * 预置了 auth 中间件的三次查询，一次 reset 会把它们抹掉导致 403/500。
+ * （jest 的 once 值优先级高于 mockImplementation，两者可共存）
+ */
+const dispatchQueries = (impl) => {
+  mockPool.query.mockImplementation((...a) => impl(...a));
+  mockConnQuery.mockImplementation((...a) => impl(...a));
 };
 
 jest.mock('../../config/database', () => mockPool);
@@ -109,6 +127,11 @@ describe('Boss / Manager / Sales 审批权限验证', () => {
 
   beforeEach(() => {
     mockPool.query.mockReset();
+    mockConnQuery.mockReset();
+    mockConn.beginTransaction.mockClear();
+    mockConn.commit.mockClear();
+    mockConn.rollback.mockClear();
+    mockConn.release.mockClear();
     mockGetUserPermissions.mockReset();
     mockGetDataPermissions.mockReset();
     advanceStageSpy.mockClear();
@@ -149,10 +172,14 @@ describe('Boss / Manager / Sales 审批权限验证', () => {
       // quoteController.approve → quoteService.approveQuote: SELECT + UPDATE + dismiss
       // ⚠️ dismiss 这一步由 notificationService.dismissByBusiness 发起（原为内联 SQL），
       //    顺序 mock 必须与之对齐，否则第 3 次调用拿到 undefined 会抛 TypeError → 500
-      mockPool.query
-        .mockResolvedValueOnce([[{ id: 300, approval_status: 1, status: 1 }]])  // SELECT quote
-        .mockResolvedValueOnce([{ affectedRows: 1 }])                            // UPDATE approval_status
-        .mockResolvedValueOnce([{ affectedRows: 1 }]);                           // dismiss notification
+      // 【B2】以上 SQL 现在全在同一个事务连接上执行，故 must 同时装配 conn.query。
+      const stages = [
+        [[{ id: 300, opportunity_id: null, approval_status: 1, status: 1 }]], // SELECT quote (FOR UPDATE)
+        [{ affectedRows: 1 }],                                                // UPDATE approval_status
+        [{ affectedRows: 1 }]                                                 // dismiss notification
+      ];
+      let i = 0;
+      dispatchQueries(async () => stages[i++] || [{ affectedRows: 1 }]);
 
       const res = await request(app)
         .post('/api/v1/quote/approve')
@@ -238,11 +265,12 @@ describe('Boss / Manager / Sales 审批权限验证', () => {
     // 按 SQL 分派，避免 mockResolvedValueOnce 顺序漂移（approveQuote 内部调用链较长）
     // opportunityStage: 商机当前阶段，用于验证「只前进不倒退」
     const installManagerPool = (quoteRow, opportunityStage = 2) => {
-      mockPool.query.mockImplementation(async (sql) => {
+      dispatchQueries(async (sql) => {
         const s = String(sql);
         if (s.includes('sys_token_blacklist')) return [[]];
         if (s.includes('FROM sys_role')) return [[{ view_all: 0, manage_all: 0, role_code: 'manager' }]];
         if (s.includes('FROM sys_user')) return [[{ must_change_password: 0 }]];
+        // approveQuote 的 SELECT 现在一次取出 id + opportunity_id 并加 FOR UPDATE
         if (s.includes('opportunity_id FROM crm_quote')) return [quoteRow];
         if (s.includes('FROM crm_opportunity')) return [[{ stage: opportunityStage }]];
         if (s.includes('FROM crm_quote')) return [[{ id: 300, approval_status: 1, status: 1 }]];
@@ -267,9 +295,16 @@ describe('Boss / Manager / Sales 审批权限验证', () => {
       // 依赖 A1.5 修好的 quoteService ⇄ opportunityService 循环依赖；修好前此处 advanceStage
       // 因拿到过期的空 exports 而是 undefined，调用抛 TypeError 并被内层 try/catch 静默吞掉
       expect(advanceStageSpy).toHaveBeenCalledTimes(1);
+      // 【B2】第一参必须是**事务连接**而非 pool —— 商机推进要并入审批的同一个事务，
+      //      否则会开出第二个连接、形成互相不可见的两段提交
       expect(advanceStageSpy).toHaveBeenCalledWith(
-        mockPool, 77, 3, 2, expect.objectContaining({ changeReason: expect.stringContaining('报价审批通过') })
+        mockConn, 77, 3, 2, expect.objectContaining({ changeReason: expect.stringContaining('报价审批通过') })
       );
+      // 事务确实开过：务必是「自己的连接」才 begin/commit
+      expect(mockConn.beginTransaction).toHaveBeenCalledTimes(1);
+      expect(mockConn.commit).toHaveBeenCalledTimes(1);
+      expect(mockConn.rollback).not.toHaveBeenCalled();
+      expect(mockConn.release).toHaveBeenCalledTimes(1);
     });
 
     it('审批通过但商机已在更后阶段时不倒退（stage 4 谈判 → 不回退到 3）', async () => {

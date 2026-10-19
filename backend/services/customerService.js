@@ -1092,34 +1092,74 @@ async function releaseCustomerToPool(pool, customerId, operatorId, _reason) {
 
 /**
  * 领取公海客户（Phase 2 增强版）
- * 从公海池认领客户，设置 owner_id、pool_status='private'、保护期
+ * 从公海池认领客户，设置 owner_id、pool_status='private'
+ *
+ * 【B2 · 2026-10-19】行锁收敛（与 poolService.claimCustomer 同构，勿两处各改一半）。
+ *
+ * 采用「外部快判 + 事务内加锁复判」两层结构，刻意如此：
+ *   · 外部快判（快照读，不占连接）：不存在 → 404002；已有人负责 → 「该客户不在公海中」；
+ *     线索客户 → 「线索客户请到潜客池认领」
+ *   · 事务内 `SELECT ... FOR UPDATE`：拿到行锁后重读归属，
+ *     若期间已被他人抢走 → 「该客户已被他人认领，请刷新后重试」
+ *
+ * 只做「事务内一次加锁读」会让并发落败方看到「该客户不在公海中」——
+ * 用户是从公海列表点进来的，读到这里会一头雾水，两种口径必须区分开。
+ *
+ * ⚠️ 并发正确性的最后防线仍是 UPDATE 自带的 `owner_id IS NULL` 守卫，不是行锁。
+ *
  * @param {object} pool
  * @param {number} customerId
  * @param {number} userId
+ * @param {string} [idempotencyKey] - 幂等键（Idempotency-Key 头 或 body.idempotency_key）
  * @returns {{ id: number, company_name: string, protect_until: Date }}
  */
-async function claimPoolCustomer(pool, customerId, userId) {
-  const [rows] = await pool.query(
-    'SELECT id, company_name, business_status, pool_status, owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+async function claimPoolCustomer(pool, customerId, userId, idempotencyKey) {
+  const { runIdempotent } = require('../utils/idempotency');
+  // ⚠️ runIdempotent 必须在最外层：若先做快判，幂等重放会被「不在公海」拦下，
+  //     拿不到首次结果（与 poolService.claimCustomer 同构）
+  const { result } = await runIdempotent(pool, idempotencyKey, 'pool_claim', () =>
+    claimPoolCustomerTx(pool, customerId, userId)
+  );
+  return result;
+}
+
+async function claimPoolCustomerTx(pool, customerId, userId) {
+  // ① 事务外快判：不占连接，给出「不在公海 / 线索」的稳定口径
+  const [preRows] = await pool.query(
+    'SELECT id, owner_id, business_status FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [customerId]
   );
-  if (rows.length === 0) {
+  if (preRows.length === 0) {
     throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);
   }
-  const customer = rows[0];
+  const pre = preRows[0];
   // [2026-10-15 P0-2] 判据从 pool_status='sea' 收敛为 owner_id IS NULL：
   // 实测 423 条无主客户 pool_status 全非 'sea'，旧守卫把它们误判为「不在公海」。
-  if (customer.owner_id !== null) {
+  if (pre.owner_id !== null) {
     throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户不在公海中');
   }
-  if (customer.business_status === BUSINESS_STATUS.LEAD) {
+  if (pre.business_status === BUSINESS_STATUS.LEAD) {
     throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '线索客户请到潜客池认领');
   }
   // 【产品决策 2026-09-10】保护期已下线：释放到公海的客户可被立即认领。
 
+  // ② 事务内加锁复判
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
+
+    const [rows] = await connection.query(
+      'SELECT id, company_name, business_status, pool_status, owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
+      [customerId]
+    );
+    if (rows.length === 0) {
+      throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);
+    }
+    const customer = rows[0];
+    // 拿到行锁后仍有人负责 ⇒ 这一瞬间被抢走的
+    if (customer.owner_id !== null) {
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已被他人认领，请刷新后重试');
+    }
     // 【P0-1 补齐】条件必须带 `owner_id IS NULL`（判据权威）。
     // 原实现为 `WHERE id = ?`，仅靠事务无法防并发：REPEATABLE READ 下第二个事务的
     // UPDATE 会在行锁释放后依据最新版本重新匹配 id = ?，仍会覆盖前者的认领结果。

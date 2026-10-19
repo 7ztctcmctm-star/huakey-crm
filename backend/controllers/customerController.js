@@ -276,7 +276,10 @@ async function getMySubordinates(req, res, next) {
 
 async function claim(req, res, next) {
   try {
-    const result = await poolService.claimCustomer(pool, req.body.customer_id, req.user.userId, req.user)
+    // 幂等键：优先请求头 Idempotency-Key，其次 body.idempotency_key
+    // （必须在 Joi schema 显式声明，否则会被 validate 的 stripUnknown 剥离）
+    const idempotencyKey = req.headers['idempotency-key'] || req.body.idempotency_key || null;
+    const result = await poolService.claimCustomer(pool, req.body.customer_id, req.user.userId, req.user, idempotencyKey)
     await logAction(req, 'claim', `认领客户: ${result.company_name}`)
     res.json({ code: 200, message: '认领客户成功', data: { protect_until: result.protect_until } })
   } catch (error) {
@@ -413,7 +416,8 @@ async function releaseToPool(req, res, next) {
 
 async function claimPool(req, res, next) {
   try {
-    const result = await customerService.claimPoolCustomer(pool, req.body.id, req.user.userId)
+    const idempotencyKey = req.headers['idempotency-key'] || req.body.idempotency_key || null;
+    const result = await customerService.claimPoolCustomer(pool, req.body.id, req.user.userId, idempotencyKey)
     await logAction(req, 'claim-pool', `领取公海客户: ${result.company_name}`)
     await invalidateCache([`customer:list:${req.user.userId}:*`])
     res.json({ code: 200, message: '领取公海客户成功', data: { protect_until: result.protect_until } })

@@ -3,6 +3,8 @@
  */
 
 const ROLES = require('../config/roles');
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 const { ADMIN_ROLE_CODES } = ROLES;
 
 function isAdmin(user) {
@@ -122,38 +124,67 @@ async function getRequest(pool, id, user) {
 
 /**
  * 提交采购申请
+ *
+ * 【B2 · 2026-10-19】
+ *   · 幂等：同 key 重放返回首次结果。原实现重复提交会覆盖状态并重复推进
+ *     （draft→pending 的重复 UPDATE 虽不报错，但会重复写后续流程）
+ *   · 原子守卫：UPDATE 带上 `AND status = 'draft'`，
+ *     affectedRows=0 说明期间已被他人提交/审批 ⇒ 抛错而非静默返回 true
+ *     ⚠️ 仅靠事务挡不住并发：REPEATABLE READ 下第二个事务的 UPDATE 在行锁释放后
+ *     会按最新版本重新匹配 id = ?，因此条件必须写进 UPDATE 本身。
+ *
+ * @param {object} pool
+ * @param {number} id
+ * @param {object} user
+ * @param {string} [idempotencyKey]
  */
-async function submitRequest(pool, id, user) {
-  const [rows] = await pool.query(
-    'SELECT applicant_id, status FROM crm_purchase_request WHERE id = ?',
-    [id]
+async function submitRequest(pool, id, user, idempotencyKey) {
+  const { runIdempotent } = require('../utils/idempotency');
+  const { result } = await runIdempotent(pool, idempotencyKey, 'purchase_request_submit', () =>
+    submitRequestTx(pool, id, user)
   );
+  return result;
+}
 
-  if (rows.length === 0) {
-    const err = new Error('申请不存在');
-    err.statusCode = 404;
-    throw err;
+async function submitRequestTx(pool, id, user) {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [rows] = await connection.query(
+      'SELECT applicant_id, status FROM crm_purchase_request WHERE id = ? FOR UPDATE',
+      [id]
+    );
+
+    if (rows.length === 0) {
+      throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '申请不存在');
+    }
+
+    const request = rows[0];
+    if (request.applicant_id !== user.userId) {
+      throw new AppError(ErrorCodes.PERMISSION_DENIED, '只能提交自己的申请');
+    }
+
+    if (request.status !== 'draft') {
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '只有草稿状态可申请提交');
+    }
+
+    const [result] = await connection.query(
+      "UPDATE crm_purchase_request SET status = 'pending' WHERE id = ? AND status = 'draft'",
+      [id]
+    );
+    if (result.affectedRows !== 1) {
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该申请已被处理，请刷新后重试');
+    }
+
+    await connection.commit();
+    return true;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
   }
-
-  const request = rows[0];
-  if (request.applicant_id !== user.userId) {
-    const err = new Error('只能提交自己的申请');
-    err.statusCode = 403;
-    throw err;
-  }
-
-  if (request.status !== 'draft') {
-    const err = new Error('只有草稿状态可申请提交');
-    err.statusCode = 400;
-    throw err;
-  }
-
-  await pool.query(
-    "UPDATE crm_purchase_request SET status = 'pending' WHERE id = ?",
-    [id]
-  );
-
-  return true;
 }
 
 /**

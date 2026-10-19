@@ -77,9 +77,23 @@ const paginationFields = {
   keyword: Joi.string().allow('', null).max(200).default('')
 };
 
+/**
+ * 幂等键字段片段（步骤 B2 · 2026-10-19）
+ *
+ * ⚠️ 必须在使用它的 Joi schema 里**显式声明**：本中间件 stripUnknown=true，
+ * 未声明的字段会被静默删除，controller 永远拿不到 `req.body.idempotency_key`。
+ * 幂等键优先取自 `Idempotency-Key` 请求头（不受 Joi 约束），body 走本字段。
+ *
+ * 用法：const schema = Joi.object({ ...其他字段, ...idempotencyKeyField })
+ */
+const idempotencyKeyField = {
+  idempotency_key: Joi.string().max(64).allow('', null)
+};
+
 module.exports = {
   validate,
   queryValidate,
   Joi,
-  paginationFields
+  paginationFields,
+  idempotencyKeyField
 };

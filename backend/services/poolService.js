@@ -84,44 +84,70 @@ async function listPoolCustomers(pool, { page = 1, pageSize = 10, company_name, 
 /**
  * 认领公海客户
  * 变更：return { error } → throw AppError；保护期用 details 携带 protect_until
+ *
+ * 【B2 · 2026-10-19】行锁收敛。
+ *
+ * 采用「外部快判 + 事务内加锁复判」两层结构，这是刻意的：
+ *   · 外部快判（快照读，不占连接）：客户不存在 → 404002；已有人负责 → 「该客户不在公海中」
+ *   · 事务内 `SELECT ... FOR UPDATE`：拿到行锁后重读归属，
+ *     若期间已被他人抢先 → 「该客户已被他人认领，请刷新后重试」
+ *
+ * 为什么不做成「只保留事务内一次加锁读」：那样并发落败方看到的会是
+ * 「该客户不在公海中」——用户明明是从公海列表点进来的，读到这里会一头雾水。
+ * 两种口径必须区分开。同理，快判留在事务外也让「已被认领」这类常见拒绝不必占用连接。
+ *
+ * ⚠️ 并发正确性的**最后防线仍是 UPDATE 自带的 owner_id IS NULL 守卫**，不是行锁：
+ *    即便有 FOR UPDATE，也必须由 UPDATE 的条件做最终裁决（见下方 P0-1 说明）。
+ *
+ * @param {object} pool
+ * @param {number} customer_id
+ * @param {number} userId
+ * @param {object} _user - 历史遗留参数（私有池下线后不再使用）
+ * @param {string} [idempotencyKey] - 幂等键：同一 key 重放返回首次结果，不重复写 pool_log
  */
 // 第 4 参 user 仍保留以维持既有调用签名（controller 按位置传参）；
 // 私有池下线后已无权限判定需要它，故标记为有意未使用。
-async function claimCustomer(pool, customer_id, userId, _user) {
+async function claimCustomer(pool, customer_id, userId, _user, idempotencyKey) {
   if (!customer_id) throw new AppError(ErrorCodes.VALIDATION_ERROR, '客户ID不能为空');
 
-  const [customers] = await pool.query(
-    'SELECT id, pool_status, pool_type, protect_until, owner_id, company_name FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+  const { runIdempotent } = require('../utils/idempotency');
+  // ⚠️ runIdempotent 必须包在**最外层**：若先做快判，幂等重放会被「已被认领」拦下，
+  //     拿不到首次结果 —— 幂等键的语义是「重放即返回首次结果」，不是「重放报错」。
+  const { result } = await runIdempotent(pool, idempotencyKey, 'pool_claim', () =>
+    claimCustomerOnce(pool, customer_id, userId)
+  );
+  return result;
+}
+
+async function claimCustomerOnce(pool, customer_id, userId) {
+  // ① 事务外快判：不占用连接，给出「不在公海」的稳定口径
+  const [preRows] = await pool.query(
+    'SELECT id, owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [customer_id]
-  )
+  );
+  if (preRows.length === 0) throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '客户不存在');
+  if (preRows[0].owner_id !== null) throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户不在公海中');
 
-  if (customers.length === 0) throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '客户不存在');
+  // ② 事务内加锁复判：区分「一直有人负责」与「这一瞬间被别人抢走」
+  return withClaimLock(pool, customer_id, async (customer, connection) => {
+    // 注：原 isLead 判定随「私有池 / 保护期」下线而移除——两者均已不再按来源区分。
 
-  const customer = customers[0]
+    // 【产品决策 2026-09-10 · 公海池 → 客户总览】
+    // 原「私有池权限检查」与「7 天保护期检查」已下线：
+    //   · 私有池：取消该概念，认领不再按 pool_type 区分权限
+    //   · 保护期：释放到公海的客户【可被立即认领】，不再有 7 天等待
+    // 字段 protect_until / pool_type 保留在库中（不删列，避免破坏历史数据），
+    // 但新数据不再写入有效保护期（见下方 UPDATE 中显式置 NULL）。
 
-  if (customer.owner_id !== null) throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户不在公海中');
-
-  // 注：原 isLead 判定随「私有池 / 保护期」下线而移除——两者均已不再按来源区分。
-
-  // 【产品决策 2026-09-10 · 公海池 → 客户总览】
-  // 原「私有池权限检查」与「7 天保护期检查」已下线：
-  //   · 私有池：取消该概念，认领不再按 pool_type 区分权限
-  //   · 保护期：释放到公海的客户【可被立即认领】，不再有 7 天等待
-  // 字段 protect_until / pool_type 保留在库中（不删列，避免破坏历史数据），
-  // 但新数据不再写入有效保护期（见下方 UPDATE 中显式置 NULL）。
-
-  // 认领必须【原子】完成。
-  //
-  // 缺陷背景（P0-1）：原实现为「先 SELECT 校验 owner_id，再 UPDATE ... WHERE id = ?」。
-  // UPDATE 的条件里没有 owner_id IS NULL，导致两个并发请求都能通过上方校验、先后执行
-  // UPDATE，后者覆盖前者 —— 同一客户被两人「认领成功」。
-  // 注意：即便开启事务，REPEATABLE READ 下第二个事务的 UPDATE 也会在行锁释放后
-  // 依据最新版本重新匹配 id = ?，因此【仅靠事务无法解决，必须把条件写进 UPDATE】。
-  //
-  // 同时把 crm_pool_log 写入纳入同一事务，避免「认领成功但日志缺失」的半条数据。
-  const connection = await pool.getConnection()
-  try {
-    await connection.beginTransaction()
+    // 认领必须【原子】完成。
+    //
+    // 缺陷背景（P0-1）：原实现为「先 SELECT 校验 owner_id，再 UPDATE ... WHERE id = ?」。
+    // UPDATE 的条件里没有 owner_id IS NULL，导致两个并发请求都能通过上方校验、先后执行
+    // UPDATE，后者覆盖前者 —— 同一客户被两人「认领成功」。
+    // 注意：即便开启事务，REPEATABLE READ 下第二个事务的 UPDATE 也会在行锁释放后
+    // 依据最新版本重新匹配 id = ?，因此【仅靠事务无法解决，必须把条件写进 UPDATE】。
+    //
+    // 同时把 crm_pool_log 写入纳入同一事务，避免「认领成功但日志缺失」的半条数据。
 
     // 认领即开始跟进：status/business_status 必须同步（否则线索认领后 business_status 残留 'lead' 卡在线索池）
     const [claimResult] = await connection.query(
@@ -129,7 +155,7 @@ async function claimCustomer(pool, customer_id, userId, _user) {
           SET pool_status = ?, owner_id = ?, protect_until = NULL, status = ?, business_status = ?, last_follow_time = NOW()
         WHERE id = ? AND owner_id IS NULL AND deleted_at IS NULL`,
       [POOL_STATUS.PRIVATE, userId, CUSTOMER_STATUS.FOLLOWING, BUSINESS_STATUS.FOLLOWING, customer_id]
-    )
+    );
 
     // affectedRows !== 1 说明在 SELECT 与 UPDATE 之间，该客户已被他人认领（或被删除）
     if (claimResult.affectedRows !== 1) {
@@ -139,16 +165,45 @@ async function claimCustomer(pool, customer_id, userId, _user) {
     await connection.query(
       `INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id) VALUES (?, 'claim', ?, ?)`,
       [customer_id, customer.owner_id, userId]
-    )
+    );
 
-    await connection.commit()
     // 保护期已下线，不再回传 protect_until
-    return { company_name: customer.company_name }
+    return { company_name: customer.company_name };
+  });
+}
+
+/**
+ * 在行锁保护的事务中执行认领/释放业务逻辑
+ *
+ * @param {object} pool
+ * @param {number} customer_id
+ * @param {(customer: object, connection: object) => Promise<any>} fn
+ */
+async function withClaimLock(pool, customer_id, fn) {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [customers] = await connection.query(
+      'SELECT id, pool_status, pool_type, protect_until, owner_id, company_name FROM crm_customer WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
+      [customer_id]
+    );
+    if (customers.length === 0) throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '客户不存在');
+    const customer = customers[0];
+
+    // 拿到行锁后仍有人负责 ⇒ 是这一瞬间被抢走的，用「已被他人认领」口径
+    if (customer.owner_id !== null) {
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已被他人认领，请刷新后重试');
+    }
+
+    const result = await fn(customer, connection);
+    await connection.commit();
+    return result;
   } catch (error) {
-    await connection.rollback()
-    throw error
+    await connection.rollback();
+    throw error;
   } finally {
-    connection.release()
+    connection.release();
   }
 }
 
@@ -173,8 +228,10 @@ async function batchClaimCustomers(pool, customer_ids, userId, _user) {
     const skipped = []
 
     for (const customerId of customer_ids) {
+      // 【B2 · 2026-10-19】行锁：与单条认领一致，校验与更新必须在同一行锁下完成，
+      // 否则「校验通过 → 他人抢先认领」的时间窗会让本循环读到已过期的 owner_id。
       const [customers] = await connection.query(
-        'SELECT id, pool_status, pool_type, protect_until, owner_id, company_name FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+        'SELECT id, pool_status, pool_type, protect_until, owner_id, company_name FROM crm_customer WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
         [customerId]
       )
 
@@ -219,34 +276,50 @@ async function batchClaimCustomers(pool, customer_ids, userId, _user) {
 
 /**
  * 释放客户到公海
+ *
+ * 【B2 · 2026-10-19】原实现完全没有事务边界：SELECT → UPDATE → INSERT pool_log 三句
+ * 直接跑在 pool 上，任一句失败就会留下「归属已改但日志缺失」（或反之）的半条数据。
+ * 现整段纳入事务，并对客户行加 FOR UPDATE —— 释放期间锁住归属，
+ * 避免与并发的认领/转移相互穿插。
  */
 async function releaseCustomer(pool, customer_id, userId, user) {
   if (!customer_id) throw new AppError(ErrorCodes.VALIDATION_ERROR, '客户ID不能为空');
 
-  const [customers] = await pool.query(
-    'SELECT id, owner_id, company_name FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
-    [customer_id]
-  )
+  const connection = await pool.getConnection()
+  try {
+    await connection.beginTransaction()
 
-  if (customers.length === 0) throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '客户不存在');
+    const [customers] = await connection.query(
+      'SELECT id, owner_id, company_name FROM crm_customer WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
+      [customer_id]
+    )
 
-  const customer = customers[0]
+    if (customers.length === 0) throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '客户不存在');
 
-  const isPrivileged = user.roleId === ROLES.ADMIN || user.roleId === ROLES.MANAGER || user.roleId === ROLES.SALES
-  if (!isPrivileged && customer.owner_id !== userId) {
-    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权释放该客户');
+    const customer = customers[0]
+
+    const isPrivileged = user.roleId === ROLES.ADMIN || user.roleId === ROLES.MANAGER || user.roleId === ROLES.SALES
+    if (!isPrivileged && customer.owner_id !== userId) {
+      throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权释放该客户');
+    }
+
+    await connection.query(
+      'UPDATE crm_customer SET pool_status = ?, owner_id = NULL, protect_until = NULL, status = ? WHERE id = ?',
+      [POOL_STATUS.SEA, CUSTOMER_STATUS.SEA, customer_id]
+    )
+    await connection.query(
+      `INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id) VALUES (?, 'release', ?, NULL)`,
+      [customer_id, userId]
+    )
+
+    await connection.commit()
+    return { company_name: customer.company_name }
+  } catch (error) {
+    await connection.rollback()
+    throw error
+  } finally {
+    connection.release()
   }
-
-  await pool.query(
-    'UPDATE crm_customer SET pool_status = ?, owner_id = NULL, protect_until = NULL, status = ? WHERE id = ?',
-    [POOL_STATUS.SEA, CUSTOMER_STATUS.SEA, customer_id]
-  )
-  await pool.query(
-    `INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id) VALUES (?, 'release', ?, NULL)`,
-    [customer_id, userId]
-  )
-
-  return { company_name: customer.company_name }
 }
 
 /**
@@ -266,8 +339,9 @@ async function batchReleaseCustomers(pool, customer_ids, userId, user) {
 
     let successCount = 0
     for (const customerId of customer_ids) {
+      // 【B2 · 2026-10-19】行锁：与单条释放一致，避免释放期间归属被并发改动
       const [customers] = await connection.query(
-        'SELECT id, owner_id, pool_status FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+        'SELECT id, owner_id, pool_status FROM crm_customer WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
         [customerId]
       )
 

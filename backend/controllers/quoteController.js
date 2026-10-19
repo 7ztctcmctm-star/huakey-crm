@@ -103,7 +103,10 @@ async function toContract(req, res, next) {
     const quote = await quoteService.getQuote(pool, id, { clause, params: permParams });
     if (!quote) return res.status(403).json({ code: 403, message: '报价单不存在或无权操作', data: null });
 
-    const result = await quoteService.convertToContract(pool, id, req.user.userId);
+    // 幂等键：优先请求头 Idempotency-Key，其次 body.idempotency_key
+    // （必须在 Joi schema 显式声明，否则被 stripUnknown 剥离 —— 见中间件 validate）
+    const idempotencyKey = req.headers['idempotency-key'] || req.body.idempotency_key || null;
+    const result = await quoteService.convertToContract(pool, id, req.user.userId, idempotencyKey);
     res.json({ code: 200, message: '转合同成功', data: result });
   } catch (error) {
     logger.error('报价转合同失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });

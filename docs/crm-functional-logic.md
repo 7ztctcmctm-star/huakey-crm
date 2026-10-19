@@ -115,8 +115,11 @@
 
 ### 3.2 报价（quote / quotation）
 - 创建（`quoteService.createQuote`）：事务校验客户/商机同客户 → 校验产品（status=1）→ **金额全部走 `money.mul/add/applyDiscount`** → 写 `crm_quote` + `crm_quote_item` → 发审批通知（去重）。状态：1 草稿 / 2 已发送 / 3 已确认 / 4 已失效。
-- 报价转合同（`convertInContract`）：事务内 `FOR UPDATE` 锁报价；幂等校验靠"是否已存在引用该报价的合同"（`crm_contract.quote_id`，**不靠 status===3**）；复制明细；推进商机到 stage 5。
-- 审批（`approveQuote`）：更新 `approval_status/approver_id` → 清待审批通知 → `if (approvalStatus === 1)` 推进商机到 stage 3。
+- 报价转合同（`convertToContract`）：事务内 `FOR UPDATE` 锁报价；幂等校验靠"是否已存在引用该报价的合同"（`crm_contract.quote_id`，**不靠 status===3**）；复制明细；推进商机到 stage 5。
+  【2026-10-19 B2】外层再包一层 `runIdempotent`（biz_type=`quote_convert`）：带 `Idempotency-Key` 时重放返回**首次合同**，不报「已生成合同」；不带 key 仍走既有业务判据，行为不变。
+- 审批（`approveQuote`）：更新 `approval_status/approver_id` → 清待审批通知 → `if (approvalStatus === 2)` 推进商机到 stage 3。
+  【2026-10-19 B2】三步写（UPDATE quote / 清通知 / 推进商机）全部纳入**同一个事务**（`utils/tx.withTransaction`）；非关键的商机推进用 **SAVEPOINT** 包裹——失败只回滚它自己、审批仍提交。
+  ⚠️ 之所以不能只写 try/catch：MySQL 语句级报错**不会**回滚整个事务，没有保存点会把「stage 已改但 stage_log 缺失」的半成品提交上去。 3。
 
 **已知坑（BUG，已修复 2026-09-18）**
 - 原缺陷：路由 `/quote/approve` 的 `approval_status` 仅接受 `2`(通过)/`3`(驳回)，但服务里判断 `=== 1` 才推进商机 → "通过(2)"时永不推进商机到 stage 3。已将服务条件改为 `=== 2`（`quoteService.js:359`），通过时正确推进商机到 stage 3。

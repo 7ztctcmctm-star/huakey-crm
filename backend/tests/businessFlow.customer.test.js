@@ -243,9 +243,11 @@ describe('客户全生命周期 - 端到端流程', () => {
 
   // Step 6: 推进商机到成交
   it('Step 6: POST /api/v1/opportunity/update-stage — 标记成交', async () => {
-    // getOpportunityWithPermission + advanceStage: 4 次 pool.query
+    // getOpportunityWithPermission 走 pool.query；
+    // advanceStage 的三步写自 B2 起纳入事务 ⇒ 走事务连接
     mockPool.query
-      .mockResolvedValueOnce([[{ id: 300, stage: 4, owner_id: 1 }]])  // getOpportunityWithPermission
+      .mockResolvedValueOnce([[{ id: 300, stage: 4, owner_id: 1 }]]);  // getOpportunityWithPermission
+    mockConn.query
       .mockResolvedValueOnce([[{ id: 300, stage: 4 }]])                // advanceStage 查当前阶段
       .mockResolvedValueOnce([{ affectedRows: 1 }])                    // UPDATE stage
       .mockResolvedValueOnce([{ insertId: 600 }]);                     // INSERT stage log

@@ -4,15 +4,19 @@ const jwt = require('jsonwebtoken');
 
 process.env.JWT_SECRET = 'test_secret_key_for_unit_tests';
 
+// 【B2】submitRequest 已改为「事务 + FOR UPDATE + 幂等」，SQL 全部走事务连接，
+// 因此需要一个可复用的连接 mock；其余端点仍走 pool.query，保持原样。
+const mockConn = {
+  release: jest.fn(),
+  query: jest.fn(),
+  beginTransaction: jest.fn().mockResolvedValue(undefined),
+  commit: jest.fn().mockResolvedValue(undefined),
+  rollback: jest.fn().mockResolvedValue(undefined)
+};
+
 const mockPool = {
   query: jest.fn(),
-  getConnection: jest.fn().mockResolvedValue({
-    release: jest.fn(),
-    query: jest.fn(),
-    beginTransaction: jest.fn().mockResolvedValue(undefined),
-    commit: jest.fn().mockResolvedValue(undefined),
-    rollback: jest.fn().mockResolvedValue(undefined)
-  })
+  getConnection: jest.fn().mockResolvedValue(mockConn)
 };
 
 jest.mock('../config/database', () => mockPool);
@@ -44,7 +48,7 @@ const generateToken = (userId = 1, roleCode = 'super_admin', manageAll = true) =
 describe('采购申请模块', () => {
   const token = generateToken();
 
-  beforeEach(() => { mockPool.query.mockReset(); });
+  beforeEach(() => { mockPool.query.mockReset(); mockConn.query.mockReset(); });
 
   describe('POST /api/v1/purchase/request/create', () => {
     it('应该返回400当缺少title', async () => {
@@ -104,8 +108,9 @@ describe('采购申请模块', () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-        .mockResolvedValueOnce([[{ id: 1, applicant_id: 1, status: 'pending' }]]); // request
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]); // user status
+      // 事务内 SELECT（带 FOR UPDATE）：该申请已是 pending
+      mockConn.query.mockResolvedValueOnce([[{ id: 1, applicant_id: 1, status: 'pending' }]]);
 
       const res = await request(app)
         .post('/api/v1/purchase/request/submit/1')
@@ -114,6 +119,36 @@ describe('采购申请模块', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.message).toContain('草稿');
+
+      // 失败必须回滚，不得留下半条数据
+      expect(mockConn.rollback).toHaveBeenCalled();
+      expect(mockConn.commit).not.toHaveBeenCalled();
+      expect(mockConn.release).toHaveBeenCalled();
+      // SELECT 必须带行锁
+      expect(String(mockConn.query.mock.calls[0][0])).toContain('FOR UPDATE');
+    });
+
+    it('【B2】UPDATE 必须带 status=draft 原子守卫，期间被改变则不得静默成功', async () => {
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]); // user status
+      mockConn.query
+        .mockResolvedValueOnce([[{ id: 1, applicant_id: 1, status: 'draft' }]]) // SELECT 通过
+        .mockResolvedValueOnce([{ affectedRows: 0 }]); // UPDATE 未命中 ⇒ 已被并发处理
+
+      const res = await request(app)
+        .post('/api/v1/purchase/request/submit/1')
+        .set('Authorization', `Bearer ${token}`)
+        .send({});
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain('已被处理');
+      expect(mockConn.rollback).toHaveBeenCalled();
+      expect(mockConn.commit).not.toHaveBeenCalled();
+
+      const updateSql = String(mockConn.query.mock.calls[1][0]);
+      expect(updateSql).toMatch(/WHERE\s+id\s*=\s*\?\s+AND\s+status\s*=\s*'draft'/i);
     });
   });
 

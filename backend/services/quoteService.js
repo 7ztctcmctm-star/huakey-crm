@@ -9,6 +9,7 @@ const ErrorCodes = require('../errors/codes');
 const notificationService = require('./notificationService');
 // 【P1-1】金额一律走 money 工具，禁止原生浮点运算（详见 utils/money.js 的缺陷说明）
 const money = require('../utils/money');
+const { withTransaction, withSavepoint } = require('../utils/tx');
 
 /**
  * 【循环依赖护城河】惰性取得 opportunityService —— 勿改回顶层 require
@@ -378,38 +379,86 @@ async function deleteQuote(pool, id, user) {
   return { success: true };
 }
 
+/**
+ * 审批报价单
+ *
+ * 【B2 · 2026-10-19】本方法包含 3 类写：
+ *   ① UPDATE crm_quote（审批结论）  ② UPDATE crm_notification（消除待办角标）
+ *   ③ 审批通过后推进商机（UPDATE crm_opportunity + INSERT stage_log）
+ * 原先全部跑在 pool 上且无事务边界 ⇒ 任一步失败都会留下半条数据。
+ *
+ * 现整段纳入一个事务，并按重要性分层：
+ *   · ①② 失败 → 整体回滚（审批本身没成立，不能留残迹）
+ *   · ③ 是**非关键**副作用（历史上就要求「不影响主流程」），用 SAVEPOINT 包裹：
+ *     失败只回滚它自己已做的部分写，**不毒化主事务**，审批仍正常提交。
+ *     ⚠️ 直接 try/catch 是不够的 —— MySQL 语句级报错不会自动回滚事务，
+ *     若不设保存点，③ 失败后继续 commit 会把「stage 已改但 stage_log 缺失」落库。
+ *
+ * @param {object} pool
+ * @param {number} id
+ * @param {number} approvalStatus - 2=通过 3=驳回
+ * @param {string} approvalRemark
+ * @param {number} userId
+ */
 async function approveQuote(pool, id, approvalStatus, approvalRemark, userId) {
-  const [rows] = await pool.query('SELECT id FROM crm_quote WHERE id = ? AND deleted_at IS NULL', [id]);
-  if (rows.length === 0) throw new AppError(ErrorCodes.QUOTE_NOT_FOUND);
+  return withTransaction(pool, async (conn) => {
+    // 一次性取出 opportunity_id（省去后续再查一次），并对报价行加锁：
+    // 并发审批同一报价时串行化，避免两条审批记录互相覆盖。
+    const [rows] = await conn.query(
+      'SELECT id, opportunity_id FROM crm_quote WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
+      [id]
+    );
+    if (rows.length === 0) throw new AppError(ErrorCodes.QUOTE_NOT_FOUND);
+    const { opportunity_id: opportunityId } = rows[0];
 
-  await pool.query(
-    'UPDATE crm_quote SET approval_status = ?, approver_id = ?, approval_remark = ? WHERE id = ?',
-    [approvalStatus, userId, approvalRemark || null, id]
-  );
+    await conn.query(
+      'UPDATE crm_quote SET approval_status = ?, approver_id = ?, approval_remark = ? WHERE id = ?',
+      [approvalStatus, userId, approvalRemark || null, id]
+    );
 
-  await notificationService.dismissByBusiness(pool, 'quote', id);
+    await notificationService.dismissByBusiness(conn, 'quote', id);
 
-  // 4-3-5: 报价审批通过(approval_status=2)时推进商机到 stage 3（方案报价）（不阻塞主流程）
-  // 注意：路由/controller 仅接受 2(通过)/3(驳回)，原 `=== 1` 永远不成立，导致通过时商机不推进（P1 修复）
-  if (approvalStatus === 2) {
-    try {
-      const [quoteRows] = await pool.query('SELECT opportunity_id FROM crm_quote WHERE id = ? AND deleted_at IS NULL', [id]);
-      if (quoteRows.length > 0 && quoteRows[0].opportunity_id) {
-        await advanceStageForward(pool, quoteRows[0].opportunity_id, 3, userId, '报价审批通过，商机推进到方案报价');
+    // 4-3-5: 报价审批通过(approval_status=2)时推进商机到 stage 3（方案报价）（不阻塞主流程）
+    // 注意：路由/controller 仅接受 2(通过)/3(驳回)，原 `=== 1` 永远不成立，导致通过时商机不推进（P1 修复）
+    if (approvalStatus === 2 && opportunityId) {
+      const outcome = await withSavepoint(conn, 'sp_quote_approve_advance', async () =>
+        advanceStageForward(conn, opportunityId, 3, userId, '报价审批通过，商机推进到方案报价')
+      );
+      if (!outcome.ok) {
+        logger.error('[报价审批] 推进商机阶段失败（不影响主流程）', {
+          quote_id: id,
+          error: outcome.error.message,
+          traceId: 'N/A'
+        });
       }
-    } catch (e) {
-      logger.error('[报价审批] 推进商机阶段失败（不影响主流程）', {
-        quote_id: id,
-        error: e.message,
-        traceId: 'N/A'
-      });
     }
-  }
 
-  return { success: true };
+    return { success: true };
+  });
 }
 
-async function convertToContract(pool, quoteId, userId) {
+/**
+ * 报价转合同
+ *
+ * @param {object} pool
+ * @param {number} quoteId
+ * @param {number} userId
+ * @param {string} [idempotencyKey] - 幂等键（B2 · 2026-10-19 新增）
+ *   取自 `Idempotency-Key` 请求头或 `body.idempotency_key`。
+ *   同一 key 重复提交会返回**首次**生成的合同，而不是报「已生成合同」错——
+ *   这样前端双击/超时重试不会把用户的重放识别为业务错误。
+ *   ⚠️ 未传 key 时仍走既有的「已存在合同 ⇒ 拒绝」业务判据，行为不变。
+ * @returns {Promise<{contract_id: number}>}
+ */
+async function convertToContract(pool, quoteId, userId, idempotencyKey) {
+  const { runIdempotent } = require('../utils/idempotency');
+  const { result } = await runIdempotent(pool, idempotencyKey, 'quote_convert', () =>
+    convertToContractTx(pool, quoteId, userId)
+  );
+  return result;
+}
+
+async function convertToContractTx(pool, quoteId, userId) {
   const conn = await pool.getConnection();
   try {
     // 【P1-10】先开事务并把报价行锁住，避免并发重复转换。

@@ -10,8 +10,14 @@
  *   3. 失败时必须回滚并释放连接
  *   4. 批量认领遇抢先应「跳过」而非报错（部分成功语义）
  *
- * 注：真实双并发场景的端到端验证另见提交说明中的实测记录
- *（A 组修复后 1 成功/1 失败；B 组旧写法 2 成功，竞态可复现）。
+ * 【B2 · 2026-10-19 结构变更】
+ *   校验用的 SELECT 原先在事务**之外**，与 UPDATE 之间存在时间窗；现已移入事务并加 FOR UPDATE。
+ *   因此下面两组断言随之调整（语义不变，结构收紧）：
+ *     · 客户不存在 / 已被认领 ⇒ 现在会先取连接（历史上会短路，不开连接）
+ *     · SELECT 走事务连接而非 pool，且必须带 FOR UPDATE
+ *   并发正确性的**最后防线仍是 UPDATE 的原子守卫**，不是行锁（见 poolService 注释）。
+ *
+ * 注：双并发端到端验证见 tests/db/poolClaimConcurrency.test.js（真实 MySQL，跑两次确认稳定）。
  */
 
 const { claimCustomer, batchClaimCustomers } = require('../services/poolService');
@@ -32,9 +38,16 @@ function poolCustomer(overrides = {}) {
 
 /**
  * 构造连接 mock
+ *
+ * 【B2】采用「事务外快判 + 事务内加锁复判」两层结构：
+ *   · pool.query  ← 快照读（不占连接）
+ *   · conn.query  ← SELECT ... FOR UPDATE → UPDATE → INSERT crm_pool_log
+ * 两层返回同一份 customerRow，便于把「抢先看不到行锁」的用例也覆盖到。
+ *
  * @param {number} affectedRows UPDATE 的影响行数（0 = 已被他人抢先认领）
+ * @param {object|null} customerRow SELECT 返回的客户行；传 null ⇒ 客户不存在
  */
-function makeConnection(affectedRows = 1) {
+function makeConnection(affectedRows = 1, customerRow = poolCustomer()) {
   const conn = {
     beginTransaction: jest.fn().mockResolvedValue(undefined),
     commit: jest.fn().mockResolvedValue(undefined),
@@ -42,16 +55,23 @@ function makeConnection(affectedRows = 1) {
     release: jest.fn(),
     query: jest.fn()
   };
-  // 第 1 次：UPDATE；第 2 次：INSERT crm_pool_log
-  conn.query.mockResolvedValueOnce([{ affectedRows }]);
-  conn.query.mockResolvedValue([{ insertId: 1 }]);
+  // 按 SQL 内容分派，而非依赖调用次序 —— 同一个 pool 可被多处重复调用而结果稳定
+  conn.query.mockImplementation((sql) => {
+    const s = String(sql);
+    if (s.includes('FROM crm_customer')) {
+      return Promise.resolve([customerRow ? [customerRow] : []]);
+    }
+    if (s.startsWith('UPDATE')) return Promise.resolve([{ affectedRows }]);
+    return Promise.resolve([{ insertId: 1 }]); // INSERT crm_pool_log
+  });
   return conn;
 }
 
 function makePool(customerRow, affectedRows = 1) {
-  const conn = makeConnection(affectedRows);
+  const conn = makeConnection(affectedRows, customerRow);
   return {
-    query: jest.fn().mockResolvedValue([[customerRow]]),
+    // 事务外快判用的快照读
+    query: jest.fn().mockResolvedValue([customerRow ? [customerRow] : []]),
     getConnection: jest.fn().mockResolvedValue(conn),
     __conn: conn
   };
@@ -61,6 +81,23 @@ const actor = { manageAll: true, roleId: 1 };
 
 describe('P0-1 公海认领原子性', () => {
   describe('claimCustomer', () => {
+    test('【B2】校验用的 SELECT 必须在事务内并带 FOR UPDATE', async () => {
+      const pool = makePool(poolCustomer());
+
+      await claimCustomer(pool, 101, 46, actor);
+
+      const selectCall = pool.__conn.query.mock.calls.find((c) =>
+        String(c[0]).includes('SELECT id, pool_status') && String(c[0]).includes('FROM crm_customer')
+      );
+      expect(selectCall).toBeDefined();
+      expect(String(selectCall[0])).toContain('FOR UPDATE');
+      // 事务外的快判只允许有一条「只读核心判据」的快照读，不得有任何写
+      const poolWrites = pool.query.mock.calls.filter(
+        (c) => String(c[0]).startsWith('UPDATE') || String(c[0]).startsWith('INSERT')
+      );
+      expect(poolWrites).toHaveLength(0);
+    });
+
     test('UPDATE 必须带 owner_id IS NULL 原子守卫', async () => {
       const pool = makePool(poolCustomer());
 
@@ -120,21 +157,38 @@ describe('P0-1 公海认领原子性', () => {
       expect(logCall).toBeUndefined();
     });
 
-    test('客户已有人负责时直接拒绝，且不开启连接', async () => {
+    test('客户已有人负责时在**事务外**快判拒绝，不占用连接', async () => {
       const pool = makePool(poolCustomer({ owner_id: 7 }));
 
       await expect(claimCustomer(pool, 101, 46, actor)).rejects.toThrow('该客户不在公海中');
+      // 【B2】已知有人负责 ⇒ 快照读阶段就拒绝，不必取连接
       expect(pool.getConnection).not.toHaveBeenCalled();
+      expect(pool.__conn.query).not.toHaveBeenCalled();
     });
 
-    test('客户不存在时抛 CUSTOMER_NOT_FOUND', async () => {
-      const pool = {
-        query: jest.fn().mockResolvedValue([[]]),
-        getConnection: jest.fn()
-      };
+    test('客户不存在时抛 CUSTOMER_NOT_FOUND（同样不占用连接）', async () => {
+      const pool = makePool(null);
 
       await expect(claimCustomer(pool, 999, 46, actor)).rejects.toMatchObject({ code: 404002 });
       expect(pool.getConnection).not.toHaveBeenCalled();
+    });
+
+    test('【B2】事务内加锁复判发现已被抢走，须用「已被他人认领」口径', async () => {
+      // 快照读看到无主（并发窗口），但拿到行锁后已是他人所有
+      const pool = makePool(poolCustomer());
+      pool.query.mockResolvedValue([[poolCustomer({ owner_id: null })]]);       // 外：无主
+      pool.__conn.query.mockImplementation((sql) => {
+        const s = String(sql);
+        if (s.includes('FROM crm_customer')) {
+          return Promise.resolve([[poolCustomer({ owner_id: 7 })]]);            // 内：已被抢走
+        }
+        if (s.startsWith('UPDATE')) return Promise.resolve([{ affectedRows: 0 }]);
+        return Promise.resolve([{ insertId: 1 }]);
+      });
+
+      await expect(claimCustomer(pool, 101, 46, actor)).rejects.toThrow('已被他人认领');
+      expect(pool.__conn.rollback).toHaveBeenCalled();
+      expect(pool.__conn.commit).not.toHaveBeenCalled();
     });
   });
 

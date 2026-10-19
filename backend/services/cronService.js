@@ -24,6 +24,27 @@ async function cleanExpiredLogs(pool, days = 90) {
 }
 
 /**
+ * 清理超过指定天数的幂等键记录（crm_idempotency）
+ *
+ * 【为什么需要（步骤 B2 · 2026-10-19）】
+ *   crm_idempotency 是「一写一留」的登记表：每笔带幂等键的成功写入都永久留一行。
+ *   不加清理会无限增长，且随着行数上升，幂等查询（按主键查）虽仍是 O(1)，
+ *   但备份体积与表碎片会持续累积。保留窗口取 30 天 — 远长于常规重试/对账周期，
+ *   短于此窗口的重放仍能命中缓存结果。
+ *
+ * @param {object} pool - 数据库连接池
+ * @param {number} [days=30] - 保留天数，默认 30
+ * @returns {Promise<number>} - 已清理的记录数
+ */
+async function cleanExpiredIdempotency(pool, days = 30) {
+  const [result] = await pool.query(
+    'DELETE FROM crm_idempotency WHERE create_time < NOW() - INTERVAL ? DAY',
+    [days]
+  );
+  return result.affectedRows || 0;
+}
+
+/**
  * 获取即将回收的客户列表（following 状态超过 N 天未跟进）
  * @param {object} pool - 数据库连接池
  * @param {number} [nearDays] - 未跟进天数阈值，默认读取 sys_config.near_recycle_days
@@ -122,6 +143,7 @@ function autoReleaseCustomers(pool, releaseDays) {
 
 module.exports = {
   cleanExpiredLogs,
+  cleanExpiredIdempotency,
   getNearRecycleCustomers,
   notifyPreReleaseCustomers,
   autoReleaseCustomers

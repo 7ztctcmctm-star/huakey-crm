@@ -33,11 +33,15 @@ const EXPIRE_DAYS = 3;
 
 /**
  * 发起转移申请
+ *
  * @param {object} pool
  * @param {{customer_id:number, to_user_id:number, reason?:string}} data
  * @param {number} fromUserId 发起人（必须是该客户当前负责人）
+ * @param {string} [idempotencyKey] - 幂等键（B2 · 2026-10-19 新增）
+ *   同一 key 重放返回**首次**创建的申请 id，而不是报「已有待处理的转移申请」——
+ *   双击提交不该让调用方看到业务冲突错误。
  */
-async function createTransfer(pool, data, fromUserId) {
+async function createTransfer(pool, data, fromUserId, idempotencyKey) {
   const customerId = Number(data.customer_id);
   const toUserId = Number(data.to_user_id);
 
@@ -47,6 +51,14 @@ async function createTransfer(pool, data, fromUserId) {
     throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '不能转移给自己');
   }
 
+  const { runIdempotent } = require('../utils/idempotency');
+  const { result } = await runIdempotent(pool, idempotencyKey, 'customer_transfer_create', () =>
+    createTransferTx(pool, customerId, toUserId, data, fromUserId)
+  );
+  return result;
+}
+
+async function createTransferTx(pool, customerId, toUserId, data, fromUserId) {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -119,8 +131,22 @@ async function createTransfer(pool, data, fromUserId) {
 
 /**
  * 接收人同意转移 —— 客户归属正式变更
+ *
+ * @param {object} pool
+ * @param {number} transferId
+ * @param {number} userId
+ * @param {string} [idempotencyKey] - 幂等键（B2 · 2026-10-19 新增）
+ *   双击「同意」时，第二次重放返回首次结果而非报「该申请已处理」。
  */
-async function acceptTransfer(pool, transferId, userId) {
+async function acceptTransfer(pool, transferId, userId, idempotencyKey) {
+  const { runIdempotent } = require('../utils/idempotency');
+  const { result } = await runIdempotent(pool, idempotencyKey, 'customer_transfer_accept', () =>
+    acceptTransferTx(pool, transferId, userId)
+  );
+  return result;
+}
+
+async function acceptTransferTx(pool, transferId, userId) {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -198,8 +224,22 @@ async function acceptTransfer(pool, transferId, userId) {
 
 /**
  * 接收人拒绝转移
+ *
+ * @param {object} pool
+ * @param {number} transferId
+ * @param {number} userId
+ * @param {string} [remark]
+ * @param {string} [idempotencyKey] - 幂等键（B2 · 2026-10-19 新增）
  */
-async function rejectTransfer(pool, transferId, userId, remark) {
+async function rejectTransfer(pool, transferId, userId, remark, idempotencyKey) {
+  const { runIdempotent } = require('../utils/idempotency');
+  const { result } = await runIdempotent(pool, idempotencyKey, 'customer_transfer_reject', () =>
+    rejectTransferTx(pool, transferId, userId, remark)
+  );
+  return result;
+}
+
+async function rejectTransferTx(pool, transferId, userId, remark) {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();

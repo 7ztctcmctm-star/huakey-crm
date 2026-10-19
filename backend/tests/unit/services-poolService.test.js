@@ -25,8 +25,9 @@ describe('poolService', () => {
       const pool = createMockPool();
       const conn = createMockConn();
       pool.getConnection.mockResolvedValue(conn);
-      // 1. SELECT 客户（lead、无主）走 pool.query；2. UPDATE / 3. INSERT pool_log 走事务连接
-      pool.query.mockResolvedValueOnce([[{ id: 10, company_name: 'A公司', owner_id: null, status: 'lead', pool_type: 'private', protect_until: null }]]);
+      // 【B2】两层结构：pool.query = 事务外快判（不占连接）；conn.query = SELECT(FOR UPDATE) → UPDATE → INSERT pool_log
+      pool.query.mockResolvedValueOnce([[{ id: 10, owner_id: null, company_name: 'A公司' }]]);
+      conn.query.mockResolvedValueOnce([[{ id: 10, company_name: 'A公司', owner_id: null, status: 'lead', pool_type: 'private', protect_until: null }]]);
       conn.query.mockResolvedValue([{ affectedRows: 1 }]);
 
       const result = await poolService.claimCustomer(pool, 10, 5, { roleId: ROLES.SALES, manageAll: false });
@@ -47,7 +48,8 @@ describe('poolService', () => {
       const pool = createMockPool();
       const conn = createMockConn();
       pool.getConnection.mockResolvedValue(conn);
-      pool.query.mockResolvedValueOnce([[{ id: 11, company_name: 'B公司', owner_id: null, status: 'quoted', pool_type: 'public', protect_until: null }]]);
+      pool.query.mockResolvedValueOnce([[{ id: 11, owner_id: null, company_name: 'B公司' }]]);
+      conn.query.mockResolvedValueOnce([[{ id: 11, company_name: 'B公司', owner_id: null, status: 'quoted', pool_type: 'public', protect_until: null }]]);
       conn.query.mockResolvedValue([{ affectedRows: 1 }]);
 
       await poolService.claimCustomer(pool, 11, 5, { roleId: ROLES.SALES, manageAll: false });
@@ -92,16 +94,44 @@ describe('poolService', () => {
   describe('releaseCustomer 保持阶段', () => {
     it('释放到公海只改资源字段，business_status 保留业务阶段', async () => {
       const pool = createMockPool();
-      pool.query
-        .mockResolvedValueOnce([[{ id: 20, owner_id: 5, company_name: 'D公司' }]])
-        .mockResolvedValue([{ affectedRows: 1 }]);
+      const conn = createMockConn();
+      pool.getConnection.mockResolvedValue(conn);
+      // 【B2】释放原本完全没有事务边界；现与单条认领同构：SELECT(FOR UPDATE) → UPDATE → INSERT pool_log
+      conn.query.mockResolvedValueOnce([[{ id: 20, owner_id: 5, company_name: 'D公司' }]]);
+      conn.query.mockResolvedValue([{ affectedRows: 1 }]);
 
       await poolService.releaseCustomer(pool, 20, 5, { roleId: ROLES.SALES });
 
-      const updateCall = pool.query.mock.calls.find(c => c[0].includes('UPDATE crm_customer'));
+      expect(conn.beginTransaction).toHaveBeenCalledTimes(1);
+      expect(conn.commit).toHaveBeenCalledTimes(1);
+      expect(conn.rollback).not.toHaveBeenCalled();
+      expect(conn.release).toHaveBeenCalledTimes(1);
+
+      const selectCall = conn.query.mock.calls.find(c => String(c[0]).includes('SELECT id, owner_id'));
+      expect(selectCall[0]).toContain('FOR UPDATE');
+
+      const updateCall = conn.query.mock.calls.find(c => c[0].includes('UPDATE crm_customer'));
       expect(updateCall[0]).toContain('status = ?');
       expect(updateCall[0]).not.toContain('business_status');
       expect(updateCall[1]).toContain('sea');
+    });
+
+    it('【B2】释放写入 pool_log 失败应整体回滚，不留「归属已改但日志缺失」', async () => {
+      const pool = createMockPool();
+      const conn = createMockConn();
+      pool.getConnection.mockResolvedValue(conn);
+      conn.query
+        .mockResolvedValueOnce([[{ id: 20, owner_id: 5, company_name: 'D公司' }]])
+        .mockResolvedValueOnce([{ affectedRows: 1 }])
+        .mockRejectedValueOnce(new Error('pool_log 写入失败'));
+
+      await expect(
+        poolService.releaseCustomer(pool, 20, 5, { roleId: ROLES.SALES })
+      ).rejects.toThrow('pool_log 写入失败');
+
+      expect(conn.rollback).toHaveBeenCalled();
+      expect(conn.commit).not.toHaveBeenCalled();
+      expect(conn.release).toHaveBeenCalled();
     });
   });
 });

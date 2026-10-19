@@ -212,10 +212,13 @@ describe('客户分配模块', () => {
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-        .mockResolvedValueOnce([[{ id: 1, pool_status: 1, pool_type: 'public', protect_until: null, owner_id: null }]]); // customer lookup
+        .mockResolvedValueOnce([[{ id: 1, owner_id: null }]]); // 事务外快判（B2：只查核心判据）
 
-      // P0-1：认领的 UPDATE 与 pool_log INSERT 已改为走事务连接（原子更新 + 同事务写日志）
-      mockConnection.query.mockResolvedValue([{ affectedRows: 1, insertId: 1 }]);
+      // P0-1：认领的 UPDATE 与 pool_log INSERT 走事务连接（原子更新 + 同事务写日志）
+      // B2：SELECT ... FOR UPDATE 也移入了事务，故连接上共 3 次调用
+      mockConnection.query
+        .mockResolvedValueOnce([[{ id: 1, pool_status: 1, pool_type: 'public', protect_until: null, owner_id: null, company_name: '测试公司' }]]) // 加锁复判
+        .mockResolvedValue([{ affectedRows: 1, insertId: 1 }]); // UPDATE 认领 + INSERT pool_log
 
       const res = await request(app)
         .post('/api/v1/customers/claim')
@@ -247,10 +250,13 @@ describe('客户分配模块', () => {
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-        .mockResolvedValueOnce([[{ id: 1, owner_id: 1, company_name: '测试公司' }]]) // customer lookup
-        .mockResolvedValueOnce([{ affectedRows: 1 }]) // update
-        .mockResolvedValueOnce([{ insertId: 1 }]) // pool_log insert
         .mockResolvedValueOnce(undefined); // logAction
+
+      // 【B2】释放原本完全没有事务边界；现整段（SELECT FOR UPDATE → UPDATE → INSERT pool_log）走连接
+      mockConnection.query
+        .mockResolvedValueOnce([[{ id: 1, owner_id: 1, company_name: '测试公司' }]]) // 加锁读
+        .mockResolvedValueOnce([{ affectedRows: 1 }]) // update
+        .mockResolvedValueOnce([{ insertId: 1 }]);    // pool_log insert
 
       const res = await request(app)
         .post('/api/v1/customers/release')

@@ -7,7 +7,7 @@ const cron = require('node-cron');
 const { createSysCronLogTable, logCronRun } = require('./logger');
 const logger = require('../config/logger');
 const { alertError } = require('../utils/alert');
-const { autoReleaseCustomers, notifyPreReleaseCustomers } = require('../services/cronService');
+const { autoReleaseCustomers, notifyPreReleaseCustomers, cleanExpiredIdempotency } = require('../services/cronService');
 const { getRecycleDays } = require('../utils/config');
 
 // 存储所有定时任务引用，允�?stopAllCronJobs 停止
@@ -160,6 +160,18 @@ function startAllCronJobs(pool) {
       await checkAllSuppliersScores(pool);
       logger.info('[定时任务] 供应商评分完成');
     }, 'supplier-scoring');
+  }, { timezone: 'Asia/Shanghai' }));
+
+  // 7. 每周日 04:30 — 清理过期幂等键（保留 30 天）
+  // crm_idempotency 只增不删，接入幂等的写入点越多增长越快；30 天窗口远长于
+  // 常规重试/对账周期，不影响幂等语义（详见 cronService.cleanExpiredIdempotency）。
+  _cronTasks.push(cron.schedule('30 4 * * 0', () => {
+    executeWithRetry(async () => {
+      const cleaned = await cleanExpiredIdempotency(pool, 30);
+      if (cleaned > 0) {
+        logger.info(`[幂等清理] 已清理 ${cleaned} 条超过 30 天的幂等键记录`);
+      }
+    }, 'idempotency-cleanup');
   }, { timezone: 'Asia/Shanghai' }));
 
   logger.info('[定时任务] 全部定时任务已启动');

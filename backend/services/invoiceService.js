@@ -155,11 +155,25 @@ function normalizeInvoiceAmounts(amount, tax_rate, tax_amount) {
  * 迁移 123 给 invoice_no 加了唯一键，编号冲突会以 ER_DUP_ENTRY 形式暴露。
  * 并发分配或历史编号空洞导致的偶发冲突在此重算序号重试，
  * 重试耗尽则冒泡 ER_DUP_ENTRY，由 errorHandler 统一映射为 409（不新增 controller 分支）。
+ *
+ * @param {object} pool
+ * @param {object} payload - { contract_id, customer_id, type, amount, tax_rate, tax_amount, invoice_date, status, remark, idempotency_key? }
+ * @param {number} userId
+ * @param {string} [idempotencyKey] - 幂等键（B2 · 2026-10-19 新增）
+ *   双击开票 / 网络重试时，同一 key 重放返回**首次**创建的发票（不会开出第二张票）。
  */
-async function createInvoice(pool, { contract_id, customer_id, type, amount, tax_rate, tax_amount, invoice_date, status, remark }, userId) {
+async function createInvoice(pool, { contract_id, customer_id, type, amount, tax_rate, tax_amount, invoice_date, status, remark }, userId, idempotencyKey) {
   // 先校验再开事务：金额自相矛盾时不必占着连接
   const amounts = normalizeInvoiceAmounts(amount, tax_rate, tax_amount);
 
+  const { runIdempotent } = require('../utils/idempotency');
+  const { result } = await runIdempotent(pool, idempotencyKey, 'invoice_create', () =>
+    insertInvoiceWithRetry(pool, { contract_id, customer_id, type, invoice_date, status, remark }, amounts, userId)
+  );
+  return result;
+}
+
+async function insertInvoiceWithRetry(pool, { contract_id, customer_id, type, invoice_date, status, remark }, amounts, userId) {
   const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
   let lastError = null;
 

@@ -10,10 +10,18 @@ const transferService = require('../services/transferService');
 const { logAction, getIpAddress } = require('../middleware/logger');
 const { buildDataPermissionWhere } = require('../middleware/permission');
 
+/**
+ * 取幂等键：优先 Idempotency-Key 请求头，其次 body.idempotency_key。
+ * ⚠️ body 传入时必须在对应 Joi schema 显式声明（validate 中间件 stripUnknown=true 会剥离未声明字段）。
+ */
+function idempotencyKeyOf(req) {
+  return req.headers['idempotency-key'] || req.body.idempotency_key || null;
+}
+
 /** 发起转移（销售 A → 销售 B） */
 async function create(req, res, next) {
   try {
-    const result = await transferService.createTransfer(pool, req.body, req.user.userId);
+    const result = await transferService.createTransfer(pool, req.body, req.user.userId, idempotencyKeyOf(req));
     await logAction({
       module: 'customer',
       action: 'transfer-create',
@@ -33,7 +41,7 @@ async function create(req, res, next) {
 /** 接收人同意 */
 async function accept(req, res, next) {
   try {
-    const result = await transferService.acceptTransfer(pool, req.body.id, req.user.userId);
+    const result = await transferService.acceptTransfer(pool, req.body.id, req.user.userId, idempotencyKeyOf(req));
     await logAction({
       module: 'customer',
       action: 'transfer-accept',
@@ -53,7 +61,7 @@ async function accept(req, res, next) {
 /** 接收人拒绝 */
 async function reject(req, res, next) {
   try {
-    const result = await transferService.rejectTransfer(pool, req.body.id, req.user.userId, req.body.remark);
+    const result = await transferService.rejectTransfer(pool, req.body.id, req.user.userId, req.body.remark, idempotencyKeyOf(req));
     await logAction({
       module: 'customer',
       action: 'transfer-reject',

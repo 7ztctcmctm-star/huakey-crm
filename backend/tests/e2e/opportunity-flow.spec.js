@@ -25,15 +25,17 @@ process.env.NODE_ENV = 'test';
 // ============================================================================
 // Mock Pool — 模拟数据库连接池
 // ============================================================================
+const mockConn = {
+  query: jest.fn(),
+  beginTransaction: jest.fn().mockResolvedValue(),
+  commit: jest.fn().mockResolvedValue(),
+  rollback: jest.fn().mockResolvedValue(),
+  release: jest.fn()
+};
+
 const mockPool = {
   query: jest.fn(),
-  getConnection: jest.fn().mockResolvedValue({
-    query: jest.fn(),
-    beginTransaction: jest.fn().mockResolvedValue(),
-    commit: jest.fn().mockResolvedValue(),
-    rollback: jest.fn().mockResolvedValue(),
-    release: jest.fn()
-  })
+  getConnection: jest.fn().mockResolvedValue(mockConn)
 };
 
 jest.mock('../../config/database', () => mockPool);
@@ -149,6 +151,7 @@ describe('Opportunity Center v1 — 业务链集成测试', () => {
 
   beforeEach(() => {
     mockPool.query.mockReset();
+    mockConn.query.mockReset();
   });
 
   // ==========================================================================
@@ -202,12 +205,11 @@ describe('Opportunity Center v1 — 业务链集成测试', () => {
         // super_admin → bypass checkPermission (无 DB 查询)
         // checkDataPermission → buildDataPermissionWhere
         // controller: getOpportunityWithPermission
-        .mockResolvedValueOnce([[{ id: 200, name: '集成测试商机', stage: 1, owner_id: 1 }]])  // 4: verify ownership
-        // advanceStage SELECT
+        .mockResolvedValueOnce([[{ id: 200, name: '集成测试商机', stage: 1, owner_id: 1 }]]); // 4: verify ownership
+      // 【B2】advanceStage 的三步写已纳入事务 ⇒ 走事务连接，不再走 pool
+      mockConn.query
         .mockResolvedValueOnce([[{ id: 200, stage: 1 }]])                           // 5: SELECT opportunity
-        // advanceStage UPDATE
         .mockResolvedValueOnce([{ affectedRows: 1 }])                                // 6: UPDATE stage=2, win_rate=25
-        // advanceStage INSERT stage_log
         .mockResolvedValueOnce([{ insertId: 1 }]);                                   // 7: INSERT stage_log
 
       const res = await request(app)
@@ -220,7 +222,7 @@ describe('Opportunity Center v1 — 业务链集成测试', () => {
       expect(res.body.message).toContain('推进至');
 
       // 验证 stage_log INSERT 包含 change_reason
-      const insertLogCall = mockPool.query.mock.calls.find(
+      const insertLogCall = [...mockPool.query.mock.calls, ...mockConn.query.mock.calls].find(
         c => /INSERT\s+INTO\s+crm_opportunity_stage_log/i.test(c[0])
       );
       expect(insertLogCall).toBeDefined();
@@ -488,7 +490,8 @@ describe('Opportunity Center v1 — 业务链集成测试', () => {
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])
         .mockResolvedValueOnce([[{ must_change_password: 0 }]])
         .mockResolvedValueOnce([[{ code: 'opportunity:edit' }]])
-        .mockResolvedValueOnce([[{ id: 200, name: '已成交商机', stage: 5, owner_id: 1 }]])
+        .mockResolvedValueOnce([[{ id: 200, name: '已成交商机', stage: 5, owner_id: 1 }]]);
+      mockConn.query
         .mockResolvedValueOnce([[{ id: 200, stage: 5 }]]);  // advanceStage: 已成交
 
       const res = await request(app)

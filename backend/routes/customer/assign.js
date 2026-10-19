@@ -2,7 +2,7 @@ const express = require('express');
 const { authenticateToken } = require('../../middleware/auth');
 const { checkPermission } = require('../../middleware/permission');
 const { requireManager } = require('../../middleware/admin');
-const { validate, Joi } = require('../../middleware/validate');
+const { validate, Joi, idempotencyKeyField } = require('../../middleware/validate');
 const { autoAssignOwner } = require('../../services/assignService');
 const customerController = require('../../controllers/customerController');
 
@@ -92,7 +92,8 @@ router.post('/auto-assign', authenticateToken, checkPermission('customer:assign'
 // ========== 公海认领/释放（从 pool.js 迁移，避免废弃路由继续暴露）==========
 
 const claimSchema = Joi.object({
-  customer_id: Joi.number().integer().positive().required()
+  customer_id: Joi.number().integer().positive().required(),
+  ...idempotencyKeyField
 });
 
 const batchClaimSchema = Joi.object({

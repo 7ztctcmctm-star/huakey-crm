@@ -19,7 +19,7 @@ const router = express.Router();
 
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission } = require('../middleware/permission');
-const { validate, Joi } = require('../middleware/validate');
+const { validate, Joi, idempotencyKeyField } = require('../middleware/validate');
 const customerController = require('../controllers/customerController');
 const transferController = require('../controllers/transferController');
 
@@ -36,7 +36,9 @@ const poolListSchema = Joi.object({
 });
 
 const customerIdSchema = Joi.object({
-  id: Joi.number().integer().positive().required()
+  id: Joi.number().integer().positive().required(),
+  // 认领接受幂等键：双击不得重复写 pool_log
+  ...idempotencyKeyField
 });
 
 const releaseSchema = Joi.object({
@@ -77,12 +79,15 @@ router.post('/release',
 const transferCreateSchema = Joi.object({
   customer_id: Joi.number().integer().positive().required(),
   to_user_id: Joi.number().integer().positive().required(),
-  reason: Joi.string().max(500).allow('', null)
+  reason: Joi.string().max(500).allow('', null),
+  ...idempotencyKeyField
 });
 
 const transferHandleSchema = Joi.object({
   id: Joi.number().integer().positive().required(),
-  remark: Joi.string().max(500).allow('', null)
+  remark: Joi.string().max(500).allow('', null),
+  // 同意/拒绝接受幂等键：双击不得把同一申请处理两次
+  ...idempotencyKeyField
 });
 
 const transferQuerySchema = Joi.object({

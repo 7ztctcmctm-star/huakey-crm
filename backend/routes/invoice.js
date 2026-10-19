@@ -4,7 +4,7 @@ const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission } = require('../middleware/permission');
-const { validate, Joi } = require('../middleware/validate');
+const { validate, Joi, idempotencyKeyField } = require('../middleware/validate');
 const invoiceService = require('../services/invoiceService');
 const logger = require('../config/logger');
 
@@ -28,7 +28,9 @@ const addSchema = Joi.object({
   tax_amount: Joi.number().precision(2).min(0).allow(null),
   invoice_date: Joi.date().iso().allow(null),
   status: Joi.number().integer().valid(1, 2, 3, 4).allow(null),
-  remark: Joi.string().max(500).allow('', null)
+  remark: Joi.string().max(500).allow('', null),
+  // 新增发票接受幂等键：双击/超时重试不得开出第二张票
+  ...idempotencyKeyField
 });
 
 const updateSchema = Joi.object({
@@ -78,7 +80,8 @@ router.get('/detail/:id', authenticateToken, async (req, res, next) => {
 // 新增
 router.post('/add', authenticateToken, checkPermission('invoice:add'), validate(addSchema), async (req, res, next) => {
   try {
-    const result = await invoiceService.createInvoice(pool, req.body, req.user.userId);
+    const idempotencyKey = req.headers['idempotency-key'] || req.body.idempotency_key || null;
+    const result = await invoiceService.createInvoice(pool, req.body, req.user.userId, idempotencyKey);
     res.json({ code: 200, message: '创建发票成功', data: result });
   } catch (error) {
     logger.error('新增发票失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
