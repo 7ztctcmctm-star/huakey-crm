@@ -43,14 +43,31 @@ if [ "$SMOKE_HEALTH_ONLY" = "1" ]; then
 fi
 
 # 2. 登录获取 token
+# 退出码区分「服务故障」与「环境限制」：
+#   3 = 服务不可达/非 2xx（真实故障，部署必须失败）
+#   4 = 服务活着但登录这一步无法自动完成（验证码必填 / 初始密码已改），
+#       属环境限制而非故障，只告警——否则每次生产部署都会被这一步误判成失败。
 echo "[2/4] 登录测试..."
 LOGIN_RESP=$($CURL -X POST "$BASE_URL/api/v1/auth/login" \
     -H "Content-Type: application/json" \
-    -d "{\"username\":\"admin\",\"password\":\"$ADMIN_PASS\"}")
-TOKEN=$(echo "$LOGIN_RESP" | jq -r '.data.token')
+    -d "{\"username\":\"admin\",\"password\":\"$ADMIN_PASS\"}" || echo "")
+
+if [ -z "$LOGIN_RESP" ]; then
+    echo "FAIL: 登录接口无响应（服务不可达或返回非 2xx）"
+    exit 3
+fi
+# 生产开启验证码时后端直接拒绝无 captcha 的登录请求
+if echo "$LOGIN_RESP" | grep -q 'captcha'; then
+    echo "  ⚠ 登录要求验证码（生产 SKIP_CAPTCHA=false），冒烟脚本无法自动登录"
+    echo "    健康检查已通过，业务链路未自动验证；如需完整端到端冒烟，"
+    echo "    请临时为 app 设置 SKIP_CAPTCHA=true 后重跑本脚本。"
+    exit 4
+fi
+TOKEN=$(echo "$LOGIN_RESP" | jq -r '.data.token' 2>/dev/null || echo "")
 if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
-    echo "FAIL: 登录失败，未获取到 token"
-    exit 1
+    echo "  ⚠ 登录未取得 token（admin 初始密码可能已改）："
+    echo "    $(echo "$LOGIN_RESP" | head -c 200)"
+    exit 4
 fi
 echo "  ✓ login passed"
 

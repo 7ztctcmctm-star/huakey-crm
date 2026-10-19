@@ -377,19 +377,30 @@ fi
 echo ""
 echo "[12/12] 端到端冒烟测试..."
 SMOKE_URL="https://localhost:8443"
+# 退出码语义见 smoke-test.sh：0 全通过 / 3 服务故障 / 4 环境限制（登录无法自动完成）
+set +e
 if [ -z "${ADMIN_INITIAL_PASSWORD:-}" ]; then
     # 无初始密码可用时只验健康，避免把"没密码"误报成"服务不健康"
-    SMOKE_HEALTH_ONLY=1 bash "$PROJECT_DIR/deploy/smoke-test.sh" "$SMOKE_URL" \
-        || DEPLOY_FAILURES=$((DEPLOY_FAILURES + 1))
+    SMOKE_HEALTH_ONLY=1 bash "$PROJECT_DIR/deploy/smoke-test.sh" "$SMOKE_URL"
 else
-    ADMIN_PASS="$ADMIN_INITIAL_PASSWORD" bash "$PROJECT_DIR/deploy/smoke-test.sh" "$SMOKE_URL" \
-        || {
-            echo "  ✗ [冒烟] 端到端冒烟未通过"
-            echo "      若 admin 初始密码已改，登录步骤会失败；可只验健康："
-            echo "      SMOKE_HEALTH_ONLY=1 bash deploy/smoke-test.sh $SMOKE_URL"
-            DEPLOY_FAILURES=$((DEPLOY_FAILURES + 1))
-        }
+    ADMIN_PASS="$ADMIN_INITIAL_PASSWORD" bash "$PROJECT_DIR/deploy/smoke-test.sh" "$SMOKE_URL"
 fi
+SMOKE_RC=$?
+set -e
+
+case "$SMOKE_RC" in
+    0)
+        echo "  ✓ 端到端冒烟通过（健康 + 登录 + 业务接口 + 前端）"
+        ;;
+    4)
+        echo "  ⚠ 健康检查通过，但登录/业务步骤因环境限制未自动验证（原因见上）"
+        echo "    服务可用；对外提供服务前请人工确认业务链路"
+        ;;
+    *)
+        echo "  ✗ [冒烟] 端到端冒烟未通过（退出码 $SMOKE_RC）"
+        DEPLOY_FAILURES=$((DEPLOY_FAILURES + 1))
+        ;;
+esac
 
 echo ""
 echo "[12/12] 部署完成"
