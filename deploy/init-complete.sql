@@ -987,6 +987,7 @@ CREATE TABLE `crm_follow_up` (
   CONSTRAINT `fk_follow_user` FOREIGN KEY (`create_by`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_followup_create_by` FOREIGN KEY (`create_by`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_followup_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_followup_opportunity` FOREIGN KEY (`opportunity_id`) REFERENCES `crm_opportunity` (`id`) ON DELETE SET NULL,
   CONSTRAINT `chk_follow_type` CHECK ((`follow_type` in (_utf8mb4'电话',_utf8mb4'拜访',_utf8mb4'微信',_utf8mb4'邮件',_utf8mb4'其他')))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='跟进记录表';
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -1019,7 +1020,8 @@ CREATE TABLE `crm_follow_up_reminder` (
   KEY `fk_reminder_manager` (`manager_id`),
   CONSTRAINT `fk_reminder_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_reminder_manager` FOREIGN KEY (`manager_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `fk_reminder_owner` FOREIGN KEY (`owner_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL
+  CONSTRAINT `fk_reminder_owner` FOREIGN KEY (`owner_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_reminder_follow_plan` FOREIGN KEY (`follow_plan_id`) REFERENCES `crm_follow_plan` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='跟进提醒表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -1070,11 +1072,12 @@ CREATE TABLE `crm_invoice` (
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
   PRIMARY KEY (`id`),
-  KEY `idx_invoice_no` (`invoice_no`),
+  UNIQUE KEY `uk_invoice_no` (`invoice_no`),
   KEY `idx_contract` (`contract_id`),
   KEY `idx_customer` (`customer_id`),
   KEY `idx_status` (`status`),
   KEY `fk_invoice_create_by` (`create_by`),
+  CONSTRAINT `fk_invoice_contract` FOREIGN KEY (`contract_id`) REFERENCES `crm_contract` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_invoice_create_by` FOREIGN KEY (`create_by`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_invoice_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='发票表';
@@ -1247,6 +1250,7 @@ CREATE TABLE `crm_opportunity` (
   KEY `idx_source_id` (`source_id`),
   CONSTRAINT `fk_opp_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_opp_owner` FOREIGN KEY (`owner_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_opp_source` FOREIGN KEY (`source_id`) REFERENCES `crm_opportunity_source` (`id`) ON DELETE SET NULL,
   CONSTRAINT `chk_opp_stage` CHECK ((`stage` between 1 and 6)),
   CONSTRAINT `chk_opp_win_rate` CHECK ((`win_rate` between 0 and 100))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -1367,6 +1371,7 @@ CREATE TABLE `crm_payment_plan` (
   KEY `idx_payment_plan_date` (`plan_date`),
   KEY `idx_plan_contract` (`contract_id`),
   KEY `idx_plan_date` (`plan_date`),
+  UNIQUE KEY `uk_plan_contract_date` (`contract_id`,`plan_date`),
   CONSTRAINT `fk_payment_plan_contract` FOREIGN KEY (`contract_id`) REFERENCES `crm_contract` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='回款计划表';
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -1395,6 +1400,9 @@ CREATE TABLE `crm_payment_reminder` (
   KEY `idx_pr_customer` (`customer_id`),
   KEY `idx_pr_status` (`status`),
   KEY `idx_pr_date` (`remind_date`),
+  KEY `fk_payremind_plan` (`plan_id`),
+  CONSTRAINT `fk_payremind_contract` FOREIGN KEY (`contract_id`) REFERENCES `crm_contract` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_payremind_plan` FOREIGN KEY (`plan_id`) REFERENCES `crm_payment_plan` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_payremind_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='回款提醒记录';
 /*!40101 SET character_set_client = @saved_cs_client */;

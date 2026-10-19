@@ -179,4 +179,41 @@ describe('迁移链完整性守卫', () => {
     );
     expect(rows.length).toBeGreaterThanOrEqual(3);
   });
+
+  // ---- 123：完整性约束（记账齐了 ≠ 约束真的落了） ----
+
+  it('123: crm_invoice.invoice_no 应有唯一约束（防重号发票）', async () => {
+    if (!reachable) return;
+    // 实测依据：invoiceService.createInvoice 以 COUNT(*)+1 生成编号，并发下会重号
+    const [rows] = await pool.query(
+      `SELECT NON_UNIQUE FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_invoice'
+          AND INDEX_NAME = 'uk_invoice_no'`
+    );
+    expect(rows.length).toBeGreaterThan(0);
+    expect(Number(rows[0].NON_UNIQUE)).toBe(0);
+  });
+
+  it('123: crm_payment_plan(contract_id, plan_date) 应有唯一约束', async () => {
+    if (!reachable) return;
+    const [rows] = await pool.query(
+      `SELECT NON_UNIQUE FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_payment_plan'
+          AND INDEX_NAME = 'uk_plan_contract_date'`
+    );
+    expect(rows.length).toBe(2); // 复合唯一键：contract_id + plan_date 两列
+    expect(rows.every(r => Number(r.NON_UNIQUE) === 0)).toBe(true);
+  });
+
+  it('123: 6 条关键外键应全部存在（孤儿行拦截）', async () => {
+    if (!reachable) return;
+    const [rows] = await pool.query(
+      `SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS
+        WHERE TABLE_SCHEMA = DATABASE() AND CONSTRAINT_TYPE = 'FOREIGN KEY'
+          AND CONSTRAINT_NAME IN (
+            'fk_followup_opportunity', 'fk_opp_source', 'fk_payremind_contract',
+            'fk_payremind_plan', 'fk_invoice_contract', 'fk_reminder_follow_plan')`
+    );
+    expect(rows.length).toBe(6);
+  });
 });
