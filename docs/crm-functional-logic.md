@@ -288,7 +288,8 @@
 | 21 | 权限闸门 | `requireManager` 只放行 `manageAll`/`super_admin`/`roleId===1`，**manager（`manage_all=0`）被 403**；分析域 10 端点「manager 持有 `analysis` 权限、菜单可见却全 403」（并顺带补数据范围） | P2 | ✅ 已修(2026-09-20) |
 | 22 | 权限闸门 | 同上缺陷的**系统性扩散**：全库 **47 处** `requireManager` 挂载 / **13 个**路由文件；中间件语义排除 manager ⇒ 约 **35 个**「角色已持有功能权限码 + 前端菜单可见」端点对**部门经理全部 403**（hr 角色亦被挡在自己模块外） | P2（可达的「功能不可用」而非越权） | ✅ 中间件与配对已修(2026-09-20)；`hr.js`(17 端点) 待产品决策 |
 
-> **#4 剩余项（未修）**：报表/财务分析（`financeService`/`reportAnalyticsService`/`analysisService`/`customerDetailService`）与回款统计汇总中的浮点求和目前**只用于展示/比较、不写回 DECIMAL 列**，故未强制改造；若后续在这些路径新增「计算后入库」逻辑，须改走 `money.js`。合同 `amount` 无后端计算，属前端直传。
+> **#4 剩余项（2026-10-19 更新）**：`reportAnalyticsService`（利润/回款率、逾期 `toFixed(2)`）与 `customerDetailService`（客户 360 四项汇总）已收敛到 `money.js`，并补齐精度单测；发票 `createInvoice`/`updateInvoice` 另加了服务端税额一致性校验（不一致 422）。
+> 仍未改造的是 `financeService`（毛利率 `toFixed(1)`）与 `analysisService`（趋势/漏斗/RFM 展示值）：这些**只用于展示/比较、不写回 DECIMAL 列**；若后续在这些路径新增「计算后入库」逻辑，须改走 `money.js`。Excel 导出展示类 `parseFloat` 维持不动（已拍板）。合同 `amount` 无后端计算，属前端直传。
 
 > **#12 核查结论（2026-09-18，非缺陷）**：原判「api 命名错位」经全量交叉核验**不成立**。脚本统计后端挂载前缀 **60 个**（含 `ModuleRegistry` 动态注册的 `/product`、`/report`、`/data-quality`），前端 30 个 api 文件的所有 URL **0 处断链**。实际情况：`hr.js` 同时定义 `/hr/*` 与 `/finance/*`（HR+财务聚合，URL 各自正确）；`customer.js` 内含 `/follow-up/*`（后端 `/follow-up` 为独立路由 app.js:327，URL 正确，仅文件归属不直观）；`contract.js` 内含 `/contract/payment/*`（后端回款确实挂在该前缀，归属正确）。**结论：属合理文件聚合，无断链、无错路由。**
 

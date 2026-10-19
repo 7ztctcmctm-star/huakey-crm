@@ -5,6 +5,8 @@
  */
 
 const XLSX = require('xlsx');
+// 【P1-1】金额一律走 money 工具，禁止原生浮点累加。
+const money = require('../utils/money');
 const { CUSTOMER_STATUS, CUSTOMER_STATUS_NAME, isValidCustomerStatus } = require('../constants/customerStatus');
 const customerService = require('./customerService');
 const AppError = require('../errors/AppError');
@@ -487,12 +489,13 @@ async function getCustomer360(pool, customerId, permission = null) {
   const stats = {
     follow_count: followRecords.length,
     opportunity_count: opportunities.length,
-    opportunity_amount: opportunities.reduce((sum, o) => sum + parseFloat(o.expected_amount || 0), 0),
+    // 【P1-1】逐条 parseFloat 累加会把浮点尾数累积放大（0.1+0.2 型误差），改走 money.sum 一次性精确求和
+    opportunity_amount: money.sum(opportunities.map(o => o.expected_amount || 0)),
     quote_count: quotes.length,
-    quote_amount: quotes.reduce((sum, q) => sum + parseFloat(q.final_amount || q.amount || 0), 0),
+    quote_amount: money.sum(quotes.map(q => q.final_amount || q.amount || 0)),
     contract_count: contracts.length,
-    contract_amount: contracts.reduce((sum, c) => sum + parseFloat(c.amount || 0), 0),
-    paid_amount: payments.reduce((sum, p) => sum + parseFloat(p.pay_amount || 0), 0),
+    contract_amount: money.sum(contracts.map(c => c.amount || 0)),
+    paid_amount: money.sum(payments.map(p => p.pay_amount || 0)),
     service_count: serviceOrders.length
   };
 

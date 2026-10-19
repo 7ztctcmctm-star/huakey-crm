@@ -31,6 +31,8 @@ const ErrorCodes = {
   CAPTCHA_EXPIRED:      { code: 400003, httpStatus: 400, message: '验证码已过期' },
   CAPTCHA_WRONG:        { code: 400004, httpStatus: 400, message: '验证码错误' },
   BUSINESS_VALIDATION:  { code: 400005, httpStatus: 400, message: '业务校验失败' },
+  // 金额一致性 422xxx（语义正确但自相矛盾，重发同样的请求永远不会对）
+  INVOICE_TAX_MISMATCH: { code: 422001, httpStatus: 422, message: '税额与「金额 × 税率」不一致' },
   // 服务器 500xxx
   INTERNAL_ERROR:       { code: 500001, httpStatus: 500, message: '服务器内部错误' },
   DB_ERROR:             { code: 500002, httpStatus: 500, message: '数据库错误' },

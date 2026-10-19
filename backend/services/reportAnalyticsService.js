@@ -12,6 +12,8 @@
  */
 
 const XLSX = require('xlsx');
+// 【P1-1】金额一律走 money 工具，禁止原生浮点运算。
+const money = require('../utils/money');
 const { buildOwnerOverrideFilter } = require('../middleware/permission');
 // scopeFor 已抽到 utils/dataScope.js，供报表域与分析域共用同一实现（避免第二事实来源）
 const { scopeFor } = require('../utils/dataScope');
@@ -235,7 +237,8 @@ async function getPaymentStats(pool, params = {}, dataPermission) {
     WHERE pp.plan_date < CURRENT_DATE AND ${cScope.clause}
   `, [...cScope.params]);
 
-  const overdueTotal = parseFloat(overdueRows[0].amount) || 0;
+  // 【P1-1】toFixed 走的是浮点舍入，边界值（X.XX5）会少进 1 分；先精确取整再格式化
+  const overdueTotal = money.round2(overdueRows[0]?.amount ?? 0);
 
   return {
     plan_amount: planAmount[0].amount?.toString() || '0.00',
@@ -571,10 +574,12 @@ async function getFinanceReport(pool, params = {}, dataPermission) {
 
   return {
     overview: {
-      month: { contract: parseFloat(monthContract.total), payment: parseFloat(monthPayment.total), purchase: parseFloat(monthPurchase.total), profit: parseFloat(monthContract.total) - parseFloat(monthPurchase.total) },
-      quarter: { contract: parseFloat(quarterContract.total), payment: parseFloat(quarterPayment.total), purchase: parseFloat(quarterPurchase.total), profit: parseFloat(quarterContract.total) - parseFloat(quarterPurchase.total) },
-      year: { contract: parseFloat(yearContract.total), payment: parseFloat(yearPayment.total), purchase: parseFloat(yearPurchase.total), profit: parseFloat(yearContract.total) - parseFloat(yearPurchase.total) },
-      payment_rate: yearContract.total > 0 ? Math.round(yearPayment.total / yearContract.total * 100) : 0
+      // 【P1-1】profit 是浮点减法，尾数会直接落到展示值上；payment_rate 走 BigInt 精确比率
+      month: { contract: money.round2(monthContract.total), payment: money.round2(monthPayment.total), purchase: money.round2(monthPurchase.total), profit: money.sub(monthContract.total, monthPurchase.total) },
+      quarter: { contract: money.round2(quarterContract.total), payment: money.round2(quarterPayment.total), purchase: money.round2(quarterPurchase.total), profit: money.sub(quarterContract.total, quarterPurchase.total) },
+      year: { contract: money.round2(yearContract.total), payment: money.round2(yearPayment.total), purchase: money.round2(yearPurchase.total), profit: money.sub(yearContract.total, yearPurchase.total) },
+      // 无基数时 money.ratePercent 返回 null（区别于 0%），此处沿用原口径展示 0
+      payment_rate: money.ratePercent(yearPayment.total, yearContract.total, 0) ?? 0
     },
     receivables,
     trend: trendData
@@ -766,8 +771,8 @@ async function getBusinessDashboard(pool, dataPermission) {
     kpi: {
       customer_total: customerTotal.cnt,
       customer_new: customerNew.cnt, customer_new_change: calcChange(customerNew.cnt, lastCustomerNew.cnt),
-      contract_amount: parseFloat(contractTotal.total), contract_amount_change: calcChange(parseFloat(contractTotal.total), parseFloat(lastContractTotal.total)),
-      payment_rate: contractTotal.total > 0 ? Math.round(paymentTotal.total / contractTotal.total * 100) : 0,
+      contract_amount: money.round2(contractTotal.total), contract_amount_change: calcChange(money.round2(contractTotal.total), money.round2(lastContractTotal.total)),
+      payment_rate: money.ratePercent(paymentTotal.total, contractTotal.total, 0) ?? 0,
       avg_unit_price: avgUnitPrice,
       conversion_rate: conversionRate
     },
@@ -979,10 +984,11 @@ async function getContractRevenue(pool, dataPermission, params = {}) {
  */
 async function getAnalyticsPaymentCollection(pool, params = {}, dataPermission) {
   const stats = await getPaymentStats(pool, params, dataPermission);
-  const receivable = parseFloat(stats.plan_amount) || 0;
-  const received = parseFloat(stats.pay_amount) || 0;
-  const outstanding = Math.max(receivable - received, 0);
-  const rate = receivable > 0 ? ((received / receivable) * 100).toFixed(1) : 0;
+  const receivable = money.round2(stats.plan_amount);
+  const received = money.round2(stats.pay_amount);
+  // 【P1-1】差额与比率都走精确计算；无基数时 ratePercent 返回 null，沿用原口径展示 0
+  const outstanding = Math.max(money.sub(receivable, received), 0);
+  const rate = receivable > 0 ? money.ratePercent(received, receivable, 1).toFixed(1) : 0;
   return {
     receivable_amount: stats.plan_amount,
     received_amount: stats.pay_amount,

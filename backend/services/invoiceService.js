@@ -8,6 +8,8 @@ const ErrorCodes = require('../errors/codes');
 
 const { buildDataPermissionWhere } = require('../middleware/permission');
 const { logFieldChanges } = require('../utils/fieldLog');
+// 【P1-1】金额一律走 money 工具，禁止原生浮点运算。
+const money = require('../utils/money');
 
 const MODULE_NAME = '发票管理';
 const { createRouteLogger } = require('../middleware/logger');
@@ -108,6 +110,46 @@ async function nextInvoiceNo(connection, dateStr) {
 }
 
 /**
+ * 服务端校验并归一化发票金额三元组（amount / tax_rate / tax_amount）。
+ *
+ * 为什么不让客户端自己算：前端若用浮点算税额（amount * rate / 100），尾数会直接
+ * 写进 DECIMAL(15,2)（MySQL 只按 2 位四舍五入，无法纠正已偏掉的尾数），而且
+ * 金额/税率/税额三者一旦自相矛盾，事后对账无从追溯——这类错误重发请求也不会自愈，
+ * 所以是 422 而不是 400。
+ *
+ * 规则（tax_rate 是百分数：13 表示 13%，与 crm_invoice.tax_rate 注释「税率(%)」一致）：
+ *   · 给了税率 → 税额一律由服务端按 money.percentOf 精确计算；客户端也传了就必须一致，否则 422
+ *   · 给了税率、没给税额 → 服务端补齐
+ *   · 没给税率 → 没有校验基准，税额按客户端传入精确取整（缺失则 null）
+ *
+ * @returns {{amount: number, tax_rate: number|null, tax_amount: number|null}}
+ */
+function normalizeInvoiceAmounts(amount, tax_rate, tax_amount) {
+  const normAmount = money.round2(amount);
+  const hasRate = !(tax_rate === undefined || tax_rate === null || tax_rate === '');
+
+  if (!hasRate) {
+    const clientTax = (tax_amount === undefined || tax_amount === null || tax_amount === '')
+      ? null
+      : money.round2(tax_amount);
+    return { amount: normAmount, tax_rate: null, tax_amount: clientTax };
+  }
+
+  const rate = Number(tax_rate);
+  const expectedTax = money.percentOf(normAmount, rate);
+
+  const hasClientTax = !(tax_amount === undefined || tax_amount === null || tax_amount === '');
+  if (hasClientTax && money.round2(tax_amount) !== expectedTax) {
+    throw new AppError(
+      ErrorCodes.INVOICE_TAX_MISMATCH,
+      `税额与「金额 × 税率」不一致：金额 ${normAmount} × ${rate}% 应为 ${expectedTax}，实收 ${money.round2(tax_amount)}`
+    );
+  }
+
+  return { amount: normAmount, tax_rate: rate, tax_amount: expectedTax };
+}
+
+/**
  * 新增发票
  *
  * 迁移 123 给 invoice_no 加了唯一键，编号冲突会以 ER_DUP_ENTRY 形式暴露。
@@ -115,6 +157,9 @@ async function nextInvoiceNo(connection, dateStr) {
  * 重试耗尽则冒泡 ER_DUP_ENTRY，由 errorHandler 统一映射为 409（不新增 controller 分支）。
  */
 async function createInvoice(pool, { contract_id, customer_id, type, amount, tax_rate, tax_amount, invoice_date, status, remark }, userId) {
+  // 先校验再开事务：金额自相矛盾时不必占着连接
+  const amounts = normalizeInvoiceAmounts(amount, tax_rate, tax_amount);
+
   const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
   let lastError = null;
 
@@ -129,7 +174,7 @@ async function createInvoice(pool, { contract_id, customer_id, type, amount, tax
       const [result] = await connection.query(
         `INSERT INTO crm_invoice (invoice_no, contract_id, customer_id, type, amount, tax_rate, tax_amount, invoice_date, status, remark, create_by)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [invoiceNo, contract_id, customer_id, type, amount, tax_rate || null, tax_amount || null, invoice_date || null, status || 1, remark || null, userId]
+        [invoiceNo, contract_id, customer_id, type, amounts.amount, amounts.tax_rate, amounts.tax_amount, invoice_date || null, status || 1, remark || null, userId]
       );
 
       await connection.commit();
@@ -155,6 +200,9 @@ async function createInvoice(pool, { contract_id, customer_id, type, amount, tax
  * 编辑发票
  */
 async function updateInvoice(pool, { id, contract_id, customer_id, type, amount, tax_rate, tax_amount, invoice_date, status, remark }, req) {
+  // 与 createInvoice 同一口径：税额必须与「金额 × 税率」一致
+  const amounts = normalizeInvoiceAmounts(amount, tax_rate, tax_amount);
+
   const [oldRows] = await pool.query('SELECT id, invoice_no, contract_id, customer_id, type, amount, tax_rate, tax_amount, invoice_date, status, remark, create_by, create_time, update_time, deleted_at FROM crm_invoice WHERE id = ? AND deleted_at IS NULL', [id]);
   if (oldRows.length === 0) {
     throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '发票不存在');
@@ -163,7 +211,7 @@ async function updateInvoice(pool, { id, contract_id, customer_id, type, amount,
 
   await pool.query(
     `UPDATE crm_invoice SET contract_id=?, customer_id=?, type=?, amount=?, tax_rate=?, tax_amount=?, invoice_date=?, status=?, remark=? WHERE id=?`,
-    [contract_id, customer_id, type, amount, tax_rate || null, tax_amount || null, invoice_date || null, status || 1, remark || null, id]
+    [contract_id, customer_id, type, amounts.amount, amounts.tax_rate, amounts.tax_amount, invoice_date || null, status || 1, remark || null, id]
   );
 
   await logAction(req, 'update', `修改发票: ID=${id}`);

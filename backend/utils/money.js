@@ -129,6 +129,29 @@ function percentOf(base, percent) {
 }
 
 /**
+ * 精确比率：part / whole × 100（百分比），保留 dp 位小数（half-up，默认 2 位）。
+ *
+ * 用于「回款率 = 回款额 / 合同额」这类比率。
+ * 原生 `(a / b * 100).toFixed(n)` 在边界值上会因浮点尾数在该进位时不进位（或反之），
+ * 差 1 个最小显示位；此处全程 BigInt，只在最后一次舍入。
+ *
+ * @param {number|string} part   分子
+ * @param {number|string} whole  分母
+ * @param {number} [dp=2]        保留小数位（0 表示取整百分比）
+ * @returns {number|null} whole 为 0 时返回 **null** ——「无基数」与「0%」是两回事，
+ *                               由调用方决定展示口径，此处不静默返回 0
+ */
+function ratePercent(part, whole, dp = 2) {
+  const w = toScaledBigInt(whole);
+  if (w === 0n) return null;
+  const p = toScaledBigInt(part);
+  const digits = Number.isInteger(dp) && dp >= 0 && dp <= SCALE ? dp : 2;
+  const factor = 10n ** BigInt(digits);
+  // percent = part / whole × 100，先放大 10^digits 再 half-up 取整
+  return Number(divRoundHalfUp(p * 100n * factor, w)) / Number(factor);
+}
+
+/**
  * 金额求和：对数组逐项精确累加，结果保留 2 位小数。
  */
 function sum(values) {
@@ -144,6 +167,7 @@ module.exports = {
   mul,
   applyDiscount,
   percentOf,
+  ratePercent,
   sum,
   toDecimalString,
 };

@@ -113,4 +113,41 @@ describe('money 金额精度工具', () => {
       expect(money.round2(Infinity)).toBe(0);
     });
   });
+
+  describe('ratePercent：比率（回款率 / 占比）', () => {
+    it('23/40 = 57.5%：原生 Math.round(浮点除法) 算成 57（半数未进位）', () => {
+      // 锁定缺陷前提：23/40*100 在双精度下是 57.49999999999999
+      expect(23 / 40 * 100).toBe(57.49999999999999);
+      expect(Math.round(23 / 40 * 100)).toBe(57);
+      expect(money.ratePercent(23, 40, 0)).toBe(58);
+    });
+
+    it('23/80 保留 1 位：原生 toFixed 给 28.7，精确值应进位到 28.8', () => {
+      expect(Number((23 / 80 * 100).toFixed(1))).toBe(28.7);
+      expect(money.ratePercent(23, 80, 1)).toBe(28.8);
+    });
+
+    it('常规值两种算法一致（不制造回归）', () => {
+      expect(money.ratePercent(1, 3, 2)).toBe(33.33);
+      expect(money.ratePercent(2, 3, 1)).toBe(66.7);
+      expect(money.ratePercent(50, 200, 0)).toBe(25);
+      expect(money.ratePercent(0, 200, 0)).toBe(0);
+    });
+
+    it('分母为 0 返回 null（「无基数」不等同于 0%），由调用方决定口径', () => {
+      expect(money.ratePercent(5, 0)).toBeNull();
+      expect(money.ratePercent(5, '0.00')).toBeNull();
+    });
+
+    it('接受 mysql2 返回的 DECIMAL 字符串', () => {
+      expect(money.ratePercent('1150.00', '2000.00', 0)).toBe(58);
+      expect(money.ratePercent('2300.00', '8000.00', 1)).toBe(28.8);
+    });
+
+    it('dp 非法时回退到 2 位', () => {
+      expect(money.ratePercent(1, 3, 99)).toBe(33.33);
+      expect(money.ratePercent(1, 3, -1)).toBe(33.33);
+      expect(money.ratePercent(1, 3, 1.5)).toBe(33.33);
+    });
+  });
 });

@@ -3,6 +3,9 @@
  * 从 routes/hr.js 提取的业务逻辑：员工档案、佣金规则、佣金计算、组织架构
  */
 
+// 【P1-1】金额一律走 money 工具，禁止原生浮点运算。
+const money = require('../utils/money');
+
 // ============ 员工档案 ============
 
 /**
@@ -277,7 +280,9 @@ async function calculateCommission(pool, { period, user_ids }) {
     }
 
     const baseAmount = contractAmount;
-    const commissionAmount = baseAmount * rate / 100;
+    // 【P1-1】baseAmount * rate / 100 的浮点尾数会直接写进 DECIMAL(15,2)（MySQL 只做 2 位四舍五入，
+    // 无法纠正已偏掉的尾数），佣金按「分」结算，差 1 分就是错账
+    const commissionAmount = money.percentOf(baseAmount, rate);
 
     if (commissionAmount > 0) {
       await pool.query(

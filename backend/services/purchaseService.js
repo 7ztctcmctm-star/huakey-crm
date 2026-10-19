@@ -130,7 +130,8 @@ async function updatePlan(pool, id, data) {
         const placeholders = items.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
         const params = [];
         items.forEach(item => {
-          const amount = (item.quantity || 0) * (item.unit_price || 0);
+          // 【P1-1】与 createPurchasePlan / updatePurchasePlan 保持同一口径（采购单价可到 4 位小数）
+          const amount = money.mul(item.quantity || 0, item.unit_price || 0);
           params.push(id, item.product_id, item.supplier_id || null, item.quantity, item.unit_price || null, amount, item.reason || null);
         });
         await conn.query(
