@@ -80,39 +80,75 @@ async function getInvoice(pool, id) {
   return rows[0];
 }
 
+// 发票编号冲突时的重算重试次数（见 createInvoice 说明）
+const INVOICE_NO_MAX_ATTEMPTS = 3;
+
+/**
+ * 生成当日下一个发票编号 INV-YYMMDD-NNN
+ *
+ * 用「当日已用最大序号 + 1」而非 COUNT + 1：中间编号被删除/作废后，
+ * COUNT + 1 会重新撞上仍然存在的编号（如 001/002/003 删掉 002 后 COUNT=2 → 生成 003）。
+ * FOR UPDATE 对当日编号区间加 next-key lock，串行化并发分配。
+ *
+ * @param {object} connection - 事务连接
+ * @param {string} dateStr - YYMMDD
+ * @returns {Promise<string>} 发票编号
+ */
+async function nextInvoiceNo(connection, dateStr) {
+  const [rows] = await connection.query(
+    'SELECT invoice_no FROM crm_invoice WHERE invoice_no LIKE ? FOR UPDATE',
+    [`INV-${dateStr}-%`]
+  );
+  let maxSeq = 0;
+  for (const row of rows || []) {
+    const seq = parseInt(String(row.invoice_no).split('-').pop(), 10);
+    if (Number.isFinite(seq) && seq > maxSeq) maxSeq = seq;
+  }
+  return `INV-${dateStr}-${String(maxSeq + 1).padStart(3, '0')}`;
+}
+
 /**
  * 新增发票
+ *
+ * 迁移 123 给 invoice_no 加了唯一键，编号冲突会以 ER_DUP_ENTRY 形式暴露。
+ * 并发分配或历史编号空洞导致的偶发冲突在此重算序号重试，
+ * 重试耗尽则冒泡 ER_DUP_ENTRY，由 errorHandler 统一映射为 409（不新增 controller 分支）。
  */
 async function createInvoice(pool, { contract_id, customer_id, type, amount, tax_rate, tax_amount, invoice_date, status, remark }, userId) {
-  const connection = await pool.getConnection();
+  const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
+  let lastError = null;
 
-  try {
-    await connection.beginTransaction();
+  for (let attempt = 1; attempt <= INVOICE_NO_MAX_ATTEMPTS; attempt++) {
+    const connection = await pool.getConnection();
 
-    const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
-    const [count] = await connection.query(
-      'SELECT COUNT(*) as cnt FROM crm_invoice WHERE invoice_no LIKE ? FOR UPDATE',
-      [`INV-${dateStr}-%`]
-    );
-    const seq = String(count[0].cnt + 1).padStart(3, '0');
-    const invoiceNo = `INV-${dateStr}-${seq}`;
+    try {
+      await connection.beginTransaction();
 
-    const [result] = await connection.query(
-      `INSERT INTO crm_invoice (invoice_no, contract_id, customer_id, type, amount, tax_rate, tax_amount, invoice_date, status, remark, create_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [invoiceNo, contract_id, customer_id, type, amount, tax_rate || null, tax_amount || null, invoice_date || null, status || 1, remark || null, userId]
-    );
+      const invoiceNo = await nextInvoiceNo(connection, dateStr);
 
-    await connection.commit();
-    await logAction({ user: { userId }, ip: '' }, 'add', `新增发票: ${invoiceNo}`);
+      const [result] = await connection.query(
+        `INSERT INTO crm_invoice (invoice_no, contract_id, customer_id, type, amount, tax_rate, tax_amount, invoice_date, status, remark, create_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [invoiceNo, contract_id, customer_id, type, amount, tax_rate || null, tax_amount || null, invoice_date || null, status || 1, remark || null, userId]
+      );
 
-    return { id: result.insertId, invoice_no: invoiceNo };
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
+      await connection.commit();
+      await logAction({ user: { userId }, ip: '' }, 'add', `新增发票: ${invoiceNo}`);
+
+      return { id: result.insertId, invoice_no: invoiceNo };
+    } catch (error) {
+      await connection.rollback();
+      if (error && error.code === 'ER_DUP_ENTRY' && attempt < INVOICE_NO_MAX_ATTEMPTS) {
+        lastError = error;
+        continue; // 编号冲突：释放连接后重算序号再试
+      }
+      throw error;
+    } finally {
+      connection.release();
+    }
   }
+
+  throw lastError;
 }
 
 /**

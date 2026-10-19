@@ -184,7 +184,7 @@ describe('迁移链完整性守卫', () => {
 
   it('123: crm_invoice.invoice_no 应有唯一约束（防重号发票）', async () => {
     if (!reachable) return;
-    // 实测依据：invoiceService.createInvoice 以 COUNT(*)+1 生成编号，并发下会重号
+    // 实测依据：invoiceService.createInvoice 按当日已用最大序号 +1 生成编号，唯一键用于兜底偶发冲突
     const [rows] = await pool.query(
       `SELECT NON_UNIQUE FROM information_schema.STATISTICS
         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_invoice'

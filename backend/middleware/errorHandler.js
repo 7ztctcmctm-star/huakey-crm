@@ -17,7 +17,15 @@ const { alertError, record500Error } = require('../utils/alert')
 
 // 已知的 DB/基础设施错误 → 业务错误码映射（集中处理，controller 不必各自 catch）
 const DB_ERROR_MAP = {
-  ER_DUP_ENTRY: { code: ErrorCodes.BUSINESS_VALIDATION, httpStatus: 409, message: '数据重复，请核对后重试' }
+  // 唯一键/主键冲突。迁移 123 后 crm_invoice.invoice_no、crm_payment_plan(contract_id, plan_date) 均会触发
+  ER_DUP_ENTRY: { code: ErrorCodes.BUSINESS_VALIDATION, httpStatus: 409, message: '数据重复，请核对后重试' },
+  // 外键：引用了不存在的父行（迁移 123 补齐的 6 条外键会触发）
+  // 未映射时会被当成未知错误 → 500 + 告警，属于误报
+  ER_NO_REFERENCED_ROW: { code: ErrorCodes.BUSINESS_VALIDATION, httpStatus: 400, message: '关联数据不存在，请核对后重试' },
+  ER_NO_REFERENCED_ROW_2: { code: ErrorCodes.BUSINESS_VALIDATION, httpStatus: 400, message: '关联数据不存在，请核对后重试' },
+  // 外键：父行仍被子表引用，删除/改主键时被拦
+  ER_ROW_IS_REFERENCED: { code: ErrorCodes.BUSINESS_VALIDATION, httpStatus: 400, message: '该数据已被其他记录引用，无法删除' },
+  ER_ROW_IS_REFERENCED_2: { code: ErrorCodes.BUSINESS_VALIDATION, httpStatus: 400, message: '该数据已被其他记录引用，无法删除' }
 }
 
 /**

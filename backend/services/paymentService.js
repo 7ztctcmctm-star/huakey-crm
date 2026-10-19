@@ -9,6 +9,7 @@ const ErrorCodes = require('../errors/codes');
 const money = require('../utils/money');
 // 【#16】业务事件派发（Webhook）
 const webhookDispatcher = require('./webhookDispatcher');
+const { assertUniquePlanDates } = require('../utils/paymentPlan');
 
 /**
  * 重新计算回款计划的 paid_amount / status / overdue_days
@@ -62,6 +63,15 @@ async function recalculatePlanStatus(pool, planId) {
  */
 async function createPaymentPlans(pool, contractId, plans) {
   if (!plans || plans.length === 0) return { count: 0 };
+
+  // 【迁移 123】uk_plan_contract_date 生效后，与已有计划撞日期会撞 1062；此处前置校验给出可读提示
+  const [existingRows] = await pool.query(
+    'SELECT plan_date FROM crm_payment_plan WHERE contract_id = ?',
+    [contractId]
+  );
+  const finalDates = (existingRows || []).map((p) => p.plan_date);
+  for (const plan of plans) finalDates.push(plan.plan_date);
+  assertUniquePlanDates(finalDates);
 
   const placeholders = plans.map(() => '(?, ?, ?, ?)').join(', ');
   const flatValues = plans.flatMap(p => [contractId, p.plan_date, p.plan_amount, p.remark || null]);

@@ -8,6 +8,7 @@ const ErrorCodes = require('../errors/codes');
 // 【#16】业务事件派发（Webhook）
 const webhookDispatcher = require('./webhookDispatcher');
 const money = require('../utils/money');
+const { assertUniquePlanDates } = require('../utils/paymentPlan');
 
 // 合同状态映射（统一权威定义，详见 docs/contract-status-definition.md）
 // 1=待执行(默认,新建)  2=执行中  3=已完成(终态,不可变更)  4=已取消(终态)
@@ -230,6 +231,9 @@ async function createContract(pool, data, createBy, idempotencyKey) {
 
     // 批量插入回款计划
     if (plans && plans.length > 0) {
+      // 【迁移 123】uk_plan_contract_date 生效后重复日期会撞 1062；新建合同属于全新插入，
+      // 无历史计划可合并，只需保证本次提交的日期互不重复。
+      assertUniquePlanDates(plans.map((p) => p.plan_date));
       const placeholders = plans.map(() => '(?, ?, ?, ?)').join(', ');
       const flatValues = plans.flatMap(p => [contractId, p.plan_date, p.plan_amount, p.remark || null]);
       await connection.query(`INSERT INTO crm_payment_plan (contract_id, plan_date, plan_amount, remark) VALUES ${placeholders}`, flatValues);

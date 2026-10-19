@@ -8,6 +8,7 @@ const contractService = require('./contractService');
 const { paginatedQuery } = require('../utils/pagination');
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
+const { assertUniquePlanDates } = require('../utils/paymentPlan');
 
 // 回款状态子查询条件
 const PAYMENT_STATUS_CLAUSE = {
@@ -180,6 +181,20 @@ async function updateContract(pool, data, permission = null) {
     }
 
     if (plans && plans.length > 0) {
+      // 【迁移 123】uk_plan_contract_date 生效后，重复日期会撞 1062；此处前置校验给出可读的具体日期。
+      // 判重基准是"本次提交后最终生效的计划集合"：库里保留的 + 本次新增/改期的。
+      const [existingRows] = await connection.query(
+        'SELECT id, plan_date FROM crm_payment_plan WHERE contract_id = ?',
+        [id]
+      );
+      const deletingIds = new Set((delete_plan_ids || []).map(Number));
+      const updatingIds = new Set(plans.filter((p) => p.id).map((p) => Number(p.id)));
+      const finalDates = (existingRows || [])
+        .filter((p) => !deletingIds.has(p.id) && !updatingIds.has(p.id))
+        .map((p) => p.plan_date);
+      for (const plan of plans) finalDates.push(plan.plan_date);
+      assertUniquePlanDates(finalDates);
+
       for (const plan of plans) {
         if (plan.id) {
           await connection.query(

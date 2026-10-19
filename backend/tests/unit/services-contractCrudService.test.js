@@ -121,10 +121,11 @@ describe('contractCrudService', () => {
       pool.query.mockResolvedValueOnce([[{ amount: 100 }]]);
       const conn = createMockConn();
       conn.query
-        .mockResolvedValueOnce([{ affectedRows: 1 }])
-        .mockResolvedValueOnce([{ affectedRows: 1 }])
-        .mockResolvedValueOnce([{ affectedRows: 1 }])
-        .mockResolvedValueOnce([{ affectedRows: 1 }]);
+        .mockResolvedValueOnce([{ affectedRows: 1 }])                    // UPDATE 合同
+        .mockResolvedValueOnce([{ affectedRows: 1 }])                    // DELETE 计划 10
+        .mockResolvedValueOnce([[{ id: 2, plan_date: '2026-05-01' }]])   // SELECT 现存计划（判重用）
+        .mockResolvedValueOnce([{ affectedRows: 1 }])                    // UPDATE 计划 1
+        .mockResolvedValueOnce([{ affectedRows: 1 }]);                   // INSERT 新计划
       pool.getConnection.mockResolvedValue(conn);
 
       const oldData = await contractCrudService.updateContract(pool, {
@@ -144,6 +145,66 @@ describe('contractCrudService', () => {
       expect(oldData.amount).toBe(100);
       expect(conn.commit).toHaveBeenCalled();
       expect(conn.release).toHaveBeenCalled();
+    });
+
+    it('新增计划与保留计划撞日期时应抛 400 并指出具体日期（迁移 123 uk_plan_contract_date）', async () => {
+      const pool = createMockPool();
+      pool.query.mockResolvedValueOnce([[{ amount: 100 }]]);
+      const conn = createMockConn();
+      conn.query
+        .mockResolvedValueOnce([{ affectedRows: 1 }])                     // UPDATE 合同
+        .mockResolvedValueOnce([[{ id: 2, plan_date: '2026-05-01' }]]);   // 库里保留着 05-01
+      pool.getConnection.mockResolvedValue(conn);
+
+      await expect(
+        contractCrudService.updateContract(pool, {
+          id: 1, customer_id: 2, amount: 200, sign_date: '', delivery_date: '', payment_terms: '', status: 1, remark: '',
+          plans: [{ plan_date: '2026-05-01', plan_amount: 100 }]
+        })
+      ).rejects.toMatchObject({ code: 400005, message: expect.stringContaining('2026-05-01') });
+
+      expect(conn.rollback).toHaveBeenCalled();
+      expect(conn.release).toHaveBeenCalled();
+    });
+
+    it('本次提交内两条计划同日期时应抛 400', async () => {
+      const pool = createMockPool();
+      pool.query.mockResolvedValueOnce([[{ amount: 100 }]]);
+      const conn = createMockConn();
+      conn.query
+        .mockResolvedValueOnce([{ affectedRows: 1 }])  // UPDATE 合同
+        .mockResolvedValueOnce([[]]);                  // 库里无计划
+      pool.getConnection.mockResolvedValue(conn);
+
+      await expect(
+        contractCrudService.updateContract(pool, {
+          id: 1, customer_id: 2, amount: 200, sign_date: '', delivery_date: '', payment_terms: '', status: 1, remark: '',
+          plans: [{ plan_date: '2026-08-01', plan_amount: 100 }, { plan_date: '2026-08-01', plan_amount: 200 }]
+        })
+      ).rejects.toMatchObject({ code: 400005, message: expect.stringContaining('2026-08-01') });
+
+      expect(conn.rollback).toHaveBeenCalled();
+    });
+
+    it('改期到已删除计划的日期应放行（删除后日期可复用）', async () => {
+      const pool = createMockPool();
+      pool.query.mockResolvedValueOnce([[{ amount: 100 }]]);
+      const conn = createMockConn();
+      conn.query
+        .mockResolvedValueOnce([{ affectedRows: 1 }])  // UPDATE 合同
+        .mockResolvedValueOnce([{ affectedRows: 1 }])  // DELETE 计划 10
+        .mockResolvedValueOnce([[]])                   // 删除后库里无计划
+        .mockResolvedValueOnce([{ affectedRows: 1 }]); // INSERT 复用该日期
+      pool.getConnection.mockResolvedValue(conn);
+
+      const oldData = await contractCrudService.updateContract(pool, {
+        id: 1, customer_id: 2, amount: 200, sign_date: '', delivery_date: '', payment_terms: '', status: 1, remark: '',
+        delete_plan_ids: [10],
+        plans: [{ plan_date: '2026-09-01', plan_amount: 100 }]
+      });
+
+      expect(oldData.amount).toBe(100);
+      expect(conn.commit).toHaveBeenCalled();
     });
 
     it('旧数据不存在时应抛 CONTRACT_NOT_FOUND（数据权限修复：越权/不存在不可更新）', async () => {
