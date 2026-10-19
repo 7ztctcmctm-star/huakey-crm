@@ -32,13 +32,14 @@ const importUpload = multer({
 // 合同导出（挂载字段权限中间件，非管理员导出时移除敏感字段）
 router.post('/export', authenticateToken, checkPermission('contract'), checkDataPermission('contract', 'create_by'), checkFieldPermission('contract'), validate(exportContractsSchema), contractController.exportContracts);
 
-// 回款导出
-router.post('/payment/export', authenticateToken, checkPermission('contract'), validate(exportPaymentsSchema), contractController.exportPayments);
+// 回款导出（读）
+router.post('/payment/export', authenticateToken, checkPermission('payment:view'), validate(exportPaymentsSchema), contractController.exportPayments);
 
-// 批量导入回款（Excel）
-router.post('/payment/import', authenticateToken, checkPermission('contract'), importUpload.single('file'), validate(importPaymentsSchema), contractController.importPayments);
+// 批量导入回款（Excel，写）
+router.post('/payment/import', authenticateToken, checkPermission('payment:edit'), importUpload.single('file'), validate(importPaymentsSchema), contractController.importPayments);
 
-// 回款导入模板下载
-router.get('/payment/import-template', authenticateToken, contractController.downloadPaymentImportTemplate);
+// 回款导入模板下载（读）
+// [A3 2026-10-19] 此前该端点未挂载任何权限校验，补齐 payment:view
+router.get('/payment/import-template', authenticateToken, checkPermission('payment:view'), contractController.downloadPaymentImportTemplate);
 
 module.exports = router;

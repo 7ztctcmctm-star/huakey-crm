@@ -92,7 +92,7 @@
       <template #header>
         <div class="card-header">
           <span class="card-title">回款记录</span>
-          <el-button type="primary" size="small" :icon="Plus" @click="showAddPayment = true">登记回款</el-button>
+          <el-button type="primary" size="small" :icon="Plus" v-permission="'payment:edit'" @click="showAddPayment = true">登记回款</el-button>
         </div>
       </template>
       <el-table :data="detail.payments || []" border size="small">

@@ -78,7 +78,7 @@
           <template #default="{ row }">
             <el-button type="primary" link :icon="View" @click="handleView(row)">查看</el-button>
             <el-button type="primary" link :icon="Edit" @click="handleEdit(row)" v-permission="'contract:edit'">编辑</el-button>
-            <el-button v-if="row.approval_status === 2" type="warning" link @click="openQuickPay(row)" v-permission="'contract:edit'">回款</el-button>
+            <el-button v-if="row.approval_status === 2" type="warning" link @click="openQuickPay(row)" v-permission="'payment:edit'">回款</el-button>
             <el-dropdown trigger="click" @command="(cmd) => handleMore(row, cmd)">
               <el-button link type="primary">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
               <template #dropdown>

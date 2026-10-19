@@ -46,7 +46,7 @@
         <template #title>邮件</template>
       </el-menu-item>
 
-      <el-menu-item index="/opportunity" v-if="hasMenuPermission('opportunity')">
+      <el-menu-item index="/opportunity" v-if="hasMenuPermission('opportunity:view')">
         <el-icon><TrendCharts /></el-icon>
         <template #title>商机管理</template>
       </el-menu-item>
@@ -160,15 +160,15 @@
         </template>
         <el-menu-item index="/analysis" v-if="hasMenuPermission('analysis')">分析首页</el-menu-item>
         <el-menu-item index="/analysis/prediction" v-if="hasMenuPermission('analysis')">增强预测</el-menu-item>
-        <el-menu-item index="/competitor" v-if="hasMenuPermission('competitor')">竞品分析</el-menu-item>
+        <el-menu-item index="/competitor" v-if="hasMenuPermission('competitor:view')">竞品分析</el-menu-item>
       </el-sub-menu>
 
-      <el-menu-item index="/scoring/rules" v-if="hasMenuPermission('scoring:view')">
+      <el-menu-item index="/scoring/rules" v-if="hasMenuPermission('scoring')">
         <el-icon><Trophy /></el-icon>
         <template #title>评分规则</template>
       </el-menu-item>
 
-      <el-menu-item index="/scoring/ranking" v-if="hasMenuPermission('scoring:view')">
+      <el-menu-item index="/scoring/ranking" v-if="hasMenuPermission('scoring')">
         <el-icon><Histogram /></el-icon>
         <template #title>评分排行</template>
       </el-menu-item>
@@ -178,12 +178,12 @@
         <template #title>AI助手</template>
       </el-menu-item>
 
-      <el-menu-item index="/approval/pending" v-if="hasMenuPermission('approval:view')">
+      <el-menu-item index="/approval/pending" v-if="hasMenuPermission('approval')">
         <el-icon><Stamp /></el-icon>
         <template #title>待审批</template>
       </el-menu-item>
 
-      <el-menu-item index="/approval/submitted" v-if="hasMenuPermission('approval:view')">
+      <el-menu-item index="/approval/submitted" v-if="hasMenuPermission('approval')">
         <el-icon><Document /></el-icon>
         <template #title>我的审批</template>
       </el-menu-item>
@@ -214,15 +214,15 @@
         <el-menu-item index="/system/role" v-if="hasMenuPermission('system:role')">角色管理</el-menu-item>
         <el-menu-item index="/system/dept" v-if="hasMenuPermission('system:dept')">部门管理</el-menu-item>
         <el-menu-item index="/system/log" v-if="hasMenuPermission('system:log')">操作日志</el-menu-item>
-        <el-menu-item index="/system/tags" v-if="hasMenuPermission('system:tag')">标签管理</el-menu-item>
+        <el-menu-item index="/system/tags" v-if="hasMenuPermission('tag')">标签管理</el-menu-item>
         <el-menu-item index="/system/backup" v-if="hasMenuPermission('backup:add')">数据备份</el-menu-item>
-        <el-menu-item index="/system/permission" v-if="hasMenuPermission('permission:view')">权限管理</el-menu-item>
-        <el-menu-item index="/approval/workflow" v-if="hasMenuPermission('approval:view')">审批流程</el-menu-item>
-        <el-menu-item index="/system/integration" v-if="hasMenuPermission('system:integration')">集成管理</el-menu-item>
-        <el-menu-item index="/settings/api-platform" v-if="hasMenuPermission('system:integration')">API开放平台</el-menu-item>
+        <el-menu-item index="/system/permission" v-if="hasMenuPermission('system:permission')">权限管理</el-menu-item>
+        <el-menu-item index="/approval/workflow" v-if="hasMenuPermission('approval')">审批流程</el-menu-item>
+        <el-menu-item index="/system/integration" v-if="hasMenuPermission('system')">集成管理</el-menu-item>
+        <el-menu-item index="/settings/api-platform" v-if="hasMenuPermission('system')">API开放平台</el-menu-item>
       </el-sub-menu>
 
-      <el-menu-item index="/settings" v-if="hasMenuPermission('settings')">
+      <el-menu-item index="/settings" v-if="hasMenuPermission('system')">
         <el-icon><Setting /></el-icon>
         <template #title>系统设置</template>
       </el-menu-item>

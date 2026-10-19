@@ -97,7 +97,7 @@ const router = createRouter({
           path: 'opportunity',
           name: 'Opportunity',
           component: () => import('../views/opportunity/list.vue'),
-          meta: { title: '商机管理', permission: 'opportunity' }
+          meta: { title: '商机管理', permission: 'opportunity:view' }
         },
         {
           path: 'opportunity/detail/:id',
@@ -223,7 +223,7 @@ const router = createRouter({
           path: 'purchase/approvals',
           name: 'PurchaseApprovalList',
           component: () => import('../views/purchase/ApprovalList.vue'),
-          meta: { title: '采购审批', permission: 'purchase:approve' }
+          meta: { title: '采购审批', permission: 'purchase:request' }
         },
         {
           path: 'purchase/comparisons',
@@ -476,7 +476,7 @@ const router = createRouter({
           path: 'settings',
           name: 'Settings',
           component: () => import('../views/settings/index.vue'),
-          meta: { title: '系统设置', permission: 'settings' }
+          meta: { title: '系统设置', permission: 'system' }
         },
         {
           path: 'system/user',
@@ -548,13 +548,13 @@ const router = createRouter({
           path: 'system/tags',
           name: 'SystemTags',
           component: () => import('../views/system/tags.vue'),
-          meta: { title: '标签管理', permission: 'system:tag', admin: true }
+          meta: { title: '标签管理', permission: 'tag', admin: true }
         },
         {
           path: 'system/integration',
           name: 'SystemIntegration',
           component: () => import('../views/settings/integration.vue'),
-          meta: { title: '集成管理', permission: 'system:integration', admin: true }
+          meta: { title: '集成管理', permission: 'system', admin: true }
         },
         {
           path: 'system/currency',

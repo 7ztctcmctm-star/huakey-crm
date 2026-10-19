@@ -150,6 +150,11 @@ const BUTTON_PERMISSIONS = [
   { code: 'data:restore', name: '数据恢复', parent: 'system' },
   { code: 'log:export', name: '导出日志', parent: 'system:log' },
   { code: 'purchase:approve', name: '采购审批', parent: 'purchase' },
+  // [A3 2026-10-19] 回款此前所有端点（含新增/修改/删除）都只用只读的 `contract` 校验，
+  //   导致销售（持 contract:edit）可任意登记/篡改/删除回款。现拆出独立 payment 域：
+  //   payment:view = 查看/导出回款，payment:edit = 登记/修改/删除/导入回款。
+  { code: 'payment:view', name: '查看回款', parent: 'payment' },
+  { code: 'payment:edit', name: '登记回款', parent: 'payment' },
 ];
 
 // 各角色拥有的权限码（菜单 + 按钮）
@@ -157,7 +162,7 @@ const ROLE_PERMISSIONS = {
   boss: [
     // 所有菜单
     'dashboard', 'customer', 'customer:list', 'pool', 'pool:view', 'pool:claim', 'customer:release', 'followup:calendar', 'followup:template',
-    'opportunity', 'product', 'quotation', 'contract', 'payment', 'payment:view',
+    'opportunity', 'product', 'quotation', 'contract', 'payment', 'payment:view', 'payment:edit',
     'supplier', 'purchase', 'service', 'survey', 'hr', 'automation', 'report', 'analysis',
     'competitor', 'scoring', 'ai', 'approval', 'knowledge', 'email', 'calendar', 'social',
     'notification', 'target', 'team-dashboard', 'system', 'system:user', 'system:role',
@@ -183,7 +188,7 @@ const ROLE_PERMISSIONS = {
   ],
   manager: [
     'dashboard', 'customer', 'customer:list', 'pool', 'pool:view', 'pool:claim', 'customer:release', 'followup:calendar', 'followup:template',
-    'opportunity', 'product', 'quotation', 'contract', 'payment', 'payment:view',
+    'opportunity', 'product', 'quotation', 'contract', 'payment', 'payment:view', 'payment:edit',
     'supplier', 'purchase', 'service', 'survey', 'calendar', 'social', 'competitor', 'analysis',
     'report', 'scoring', 'ai', 'approval', 'knowledge', 'email', 'notification', 'target', 'team-dashboard',
     'customer:add', 'customer:edit', 'customer:transfer', 'customer:view', 'customer:delete', 'customer:assign', 'customer:import', 'customer:export', 'customer:list',
@@ -228,7 +233,7 @@ const ROLE_PERMISSIONS = {
     'search', 'tag', 'email:send', 'purchase:approve'
   ],
   finance: [
-    'dashboard', 'contract', 'payment', 'payment:view', 'invoice', 'report', 'calendar', 'knowledge',
+    'dashboard', 'contract', 'payment', 'payment:view', 'payment:edit', 'invoice', 'report', 'calendar', 'knowledge',
     'email', 'notification', 'survey',
     'contract:view', 'contract:edit',
     'invoice:add', 'invoice:edit', 'invoice:delete', 'invoice:export',

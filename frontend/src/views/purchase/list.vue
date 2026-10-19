@@ -126,7 +126,7 @@
       <el-table-column label="操作" width="200" fixed="right" align="center">
         <template #default="{ row }">
           <el-button link type="primary" size="small" @click="handleView(row.id)">详情</el-button>
-          <el-dropdown v-if="row.status === '草稿' || row.status === '待审核'" trigger="click" @command="(cmd) => handleStatusChange(cmd, row)" v-permission="'purchase:edit'">
+          <el-dropdown v-if="row.status === '草稿' || row.status === '待审核'" trigger="click" @command="(cmd) => handleStatusChange(cmd, row)" v-permission="'purchase:add'">
             <el-button link type="warning" size="small">状态<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
             <template #dropdown>
               <el-dropdown-menu>

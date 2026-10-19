@@ -116,10 +116,10 @@
                 <el-dropdown-menu>
                   <el-dropdown-item v-if="row.status === 1 || row.status === 2" v-permission="'quotation:edit'" command="send">发送</el-dropdown-item>
                   <el-dropdown-item v-if="row.approval_status === 0 && row.status === 1" command="submitApproval">提交审批</el-dropdown-item>
-                  <el-dropdown-item v-if="row.approval_status === 1 && isAdmin" command="approve">通过</el-dropdown-item>
-                  <el-dropdown-item v-if="row.approval_status === 1 && isAdmin" command="reject">拒绝</el-dropdown-item>
+                  <el-dropdown-item v-if="row.approval_status === 1" v-permission="'quotation:approve'" command="approve">通过</el-dropdown-item>
+                  <el-dropdown-item v-if="row.approval_status === 1" v-permission="'quotation:approve'" command="reject">拒绝</el-dropdown-item>
                   <el-dropdown-item v-if="row.approval_status === 1" command="withdrawApproval">撤回</el-dropdown-item>
-                  <el-dropdown-item v-if="row.approval_status === 2" v-permission="'contract:add'" :disabled="convertingId === row.id" command="convertToContract">{{ convertingId === row.id ? '转换中...' : '转合同' }}</el-dropdown-item>
+                  <el-dropdown-item v-if="row.approval_status === 2" v-permission="'quotation:edit'" :disabled="convertingId === row.id" command="convertToContract">{{ convertingId === row.id ? '转换中...' : '转合同' }}</el-dropdown-item>
                   <el-dropdown-item v-if="row.status === 1 || row.status === 2" v-permission="'quotation:delete'" command="delete" divided class="text-danger">删除</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -225,7 +225,7 @@ import { reportError, reportWarn } from '@/utils/error'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import PageToolbar from '@/components/common/PageToolbar.vue'
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus, View, Edit, ArrowDown } from '@element-plus/icons-vue'
@@ -233,11 +233,9 @@ import request from '@/utils/request'
 import { getQuoteList, addQuote, updateQuote, deleteQuote, approveQuote, quoteToContract, getQuoteDetail } from '@/api/quotation'
 import { submitApproval, withdrawApproval } from '@/api/tools'
 import { formatTime, formatAmount } from '@/composables/useFormat'
-import { useUser } from '@/composables/useUser'
 
 const router = useRouter()
 const route = useRoute()
-const { userInfo } = useUser()
 
 const STATUS_MAP = {
   1: '草稿',
@@ -263,9 +261,6 @@ const statusTagType = (status) => {
 // 审批状态映射
 const approvalMap = { 1: '待审批', 2: '已通过', 3: '已拒绝' }
 const approvalTagType = (s) => ({ 1: 'warning', 2: 'success', 3: 'danger' }[s] || 'info')
-// 判断当前用户是否为管理员（可审批）
-// 统一使用 manageAll（super_admin/boss/manager 均由 sys_role.manage_all=1 标记），禁止依赖固定数字 roleId
-const isAdmin = computed(() => userInfo.value?.manageAll === true)
 
 
 // 搜索表单

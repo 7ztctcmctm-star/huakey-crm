@@ -201,9 +201,12 @@ router.post('/backward',
 );
 
 // 导出客户
+// [A3 2026-10-19] 导出是批量数据外泄操作，此前与列表共用只读的 customer:view，
+//   前端按钮却按 customer:export 显隐（脚本里已定义该码）⇒ 判据两套、且导出门槛等同查看。
+//   现统一收严为 customer:export。
 router.post('/export',
   authenticateToken,
-  checkPermission('customer:view'),
+  checkPermission('customer:export'),
   checkDataPermission('customer', 'owner_id'),
   validate(exportSchema),
   customerController.exportCustomers

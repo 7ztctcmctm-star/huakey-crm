@@ -35,7 +35,7 @@
       </template>
 
       <template #actions>
-        <el-button type="primary" @click="handleAdd" v-permission="'leads:add'">新增潜客</el-button>
+        <el-button type="primary" @click="handleAdd" v-permission="'customer:add'">新增潜客</el-button>
       </template>
     </PageToolbar>
 
@@ -58,7 +58,7 @@
           <TableSkeleton :rows="8" :cols="7" />
         </template>
         <template #empty-action>
-          <el-button type="primary" size="small" @click="handleAdd" v-permission="'leads:add'">新增潜客</el-button>
+          <el-button type="primary" size="small" @click="handleAdd" v-permission="'customer:add'">新增潜客</el-button>
         </template>
 
       <el-table
@@ -88,7 +88,7 @@
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="handleConvert(row)" v-permission="'leads:convert'">转为正式</el-button>
             <el-button type="info" link size="small" @click="goDetail(row)">详情</el-button>
-            <el-button type="warning" link size="small" @click="handleEdit(row)" v-permission="'leads:add'">编辑</el-button>
+            <el-button type="warning" link size="small" @click="handleEdit(row)" v-permission="'customer:edit'">编辑</el-button>
           </template>
         </el-table-column>
       </el-table>

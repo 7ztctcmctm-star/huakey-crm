@@ -59,22 +59,26 @@ const statementExportSchema = Joi.object({
 
 // --- Routes ---
 
-router.post('/payment/add', authenticateToken, checkPermission('contract'), checkDataPermission('contract', 'create_by'), validate(paymentAddSchema), contractController.addPayment);
+// [A3 2026-10-19] 回款端点此前一律用只读的 `contract` 校验，连新增/修改/删除也只要
+//   「能看合同」即可 ⇒ 销售（持有 contract / contract:edit）可任意登记、篡改、删除回款。
+//   现拆分为独立 payment 域：写操作走 payment:edit，读操作走 payment:view。
+//   角色矩阵见 scripts/init_role_permissions.js：boss/manager/finance 持有，sales 不持有。
+router.post('/payment/add', authenticateToken, checkPermission('payment:edit'), checkDataPermission('contract', 'create_by'), validate(paymentAddSchema), contractController.addPayment);
 
-router.post('/payment/update', authenticateToken, checkPermission('contract'), checkDataPermission('contract', 'create_by'), validate(paymentUpdateSchema), contractController.updatePayment);
+router.post('/payment/update', authenticateToken, checkPermission('payment:edit'), checkDataPermission('contract', 'create_by'), validate(paymentUpdateSchema), contractController.updatePayment);
 
-router.post('/payment/delete', authenticateToken, checkPermission('contract'), checkDataPermission('contract', 'create_by'), validate(paymentDeleteSchema), contractController.deletePayment);
+router.post('/payment/delete', authenticateToken, checkPermission('payment:edit'), checkDataPermission('contract', 'create_by'), validate(paymentDeleteSchema), contractController.deletePayment);
 
 // 回款管理：回款列表 + 逾期未回款
-router.post('/payment/list', authenticateToken, checkPermission('contract'), checkDataPermission('contract', 'create_by'), validate(paymentListSchema), contractController.listPayments);
+router.post('/payment/list', authenticateToken, checkPermission('payment:view'), checkDataPermission('contract', 'create_by'), validate(paymentListSchema), contractController.listPayments);
 
 // 回款合并视图（计划+记录）
-router.post('/payment/merged', authenticateToken, checkPermission('contract'), checkDataPermission('contract', 'create_by'), validate(paymentMergedSchema), contractController.getMergedPayments);
+router.post('/payment/merged', authenticateToken, checkPermission('payment:view'), checkDataPermission('contract', 'create_by'), validate(paymentMergedSchema), contractController.getMergedPayments);
 
 // 客户对账汇总
-router.post('/payment/summary', authenticateToken, checkPermission('contract'), checkDataPermission('contract', 'create_by'), validate(paymentSummarySchema), contractController.getPaymentSummary);
+router.post('/payment/summary', authenticateToken, checkPermission('payment:view'), checkDataPermission('contract', 'create_by'), validate(paymentSummarySchema), contractController.getPaymentSummary);
 
 // 对账单导出
-router.post('/payment/statement-export', authenticateToken, checkPermission('contract'), checkDataPermission('contract', 'create_by'), validate(statementExportSchema), contractController.exportStatement);
+router.post('/payment/statement-export', authenticateToken, checkPermission('payment:view'), checkDataPermission('contract', 'create_by'), validate(statementExportSchema), contractController.exportStatement);
 
 module.exports = router;
