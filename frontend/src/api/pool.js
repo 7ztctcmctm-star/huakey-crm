@@ -14,6 +14,7 @@
  * （阶段2）随后端 routes/customer/center.js 一并移除，本模块为公海池的唯一前端出口。
  */
 import request from '@/utils/request'
+import { withIdempotencyKey } from '@/utils/idempotency'
 
 /**
  * 客户总览列表（默认 owner_id 为空 = 待认领视图）
@@ -24,9 +25,11 @@ export const getPoolList = (params) => request.post('/pool', params)
 /**
  * 认领无主客户（owner_id = 当前用户）
  * 原子条件 UPDATE：`WHERE id=? AND owner_id IS NULL` — 两人同时认领只能成功一个
+ * 【幂等】带 Idempotency-Key：网络重试 / 401 续期重放不会重复写 crm_pool_log
  * @param {number} id - 客户 ID
  */
-export const claimPoolCustomer = (id) => request.post('/pool/claim', { id })
+export const claimPoolCustomer = (id) =>
+  request.post('/pool/claim', { id }, withIdempotencyKey({}, 'claim'))
 
 /**
  * 释放客户到公海（owner_id=NULL, pool_status='sea'）
@@ -40,19 +43,25 @@ export const releaseToPool = (id, reason = '') => request.post('/pool/release', 
 
 /**
  * 发起转移申请
+ * 【幂等】带 Idempotency-Key：双击/重试不会创建第二条转移申请
  * @param {Object} data - { customer_ids:[], target_user_id, reason? }
  */
-export const createTransfer = (data) => request.post('/pool/transfer', data)
+export const createTransfer = (data) =>
+  request.post('/pool/transfer', data, withIdempotencyKey({}, 'transfer'))
 
-/** 接收人同意（owner_id 立即变更 + crm_customer_transfer 写日志） */
-export const acceptTransfer = (id) => request.post('/pool/transfer/accept', { id })
+/** 接收人同意（owner_id 立即变更 + crm_customer_transfer 写日志）
+ * 【幂等】带 Idempotency-Key：双击不会重复处理同一申请 */
+export const acceptTransfer = (id) =>
+  request.post('/pool/transfer/accept', { id }, withIdempotencyKey({}, 'transfer-accept'))
 
 /**
  * 接收人拒绝
+ * 【幂等】带 Idempotency-Key：双击不会重复处理同一申请
  * @param {number} id - 转移申请 ID
  * @param {string} [remark=''] - 拒绝理由
  */
-export const rejectTransfer = (id, remark = '') => request.post('/pool/transfer/reject', { id, remark })
+export const rejectTransfer = (id, remark = '') =>
+  request.post('/pool/transfer/reject', { id, remark }, withIdempotencyKey({}, 'transfer-reject'))
 
 /** 我收到的待处理转移申请列表 */
 export const getMyPendingTransfers = (params = {}) => request.post('/pool/transfer/my-pending', params)

@@ -10,6 +10,7 @@
  *   - 报价转合同后，报价状态标记为 accepted，合同状态为 pending
  */
 import request from '@/utils/request'
+import { withIdempotencyKey } from '@/utils/idempotency'
 
 /**
  * 报价列表（支持分页、筛选、排序）
@@ -45,7 +46,9 @@ export const approveQuote = (data) => request.post('/quote/approve', data)
 /**
  * 报价转合同
  * 触发后端自动创建 crm_contract + crm_contract_item，原 quote.status → accepted
+ * 【幂等】带 Idempotency-Key：网络重试 / 401 续期重放不会生成第二份合同
  */
-export const quoteToContract = (id) => request.post('/quote/to-contract', { id })
+export const quoteToContract = (id) =>
+  request.post('/quote/to-contract', { id }, withIdempotencyKey({}, 'quote-to-contract'))
 
 export const getQuoteDetail = (id) => request.get(`/quote/detail/${id}`)

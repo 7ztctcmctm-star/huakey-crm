@@ -1,5 +1,6 @@
 ﻿/** @file 采购申请 API */
 import request from '@/utils/request'
+import { withIdempotencyKey } from '@/utils/idempotency'
 
 // 采购申请列表
 export const getPurchaseRequestList = (params) => request.post('/purchase/request/list', params)
@@ -8,7 +9,9 @@ export const getPurchaseRequestList = (params) => request.post('/purchase/reques
 export const createPurchaseRequest = (data) => request.post('/purchase/request/create', data)
 
 // 提交采购申请
-export const submitPurchaseRequest = (id) => request.post(`/purchase/request/submit/${id}`)
+// 【幂等】本端点无 body schema，幂等键只能走 Idempotency-Key 请求头（后端 purchase/request.js 注释已说明）
+export const submitPurchaseRequest = (id) =>
+  request.post(`/purchase/request/submit/${id}`, null, withIdempotencyKey({}, 'pr-submit'))
 
 // 审批通过
 export const approvePurchaseRequest = (id) => request.post(`/purchase/request/approve/${id}`)
