@@ -30,6 +30,8 @@ services:
       MYSQL_DATABASE: ${DB_NAME:-huakey_crm}
       MYSQL_USER: ${DB_USER:-crm_user}
       MYSQL_PASSWORD: ${DB_PASSWORD}
+      # [步骤 B3 · 时区统一] 容器时区（配合下方 --default-time-zone 双保险）
+      TZ: ${TZ:-Asia/Shanghai}
     volumes:
       - mysql-data:/var/lib/mysql
       - ./deploy/init-complete.sql:/docker-entrypoint-initdb.d/00_init.sql:ro
@@ -46,6 +48,10 @@ services:
       - --explicit_defaults_for_timestamp=1
       - --slow_query_log=ON
       - --long_query_time=2
+      # [步骤 B3 · 时区统一] NOW()/CURDATE() 一律北京时间。
+      # 不写死偏移的话 MySQL 会取容器 SYSTEM 时区，此镜像默认为 UTC，
+      # 导致所有由 NOW() 落库的 datetime 比北京时间早 8 小时。
+      - --default-time-zone=+08:00
     healthcheck:
       test: ["CMD-SHELL", "mysql -h localhost -u root -p$$MYSQL_ROOT_PASSWORD -e 'SELECT 1' > /dev/null 2>&1 || exit 1"]
       interval: 10s

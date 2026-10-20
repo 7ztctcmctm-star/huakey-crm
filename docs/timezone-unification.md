@@ -143,28 +143,60 @@ WHERE TABLE_SCHEMA='huakey_crm' AND DATA_TYPE='timestamp';
 
 ---
 
-## 五、⚠️ 遗留风险：生产 NAS（docker-compose.synology.yml）的 MySQL **未**设时区
+## 五、生产 NAS 时区：2026-10-20 已取证并修复
 
-对齐时核对了 `docker-compose.synology.yml`：`TZ` 只出现在 **app（:125）** 与 **backup（:176）**，
-而 **mysql（:18-57）服务既没有 `TZ`，也没有 `--default-time-zone`**，且未挂载 `/etc/localtime`。
+### 5.1 取证结论（修复前）
 
-`mysql:8.0` 官方镜像不设 TZ ⇒ 容器 `SYSTEM` 时区 = **UTC** ⇒ 服务端 `NOW()` / `CURDATE()` 是 UTC。
+| 证据 | 结果 |
+|---|---|
+| `SELECT @@global.time_zone` | `SYSTEM` |
+| `NOW()` vs `UTC_TIMESTAMP()` | 完全相同，偏差 `00:00` ⇒ **服务端实际是 UTC** |
+| 构成 datasets 规模 | 43 张非空表，业务表基本为空（合同 0、回款 0、跟进 0、商机 1、报价 1，客户 425） |
+| `sys_cron_log` 小时分布（修复前） | 集中在 **19/17/18/0/16/20 点** |
 
-后果（若确认）：所有由 SQL `NOW()` 写入的 `datetime` 列（create_time / update_time / pay_date …）
-整体早 8 小时；`datetime` 不做时区转换，应用层读到什么就是什么。
+最后一条是决定性证据：compose 注释写明容器调度为北京时间 `02:00/02:30/02:45`，
+落到库里成了 **18/18:30/18:45**，另有 `16`→北京 00:00、`0`→北京 08:00 两个定点任务。
+**存储值确实比北京时间早 8 小时。**
 
-**为什么本轮不直接改**：这不是纯配置改动，会动到数据语义——
+### 5.2 为什么 datetime 必须改数据、timestamp 不用
 
-1. 存量行是 UTC 写入，切到 +08:00 后新行是北京时 ⇒ **新旧行差 8 小时**，报表/排序/逾期判断会割裂；
-2. `TIMESTAMP` 列（见第四节 8 张表）会按新时区整体 +8 小时显示；
-3. 需要一次"存量 datetime 校正"迁移（`UPDATE ... SET create_time = create_time + INTERVAL 8 HOUR`），
-   必须先全量备份 + 在测试库演练。
+| 列类型 | 存储 | 切到 +08:00 后 | 处理 |
+|---|---|---|---|
+| `TIMESTAMP` | 物理存 UTC | 读取时按会话时区转换 ⇒ **自动变对** | 不动数据 |
+| `DATETIME` | 字面量，无时区 | 原样不动 ⇒ 仍是 UTC 字面量 | **必须 +8 小时校正** |
 
-**建议动作（需确认后单独排期）**：
+### 5.3 校正范围与安全边界
 
-1. 先在 NAS 上执行 `docker exec huakey-mysql mysql -e "SELECT NOW(), UTC_TIMESTAMP(), @@global.time_zone;"` 取证；
-2. 确认是 UTC 后：加 `TZ: Asia/Shanghai` + `--default-time-zone=+08:00`（本次已在
-   `docker-compose.yml` / `docker-compose.ci.yml` 落好，可直接照抄），再排存量数据校正迁移。
+- **只动审计列**：`create_time / update_time / created_at / updated_at / deleted_at / delete_time / backed_up_at`
+  共 **35 张表 73 列**（由 information_schema 按类型 + 列名自动生成，非手写）。
+  `plan_date / sign_date / next_time / start_time / expire_date` 等业务日期列**一律不动**
+  （它们是用户输入的业务语义日期，加 8 小时会直接错数据）。
+- **迁移备份表不动**：`_migration_097_backup`、`crm_contact_primary_backup_*` 属于快照数据。
+- **`@cut` 上限保护**：
+  ```sql
+  SET @cut = '2026-10-20 01:46:33';  -- 切换前服务器时钟(UTC) + 10 分钟
+  CREATE_TIME = CASE WHEN create_time < @cut THEN create_time + INTERVAL 8 HOUR ELSE create_time END
+  ```
+  切换后新写入的行已是北京时间（值远大于 `@cut`），天然被排除，**不会重复 +8 小时**；
+  10 分钟余量覆盖「记录 CUT → mysqld 停止」之间的写入。`NULL < @cut` 求值为 NULL ⇒ NULL 保持 NULL。
+
+### 5.4 执行记录（2026-10-20）
+
+1. 全量备份：`/volume1/docker/crm-stack/database/backups/pre-tzfix-20261020-093556.sql.gz`（658 KB）
+2. NAS compose 备份：`docker-compose.synology.yml.bak.20261020-093902`，随后替换为带 `TZ` + `--default-time-zone=+08:00` 的版本
+3. 重建 `huakey-mysql`（15s 后 healthy），校验 `@@global.time_zone=+08:00`、`NOW()−UTC_TIMESTAMP()=08:00`
+4. 执行 73 列校正 SQL
+5. 复核：`sys_cron_log` 小时分布由 `19/17/18/0/16/20` → `3/1/2/8/0/4`（正好 +8）；
+   `crm_customer.id=657` 由 `2026-09-10 06:45:57` → `14:45:57`
+6. 5 个容器均 healthy，app `/api/v1/health` 返回 200（`db:true, redis:true`）
+
+### 5.5 NAS 运维要点（踩坑记录）
+
+- `syadmin` 的免密 sudo **仅限** `/usr/local/bin/docker` 与 `/usr/local/bin/docker-compose`，
+  `sudo bash -c` / `sudo tee` 都会要求密码 ⇒ 命令要直接调这两个二进制。
+- SSH 非交互会话里 `docker` 不在 PATH，需写全路径或用 `sudo -n /usr/local/bin/docker`。
+- scp 的现代 SFTP 模式在该 NAS 上报 `remote mkdir: No such file or directory`，
+  加 `-O`（走传统 scp 协议）可正常上传。
 
 ---
 
