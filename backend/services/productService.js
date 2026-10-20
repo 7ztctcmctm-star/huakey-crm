@@ -22,6 +22,14 @@ async function listProducts(pool, params = {}) {
   if (code) { whereClause += ' AND code LIKE ?'; queryParams.push(`%${code}%`); }
   if (category) { whereClause += ' AND category = ?'; queryParams.push(category); }
 
+  // ⚠️ 授权口径（David 2026-10-20 拍板）：cost_price 对销售可见。
+  //    本端点由 routes/product.js:109 的 checkPermission('product') 守护，
+  //    该码由 boss/manager/sales/purchase/engineer 持有 ⇒ 响应体含成本价
+  //    是**已批准的业务决策**，不是遗漏——C1 审计（docs/permission-endpoint-hardening-c1.md
+  //    §4.1）曾将其列为待拍板项，结论为「销售可以看」。
+  //    前端成本价/利润率列已同步放开（原 v-if="isAdmin" 隐藏，isAdmin 仅
+  //    super_admin/admin 为 true，连 manager 都看不到——那才是与决策不符的状态）。
+  //    若将来要收窄，必须前后端同步：单独隐藏 UI 列不改变 API 暴露面。
   return paginatedQuery(pool, {
     baseQuery: `SELECT id, name, code, category, unit, price, cost_price, stock, status, description, create_time
      FROM crm_product ${whereClause}`,

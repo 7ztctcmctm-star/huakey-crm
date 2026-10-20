@@ -343,3 +343,45 @@ describe('C1 · 权限码与角色矩阵同步', () => {
     expect(missing).toEqual([]);
   });
 });
+
+// ============================================================
+// David 2026-10-20 两项拍板的锁定断言
+//   ① 销售可见成本价 —— 属数据暴露面决策，前端/后端注释已写明，此处锁权限侧事实；
+//   ② api_platform 对 manager 开放 —— 锁角色矩阵，防将来「收紧」时误伤。
+// ============================================================
+describe('C1 · 拍板锁定（2026-10-20）', () => {
+  const {
+    MENU_PERMISSIONS,
+    BUTTON_PERMISSIONS,
+    ROLE_PERMISSIONS
+  } = require('../../scripts/permission-definitions');
+
+  it('api_platform 必须登记为权限码（C1 补登记的孤儿码）', () => {
+    const all = [...MENU_PERMISSIONS, ...BUTTON_PERMISSIONS].map((p) => p.code);
+    expect(all).toContain('api_platform');
+  });
+
+  it('log:delete 必须登记为权限码（C1 补登记的孤儿码）', () => {
+    const all = [...MENU_PERMISSIONS, ...BUTTON_PERMISSIONS].map((p) => p.code);
+    expect(all).toContain('log:delete');
+  });
+
+  it('manager 必须持有 api_platform（David 拍板：经理可以看 API 平台）', () => {
+    expect(ROLE_PERMISSIONS.manager).toContain('api_platform');
+  });
+
+  it('boss 必须持有 api_platform', () => {
+    expect(ROLE_PERMISSIONS.boss).toContain('api_platform');
+  });
+
+  it('api_platform 持有者必须都能过 requireManager（路由配对语义）', () => {
+    // middleware/admin.js 的 requireManager 放行：manageAll / ADMIN_ROLE_CODES /
+    // roleCode=manager / roleId=ADMIN(boss)。矩阵角色里等价于 {boss, manager}。
+    const holders = Object.keys(ROLE_PERMISSIONS)
+      .filter((r) => ROLE_PERMISSIONS[r].includes('api_platform'));
+    expect(holders.length).toBeGreaterThan(0);
+    holders.forEach((r) => {
+      expect(['boss', 'manager']).toContain(r);
+    });
+  });
+});

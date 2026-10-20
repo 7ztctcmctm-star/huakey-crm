@@ -193,10 +193,13 @@ const ROLE_PERMISSIONS = {
     'recycle_bin:view', 'data:restore', 'finance',
     'competitor:view', 'competitor:add', 'competitor:edit', 'competitor:delete',
     'email:send', 'leads:view', 'leads:convert', 'purchase:approve',
-    // [C1 2026-10-20] 补登记此前缺失的裸码：
-    //   log:delete   → 仅 boss（日志删除属破坏性操作，与日志清理同级）
-    //   api_platform → 仅 boss（API 密钥等同账号凭据）
-    //   二者均不放宽到 manager。
+    // [C1 2026-10-20] 补登记此前缺失的裸码（路由在用但从未登记 ⇒ 除 manage_all
+    //   外全员 403，功能实际不可用）。授权面 = boss + manager 同龄：
+    //   120 迁移确立「manager 功能权限 == boss 功能权限」不变式
+    //   （migrationGuard.test.js 守护），任何只加一边的改法都会立刻红。
+    //   api_platform 对 manager 开放已经 David 2026-10-20 拍板确认
+    //   （路由本就是 checkPermission + requireManager 配对，语义上就面向管理层）；
+    //   log:delete 随不变式同龄授予，破坏性由 clean-logs 等运维侧兜底约束。
     'log:delete', 'api_platform',
     // [C1 2026-10-20] 发票详情查看 + 定时任务手动触发
     'invoice:view', 'system:cron'
@@ -222,7 +225,10 @@ const ROLE_PERMISSIONS = {
     // [C1 2026-10-20] 与 boss 保持功能码一致 —— 120 迁移确立的不变式
     //   「manager 功能权限 == boss 功能权限」，差异只在数据权限（dept_and_sub）。
     //   新增/补登记的 4 个码（log:delete、api_platform、invoice:view、system:cron）
-    //   必须两边同龄，否则 tests/db/migrationGuard.test.js:120 会立刻红。
+    //   必须两边同龄，否则 tests/db/migrationGuard.test.js 会立刻红。
+    //   api_platform → David 2026-10-20 拍板「经理可以看」：路由为
+    //   checkPermission('api_platform') + requireManager 配对，manager
+    //   本就过 requireManager，授予后即打通，无需再改路由。
     'log:delete', 'api_platform', 'invoice:view', 'system:cron'
   ],
   sales: [

@@ -81,28 +81,33 @@
 
 ## 四、本次发现的**新问题**（未擅自修改，需确认）
 
-### 4.1 成本价对 sales 开放（真正的敞口，不在任务书列出的两个端点）
+### 4.1 成本价对 sales 开放——✅ David 2026-10-20 拍板：**销售可以看**
 
 任务书要求评估 `product.js:196,247` 的成本价问题。**实测结论：这两个端点不含成本价** ——
 `getProductPrices` 只 SELECT `unit_price`（售价），`crm_product_price` 表也没有成本列；
 `getDefaultPrice` 的兜底取自 `crm_product.price`（售价）。
 
-真正的敞口在 **`POST /api/v1/product/list`**：
+真正的敞口在 **`POST /api/v1/product/list`**：`services/productService.js` 的
+`listProducts` 显式 `SELECT ... cost_price`，而 `product` 码由
+**boss/manager/sales/purchase/engineer** 全部持有 ⇒ sales 可拿到成本价，进而推算毛利。
+前端 `views/product/index.vue` 原用 `v-if="isAdmin"` 隐藏「成本价」「利润率」两列，
+但 `isAdmin`（`manageAll`）仅 super_admin/admin 为 true ⇒ 连 manager 都看不到——
+**UI 隐藏 ≠ 数据受控**：字段一直在 HTTP 响应体里。
 
-| 项 | 内容 |
-|---|---|
-| 位置 | `services/productService.js:26` 的 `listProducts`，显式 `SELECT ... cost_price` |
-| 权限 | `routes/product.js:109` 仅 `checkPermission('product')` |
-| 后果 | `product` 码由 **boss/manager/sales/purchase/engineer** 全部持有 ⇒ sales 可拿到成本价，进而推算毛利 |
-| 现状缓解 | 前端 `views/product/index.vue:59` 用 `v-if="isAdmin"` 隐藏了「成本价」列 |
+**拍板结论（2026-10-20）**：销售可见成本价。落地三处：
 
-⚠️ 但 **UI 隐藏 ≠ 数据受控**：字段仍在 HTTP 响应体里，打开 devtools / 抓包即可见。
+1. 前端 `views/product/index.vue`：摘除两列的 `v-if="isAdmin"`，同步清理因此失效的
+   `useUser` 导入与 `isAdmin` computed（利润率列与成本价同属一个数据类：
+   两者都可见时隐藏派生列没有意义）；
+2. 后端 `services/productService.js` 的 `listProducts` 加授权口径注释，写明这是
+   已批准决策而非遗漏，并提示将来收窄必须前后端同步；
+3. 本文件留档。
 
-处理建议（待你拍板）：给 `POST /product/list` 挂 `checkFieldPermission('product')`，
-按角色裁剪 `cost_price`；或把成本价拆到独立的 `product:cost` 端点。因涉及
-「销售是否可见毛利」这一业务口径，**未擅自改动**。
+> ⚠️ 该决策的完整语义：**能开产品页的角色都能看到成本价**。若将来只允许部分角色
+> （如仅 manager 以上），正确做法是按角色裁剪响应字段或拆独立端点，不是回到
+> 「隐藏 UI 列」的假收敛。
 
-### 4.2 两个"孤儿权限码"：路由在用，但从未登记
+### 4.2 两个"孤儿权限码"：路由在用，但从未登记——✅ David 2026-10-20 拍板：**manager 可用 api_platform**
 
 新增的守卫测试（见第五节）扫出两处既存缺陷 —— 码在路由里被 `checkPermission()` 引用，
 却从未在 `init_role_permissions.js` 登记，因此**没有任何角色持有**：
@@ -112,11 +117,17 @@
 | `log:delete` | `routes/log.js` 的 `POST /delete` | 删除日志功能对所有非 boss 角色 403，等于不可用 |
 | `api_platform` | `routes/api-platform.js` 全部 13 个端点 | API 密钥/ Webhook 管理对所有非 boss 角色不可用 |
 
-已做的处理：**只登记、不放宽**。在 `permission-definitions.js` 中补登记这两个码
-（并补齐 `api_platform` 模块 registry 声明的 5 个契约码），授权面保持原样 —— 仅授予 boss，
-因为原本也只有 boss（靠 `manage_all=1` 绕过）能进。
+已做的处理：**登记 + 授予 boss/manager 同龄**。两码补登进
+`permission-definitions.js`（并补齐 `api_platform` 模块 registry 声明的 5 个契约码）。
+授权面为 **boss + manager 双方持有**——这不是放宽，而是 120 迁移不变式
+（「manager 功能权限 == boss 功能权限」，`migrationGuard.test.js` 守护）的强制要求：
+只加一边会让不变式立刻红。
 
-是否要把 `api_platform:*` 放宽到 manager（其 `requireManager` 配对暗示了这一意图），**等你确认**。
+**api_platform 对 manager 开放已经 David 2026-10-20 拍板确认**：路由本就是
+`checkPermission('api_platform') + requireManager` 配对，`requireManager`
+放行 boss/manager，授予 manager 后即打通，无需再改路由。
+`tests/unit/permission-hardening-c1.test.js` 的「拍板锁定」段把该事实固化为断言，
+防止将来「收紧权限」时误伤。
 
 ---
 

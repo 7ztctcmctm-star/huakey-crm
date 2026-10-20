@@ -56,13 +56,13 @@
         <el-table-column prop="name" label="产品名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="category" label="分类" width="100" />
         <el-table-column prop="unit" label="单位" width="70" align="center" />
-        <el-table-column prop="cost_price" label="成本价" width="110" align="right" v-if="isAdmin">
+        <el-table-column prop="cost_price" label="成本价" width="110" align="right">
           <template #default="{ row }">¥{{ formatAmount(row.cost_price) }}</template>
         </el-table-column>
         <el-table-column prop="price" label="销售价" width="110" align="right">
           <template #default="{ row }">¥{{ formatAmount(row.price) }}</template>
         </el-table-column>
-        <el-table-column label="利润率" width="90" align="center" v-if="isAdmin">
+        <el-table-column label="利润率" width="90" align="center">
           <template #default="{ row }">
             <el-tag v-if="row.cost_price > 0 && row.price > 0"
               :type="profitRate(row) > 30 ? 'success' : profitRate(row) > 10 ? 'warning' : 'danger'" size="small">
@@ -224,7 +224,7 @@
 
 <script setup>
 import { reportError, reportWarn } from '@/utils/error'
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
@@ -233,9 +233,6 @@ import { Plus, Edit, Delete, Search, Refresh } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getProductList, addProduct, updateProduct, deleteProduct, getProductCategories, getProductPrices, addProductPrice, deleteProductPrice } from '@/api/product'
 import { formatAmount } from '@/composables/useFormat'
-import { useUser } from '@/composables/useUser'
-
-const { userInfo } = useUser()
 
 // onMounted 无条件取数，初值 true 消除首帧空态闪现
 const loading = ref(true)
@@ -250,8 +247,6 @@ const isEdit = ref(false)
 const submitLoading = ref(false)
 const formRef = ref(null)
 const editId = ref(null)
-
-const isAdmin = computed(() => userInfo.value?.manageAll === true)
 
 // 价格表相关
 const priceDialogVisible = ref(false)
