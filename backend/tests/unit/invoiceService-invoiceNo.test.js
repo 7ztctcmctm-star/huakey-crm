@@ -21,7 +21,8 @@ function createMockConn() {
   };
 }
 
-const dateStr = () => new Date().toISOString().slice(2, 10).replace(/-/g, '');
+// [步骤 B3] 预期值必须与服务同口径（北京时间），不能用 toISOString（UTC）
+const dateStr = () => require('../../utils/dateCode').shortDateCode();
 const dupErr = () => Object.assign(new Error('Duplicate entry'), { code: 'ER_DUP_ENTRY' });
 
 describe('invoiceService.createInvoice 编号生成', () => {

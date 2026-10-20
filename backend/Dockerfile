@@ -3,6 +3,12 @@ FROM node:22-alpine
 # 安全基线：刷新 alpine OS 包（OpenSSL 等 CVE 修复）
 RUN apk upgrade --no-cache
 
+# [步骤 B3 · 时区统一] 容器本地时区固定 Asia/Shanghai（对齐 docker-compose.synology.yml）
+# Node 22 自带 full-icu，utils/dateCode.js 的 Intl 格式化与 new Date() 本地取值均以此为准；
+# tzdata 同时保证 shell/cron(/etc/localtime) 侧时间一致。
+RUN apk add --no-cache tzdata
+ENV TZ=Asia/Shanghai
+
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev

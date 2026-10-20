@@ -11,6 +11,8 @@ const { CUSTOMER_STATUS, CUSTOMER_STATUS_NAME, isValidCustomerStatus } = require
 const customerService = require('./customerService');
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
+// [步骤 B3 · 时区统一] 导出的日期列按北京时间展示，避免 08:00 前导出成前一天
+const { dateKey } = require('../utils/dateCode');
 
 /**
  * 旧数字状态兼容映射
@@ -583,8 +585,8 @@ async function exportCustomers(pool, filters, permission) {
     '客户类型': row.customer_type === 'customer' ? '正式客户' : '潜客',
     '生命周期': row.lifecycle_status || '',
     '负责人': row.owner_name || '',
-    '最后跟进': row.last_follow_time ? new Date(row.last_follow_time).toISOString().slice(0, 10) : '',
-    '创建时间': row.create_time ? new Date(row.create_time).toISOString().slice(0, 10) : '',
+    '最后跟进': row.last_follow_time ? dateKey(row.last_follow_time) : '',
+    '创建时间': row.create_time ? dateKey(row.create_time) : '',
     '备注': row.remark || ''
   }));
 

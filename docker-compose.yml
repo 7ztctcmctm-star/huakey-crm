@@ -15,6 +15,8 @@ services:
       MYSQL_DATABASE: ${DB_NAME:-huakey_crm}
       MYSQL_USER: ${DB_USER:-crm_user}
       MYSQL_PASSWORD: ${DB_PASSWORD}
+      # [步骤 B3 · 时区统一] 与后端连接池 timezone:'+08:00' 对齐（对齐 docker-compose.synology.yml）
+      TZ: ${TZ:-Asia/Shanghai}
     # 生产环境不暴露 MySQL 端口，仅内网访问
     # 如需本地直连，取消下行注释:
     # ports:
@@ -26,6 +28,9 @@ services:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
       - --default-authentication-plugin=mysql_native_password
+      # [步骤 B3 · 时区统一] NOW()/CURDATE() 与 TIMESTAMP 转换一律北京时间，
+      # 显式给偏移值而不依赖镜像内 tzdata，避免宿主机 TZ 漂移导致日期跨天
+      - --default-time-zone=+08:00
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
@@ -77,6 +82,8 @@ services:
       REDIS_ENABLED: "false"
       OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
+      # [步骤 B3 · 时区统一] 容器本地时区（影响 cron 表达式、日志时间与 new Date() 本地取值）
+      TZ: ${TZ:-Asia/Shanghai}
     ports:
       - "5000:5000"
     depends_on:
@@ -104,6 +111,9 @@ services:
     restart: unless-stopped
     mem_limit: 256M
     cpus: 0.5
+    environment:
+      # [步骤 B3 · 时区统一] nginx 访问日志时间统一为北京时间
+      TZ: ${TZ:-Asia/Shanghai}
     ports:
       - "80:80"
     depends_on:

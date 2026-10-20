@@ -2,11 +2,14 @@
  * 采购比价服务层
  */
 
+// [步骤 B3 · 时区统一] 编号日期段按北京时间取，禁用 toISOString（UTC 会在 08:00 前跨天）
+const { fullDateCode } = require('../utils/dateCode');
+
 /**
  * 生成比价单号：BJ + YYYYMMDD + 3位序号
  */
 async function generateComparisonNo(pool) {
-  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const dateStr = fullDateCode();
   const prefix = `BJ${dateStr}`;
   const [[row]] = await pool.query(
     'SELECT COUNT(*) as cnt FROM crm_purchase_comparison WHERE comparison_no LIKE ?',

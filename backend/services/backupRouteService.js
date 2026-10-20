@@ -9,6 +9,8 @@ const fs = require('fs');
 const crypto = require('crypto');
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
+// [步骤 B3 · 时区统一] 备份文件名按北京时间打时间戳
+const { dateTimeKey } = require('../utils/dateCode');
 
 const backupDir = process.env.BACKUP_DIR || '/app/data/backups';
 
@@ -28,7 +30,9 @@ try {
  * @returns {{ id: number, file_name: string }}
  */
 async function createBackup(pool, userId) {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  // [步骤 B3 · 时区统一] 备份文件名是给人看的，用北京时间（原 toISOString 会让运维在
+  // 00:00–08:00 看到"昨天"的时间戳）。格式保持 T 分隔：2026-10-19T16-52-57
+  const timestamp = dateTimeKey().replace(' ', 'T').replace(/:/g, '-');
   const fileName = `huakey_crm_full_${timestamp}.sql`;
   const filePath = path.join(backupDir, fileName);
 

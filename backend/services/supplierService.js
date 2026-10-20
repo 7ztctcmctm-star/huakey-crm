@@ -5,6 +5,8 @@
 
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
+// [步骤 B3 · 时区统一] 编号日期段按北京时间取，禁用 toISOString（UTC 会在 08:00 前跨天）
+const { shortDateCode } = require('../utils/dateCode');
 
 async function listSuppliers(pool, params = {}, permission = null) {
   const page = parseInt(params.page) || 1;
@@ -96,7 +98,7 @@ async function createSupplier(pool, data, userId) {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-    const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
+    const dateStr = shortDateCode();
     const [count] = await conn.query('SELECT COUNT(*) as cnt FROM crm_supplier WHERE supplier_no LIKE ? FOR UPDATE', [`SUP-${dateStr}-%`]);
     const seq = String(count[0].cnt + 1).padStart(3, '0');
     const supplierNo = `SUP-${dateStr}-${seq}`;

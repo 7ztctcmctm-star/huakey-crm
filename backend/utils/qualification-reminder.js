@@ -1,13 +1,13 @@
 const pool = require('../config/database');
+// [步骤 B3 · 时区统一] 到期扫描的日期边界按北京时间取，避免 08:00 前算成前一天漏扫/多扫
+const { dateKey, addDaysKey } = require('./dateCode');
 
 const REMINDER_DAYS = [90, 60, 30, 15, 7];
 
 const checkQualificationExpiry = async () => {
   try {
-    const today = new Date().toISOString().slice(0, 10);
-    const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + Math.max(...REMINDER_DAYS));
-    const maxDate = futureDate.toISOString().slice(0, 10);
+    const today = dateKey();
+    const maxDate = addDaysKey(Math.max(...REMINDER_DAYS));
 
     const [qualifications] = await pool.query(
       `SELECT q.id as qual_id, q.supplier_id, q.cert_name, q.expire_date,
@@ -94,8 +94,7 @@ const markReminderAsNotified = async (reminderIds) => {
 
 const getExpiringSoonList = async (days = 30) => {
   try {
-    const targetDate = new Date();
-    targetDate.setDate(targetDate.getDate() + days);
+    const targetDate = addDaysKey(days);
 
     const [list] = await pool.query(
       `SELECT q.id, q.supplier_id, q.cert_type, q.cert_name, q.cert_no, q.issue_date, q.expire_date, q.issuing_authority, q.file_path, q.status, q.remark, q.create_by, q.create_time, q.update_time, q.deleted_at, s.name as supplier_name, (q.expire_date - CURRENT_DATE) as days_left
@@ -103,7 +102,7 @@ const getExpiringSoonList = async (days = 30) => {
        JOIN crm_supplier s ON q.supplier_id = s.id
        WHERE q.status = 1 AND q.expire_date <= ? AND q.expire_date > CURRENT_DATE
        ORDER BY q.expire_date ASC`,
-      [targetDate.toISOString().slice(0, 10)]
+      [targetDate]
     );
     return list;
   } catch (error) {

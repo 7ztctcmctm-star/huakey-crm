@@ -9,8 +9,8 @@
 
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
-
-const pad2 = (n) => String(n).padStart(2, '0');
+// [步骤 B3 · 时区统一] 日期归一化统一复用 dateCode（北京时间），避免两处各写一套本地取值
+const { dateKey } = require('./dateCode');
 
 /**
  * 归一化计划日期为 YYYY-MM-DD
@@ -23,8 +23,8 @@ function toPlanDateKey(value) {
   if (value === null || value === undefined || value === '') return '';
   if (value instanceof Date) {
     if (Number.isNaN(value.getTime())) return String(value).trim().slice(0, 10);
-    // 按本地（业务）日期取年月日，不能用 toISOString（UTC 会整体前移一天）
-    return `${value.getFullYear()}-${pad2(value.getMonth() + 1)}-${pad2(value.getDate())}`;
+    // 按业务时区（Asia/Shanghai）取年月日，不能用 toISOString（UTC 会整体前移一天）
+    return dateKey(value);
   }
   return String(value).trim().slice(0, 10);
 }

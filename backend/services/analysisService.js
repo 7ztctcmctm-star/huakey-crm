@@ -13,6 +13,8 @@
  */
 
 const { scopeFor } = require('../utils/dataScope');
+// [步骤 B3 · 时区统一] 趋势图的日期桶按北京时间分桶，避免 08:00 前落进前一天
+const { dateKey, addDaysKey } = require('../utils/dateCode');
 
 /**
  * 销售预测（移动平均）
@@ -119,14 +121,13 @@ async function getAnomaly(pool, dataPermission) {
   const daily = [];
   const rowMap = {};
   rows.forEach(r => {
-    const key = r.date instanceof Date ? r.date.toISOString().slice(0, 10) : String(r.date);
+    // DATE(create_time) 由 MySQL 按会话时区 +08:00 计算，这里必须同口径取键
+    const key = dateKey(r.date);
     rowMap[key] = { count: r.count, amount: parseFloat(r.amount) };
   });
 
   for (let i = 29; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const key = d.toISOString().slice(0, 10);
+    const key = addDaysKey(-i);
     daily.push({
       date: key,
       count: rowMap[key]?.count || 0,

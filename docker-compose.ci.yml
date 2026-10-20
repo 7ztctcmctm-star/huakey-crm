@@ -14,12 +14,16 @@ services:
       MYSQL_DATABASE: huakey_crm_test
       MYSQL_USER: crm_test
       MYSQL_PASSWORD: test_pass
+      # [步骤 B3 · 时区统一] CI 库同样钉在 +08:00，否则 GitHub Actions runner 为 UTC，
+      # NOW()/CURDATE() 与后端连接池 timezone:'+08:00' 的口径不一致，边界日期用例会假绿/假红
+      TZ: ${TZ:-Asia/Shanghai}
     ports:
       - "3306:3306"
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
       - --default-authentication-plugin=mysql_native_password
+      - --default-time-zone=+08:00
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 5s

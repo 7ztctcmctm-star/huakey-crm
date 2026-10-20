@@ -10,6 +10,8 @@ const notificationService = require('./notificationService');
 // 【P1-1】金额一律走 money 工具，禁止原生浮点运算（详见 utils/money.js 的缺陷说明）
 const money = require('../utils/money');
 const { withTransaction, withSavepoint } = require('../utils/tx');
+// [步骤 B3 · 时区统一] 编号日期段按北京时间取，禁用 toISOString（UTC 会在 08:00 前跨天）
+const { shortDateCode } = require('../utils/dateCode');
 
 /**
  * 【循环依赖护城河】惰性取得 opportunityService —— 勿改回顶层 require
@@ -495,7 +497,7 @@ async function convertToContractTx(pool, quoteId, userId) {
     // 修复 #2：统一合同编号规则，避免「双前缀/双日期格式」导致的数据不一致。
     // 与直接建合同(contractService.createContract)保持一致：前缀 CON- + YYMMDD(6位) + 3位序号。
     // 注意：两处生成逻辑必须同步修改，新增来源时复用此规则。
-    const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
+    const dateStr = shortDateCode();
     const [[{ cnt }]] = await conn.query("SELECT COUNT(*) as cnt FROM crm_contract WHERE contract_no LIKE ?", [`CON-${dateStr}-%`]);
     const contractNo = `CON-${dateStr}-${String(cnt + 1).padStart(3, '0')}`;
 

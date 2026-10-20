@@ -10,6 +10,8 @@ const { buildDataPermissionWhere } = require('../middleware/permission');
 const { logFieldChanges } = require('../utils/fieldLog');
 // 【P1-1】金额一律走 money 工具，禁止原生浮点运算。
 const money = require('../utils/money');
+// [步骤 B3 · 时区统一] 编号日期段按北京时间取，禁用 toISOString（UTC 会在 08:00 前跨天）
+const { shortDateCode } = require('../utils/dateCode');
 
 const MODULE_NAME = '发票管理';
 const { createRouteLogger } = require('../middleware/logger');
@@ -174,7 +176,7 @@ async function createInvoice(pool, { contract_id, customer_id, type, amount, tax
 }
 
 async function insertInvoiceWithRetry(pool, { contract_id, customer_id, type, invoice_date, status, remark }, amounts, userId) {
-  const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
+  const dateStr = shortDateCode();
   let lastError = null;
 
   for (let attempt = 1; attempt <= INVOICE_NO_MAX_ATTEMPTS; attempt++) {

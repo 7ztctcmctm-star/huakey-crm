@@ -144,8 +144,8 @@ describe('contractService.createContract', () => {
       1
     );
 
-    // 验证编号格式
-    const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
+    // 验证编号格式（[步骤 B3] 同服务口径：北京时间，不能用 toISOString）
+    const dateStr = require('../../utils/dateCode').shortDateCode();
     expect(result.contract_no).toBe(`CON-${dateStr}-004`);  // 3+1=4 → 004
     expect(result.id).toBe(50);
   });

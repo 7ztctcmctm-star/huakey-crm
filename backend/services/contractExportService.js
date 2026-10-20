@@ -6,6 +6,8 @@ const XLSX = require('xlsx');
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
 const { buildDataPermissionWhere } = require('../middleware/permission');
+// [步骤 B3 · 时区统一] 导入的付款日期按北京时间归一化，禁用 toISOString
+const { dateKey } = require('../utils/dateCode');
 /**
  * 敏感字段中英文映射（导出表头 ↔ fieldPermissions.js 字段名）
  */
@@ -169,9 +171,12 @@ async function importPayments(pool, fileBuffer) {
 
       let formattedDate = payDate;
       if (typeof payDate === 'number') {
-        formattedDate = new Date((payDate - 25569) * 86400 * 1000).toISOString().slice(0, 10);
+        // Excel 序列号 → epoch：1899-12-30 起算，按 UTC 午夜还原后取北京日期
+        formattedDate = dateKey(new Date((payDate - 25569) * 86400 * 1000));
       } else if (payDate instanceof Date) {
-        formattedDate = payDate.toISOString().slice(0, 10);
+        // [步骤 B3 · 时区统一] xlsx 把日期单元格解析为本地午夜的 Date，
+        // toISOString 会减 8 小时退回前一天，必须按北京时区取
+        formattedDate = dateKey(payDate);
       }
 
       await connection.query(

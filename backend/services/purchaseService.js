@@ -7,6 +7,8 @@
 // 注意：crm_purchase_item.unit_price 为 DECIMAL(12,4)，4 位小数单价用原生
 // 浮点乘法会偏差 1 分（实测 0.1450 × 1 → 0.14，应为 0.15）。
 const money = require('../utils/money');
+// [步骤 B3 · 时区统一] 编号日期段按北京时间取，禁用 toISOString（UTC 会在 08:00 前跨天）
+const { shortDateCode } = require('../utils/dateCode');
 
 // ==================== 采购计划 ====================
 
@@ -417,7 +419,7 @@ async function createPurchase(pool, data, userId) {
   try {
     await connection.beginTransaction();
 
-    const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
+    const dateStr = shortDateCode();
     const [count] = await connection.query(
       "SELECT COUNT(*) as cnt FROM crm_purchase_order WHERE order_no LIKE ? FOR UPDATE",
       [`PO-${dateStr}-%`]
@@ -496,7 +498,7 @@ async function addReceipt(pool, data, userId) {
   try {
     await connection.beginTransaction();
 
-    const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
+    const dateStr = shortDateCode();
     const [count] = await connection.query(
       "SELECT COUNT(*) as cnt FROM crm_purchase_receipt WHERE receipt_no LIKE ? FOR UPDATE",
       [`RCV-${dateStr}-%`]

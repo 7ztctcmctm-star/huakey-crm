@@ -1,6 +1,27 @@
 const mysql = require('mysql2/promise');
 const { alertError } = require('../utils/alert');
 
+/**
+ * 【步骤 B3 · 时区统一】MySQL 会话时区固定为 +08:00（Asia/Shanghai）
+ *
+ * 为什么必须显式写：mysql2 的 timezone 默认值是 'local'，即"Node 进程所在机器的本地时区"。
+ * 生产容器靠 TZ=Asia/Shanghai 兜底（见 docker-compose*.yml / Dockerfile），但 CI runner 与
+ * 开发机未必是 +08:00，一旦漂移：
+ *   · 写入侧：Date 对象会被按 Node 本地时区序列化，落库值与业务时间差 8 小时；
+ *   · 读取侧：DATETIME/TIMESTAMP 被解析成 Node 本地时区的 Date，前端展示整体偏移。
+ * 显式写死 '+08:00' 后，无论进程 TZ 如何，读写口径恒定。
+ *
+ * dateStrings 评估结论（本次**不开启**，详见 docs/timezone-unification.md）：
+ *   · dateStrings: true 会把 DATE/DATETIME/TIMESTAMP 全部返回为字符串，
+ *     其中 DATE 列会变成 'YYYY-MM-DD'，`new Date('2026-01-05')` 按 UTC 午夜解析，
+ *     与现在（本地午夜）差 8 小时，逾期/到期判断在边界日会整体错一天；
+ *   · backend/services、utils、controllers 共 80 处 new Date(...)、4 处 instanceof Date
+ *     需要逐处回归，属独立改造批次。
+ *   折中建议：若要开启，先只开 `dateStrings: ['DATE']`（mysql2 支持按类型指定），
+ *   纯日期列不再经 Date 往返，DATETIME/TIMESTAMP 保持现状，回归通过后再评估第二步。
+ */
+const DB_TIMEZONE = process.env.DB_TIMEZONE || '+08:00';
+
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT) || 3306,
@@ -16,7 +37,8 @@ const pool = mysql.createPool({
   enableKeepAlive: true,
   keepAliveInitialDelay: 10000,
   multipleStatements: false,
-  charset: 'utf8mb4'
+  charset: 'utf8mb4',
+  timezone: DB_TIMEZONE
 });
 
 pool.on('error', (err) => {
@@ -81,7 +103,9 @@ const readOnlyPool = isReadOnlyPoolAvailable
       enableKeepAlive: true,
       keepAliveInitialDelay: 10000,
       multipleStatements: false,
-      charset: 'utf8mb4'
+      charset: 'utf8mb4',
+      // 与主池同口径，否则主从/读写分离下同一条记录的日期可能差 8 小时
+      timezone: DB_TIMEZONE
     })
   : pool;
 

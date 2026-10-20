@@ -10,6 +10,8 @@ require('dotenv').config();
 const notification = require('../utils/notification');
 const sseManager = require('../utils/sseManager');
 const { isFollowupReminderEnabled } = require('../utils/config');
+// [步骤 B3 · 时区统一] "今天/明天"按北京时间判定，避免 08:00 前把今日跟进算成昨日
+const { dateKey, addDaysKey } = require('../utils/dateCode');
 
 async function generateReminders(existingPool) {
   // 如果传入了连接池就用，否则自己创建（PG 兼容）
@@ -31,7 +33,7 @@ async function generateReminders(existingPool) {
       return { overdue: 0, today: 0, upcoming: 0 };
     }
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = dateKey();
 
     // 从配置表读取逾期天数
     let OVERDUE_DAYS = 15;
@@ -139,9 +141,7 @@ async function generateReminders(existingPool) {
     console.log(`[提醒生成] 今日待跟进: 生成${todayInserted}条`);
 
     // ====== 3. 明日待跟进提醒（统一来源：crm_follow_up，is_plan IN (0,1)） ======
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+    const tomorrowStr = addDaysKey(1);
 
     let upcomingInserted = 0;
     const [tomorrowItems] = await pool.query(

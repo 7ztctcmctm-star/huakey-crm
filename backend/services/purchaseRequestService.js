@@ -5,6 +5,8 @@
 const ROLES = require('../config/roles');
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
+// [步骤 B3 · 时区统一] 编号日期段按北京时间取，禁用 toISOString（UTC 会在 08:00 前跨天）
+const { fullDateCode } = require('../utils/dateCode');
 const { ADMIN_ROLE_CODES } = ROLES;
 
 function isAdmin(user) {
@@ -15,7 +17,7 @@ function isAdmin(user) {
  * 生成采购申请编号：PR + YYYYMMDD + 3位序号
  */
 async function generateRequestNo(pool) {
-  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const dateStr = fullDateCode();
   const prefix = `PR${dateStr}`;
   const [[row]] = await pool.query(
     "SELECT COUNT(*) as cnt FROM crm_purchase_request WHERE request_no LIKE ?",

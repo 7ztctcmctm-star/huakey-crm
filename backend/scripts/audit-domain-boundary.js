@@ -28,6 +28,8 @@
 
 const fs = require('fs');
 const path = require('path');
+// [步骤 B3 · 时区统一] 基线过期判定按北京时间，避免 08:00 前用昨天的日期做比较
+const { dateKey } = require('../utils/dateCode');
 
 const BACKEND = path.resolve(__dirname, '..');
 const STRICT = process.argv.includes('--strict');
@@ -70,7 +72,7 @@ function loadBaseline() {
 /** 基线是否过期（review_by）——过期即视为失败，强制重新评审 */
 function baselineExpired(data) {
   if (!data?.review_by) return false;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dateKey();
   return today > data.review_by;
 }
 

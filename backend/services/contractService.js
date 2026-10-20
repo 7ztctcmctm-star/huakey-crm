@@ -9,6 +9,8 @@ const ErrorCodes = require('../errors/codes');
 const webhookDispatcher = require('./webhookDispatcher');
 const money = require('../utils/money');
 const { assertUniquePlanDates } = require('../utils/paymentPlan');
+// [步骤 B3 · 时区统一] 编号日期段按北京时间取，禁用 toISOString（UTC 会在 08:00 前跨天）
+const { shortDateCode } = require('../utils/dateCode');
 
 // 合同状态映射（统一权威定义，详见 docs/contract-status-definition.md）
 // 1=待执行(默认,新建)  2=执行中  3=已完成(终态,不可变更)  4=已取消(终态)
@@ -217,7 +219,7 @@ async function createContract(pool, data, createBy, idempotencyKey) {
     }
 
     // 生成合同编号
-    const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
+    const dateStr = shortDateCode();
     const [count] = await connection.query('SELECT COUNT(*) as cnt FROM crm_contract WHERE contract_no LIKE ? FOR UPDATE', [`CON-${dateStr}-%`]);
     const seq = String(count[0].cnt + 1).padStart(3, '0');
     const contractNo = `CON-${dateStr}-${seq}`;

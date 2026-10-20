@@ -8,6 +8,8 @@ const sseManager = require('../utils/sseManager');
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
 const { scopeFor } = require('../utils/dataScope');
+// [步骤 B3 · 时区统一] 编号日期段按北京时间取，禁用 toISOString（UTC 会在 08:00 前跨天）
+const { shortDateCode } = require('../utils/dateCode');
 
 /**
  * 构建售后工单的数据权限子句 —— 统一走 utils/dataScope 的标准实现
@@ -241,7 +243,7 @@ async function createServiceOrder(pool, params, userId) {
       throw new AppError(ErrorCodes.VALIDATION_ERROR, '只能为已签约客户创建售后工单')
     }
 
-    const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
+    const dateStr = shortDateCode();
     const [count] = await connection.query('SELECT COUNT(*) as cnt FROM crm_service_order WHERE order_no LIKE ? FOR UPDATE', [`SRV-${dateStr}-%`]);
     const seq = String(count[0].cnt + 1).padStart(3, '0');
     const orderNo = `SRV-${dateStr}-${seq}`;

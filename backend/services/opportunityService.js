@@ -6,6 +6,8 @@
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
 const { withTransaction } = require('../utils/tx');
+// [步骤 B3 · 时区统一] 编号日期段统一走 dateCode，禁止各处手写 getFullYear/getMonth 或 toISOString
+const { shortDateCode } = require('../utils/dateCode');
 const quoteService = require('./quoteService');
 const contractService = require('./contractService');
 
@@ -44,10 +46,7 @@ const BACKWARD_RULES = {
  * @returns {Promise<string>}
  */
 async function generateOpportunityNo(connection) {
-  const now = new Date();
-  const dateStr = now.getFullYear().toString().slice(2) +
-    String(now.getMonth() + 1).padStart(2, '0') +
-    String(now.getDate()).padStart(2, '0');
+  const dateStr = shortDateCode();
   const [count] = await connection.query(
     "SELECT COUNT(*) as cnt FROM crm_opportunity WHERE opportunity_no LIKE ? FOR UPDATE",
     [`OPP-${dateStr}-%`]
