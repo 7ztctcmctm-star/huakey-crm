@@ -129,22 +129,22 @@ DROP TABLE IF EXISTS `crm_approval_rule`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_approval_rule` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `business_type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '业务类型：quote/contract/purchase/discount',
-  `min_amount` decimal(15,2) NOT NULL DEFAULT '0.00' COMMENT '金额下限（含）',
-  `max_amount` decimal(15,2) DEFAULT NULL COMMENT '金额上限（不含，NULL 表示无上限）',
-  `approver_type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '审批人类型：manager/role/user',
-  `approver_ref` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'roleCode 或 用户ID（approver_type=user 时）',
-  `priority` int NOT NULL DEFAULT '0' COMMENT '优先级，数值越大越优先',
-  `status` tinyint(1) DEFAULT '1' COMMENT '状态：1启用 0禁用',
-  `description` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '规则说明',
-  `created_by` int DEFAULT NULL COMMENT '创建人',
+  `business_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'ä¸šåŠ¡ç±»åž‹ï¼šquote/contract/purchase/discount',
+  `min_amount` decimal(15,2) NOT NULL DEFAULT '0.00' COMMENT 'é‡‘é¢ä¸‹é™ï¼ˆå«ï¼‰',
+  `max_amount` decimal(15,2) DEFAULT NULL COMMENT 'é‡‘é¢ä¸Šé™ï¼ˆä¸å«ï¼ŒNULL è¡¨ç¤ºæ— ä¸Šé™ï¼‰',
+  `approver_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'å®¡æ‰¹äººç±»åž‹ï¼šmanager/role/user',
+  `approver_ref` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'roleCode æˆ– ç”¨æˆ·IDï¼ˆapprover_type=user æ—¶ï¼‰',
+  `priority` int NOT NULL DEFAULT '0' COMMENT 'ä¼˜å…ˆçº§ï¼Œæ•°å€¼è¶Šå¤§è¶Šä¼˜å…ˆ',
+  `status` tinyint(1) DEFAULT '1' COMMENT 'çŠ¶æ€ï¼š1å¯ç”¨ 0ç¦ç”¨',
+  `description` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'è§„åˆ™è¯´æ˜Ž',
+  `created_by` int DEFAULT NULL COMMENT 'åˆ›å»ºäºº',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
+  `deleted_at` datetime DEFAULT NULL COMMENT 'è½¯åˆ é™¤æ—¶é—´',
   PRIMARY KEY (`id`),
   KEY `idx_arule_type` (`business_type`),
   KEY `idx_arule_amount` (`business_type`,`min_amount`,`max_amount`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='审批阈值规则（阈值→审批人矩阵）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='å®¡æ‰¹é˜ˆå€¼è§„åˆ™ï¼ˆé˜ˆå€¼â†’å®¡æ‰¹äººçŸ©é˜µï¼‰';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -232,13 +232,13 @@ DROP TABLE IF EXISTS `crm_assign_rule`;
 CREATE TABLE `crm_assign_rule` (
   `id` int NOT NULL AUTO_INCREMENT,
   `rule_name` varchar(100) NOT NULL COMMENT '规则名称',
-  `assign_type` enum('round_robin','by_source','by_region') NOT NULL COMMENT '分配方式',
+  `assign_type` enum('round_robin','by_source','by_region') NOT NULL COMMENT '分配方式: round_robin=轮询, by_source=按来源, by_region=按区域',
   `source_value` varchar(100) DEFAULT NULL COMMENT '来源值（by_source时使用）',
   `region_value` varchar(100) DEFAULT NULL COMMENT '区域值（by_region时使用）',
   `user_ids` json NOT NULL COMMENT '可分配的用户ID列表',
-  `last_assigned_index` int DEFAULT '0' COMMENT '上次分配索引（轮询用）',
+  `last_assigned_index` int DEFAULT '0' COMMENT '上次分配的索引（轮询用）',
   `priority` int DEFAULT '0' COMMENT '优先级（越大越优先）',
-  `is_active` tinyint DEFAULT '1' COMMENT '是否启用',
+  `is_active` tinyint DEFAULT '1' COMMENT '是否启用: 1=启用, 0=禁用',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -516,25 +516,24 @@ CREATE TABLE `crm_contract` (
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
   `quote_id` int DEFAULT NULL COMMENT '关联合同来源报价单ID',
   `is_demo` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Demo数据标识: 0=真实 1=Demo',
-  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `contract_no` (`contract_no`),
   KEY `fk_contract_opportunity` (`opportunity_id`),
   KEY `fk_contract_create_by` (`create_by`),
   KEY `idx_contract_no` (`contract_no`),
-  KEY `idx_contract_customer` (`customer_id`),
-  KEY `idx_contract_status` (`status`),
   KEY `idx_contract_create_time` (`create_time`),
-  KEY `idx_contract_deleted_at` (`deleted_at`),
   KEY `idx_contract_status_ctime` (`status`,`create_time`),
+  KEY `idx_contract_deleted_at` (`deleted_at`),
   KEY `idx_contract_del_status_ctime` (`deleted_at`,`status`,`create_time`),
   KEY `idx_contract_approval` (`approval_status`),
+  KEY `idx_contract_customer` (`customer_id`,`deleted_at`),
   KEY `idx_contract_sign_date` (`sign_date`),
+  KEY `idx_contract_status` (`status`,`deleted_at`),
   KEY `idx_contract_quote_id` (`quote_id`),
   KEY `idx_contract_cust_status` (`customer_id`,`status`),
   CONSTRAINT `fk_contract_create_by` FOREIGN KEY (`create_by`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `fk_contract_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_contract_opp` FOREIGN KEY (`opportunity_id`) REFERENCES `crm_opportunity` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_contract_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_contract_opp` FOREIGN KEY (`opportunity_id`) REFERENCES `crm_opportunity` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_contract_opportunity` FOREIGN KEY (`opportunity_id`) REFERENCES `crm_opportunity` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_contract_quote` FOREIGN KEY (`quote_id`) REFERENCES `crm_quote` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='合同表';
@@ -549,23 +548,23 @@ DROP TABLE IF EXISTS `crm_contract_item`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_contract_item` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `contract_id` int NOT NULL COMMENT '关联合同ID',
-  `product_id` int NOT NULL COMMENT '产品ID',
-  `product_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '产品名称',
-  `product_code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '产品编码',
-  `quantity` int DEFAULT '1' COMMENT '数量',
-  `unit_price` decimal(15,2) DEFAULT '0.00' COMMENT '单价',
-  `total_price` decimal(15,2) DEFAULT '0.00' COMMENT '小计',
-  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
-  `create_by` int DEFAULT NULL COMMENT '创建人',
-  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
+  `contract_id` int NOT NULL COMMENT 'å…³è”åˆåŒID',
+  `product_id` int NOT NULL COMMENT 'äº§å“ID',
+  `product_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'äº§å“åç§°',
+  `product_code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'äº§å“ç¼–ç ',
+  `quantity` int DEFAULT '1' COMMENT 'æ•°é‡',
+  `unit_price` decimal(15,2) DEFAULT '0.00' COMMENT 'å•ä»·',
+  `total_price` decimal(15,2) DEFAULT '0.00' COMMENT 'å°è®¡',
+  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'å¤‡æ³¨',
+  `create_by` int DEFAULT NULL COMMENT 'åˆ›å»ºäºº',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT 'åˆ›å»ºæ—¶é—´',
+  `deleted_at` datetime DEFAULT NULL COMMENT 'è½¯åˆ é™¤æ—¶é—´',
   PRIMARY KEY (`id`),
   KEY `idx_contract_item_contract` (`contract_id`),
   KEY `idx_contract_item_product` (`product_id`),
   CONSTRAINT `fk_contract_item_contract` FOREIGN KEY (`contract_id`) REFERENCES `crm_contract` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_contract_item_product` FOREIGN KEY (`product_id`) REFERENCES `crm_product` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='合同明细表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='åˆåŒæ˜Žç»†è¡¨';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -624,9 +623,9 @@ DROP TABLE IF EXISTS `crm_customer`;
 CREATE TABLE `crm_customer` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `company_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '公司名称',
-  `contact_name` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '【已废弃】请使用 crm_contact',
-  `phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '【已废弃】请使用 crm_contact',
-  `email` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '【已废弃】请使用 crm_contact',
+  `contact_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '【已废弃】请使用 crm_contact',
+  `phone` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '【已废弃】请使用 crm_contact',
+  `email` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '【已废弃】请使用 crm_contact',
   `address` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '地址',
   `industry` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '所属行业',
   `source` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '客户来源（展会/网络/转介绍/电话/其他）',
@@ -636,7 +635,7 @@ CREATE TABLE `crm_customer` (
   `converted_at` datetime DEFAULT NULL COMMENT '转化为客户的时间',
   `owner_id` int DEFAULT NULL COMMENT '负责销售ID',
   `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'following',
-  `customer_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'prospect' COMMENT '对象类型: prospect/customer',
+  `customer_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'prospect' COMMENT '对象类型: prospect=潜客 customer=正式客户',
   `lifecycle_status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'new' COMMENT '生命周期: new/nurturing/intent/active/lost/inactive',
   `original_lead_id` int DEFAULT NULL COMMENT '原始线索ID，用于线索转客户溯源',
   `score` int DEFAULT '0' COMMENT '客户评分',
@@ -646,8 +645,8 @@ CREATE TABLE `crm_customer` (
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
   `pool_status` varchar(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'private' COMMENT '资源归属: private=私有 sea=公海',
   `pool_type` enum('public','private') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'public' COMMENT '池类型',
-  `protect_until` datetime DEFAULT NULL COMMENT '保护期截止时间',
-  `last_follow_time` datetime DEFAULT NULL COMMENT '最后跟进时间',
+  `protect_until` datetime DEFAULT NULL COMMENT '认领保护截止时间',
+  `last_follow_time` datetime DEFAULT NULL COMMENT '最近跟进时间',
   `old_status_int` tinyint DEFAULT NULL COMMENT '迁移前状态备份',
   `is_demo` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Demo数据标识: 0=真实 1=Demo',
   `business_status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'lead' COMMENT '业务生命周期: lead/following/quoted/negotiating/signed/lost',
@@ -661,24 +660,23 @@ CREATE TABLE `crm_customer` (
   KEY `idx_customer_owner_id` (`owner_id`),
   KEY `idx_customer_status` (`status`),
   KEY `idx_customer_create_time` (`create_time`),
-  KEY `idx_pool_status` (`pool_status`),
-  KEY `idx_customer_deleted_at` (`deleted_at`),
-  KEY `idx_customer_pool_type` (`pool_type`),
-  KEY `idx_customer_type` (`customer_type`),
-  KEY `idx_lifecycle_status` (`lifecycle_status`),
   KEY `idx_customer_pool_status` (`pool_status`),
   KEY `idx_customer_protect_until` (`protect_until`),
   KEY `idx_customer_last_follow` (`last_follow_time`),
   KEY `idx_cust_owner_status_ctime` (`owner_id`,`status`,`create_time`),
+  KEY `idx_customer_pool_type` (`pool_type`),
   KEY `idx_cust_status_owner_follow` (`status`,`owner_id`,`last_follow_time`),
+  KEY `idx_customer_type` (`customer_type`),
+  KEY `idx_lifecycle_status` (`lifecycle_status`),
   KEY `idx_customer_status_lifecycle` (`status`,`lifecycle_status`),
   KEY `idx_customer_owner` (`owner_id`,`deleted_at`),
+  KEY `idx_customer_deleted_at` (`deleted_at`),
   KEY `idx_original_lead_id` (`original_lead_id`),
   KEY `idx_owner_status_deleted` (`owner_id`,`status`,`deleted_at`),
   KEY `idx_customer_is_demo` (`is_demo`),
   KEY `idx_customer_business_status` (`business_status`,`deleted_at`),
   KEY `idx_customer_biz_pool` (`business_status`,`pool_status`,`owner_id`,`deleted_at`),
-  CONSTRAINT `fk_customer_owner` FOREIGN KEY (`owner_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+  CONSTRAINT `fk_customer_owner` FOREIGN KEY (`owner_id`) REFERENCES `sys_user` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='客户表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -761,16 +759,16 @@ DROP TABLE IF EXISTS `crm_customer_transfer`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_customer_transfer` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `customer_id` int NOT NULL COMMENT '客户ID',
-  `from_user_id` int DEFAULT NULL COMMENT '发起人（原负责人）',
-  `to_user_id` int DEFAULT NULL COMMENT '接收人',
-  `status` varchar(16) NOT NULL DEFAULT 'pending' COMMENT '状态：pending/accepted/rejected/expired',
-  `reason` varchar(500) DEFAULT NULL COMMENT '转移原因（发起人填写）',
-  `handle_remark` varchar(500) DEFAULT NULL COMMENT '接收人处理备注',
-  `expire_at` datetime NOT NULL COMMENT '过期时间（创建时间 + 3 天）',
-  `handle_time` datetime DEFAULT NULL COMMENT '处理时间',
-  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `deleted_at` datetime DEFAULT NULL COMMENT '软删除标记',
+  `customer_id` int NOT NULL COMMENT 'å®¢æˆ·ID',
+  `from_user_id` int DEFAULT NULL COMMENT 'å‘èµ·äººï¼ˆåŽŸè´Ÿè´£äººï¼‰',
+  `to_user_id` int DEFAULT NULL COMMENT 'æŽ¥æ”¶äºº',
+  `status` varchar(16) NOT NULL DEFAULT 'pending' COMMENT 'çŠ¶æ€ï¼špending/accepted/rejected/expired',
+  `reason` varchar(500) DEFAULT NULL COMMENT 'è½¬ç§»åŽŸå› ï¼ˆå‘èµ·äººå¡«å†™ï¼‰',
+  `handle_remark` varchar(500) DEFAULT NULL COMMENT 'æŽ¥æ”¶äººå¤„ç†å¤‡æ³¨',
+  `expire_at` datetime NOT NULL COMMENT 'è¿‡æœŸæ—¶é—´ï¼ˆåˆ›å»ºæ—¶é—´ + 3 å¤©ï¼‰',
+  `handle_time` datetime DEFAULT NULL COMMENT 'å¤„ç†æ—¶é—´',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT 'åˆ›å»ºæ—¶é—´',
+  `deleted_at` datetime DEFAULT NULL COMMENT 'è½¯åˆ é™¤æ ‡è®°',
   PRIMARY KEY (`id`),
   KEY `idx_transfer_customer` (`customer_id`),
   KEY `idx_transfer_to_status` (`to_user_id`,`status`),
@@ -780,7 +778,7 @@ CREATE TABLE `crm_customer_transfer` (
   CONSTRAINT `fk_transfer_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_transfer_from_user` FOREIGN KEY (`from_user_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_transfer_to_user` FOREIGN KEY (`to_user_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='客户转移申请（双方同意制）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='å®¢æˆ·è½¬ç§»ç”³è¯·ï¼ˆåŒæ–¹åŒæ„åˆ¶ï¼‰';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -939,7 +937,7 @@ CREATE TABLE `crm_follow_plan` (
   KEY `idx_fp_plan_time` (`plan_time`),
   KEY `idx_fp_status` (`status`),
   KEY `idx_fp_create_by` (`create_by`),
-  CONSTRAINT `fk_followplan_create_by` FOREIGN KEY (`create_by`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_followplan_create_by` FOREIGN KEY (`create_by`) REFERENCES `sys_user` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_followplan_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='跟进计划表';
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -974,10 +972,10 @@ CREATE TABLE `crm_follow_up` (
   KEY `idx_follow_create_by` (`create_by`),
   KEY `idx_follow_next_time` (`next_time`),
   KEY `idx_follow_create_time` (`create_time`),
-  KEY `idx_follow_deleted_at` (`deleted_at`),
   KEY `idx_follow_cust_del_time` (`customer_id`,`deleted_at`,`create_time`),
   KEY `idx_followup_customer_time` (`customer_id`,`create_time` DESC),
   KEY `idx_followup_next_time` (`next_time`),
+  KEY `idx_follow_deleted_at` (`deleted_at`),
   KEY `idx_follow_is_plan` (`is_plan`),
   KEY `idx_follow_source_plan` (`source_plan_id`),
   KEY `idx_follow_cust_deleted` (`customer_id`,`deleted_at`),
@@ -985,7 +983,7 @@ CREATE TABLE `crm_follow_up` (
   CONSTRAINT `fk_follow_contact` FOREIGN KEY (`contact_id`) REFERENCES `crm_contact` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_follow_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_follow_user` FOREIGN KEY (`create_by`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `fk_followup_create_by` FOREIGN KEY (`create_by`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_followup_create_by` FOREIGN KEY (`create_by`) REFERENCES `sys_user` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_followup_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_followup_opportunity` FOREIGN KEY (`opportunity_id`) REFERENCES `crm_opportunity` (`id`) ON DELETE SET NULL,
   CONSTRAINT `chk_follow_type` CHECK ((`follow_type` in (_utf8mb4'电话',_utf8mb4'拜访',_utf8mb4'微信',_utf8mb4'邮件',_utf8mb4'其他')))
@@ -1019,9 +1017,9 @@ CREATE TABLE `crm_follow_up_reminder` (
   KEY `idx_reminder_follow_plan` (`follow_plan_id`),
   KEY `fk_reminder_manager` (`manager_id`),
   CONSTRAINT `fk_reminder_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_reminder_follow_plan` FOREIGN KEY (`follow_plan_id`) REFERENCES `crm_follow_plan` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_reminder_manager` FOREIGN KEY (`manager_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `fk_reminder_owner` FOREIGN KEY (`owner_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `fk_reminder_follow_plan` FOREIGN KEY (`follow_plan_id`) REFERENCES `crm_follow_plan` (`id`) ON DELETE SET NULL
+  CONSTRAINT `fk_reminder_owner` FOREIGN KEY (`owner_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='跟进提醒表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -1044,8 +1042,25 @@ CREATE TABLE `crm_followup_template` (
   PRIMARY KEY (`id`),
   KEY `idx_ft_type` (`type`),
   KEY `idx_ft_creator` (`create_by`),
-  CONSTRAINT `fk_followup_tpl_create_by` FOREIGN KEY (`create_by`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL
+  CONSTRAINT `fk_followup_tpl_create_by` FOREIGN KEY (`create_by`) REFERENCES `sys_user` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='跟进模板';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `crm_idempotency`
+--
+
+DROP TABLE IF EXISTS `crm_idempotency`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `crm_idempotency` (
+  `idempotency_key` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '幂等键（客户端生成的唯一请求标识）',
+  `biz_type` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '业务类型: payment=回款登记 contract=合同创建',
+  `result_json` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '首次成功的结果（JSON）',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`idempotency_key`),
+  KEY `idx_idem_biz` (`biz_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='幂等键记录表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1078,7 +1093,7 @@ CREATE TABLE `crm_invoice` (
   KEY `idx_status` (`status`),
   KEY `fk_invoice_create_by` (`create_by`),
   CONSTRAINT `fk_invoice_contract` FOREIGN KEY (`contract_id`) REFERENCES `crm_contract` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_invoice_create_by` FOREIGN KEY (`create_by`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_invoice_create_by` FOREIGN KEY (`create_by`) REFERENCES `sys_user` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_invoice_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='发票表';
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -1244,12 +1259,12 @@ CREATE TABLE `crm_opportunity` (
   KEY `idx_opp_owner` (`owner_id`),
   KEY `idx_opp_stage` (`stage`),
   KEY `idx_opp_expected_date` (`expected_date`),
-  KEY `idx_opp_deleted_at` (`deleted_at`),
   KEY `idx_opp_owner_stage_ctime` (`owner_id`,`stage`,`create_time`),
+  KEY `idx_opp_deleted_at` (`deleted_at`),
   KEY `idx_opp_del_stage_amount` (`deleted_at`,`stage`,`expected_amount`),
   KEY `idx_source_id` (`source_id`),
-  CONSTRAINT `fk_opp_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_opp_owner` FOREIGN KEY (`owner_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_opp_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_opp_owner` FOREIGN KEY (`owner_id`) REFERENCES `sys_user` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_opp_source` FOREIGN KEY (`source_id`) REFERENCES `crm_opportunity_source` (`id`) ON DELETE SET NULL,
   CONSTRAINT `chk_opp_stage` CHECK ((`stage` between 1 and 6)),
   CONSTRAINT `chk_opp_win_rate` CHECK ((`win_rate` between 0 and 100))
@@ -1286,17 +1301,17 @@ DROP TABLE IF EXISTS `crm_opportunity_stage_log`;
 CREATE TABLE `crm_opportunity_stage_log` (
   `id` int NOT NULL AUTO_INCREMENT,
   `opportunity_id` int DEFAULT NULL,
-  `from_stage` int DEFAULT NULL COMMENT '原阶段（NULL表示初始创建）',
-  `to_stage` int NOT NULL COMMENT '新阶段',
-  `change_reason` varchar(500) DEFAULT NULL COMMENT '变更原因',
+  `from_stage` tinyint NOT NULL COMMENT '原阶段',
+  `to_stage` tinyint NOT NULL COMMENT '新阶段',
+  `change_reason` varchar(500) DEFAULT NULL COMMENT '阶段变更原因',
   `changed_by` int DEFAULT NULL COMMENT '操作人ID',
-  `changed_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '变更时间',
-  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `idx_opportunity_id` (`opportunity_id`),
-  KEY `idx_changed_at` (`changed_at`),
+  KEY `idx_opp_stage_log_opp` (`opportunity_id`),
+  KEY `fk_stage_log_user` (`changed_by`),
+  CONSTRAINT `fk_stage_log_user` FOREIGN KEY (`changed_by`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_stagelog_opp` FOREIGN KEY (`opportunity_id`) REFERENCES `crm_opportunity` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商机阶段变更日志';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商机阶段变更记录';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1330,23 +1345,6 @@ CREATE TABLE `crm_payment` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `crm_idempotency`
---
-
-DROP TABLE IF EXISTS `crm_idempotency`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-SET character_set_client = utf8mb4 ;
-CREATE TABLE `crm_idempotency` (
-  `idempotency_key` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '幂等键（客户端生成的唯一请求标识）',
-  `biz_type` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '业务类型: payment=回款登记 contract=合同创建',
-  `result_json` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '首次成功的结果（JSON）',
-  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`idempotency_key`),
-  KEY `idx_idem_biz` (`biz_type`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='幂等键记录表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
 -- Table structure for table `crm_payment_plan`
 --
 
@@ -1367,11 +1365,11 @@ CREATE TABLE `crm_payment_plan` (
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `is_demo` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Demo数据标识: 0=真实 1=Demo',
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_plan_contract_date` (`contract_id`,`plan_date`),
   KEY `idx_payment_plan_contract` (`contract_id`),
   KEY `idx_payment_plan_date` (`plan_date`),
   KEY `idx_plan_contract` (`contract_id`),
   KEY `idx_plan_date` (`plan_date`),
-  UNIQUE KEY `uk_plan_contract_date` (`contract_id`,`plan_date`),
   CONSTRAINT `fk_payment_plan_contract` FOREIGN KEY (`contract_id`) REFERENCES `crm_contract` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='回款计划表';
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -1402,8 +1400,8 @@ CREATE TABLE `crm_payment_reminder` (
   KEY `idx_pr_date` (`remind_date`),
   KEY `fk_payremind_plan` (`plan_id`),
   CONSTRAINT `fk_payremind_contract` FOREIGN KEY (`contract_id`) REFERENCES `crm_contract` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_payremind_plan` FOREIGN KEY (`plan_id`) REFERENCES `crm_payment_plan` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `fk_payremind_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE SET NULL
+  CONSTRAINT `fk_payremind_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_payremind_plan` FOREIGN KEY (`plan_id`) REFERENCES `crm_payment_plan` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='回款提醒记录';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -1426,9 +1424,9 @@ CREATE TABLE `crm_pool_log` (
   KEY `idx_customer_id` (`customer_id`),
   KEY `idx_action` (`action`),
   KEY `idx_create_time` (`create_time`),
-  KEY `idx_pool_log_deleted_at` (`deleted_at`),
   KEY `fk_pool_log_from_user` (`from_user_id`),
   KEY `fk_pool_log_to_user` (`to_user_id`),
+  KEY `idx_pool_log_deleted_at` (`deleted_at`),
   CONSTRAINT `fk_pool_log_from_user` FOREIGN KEY (`from_user_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_pool_log_to_user` FOREIGN KEY (`to_user_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_poollog_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE SET NULL
@@ -1626,14 +1624,12 @@ CREATE TABLE `crm_purchase_order` (
   `owner_id` int DEFAULT NULL COMMENT '采购负责人ID',
   `create_by` int DEFAULT NULL COMMENT '创建人ID',
   `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '草稿' COMMENT '状态：草稿/待审核/已确认/部分收货/已完成/已取消',
-  `approval_status` tinyint NOT NULL DEFAULT '2' COMMENT '审批状态：0草稿 1待审批 2已通过 3已拒绝',
-  `approver_id` int DEFAULT NULL COMMENT '审批人',
-  `approval_remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '审批备注',
   `approve_time` datetime DEFAULT NULL COMMENT '审批时间',
   `approveRemark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '审批备注',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
+  `approval_status` tinyint NOT NULL DEFAULT '2',
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_po_no` (`order_no`),
   KEY `fk_po_owner` (`owner_id`),
@@ -1815,7 +1811,6 @@ CREATE TABLE `crm_quote` (
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
   `is_demo` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Demo数据标识: 0=真实 1=Demo',
-  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `quote_no` (`quote_no`),
   KEY `fk_quote_create_by` (`create_by`),
@@ -1827,7 +1822,7 @@ CREATE TABLE `crm_quote` (
   KEY `idx_quote_opportunity` (`opportunity_id`),
   KEY `idx_quote_approval` (`approval_status`),
   CONSTRAINT `fk_quote_create_by` FOREIGN KEY (`create_by`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `fk_quote_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_quote_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_quote_opportunity` FOREIGN KEY (`opportunity_id`) REFERENCES `crm_opportunity` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -1923,20 +1918,22 @@ DROP TABLE IF EXISTS `crm_sales_target`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_sales_target` (
-  `id` int NOT NULL AUTO_INCREMENT,
+  `id` int NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `user_id` int DEFAULT NULL,
-  `year` int NOT NULL,
-  `month` int NOT NULL,
-  `target_amount` decimal(15,2) DEFAULT '0.00',
-  `create_by` int DEFAULT NULL,
+  `year` int NOT NULL COMMENT '目标年份',
+  `month` int NOT NULL COMMENT '目标月份',
+  `target_amount` decimal(15,2) NOT NULL DEFAULT '0.00' COMMENT '目标金额',
+  `create_by` int DEFAULT NULL COMMENT '创建人ID',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_user_period` (`user_id`,`year`,`month`),
+  KEY `idx_user` (`user_id`),
+  KEY `idx_period` (`year`,`month`),
   KEY `idx_target_user_year_month` (`user_id`,`year`,`month`),
   CONSTRAINT `fk_salestarget_user` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='销售目标表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2012,18 +2009,19 @@ CREATE TABLE `crm_service_order` (
   `satisfaction` tinyint DEFAULT NULL,
   `create_by` int DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
-  `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
+  `deleted_at` datetime DEFAULT NULL COMMENT '删除时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `order_no` (`order_no`),
   KEY `fk_service_contract` (`contract_id`),
+  KEY `fk_service_assignee` (`assignee_id`),
   KEY `fk_service_create_by` (`create_by`),
   KEY `idx_order_no` (`order_no`),
   KEY `idx_service_status` (`status`),
   KEY `idx_service_priority` (`priority`),
   KEY `idx_service_customer` (`customer_id`),
   KEY `idx_service_create_time` (`create_time`),
-  KEY `idx_service_deleted_at` (`deleted_at`),
   KEY `idx_service_assignee_status` (`assignee_id`,`status`),
+  KEY `idx_service_deleted_at` (`deleted_at`),
   CONSTRAINT `fk_service_assignee` FOREIGN KEY (`assignee_id`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_service_contract` FOREIGN KEY (`contract_id`) REFERENCES `crm_contract` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_service_create_by` FOREIGN KEY (`create_by`) REFERENCES `sys_user` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
@@ -2206,27 +2204,26 @@ DROP TABLE IF EXISTS `crm_supplier_contact`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_supplier_contact` (
-  `id` int NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `supplier_id` int NOT NULL COMMENT '供应商ID',
-  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '姓名',
+  `id` int NOT NULL AUTO_INCREMENT,
+  `supplier_id` int NOT NULL,
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '联系人姓名',
   `position` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '职位',
   `department` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '部门',
   `phone` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '电话',
   `mobile` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '手机',
   `email` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '邮箱',
   `wechat` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '微信',
-  `role` enum('决策人','对接人','财务','技术','其他') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '对接人' COMMENT '角色',
-  `is_primary` tinyint DEFAULT '0' COMMENT '是否主要联系人：0=否 1=是',
-  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
-  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
+  `role` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '角色/职责',
+  `is_primary` tinyint(1) DEFAULT '0' COMMENT '是否主要联系人',
+  `remark` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '备注',
   `create_by` int DEFAULT NULL COMMENT '创建人',
-  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
   PRIMARY KEY (`id`),
-  KEY `idx_contact_supplier` (`supplier_id`),
-  KEY `idx_contact_role` (`role`),
-  CONSTRAINT `fk_contact_supplier` FOREIGN KEY (`supplier_id`) REFERENCES `crm_supplier` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='供应商联系人表';
+  KEY `idx_sc_supplier` (`supplier_id`),
+  CONSTRAINT `fk_sc_supplier` FOREIGN KEY (`supplier_id`) REFERENCES `crm_supplier` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='供应商联系人';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2237,27 +2234,25 @@ DROP TABLE IF EXISTS `crm_supplier_qualification`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `crm_supplier_qualification` (
-  `id` int NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `supplier_id` int NOT NULL COMMENT '供应商ID',
-  `cert_type` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '证照类型（营业执照/许可证/认证等）',
-  `cert_no` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '证照编号',
-  `cert_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '证照名称',
+  `id` int NOT NULL AUTO_INCREMENT,
+  `supplier_id` int NOT NULL,
+  `cert_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '资质类型',
+  `cert_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '资质名称',
+  `cert_no` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '证书编号',
   `issue_date` date DEFAULT NULL COMMENT '发证日期',
-  `expire_date` date DEFAULT NULL COMMENT '有效期至',
-  `issuing_authority` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '发证机构',
-  `file_path` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '扫描件路径',
-  `status` tinyint DEFAULT '1' COMMENT '状态：1=有效 2=即将到期 3=已过期',
-  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
-  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
+  `expire_date` date DEFAULT NULL COMMENT '到期日期',
+  `issuing_authority` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '发证机关',
+  `file_path` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '附件路径',
+  `status` tinyint(1) DEFAULT '1' COMMENT '状态：1有效 0过期',
+  `remark` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '备注',
   `create_by` int DEFAULT NULL COMMENT '创建人',
-  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
   PRIMARY KEY (`id`),
-  KEY `idx_qual_supplier` (`supplier_id`),
-  KEY `idx_qual_type` (`cert_type`),
-  KEY `idx_qual_expire` (`expire_date`),
-  CONSTRAINT `fk_qual_supplier` FOREIGN KEY (`supplier_id`) REFERENCES `crm_supplier` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='供应商资质证照表';
+  KEY `idx_sq_supplier` (`supplier_id`),
+  CONSTRAINT `fk_sq_supplier` FOREIGN KEY (`supplier_id`) REFERENCES `crm_supplier` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='供应商资质';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2379,7 +2374,6 @@ DROP TABLE IF EXISTS `crm_tag`;
 CREATE TABLE `crm_tag` (
   `id` int NOT NULL AUTO_INCREMENT,
   `name` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '标签名称',
-  `type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'custom' COMMENT '标签类型: region/industry/scale/custom',
   `color` varchar(7) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '#1a56db' COMMENT '标签颜色(hex)',
   `sort` int DEFAULT '0' COMMENT '排序',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
@@ -2513,12 +2507,12 @@ DROP TABLE IF EXISTS `schema_migrations`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `schema_migrations` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `version` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '迁移版本号',
-  `name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '迁移名称',
-  `executed_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '执行时间',
+  `version` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `executed_at` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_version` (`version`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='数据库迁移追踪表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2565,6 +2559,27 @@ CREATE TABLE `sys_backup_record` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `sys_client_perf`
+--
+
+DROP TABLE IF EXISTS `sys_client_perf`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `sys_client_perf` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `metric_type` varchar(10) NOT NULL,
+  `value` double NOT NULL,
+  `rating` varchar(30) DEFAULT NULL,
+  `page_url` varchar(500) DEFAULT NULL,
+  `user_agent` varchar(500) DEFAULT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_type` (`metric_type`),
+  KEY `idx_time` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `sys_config`
 --
 
@@ -2573,13 +2588,35 @@ DROP TABLE IF EXISTS `sys_config`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `sys_config` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `config_key` varchar(100) NOT NULL,
-  `config_value` varchar(500) NOT NULL,
-  `description` varchar(200) DEFAULT NULL,
+  `config_key` varchar(100) NOT NULL COMMENT '配置键',
+  `config_value` varchar(500) NOT NULL COMMENT '配置值',
+  `description` varchar(200) DEFAULT NULL COMMENT '配置说明',
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `config_key` (`config_key`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='系统配置';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `sys_cron_log`
+--
+
+DROP TABLE IF EXISTS `sys_cron_log`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `sys_cron_log` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `job_name` varchar(100) NOT NULL COMMENT '任务名称',
+  `start_time` datetime NOT NULL COMMENT '开始时间',
+  `end_time` datetime DEFAULT NULL COMMENT '结束时间',
+  `status` enum('success','failed') NOT NULL COMMENT '执行状态',
+  `error_msg` text COMMENT '错误信息',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '记录创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_job_name` (`job_name`),
+  KEY `idx_start_time` (`start_time`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='定时任务执行日志';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2798,36 +2835,6 @@ CREATE TABLE `sys_log_archive` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `sys_operation_log`
---
-
-DROP TABLE IF EXISTS `sys_operation_log`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `sys_operation_log` (
-  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '日志ID',
-  `user_id` int DEFAULT NULL COMMENT '用户ID',
-  `username` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '用户名',
-  `module` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '模块名称',
-  `operation` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '操作类型',
-  `method` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '方法名',
-  `params` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '请求参数',
-  `result` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '返回结果摘要',
-  `ip` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '操作IP',
-  `user_agent` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '用户代理',
-  `execution_time` int DEFAULT NULL COMMENT '执行时长(ms)',
-  `status` tinyint DEFAULT '1' COMMENT '状态：1成功 0失败',
-  `error_msg` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '错误信息',
-  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  PRIMARY KEY (`id`),
-  KEY `idx_user_id` (`user_id`),
-  KEY `idx_module` (`module`),
-  KEY `idx_create_time` (`create_time`),
-  KEY `idx_status` (`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='详细操作日志表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
 -- Table structure for table `sys_permission`
 --
 
@@ -2973,7 +2980,6 @@ CREATE TABLE `sys_validation_rule` (
   `is_active` tinyint DEFAULT '1' COMMENT '是否启用',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_table_col_type` (`table_name`,`column_name`,`rule_type`),
   KEY `idx_table_column` (`table_name`,`column_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='数据验证规则表';
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -2996,6 +3002,38 @@ SET @saved_cs_client     = @@character_set_client;
  1 AS `permission_name`,
  1 AS `permission_type`*/;
 SET character_set_client = @saved_cs_client;
+
+--
+-- Dumping events for database 'huakey_crm_test'
+--
+/*!50106 SET @save_time_zone= @@TIME_ZONE */ ;
+/*!50106 DROP EVENT IF EXISTS `evt_archive_sys_log` */;
+DELIMITER ;;
+/*!50003 SET @saved_cs_client      = @@character_set_client */ ;;
+/*!50003 SET @saved_cs_results     = @@character_set_results */ ;;
+/*!50003 SET @saved_col_connection = @@collation_connection */ ;;
+/*!50003 SET character_set_client  = utf8mb4 */ ;;
+/*!50003 SET character_set_results = utf8mb4 */ ;;
+/*!50003 SET collation_connection  = utf8mb4_unicode_ci */ ;;
+/*!50003 SET @saved_sql_mode       = @@sql_mode */ ;;
+/*!50003 SET sql_mode              = 'IGNORE_SPACE,ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;;
+/*!50003 SET @saved_time_zone      = @@time_zone */ ;;
+/*!50003 SET time_zone             = 'SYSTEM' */ ;;
+/*!50106 CREATE*/ /*!50117 */ /*!50106 EVENT `evt_archive_sys_log` ON SCHEDULE EVERY 1 MONTH STARTS '2026-11-20 12:02:58' ON COMPLETION NOT PRESERVE ENABLE DO BEGIN
+  INSERT INTO sys_log_archive SELECT * FROM sys_log WHERE create_time < DATE_SUB(NOW(), INTERVAL 30 DAY);
+  DELETE FROM sys_log WHERE create_time < DATE_SUB(NOW(), INTERVAL 30 DAY);
+END */ ;;
+/*!50003 SET time_zone             = @saved_time_zone */ ;;
+/*!50003 SET sql_mode              = @saved_sql_mode */ ;;
+/*!50003 SET character_set_client  = @saved_cs_client */ ;;
+/*!50003 SET character_set_results = @saved_cs_results */ ;;
+/*!50003 SET collation_connection  = @saved_col_connection */ ;;
+DELIMITER ;
+/*!50106 SET TIME_ZONE= @save_time_zone */ ;
+
+--
+-- Dumping routines for database 'huakey_crm_test'
+--
 
 --
 -- Final view structure for view `v_user_permissions`

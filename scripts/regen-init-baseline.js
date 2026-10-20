@@ -106,7 +106,15 @@ function main() {
     '-u', DB_USER,
     `-p${DB_PASSWORD}`,
     '--no-data',            // 只导结构，不导数据（默认带 DROP TABLE IF EXISTS，与原基线一致）
-    '--single-transaction'
+    '--single-transaction',
+    // 事件 / 存储过程 / 函数：历史上**未导出**，`evt_archive_sys_log`（日志归档事件）
+    // 因此只存在于生产、CI 库里根本没有 ⇒ 相关代码路径在 CI 从未被覆盖。
+    // 2026-10-20 B4 起一并导出，使 CI 库结构 == 生产结构。
+    // 触发器仍跳过：生产实测 0 个触发器，且 mysqldump 用 DELIMITER 包裹触发器，
+    // 导入时若客户端不支持会整段报错（init-complete.sql 经多种客户端导入，风险不划算）。
+    '--events',
+    '--routines',
+    '--skip-triggers'
   ];
   for (const t of IGNORE_TABLES) {
     args.push(`--ignore-table=${SRC_DB}.${t}`);
@@ -134,7 +142,9 @@ function main() {
     // 库名归一化：快照里统一显示为 huakey_crm（CI 会在导入前 sed 成自己的库名）
     .replace(/^(-- Host:.*Database: ).*$/m, (_m, p1) => `${p1}huakey_crm`)
     // 剥离 DEFINER（`root`@`localhost` / `crm_user`@`localhost` 等），提升跨环境可移植性
-    .replace(/DEFINER=`[^`]*`@`[^`]*` /g, '')
+    // 注意：mysqldump 导出视图/事件时 DEFINER 后面跟的是 `*/` 而非空格，
+    //      故不能要求尾随空格（2026-10-20：原正则因此漏掉 CREATE EVENT 的 DEFINER）
+    .replace(/DEFINER\s*=\s*`[^`]*`@`[^`]*`(\s+)?/g, '')
     // 剥离 AUTO_INCREMENT=N 计数器（P3-1）：计数器随「导出所用源库的历史」变化，
     // 基线表内**无数据**，该值无语义；不剥离会让每次 regen 产生十几行纯噪声 diff，
     // 掩盖真实结构变更。剥离后「连续两次 regen 产物 diff 为空」。

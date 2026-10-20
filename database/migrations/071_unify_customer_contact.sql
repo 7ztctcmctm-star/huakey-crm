@@ -5,10 +5,17 @@
 -- ============================================
 
 -- 1. 给 crm_customer 旧字段加废弃注释（不删除字段）
+--
+-- ⚠️ 2026-10-20 B4 修复：MODIFY COLUMN 必须显式带 CHARACTER SET / COLLATE。
+--    原因：省略时 MySQL 会取「表默认字符集」重建列，从而**丢掉列上原有的显式
+--    字符集声明**；而结果还会随服务端默认排序规则漂移（生产 = utf8mb4_unicode_ci，
+--    本机 8.0.46 默认 = utf8mb4_0900_ai_ci）。
+--    原写法在空库重放后会让 crm_customer 结构与生产权威快照不一致，
+--    被 backend/tests/db/migrationGuard.test.js 的基线守卫抓到。
 ALTER TABLE crm_customer
-  MODIFY COLUMN contact_name VARCHAR(50) NULL COMMENT '【已废弃】请使用 crm_contact',
-  MODIFY COLUMN phone VARCHAR(20) NULL COMMENT '【已废弃】请使用 crm_contact',
-  MODIFY COLUMN email VARCHAR(100) NULL COMMENT '【已废弃】请使用 crm_contact';
+  MODIFY COLUMN contact_name VARCHAR(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '【已废弃】请使用 crm_contact',
+  MODIFY COLUMN phone VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '【已废弃】请使用 crm_contact',
+  MODIFY COLUMN email VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '【已废弃】请使用 crm_contact';
 
 -- 2. 给 crm_contact 增加主联系人标记（动态判断列是否存在）
 SET @col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS

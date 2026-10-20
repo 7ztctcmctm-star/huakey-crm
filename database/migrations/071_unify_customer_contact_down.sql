@@ -35,7 +35,9 @@ EXECUTE drop_idx_stmt;
 DEALLOCATE PREPARE drop_idx_stmt;
 
 -- 4. 恢复 crm_customer 旧字段注释
+--    显式带 CHARACTER SET / COLLATE，与 071_up 同理（见 071_up 注释）：
+--    省略会导致列字符集声明随服务端默认排序规则漂移。
 ALTER TABLE crm_customer
-  MODIFY COLUMN contact_name VARCHAR(50) NULL COMMENT '联系人姓名',
-  MODIFY COLUMN phone VARCHAR(20) NULL COMMENT '联系电话',
-  MODIFY COLUMN email VARCHAR(100) NULL COMMENT '电子邮箱';
+  MODIFY COLUMN contact_name VARCHAR(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '联系人姓名',
+  MODIFY COLUMN phone VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '联系电话',
+  MODIFY COLUMN email VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '电子邮箱';
