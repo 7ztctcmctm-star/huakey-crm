@@ -67,6 +67,16 @@ router.post('/assign-log', authenticateToken, checkPermission('customer:assign')
 router.get('/sales-users', authenticateToken, checkPermission('customer:assign'), customerController.getSalesUsers);
 
 // 获取当前用户的下属列表（通过manager_id关联）
+// [权限说明 · C1 2026-10-20 复核] **保持公开（仅认证）**，不补权限码。
+//   判定依据：
+//   1. 天然自收敛：assignService.getMySubordinates 的 SQL 是
+//      `WHERE u.status = 1 AND u.manager_id = ?`，参数取自 req.user.userId，
+//      无 manager 关系的用户调用只会得到空数组 —— 不存在越权读取他人团队的可能；
+//   2. 无管理职能的普通 sales 拿到的就是 []，本身不构成信息泄露；
+//   3. 它不返回任何业务数据（客户/金额/跟进记录），只是人员字典，
+//      用于「分配给谁」下拉框。
+//   对比：同文件 /assign、/batch-assign 等**写**端点均已配
+//   checkPermission('customer:assign') + requireManager，读写分治。
 router.get('/my-subordinates', authenticateToken, customerController.getMySubordinates);
 
 // ========== 分配规则管理 ==========

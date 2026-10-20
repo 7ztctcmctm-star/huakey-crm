@@ -193,7 +193,16 @@ router.get('/categories', authenticateToken, checkPermission('product'), async (
 // ============ 产品价格表 ============
 
 // 7. 获取产品价格表
-router.get('/:id/prices', authenticateToken, async (req, res, next) => {
+// [C1 2026-10-20 · 价格读权限评估]
+//   结论：补 checkPermission('product')，**成本价不随此端点外泄**。
+//   依据：productService.getProductPrices 的 SELECT 列只有 unit_price（售价），
+//         从未 SELECT cost_price；crm_product_price 表也没有成本列。
+//   ⚠️ 真正的成本价敞口在 POST /product/list（productService.listProducts
+//      显式 SELECT cost_price，而 sales/engineer/purchase 均持有 product 码）。
+//      前端 product/index.vue:59 只用 v-if="isAdmin" 隐藏列，响应体仍带 cost_price，
+//      属「UI 隐藏 ≠ 数据受控」。收口需接 checkFieldPermission('product')，
+//      因涉及 sales 是否可见毛利，待确认后另排（见 docs 待办）。
+router.get('/:id/prices', authenticateToken, checkPermission('product'), async (req, res, next) => {
   try {
     const data = await productService.getProductPrices(pool, req.params.id);
     res.json({ code: 200, message: '查询成功', data });
@@ -244,7 +253,11 @@ router.delete('/price/:id', authenticateToken, checkPermission('product'), valid
 });
 
 // 11. 获取客户对应价格（报价时调用）
-router.get('/:id/price', authenticateToken, async (req, res, next) => {
+// [C1 2026-10-20 · 价格读权限评估]
+//   结论：与 /:id/prices 同补 checkPermission('product')，同样不涉成本价。
+//   此端点是报价单选产品时的取价入口，销售必须可用，故沿用 product 域读码；
+//   getDefaultPrice 的兜底取自 crm_product.price（售价），不含 cost_price。
+router.get('/:id/price', authenticateToken, checkPermission('product'), async (req, res, next) => {
   try {
     const { customer_level } = req.query;
     const price = await productService.getDefaultPrice(pool, req.params.id, customer_level);

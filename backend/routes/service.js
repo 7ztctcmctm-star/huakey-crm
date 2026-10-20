@@ -203,6 +203,11 @@ router.post('/confirm', authenticateToken, checkPermission('service:edit'), vali
 });
 
 // 获取服务类型列表
+// [权限说明 · C1 2026-10-20 复核] **保持公开（仅认证）**，不补权限码。
+//   判定依据：本端点不查库，返回的是文件内硬编码的中文枚举（安装/维修/保养/
+//   培训/投诉/咨询/退换货/其他），等价于前端常量，无数据泄露面。
+//   工单数据本身的访问控制由 POST /list（checkPermission('service') +
+//   checkDataPermission('service','create_by')）承担，字典与数据分治。
 router.get('/types', authenticateToken, (req, res) => {
   const types = [
     { value: '安装', label: '安装' },
@@ -218,6 +223,9 @@ router.get('/types', authenticateToken, (req, res) => {
 });
 
 // 获取状态列表
+// [权限说明 · C1 2026-10-20 复核] **保持公开（仅认证）**。
+//   同 /types：硬编码状态码→中文标签映射（待分配/已分配/处理中/待确认/已完成），
+//   用于筛选项与表格渲染，不含任何工单记录。
 router.get('/status-list', authenticateToken, (req, res) => {
   const statusList = [
     { value: 1, label: '待分配' },
@@ -230,6 +238,8 @@ router.get('/status-list', authenticateToken, (req, res) => {
 });
 
 // 获取优先级列表
+// [权限说明 · C1 2026-10-20 复核] **保持公开（仅认证）**。
+//   同 /types：硬编码优先级枚举（紧急/高/中/低），仅用于下拉与标签展示。
 router.get('/priority-list', authenticateToken, (req, res) => {
   const priorityList = [
     { value: 1, label: '紧急' },

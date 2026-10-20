@@ -16,7 +16,14 @@ const updateCurrencySchema = Joi.object({
 });
 
 // 货币列表
-// [权限说明] 公共查询接口，仅需认证
+// [权限说明 · C1 2026-10-20 复核] **保持公开（仅认证）**，不补权限码。
+//   判定依据：
+//   1. 字典性质：返回 crm_currency 的货币代码/名称/符号，不含任何客户或金额数据；
+//   2. 全链路依赖：报价、合同、发票、采购的币种下拉都要读它，且这些模块的
+//      使用者横跨 sales / purchase / finance / engineer —— 若挂到
+//      system:currency（现仅 boss 持有），销售连报价单都开不出来；
+//   3. 敏感操作已隔离：写操作（PUT /:id、DELETE /:id）均已配
+//      checkPermission('system:currency')，读写分治，无需在此再加门。
 router.get('/list', authenticateToken, async (req, res, next) => {
   try {
     const rows = await currencyService.listCurrencies(pool);
@@ -27,7 +34,8 @@ router.get('/list', authenticateToken, async (req, res, next) => {
 });
 
 // 获取汇率map（前端用）
-// [权限说明] 公共查询接口，仅需认证
+// [权限说明 · C1 2026-10-20 复核] **保持公开（仅认证）**，同 /list 口径。
+//   仅返回 code → exchange_rate 映射，是报价换算的基础字典，无行级归属概念。
 router.get('/rates', authenticateToken, async (req, res, next) => {
   try {
     const rates = await currencyService.getRates(pool);

@@ -21,7 +21,16 @@ const emptySchema = Joi.object({});
 
 const router = express.Router();
 
-// 获取逾期天数（所有登录用户可用，无需业务权限码）
+// 获取逾期天数
+// [权限说明 · C1 2026-10-20 复核] **保持公开（仅认证）**，不补权限码。
+//   判定依据：
+//   1. 单值标量：只返回一个逾期天数阈值，属系统级展示参数，非业务数据；
+//   2. 判定基准一致性：逾期高亮是列表页的展示口径，必须对所有能看到
+//      列表的角色一致；若差别授权，同一批客户在不同账号下会显示不同的
+//      逾期状态，反而制造歧义；
+//   3. 真正的敏感面已锁死：全量配置读取（GET /list，含各类密钥开关）
+//      与写入（POST /update）均已配 checkPermission('system') +
+//      requireManager，本端点不暴露任何配置项。
 router.get('/overdue-days', authenticateToken, async (req, res, next) => {
   try {
     const data = await configRouteService.fetchOverdueDays();

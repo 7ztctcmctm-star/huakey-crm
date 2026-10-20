@@ -54,7 +54,10 @@ router.post('/list', authenticateToken, checkPermission('system:log'), validate(
   }
 });
 
-router.get('/detail/:id', authenticateToken, async (req, res, next) => {
+// [C1 2026-10-20] 日志详情此前只做 authenticateToken — 任意登录用户（含 sales/hr）
+//   可凭自增 ID 遍历 sys_log，读到全公司的操作轨迹（谁看了哪个客户、谁改了报价）。
+//   与 POST /list 对齐到同一个 system:log 码：能看列表的才配看详情。
+router.get('/detail/:id', authenticateToken, checkPermission('system:log'), async (req, res, next) => {
   try {
     const log = await logService.getLogDetail(pool, req.params.id);
     if (!log) {
@@ -67,7 +70,9 @@ router.get('/detail/:id', authenticateToken, async (req, res, next) => {
   }
 });
 
-router.get('/modules', authenticateToken, async (req, res, next) => {
+// [C1 2026-10-20] 模块清单属于日志域的元数据，与上面两条同属 system:log，
+//   避免「有码的列表 + 裸奔的字典」这种半边收口。
+router.get('/modules', authenticateToken, checkPermission('system:log'), async (req, res, next) => {
   try {
     const modules = await logService.getModules(pool);
     res.json({ code: 200, message: '查询成功', data: modules });

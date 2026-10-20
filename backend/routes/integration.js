@@ -68,7 +68,10 @@ router.post('/send-email', authenticateToken, checkPermission('system'), validat
 });
 
 // 邮件日志列表
-router.get('/email-log', authenticateToken, async (req, res, next) => {
+// [C1 2026-10-20] 邮件日志含收件人、主题、发送结果，属于系统级外发审计数据；
+//   与本文件其它端点（list/update/test/send-email）统一挂 system 码。
+//   注意：system 当前仅 boss 持有，属有意收紧——外发邮件记录不应向全员可见。
+router.get('/email-log', authenticateToken, checkPermission('system'), async (req, res, next) => {
   try {
     const { page = 1, pageSize = 20 } = req.query;
     const result = await integrationService.getEmailLog(pool, { page, pageSize });

@@ -36,7 +36,10 @@ const targetDeleteSchema = Joi.object({
 });
 
 // 1. 获取销售目标列表（含达成率）
-router.post('/list', authenticateToken, validate(targetListSchema), async (req, res, next) => {
+// [C1 2026-10-20] 此前仅认证即可拉取「全员目标 + 实际成交/回款」——这是薪酬绩效看板，
+//   不该对 sales 开放。与 /set、/batch-set、/delete 统一到 target 码；
+//   前端 router/index.js:407 该页亦已要求 permission:'target' + admin:true，口径一致。
+router.post('/list', authenticateToken, checkPermission('target'), validate(targetListSchema), async (req, res, next) => {
   try {
     const data = await targetService.listTargets(pool, req.body);
     res.json({ code: 200, message: '查询成功', data });

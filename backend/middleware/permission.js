@@ -9,13 +9,13 @@ const { getUserPermissions, getDataPermissions } = require('../services/permissi
  * @param {string|string[]} permissionCodes - 权限编码或权限编码数组
  */
 const checkPermission = (permissionCodes) => {
-  return async (req, res, next) => {
+  // 归一化一次：下面闭包、日志、反射元数据都用同一份 codes
+  const codes = Array.isArray(permissionCodes) ? permissionCodes : [permissionCodes];
+
+  const middleware = async (req, res, next) => {
     try {
       const userId = req.user.userId;
       const roleId = req.user.roleId;
-
-      // 确保permissionCodes是数组
-      const codes = Array.isArray(permissionCodes) ? permissionCodes : [permissionCodes];
 
       // 超级管理员 / manageAll 角色直接通过（记录审计日志）
       if (ADMIN_ROLE_CODES.has(req.user.roleCode) || req.user.manageAll) {
@@ -45,6 +45,12 @@ const checkPermission = (permissionCodes) => {
       });
     }
   };
+
+  // 反射元数据：让测试与权限治理脚本能从 router.stack 直接读出
+  // 「这个路由要求哪些权限码」，无需执行 handler。
+  middleware.isPermissionCheck = true;
+  middleware.permissionCodes = codes;
+  return middleware;
 };
 
 /**
@@ -53,7 +59,7 @@ const checkPermission = (permissionCodes) => {
  * @param {string} ownerColumn - 负责人列名
  */
 const checkDataPermission = (module, ownerColumn = 'owner_id') => {
-  return async (req, res, next) => {
+  const middleware = async (req, res, next) => {
     try {
       const userId = req.user.userId;
       const roleId = req.user.roleId;
@@ -91,6 +97,11 @@ const checkDataPermission = (module, ownerColumn = 'owner_id') => {
       });
     }
   };
+
+  // 同上：供测试/治理脚本反射行级过滤配置
+  middleware.isDataPermissionCheck = true;
+  middleware.dataPermissionSpec = { module, ownerColumn };
+  return middleware;
 };
 
 /**

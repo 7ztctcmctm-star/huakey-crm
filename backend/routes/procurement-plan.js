@@ -41,7 +41,10 @@ const autoGenerateSchema = Joi.object({
 });
 
 // 采购计划列表
-router.get('/list', authenticateToken, async (req, res, next) => {
+// [C1 2026-10-20] 此前仅认证即可拉取全部采购计划（含供应商、单价、金额）。
+//   采购计划属 purchase 域，与本文件写端点的 purchase / purchase:add 同域收口：
+//   持有 purchase 码的角色（boss/manager/purchase）才可读。
+router.get('/list', authenticateToken, checkPermission('purchase'), async (req, res, next) => {
   try {
     const result = await purchaseService.listPlans(pool, req.query);
     res.json({ code: 200, message: '查询成功', data: result });
@@ -52,7 +55,8 @@ router.get('/list', authenticateToken, async (req, res, next) => {
 });
 
 // 计划详情
-router.get('/detail/:id', authenticateToken, async (req, res, next) => {
+// [C1 2026-10-20] 与 /list 同码：能列就能看，避免出现「能看列表不能看详情」的割裂。
+router.get('/detail/:id', authenticateToken, checkPermission('purchase'), async (req, res, next) => {
   try {
     const plan = await purchaseService.getPlan(pool, req.params.id);
     if (!plan) return res.status(404).json({ code: 404, message: '计划不存在', data: null });
@@ -127,7 +131,11 @@ router.post('/:id/approve', authenticateToken, checkPermission('purchase'), requ
 });
 
 // 自动生成采购计划（根据库存预警）
-router.post('/auto-generate', authenticateToken, requireAdmin, validate(autoGenerateSchema), async (req, res, next) => {
+// [C1 2026-10-20] 此前只有 requireAdmin，无功能码 —— 与项目约定相悖
+//   （见 middleware/admin.js 使用约束：「必须与 checkPermission 成对使用」）。
+//   写操作会新增计划，故配 purchase:add；requireAdmin 保留为第二道锁。
+//   对 boss 而言行为不变（boss 走 checkPermission 的 bypass）。
+router.post('/auto-generate', authenticateToken, checkPermission('purchase:add'), requireAdmin, validate(autoGenerateSchema), async (req, res, next) => {
   try {
     const result = await purchaseService.autoGenerate(pool, req.user.userId, req.body.supplier_id || null);
     if (result.empty) return res.json({ code: 200, message: '没有库存偏低的产品', data: null });
@@ -139,7 +147,8 @@ router.post('/auto-generate', authenticateToken, requireAdmin, validate(autoGene
 });
 
 // 统计
-router.get('/stats', authenticateToken, async (req, res, next) => {
+// [C1 2026-10-20] 聚合口径同样暴露采购规模，与 /list 同码。
+router.get('/stats', authenticateToken, checkPermission('purchase'), async (req, res, next) => {
   try {
     const data = await purchaseService.getPlanStats(pool);
     res.json({ code: 200, message: '查询成功', data });

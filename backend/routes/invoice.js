@@ -68,9 +68,12 @@ router.post('/list', authenticateToken, checkPermission('invoice'), checkDataPer
 });
 
 // 详情
-router.get('/detail/:id', authenticateToken, async (req, res, next) => {
+// [C1 2026-10-20] 此前裸奔：任意登录用户可凭 id 读任意发票（IDOR）。
+//   · invoice:view  → 功能门（与 list 的 invoice 菜单码区分：查看与开具分开授权）
+//   · checkDataPermission('invoice','create_by') → 行级门，见 getInvoice 内 buildDataPermissionWhere
+router.get('/detail/:id', authenticateToken, checkPermission('invoice:view'), checkDataPermission('invoice', 'create_by'), async (req, res, next) => {
   try {
-    const data = await invoiceService.getInvoice(pool, req.params.id);
+    const data = await invoiceService.getInvoice(pool, req.params.id, req.dataPermission);
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {
     next(error);

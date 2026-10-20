@@ -67,14 +67,29 @@ async function listInvoices(pool, { page = 1, pageSize = 10, keyword, status, ty
 /**
  * 获取发票详情
  */
-async function getInvoice(pool, id) {
+/**
+ * 发票详情（按数据权限收敛）
+ *
+ * [C1 2026-10-20] 此前 `WHERE i.id = ?` 是全表直查：只要登录，改一下 URL 里的 id
+ *   就能读任意一张发票（IDOR）。发票含合同金额、税率、税额、客户主体，属财务敏感数据。
+ *
+ * 现与 listInvoices 走同一套 buildDataPermissionWhere(dataPermission, 'i')：
+ *   · all        → 不过滤
+ *   · dept       → 限本部门
+ *   · self       → 限 create_by = 自己
+ *   · 权限缺失   → fail-closed 收敛到 self
+ * 行级越权统一返回「发票不存在」，避免用 403/404 差异探测数据是否存在。
+ */
+async function getInvoice(pool, id, dataPermission) {
+  const { clause: permissionClause, params: permParams } = await buildDataPermissionWhere(dataPermission, 'i');
+
   const [rows] = await pool.query(
     `SELECT i.id, i.invoice_no, i.contract_id, i.customer_id, i.type, i.amount, i.tax_rate, i.tax_amount, i.invoice_date, i.status, i.remark, i.create_by, i.create_time, i.update_time, i.deleted_at, cu.company_name as customer_name, u.real_name as create_by_name
      FROM crm_invoice i
      LEFT JOIN crm_customer cu ON i.customer_id = cu.id
      LEFT JOIN sys_user u ON i.create_by = u.id
-     WHERE i.id = ? AND i.deleted_at IS NULL`,
-    [id]
+     WHERE i.id = ? AND i.deleted_at IS NULL AND ${permissionClause}`,
+    [id, ...permParams]
   );
 
   if (rows.length === 0) {
