@@ -347,8 +347,14 @@ async function cancelContract(pool, { id, cancel_reason, cancel_action, userId: 
     throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '已完成的合同不能取消');
   }
 
+  // [2026-10-21] 不再写 update_time：该列从未存在于生产库（两个独立生产artifact证实：
+  // 10-19 predeploy 全量备份与 10-20 prod-schema-snapshot 的 crm_contract 均无此列）。
+  // 它原是已退役的 ci-missing-tables.sql 给 CI 库单方面补的幻影列，B4 用生产实测快照
+  // 重建 init-complete.sql 后浮出水面。取消的审计痕迹由 cancel_reason / cancel_action /
+  // remark 的 "[取消]" 后缀承载，不依赖 update_time。若将来确需该列，应走正式迁移
+  // （加列 + 重生成基线 + 同步 N-05 契约），不得再手工补基线。
   await pool.query(
-    'UPDATE crm_contract SET status = 4, remark = CONCAT(IFNULL(remark, ""), "[取消]", ?), update_time = NOW() WHERE id = ?',
+    'UPDATE crm_contract SET status = 4, remark = CONCAT(IFNULL(remark, ""), "[取消]", ?) WHERE id = ?',
     [cancel_reason, id]
   );
 

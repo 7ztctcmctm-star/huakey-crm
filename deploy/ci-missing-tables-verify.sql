@@ -22,6 +22,9 @@
 --     · 索引类(STATISTICS)按**索引是否存在**判定:COUNT(DISTINCT INDEX_NAME)
 --       而非 COUNT(*)（后者数的是索引列数,复合索引会得 2 而误判 FAIL）
 --   - MODIFY (探测含 DATA_TYPE):expected = 0 (段后类型改了)
+--   - [2026-10-21] 幻影列反向锁定 (@col_qt / @col_ct):expected = 0 (列必须**不**存在)。
+--     见下方两条探测处的长注释：生产实测无此两列,断言其存在等于把已退役的
+--     CI 补丁态当契约,翻转后同时防止幻影列被手工补基线带回来。
 -- ============================================================
 
 SELECT
@@ -51,9 +54,16 @@ FROM (
   UNION ALL
   SELECT '@col_ftime' AS tag, (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_follow_up' AND COLUMN_NAME = 'finish_time') AS actual, 1 AS expected, IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_follow_up' AND COLUMN_NAME = 'finish_time') = 1, 1, 0) AS pass
   UNION ALL
-  SELECT '@col_qt' AS tag, (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_quote' AND COLUMN_NAME = 'update_time') AS actual, 1 AS expected, IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_quote' AND COLUMN_NAME = 'update_time') = 1, 1, 0) AS pass
+  -- [2026-10-21] 幻影列翻转：crm_quote.update_time / crm_contract.update_time 从未存在于
+  -- 生产库（10-19 predeploy 全量备份 + 10-20 prod-schema-snapshot 双重证实；无任何迁移加过
+  -- 这两列）。它们原是已退役的 ci-missing-tables.sql 单方面补进 CI 库的列，B4 按生产实测
+  -- 重建 init-complete.sql 后浮出。原 expected=1 断言的是「CI 补丁态」而非生产态，故翻转为
+  -- expected=0（反向锁定：防将来再有人手工补基线把幻影列带回来）。配套：
+  -- contractService.js 取消合同的 update_time 写入已删（审计痕迹由 cancel_reason/
+  -- cancel_action/remark 承载）；若将来确需该列，走正式迁移并同步更新本契约。
+  SELECT '@col_qt' AS tag, (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_quote' AND COLUMN_NAME = 'update_time') AS actual, 0 AS expected, IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_quote' AND COLUMN_NAME = 'update_time') = 0, 1, 0) AS pass
   UNION ALL
-  SELECT '@col_ct' AS tag, (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contract' AND COLUMN_NAME = 'update_time') AS actual, 1 AS expected, IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contract' AND COLUMN_NAME = 'update_time') = 1, 1, 0) AS pass
+  SELECT '@col_ct' AS tag, (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contract' AND COLUMN_NAME = 'update_time') AS actual, 0 AS expected, IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contract' AND COLUMN_NAME = 'update_time') = 0, 1, 0) AS pass
   UNION ALL
   SELECT '@col_primary' AS tag, (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contact' AND COLUMN_NAME = 'is_primary') AS actual, 1 AS expected, IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_contact' AND COLUMN_NAME = 'is_primary') = 1, 1, 0) AS pass
   UNION ALL
