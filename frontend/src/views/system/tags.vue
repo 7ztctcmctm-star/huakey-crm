@@ -3,7 +3,7 @@
     <div class="page-header"><h2>标签管理</h2></div>
     <el-card>
       <div class="toolbar">
-        <el-button type="primary" :icon="Plus" @click="handleAdd">新增标签</el-button>
+        <el-button v-if="isManager" type="primary" :icon="Plus" @click="handleAdd">新增标签</el-button>
       </div>
       <StateWrapper
         :loading="loading"
@@ -17,7 +17,7 @@
           <TableSkeleton :rows="8" :cols="5" />
         </template>
         <template #empty-action>
-          <el-button type="primary" size="small" @click="handleAdd">新增标签</el-button>
+          <el-button v-if="isManager" type="primary" size="small" @click="handleAdd">新增标签</el-button>
         </template>
 
         <el-table
@@ -38,8 +38,8 @@
         <el-table-column prop="sort" label="排序" width="80" align="center" />
         <el-table-column label="操作" width="160">
           <template #default="{ row }">
-            <el-button type="primary" link :icon="Edit" @click="handleEdit(row)">编辑</el-button>
-            <el-button type="danger" link :icon="Delete" @click="handleDelete(row)">删除</el-button>
+            <el-button v-if="isManager" type="primary" link :icon="Edit" @click="handleEdit(row)">编辑</el-button>
+            <el-button v-if="isManager" type="danger" link :icon="Delete" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -61,7 +61,7 @@
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitLoading" @click="handleSubmit">保存</el-button>
+        <el-button v-if="isManager" type="primary" :loading="submitLoading" @click="handleSubmit">保存</el-button>
       </template>
     </el-dialog>
   </div>
@@ -75,7 +75,14 @@ import StateWrapper from '@/components/common/StateWrapper.vue'
 import { reportError } from '@/utils/error'
 import { Plus, Edit, Delete } from '@element-plus/icons-vue'
 import { getTagList, manageTag } from '@/api/system'
+import { useUser } from '@/composables/useUser'
 import { chartColors, presetColors as getPresetColors } from '@/utils/chartTheme'
+
+// [C2 2026-10-21] 后端 routes/tag.js 的 POST /manage 挂的是
+// checkPermission('tag') + requireManager ⇒ 有效门禁是 requireManager
+// （manageAll 或 roleCode==='manager'；'tag' 码七角色全持有，不构成区分）。
+// 故前端用 isManager 守卫增改删按钮，与后端有效门禁对齐。
+const { isManager } = useUser()
 
 const presetColors = getPresetColors()
 

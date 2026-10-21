@@ -160,14 +160,17 @@
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitLoading" @click="handleSubmit">保存</el-button>
+        <!-- 新增/编辑共用保存：任一写权限即可见（后端按动作分流校验） -->
+        <el-button v-permission="['product:add', 'product:edit']" type="primary" :loading="submitLoading" @click="handleSubmit">保存</el-button>
       </template>
     </el-dialog>
 
     <!-- 价格表弹窗 -->
     <el-dialog v-model="priceDialogVisible" title="产品价格表" width="800px">
       <div style="margin-bottom: 16px">
-        <el-button type="primary" size="small" @click="showAddPrice = true">添加价格</el-button>
+        <!-- 价格表各端点（GET/POST /:id/prices、PUT/DELETE /price/:id）后端统一挂
+             checkPermission('product')（C1 已逐个评估注释），故前端同码守卫 -->
+        <el-button v-permission="'product'" type="primary" size="small" @click="showAddPrice = true">添加价格</el-button>
       </div>
       <el-table :data="priceList" stripe border size="small">
         <el-table-column prop="price_type" label="价格类型" width="100">
@@ -184,7 +187,7 @@
         <el-table-column prop="valid_to" label="失效日期" width="110" />
         <el-table-column label="操作" width="120" align="center">
           <template #default="{ row }">
-            <el-button type="danger" link size="small" @click="deletePrice(row)">删除</el-button>
+            <el-button v-permission="'product'" type="danger" link size="small" @click="deletePrice(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>

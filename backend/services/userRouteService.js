@@ -6,6 +6,8 @@ const bcrypt = require('bcryptjs');
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
 const { clearPermissionCache } = require('./permissionService');
+const sseManager = require('../utils/sseManager');
+const logger = require('../config/logger');
 // [R-06 边界收敛 2026-09-17] 本模块属非 Customer 域，写客户表须经客户域受控入口
 const customerService = require('./customerService');
 
@@ -144,8 +146,18 @@ async function updateUser(pool, { id, real_name, phone, email, dept_id, role_id,
     params
   );
 
-  if (role_id !== undefined) {
+  if (role_id !== undefined || dept_id !== undefined) {
     await clearPermissionCache(id);
+    // [C2 2026-10-21] 角色/部门变更实时推送给该用户的全部在线端：
+    // /auth/me 下发的 permissions 与 dataPermissions 随角色走，前端模块级缓存
+    // （useUser）不主动失效会出现「按钮还在、点了 403」的陈旧状态。
+    // 前端 utils/sse.js 收到 permission-changed 后强制刷新权限缓存。
+    // 推送失败不影响主流程（best-effort，用户下次登录/刷新仍会拿到新权限）。
+    try {
+      sseManager.send(id, { type: 'permission-changed', action: 'refresh' });
+    } catch (e) {
+      logger.warn(`[userRouteService] SSE 权限变更推送失败 userId=${id}:`, e.message);
+    }
   }
 }
 

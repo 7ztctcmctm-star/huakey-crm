@@ -3,7 +3,7 @@
     <div class="page-header"><h2>用户管理</h2></div>
     <el-card>
       <div class="toolbar">
-        <el-button type="primary" :icon="Plus" @click="handleAdd">新增用户</el-button>
+        <el-button v-permission="'system:user:add'" type="primary" :icon="Plus" @click="handleAdd">新增用户</el-button>
       </div>
       <StateWrapper
         :loading="loading"
@@ -16,7 +16,7 @@
           <TableSkeleton :rows="8" :cols="7" />
         </template>
         <template #empty-action>
-          <el-button type="primary" size="small" @click="handleAdd">新增用户</el-button>
+          <el-button v-permission="'system:user:add'" type="primary" size="small" @click="handleAdd">新增用户</el-button>
         </template>
       <el-table
         :data="tableData"
@@ -35,9 +35,9 @@
         </el-table-column>
         <el-table-column label="操作" width="230">
           <template #default="{ row }">
-            <el-button type="primary" link :icon="Edit" @click="handleEdit(row)">编辑</el-button>
-            <el-button type="warning" link :icon="Key" @click="handleReset(row)">重置密码</el-button>
-            <el-button type="danger" link :icon="Delete" @click="handleDelete(row)">删除</el-button>
+            <el-button v-permission="'system:user:edit'" type="primary" link :icon="Edit" @click="handleEdit(row)">编辑</el-button>
+            <el-button v-permission="'system:user:edit'" type="warning" link :icon="Key" @click="handleReset(row)">重置密码</el-button>
+            <el-button v-permission="'system:user:delete'" type="danger" link :icon="Delete" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -82,7 +82,8 @@
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitLoading" @click="handleSubmit">保存</el-button>
+        <!-- 新增/编辑共用保存：任一写权限即可见（后端按动作分流校验） -->
+        <el-button v-permission="['system:user:add', 'system:user:edit']" type="primary" :loading="submitLoading" @click="handleSubmit">保存</el-button>
       </template>
     </el-dialog>
 
@@ -101,7 +102,7 @@
       </el-form>
       <template #footer>
         <el-button @click="resetVisible = false">取消</el-button>
-        <el-button type="primary" :loading="resetLoading" @click="handleResetSubmit">确认重置</el-button>
+        <el-button v-permission="'system:user:edit'" type="primary" :loading="resetLoading" @click="handleResetSubmit">确认重置</el-button>
       </template>
     </el-dialog>
   </div>

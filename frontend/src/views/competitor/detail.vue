@@ -29,7 +29,7 @@
       <!-- 交锋记录 -->
       <el-tab-pane label="交锋记录" name="encounters">
         <el-card>
-          <div class="toolbar"><el-button type="primary" :icon="Plus" @click="handleCreateEncounter">新增交锋记录</el-button></div>
+          <div class="toolbar"><el-button v-permission="'competitor:edit'" type="primary" :icon="Plus" @click="handleCreateEncounter">新增交锋记录</el-button></div>
           <el-table :data="encounters" stripe border>
             <el-table-column prop="encounter_date" label="日期" width="110" />
             <el-table-column prop="customer_name" label="客户" min-width="140" show-overflow-tooltip />
@@ -49,7 +49,7 @@
             <el-table-column prop="win_reason" label="原因" min-width="160" show-overflow-tooltip />
             <el-table-column label="操作" width="100">
               <template #default="{ row }">
-                <el-button type="danger" link size="small" @click="handleDeleteEncounter(row)">删除</el-button>
+                <el-button v-permission="'competitor:delete'" type="danger" link size="small" @click="handleDeleteEncounter(row)">删除</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -59,7 +59,7 @@
       <!-- 情报中心 -->
       <el-tab-pane label="情报中心" name="intel">
         <el-card>
-          <div class="toolbar"><el-button type="primary" :icon="Plus" @click="handleCreateIntel">新增情报</el-button></div>
+          <div class="toolbar"><el-button v-permission="'competitor:edit'" type="primary" :icon="Plus" @click="handleCreateIntel">新增情报</el-button></div>
           <div v-for="item in intelList" :key="item.id" class="intel-card" :class="'intel-' + item.importance">
             <div class="intel-header">
               <el-tag :type="intelTypeTag[item.intel_type]" size="small">{{ intelTypeName[item.intel_type] }}</el-tag>
@@ -70,7 +70,7 @@
             <div class="intel-title">{{ item.title }}</div>
             <div class="intel-content">{{ item.content }}</div>
             <div class="intel-actions">
-              <el-button type="danger" link size="small" @click="handleDeleteIntel(item)">删除</el-button>
+              <el-button v-permission="'competitor:delete'" type="danger" link size="small" @click="handleDeleteIntel(item)">删除</el-button>
             </div>
           </div>
           <EmptyState v-if="intelList.length === 0" title="暂无情报" compact />
@@ -121,7 +121,7 @@
         <el-form-item label="对方优势"><el-input v-model="encounterForm.their_advantage" type="textarea" :rows="2" /></el-form-item>
         <el-form-item label="经验教训"><el-input v-model="encounterForm.lesson_learned" type="textarea" :rows="2" /></el-form-item>
       </el-form>
-      <template #footer><el-button @click="encounterDialogVisible=false">取消</el-button><el-button type="primary" @click="handleSaveEncounter">保存</el-button></template>
+      <template #footer><el-button @click="encounterDialogVisible=false">取消</el-button><el-button v-permission="'competitor:edit'" type="primary" @click="handleSaveEncounter">保存</el-button></template>
     </el-dialog>
 
     <!-- 新增情报弹窗 -->
@@ -141,7 +141,7 @@
         <el-form-item label="内容"><el-input v-model="intelForm.content" type="textarea" :rows="4" /></el-form-item>
         <el-form-item label="来源"><el-input v-model="intelForm.source" placeholder="信息来源（可选）" /></el-form-item>
       </el-form>
-      <template #footer><el-button @click="intelDialogVisible=false">取消</el-button><el-button type="primary" @click="handleSaveIntel">保存</el-button></template>
+      <template #footer><el-button @click="intelDialogVisible=false">取消</el-button><el-button v-permission="'competitor:edit'" type="primary" @click="handleSaveIntel">保存</el-button></template>
     </el-dialog>
   </div>
 </template>

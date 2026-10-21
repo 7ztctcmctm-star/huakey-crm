@@ -1,4 +1,5 @@
 import { reportError, reportWarn } from '@/utils/error'
+import { refreshPermissions } from '@/composables/useUser'
 /**
  * SSE 实时通知客户端
  * 自动携带 token，支持重连与心跳，支持多组件同时监听
@@ -40,6 +41,13 @@ export function connectSSE(callbacks = {}) {
     if (!event.data || event.data.startsWith(':')) return
     try {
       const payload = JSON.parse(event.data)
+      // [C2 2026-10-21] 权限变更推送：管理员在用户管理里改了当前用户的角色/部门后，
+      // 后端经 SSE 单通道通知（userRouteService.updateUser → sseManager.send）。
+      // 收到即强制刷新权限缓存，使 v-permission 控制的按钮即时显隐，
+      // 无需用户手动刷新页面或等下一次 403。
+      if (payload?.type === 'permission-changed') {
+        refreshPermissions().catch(() => {})
+      }
       messageCallbacks.forEach(cb => cb(payload))
     } catch (e) {
       reportError('[SSE] 消息解析失败:', e)

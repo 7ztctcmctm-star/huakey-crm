@@ -2,7 +2,7 @@
   <div class="page-container">
     <div class="page-header">
       <h2>竞品分析</h2>
-      <el-button type="primary" :icon="Plus" @click="handleCreate">新增竞争对手</el-button>
+      <el-button v-permission="'competitor:add'" type="primary" :icon="Plus" @click="handleCreate">新增竞争对手</el-button>
     </div>
 
     <!-- 统计 -->
@@ -37,7 +37,7 @@
           <TableSkeleton :rows="8" :cols="6" />
         </template>
         <template #empty-action>
-          <el-button type="primary" size="small" @click="handleCreate">新增竞争对手</el-button>
+          <el-button v-permission="'competitor:add'" type="primary" size="small" @click="handleCreate">新增竞争对手</el-button>
         </template>
 
       <el-table
@@ -64,8 +64,8 @@
         <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="$router.push(`/competitor/${row.id}`)">详情</el-button>
-            <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
-            <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+            <el-button v-permission="'competitor:edit'" type="primary" link @click="handleEdit(row)">编辑</el-button>
+            <el-button v-permission="'competitor:delete'" type="danger" link @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -91,7 +91,7 @@
         <el-form-item label="主要产品"><el-input v-model="form.products" type="textarea" :rows="2" /></el-form-item>
         <el-form-item label="简介"><el-input v-model="form.description" type="textarea" :rows="2" /></el-form-item>
       </el-form>
-      <template #footer><el-button @click="dialogVisible=false">取消</el-button><el-button type="primary" :loading="saveLoading" @click="handleSave">保存</el-button></template>
+      <template #footer><el-button @click="dialogVisible=false">取消</el-button><el-button v-permission="['competitor:add', 'competitor:edit']" type="primary" :loading="saveLoading" @click="handleSave">保存</el-button></template>
     </el-dialog>
   </div>
 </template>

@@ -4,6 +4,8 @@ import { reportError, reportWarn } from '@/utils/error'
 
 const userInfo = ref(null)
 let authChecked = false
+// 强制刷新在途去重：403 刷新与 SSE 推送可能并发，保证同一时刻只发一次 /auth/me
+let refreshPromise = null
 
 // 验证cookie登录状态（仅首次调用时请求后端）
 async function verifyAuth() {
@@ -25,11 +27,48 @@ async function verifyAuth() {
   return false
 }
 
+/**
+ * [C2 2026-10-21] 强制刷新权限缓存
+ *
+ * 绕过 authChecked 短路重新拉取 /auth/me，用于两个场景：
+ *   1. request.js 收到 403（权限可能刚被管理员调整，本地缓存已过期）；
+ *   2. 后端经 SSE 推送 permission-changed（管理员改了当前用户的角色/部门）。
+ * 刷新后 userInfo 更新 ⇒ v-permission 指令控制的按钮即时显隐。
+ * 在途去重：并发调用共享同一次请求。
+ *
+ * 模块级命名导出（非 useUser() 返回值属性）：utils/sse.js 与 utils/request.js
+ * 在组件上下文之外调用，拿不到 useUser() 的返回值。
+ *
+ * @returns {Promise<boolean>} 刷新后是否仍处于登录态
+ */
+export async function refreshPermissions() {
+  if (refreshPromise) return refreshPromise
+  refreshPromise = (async () => {
+    authChecked = false
+    try {
+      return await verifyAuth()
+    } finally {
+      refreshPromise = null
+    }
+  })()
+  return refreshPromise
+}
+
 export function useUser() {
   const userId = computed(() => userInfo.value?.id)
   const roleId = computed(() => userInfo.value?.roleId)
   const isBoss = computed(() => userInfo.value?.manageAll === true)
   const isAdmin = computed(() => userInfo.value?.manageAll === true)
+  /**
+   * [C2 2026-10-21] 是否「管理层」——对齐后端 middleware/admin.js 的 requireManager：
+   *   manageAll（super_admin/admin/boss，migration 004）或 roleCode === 'manager'。
+   * 库中实际角色为 boss/manager/sales/hr/purchase/finance/engineer；
+   * super_admin/admin 为遗留 code（config/roles.js 注明现库已不存在）。
+   * 用于「后端挂 requireManager 的端点」对应按钮显隐（如标签管理 /tag/manage）。
+   */
+  const isManager = computed(
+    () => userInfo.value?.manageAll === true || userInfo.value?.roleCode === 'manager'
+  )
   const canViewAll = computed(() => userInfo.value?.viewAll === true || userInfo.value?.manageAll === true)
   const canClaim = computed(() => {
     const perms = userInfo.value?.permissions || []
@@ -59,5 +98,5 @@ export function useUser() {
     authChecked = false
   }
 
-  return { userInfo, userId, roleId, isBoss, isAdmin, canViewAll, canViewTeam, canClaim, setUser, clearUser, verifyAuth }
+  return { userInfo, userId, roleId, isBoss, isAdmin, isManager, canViewAll, canViewTeam, canClaim, setUser, clearUser, verifyAuth, refreshPermissions }
 }

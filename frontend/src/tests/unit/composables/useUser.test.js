@@ -69,6 +69,72 @@ describe('useUser', () => {
     expect(isAdmin.value).toBe(false)
   })
 
+  // ── C2：isManager 对齐后端 requireManager ────────────────────────
+  it('isManager：manageAll 或 roleCode=manager 为真（对齐后端 requireManager）', async () => {
+    const useUser = await getUseUser()
+    const { setUser, isManager } = useUser()
+    setUser({ id: 1, roleCode: 'boss', manageAll: true })
+    expect(isManager.value).toBe(true)
+    setUser({ id: 2, roleCode: 'manager', manageAll: false })
+    expect(isManager.value).toBe(true)
+    setUser({ id: 3, roleCode: 'sales', manageAll: false })
+    expect(isManager.value).toBe(false)
+    setUser({ id: 4, roleCode: 'hr' })
+    expect(isManager.value).toBe(false)
+  })
+
+  // ── C2：refreshPermissions 强制刷新（403 / SSE 权限变更推送用）─────
+  describe('refreshPermissions', () => {
+    it('应绕过 authChecked 短路重新请求 /auth/me 并更新 userInfo', async () => {
+      const { default: request } = await import('@/utils/request')
+      request.get.mockResolvedValue({ code: 200, data: { id: 1, permissions: ['customer:add'] } })
+      const useUser = await getUseUser()
+      const { verifyAuth, refreshPermissions, userInfo } = useUser()
+
+      // 首次校验后进入「已检查」态
+      expect(await verifyAuth()).toBe(true)
+      expect(request.get).toHaveBeenCalledTimes(1)
+
+      // 第二次 verifyAuth 走短路，不再发请求
+      expect(await verifyAuth()).toBe(true)
+      expect(request.get).toHaveBeenCalledTimes(1)
+
+      // refreshPermissions 强制重拉，权限更新可见
+      request.get.mockResolvedValue({ code: 200, data: { id: 1, permissions: ['customer:add', 'tag'] } })
+      expect(await refreshPermissions()).toBe(true)
+      expect(request.get).toHaveBeenCalledTimes(2)
+      expect(userInfo.value.permissions).toContain('tag')
+
+      // 刷新后 verifyAuth 仍走短路（新缓存生效）
+      expect(await verifyAuth()).toBe(true)
+      expect(request.get).toHaveBeenCalledTimes(2)
+    })
+
+    it('并发调用应共享同一次 /auth/me 请求（在途去重）', async () => {
+      const { default: request } = await import('@/utils/request')
+      let resolveGet
+      request.get.mockImplementation(() => new Promise((resolve) => { resolveGet = resolve }))
+      const useUser = await getUseUser()
+      const { refreshPermissions } = useUser()
+
+      const p1 = refreshPermissions()
+      const p2 = refreshPermissions()
+      expect(request.get).toHaveBeenCalledTimes(1)
+      resolveGet({ code: 200, data: { id: 1 } })
+      expect(await Promise.all([p1, p2])).toEqual([true, true])
+      expect(request.get).toHaveBeenCalledTimes(1)
+    })
+
+    it('刷新失败（/auth/me 非 200）应返回 false 且清空 userInfo', async () => {
+      const { default: request } = await import('@/utils/request')
+      request.get.mockResolvedValue({ code: 401, data: null })
+      const useUser = await getUseUser()
+      const { refreshPermissions, userInfo } = useUser()
+      expect(await refreshPermissions()).toBe(false)
+      expect(userInfo.value).toBeNull()
+    })
+  })
+
   it('canViewAll 应根据 viewAll 或 manageAll 计算', async () => {
     const useUser = await getUseUser()
     const { setUser, canViewAll } = useUser()

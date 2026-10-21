@@ -3,7 +3,7 @@
     <div class="page-header"><h2>部门管理</h2></div>
     <el-card>
       <div class="toolbar">
-        <el-button type="primary" :icon="Plus" @click="handleAdd">新增部门</el-button>
+        <el-button v-if="isAdmin" type="primary" :icon="Plus" @click="handleAdd">新增部门</el-button>
       </div>
       <StateWrapper
         :loading="loading"
@@ -16,7 +16,7 @@
           <TableSkeleton :rows="6" :cols="4" />
         </template>
         <template #empty-action>
-          <el-button type="primary" size="small" @click="handleAdd">新增部门</el-button>
+          <el-button v-if="isAdmin" type="primary" size="small" @click="handleAdd">新增部门</el-button>
         </template>
       <el-table
         :data="tableData"
@@ -29,8 +29,8 @@
         <el-table-column prop="sort" label="排序" width="80" align="center" />
         <el-table-column label="操作" width="160">
           <template #default="{ row }">
-            <el-button type="primary" link :icon="Edit" @click="handleEdit(row)">编辑</el-button>
-            <el-button type="danger" link :icon="Delete" @click="handleDelete(row)">删除</el-button>
+            <el-button v-if="isAdmin" type="primary" link :icon="Edit" @click="handleEdit(row)">编辑</el-button>
+            <el-button v-if="isAdmin" type="danger" link :icon="Delete" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -53,7 +53,7 @@
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitLoading" @click="handleSubmit">保存</el-button>
+        <el-button v-if="isAdmin" type="primary" :loading="submitLoading" @click="handleSubmit">保存</el-button>
       </template>
     </el-dialog>
   </div>
@@ -66,8 +66,16 @@ import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import { Plus, Edit, Delete } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { useUser } from '@/composables/useUser'
 import { getDeptList, deleteDept, saveDept } from '@/api/system'
 import { reportError } from '@/utils/error'
+
+// [C2 2026-10-21] 后端 routes/dept.js 的 add/update/delete 挂的是 requireAdmin
+// （仅 manageAll 角色：库中实际只有 boss；super_admin/admin 为遗留 code），
+// 而非权限码 ⇒ 前端用 isAdmin（manageAll）守卫，与后端门禁语义严格对齐。
+// 注意：hr 等角色可经路由 permission:'system:user' 打开本页，但增改删会 403，
+// 故按钮必须按 isAdmin 隐藏，不能按页面可见性推断。
+const { isAdmin } = useUser()
 
 // onMounted 无条件取数，初值 true 消除首帧空态闪现
 const loading = ref(true)

@@ -1,8 +1,7 @@
 import { config } from '@vue/test-utils'
-import { createPinia, setActivePinia } from 'pinia'
 import { vi, beforeEach } from 'vitest'
 
-// Mock Element Plus（避�?jsdom 下渲染报错）
+// Mock Element Plus（避�?jsdom 下渲染报错）
 vi.mock('element-plus', async () => {
   const actual = await vi.importActual('element-plus')
   return {
@@ -13,7 +12,7 @@ vi.mock('element-plus', async () => {
   }
 })
 
-// Mock Element Plus 图标（避�?auto-import 解析失败�?
+// Mock Element Plus 图标（避�?auto-import 解析失败�?
 vi.mock('@element-plus/icons-vue', () => ({
   User: { name: 'User', template: '<span />' },
   Lock: { name: 'Lock', template: '<span />' },
@@ -56,13 +55,14 @@ Object.defineProperty(window, 'localStorage', { value: localStorageMock })
 // Mock IntersectionObserver（ECharts 等组件需要）
 global.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} }
 
-// 每个测试前重�?pinia
+// 每个测试前重置 localStorage  mock
+// [C2 2026-10-21] 移除 pinia：main.js 从未 app.use(pinia)，全仓无 store 定义，
+// 原 setActivePinia(createPinia()) 是无消费者的空初始化，随依赖一并删除。
 beforeEach(() => {
-  setActivePinia(createPinia())
   localStorageMock.clear()
 })
 
-// Mock Layout.vue������� router �� Layout �� logo.png �� jsdom TypeError
+// Mock Layout.vue������� router �� Layout �� logo.png �� jsdom TypeError
 vi.mock('@/views/layout/index.vue', () => ({
   default: { template: '<div><slot /></div>', name: 'Layout' }
 }))

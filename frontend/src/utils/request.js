@@ -7,6 +7,13 @@ import { reportError, reportWarn } from '@/utils/error'
 let isRefreshing = false
 let refreshSubscribers = []
 
+// [C2 2026-10-21] 403 权限刷新节流：本地权限缓存可能因管理员刚调整角色而过期，
+// 收到 403 时强制刷新一次 /auth/me（在途去重与冷却由 useUser.refreshPermissions
+// 及此处共同保证），刷新后再提示，避免用户看到「有按钮却 403」的陈旧状态。
+// 冷却窗口内不重复触发——用户本就无权限时，每个 403 都刷会打成 /auth/me 轰炸。
+const PERM_REFRESH_COOLDOWN = 10000
+let lastPermRefreshAt = 0
+
 /**
  * 从 document.cookie 中读取指定名称的 cookie 值
  * @param {string} name
@@ -138,9 +145,24 @@ request.interceptors.response.use(
           }
           break
         }
-        case 403:
+        case 403: {
+          // [C2 2026-10-21] 权限缓存可能已过期（管理员刚改角色/部门）：先触发一次
+          // 强制刷新让 v-permission 控制的按钮状态跟上，再提示。
+          // 排除：/auth/me 自身（避免递归）与登录页（未认证态的 403 无需刷新）。
+          const onLoginPage = router.currentRoute?.value?.path === '/login'
+          if (originalConfig.url !== '/auth/me' && !onLoginPage) {
+            const now = Date.now()
+            if (now - lastPermRefreshAt > PERM_REFRESH_COOLDOWN) {
+              lastPermRefreshAt = now
+              // 动态导入避免静态循环依赖（useUser → request）
+              import('@/composables/useUser')
+                .then(({ refreshPermissions }) => refreshPermissions())
+                .catch(() => {})
+            }
+          }
           ElMessage.error(data.message || '没有权限访问')
           break
+        }
         case 404:
           ElMessage.error(data.message || '请求的资源不存在')
           break
