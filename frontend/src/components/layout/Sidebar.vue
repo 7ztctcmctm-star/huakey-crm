@@ -272,9 +272,6 @@ const route = useRoute()
 
 const activeMenu = computed(() => route.fullPath)
 
-const isAdmin = computed(() => props.userInfo.manageAll === true)
-const isBoss = computed(() => props.userInfo.viewAll === true)
-
 const hasMenuPermission = (permissionCode) => {
   if (props.userInfo.manageAll) return true
   const permissions = props.userInfo.permissions || []

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { ref, nextTick } from 'vue'
 
 // 模拟 convertingId 逻辑（与 quotation/list.vue 中的实现一致）

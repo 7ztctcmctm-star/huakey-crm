@@ -104,7 +104,6 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Edit, Setting, Search, Star, Paperclip, RefreshRight, Connection, Document } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import request from '@/utils/request'
 import { getEmailList, getEmailStats, markEmailRead, getEmailDetail, toggleEmailStar, linkCustomerToEmail } from '@/api/tools'
 import { getCustomerList } from '@/api/customer'
 // sanitize 通过 v-safe-html 指令应用，无需在此引入

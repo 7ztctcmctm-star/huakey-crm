@@ -65,7 +65,6 @@ import PageToolbar from '@/components/common/PageToolbar.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete } from '@element-plus/icons-vue'
-import request from '@/utils/request'
 import { getKnowledgeScripts, addKnowledgeScript, updateKnowledgeScript, deleteKnowledgeScript, getKnowledgeScript, getKnowledgeScriptsScenes } from '@/api/tools'
 
 const loading = ref(false)

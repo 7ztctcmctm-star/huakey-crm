@@ -56,7 +56,7 @@
 <script setup>
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 import { ref, onMounted } from 'vue'
 import { SuccessFilled, CircleCloseFilled, Clock } from '@element-plus/icons-vue'
 import { getMySubmitted } from '@/api/tools'

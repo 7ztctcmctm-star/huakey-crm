@@ -314,7 +314,7 @@ const props = defineProps({
   overdueDaysConfig: { type: Number, default: 15 }
 })
 
-const emit = defineEmits([
+defineEmits([
   'toggle-collapse',
   'open-recycle-bin',
   'update:showReminderDialog',

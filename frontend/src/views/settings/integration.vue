@@ -82,7 +82,7 @@
 </template>
 
 <script setup>
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getIntegrationList, updateIntegration, testIntegration, getEmailLog } from '@/api/system'

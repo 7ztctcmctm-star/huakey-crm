@@ -82,7 +82,6 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, View } from '@element-plus/icons-vue'
-import request from '@/utils/request'
 import { getFollowupTemplates, saveFollowupTemplate, deleteFollowupTemplate } from '@/api/customer'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'

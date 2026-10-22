@@ -79,7 +79,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import request from '@/utils/request'
 import { getEmailAccounts, addEmailAccount, deleteEmailAccount, testEmailAccount } from '@/api/tools'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'

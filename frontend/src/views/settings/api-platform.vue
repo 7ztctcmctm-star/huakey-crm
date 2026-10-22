@@ -136,7 +136,6 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import request from '@/utils/request'
 import { getApiKeys, saveApiKey, getWebhooks, saveWebhook, getApiDocs, regenerateApiKey, deleteApiKey, testWebhook, deleteWebhook } from '@/api/system'
 
 const activeTab = ref('keys')

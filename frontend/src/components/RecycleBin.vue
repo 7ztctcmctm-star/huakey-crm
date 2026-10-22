@@ -47,7 +47,7 @@
 </template>
 
 <script setup>
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 import { ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'

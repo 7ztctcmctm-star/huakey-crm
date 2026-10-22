@@ -14,6 +14,7 @@ on:
     - cron: '0 2 * * 1'
 
 permissions:
+  contents: read
   security-events: write
 
 jobs:
@@ -22,11 +23,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
+        id: setup-node
         with: { node-version: '22' }
       - uses: actions/cache@v4
         with:
           path: backend/node_modules
-          key: backend-deps-${{ hashFiles('backend/package-lock.json') }}
+          key: ${{ runner.os }}-node${{ steps.setup-node.outputs.node-version }}-backend-deps-${{ hashFiles('backend/package-lock.json') }}
       - run: cd backend && npm ci
       - run: cd backend && npm run lint
       - name: Prepare upload directories
@@ -44,25 +46,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
+        id: setup-node
         with: { node-version: '22' }
       - uses: actions/cache@v4
         with:
           path: frontend/node_modules
-          key: frontend-deps-${{ hashFiles('frontend/package-lock.json') }}
-      - run: cd frontend && npm install --legacy-peer-deps
+          key: ${{ runner.os }}-node${{ steps.setup-node.outputs.node-version }}-frontend-deps-${{ hashFiles('frontend/package-lock.json') }}
+      - run: cd frontend && npm ci --legacy-peer-deps
+      - run: cd frontend && npm run lint
       - run: cd frontend && npm test
 
   frontend-build:
+    needs: frontend-test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
+        id: setup-node
         with: { node-version: '22' }
       - uses: actions/cache@v4
         with:
           path: frontend/node_modules
-          key: frontend-deps-${{ hashFiles('frontend/package-lock.json') }}
-      - run: cd frontend && npm install --legacy-peer-deps && npm run build
+          key: ${{ runner.os }}-node${{ steps.setup-node.outputs.node-version }}-frontend-deps-${{ hashFiles('frontend/package-lock.json') }}
+      - run: cd frontend && npm ci --legacy-peer-deps && npm run build
       - run: test -f frontend/dist/index.html
       - run: |
           size=$(du -sm frontend/dist | cut -f1)
@@ -97,41 +103,15 @@ jobs:
             echo "  attempt $i/30..."
             sleep 3
           done
+          # 兜底：循环正常结束（未 break）说明 30 次未就绪，必须显式失败，
+          # 否则后续步骤会在半就绪的库上跑出误导性报错（曾掩盖过真实启动失败）。
+          if ! docker exec ci-mysql mysqladmin ping -h localhost --silent 2>/dev/null; then
+            echo "::error::MySQL 未在 30 次尝试内就绪（ci-mysql mysqladmin ping 失败）"
+            exit 1
+          fi
       - run: cd backend && npm ci
       - run: cd database/migrations && npm ci
-      - name: Import baseline schema + verify invariants
-        run: |
-          echo "Importing init-complete.sql..."
-          sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/init-complete.sql | \
-          docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
-          echo "Verifying N-05: 92 invariants (列/索引/唯一键) against baseline..."
-          sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/ci-missing-tables-verify.sql | \
-          docker exec -i ci-mysql mysql --batch -u root -ptest_root_pass huakey_crm_test > /tmp/n05-verify.tsv
-          N05_RC=$?
-          if [ $N05_RC -ne 0 ]; then
-            echo "✗ N-05 verify FAILED (mysql client exit $N05_RC)"
-            cat /tmp/n05-verify.tsv
-            exit 1
-          fi
-          # 即使 mysql client 退 0,也要靠 N-05_FINAL 行 grep 二次确认
-          if grep -q '^N-05 FAIL' /tmp/n05-verify.tsv; then
-            echo "✗ N-05 verify FAILED (see N-05_FINAL above)"
-            cat /tmp/n05-verify.tsv
-            exit 1
-          fi
-          echo "✓ N-05 verify: 92/92 invariants satisfied"
-          echo "Creating CI test users (from .github/ci/test-users.sql)..."
-          sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" .github/ci/test-users.sql | \
-          docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
-          echo "Recording all migration versions as executed..."
-          for f in database/migrations/[0-9][0-9][0-9]_*.sql; do
-            case "$f" in *_down.sql) continue ;; esac
-            v=$(basename "$f" | grep -oP '^\d+')
-            n=$(basename "$f")
-            docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test \
-              -e "INSERT IGNORE INTO schema_migrations (version, name) VALUES ('$v', '$n')"
-          done
-          echo "Baseline ready."
+      - uses: ./.github/actions/setup-test-db
       - run: cd backend && npx jest tests/e2e/ --config jest.integration.config.js --forceExit
       - if: always()
         run: docker compose -f docker-compose.ci.yml down -v
@@ -154,54 +134,17 @@ jobs:
             echo "  attempt $i/30..."
             sleep 3
           done
+          # 兜底：循环正常结束（未 break）说明 30 次未就绪，必须显式失败，
+          # 否则后续步骤会在半就绪的库上跑出误导性报错（曾掩盖过真实启动失败）。
+          if ! docker exec ci-mysql mysqladmin ping -h localhost --silent 2>/dev/null; then
+            echo "::error::MySQL 未在 30 次尝试内就绪（ci-mysql mysqladmin ping 失败）"
+            exit 1
+          fi
       - run: cd backend && npm ci
       - run: cd frontend && npm ci --legacy-peer-deps
       - run: cd database/migrations && npm ci
-      - name: Import baseline schema + verify invariants
-        run: |
-          echo "Importing init-complete.sql..."
-          sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/init-complete.sql | \
-          docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
-          echo "Verifying N-05: 92 invariants (列/索引/唯一键) against baseline..."
-          sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/ci-missing-tables-verify.sql | \
-          docker exec -i ci-mysql mysql --batch -u root -ptest_root_pass huakey_crm_test > /tmp/n05-verify.tsv
-          N05_RC=$?
-          if [ $N05_RC -ne 0 ]; then
-            echo "✗ N-05 verify FAILED (mysql client exit $N05_RC)"
-            cat /tmp/n05-verify.tsv
-            exit 1
-          fi
-          # 即使 mysql client 退 0,也要靠 N-05_FINAL 行 grep 二次确认
-          if grep -q '^N-05 FAIL' /tmp/n05-verify.tsv; then
-            echo "✗ N-05 verify FAILED (see N-05_FINAL above)"
-            cat /tmp/n05-verify.tsv
-            exit 1
-          fi
-          echo "✓ N-05 verify: 92/92 invariants satisfied"
-          echo "Creating CI test users (from .github/ci/test-users.sql)..."
-          sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" .github/ci/test-users.sql | \
-          docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
-          echo "Recording all migration versions as executed..."
-          for f in database/migrations/[0-9][0-9][0-9]_*.sql; do
-            case "$f" in *_down.sql) continue ;; esac
-            v=$(basename "$f" | grep -oP '^\d+')
-            n=$(basename "$f")
-            docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test \
-              -e "INSERT IGNORE INTO schema_migrations (version, name) VALUES ('$v', '$n')"
-          done
-          echo "Baseline ready."
-      - name: Load Demo seed data (demo_admin / demo_sales / demo_purchase)
-        # E2E 通过 .env.test 的 E2E_ADMIN_USER=demo_admin 登录，需先 seed Demo 账号 + 业务链
-        # seed-demo.js 自带生产环境阻断 + 幂等保护
-        run: cd backend && DB_NAME=huakey_crm_test DB_USER=root DB_PASSWORD=test_root_pass DB_HOST=127.0.0.1 DB_PORT=3306 npm run seed:demo
-
-      # 权限的唯一事实来源是 backend/scripts/init_role_permissions.js
-      # （生产由 deploy/deploy.sh 第 [11/12] 步执行；此处保持同一脚本，避免出现第二个事实来源）。
-      # 缺此步的后果：sys_permission / sys_role_permission 为空，
-      # 除 admin（super_admin，走 manageAll 白名单）外，任何真实角色都会 403。
-      # 前置依赖：demo_roles.sql 必须已建出 boss/manager/sales/hr/purchase/finance/engineer。
-      - name: Init role permissions (populate sys_permission / sys_role_permission)
-        run: cd backend && DB_NAME=huakey_crm_test DB_USER=root DB_PASSWORD=test_root_pass DB_HOST=127.0.0.1 DB_PORT=3306 node scripts/init_role_permissions.js
+      - uses: ./.github/actions/setup-test-db
+      - uses: ./.github/actions/seed-test-db
       - run: cd frontend && npx playwright install --with-deps chromium
       - name: Run Playwright E2E tests
         env:
@@ -233,41 +176,15 @@ jobs:
             echo "  attempt $i/30..."
             sleep 3
           done
+          # 兜底：循环正常结束（未 break）说明 30 次未就绪，必须显式失败，
+          # 否则后续步骤会在半就绪的库上跑出误导性报错（曾掩盖过真实启动失败）。
+          if ! docker exec ci-mysql mysqladmin ping -h localhost --silent 2>/dev/null; then
+            echo "::error::MySQL 未在 30 次尝试内就绪（ci-mysql mysqladmin ping 失败）"
+            exit 1
+          fi
       - run: cd backend && npm ci
       - run: cd database/migrations && npm ci
-      - name: Import baseline schema + verify invariants
-        run: |
-          echo "Importing init-complete.sql..."
-          sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/init-complete.sql | \
-          docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
-          echo "Verifying N-05: 92 invariants (列/索引/唯一键) against baseline..."
-          sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/ci-missing-tables-verify.sql | \
-          docker exec -i ci-mysql mysql --batch -u root -ptest_root_pass huakey_crm_test > /tmp/n05-verify.tsv
-          N05_RC=$?
-          if [ $N05_RC -ne 0 ]; then
-            echo "✗ N-05 verify FAILED (mysql client exit $N05_RC)"
-            cat /tmp/n05-verify.tsv
-            exit 1
-          fi
-          # 即使 mysql client 退 0,也要靠 N-05_FINAL 行 grep 二次确认
-          if grep -q '^N-05 FAIL' /tmp/n05-verify.tsv; then
-            echo "✗ N-05 verify FAILED (see N-05_FINAL above)"
-            cat /tmp/n05-verify.tsv
-            exit 1
-          fi
-          echo "✓ N-05 verify: 92/92 invariants satisfied"
-          echo "Creating CI test users (from .github/ci/test-users.sql)..."
-          sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" .github/ci/test-users.sql | \
-          docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
-          echo "Recording all migration versions as executed..."
-          for f in database/migrations/[0-9][0-9][0-9]_*.sql; do
-            case "$f" in *_down.sql) continue ;; esac
-            v=$(basename "$f" | grep -oP '^\d+')
-            n=$(basename "$f")
-            docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test \
-              -e "INSERT IGNORE INTO schema_migrations (version, name) VALUES ('$v', '$n')"
-          done
-          echo "Baseline ready."
+      - uses: ./.github/actions/setup-test-db
       # MIGRATION_ROUNDTRIP_STRICT=1：本 job 声明"DB 已就绪"，故测试里的任何静默跳过都必须变成失败
       # （不能用 CI=true 判定 —— Actions 在所有 job 都设它，backend-test 也会跑到该文件且无 MySQL）
       # --testPathIgnorePatterns 覆盖配置里对该文件的排除：roundtrip 是破坏性套件，
@@ -276,19 +193,6 @@ jobs:
       - if: always()
         run: docker compose -f docker-compose.ci.yml down -v
 
-  image-scan:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build
-        run: docker build -t huakey-crm:ci -f Dockerfile.synology .
-      - name: Scan image with Trivy
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: 'huakey-crm:ci'
-          format: 'table'
-          exit-code: '0'
-          severity: 'CRITICAL'
   cross-browser-test:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -320,53 +224,17 @@ jobs:
             echo "  attempt $i/30..."
             sleep 3
           done
+          # 兜底：循环正常结束（未 break）说明 30 次未就绪，必须显式失败，
+          # 否则后续步骤会在半就绪的库上跑出误导性报错（曾掩盖过真实启动失败）。
+          if ! docker exec ci-mysql mysqladmin ping -h localhost --silent 2>/dev/null; then
+            echo "::error::MySQL 未在 30 次尝试内就绪（ci-mysql mysqladmin ping 失败）"
+            exit 1
+          fi
       - run: cd backend && npm ci
       - run: cd frontend && npm ci --legacy-peer-deps
       - run: cd database/migrations && npm ci
-      - name: Import baseline schema + verify invariants
-        run: |
-          echo "Importing init-complete.sql..."
-          sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/init-complete.sql | \
-          docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
-          echo "Verifying N-05: 92 invariants (列/索引/唯一键) against baseline..."
-          sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/ci-missing-tables-verify.sql | \
-          docker exec -i ci-mysql mysql --batch -u root -ptest_root_pass huakey_crm_test > /tmp/n05-verify.tsv
-          N05_RC=$?
-          if [ $N05_RC -ne 0 ]; then
-            echo "✗ N-05 verify FAILED (mysql client exit $N05_RC)"
-            cat /tmp/n05-verify.tsv
-            exit 1
-          fi
-          # 即使 mysql client 退 0,也要靠 N-05_FINAL 行 grep 二次确认
-          if grep -q '^N-05 FAIL' /tmp/n05-verify.tsv; then
-            echo "✗ N-05 verify FAILED (see N-05_FINAL above)"
-            cat /tmp/n05-verify.tsv
-            exit 1
-          fi
-          echo "✓ N-05 verify: 92/92 invariants satisfied"
-          echo "Creating CI test users (from .github/ci/test-users.sql)..."
-          sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" .github/ci/test-users.sql | \
-          docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
-          echo "Recording all migration versions as executed..."
-          for f in database/migrations/[0-9][0-9][0-9]_*.sql; do
-            case "$f" in *_down.sql) continue ;; esac
-            v=$(basename "$f" | grep -oP '^\d+')
-            n=$(basename "$f")
-            docker exec ci-mysql mysql -u root -ptest_root_pass huakey_crm_test \
-              -e "INSERT IGNORE INTO schema_migrations (version, name) VALUES ('$v', '$n')"
-          done
-          echo "Baseline ready."
-      - name: Load Demo seed data (demo_admin / demo_sales / demo_purchase)
-        # E2E 通过 .env.test 的 E2E_ADMIN_USER=demo_admin 登录，需先 seed Demo 账号 + 业务链
-        run: cd backend && DB_NAME=huakey_crm_test DB_USER=root DB_PASSWORD=test_root_pass DB_HOST=127.0.0.1 DB_PORT=3306 npm run seed:demo
-
-      # 权限的唯一事实来源是 backend/scripts/init_role_permissions.js
-      # （生产由 deploy/deploy.sh 第 [11/12] 步执行；此处保持同一脚本，避免出现第二个事实来源）。
-      # 缺此步的后果：sys_permission / sys_role_permission 为空，
-      # 除 admin（super_admin，走 manageAll 白名单）外，任何真实角色都会 403。
-      # 前置依赖：demo_roles.sql 必须已建出 boss/manager/sales/hr/purchase/finance/engineer。
-      - name: Init role permissions (populate sys_permission / sys_role_permission)
-        run: cd backend && DB_NAME=huakey_crm_test DB_USER=root DB_PASSWORD=test_root_pass DB_HOST=127.0.0.1 DB_PORT=3306 node scripts/init_role_permissions.js
+      - uses: ./.github/actions/setup-test-db
+      - uses: ./.github/actions/seed-test-db
       - run: cd frontend && npx playwright install --with-deps ${{ matrix.browser }}
       - name: Run Playwright tests
         env:

@@ -114,7 +114,6 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import { Plus, Edit, Delete, Key } from '@element-plus/icons-vue'
-import request from '@/utils/request'
 import { getUserList, deleteUser, getDeptList, getRoleList, saveUser, resetUserPassword } from '@/api/system'
 import { reportError } from '@/utils/error'
 

@@ -101,7 +101,7 @@
 <script setup>
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getMyPending, getApprovalDetail, approveRequest, rejectRequest, batchApprove, batchReject, transferApproval } from '@/api/tools'

@@ -148,7 +148,6 @@
 import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import request from '@/utils/request'
 import { getCommissionRules, saveCommissionRule, getCommissionRecords, getCommissionStats, calculateCommission, batchConfirmCommission, batchPayCommission, deleteCommissionRule } from '@/api/hr'
 
 const statusName = { calculated: '已计算', confirmed: '已确认', paid: '已发放' }

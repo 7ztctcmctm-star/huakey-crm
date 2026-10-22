@@ -119,11 +119,9 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock, CircleCheck, CircleClose } from '@element-plus/icons-vue'
 import { login, getCaptcha } from '@/api/auth'
-import { useUser } from '@/composables/useUser'
 import { version as appVersion } from '../../../package.json'
 
 const router = useRouter()
-const { setUser } = useUser()
 const loginFormRef = ref(null)
 const loading = ref(false)
 const captchaSvg = ref('')

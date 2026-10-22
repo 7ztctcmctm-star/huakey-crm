@@ -119,7 +119,6 @@ import { ElMessage } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import { reportError } from '@/utils/error'
-import request from '@/utils/request'
 import { getInventoryList, updateInventory, addInventoryMovement, getInventoryStats, getInventoryCategories, autoGeneratePlan } from '@/api/product'
 
 const router = useRouter()

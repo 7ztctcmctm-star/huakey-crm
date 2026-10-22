@@ -9,7 +9,7 @@ import { initPerfume } from '@/utils/perfume'
 // ElMessage/ElMessageBox 样式（按需导入插件无法自动处理JS调用的样式）
 import 'element-plus/theme-chalk/src/message.scss'
 import 'element-plus/theme-chalk/src/message-box.scss'
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 
 const app = createApp(App)
 

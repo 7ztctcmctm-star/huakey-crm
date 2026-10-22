@@ -122,11 +122,10 @@
 </template>
 
 <script setup>
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, View } from '@element-plus/icons-vue'
-import request from '@/utils/request'
 import { getApprovalWorkflows, updateApprovalWorkflow, saveApprovalWorkflow, deleteApprovalWorkflow } from '@/api/tools'
 import { getSalesUsers } from '@/api/customer'
 import { getRoleList } from '@/api/system'

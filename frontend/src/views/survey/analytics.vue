@@ -76,6 +76,7 @@ import { useRoute } from 'vue-router'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { getSurveyAnalytics } from '@/api/tools'
 import echarts from '@/composables/useECharts'
+import { chartColors } from '@/utils/chartTheme'
 
 const route = useRoute()
 const statusName = { draft: '草稿', active: '进行中', closed: '已关闭' }

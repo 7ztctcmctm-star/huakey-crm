@@ -198,18 +198,15 @@ import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Upload, Download, DataAnalysis, ChatLineRound, Select, View, Edit, ArrowDown } from '@element-plus/icons-vue'
 import { relativeTime, fullTime, relativeNextTime } from '@/composables/useRelativeTime'
-import { hasPermission } from '@/utils/permission'
 import { forwardCustomer, backwardCustomer } from '@/api/customer'
 import {
-  CustomerStatus,
-  PIPELINE,
   getStatusLabel,
   getStatusTagType,
   canForward as canForwardStatus,
   canBackward as canBackwardStatus,
 } from '@/constants/customer'
 
-const props = defineProps({
+defineProps({
   loading: { type: Boolean, default: false },
   tableData: { type: Array, default: () => [] },
   isBoss: { type: Boolean, default: false },

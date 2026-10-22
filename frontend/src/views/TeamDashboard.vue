@@ -85,7 +85,7 @@
         </el-table-column>
         <el-table-column prop="owner_name" label="负责人" width="90" />
         <el-table-column label="操作" width="80" align="center">
-          <template #default="{ row }">
+          <template #default>
             <el-button type="primary" size="small" link @click="$router.push('/opportunity')">查看</el-button>
           </template>
         </el-table-column>
@@ -260,7 +260,7 @@
 </template>
 
 <script setup>
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 import { ref, reactive, onMounted, onActivated } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getTeamOverview, getSalesBreakdown, getStuckOpportunities, getPendingApprovals, getSalesCustomers, getSalesOverdueCustomers, urgeFollowup as urgeFollowupApi } from '@/api/system'

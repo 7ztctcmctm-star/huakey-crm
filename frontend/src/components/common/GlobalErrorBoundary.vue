@@ -9,7 +9,7 @@
 </template>
 
 <script setup>
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 import { ref, onErrorCaptured } from 'vue';
 import { useRouter } from 'vue-router';
 

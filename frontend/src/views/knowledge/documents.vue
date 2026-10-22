@@ -108,7 +108,6 @@ import StateWrapper from '@/components/common/StateWrapper.vue'
 import PageToolbar from '@/components/common/PageToolbar.vue'
 import { reportError } from '@/utils/error'
 import { Upload, Edit, Delete } from '@element-plus/icons-vue'
-import request from '@/utils/request'
 import { getKnowledgeDocuments, addKnowledgeDocument, updateKnowledgeDocument, deleteKnowledgeDocument } from '@/api/tools'
 import { formatTime } from '@/composables/useFormat'
 

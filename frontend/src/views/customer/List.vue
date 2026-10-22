@@ -1,7 +1,7 @@
 <template>
   <div class="customer-list">
     <CustomerFilter
-      :search-form="searchForm"
+      v-model:search-form="searchForm"
       :source-search-options="sourceSearchOptions"
       :level-options="levelOptions"
       :status-options="statusOptions"
@@ -91,7 +91,7 @@
 </template>
 
 <script setup>
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -104,10 +104,9 @@ import CustomerFormDialog from './components/CustomerFormDialog.vue'
 import AssignDialog from './components/AssignDialog.vue'
 import FollowDialog from './components/FollowDialog.vue'
 import BatchFollowDialog from './components/BatchFollowDialog.vue'
-import { get } from '@/utils/request'
 import { getFormalCustomers, deleteCustomer, batchAssignCustomer, exportCustomers, getSalesUsers, getMySubordinates } from '@/api/customer'
 import { SOURCE_SEARCH_OPTIONS } from '@/constants/source'
-import { FILTER_STATUS_OPTIONS, EDIT_STATUS_OPTIONS, FILTER_TAB_OPTIONS } from '@/constants/customer'
+import { FILTER_STATUS_OPTIONS, EDIT_STATUS_OPTIONS } from '@/constants/customer'
 import { useUser } from '@/composables/useUser'
 
 const router = useRouter()

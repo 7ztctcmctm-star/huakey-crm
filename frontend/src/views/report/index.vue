@@ -232,11 +232,10 @@
 </template>
 
 <script setup>
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Download } from '@element-plus/icons-vue'
-import request from '@/utils/request'
 import {
   getReportPayment, getReportPerformance, getReportSalesFunnel, getReportSalesTrend,
   getReportPurchaseTrend, getReportPurchaseBySupplier, getReportPurchaseCost,

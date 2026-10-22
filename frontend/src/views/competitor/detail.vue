@@ -152,7 +152,6 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Plus } from '@element-plus/icons-vue'
-import request from '@/utils/request'
 import { getCompetitorDetail, addCompetitorEncounter, addCompetitorIntel, getCompetitorEncounters, getCompetitorIntel, deleteCompetitorEncounter, deleteCompetitorIntel } from '@/api/tools'
 import { getCustomerList } from '@/api/customer'
 

@@ -34,7 +34,7 @@ export function useDashboardFilters() {
   const rangeLabel = computed(() => {
     if (!hasRange.value) return '本月'
     const [sy, sm] = state.startDate.split('-')
-    const [ey, em] = state.endDate.split('-')
+    const [ey] = state.endDate.split('-')
     const now = new Date()
     const isThisMonth = sy === ey
       && Number(sm) === now.getMonth() + 1

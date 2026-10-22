@@ -169,14 +169,13 @@
 </template>
 
 <script setup>
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import PageToolbar from '@/components/common/PageToolbar.vue'
 import { Search, Refresh, Delete, Download } from '@element-plus/icons-vue'
-import request from '@/utils/request'
 import { getLogList, exportLog, clearLog, getLogModules, getLogDetail } from '@/api/system'
 
 // onMounted 无条件取数，初值 true 消除首帧空态闪现

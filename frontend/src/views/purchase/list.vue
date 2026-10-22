@@ -262,15 +262,14 @@
 </template>
 
 <script setup>
-import { reportError, reportWarn } from '@/utils/error'
-import { ref, reactive, computed, onMounted } from 'vue';
+import { reportError } from '@/utils/error'
+import { ref, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import TableSkeleton from '@/components/common/TableSkeleton.vue';
 import StateWrapper from '@/components/common/StateWrapper.vue';
 import PageToolbar from '@/components/common/PageToolbar.vue';
 import { Plus, ArrowDown } from '@element-plus/icons-vue';
-import request from '@/utils/request';
 import { getPurchaseList, addPurchase, updatePurchaseStatus, getPurchaseStatistics } from '@/api/product';
 import { submitApproval, withdrawApproval } from '@/api/tools';
 import { getSupplierOptions } from '@/api/product';

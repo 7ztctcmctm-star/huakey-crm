@@ -79,7 +79,6 @@ import { ElMessage } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import { reportError } from '@/utils/error'
-import request from '@/utils/request'
 import { getFinanceReminders, getReminderSummary, generateReminders, acknowledgeReminder } from '@/api/hr'
 
 // onMounted 无条件取数，初值 true 消除首帧空态闪现

@@ -66,10 +66,8 @@
 <script setup>
 import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, onMounted, nextTick } from 'vue'
-import request from '@/utils/request'
 import { getSupplierRanking, getSupplierCompare } from '@/api/product'
 import echarts from '@/composables/useECharts'
-import { chartPalette } from '@/utils/chartTheme'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import { reportError } from '@/utils/error'

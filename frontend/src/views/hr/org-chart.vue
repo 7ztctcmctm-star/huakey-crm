@@ -50,7 +50,6 @@
 <script setup>
 import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, onMounted, h, defineComponent } from 'vue'
-import request from '@/utils/request'
 import { getOrgTree, getOrgTreeEmployees } from '@/api/hr'
 
 // 递归节点组件

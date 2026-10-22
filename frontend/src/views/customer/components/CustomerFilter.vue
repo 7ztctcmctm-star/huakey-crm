@@ -10,22 +10,22 @@
 
   <!-- 搜索区域 -->
   <PageToolbar :collapsible="true" :max-visible="3">
-    <el-form :model="searchForm" inline @keyup.enter="$emit('search')">
+    <el-form :model="form" inline @keyup.enter="$emit('search')">
       <el-form-item label="公司名称">
-        <el-input v-model="searchForm.company_name" placeholder="请输入公司名称" clearable />
+        <el-input :model-value="form.company_name" @update:model-value="v => updateField('company_name', v)" placeholder="请输入公司名称" clearable />
       </el-form-item>
       <el-form-item label="联系人">
-        <el-input v-model="searchForm.contact_name" placeholder="请输入联系人" clearable />
+        <el-input :model-value="form.contact_name" @update:model-value="v => updateField('contact_name', v)" placeholder="请输入联系人" clearable />
       </el-form-item>
       <el-form-item label="电话">
-        <el-input v-model="searchForm.phone" placeholder="请输入电话" clearable />
+        <el-input :model-value="form.phone" @update:model-value="v => updateField('phone', v)" placeholder="请输入电话" clearable />
       </el-form-item>
     </el-form>
 
     <template #extra>
-      <el-form :model="searchForm" inline @keyup.enter="$emit('search')">
+      <el-form :model="form" inline @keyup.enter="$emit('search')">
         <el-form-item label="客户来源">
-          <el-select v-model="searchForm.source" placeholder="全部来源" clearable style="width: 160px">
+          <el-select :model-value="form.source" @update:model-value="v => updateField('source', v)" placeholder="全部来源" clearable style="width: 160px">
             <template v-for="item in sourceSearchOptions" :key="item.value || item.label">
               <el-option-group v-if="item.options" :label="item.label">
                 <el-option v-for="child in item.options" :key="child.value" :label="child.label" :value="child.value" />
@@ -35,25 +35,25 @@
           </el-select>
         </el-form-item>
         <el-form-item label="客户等级">
-          <el-select v-model="searchForm.level" placeholder="请选择等级" clearable>
+          <el-select :model-value="form.level" @update:model-value="v => updateField('level', v)" placeholder="请选择等级" clearable>
             <el-option v-for="item in levelOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
-          <el-select v-model="searchForm.status" placeholder="请选择状态" clearable>
+          <el-select :model-value="form.status" @update:model-value="v => updateField('status', v)" placeholder="请选择状态" clearable>
             <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="标签">
-          <el-select v-model="searchForm.tag_id" placeholder="全部标签" clearable style="width:140px" @change="$emit('search')">
+          <el-select :model-value="form.tag_id" @update:model-value="v => updateField('tag_id', v)" placeholder="全部标签" clearable style="width:140px" @change="$emit('search')">
             <el-option v-for="t in tagOptions" :key="t.id" :label="t.name" :value="t.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="创建时间">
-          <el-date-picker v-model="searchForm.dateRange" type="daterange" start-placeholder="开始日期" end-placeholder="结束日期" value-format="YYYY-MM-DD" style="width: 240px" />
+          <el-date-picker :model-value="form.dateRange" @update:model-value="v => updateField('dateRange', v)" type="daterange" start-placeholder="开始日期" end-placeholder="结束日期" value-format="YYYY-MM-DD" style="width: 240px" />
         </el-form-item>
         <el-form-item label="排序">
-          <el-select v-model="searchForm.sort" placeholder="默认排序" clearable style="width: 180px" @change="$emit('search')">
+          <el-select :model-value="form.sort" @update:model-value="v => updateField('sort', v)" placeholder="默认排序" clearable style="width: 180px" @change="$emit('search')">
             <el-option label="最后跟进 ↑ 久未跟进优先" value="last_follow_time_asc" />
             <el-option label="最后跟进 ↓ 最近跟进优先" value="last_follow_time_desc" />
             <el-option label="创建时间 ↓ 最新优先" value="create_time_desc" />
@@ -94,7 +94,7 @@
 <script setup>
 import { Search, Refresh } from '@element-plus/icons-vue'
 import PageToolbar from '@/components/common/PageToolbar.vue'
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { reportWarn } from '@/utils/error'
 import { getTagList } from '@/api/system'
 import { get } from '@/utils/request'
@@ -110,7 +110,23 @@ const props = defineProps({
   overdueMode: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['search', 'reset', 'tab-change', 'quick-tab-change', 'clear-overdue'])
+const emit = defineEmits(['search', 'reset', 'tab-change', 'quick-tab-change', 'clear-overdue', 'update:searchForm'])
+
+// 本地草稿：父级持有 searchForm（reactive）且会原地修改（重置 / tab 切换），
+// 子组件不再直接写 props——改本地草稿后整体 emit 回父级（父级用 v-model:search-form 接收）。
+// lastEmitted 标识「我方 emit 引发的回写」，避免 props↔草稿双向同步成环。
+const form = ref({ ...props.searchForm })
+let lastEmitted = null
+watch(() => props.searchForm, (v) => {
+  if (v === lastEmitted) return
+  form.value = { ...v }
+}, { deep: true })
+
+const updateField = (key, value) => {
+  form.value[key] = value
+  lastEmitted = { ...form.value }
+  emit('update:searchForm', lastEmitted)
+}
 
 // 状态筛选 Tabs 统一走常量（R-01）
 const filterTabOptions = FILTER_TAB_OPTIONS

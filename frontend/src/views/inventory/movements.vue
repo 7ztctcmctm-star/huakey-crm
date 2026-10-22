@@ -69,7 +69,6 @@ import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import PageToolbar from '@/components/common/PageToolbar.vue'
 import { reportError } from '@/utils/error'
-import request from '@/utils/request'
 import { getInventoryList, getInventoryMovements } from '@/api/product'
 
 const typeName = { in: '入库', out: '出库', adjust: '调整', return: '退货' }

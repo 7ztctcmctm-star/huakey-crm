@@ -282,11 +282,10 @@
 
 <script setup>
 import EmptyState from '@/components/common/EmptyState.vue'
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ElMessage, ElMessageBox } from 'element-plus';
-import request from '@/utils/request';
+import { ElMessage } from 'element-plus';
 import { getSupplierDetail, getSupplierPerformance, addSupplierContact, updateSupplierContact, deleteSupplierContact, addQualification, updateQualification, deleteQualification as deleteQualificationApi, addSupplierRating } from '@/api/product';
 
 const route = useRoute();

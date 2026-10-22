@@ -30,9 +30,9 @@
 </template>
 
 <script setup>
-import { reportError, reportWarn } from '@/utils/error'
-import { reactive, ref, onMounted, computed } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { reportError } from '@/utils/error'
+import { reactive, ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { createPurchaseRequest } from '@/api/purchaseRequest'
 import { getDeptList } from '@/api/system'
@@ -43,7 +43,6 @@ const props = defineProps({
 })
 
 const router = useRouter()
-const route = useRoute()
 const formRef = ref(null)
 const submitting = ref(false)
 const deptOptions = ref([])
@@ -59,8 +58,6 @@ const rules = {
   title: [{ required: true, message: '请输入申请标题', trigger: 'blur' }],
   expected_amount: [{ required: true, message: '请输入预计金额', trigger: 'blur' }]
 }
-
-const requestId = computed(() => route.params.id || props.requestData?.id)
 
 const fetchDepts = async () => {
   try {

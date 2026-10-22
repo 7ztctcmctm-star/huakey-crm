@@ -1,4 +1,4 @@
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 /**
  * 最近访问记录（localStorage）
  * 在客户/合同详情页 onMounted 时调用 recordVisit

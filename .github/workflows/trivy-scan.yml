@@ -76,7 +76,9 @@ jobs:
           format: "sarif"
           output: "trivy-fs-results.sarif"
           severity: "CRITICAL,HIGH"
-          exit-code: "0"
+          # 与 scan-images 对齐：文件系统扫描同样阻断（D2 前为 exit-code 0 只上报不拦截，
+          # 依赖 lockfile 里的 CRITICAL/HIGH 漏洞会无限期滞留无人修）
+          exit-code: "1"
           trivy-config: "trivy.yaml"
           skip-dirs: "node_modules,.git,dist,uploads,database/backups"
 

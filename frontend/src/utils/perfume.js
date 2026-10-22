@@ -1,5 +1,5 @@
 import { onFCP, onLCP, onCLS, onINP, onTTFB } from 'web-vitals';
-import { reportError, reportWarn } from '@/utils/error'
+import { reportWarn } from '@/utils/error'
 
 const isProd = import.meta.env.PROD;
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1';

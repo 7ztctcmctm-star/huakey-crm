@@ -93,7 +93,6 @@ import StateWrapper from '@/components/common/StateWrapper.vue'
 import { reportError } from '@/utils/error'
 import { Plus } from '@element-plus/icons-vue'
 import { getSurveyTemplates, getSurveyCampaigns, getSurveyOverview, saveSurveyCampaign, startCampaign, closeCampaign } from '@/api/tools'
-import request from '@/utils/request'
 
 const typeName = { nps: 'NPS', csat: 'CSAT', custom: '自定义' }
 const typeTag = { nps: '', csat: 'success', custom: 'info' }

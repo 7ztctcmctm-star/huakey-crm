@@ -94,7 +94,7 @@
 </template>
 
 <script setup>
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 import { ref, reactive, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import { Goods, Document, Warning, DocumentChecked, ShoppingCart } from '@element-plus/icons-vue'

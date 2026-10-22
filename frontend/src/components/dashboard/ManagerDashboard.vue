@@ -52,16 +52,16 @@
 </template>
 
 <script setup>
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 import { ref, reactive, onMounted, onActivated, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Trophy } from '@element-plus/icons-vue'
 import StatsCards from '@/components/dashboard/StatsCards.vue'
 import SalesAnalytics from '@/components/dashboard/SalesAnalytics.vue'
 import { formatAmount } from '@/composables/useFormat'
-import { getReportOverview, getReportQuickStats, getReportTodayTasks, getReportOverdueStats } from '@/api/report'
+import { getReportOverview, getReportQuickStats, getReportOverdueStats } from '@/api/report'
 import { getFollowUpTaskStats } from '@/api/customer'
-import { getTeamOverview, getSalesBreakdown } from '@/api/system'
+import { getSalesBreakdown } from '@/api/system'
 import { useDashboardFilters } from '@/composables/useDashboardFilters'
 
 const router = useRouter()

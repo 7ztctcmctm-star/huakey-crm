@@ -14,7 +14,6 @@ vi.mock('@/utils/request', () => {
 import { getFollowUpPlans, addFollowUpPlan, completeFollowUpPlan, cancelFollowUpPlan } from '@/api/customer'
 import request from '@/utils/request'
 const mockPost = request.post
-const mockGet = request.get
 
 describe('Follow Plan API', () => {
   beforeEach(() => { vi.clearAllMocks() })

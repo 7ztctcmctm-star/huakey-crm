@@ -373,12 +373,11 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import PageToolbar from '@/components/common/PageToolbar.vue'
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import request from '@/utils/request'
 import { getServiceList, getServiceDetail, addService, updateService, deleteService, assignService, batchAssignService, startService, finishService, confirmService, getServiceTypes, getServiceStatusList, getServicePriorityList } from '@/api/system'
 import { getCustomerList } from '@/api/customer'
 import { getUserList } from '@/api/system'
@@ -853,7 +852,7 @@ function tableRowClass({ row }) {
   return ''
 }
 
-function handleUploadSuccess(res, file) {
+function handleUploadSuccess(res, _file) {
   if (res.code === 200 && res.data) {
     res.data.forEach(item => {
       if (!attachmentIds.value.includes(item.id)) {

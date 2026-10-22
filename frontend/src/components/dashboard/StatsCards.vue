@@ -313,7 +313,7 @@
 <script setup>
 import {
   TrendCharts, Plus, Document, ShoppingCart, DocumentChecked, Service,
-  Bell, Clock, Warning, Money, Goods, Ticket, Trophy, Calendar
+  Bell, Clock, Warning, Money, Goods, Ticket, Trophy
 } from '@element-plus/icons-vue'
 import AnimatedNumber from '@/components/common/AnimatedNumber.vue'
 

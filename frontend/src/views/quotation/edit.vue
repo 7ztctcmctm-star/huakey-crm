@@ -287,12 +287,11 @@
 
 <script setup>
 import { reportError, reportWarn } from '@/utils/error'
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Plus, Delete, ShoppingCart } from '@element-plus/icons-vue'
-import request from '@/utils/request'
-import { getQuoteList, addQuote, updateQuote, deleteQuote, approveQuote, quoteToContract, getQuoteDetail } from '@/api/quotation'
+import { addQuote, updateQuote, getQuoteDetail } from '@/api/quotation'
 import { getCustomerList, getCustomerDetail } from '@/api/customer'
 import { getProductList, getProductCategories } from '@/api/product'
 import { getCurrencyList } from '@/api/system'
@@ -300,8 +299,6 @@ import { formatAmount } from '@/composables/useFormat'
 
 const router = useRouter()
 const route = useRoute()
-
-const STATUS_MAP = { 1: '草稿', 2: '已发送', 3: '已确认', 4: '已失效' }
 
 const statusOptions = [
   { label: '草稿', value: 1 },

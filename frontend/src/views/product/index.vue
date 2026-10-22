@@ -226,14 +226,13 @@
 </template>
 
 <script setup>
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import PageToolbar from '@/components/common/PageToolbar.vue'
 import { Plus, Edit, Delete, Search, Refresh } from '@element-plus/icons-vue'
-import request from '@/utils/request'
 import { getProductList, addProduct, updateProduct, deleteProduct, getProductCategories, getProductPrices, addProductPrice, deleteProductPrice } from '@/api/product'
 import { formatAmount } from '@/composables/useFormat'
 

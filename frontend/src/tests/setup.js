@@ -1,4 +1,3 @@
-import { config } from '@vue/test-utils'
 import { vi, beforeEach } from 'vitest'
 
 // Mock Element Plus（避�?jsdom 下渲染报错）

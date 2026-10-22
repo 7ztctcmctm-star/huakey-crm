@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import router from '../router'
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 
 // token 续期状态：避免多个 401 请求同时触发续期
 let isRefreshing = false

@@ -76,7 +76,6 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Delete } from '@element-plus/icons-vue'
 import { getSurveyTemplates, saveSurveyTemplate, deleteSurveyTemplate } from '@/api/tools'
-import request from '@/utils/request'
 
 const typeName = { nps: 'NPS', csat: 'CSAT', custom: '自定义' }
 const typeTag = { nps: '', csat: 'success', custom: 'info' }

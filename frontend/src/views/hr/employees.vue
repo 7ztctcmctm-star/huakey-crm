@@ -183,7 +183,6 @@ import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import PageToolbar from '@/components/common/PageToolbar.vue'
 import { reportError } from '@/utils/error'
-import request from '@/utils/request'
 import { getEmployees, getEmployeeStats, getEmployeeDetail, updateEmployeeProfile } from '@/api/hr'
 import { getDeptList, deleteUser } from '@/api/system'
 

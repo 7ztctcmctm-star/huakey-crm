@@ -120,7 +120,7 @@
 </template>
 
 <script setup>
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -129,7 +129,6 @@ import StateWrapper from '@/components/common/StateWrapper.vue'
 import PageToolbar from '@/components/common/PageToolbar.vue'
 import CustomerFormDialog from '@/views/customer/components/CustomerFormDialog.vue'
 import { getLeadsPool, convertLeadToFormal } from '@/api/leads'
-import { addCustomer } from '@/api/customer'
 import { SOURCE_SEARCH_OPTIONS } from '@/constants/source'
 import { formatTime } from '@/composables/useFormat'
 

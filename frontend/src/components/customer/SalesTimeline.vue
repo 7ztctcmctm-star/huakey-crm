@@ -45,7 +45,7 @@
 
 <script setup>
 import EmptyState from '@/components/common/EmptyState.vue'
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 import { ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getOpportunityTimeline } from '@/api/opportunity'

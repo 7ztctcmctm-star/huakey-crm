@@ -55,7 +55,7 @@
                 <template #default="{ row }">{{ formatTime(row.create_time) }}</template>
               </el-table-column>
               <el-table-column label="操作" width="120">
-                <template #default="{ row }">
+                <template #default>
                   <el-button type="primary" link @click="$router.push('/approval/pending')">去审批</el-button>
                 </template>
               </el-table-column>
@@ -87,7 +87,7 @@
                 <template #default="{ row }">{{ formatTime(row.create_time) }}</template>
               </el-table-column>
               <el-table-column label="操作" width="120">
-                <template #default="{ row }">
+                <template #default>
                   <el-button type="primary" link @click="$router.push('/service')">去处理</el-button>
                 </template>
               </el-table-column>

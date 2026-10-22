@@ -1,0 +1,22 @@
+name: 'Seed CI test database (demo data + role permissions)'
+description: >
+  载入 seed-demo.js 业务链数据（demo_admin / demo_sales / demo_purchase 等）并执行
+  backend/scripts/init_role_permissions.js 填充 sys_permission / sys_role_permission。
+  权限唯一事实来源与生产 deploy.sh [11/12] 步保持同一脚本。前置：backend 依赖已 npm ci，
+  ci-mysql 已就绪且基线（setup-test-db）已导入。
+runs:
+  using: composite
+  steps:
+    - name: Load Demo seed data (demo_admin / demo_sales / demo_purchase)
+      shell: bash
+      # E2E 通过 .env.test 的 E2E_ADMIN_USER=demo_admin 登录，需先 seed Demo 账号 + 业务链
+      # seed-demo.js 自带生产环境阻断 + 幂等保护
+      run: cd backend && DB_NAME=huakey_crm_test DB_USER=root DB_PASSWORD=test_root_pass DB_HOST=127.0.0.1 DB_PORT=3306 npm run seed:demo
+    - name: Init role permissions (populate sys_permission / sys_role_permission)
+      shell: bash
+      # 权限的唯一事实来源是 backend/scripts/init_role_permissions.js
+      # （生产由 deploy/deploy.sh 第 [11/12] 步执行；此处保持同一脚本，避免出现第二个事实来源）。
+      # 缺此步的后果：sys_permission / sys_role_permission 为空，
+      # 除 admin（super_admin，走 manageAll 白名单）外，任何真实角色都会 403。
+      # 前置依赖：demo_roles.sql 必须已建出 boss/manager/sales/hr/purchase/finance/engineer。
+      run: cd backend && DB_NAME=huakey_crm_test DB_USER=root DB_PASSWORD=test_root_pass DB_HOST=127.0.0.1 DB_PORT=3306 node scripts/init_role_permissions.js

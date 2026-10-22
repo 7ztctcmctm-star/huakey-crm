@@ -59,7 +59,7 @@
 </template>
 
 <script setup>
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 import { ref, reactive, computed, onMounted, onActivated, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { TrendCharts } from '@element-plus/icons-vue'

@@ -81,7 +81,6 @@
 import { ref, onMounted } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import request from '@/utils/request'
 import { getCurrencyList, updateCurrency } from '@/api/system'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'

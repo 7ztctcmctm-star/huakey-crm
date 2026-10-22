@@ -79,7 +79,7 @@
 </template>
 
 <script setup>
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 import { ref, onMounted, nextTick, watch } from 'vue'
 import { getPredictionEnhanced } from '@/api/report'
 import echarts from '@/composables/useECharts'
@@ -127,7 +127,6 @@ const renderChart = () => {
   const maData = [...new Array(histMonths.length).fill(null), ...predictions.value.map(p => p.moving_avg)]
   const lrData = [...new Array(histMonths.length).fill(null), ...predictions.value.map(p => p.linear_regression)]
   const seasonData = [...new Array(histMonths.length).fill(null), ...predictions.value.map(p => p.seasonal)]
-  const confLow = [...new Array(histMonths.length).fill(null), ...predictions.value.map(p => p.confidence_low)]
   const confHigh = [...new Array(histMonths.length).fill(null), ...predictions.value.map(p => p.confidence_high)]
 
   chart.setOption({

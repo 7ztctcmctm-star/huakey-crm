@@ -339,7 +339,7 @@
 </template>
 
 <script setup>
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
@@ -348,8 +348,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus, ArrowUp, View, ArrowDown } from '@element-plus/icons-vue'
-import request from '@/utils/request'
-import { getOpportunityList, addOpportunity, updateOpportunity, deleteOpportunity, updateOpportunityStage, getSalesFunnel, getOpportunityDetail, getOpportunityStageLog } from '@/api/opportunity'
+import { getOpportunityList, addOpportunity, updateOpportunity, deleteOpportunity, updateOpportunityStage, getSalesFunnel } from '@/api/opportunity'
 import { getUserList } from '@/api/system'
 import { getCustomerList } from '@/api/customer'
 import { formatTime, formatAmount } from '@/composables/useFormat'

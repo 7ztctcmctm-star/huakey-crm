@@ -221,7 +221,7 @@
 </template>
 
 <script setup>
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import PageToolbar from '@/components/common/PageToolbar.vue'
@@ -229,8 +229,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus, View, Edit, ArrowDown } from '@element-plus/icons-vue'
-import request from '@/utils/request'
-import { getQuoteList, addQuote, updateQuote, deleteQuote, approveQuote, quoteToContract, getQuoteDetail } from '@/api/quotation'
+import { getQuoteList, updateQuote, deleteQuote, approveQuote, quoteToContract, getQuoteDetail } from '@/api/quotation'
 import { submitApproval, withdrawApproval } from '@/api/tools'
 import { formatTime, formatAmount } from '@/composables/useFormat'
 

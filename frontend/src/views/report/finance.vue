@@ -71,6 +71,7 @@ import echarts from '@/composables/useECharts'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import { reportError } from '@/utils/error'
+import { chartColors } from '@/utils/chartTheme'
 
 const loading = ref(true)   // onMounted 无条件取数，初值 true 消除首帧「暂无财务数据」闪现
 const errorMsg = ref('')

@@ -181,12 +181,11 @@
 </template>
 
 <script setup>
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { ArrowDown } from '@element-plus/icons-vue';
-import request from '@/utils/request';
 import { getPurchaseDetail, updatePurchaseStatus, addReceipt, addPurchasePayment } from '@/api/product';
 
 const route = useRoute();

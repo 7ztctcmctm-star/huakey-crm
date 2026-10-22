@@ -236,7 +236,6 @@ import { ElMessage } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import { reportError } from '@/utils/error'
-import request from '@/utils/request'
 import { getMergedPayments, getPaymentSummary, exportPayments, exportPaymentStatement, searchContract, addPayment, getPaymentList } from '@/api/contract'
 
 const router = useRouter()

@@ -23,7 +23,7 @@ import { logout } from '@/api/auth'
 import { useUser } from '@/composables/useUser'
 import { disconnectSSE } from '@/utils/sse'
 
-const props = defineProps({
+defineProps({
   userInfo: { type: Object, default: () => ({}) }
 })
 

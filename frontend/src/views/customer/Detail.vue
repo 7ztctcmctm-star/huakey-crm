@@ -547,7 +547,6 @@ import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Plus, Edit, EditPen, Delete, User, Clock, Share, Refresh, Phone, Message, Location, ChatLineRound, ArrowRight, Warning } from '@element-plus/icons-vue'
-import request from '@/utils/request'
 import { getCustomer360, updateCustomer, assignCustomer, releaseCustomer, getSalesUsers, addContact, updateContact, deleteContact, calculateCustomerScore, forwardCustomer, backwardCustomer } from '@/api/customer'
 import { addFollowUp, updateFollowUp, deleteFollowUp, getFollowupTemplates } from '@/api/customer'
 import { getEmailList } from '@/api/tools'
@@ -559,7 +558,6 @@ import { ALL_SOURCE_VALUES } from '@/constants/source'
 import { useUser } from '@/composables/useUser'
 import SalesTimeline from '@/components/customer/SalesTimeline.vue'
 import {
-  CustomerStatus,
   getStatusLabel,
   getStatusTagType,
   canForward as canForwardStatus,

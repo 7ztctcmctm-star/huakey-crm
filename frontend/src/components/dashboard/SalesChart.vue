@@ -156,7 +156,7 @@ import {
   getReportSalesFunnel
 } from '@/api/report'
 
-const emit = defineEmits(['quick-action'])
+defineEmits(['quick-action'])
 
 const performanceRank = ref([])
 const rankLoading = ref(false)

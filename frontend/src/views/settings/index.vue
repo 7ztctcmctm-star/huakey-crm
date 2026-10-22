@@ -133,7 +133,6 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import request from '@/utils/request'
 import { getConfigList, updateConfig, testNotification, getHealth } from '@/api/system'
 import { getUserList } from '@/api/system'
 import { getCustomerList } from '@/api/customer'

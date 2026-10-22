@@ -144,7 +144,6 @@ import { ref, reactive, computed, onMounted, onActivated, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Plus } from '@element-plus/icons-vue'
-import request from '@/utils/request'
 import { getContractDetail, addPayment, deletePayment as deletePaymentApi, getContractItems } from '@/api/contract'
 import { recordVisit } from '@/composables/useRecentVisit'
 

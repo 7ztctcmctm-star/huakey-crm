@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 import request from '@/utils/request'
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 
 const userInfo = ref(null)
 let authChecked = false

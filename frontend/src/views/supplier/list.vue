@@ -222,7 +222,7 @@
 </template>
 
 <script setup>
-import { reportError, reportWarn } from '@/utils/error'
+import { reportError } from '@/utils/error'
 import { ref, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -230,7 +230,6 @@ import { Plus } from '@element-plus/icons-vue';
 import TableSkeleton from '@/components/common/TableSkeleton.vue';
 import StateWrapper from '@/components/common/StateWrapper.vue';
 import PageToolbar from '@/components/common/PageToolbar.vue';
-import request from '@/utils/request';
 import { getSupplierList, addSupplier, updateSupplier, deleteSupplier } from '@/api/product';
 
 const router = useRouter();
