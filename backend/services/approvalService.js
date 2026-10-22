@@ -452,7 +452,13 @@ async function withdrawApproval(pool, businessType, businessId, userId) {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-    await conn.query('DELETE FROM crm_approval_record WHERE business_type = ? AND business_id = ? AND status = "pending"', [businessType, businessId]);
+    // 撤回 = 状态取消而非物理删除：审批记录是审计痕迹，删了就无法回答
+    // 「这个单据当初走到哪一步、为什么没批」。canceled 记录仍会被
+    // getApprovalDetail / 前端审批进度时间线照常渲染（见 submitted.vue statusNameMap）。
+    await conn.query(
+      'UPDATE crm_approval_record SET status = "canceled", remark = "申请人撤回", update_time = NOW() WHERE business_type = ? AND business_id = ? AND status = "pending"',
+      [businessType, businessId]
+    );
     await conn.query(`UPDATE ${validateTable(tableName)} SET approval_status = 0 WHERE id = ?`, [businessId]);
     await conn.commit();
   } catch (err) { await conn.rollback(); throw err; } finally { conn.release(); }

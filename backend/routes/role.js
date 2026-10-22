@@ -5,6 +5,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permission');
 const { clearPermissionCache, clearAllPermissionCache } = require('../services/permissionService');
 const { validate, Joi } = require('../middleware/validate');
+const AppError = require('../errors/AppError');
 const roleService = require('../services/roleRouteService');
 
 const router = express.Router();
@@ -68,8 +69,11 @@ router.post('/delete', authenticateToken, requireAdmin, validate(roleDeleteSchem
     res.json({ code: 200, message: '删除角色成功', data: null });
   } catch (error) {
     logger.error('[角色管理] 删除角色失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
-    if (error.message.includes('无法删除')) {
-      return res.status(400).json({ code: 400, message: error.message, data: null });
+    // AppError（占用冲突 RESOURCE_IN_USE 409 等）在路由层直接转响应，与 dept.js 的
+    // error 分支及本文件其他端点风格一致；不再按 error.message 字符串匹配
+    // （历史冗余分支，曾把 409 压成 400）。未知错误继续交 errorHandler 兜底。
+    if (error instanceof AppError) {
+      return res.status(error.httpStatus).json(error.toJSON());
     }
     next(error);
   }

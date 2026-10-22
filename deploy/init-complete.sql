@@ -695,8 +695,10 @@ CREATE TABLE `crm_customer_score_log` (
   `total_score` int NOT NULL COMMENT '总分',
   `remark` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL COMMENT '软删时间（评分重算时封版旧行）',
   PRIMARY KEY (`id`),
   KEY `idx_csl_customer` (`customer_id`),
+  KEY `idx_csl_customer_deleted` (`customer_id`,`deleted_at`),
   KEY `idx_csl_rule` (`rule_id`),
   CONSTRAINT `fk_csl_rule` FOREIGN KEY (`rule_id`) REFERENCES `crm_score_rule` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_score_log_customer` FOREIGN KEY (`customer_id`) REFERENCES `crm_customer` (`id`) ON DELETE SET NULL

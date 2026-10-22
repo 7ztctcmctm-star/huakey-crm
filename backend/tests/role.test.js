@@ -130,7 +130,7 @@ describe('角色管理模块', () => {
       expect(res.body.code).toBe(400);
     });
 
-    it('应该返回400当角色下有用户时拒绝删除', async () => {
+    it('应该返回409当角色下有用户时拒绝删除（C3：占用冲突改 409 RESOURCE_IN_USE）', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
@@ -142,8 +142,25 @@ describe('角色管理模块', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1 });
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(409);
       expect(res.body.message).toContain('用户');
+    });
+
+    it('应该返回409当角色已配置权限时拒绝删除（C3 新增占用检查项）', async () => {
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
+        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ cnt: 0 }]])  // no users
+        .mockResolvedValueOnce([[{ cnt: 37 }]]); // has role-permission rows
+
+      const res = await request(app)
+        .post('/api/v1/role/delete')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ id: 1 });
+
+      expect(res.status).toBe(409);
+      expect(res.body.message).toContain('权限');
     });
 
     it('应该返回200当正常删除角色', async () => {
@@ -152,6 +169,7 @@ describe('角色管理模块', () => {
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ cnt: 0 }]])  // no users
+        .mockResolvedValueOnce([[{ cnt: 0 }]])  // no role-permission rows (C3 新增检查)
         .mockResolvedValueOnce([{ affectedRows: 1 }])
         .mockResolvedValueOnce([[]]); // users with deleted role (for cache invalidation)
 

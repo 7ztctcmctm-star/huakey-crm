@@ -483,7 +483,7 @@ async function getCustomer360(pool, customerId, permission = null) {
       SELECT l.score, l.total_score, l.remark, l.create_time, r.name as rule_name
       FROM crm_customer_score_log l
       LEFT JOIN crm_score_rule r ON l.rule_id = r.id
-      WHERE l.customer_id = ?
+      WHERE l.customer_id = ? AND l.deleted_at IS NULL
       ORDER BY l.create_time DESC LIMIT 20
     `, [customerId])
   ]);

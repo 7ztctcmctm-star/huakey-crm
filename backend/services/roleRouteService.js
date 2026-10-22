@@ -56,13 +56,23 @@ async function updateRole(pool, params, clearPermissionCache, clearAllPermission
  * @param {function} clearPermissionCache - 清除权限缓存函数
  * @param {function} clearAllPermissionCache - 清除所有权限缓存函数
  * @returns {boolean} 是否删除成功
- * @throws {Error} 如果角色下有用户则抛出错误
+ * @throws {AppError} RESOURCE_IN_USE(409) 如果角色下有用户或已配置权限
+ *
+ * 占用检查两项缺一不可：
+ *   1. sys_user.role_id —— 有用户则角色仍是这些用户的身份载体，删了会把人变成孤儿；
+ *   2. sys_role_permission.role_id —— 有权限配置则删除会静默丢掉整套授权矩阵
+ *      （生产 init_role_permissions.js 重建成本高，且丢配无感知）。
  */
 async function deleteRole(pool, id, clearPermissionCache, clearAllPermissionCache) {
   // 检查是否有用户关联该角色
   const [users] = await pool.query('SELECT COUNT(*) as cnt FROM sys_user WHERE role_id = ?', [id]);
   if (users[0].cnt > 0) {
-    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, `该角色下有 ${users[0].cnt} 个用户，无法删除`);
+    throw new AppError(ErrorCodes.RESOURCE_IN_USE, `该角色下有 ${users[0].cnt} 个用户，无法删除`);
+  }
+  // 检查是否已配置权限（sys_role_permission 行即授权矩阵，删除即丢失）
+  const [perms] = await pool.query('SELECT COUNT(*) as cnt FROM sys_role_permission WHERE role_id = ?', [id]);
+  if (perms[0].cnt > 0) {
+    throw new AppError(ErrorCodes.RESOURCE_IN_USE, `该角色已配置 ${perms[0].cnt} 项权限，无法删除`);
   }
   await pool.query('DELETE FROM sys_role WHERE id=?', [id]);
   // 删除角色后清除该角色所有用户的权限缓存

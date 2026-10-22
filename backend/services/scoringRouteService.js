@@ -160,7 +160,10 @@ async function saveScoreResult(pool, customerId, totalScore, matchedRules) {
   // 经客户域受控入口（R-06）；行为与原先直接 UPDATE 一致
   await customerService.systemUpdateScore(pool, customerId, totalScore);
 
-  await pool.query('DELETE FROM crm_customer_score_log WHERE customer_id = ?', [customerId]);
+  // 评分历史留痕：原「先 DELETE 后 INSERT」会把历史曲线一次抹平，
+  // 客户「为什么是 80 分」只能看到最后一次重算结果。改为软删旧行（迁移 124
+  // 新增 deleted_at），重算即「封版上一版」，读取侧统一过滤 deleted_at IS NULL。
+  await pool.query('UPDATE crm_customer_score_log SET deleted_at = NOW() WHERE customer_id = ? AND deleted_at IS NULL', [customerId]);
   if (matchedRules.length > 0) {
     const logValues = matchedRules.map(r => [customerId, r.id, r.score, totalScore, `规则"${r.name}"命中`]);
     await pool.query(
@@ -267,7 +270,7 @@ async function getCustomerScore(pool, customerId) {
            r.name as rule_name, r.condition_type
     FROM crm_customer_score_log l
     LEFT JOIN crm_score_rule r ON l.rule_id = r.id
-    WHERE l.customer_id = ?
+    WHERE l.customer_id = ? AND l.deleted_at IS NULL
     ORDER BY l.create_time DESC
     LIMIT 50
   `, [customerId]);

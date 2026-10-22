@@ -180,6 +180,28 @@ describe('迁移链完整性守卫', () => {
     expect(rows.length).toBeGreaterThanOrEqual(3);
   });
 
+  // ---- 124：评分日志软删（记账齐了 ≠ 列真的加了） ----
+
+  it('124: crm_customer_score_log.deleted_at 与复合索引应存在（C3 软删读路径依赖）', async () => {
+    if (!reachable) return;
+    // 实测依据：scoringRouteService.saveScoreResult 写 'UPDATE ... SET deleted_at = NOW()
+    // WHERE customer_id = ? AND deleted_at IS NULL'，getCustomerScore / customerDetailService
+    // 读路径均过滤 deleted_at IS NULL —— 列缺失即 ERROR 1054。
+    const [cols] = await pool.query(
+      `SELECT COUNT(*) AS n FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_customer_score_log'
+          AND COLUMN_NAME = 'deleted_at'`
+    );
+    expect(cols[0].n).toBe(1);
+
+    const [idx] = await pool.query(
+      `SELECT COUNT(DISTINCT INDEX_NAME) AS n FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_customer_score_log'
+          AND INDEX_NAME = 'idx_csl_customer_deleted'`
+    );
+    expect(idx[0].n).toBe(1);
+  });
+
   // ---- 123：完整性约束（记账齐了 ≠ 约束真的落了） ----
 
   it('123: crm_invoice.invoice_no 应有唯一约束（防重号发票）', async () => {

@@ -58,6 +58,33 @@ Playwright contract-flow 不覆盖取消）。
 
 ---
 
+## 2026-10-22 · C3 软删契约新增（@c124 / @i124，92 → 94）
+
+### 背景
+
+C3 删除逻辑治理新增迁移 124：`crm_customer_score_log.deleted_at` 软删列 +
+复合索引 `idx_csl_customer_deleted (customer_id, deleted_at)`。
+按契约文件头部原则，新列/新索引必须有不变量锁定，防止「init-complete.sql 被
+手工改瘦」导致 CI 库缺列而软删查询报 ERROR 1054（B4 幻影列教训的同向防御）。
+
+### 变更内容
+
+- `deploy/ci-missing-tables-verify.sql`：末尾追加两条探测，tag 按迁移号命名：
+  - `@c124`：`crm_customer_score_log.deleted_at` 列存在，expected = 1；
+  - `@i124`：`idx_csl_customer_deleted` 索引存在（COUNT DISTINCT INDEX_NAME），expected = 1。
+- invariant 总数 92 → **94**；`.github/actions/setup-test-db/action.yml` 三处
+  「92」口径同步改为 94（描述行 / 校验回显 / 通过回显）。
+- `deploy/init-complete.sql` 的 `crm_customer_score_log` 建表块同步加列与加 KEY
+  （CI 建库事实源，不同步即缺列）。
+
+### 与 10-21 幻影列修复的区别
+
+10-21 是「列在生产不存在 → expected 翻 0」的**反向锁定**；
+本次是「列确实应该有 → expected = 1」的**正向锁定**，两者共同构成
+「契约只认生产实测 + 迁移终态」的完整立场。
+
+---
+
 *2026-09-14 契约冻结时的初始 92 项集合由 `scripts/build-n05-verify.py` 生成，
 该生成器与数据源 `deploy/ci-missing-tables.sql` 已随「基线扶正」一并退役；
 此后契约只能手工编辑并以本文档留痕。*

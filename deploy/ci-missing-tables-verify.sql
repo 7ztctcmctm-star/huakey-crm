@@ -1,5 +1,5 @@
 -- ============================================================
--- N-05 verify: 库结构 92 项 invariant 校验（独立契约）
+-- N-05 verify: 库结构 94 项 invariant 校验（独立契约）
 -- ============================================================
 -- ⚠ 本文件已**冻结为独立校验契约**（2026-09-14 起不再自动生成）。
 --    · 生成器 `scripts/build-n05-verify.py` 与其数据源 `deploy/ci-missing-tables.sql`
@@ -11,7 +11,7 @@
 --       mysql client 默认继续执行并退出 0,导致"看似建好实际缺约束/列/索引"。
 --       故用 information_schema 重放每段 WHERE 条件与期望值对照,把静默失败变可见。
 -- 现状:该 invariant 集合已转为**建库终态的验收标准**——任何自举路径
---       (仅 init-complete.sql / init-complete + 全部迁移) 都必须满足 92/92。
+--       (仅 init-complete.sql / init-complete + 全部迁移) 都必须满足 94/94。
 -- 方案:不达标则由调用脚本 scripts/verify-ci-missing-tables.sh 决定 exit 1。
 -- 设计:不创建 TEMP 表(MEMORY engine 二次引用触发 1137),
 --       改用一个嵌套 SELECT + UNION ALL 一次输出明细与汇总。
@@ -226,6 +226,12 @@ FROM (
   SELECT '@c109' AS tag, (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_follow_up' AND COLUMN_NAME = 'opportunity_id') AS actual, 1 AS expected, IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_follow_up' AND COLUMN_NAME = 'opportunity_id') = 1, 1, 0) AS pass
   UNION ALL
   SELECT '@i109' AS tag, (SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_follow_up' AND INDEX_NAME = 'idx_fu_opportunity') AS actual, 1 AS expected, IF((SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_follow_up' AND INDEX_NAME = 'idx_fu_opportunity') = 1, 1, 0) AS pass
+  UNION ALL
+  -- [2026-10-22 C3] 迁移 124：crm_customer_score_log 软删列（重算封版旧行，读路径过滤）
+  SELECT '@c124' AS tag, (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_customer_score_log' AND COLUMN_NAME = 'deleted_at') AS actual, 1 AS expected, IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_customer_score_log' AND COLUMN_NAME = 'deleted_at') = 1, 1, 0) AS pass
+  UNION ALL
+  -- [2026-10-22 C3] 迁移 124：复合索引 (customer_id, deleted_at) 服务「按客户查未删日志」读模式
+  SELECT '@i124' AS tag, (SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_customer_score_log' AND INDEX_NAME = 'idx_csl_customer_deleted') AS actual, 1 AS expected, IF((SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_customer_score_log' AND INDEX_NAME = 'idx_csl_customer_deleted') = 1, 1, 0) AS pass
 ) AS __n05_checklist
 INTO @__n05_per_item, @__n05_passed, @__n05_total, @__n05_failed;
 

@@ -126,7 +126,7 @@ describe('部门管理模块', () => {
       expect(res.body.code).toBe(400);
     });
 
-    it('应该返回400当有子部门时拒绝删除', async () => {
+    it('应该返回409当有子部门时拒绝删除（C3：占用冲突改 409 RESOURCE_IN_USE）', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
@@ -138,11 +138,11 @@ describe('部门管理模块', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1 });
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(409);
       expect(res.body.message).toContain('子部门');
     });
 
-    it('应该返回400当部门下有用户时拒绝删除', async () => {
+    it('应该返回409当部门下有用户时拒绝删除（C3：占用冲突改 409）', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
         .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
@@ -155,7 +155,7 @@ describe('部门管理模块', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({ id: 1 });
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(409);
       expect(res.body.message).toContain('用户');
     });
 

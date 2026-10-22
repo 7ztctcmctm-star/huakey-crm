@@ -33,17 +33,19 @@ async function updateDept(pool, { id, name, parent_id, sort }) {
 
 /**
  * 删除部门（检查子部门和用户关联）
+ * 占用冲突返回 409（RESOURCE_IN_USE）——语义为「目标资源被占用」，
+ * 区别于 400「请求本身不合法」。HTTP 状态码经 routes/dept.js 原样透传。
  */
 async function deleteDept(pool, { id }) {
   // 检查是否有子部门
   const [children] = await pool.query('SELECT COUNT(*) as cnt FROM sys_dept WHERE parent_id = ?', [id]);
   if (children[0].cnt > 0) {
-    return { error: `该部门下有 ${children[0].cnt} 个子部门，无法删除`, status: 400 };
+    return { error: `该部门下有 ${children[0].cnt} 个子部门，无法删除`, status: 409 };
   }
   // 检查是否有用户属于该部门
   const [users] = await pool.query('SELECT COUNT(*) as cnt FROM sys_user WHERE dept_id = ?', [id]);
   if (users[0].cnt > 0) {
-    return { error: `该部门下有 ${users[0].cnt} 个用户，无法删除`, status: 400 };
+    return { error: `该部门下有 ${users[0].cnt} 个用户，无法删除`, status: 409 };
   }
   await pool.query('DELETE FROM sys_dept WHERE id=?', [id]);
   return { success: true };

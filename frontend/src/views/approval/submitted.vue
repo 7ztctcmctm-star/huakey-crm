@@ -36,6 +36,7 @@
               <div v-for="(h, idx) in row.approval_history" :key="idx" class="history-step">
                 <el-icon v-if="h.status === 'approved'" class="text-success"><SuccessFilled /></el-icon>
                 <el-icon v-else-if="h.status === 'rejected'" class="text-danger"><CircleCloseFilled /></el-icon>
+                <el-icon v-else-if="h.status === 'canceled'" style="color: var(--color-text-secondary)"><RefreshRight /></el-icon>
                 <el-icon v-else style="color: var(--color-text-secondary)"><Clock /></el-icon>
                 <span>{{ h.step_name }}: {{ h.approver || '-' }}</span>
                 <span v-if="h.remark" class="history-remark">（{{ h.remark }}）</span>
@@ -58,14 +59,14 @@ import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import { reportError } from '@/utils/error'
 import { ref, onMounted } from 'vue'
-import { SuccessFilled, CircleCloseFilled, Clock } from '@element-plus/icons-vue'
+import { SuccessFilled, CircleCloseFilled, Clock, RefreshRight } from '@element-plus/icons-vue'
 import { getMySubmitted } from '@/api/tools'
 import { formatTime } from '@/composables/useFormat'
 
 const typeNameMap = { quote: '报价', contract: '合同', purchase: '采购', discount: '折扣' }
 const typeTagMap = { quote: '', contract: 'success', purchase: 'warning', discount: 'info' }
-const statusNameMap = { 1: '待审批', 2: '已通过', 3: '已拒绝', pending: '待审批', approved: '已通过', rejected: '已拒绝' }
-const statusTypeMap = { 1: 'warning', 2: 'success', 3: 'danger', pending: 'warning', approved: 'success', rejected: 'danger' }
+const statusNameMap = { 1: '待审批', 2: '已通过', 3: '已拒绝', pending: '待审批', approved: '已通过', rejected: '已拒绝', canceled: '已撤回' }
+const statusTypeMap = { 1: 'warning', 2: 'success', 3: 'danger', pending: 'warning', approved: 'success', rejected: 'danger', canceled: 'info' }
 
 // onMounted 无条件取数，初值 true 消除首帧空态闪现
 const loading = ref(true)

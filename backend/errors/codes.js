@@ -31,6 +31,8 @@ const ErrorCodes = {
   CAPTCHA_EXPIRED:      { code: 400003, httpStatus: 400, message: '验证码已过期' },
   CAPTCHA_WRONG:        { code: 400004, httpStatus: 400, message: '验证码错误' },
   BUSINESS_VALIDATION:  { code: 400005, httpStatus: 400, message: '业务校验失败' },
+  // 资源冲突 409xxx（目标资源被占用导致操作无法完成，如删有下属/用户的部门、有用户的角色）
+  RESOURCE_IN_USE:      { code: 409001, httpStatus: 409, message: '资源被占用，无法删除' },
   // 金额一致性 422xxx（语义正确但自相矛盾，重发同样的请求永远不会对）
   INVOICE_TAX_MISMATCH: { code: 422001, httpStatus: 422, message: '税额与「金额 × 税率」不一致' },
   // 服务器 500xxx

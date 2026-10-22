@@ -1,7 +1,7 @@
 name: 'Setup CI test database (baseline + N-05 invariants)'
 description: >
   导入 deploy/init-complete.sql 基线（库名改写为 huakey_crm_test）→ 跑 deploy/ci-missing-tables-verify.sql
-  的 92 项列/索引/唯一键不变量校验 → 建 CI 测试用户 → 把全部迁移版本标记为已执行。
+  的 94 项列/索引/唯一键不变量校验 → 建 CI 测试用户 → 把全部迁移版本标记为已执行。
   与 ci.yml 中 integration-test / e2e-test / migration-test / cross-browser-test 四个作业共用，
   避免同一段 30 行逻辑四份拷贝漂移。前置：ci-mysql 容器已 up 且 mysqladmin ping 通。
 runs:
@@ -13,7 +13,7 @@ runs:
         echo "Importing init-complete.sql..."
         sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/init-complete.sql | \
         docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
-        echo "Verifying N-05: 92 invariants (列/索引/唯一键) against baseline..."
+        echo "Verifying N-05: 94 invariants (列/索引/唯一键) against baseline..."
         sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" deploy/ci-missing-tables-verify.sql | \
         docker exec -i ci-mysql mysql --batch -u root -ptest_root_pass huakey_crm_test > /tmp/n05-verify.tsv
         N05_RC=$?
@@ -28,7 +28,7 @@ runs:
           cat /tmp/n05-verify.tsv
           exit 1
         fi
-        echo "✓ N-05 verify: 92/92 invariants satisfied"
+        echo "✓ N-05 verify: 94/94 invariants satisfied"
         echo "Creating CI test users (from .github/ci/test-users.sql)..."
         sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" .github/ci/test-users.sql | \
         docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
