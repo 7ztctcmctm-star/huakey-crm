@@ -1,12 +1,14 @@
 module.exports = {
   testEnvironment: 'node',
   // Coverage thresholds — start conservatively, raise over time
+  // [2026-10-22 D1] lines/statements 40 → 55（新增 64 用例后实测 60.93 / 57.71，留缓冲）。
+  // 只升不降约定见 AGENTS.md 7.30：下调门槛视为回归，须先删等量不可覆盖代码或补测试。
   coverageThreshold: {
     global: {
       branches: 30,
       functions: 40,
-      lines: 40,
-      statements: 40
+      lines: 55,
+      statements: 55
     }
   },
   coveragePathIgnorePatterns: [

@@ -261,7 +261,8 @@ describe('M-006 / M-007 · docker-compose 部署配置', () => {
           'M-007 生效配置未验证；上方静态断言已通过。');
         return;
       }
-      expect(resolved.services.backend.mem_limit).toBe(512 * 1024 * 1024);
+      // Compose v5 起 config 输出把所有标量序列化为字符串（"536870912"），归一化后比较
+      expect(Number(resolved.services.backend.mem_limit)).toBe(512 * 1024 * 1024);
       expect(resolved.services.backend.healthcheck).toBeDefined();
     });
   });

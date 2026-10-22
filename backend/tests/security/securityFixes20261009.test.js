@@ -243,7 +243,8 @@ describe('H-003 · 报价创建的客户数据权限校验', () => {
 // ============================================================================
 describe('H-004 · 报价转合同的数据权限校验', () => {
   function makeReq(dataPermission = { type: 'self', userId: 5, ownerColumn: 'create_by' }) {
-    return { body: { id: 300 }, user: { userId: 5, roleCode: 'sales' }, dataPermission, traceId: 'test' };
+    // headers 必须提供：toContract 读 req.headers['idempotency-key']，缺了会 TypeError 走 next
+    return { body: { id: 300 }, user: { userId: 5, roleCode: 'sales' }, dataPermission, headers: {}, traceId: 'test' };
   }
 
   it('报价不存在或无权限（getQuote 返回 null）时应返回 403 且不转合同', async () => {

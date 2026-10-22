@@ -61,8 +61,14 @@ jobs:
             echo "::error::npm audit 失败且非注册表/网络瞬时错误（疑似真实漏洞），不重试"
             exit 1
           done
-          echo "::error::npm audit 连续 3 次因注册表/网络瞬时错误失败"
-          exit 1
+            echo "::error::npm audit 连续 3 次因注册表/网络瞬时错误失败"
+            exit 1
+      # 安全回归套件（cors/headers/rateLimit/upload/两轮 securityFixes）：
+      # jest.config.js 的 testPathIgnorePatterns 排除 tests/security/，npm test 不跑它们；
+      # 由本 step 显式驱动（--testPathIgnorePatterns 覆盖排除，同 migration-test 对 roundtrip 的处理）。
+      # 2026-10-22 D1 接入：此前只在本地跑，两处存量失败（mock req 缺 headers、
+      # Compose v5 把 mem_limit 序列化为字符串）从未被 CI 暴露。
+      - run: cd backend && npm run test:security
 
   frontend-test:
     runs-on: ubuntu-latest

@@ -422,6 +422,21 @@ timezone、文件权限、**上传文件持久化、数据库持久化**。
 try/catch 缺失、async 错误、null/undefined、类型问题、magic number、magic string、
 hardcode、环境变量使用错误。
 
+### 7.30 测试覆盖率只升不降（2026-10-22 立）
+
+- `backend/jest.config.js` 的 `coverageThreshold.global` 是**门禁**，不是参考值：
+  `npm test` 低于门槛即退出码非 0，CI backend-test 同步拦截。
+- **只升不降**：上调门槛须随 commit 附实测覆盖率证据（`--coverageReporters=json-summary`
+  读 `coverage/coverage-summary.json`）；**下调门槛视为回归**，须先删除等量的
+  不可覆盖代码（死代码/遗留分支）或补测试，并在交付文档说明理由。
+- 当前门槛（2026-10-22 D1）：`lines` / `statements` 55（实测 60.93 / 57.71），
+  `branches` 30、`functions` 40 维持原值，按同一约定只升不降。
+- 覆盖率口径：`coveragePathIgnorePatterns` 排除 `node_modules/`、`tests/`、`config/`；
+  测试文件本身不计入分母。
+- 安全套件（`backend/tests/security/`）不进默认 `npm test`，由
+  `npm run test:security` 单独驱动（本地 + CI security-scan 双门禁），
+  同样受「全绿才能交付」约束。
+
 ---
 
 ## 第八章 · 每个 Phase 必须输出的 13 项
