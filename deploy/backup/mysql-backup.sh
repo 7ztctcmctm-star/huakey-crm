@@ -90,6 +90,13 @@ set -e
 
 if [ "$DUMP_EXIT" -eq 0 ]; then
 
+  # 完整性校验：gzip 流可完整解压（与容器版 database/backup.sh 同级口径）
+  if ! gzip -t "$DAILY_PATH" 2>/dev/null; then
+    log "FATAL: gzip 完整性校验失败，删除 ${DAILY_FILENAME}"
+    rm -f "$DAILY_PATH"
+    exit 1
+  fi
+
   # 验证备份文件非空
   BACKUP_SIZE=$(stat -c%s "$DAILY_PATH" 2>/dev/null || stat -f%z "$DAILY_PATH" 2>/dev/null || echo 0)
   if [ "$BACKUP_SIZE" -lt 100 ]; then
@@ -98,9 +105,12 @@ if [ "$DUMP_EXIT" -eq 0 ]; then
     exit 1
   fi
 
+  # dump 含全量业务数据，收紧为 600（与容器版对齐）
+  chmod 600 "$DAILY_PATH"
+
   # 完整性校验：解压测试 + 表计数
   TABLE_COUNT=$(zcat "$DAILY_PATH" 2>/dev/null | grep -c "^CREATE TABLE" || echo 0)
-  log "每日备份完成: ${DAILY_FILENAME} (${BACKUP_SIZE} bytes, ${TABLE_COUNT} 表)"
+  log "每日备份完成: ${DAILY_FILENAME} (${BACKUP_SIZE} bytes, ${TABLE_COUNT} 表, 完整性校验通过, 权限 600)"
 else
   log "FATAL: mysqldump 失败"
   rm -f "$DAILY_PATH"

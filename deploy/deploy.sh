@@ -185,6 +185,25 @@ set -a
 source "$PROJECT_DIR/.env.secrets"
 set +a
 
+# 2b. 备份加密口令文件（D3）
+# config 备份含 .env.secrets 明文密钥，必须加密后落盘；口令文件仅存 NAS 宿主机
+# （.backup-enc-pass，600），不入仓库、不进备份产物。
+# 已存在则绝不覆盖——覆盖会使历史加密备份全部不可读。
+# 口令同时是 deploy/backup/container-backup.sh run_config 的加密输入。
+ENC_PASS_FILE="${PROJECT_DIR}/.backup-enc-pass"
+if [ ! -f "$ENC_PASS_FILE" ]; then
+    if command -v openssl >/dev/null 2>&1; then
+        ( umask 077 && openssl rand -hex 32 > "$ENC_PASS_FILE" )
+        chmod 600 "$ENC_PASS_FILE"
+        echo "  ✓ 已生成备份加密口令 $ENC_PASS_FILE（请离线妥善保管，丢失后加密备份不可恢复）"
+    else
+        echo "  ⚠ 未找到 openssl，跳过口令生成；config 备份将排除 .env.secrets（防明文落盘）"
+        echo "  ⚠ 修复：在 NAS 执行 bash deploy/backup/setup-backup-encryption.sh 后重启备份容器"
+    fi
+else
+    echo "  ✓ 备份加密口令已存在，跳过生成（$ENC_PASS_FILE）"
+fi
+
 # 3. 生产环境安全校验
 echo ""
 echo "[3/12] 生产环境配置校验..."

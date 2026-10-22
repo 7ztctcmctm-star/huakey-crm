@@ -437,6 +437,31 @@ hardcode、环境变量使用错误。
   `npm run test:security` 单独驱动（本地 + CI security-scan 双门禁），
   同样受「全绿才能交付」约束。
 
+### 7.31 部署层加固约定（2026-10-22 D3 立）
+
+- **备份加密铁律**：config 备份含 `.env.secrets` 明文密钥，**明文 tar 一律不允许
+  落盘**。口令文件 `.backup-enc-pass`（openssl rand -hex 32，权限 600）仅存 NAS
+  宿主机，不入仓库（.gitignore 已拦）、不进备份产物；deploy.sh 缺失时自动生成、
+  已存在绝不覆盖（覆盖=历史加密备份全废）。加密工具顺序 gpg → openssl，
+  工具一旦启用保持稳定（旧产物只能由当时工具解密）。无口令/无工具时备份
+  **排除** `.env.secrets` 并 WARNING，不允许降级为明文。
+- **备份完整性三检**：MySQL dump 必须 `pipefail`（gzip 出口码不能掩盖 mysqldump
+  截断——"假备份"最危险形态）+ `gzip -t` + `CREATE TABLE` 计数 > 0；
+  uploads/config tar 必须 `tar -tzf` 强校验（计数为 0 不等于失败过）。
+- **恢复演练月执行**：`restore-test.sh` 双模式（宿主机 docker exec / 备份容器内
+  mysql 直连），每月 1 日 03:00 由 huakey-backup 容器调度器触发
+  （宿主机 /etc/cron.d 对 syadmin 不可写；`deploy/cron/install-restore-drill.sh`
+  是 root 环境等价载体，两种机制不并存）。结果写
+  `database/backups/restore-drill.status`（`RESULT=PASS/FAIL`，机器可检查），
+  导入失败必须 FAIL——禁止静默。
+- **nginx CSP**：生产 `nginx/nginx.conf` 的 `script-src` 不放行 `'unsafe-inline'`
+  （前端构建产物无内联脚本）；新增内联脚本会被浏览器阻断，属预期行为。
+  `style-src` 保留 `'unsafe-inline'`（Vue 动态 :style）。HSTS 不加 preload
+  （内网 .local 域名）。
+- **MySQL buffer pool**：`deploy/mysql-entrypoint.sh` 按宿主机 MemTotal 25%
+  自适应（钳制 128M–1024M，env `INNODB_BUFFER_POOL_SIZE_MB` 可覆盖）；
+  原 compose `command:` 参数段已迁入该脚本，改参数只改一处。
+
 ---
 
 ## 第八章 · 每个 Phase 必须输出的 13 项

@@ -11,6 +11,9 @@ node_modules/
 .env.secrets
 .env.synology
 
+# 备份加密口令文件（D3：config 备份 gpg/openssl 对称加密密钥，仅存 NAS 宿主机）
+.backup-enc-pass
+
 # E2E 测试账号（demo 凭据不入库，模板见 .env.test.example）
 .env.test
 

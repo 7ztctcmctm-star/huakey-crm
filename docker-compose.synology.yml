@@ -35,23 +35,14 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
       - ./deploy/init-complete.sql:/docker-entrypoint-initdb.d/00_init.sql:ro
+      # [D3] buffer pool 自适应入口（原写死 256M，改由启动脚本按宿主机内存 25% 探测，
+      #       钳制 [128M,1024M]；env INNODB_BUFFER_POOL_SIZE_MB 可手动覆盖）
+      - ./deploy/mysql-entrypoint.sh:/usr/local/bin/mysql-entrypoint.sh:ro
       - ./database/backups:/backups
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
-      - --default-authentication-plugin=mysql_native_password
-      - --innodb_buffer_pool_size=256M
-      - --innodb_log_file_size=128M
-      - --max_connections=100
-      - --skip-host-cache
-      - --skip-name-resolve
-      - --explicit_defaults_for_timestamp=1
-      - --slow_query_log=ON
-      - --long_query_time=2
-      # [步骤 B3 · 时区统一] NOW()/CURDATE() 一律北京时间。
-      # 不写死偏移的话 MySQL 会取容器 SYSTEM 时区，此镜像默认为 UTC，
-      # 导致所有由 NOW() 落库的 datetime 比北京时间早 8 小时。
-      - --default-time-zone=+08:00
+    # [D3] 原 command: 参数段（character-set/collation/pool/log/connections/时区等）
+    #       已逐条迁入 deploy/mysql-entrypoint.sh，仅 innodb_buffer_pool_size 改自适应。
+    #       官方 docker-entrypoint.sh 的首启初始化逻辑不受影响。
+    entrypoint: ["/usr/local/bin/mysql-entrypoint.sh"]
     healthcheck:
       test: ["CMD-SHELL", "mysql -h localhost -u root -p$$MYSQL_ROOT_PASSWORD -e 'SELECT 1' > /dev/null 2>&1 || exit 1"]
       interval: 10s
@@ -162,10 +153,19 @@ services:
     image: mysql:8.0
     container_name: huakey-backup
     restart: unless-stopped
+    # [D3] 日志轮转：与 mysql/redis/app 对齐（10m×3），防止容器日志无限增长吃满系统盘
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     entrypoint: ["/bin/sh", "/container-backup.sh"]
     volumes:
       - ./deploy/backup/container-backup.sh:/container-backup.sh:ro
       - ./database/backup.sh:/backup.sh:ro
+      # [D3] 月度恢复演练脚本（容器内调度器每月 1 日 03:00 触发，双模式：
+      #       有 docker CLI 走 exec，否则经 mysql -h mysql 直连）
+      - ./deploy/backup/restore-test.sh:/restore-test.sh:ro
       - ./database/backups:/backups
       # uploads 文件备份源（app-uploads named volume 只读）
       - app-uploads:/uploads:ro
@@ -174,6 +174,9 @@ services:
       - ./.env.secrets:/stack/.env.secrets:ro
       - ./docker-compose.synology.yml:/stack/docker-compose.synology.yml:ro
       - ./nginx:/stack/nginx:ro
+      # [D3] 备份加密口令文件（openssl rand 生成，仅存在于 NAS 宿主机、不入仓库；
+      #       缺失时 config 备份自动排除 .env.secrets 防明文落盘，见 container-backup.sh）
+      - ./.backup-enc-pass:/stack/.backup-enc-pass:ro
       # 时区与宿主机保持一致，保证 02:00/02:30/02:45 为本地时间
       - /etc/localtime:/etc/localtime:ro
     environment:
@@ -194,6 +197,12 @@ services:
     image: nginx:alpine
     container_name: huakey-nginx
     restart: unless-stopped
+    # [D3] 日志轮转：与 mysql/redis/app 对齐（10m×3）
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "8443:8443"
     volumes:

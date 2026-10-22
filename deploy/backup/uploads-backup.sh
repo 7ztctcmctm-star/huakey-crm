@@ -107,10 +107,16 @@ if [ "$BACKUP_SIZE" -lt 100 ]; then
   exit 1
 fi
 
-# 完整性校验：tar 解压测试 + 文件计数
+# 完整性校验：tar 必须能完整解压列出（gzip 损坏/截断时强失败，与容器版对齐）
+if ! tar -tzf "$BACKUP_PATH" >/dev/null 2>&1; then
+  log "FATAL: uploads 备份完整性校验失败（tar -tzf 无法解压），删除 ${BACKUP_FILENAME}"
+  rm -f "$BACKUP_PATH"
+  exit 1
+fi
 VERIFY_COUNT=$(tar -tzf "$BACKUP_PATH" 2>/dev/null | grep -c -v '/$' || echo 0)
+chmod 600 "$BACKUP_PATH"
 BACKUP_SIZE_HR=$(du -h "$BACKUP_PATH" | cut -f1)
-log "备份完成: ${BACKUP_FILENAME} (${BACKUP_SIZE_HR}, ${VERIFY_COUNT} 个文件)"
+log "备份完成: ${BACKUP_FILENAME} (${BACKUP_SIZE_HR}, ${VERIFY_COUNT} 个文件, 完整性校验通过, 权限 600)"
 
 # ---- 清理过期备份 ----
 log "清理过期备份（保留 ${KEEP_DAILY_DAYS} 天）..."
