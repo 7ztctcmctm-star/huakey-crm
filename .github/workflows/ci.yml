@@ -39,7 +39,30 @@ jobs:
         # 注意：该测试 mock 了 fs.existsSync → true，因此代码内 `if (!existsSync) mkdir` 的自建逻辑不会生效。
         run: mkdir -p backend/uploads/knowledge
       - run: cd backend && npm test
-      - run: cd backend && npm audit --audit-level=high --production
+      - name: npm audit（容忍注册表瞬时错误，真实漏洞立即失败）
+        # npm audit 是唯一查询实时 advisory DB 的门禁：runner 到 registry.npmjs.org 的
+        # 瞬时故障（5xx/超时）会以 exit 1 结束，与「发现真实漏洞」无法用退出码区分。
+        # 区分方式：真实漏洞输出漏洞表；瞬时错误输出 "audit endpoint returned an error"
+        # 或网络层错误。仅后者重试（3 次），前者与未知错误立即失败。
+        run: |
+          cd backend
+          for i in 1 2 3; do
+            OUT=$(npm audit --audit-level=high --production 2>&1)
+            RC=$?
+            echo "$OUT"
+            if [ $RC -eq 0 ]; then
+              exit 0
+            fi
+            if echo "$OUT" | grep -qE "audit endpoint returned an error|npm error network|ETIMEDOUT|ECONNRESET|EAI_AGAIN|504 Gateway|502 Bad Gateway"; then
+              echo "::warning::npm audit 注册表/网络瞬时错误（第 $i/3 次），10s 后重试"
+              sleep 10
+              continue
+            fi
+            echo "::error::npm audit 失败且非注册表/网络瞬时错误（疑似真实漏洞），不重试"
+            exit 1
+          done
+          echo "::error::npm audit 连续 3 次因注册表/网络瞬时错误失败"
+          exit 1
 
   frontend-test:
     runs-on: ubuntu-latest

@@ -12,6 +12,7 @@
 | 3 | 前端 lint 门禁 | 从零建立：`eslint@10.13.0` + `eslint-plugin-vue@10.11.1` + `globals`，flat 配置 `eslint.config.mjs`，`npm run lint` = `eslint . --max-warnings=0`（与 backend 同口径）；frontend-test job 在 test 前插入 lint 步骤 | 见第二节 |
 | 4 | 重复步骤抽 composite action | 新增 `.github/actions/setup-test-db`（原 4 处逐字重复的「Import baseline + N-05 92 项校验 + 测试用户 + 迁移台账」约 30 行）与 `.github/actions/seed-test-db`（原 2 处重复的 seed-demo + init_role_permissions） | 4→1、2→1 |
 | 5 | MySQL 等待兜底 | 4 处等待循环统一补「30 次未就绪 → `exit 1`」：原循环跑完不失败，后续步骤会在半就绪的库上报误导性错误 | ci.yml 4 处 |
+| 5b | npm audit 容瞬态 | d3c025d 首轮 backend-test 红在 `npm audit` 一步（lint/150 套件 jest 全过）：该步查询实时 advisory DB，registry 瞬时故障与真实漏洞同为 exit 1 无法区分。改为**仅对注册表/网络层瞬时错误重试 3 次，真实漏洞与未知错误立即失败**（本地用假 npm 桩验证三条路径：持续瞬态→重试后失败、瞬态恢复→成功、真实漏洞→不重试直接失败） | ci.yml backend-test |
 | 6 | 缓存 key | 3 处 cache key 加 `${{ runner.os }}` + `node${{ steps.setup-node.outputs.node-version }}`（setup-node 加 id），避免换 Node 大版本后命中旧缓存 | ci.yml diff |
 | 7 | job 依赖 / 权限 | `frontend-build` 加 `needs: frontend-test`；顶层 `permissions` 显式 `contents: read`（保留 `security-events: write` 供 CodeQL/Trivy 上传） | ci.yml diff |
 
