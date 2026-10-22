@@ -70,7 +70,34 @@ reactive 对象字段（9 个筛选项）。重构为**本地草稿 + 整体 emi
 > 并行 `npm test` 首跑 3 个文件超时（request/guards/Login，46s+）为已知 CPU 争抢 flake
 > （vitest.config.js 注释与 MEMORY 均有记载），串行复跑全绿——非本次改动引入。
 
-## 四、风险与待办（需发布经理决策/观察）
+## 四、D2 衍生：trivy fs 门禁转阻断后暴露的依赖漏洞（已修复）
+
+`scan-filesystem` 转 exit-code 1 后，本推送即真实失败——暴露出前端 lockfile 中 **11 个 HIGH**
+（此前 exit-code 0 只上报不拦截，长期无人看到）。本机装 trivy v0.76.1 复现（DB: ghcr.io），
+与 CI 同口径（severity CRITICAL,HIGH + trivy.yaml skip-dirs）：
+
+| 包 | 锁定版本 | 修复版 | 处置 |
+|---|---|---|---|
+| `@vue/server-renderer` | 3.5.38 | 3.5.44 | GHSA-g2v6-rqmx-r4w6；`vue` 直接依赖升 `^3.5.44`，该包经 `@vue/test-utils` 传递，用 overrides 钉 3.5.44 对齐 |
+| `axios` | 1.18.1 | 1.20.0 | 7 个 CVE（101898/101901/101903/101905/101906/101907/101909：SSRF/DoS/socket 劫持/原型污染）；直接依赖 `^1.6.7` → 解析 1.20.0 |
+| `follow-redirects` | 1.16.0 | 1.16.1 | CVE-2026-111755/111756（信息泄露）；axios 1.20.0 的依赖范围是 `^1.16.0` 不会自动升级，overrides 钉 1.16.1 |
+| `source-map-js` | 1.2.1 | 1.2.2 | CVE-2026-93749（DoS）；构建期传递依赖（postcss/sass/vue compiler 等多父级），overrides 钉 1.2.2 |
+
+`frontend/package.json` 新增 `overrides`（安全修复的标准做法，传递依赖无法靠升级父级解决时）：
+
+```json
+"overrides": {
+  "@vue/server-renderer": "3.5.44",
+  "follow-redirects": "1.16.1",
+  "source-map-js": "1.2.2"
+}
+```
+
+修复后本机 trivy 复扫：frontend / backend / database/migrations 三个 lockfile **全部 0 findings**；
+lint 0 problems、vitest 串行+并行 159/159、build 与 check-bundle 均通过（vendor 154.6→163.5 kB，
+总量 4MB，远低于 10MB 告警线）。
+
+## 五、风险与待办（需发布经理决策/观察）
 
 1. **`image-scan` 若在分支保护 required checks 中**：删除该 job 后此上下文将永远不再上报，
    合并会被卡住。本机 gh 未登录、匿名 API 读不到 protection 设置，无法核实。
@@ -78,11 +105,11 @@ reactive 对象字段（9 个筛选项）。重构为**本地草稿 + 整体 emi
    `scan-images` 承担：CRITICAL,HIGH + exit-code 1，严于原 image-scan 的仅 CRITICAL + 不阻断）。
 2. **trivy fs 扫描转阻断**：本次推送会真实执行（frontend/package*.json 在触发路径内）。
    本机无 trivy、npmmirror audit NOT_IMPLEMENTED，无法预验；若 CI 报红即为 lockfile 真实
-   HIGH/CRITICAL 发现，按计划意图应予修复而非放宽门禁。
+   HIGH/CRITICAL。**已应验**：首推即红（前端 11 个 HIGH，详见第四节），已修复并随本提交复验。
 3. composite action 内 `docker exec -i ci-mysql` 仍用 root/test_root_pass（CI 专用 compose 凭据，
    与原内联步骤一致，未扩大暴露面）。
 
-## 五、计划进度
+## 六、计划进度
 
 - Phase D：**D2 完成**；D1（测试盲区+覆盖率门槛）、D3（nginx/compose/备份加固）未动。
 - Phase C：C3 未动。B4 遗留：冗余外键去重迁移未建（`crm_contract` 双 FK 同在 opportunity_id）。
