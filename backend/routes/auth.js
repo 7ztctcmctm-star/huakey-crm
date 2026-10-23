@@ -184,7 +184,7 @@ router.post('/login', authLimiter, validate(loginSchema), async (req, res, next)
     res.cookie('token', token, {
       httpOnly: true,
       secure: isProduction && req.secure,
-      sameSite: 'strict',
+      sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
@@ -233,7 +233,7 @@ router.post('/logout', validate(logoutSchema), async (req, res, next) => {
   res.clearCookie('token', {
     httpOnly: true,
     secure: isProduction && req.secure,
-    sameSite: 'strict'
+    sameSite: 'lax'
   });
 
   res.json({ code: 200, message: '登出成功', data: null });
@@ -256,7 +256,7 @@ router.get('/me', authenticateToken, async (req, res, next) => {
       res.cookie('token', newToken, {
         httpOnly: true,
         secure: isProduction && req.secure,
-        sameSite: 'strict',
+        sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000
       });
       // 刷新 token 时同步刷新 CSRF cookie
@@ -330,7 +330,7 @@ router.post('/force-change-password', authenticateToken, validate(forceChangePas
     res.clearCookie('token', {
       httpOnly: true,
       secure: isProduction && req.secure,
-      sameSite: 'strict'
+      sameSite: 'lax'
     });
 
     res.json({ code: 200, message: '密码修改成功，请使用新密码重新登录', data: null });
@@ -399,7 +399,7 @@ router.post('/refresh', validate(refreshSchema), async (req, res, next) => {
     res.cookie('token', newToken, {
       httpOnly: true,
       secure: isProduction && req.secure,
-      sameSite: 'strict',
+      sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
