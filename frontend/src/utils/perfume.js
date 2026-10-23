@@ -10,8 +10,9 @@ function sendMetric(name, value, rating) {
       metric_type: name,
       value,
       rating,
-      page_url: location.pathname,
-      timestamp: new Date().toISOString()
+      page_url: location.pathname
+      // timestamp 未发送：后端 Joi schema 未声明，validate 中间件 stripUnknown 会静默剥掉，
+      // 且后端 metrics 表 created_at 已自带入库时间戳，客户端发送的 timestamp 无额外价值。
     })], { type: 'application/json' }));
   } else if (rating !== 'good') {
     reportWarn(`[Perf] ${name}: ${value} (${rating})`);

@@ -55,7 +55,12 @@ const createRateLimiter = (options = {}) => {
     },
     // eslint-disable-next-line no-unused-vars
     keyGenerator: (req, res) => {
-      const ip = ipKeyGenerator(req);
+      // [2026-10-23 修复] express-rate-limit v8 的 ipKeyGenerator 签名是 (ip字符串)，
+      // 不再是 v7 的 (req)。旧写法 ipKeyGenerator(req) 把 req 对象传进去后原样返回，
+      // 模板字符串化成 "[object Object]" —— Redis 实测所有端点的限流 key 全是
+      // ratelimit:[object Object]:/xxx，全公司共享每个端点同一个桶（登录 30 次/15min
+      // 全员共摊，同事轮流登录+重试迅速打满 429，且 Redis 持久化重启无效）。
+      const ip = ipKeyGenerator(req.ip);
       const endpoint = req.path || req.route?.path || 'unknown';
       return `${ip}:${endpoint}`;
     },
@@ -118,7 +123,8 @@ const surveyRespondLimiter = createRateLimiter({
   },
   // eslint-disable-next-line no-unused-vars
   keyGenerator: (req, res) => {
-    const ip = ipKeyGenerator(req);
+    // [2026-10-23 修复] 同上：v8 签名为 (ip) 非 (req)
+    const ip = ipKeyGenerator(req.ip);
     const campaignId = req.params.campaign_id || 'unknown';
     return `${ip}:survey:respond:${campaignId}`;
   }
@@ -135,7 +141,8 @@ const surveyGlobalResponderLimiter = createRateLimiter({
   },
   // eslint-disable-next-line no-unused-vars
   keyGenerator: (req, res) => {
-    const ip = ipKeyGenerator(req);
+    // [2026-10-23 修复] 同上：v8 签名为 (ip) 非 (req)
+    const ip = ipKeyGenerator(req.ip);
     return `${ip}:survey:respond:global`;
   }
 });

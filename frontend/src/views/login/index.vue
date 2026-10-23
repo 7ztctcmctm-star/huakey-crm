@@ -207,8 +207,10 @@ const handleLogin = async () => {
       loginForm.captcha = ''
     }
   } catch (error) {
+    // 优先展示后端返回的具体原因（"验证码错误"/"验证码已过期，请刷新"/"用户名或密码错误"等），
+    // 避免把可自行修正的输入错误误导成"服务不可用"
     reportError('登录错误:', error)
-    apiError.value = '登录服务暂不可用，请稍后重试'
+    apiError.value = error?.response?.data?.message || '登录失败，请检查用户名、密码与验证码'
     refreshCaptcha()
     loginForm.captcha = ''
   } finally {

@@ -22,7 +22,11 @@ async function verifyAuth() {
       userInfo.value = res.data
       return true
     }
-  } catch (e) { reportError('[useUser] 验证登录状态失败:', e) }
+  } catch (e) {
+    // 401 = 未登录/登录过期的正常探测结果（路由守卫依赖此返回值决定是否跳 /login），
+    // 不是错误——无痕窗口/过期会话每次打开必然触发。其余异常（500/网络断）才上报。
+    if (e?.response?.status !== 401) reportError('[useUser] 验证登录状态失败:', e)
+  }
   userInfo.value = null
   return false
 }

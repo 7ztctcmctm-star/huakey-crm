@@ -80,7 +80,16 @@ request.interceptors.response.use(
     return response.data
   },
   async (error) => {
-    reportError('响应错误:', error)
+    // 预期"无害"错误抑制：/auth/me 未登录 401 是路由守卫正常流程；
+    // /metrics/client 失败（旧版 404/401，新版已修复）不影响用户体验；
+    // 这两类不需要打 console 噪音或 ErrorBoundary 告警。
+    const url = error.config?.url || ''
+    const status = error.response?.status
+    const isBenignAuth = url === '/auth/me' && status === 401
+    const isBenignMetrics = url === '/metrics/client'
+    if (!isBenignAuth && !isBenignMetrics) {
+      reportError('响应错误:', error)
+    }
 
     if (error.response) {
       const { status, data } = error.response

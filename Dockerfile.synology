@@ -22,7 +22,10 @@ WORKDIR /app
 COPY backend/package.json backend/package-lock.json* ./
 # 安装 mysql-client 以支持应用内数据库备份
 # 安全基线：apk upgrade 刷新 OS 包（OpenSSL 等 alpine CVE 修复）
-RUN apk upgrade --no-cache && apk add --no-cache mysql-client
+# [2026-10-23] NAS 环境访问 dl-cdn.alpinelinux.org 不稳定（npm registry 可达，alpine CDN 不通），
+# 构建期换阿里云镜像源；只影响构建产物获取通道，运行时无影响。
+RUN sed -i 's|dl-cdn.alpinelinux.org|mirrors.aliyun.com|g' /etc/apk/repositories && \
+    apk upgrade --no-cache && apk add --no-cache mysql-client
 RUN rm -rf /root/.npm /tmp/npm-cache && \
     ( npm ci --omit=dev --no-audit --no-fund --cache /tmp/npm-cache || \
       npm ci --omit=dev --no-audit --no-fund --cache /tmp/npm-cache )

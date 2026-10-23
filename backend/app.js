@@ -18,9 +18,16 @@ app.use(compression({
 const PORT = process.env.PORT || 5000;
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Vercel Serverless 环境需要 trust proxy
+// [2026-10-23 修复] NAS 生产链路是两层反代：客户端 → DSM nginx(443) → huakey-nginx(8443 容器) → app。
+// 原 trust proxy=1 只信任一层代理，req.ip 恒取 XFF 最右侧的 docker 网关地址 172.22.0.1
+// （sys_log 实测全员同值）——与 rateLimiter 的 v8 keyGenerator bug 叠加后，全公司共享
+// 每个限流桶（authLimiter 30 次/15min 全员共摊 → 同事集体 429 且 Redis 持久重启无效）。
+// 改为信任「回环 + docker 私有网段」：proxy-addr 沿 XFF 从右跳过全部受信代理段，
+// req.ip = 第一个不受信段 = 真实客户端 IP（192.168.0.x）。
+// ⚠️ 绝不可把客户端网段 192.168.0.0/16 加入受信列表——等于允许客户端自证身份，
+// XFF 伪造可绕过限流。VERCEL（单层代理）保持旧行为。
 if (isProduction || process.env.VERCEL) {
-  app.set('trust proxy', 1);
+  app.set('trust proxy', process.env.VERCEL ? 1 : ['loopback', '172.16.0.0/12']);
 }
 
 // 安全头配置
@@ -267,6 +274,9 @@ require('./routes/currency');
 require('./routes/email');
 // invoice 通过 ModuleRegistry 注册（2026-09-24 迁移）
 require('./routes/invoice');
+// metrics 通过 ModuleRegistry 注册（前端 Perfume 客户端性能上报）
+// ⚠️ 必须在下方 registry.getAllRoutes() 挂载循环之前 require，否则注册不进表、路由 404
+require('./routes/metrics');
 
 // API 路由前缀 /api
 const apiRouter = express.Router();
@@ -508,8 +518,9 @@ apiRouter.get('/metrics', authenticateToken, async (req, res) => {
   res.end(await metricsRegister.metrics());
 });
 
-// 客户端性能指标（无需认证）—— 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
-require('./routes/metrics');
+// [2026-10-23] 删除此处的 require('./routes/metrics')：
+// 该位置在 registry.getAllRoutes() 挂载循环之后，require 只会重复注册、永远不会被挂载（死代码）。
+// 唯一正确的 require 在上方挂载循环之前（invoice 之后）。
 
 // 使用 /api/v1 前缀
 app.use('/api/v1', apiRouter);

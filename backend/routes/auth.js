@@ -121,6 +121,13 @@ const refreshSchema = Joi.object({});
 
 // 0. 获取验证码（独立限流，防止内存/CPU DoS）
 router.get('/captcha', captchaLimiter, async (req, res, next) => {
+  // [2026-10-23] 验证码响应必须禁止缓存：
+  // 无禁缓存头时浏览器会用 ETag 协商缓存（304）复用旧验证码响应——
+  // 旧 captchaKey 在 Redis 300 秒后过期，用户输入图上正确的码也报
+  // "验证码已过期" 400。表现为：普通窗口（有磁盘缓存）登录失败、
+  // 无痕窗口能登录；且登录失败后刷新验证码仍命中缓存，陷入死循环。
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.set('Pragma', 'no-cache');
   const { key, svg } = await authService.getCaptcha();
   res.json({ code: 200, message: 'success', data: { key, svg } });
 });

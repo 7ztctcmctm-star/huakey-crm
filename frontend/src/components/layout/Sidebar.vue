@@ -273,8 +273,9 @@ const route = useRoute()
 const activeMenu = computed(() => route.fullPath)
 
 const hasMenuPermission = (permissionCode) => {
-  if (props.userInfo.manageAll) return true
-  const permissions = props.userInfo.permissions || []
+  // 可选链：未登录（userInfo=null）时防 null 崩溃
+  if (props.userInfo?.manageAll) return true
+  const permissions = props.userInfo?.permissions || []
   return permissions.includes(permissionCode)
 }
 

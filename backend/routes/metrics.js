@@ -1,7 +1,6 @@
 const express = require('express');
 const registry = require('../core/ModuleRegistry');
 const pool = require('../config/database');
-const { authenticateToken } = require('../middleware/auth');
 const { validate, Joi } = require('../middleware/validate');
 const router = express.Router();
 
@@ -25,8 +24,11 @@ pool.query(`CREATE TABLE IF NOT EXISTS sys_client_perf (
   INDEX idx_time (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`).catch(() => {});
 
-// POST /api/metrics/client — 需认证，前端上报性能指标
-router.post('/client', authenticateToken, validate(clientMetricSchema), async (req, res, next) => {
+// POST /api/metrics/client — 无需认证
+// 前端 Perfume 在登录前就会通过 navigator.sendBeacon 上报 Web Vitals（sendBeacon 无法携带 cookie/自定义 header），
+// 且上报内容仅为客户端性能指标（FCP/LCP/CLS/INP/TTFB 的毫秒值），无安全敏感信息，不做认证校验。
+// CSRF 豁免已在 csrf.js SKIP_CSRF_PATHS 中配置。
+router.post('/client', validate(clientMetricSchema), async (req, res, next) => {
   const { metric_type, value, rating, page_url } = req.body;
   if (!metric_type || typeof value !== 'number') {
     return res.status(400).json({ code: 400, message: '参数无效' });

@@ -338,8 +338,9 @@ const currentBreadcrumb = computed(() => {
 })
 
 // 统一使用 manageAll/viewAll，禁止依赖固定数字 roleId
-const isAdmin = computed(() => props.userInfo.manageAll === true)
-const isBoss = computed(() => props.userInfo.viewAll === true)
+// 可选链：未登录（userInfo=null）时 Layout 挂载会渲染 HeaderBar，裸访问属性会 null 崩溃
+const isAdmin = computed(() => props.userInfo?.manageAll === true)
+const isBoss = computed(() => props.userInfo?.viewAll === true)
 
 const recentVisits = ref(getVisits())
 watch(() => route.path, () => { recentVisits.value = getVisits() })
