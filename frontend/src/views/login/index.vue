@@ -82,7 +82,7 @@
                 tabindex="0"
                 title="点击刷新验证码"
                 aria-label="刷新验证码"
-                v-safe-html="captchaSvg"
+                v-safe-svg="captchaSvg"
               />
             </div>
           </el-form-item>
