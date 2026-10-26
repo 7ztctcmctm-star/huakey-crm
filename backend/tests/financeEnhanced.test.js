@@ -41,8 +41,7 @@ describe('财务增强模块', () => {
     it('应该返回客户对账数据', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1, company_name: '测试公司', contact_name: '张三', phone: '13800138000' }]]) // customer
         .mockResolvedValueOnce([[ // contracts
           { id: 1, contract_no: 'C-001', amount: 100000, sign_date: '2026-01-15', status: 2 }
@@ -70,8 +69,7 @@ describe('财务增强模块', () => {
     it('应返回真实已付金额（回归 #17：原实现 payments=[] 且 paid_amount 恒为 0）', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 7, name: '测试供应商', contact_person: '李四', phone: '13900139000' }]]) // supplier
         .mockResolvedValueOnce([[ // purchase orders
           { id: 101, order_no: 'PO-260918-001', total_amount: '100000.00', create_time: '2026-09-01', status: '已完成' },
@@ -101,8 +99,7 @@ describe('财务增强模块', () => {
     it('供应商无采购单时应返回 0（payments 为空、不发起付款查询）', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role
         .mockResolvedValueOnce([[{ id: 8, name: '空供应商', contact_person: null, phone: null }]]) // supplier
         .mockResolvedValueOnce([[]]); // 无采购单 → 不再查询 crm_purchase_payment
 
@@ -123,8 +120,7 @@ describe('财务增强模块', () => {
     it('应该返回对账单列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[ // list
           { id: 1, recon_no: 'RC-20260623-001', recon_type: 'customer', target_name: '测试公司', total_amount: 100000 }
@@ -146,8 +142,7 @@ describe('财务增强模块', () => {
     it('应该返回财务分析数据', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 500000 }]]) // income
         .mockResolvedValueOnce([[{ total: 300000 }]]) // cost
         .mockResolvedValueOnce([[ // cost structure
@@ -184,8 +179,7 @@ describe('财务增强模块', () => {
     it('应该返回回款提醒汇总', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ today_pending: 3 }]]) // today pending
         .mockResolvedValueOnce([[{ upcoming: 5 }]]) // upcoming
         .mockResolvedValueOnce([[{ overdue: 2 }]]) // overdue

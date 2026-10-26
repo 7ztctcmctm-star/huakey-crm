@@ -70,7 +70,7 @@
 - **自动分配**（`assignService.autoAssignOwner`）：按启用规则优先级匹配 `round_robin` / `by_source` / `by_region`，轮询取下一用户；现仅面向 `sales` 角色。
 - **状态机**：主漏斗 `CUSTOMER_STATUS_PIPELINE`；`forward/backward` 取下一/上一态，也可经 `sys_customer_status_transition` 表任意合法流转（`require_reason` 规则强制填原因）。`status` 变化同步 `business_status`。
 - **线索转正式**（`convertLeadToCustomer`）：本人转化→归操作人、`pool_status=private`；代转化（管理员）→ `owner_id=NULL`、`pool_status=sea` 进公海待分配；仅真正归属变更才写 `crm_assign_log`（修复"日志说分了数据没分"缺陷）。
-- **公海认领**（`claimPoolCustomer`）：必须 `pool_status='sea'` 且非 lead；原子 UPDATE 带 `owner_id IS NULL AND pool_status='sea'`，`affectedRows!=1` 视为被他人抢先；同步状态 + 写 `crm_pool_log`。
+- **公海认领**（`claimPoolCustomer`）：必须 `owner_id IS NULL` 且非 lead；原子 UPDATE 带 `owner_id IS NULL`（2026-10-15 起不再带 `pool_status='sea'`），`affectedRows!=1` 视为被他人抢先；同步状态 + 写 `crm_pool_log`。
 - **释放到公海**（`releaseCustomerToPool`）：拒绝 lead（提示用"放弃"）；置 `sea` + 清空 owner + 写日志。
 - **自动回收**（`poolService.autoReleaseCustomers`）：超过期天数未跟进的 `private+following` 客户批量释放，写 `auto_release` 日志 + SSE 通知原负责人。**保护期已下线**（2026-09-10 产品决策），释放后可立即认领。
 - **转移**（`transferService`）：状态机 `pending→accepted/rejected/expired`，无 cancelled；发起须本人客户、不能转给自己；同意时经 `systemAcceptTransfer`（owner_id 作并发守卫）；超 3 天定时任务置 `expired`，客户仍归原主。
@@ -89,7 +89,7 @@
 
 - **跟进记录**（`followUpService.addFollowUp`）：写 `crm_follow_up` → 绑附件 → 经 `systemApplyFollowUpEffect` 更新客户派生状态 → **自动解除该客户所有未读逾期提醒** → 若客户为 `lead/sea/new` 则自动推进到 `following`。
 - **跟进计划**：与跟进记录同表 `crm_follow_up`，靠 `is_plan=1` 区分；完成计划转真实跟进并刷新 `last_follow_time`、解除提醒。
-- **逾期提醒**：阈值来自 `sys_config.overdue_days`，默认 **15 天**（临近预警起点 = `overdueDays-3`）。提醒数据由 `cronService.notifyPreReleaseCustomers` + `scripts/generate_reminders.js` 生成 `crm_follow_up_reminder`，接口只负责读取/标记。
+- **逾期提醒**：阈值来自 `sys_config.overdue_days`，默认 **15 天**（临近预警起点 = `overdueDays-3`）。提醒数据由 `cronService.notifyPreReleaseCustomers` + `backend/scripts/generate_reminders.js` 生成 `crm_follow_up_reminder`，接口只负责读取/标记。
 - **提醒中心**（`reminderService.getMyReminders`）：聚合逾期/今日/临近跟进 + 通知 + 待处理转移 + 超时工单。
 - **通知中心**（`notification.js`）：`crm_notification`（role/user 维度）列表/已读/未读计数。
 
@@ -128,7 +128,7 @@
 - 合同状态机：1 待执行 / 2 执行中 / 3 已完成(终态) / 4 已取消(终态)。
 - 创建（`createContract`）：要求客户 `status='signed'` → 校验商机同客户 → 编号 `CON-YYMMDD-NNN` → 写合同 + 批量写 `crm_payment_plan`。**直接建合同不推进关联商机阶段**。
 - 取消（`cancelContract`）：据 `cancel_action` 联动商机（`customer_cancelled→stage6` / `reopen_negotiation→stage4` / `keep_won→不推进`）。
-- 审批（`simpleApproveContract`）：**只更新 `approval_status`（1待/2通过/3拒绝），不改合同 `status`，不联动商机**；清通知。
+- 审批（`simpleApproveContract`）：更新 `approval_status`（1待/2通过/3拒绝）；**审批通过且合同为待执行(1)时同步把 `status` 置为执行中(2)，拒绝不改 `status`，不联动商机**；清通知。
 - 回款（`paymentService.recordPayment`）：事务插 `crm_payment` → 置 `status=2`(待执行→执行中) → 刷新回款计划状态。`recalculatePlanStatus`：`paid>=plan→completed`，`>0→partial`，部分回款且超期显示 `partial`（但 `overdue_days` 仍算）。
 - 模板（`contractTemplateService`）：纯 CRUD（`crm_contract_template`），**模板数据不注入新建合同**，仅作参考。
 
@@ -203,7 +203,7 @@
 - `teamDashboard.js` 原多数接口硬编码 `ROLES.ADMIN/roleId` 判 boss（与 dashboard 修复口径不一致）。**已修复（2026-09-18）**：所有 `isBoss` 判定统一改为 `viewAll || roleCode∈{boss,manager}`，service 层 `getStuckOpportunities` 的 `ROLES.ADMIN` 硬比较也改为 `roleCode !== ROLE_CODES.BOSS`。
   - **已知限制（非回归）**：团队看板仍用「看全部 vs 看自己」二元 `isBoss`，未像 `dashboardService` 那样走 `checkDataPermission` + `buildDataPermissionWhere`（dept_and_sub 粒度）。彻底对齐需重构 service 查询，属更大改动，未在本轮做。
 - `/business`、`/finance`、`/finance/export`、`/export` 四个端点**曾无数据范围隔离**（仅 `checkPermission('report')`）→ **已修复（2026-09-20）**，详见第 10 节 #6。`analysis/*`（`analysisService`）亦为「挂了中间件但不分档」→ **已修复（2026-09-20）**，详见第 10 节 #21。
-- ⚠️ **`requireManager` 不是「管理层」判定的可靠实现**（两次踩坑）：`middleware/admin.js` 的 requireManager 只放行 `req.user.manageAll` / `ADMIN_ROLE_CODES`（仅 `super_admin`，且为遗留 code、现库不存在）/ `roleId === 1`(boss)；而 **manager 角色 `view_all=0`/`manage_all=0` 会被直接 403**，`hr` 角色同理被挡在自己的 hr 模块之外。判据：**若某角色持有该功能权限码、前端菜单对其可见，却在端点上被 requireManager 403，即为同型缺陷**。现存使用点与影响面清单见第 10 节 #21。
+- **`requireManager` 的现行判据**（2026-09-20 修复后）：放行 `req.user.manageAll` / `ADMIN_ROLE_CODES`（仅 `super_admin`，遗留 code）/ `roleId === 1`(boss) / `roleCode === 'manager'`。它**只判「是不是管理层」，不判功能权限**，必须与 `checkPermission('<code>')` 成对使用。历史缺陷（未放行 manager 导致 403）与使用点清单见第 10 节 #21。
 - 图表建议整数 GROUP BY 维度缺口同 AI 模块（脆弱实现）。
 
 ---
@@ -324,12 +324,12 @@
 > 2. service 层 4 个函数（`getFinanceReport` / `exportFinance` / `exportReport` / `getBusinessDashboard`）接收 `dataPermission`，对**每条**业务查询套 `scopeFor`，按表选归属列：customer→`owner_id`、contract→`create_by`、payment→经合同 `create_by` 透传、opportunity→`owner_id`、purchase_order→`owner_id`、成员排名→`sys_user.id`。
 > 3. 顺带修铁律违规：`getBusinessDashboard` 两处 `u.role_id IN (1, 2, 3)` → 改为 `BUSINESS_ROLE_IDS_SQL`（`SELECT r.id FROM sys_role r WHERE r.code IN ('boss','manager','sales')`），业务口径不变但不再依赖 role_id 数值。
 > **语义（沿用 sys_data_permission.report 既有配置，未新增产品规则）**：boss/finance(`all`)→全量；manager(`dept_and_sub`)→本部门及下级；sales(`self`)→仅本人。**无人被锁死**（销售看到的是「自己的经营数据」而非 403）。
-> **⚠️ 为何不用 `requireManager` 加锁**：它判的是 `manageAll || ADMIN_ROLE_CODES.has(roleCode) || roleId===ROLES.ADMIN(1)`，而 `ADMIN_ROLE_CODES` 仅含 `super_admin`（`config/roles.js` 注释载明「现库已不存在」），且 `demo_users.sql:83` 明载 **manager 角色 `view_all=0`/`manage_all=0`**（靠 `sys_data_permission.dept_and_sub` 取数）⇒ 套用 `requireManager` 会把**部门经理一并 403**，属回归。`routes/analysis.js` 全量套用该中间件存在同一隐患 —— **已于 2026-09-20 修复，详见 #21**。
+> **⚠️ 为何不用 `requireManager` 加锁（历史缺陷描述）**：修复前它判的是 `manageAll || ADMIN_ROLE_CODES.has(roleCode) || roleId===ROLES.ADMIN(1)`，而 `ADMIN_ROLE_CODES` 仅含 `super_admin`（`config/roles.js` 注释载明「现库已不存在」），且 `demo_users.sql:83` 明载 **manager 角色 `view_all=0`/`manage_all=0`**（靠 `sys_data_permission.dept_and_sub` 取数）⇒ 套用 `requireManager` 会把**部门经理一并 403**，属回归。`routes/analysis.js` 全量套用该中间件存在同一隐患 —— **已于 2026-09-20 修复（中间件纳入 manager），详见 #21**。
 > **⚠️ 未收口（4 个端点）**：`/purchase-trend`、`/purchase-by-supplier`、`/purchase-cost`、`/supplier-performance` 为 `checkPermission('purchase')`（采购域），本次未动——`sys_data_permission` 仅 role 1/2 配了 `purchase`，其余角色会落到缺省 `self`，需先定采购域的数据归属口径再改。
 > **验证**：`tests/unit/reportAnalyticsScope.test.js` 由 13 条扩至 **29 条全绿**（新增：`getFinanceReport` all/self 各表归属、`exportFinance` 3 分支、`exportReport` 4 Sheet、`getBusinessDashboard` 19 条查询「无漏网」不变式、roleCode 架构守卫、路由挂载守卫）；`tests/unit` 全量回归 **479 passed / 36 suites / 0 failed**；ESLint `--max-warnings=0` EXIT 0。已做**反向验证**（按行号注入两处缺陷）：去掉一条查询的 scope + 还原硬编码 `role_id IN (1,2,3)` → **5 条对应用例如期失败**，恢复后复跑全绿。
 
 > **#21 修复说明（2026-09-20，分析域 `requireManager` 缺陷 + 数据范围补挂）**
-> **缺陷本质**：`middleware/admin.js` 的 `requireManager` 判 `req.user.manageAll || ADMIN_ROLE_CODES.has(roleCode) || roleId === ROLES.ADMIN(1)`。而 `ADMIN_ROLE_CODES` 仅含 `super_admin`（`config/roles.js` 注释载明为**遗留 code、现库已不存在**），`ROLES.ADMIN = 1` 即 **boss**。⇒ 它实际只放行 **boss / manageAll**，**把名字里的 manager 排除在外**。
+> **缺陷本质（历史，已于本节修复）**：`middleware/admin.js` 的 `requireManager` 判 `req.user.manageAll || ADMIN_ROLE_CODES.has(roleCode) || roleId === ROLES.ADMIN(1)`。而 `ADMIN_ROLE_CODES` 仅含 `super_admin`（`config/roles.js` 注释载明为**遗留 code、现库已不存在**），`ROLES.ADMIN = 1` 即 **boss**。⇒ 它实际只放行 **boss / manageAll**，**把名字里的 manager 排除在外**。修复后已纳入 `roleCode === 'manager'`。
 > **可达性证据链（四段闭合）**：
 > | 环节 | 证据 | 结果 |
 > |---|---|---|
@@ -341,7 +341,7 @@
 > **修复内容**：
 > 1. `routes/analysis.js`：**移除 `requireManager`**，10 个端点统一改为 `checkPermission('analysis') + checkDataPermission('analysis')`，并把 `req.dataPermission` 透传进 service。
 > 2. `services/analysisService.js`：10 个函数接收 `dataPermission`，对**每条**归属相关查询套 `scopeFor`，按表选归属列：customer→`owner_id`、contract→`create_by`、opportunity→`owner_id`、follow_up→`create_by`、sales_target→`user_id`、成员排名→`sys_user.id`（共 17 处查询）。
-> 3. `scripts/init_role_permissions.js` `DATA_PERMISSIONS` 新增 `analysis` 模块：**boss=`all`、manager=`dept_and_sub`**（其余角色无此权限码，脚本第 7 步会清理其历史残留行）。**为何必须显式配 boss**：`checkDataPermission` 对无条目角色注入缺省 `self`，boss 虽因 `manageAll` 走 bypass 注入 `all`，但显式声明可避免将来 boss 去掉 manageAll 时静默退化为「只看自己」。
+> 3. `backend/scripts/init_role_permissions.js` `DATA_PERMISSIONS` 新增 `analysis` 模块：**boss=`all`、manager=`dept_and_sub`**（其余角色无此权限码，脚本第 7 步会清理其历史残留行）。**为何必须显式配 boss**：`checkDataPermission` 对无条目角色注入缺省 `self`，boss 虽因 `manageAll` 走 bypass 注入 `all`，但显式声明可避免将来 boss 去掉 manageAll 时静默退化为「只看自己」。
 > 4. 抽出共享工具 `utils/dataScope.js`（`scopeFor`），`reportAnalyticsService.js` 的局部同名函数改为引用它 —— 避免出现第二事实来源。
 > **语义**：boss→全量；manager→本部门及下级；其余（无 `analysis` 码）→ 连入口都没有。**无人被误锁**。
 > **验证**：`tests/analysis.test.js` 由 5 条增至 **8 条全绿**（新增：manager 不再 403 且按 `dept_and_sub` 注入部门集参数、`self` 只查本人、`/suggestions/enhanced` **5 条业务查询「无漏网」不变式**）；`tests/unit` + analysis + report + email 全量回归 **501 passed / 39 suites / 0 failed**；ESLint `--max-warnings=0` EXIT 0。**反向验证两轮**：① 给 `/win-rate` 重新挂 `requireManager` → 3 条用例如期失败（2 条 `Expected 200 / Received 403`）；② 删掉「停滞商机」查询的归属子句 → 「无漏网」不变式如期失败（`Expected pattern /(owner_id|create_by|user_id)\s*=\s*\?/`），恢复后复跑全绿。

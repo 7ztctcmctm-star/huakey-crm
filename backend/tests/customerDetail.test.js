@@ -68,8 +68,7 @@ describe('客户详情模块', () => {
     it('应该返回客户详情', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1, company_name: '测试公司', contact_name: '张三', status: 1, owner_id: 1 }]]) // customer
         .mockResolvedValueOnce([[ // contacts
           { id: 1, name: '张三', position: '采购经理', phone: '13800138000', is_decision: 1 }
@@ -93,8 +92,7 @@ describe('客户详情模块', () => {
     it('应该返回404当客户不存在', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[]]); // customer not found
 
       const res = await request(app)
@@ -110,8 +108,7 @@ describe('客户详情模块', () => {
     it('应该返回客户360视图', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1, company_name: '测试公司', owner_name: '李四' }]]) // customer
         .mockResolvedValueOnce([[]]) // contacts
         .mockResolvedValueOnce([[]]) // tags
@@ -138,8 +135,7 @@ describe('客户详情模块', () => {
     it('应该返回200当正常导出客户', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // export list
           { company_name: '测试公司', contact_name: '张三', phone: '13800138000', level: 'A', status: 1, owner_name: '李四' }
         ]]);

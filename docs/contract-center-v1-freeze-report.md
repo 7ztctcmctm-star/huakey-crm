@@ -220,7 +220,7 @@ Tests:       112 passed, 112 total
 | F-3 | 🟡 P2 | stage_log 双重 FK 清理 | `106_opportunity_stage_log_fk_cleanup.sql` + down |
 | F-4 | 🟡 P2 | Joi schema 缺 quote_id 字段 | `crud.js` |
 | F-5 | 🟢 — | E2E 业务链测试 | `tests/e2e/contract-flow.spec.js` (10 tests) |
-| F-6 | 🟢 — | 审计报告 | `docs/contract-center-audit-report.md` |
+| F-6 | 🟢 — | 审计报告 | `docs/archive/contract-center-audit-report.md` |
 
 ## 附录 B: 引用文档
 

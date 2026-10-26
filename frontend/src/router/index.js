@@ -253,13 +253,15 @@ const router = createRouter({
           path: 'inventory',
           name: 'Inventory',
           component: () => import('../views/inventory/index.vue'),
-          meta: { title: '库存管理', permission: 'product' }
+          // [V1.1 §11.3] 与 backend/routes/inventory.js 的 checkPermission('purchase') 对齐；
+          // 原 product 权限会在进入页面后所有接口 403。
+          meta: { title: '库存管理', permission: 'purchase' }
         },
         {
           path: 'inventory/movements',
           name: 'InventoryMovements',
           component: () => import('../views/inventory/movements.vue'),
-          meta: { title: '库存变动', permission: 'product' }
+          meta: { title: '库存变动', permission: 'purchase' }
         },
         {
           path: 'supplier/ranking',
@@ -355,7 +357,9 @@ const router = createRouter({
           path: 'settings/api-platform',
           name: 'ApiPlatform',
           component: () => import('../views/settings/api-platform.vue'),
-          meta: { title: 'API开放平台', permission: 'system:user', admin: true }
+          // [V1.1 §11.3] 后端守卫为 checkPermission('api_platform') + requireManager；
+          // 原 'system:user' 让持有 api_platform 的经理被路由守卫挡在页面外。
+          meta: { title: 'API开放平台', permission: 'api_platform', admin: true }
         },
         {
           path: 'competitor',

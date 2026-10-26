@@ -22,14 +22,13 @@ async function listProducts(pool, params = {}) {
   if (code) { whereClause += ' AND code LIKE ?'; queryParams.push(`%${code}%`); }
   if (category) { whereClause += ' AND category = ?'; queryParams.push(category); }
 
-  // ⚠️ 授权口径（David 2026-10-20 拍板）：cost_price 对销售可见。
-  //    本端点由 routes/product.js:109 的 checkPermission('product') 守护，
-  //    该码由 boss/manager/sales/purchase/engineer 持有 ⇒ 响应体含成本价
-  //    是**已批准的业务决策**，不是遗漏——C1 审计（docs/permission-endpoint-hardening-c1.md
-  //    §4.1）曾将其列为待拍板项，结论为「销售可以看」。
-  //    前端成本价/利润率列已同步放开（原 v-if="isAdmin" 隐藏，isAdmin 仅
-  //    super_admin/admin 为 true，连 manager 都看不到——那才是与决策不符的状态）。
-  //    若将来要收窄，必须前后端同步：单独隐藏 UI 列不改变 API 暴露面。
+  // [P1-09 2026-10-23] 成本价字段级权限以 config/fieldPermissions.js 为唯一事实源：
+  //    本查询虽 SELECT cost_price，但 routes/product.js 在 router 级挂了
+  //    checkFieldPermission('product')，并在 /list 响应前调用 stripRestrictedFields，
+  //    非 manageAll（老板/超管）用户拿不到 cost_price；编辑接口也会丢弃受限用户
+  //    回传的 cost_price，避免用 0 覆盖真实成本（tests/unit/productFieldPermission.test.js）。
+  //    不要仅凭本查询的 SELECT 列表判断暴露面：出口在路由层统一收敛。
+  //    若将来调整可见性，改 fieldPermissions.js 并同步前端列显示，不要只改 SQL。
   return paginatedQuery(pool, {
     baseQuery: `SELECT id, name, code, category, unit, price, cost_price, stock, status, description, create_time
      FROM crm_product ${whereClause}`,

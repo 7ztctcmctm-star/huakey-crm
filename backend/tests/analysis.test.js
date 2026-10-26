@@ -41,8 +41,7 @@ describe('数据分析模块', () => {
     it('应该返回赢单率分析', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // stage counts
           { stage: 1, count: 10 },
           { stage: 3, count: 5 },
@@ -64,8 +63,7 @@ describe('数据分析模块', () => {
     it('应该返回销售漏斗分析', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // funnel data
           { stage: 1, count: 20, amount: '500000' },
           { stage: 2, count: 15, amount: '400000' },
@@ -86,8 +84,7 @@ describe('数据分析模块', () => {
     it('应该返回RFM分析', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // RFM data
           { id: 1, company_name: 'A客户', recency: 5, frequency: 10, monetary: 300000 },
           { id: 2, company_name: 'B客户', recency: 30, frequency: 2, monetary: 50000 }
@@ -108,8 +105,7 @@ describe('数据分析模块', () => {
     it('应该返回流失预警', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[ // list
           { id: 1, company_name: '流失客户', overdue_days: 45, owner_name: '张三' }
@@ -141,8 +137,7 @@ describe('数据分析模块', () => {
 
       mockPool.query
         .mockResolvedValueOnce([[]])                               // blacklist
-        .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0 }]]) // role（经理：无 manageAll）
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])    // user status
+        .mockResolvedValueOnce([[{ id: 7, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, view_all: 0, manage_all: 0 }]]) // role（经理：无 manageAll）
         .mockResolvedValueOnce([[{ dept_id: 10 }]])                // dept_and_sub → 本人部门
         .mockResolvedValueOnce([[]])                               // getSubDeptIds → 无子部门
         .mockResolvedValueOnce([[{ stage: 1, count: 3 }]]);        // 业务主查询
@@ -167,8 +162,7 @@ describe('数据分析模块', () => {
 
       mockPool.query
         .mockResolvedValueOnce([[]])
-        .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0 }]])
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])
+        .mockResolvedValueOnce([[{ id: 7, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, view_all: 0, manage_all: 0 }]])
         .mockResolvedValueOnce([[{ stage: 1, count: 1 }]]);
 
       const res = await request(app)
@@ -190,8 +184,7 @@ describe('数据分析模块', () => {
 
       mockPool.query
         .mockResolvedValueOnce([[]])
-        .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0 }]])
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])
+        .mockResolvedValueOnce([[{ id: 7, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, view_all: 0, manage_all: 0 }]])
         .mockResolvedValueOnce([[]])                     // 停滞商机
         .mockResolvedValueOnce([[]])                     // 流失客户
         .mockResolvedValueOnce([[{ monthAmount: 0 }]])   // 本月合同额

@@ -132,7 +132,7 @@ onMounted(() => { fetchTree() })
   transition: background 0.15s;
 }
 .org-node-content:hover { background: var(--color-bg-secondary); }
-.org-node-content.selected { background: #f0f7ff; border-left: 3px solid #0071e3; }
+.org-node-content.selected { background: var(--el-color-primary-light-9); border-left: 3px solid var(--color-accent); }
 .org-toggle { width: 16px; font-size: 10px; color: var(--color-text-tertiary); cursor: pointer; user-select: none; }
 .org-leaf { width: 16px; text-align: center; color: var(--color-text-tertiary); }
 .org-name { font-weight: 600; color: var(--color-text); }

@@ -7,7 +7,9 @@
  */
 
 jest.mock('../../middleware/logger', () => ({ createRouteLogger: () => jest.fn().mockResolvedValue() }));
-jest.mock('../../middleware/permission', () => ({ buildDataPermissionWhere: jest.fn() }));
+jest.mock('../../middleware/permission', () => ({
+  buildDataPermissionWhere: jest.fn(async () => ({ clause: '1=1', params: [] }))
+}));
 jest.mock('../../utils/fieldLog', () => ({ logFieldChanges: jest.fn() }));
 
 const invoiceService = require('../../services/invoiceService');
@@ -24,7 +26,11 @@ function createMockConn() {
 }
 
 function makePool(conn) {
-  return { getConnection: jest.fn().mockResolvedValue(conn) };
+  return {
+    getConnection: jest.fn().mockResolvedValue(conn),
+    // [P0-09] createInvoice 先校验合同存在且客户一致
+    query: jest.fn().mockResolvedValue([[{ id: 1, customer_id: 1 }]])
+  };
 }
 
 /** 取 INSERT / UPDATE 的绑定参数 */
@@ -39,7 +45,7 @@ describe('invoiceService.createInvoice 金额校验', () => {
   it('给了税率、没给税额时由服务端精确补齐：1000 × 13% = 130', async () => {
     const conn = createMockConn();
     conn.query
-      .mockResolvedValueOnce([[]])               // SELECT invoice_no
+      .mockResolvedValueOnce([{ insertId: 1 }])   // [P2-06] 序列取号               // SELECT invoice_no
       .mockResolvedValueOnce([{ insertId: 1 }]); // INSERT
 
     await invoiceService.createInvoice(
@@ -58,7 +64,7 @@ describe('invoiceService.createInvoice 金额校验', () => {
   it('税额一致时放行，并按服务端精确值落库', async () => {
     const conn = createMockConn();
     conn.query
-      .mockResolvedValueOnce([[]])
+      .mockResolvedValueOnce([{ insertId: 1 }])   // [P2-06] 序列取号
       .mockResolvedValueOnce([{ insertId: 2 }]);
 
     await invoiceService.createInvoice(
@@ -104,7 +110,7 @@ describe('invoiceService.createInvoice 金额校验', () => {
     // ② 传精确值 → 放行，且落库 200.51
     const conn2 = createMockConn();
     conn2.query
-      .mockResolvedValueOnce([[]])
+      .mockResolvedValueOnce([{ insertId: 1 }])   // [P2-06] 序列取号
       .mockResolvedValueOnce([{ insertId: 3 }]);
     await invoiceService.createInvoice(
       makePool(conn2),
@@ -117,7 +123,7 @@ describe('invoiceService.createInvoice 金额校验', () => {
   it('没给税率时无校验基准，税额按客户端传入精确取整（缺失则 null）', async () => {
     const conn = createMockConn();
     conn.query
-      .mockResolvedValueOnce([[]])
+      .mockResolvedValueOnce([{ insertId: 1 }])   // [P2-06] 序列取号
       .mockResolvedValueOnce([{ insertId: 4 }]);
 
     await invoiceService.createInvoice(
@@ -129,7 +135,7 @@ describe('invoiceService.createInvoice 金额校验', () => {
 
     const conn2 = createMockConn();
     conn2.query
-      .mockResolvedValueOnce([[]])
+      .mockResolvedValueOnce([{ insertId: 1 }])   // [P2-06] 序列取号
       .mockResolvedValueOnce([{ insertId: 5 }]);
     await invoiceService.createInvoice(
       makePool(conn2),
@@ -171,8 +177,9 @@ describe('invoiceService.updateInvoice 金额校验', () => {
   it('税额一致时按服务端精确值更新', async () => {
     const pool = { query: jest.fn() };
     pool.query
-      .mockResolvedValueOnce([[oldRow]])          // SELECT 旧数据
-      .mockResolvedValueOnce([{ affectedRows: 1 }]); // UPDATE
+      .mockResolvedValueOnce([[oldRow]])                              // SELECT 旧数据（带数据范围）
+      .mockResolvedValueOnce([[{ id: 1, customer_id: 1 }]])           // [P0-09] 合同/客户一致性
+      .mockResolvedValueOnce([{ affectedRows: 1 }]);                  // UPDATE
 
     await invoiceService.updateInvoice(
       pool,

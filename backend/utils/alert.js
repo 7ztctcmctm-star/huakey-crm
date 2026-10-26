@@ -1,5 +1,28 @@
 const { sendMarkdown, sendEmailAlert } = require('./notification');
-const isAlertEnabled = process.env.ALERT_ENABLED === 'true';
+
+// [P2-11 2026-10-26] 告警默认策略：
+//   · 显式 ALERT_ENABLED=true  → 开启；
+//   · 显式 ALERT_ENABLED=false → 尊重运维决定关闭，但生产启动时打印警告；
+//   · 未设置且 NODE_ENV=production 且已配置任一通道 → 默认开启。
+// 原实现只认字面量 'true'，模板默认 false 会让 500 阈值告警静默失效。
+const alertSetting = String(process.env.ALERT_ENABLED || '').trim().toLowerCase();
+const hasWebhookChannel = Boolean(process.env.WECHAT_WEBHOOK_URL);
+const hasEmailChannel = Boolean(
+  process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS && process.env.ALERT_EMAIL_TO
+);
+const hasAlertChannel = hasWebhookChannel || hasEmailChannel;
+const isAlertEnabled = alertSetting === 'true' ||
+  (alertSetting === '' && process.env.NODE_ENV === 'production' && hasAlertChannel);
+
+if (!process.env.JEST_WORKER_ID) {
+  if (process.env.NODE_ENV === 'production' && alertSetting === 'false') {
+    console.warn('[Alert] ALERT_ENABLED=false：生产错误告警已关闭，500 错误与阈值告警不会外发');
+  } else if (alertSetting === 'true' && !hasAlertChannel) {
+    console.warn('[Alert] ALERT_ENABLED=true 但未配置 WECHAT_WEBHOOK_URL / SMTP_* + ALERT_EMAIL_TO，告警将静默丢弃');
+  } else if (process.env.NODE_ENV === 'production' && alertSetting === '' && !hasAlertChannel) {
+    console.warn('[Alert] 生产环境未配置告警通道，告警默认保持关闭');
+  }
+}
 
 // 防抖 Map: key -> 上次告警时间戳 (ms)
 // key 格式: "level:source:message前80字符"

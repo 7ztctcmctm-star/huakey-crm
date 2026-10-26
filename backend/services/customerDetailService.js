@@ -8,6 +8,16 @@ const XLSX = require('xlsx');
 // 【P1-1】金额一律走 money 工具，禁止原生浮点累加。
 const money = require('../utils/money');
 const { CUSTOMER_STATUS, CUSTOMER_STATUS_NAME, isValidCustomerStatus } = require('../constants/customerStatus');
+const { BUSINESS_STATUS } = require('../constants/poolStatus');
+// 与 customerService.FORMAL_CUSTOMER_STATUSES 同口径：正式客户导出默认集合。
+const FORMAL_EXPORT_STATUSES = [
+  CUSTOMER_STATUS.FOLLOWING,
+  CUSTOMER_STATUS.QUOTED,
+  CUSTOMER_STATUS.NEGOTIATING,
+  CUSTOMER_STATUS.SIGNED,
+  CUSTOMER_STATUS.LOST,
+  CUSTOMER_STATUS.PAUSED
+];
 const customerService = require('./customerService');
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
@@ -43,7 +53,38 @@ const SOURCE_PARENT_MAP = {
 };
 
 /**
+ * 取用户在 customer 模块的数据范围配置（sys_data_permission）
+ * 与 checkDataPermission 中间件保持同一数据源，缺省 fail-closed 为 self。
+ * @param {object} pool
+ * @param {object} user - { roleId }
+ * @returns {Promise<{ type: string, customDeptIds: string|number|null }>}
+ */
+async function getCustomerDataScope(pool, user) {
+  const { getDataPermissions } = require('./permissionService');
+  const configs = await getDataPermissions(pool, user.roleId);
+  const config = (configs || []).find((c) => c.module === 'customer');
+  return {
+    type: config ? config.data_scope : 'self',
+    customDeptIds: config ? config.custom_dept_ids : null
+  };
+}
+
+async function getUserDeptId(pool, userId) {
+  const [rows] = await pool.query(
+    'SELECT dept_id FROM sys_user WHERE id = ? AND deleted_at IS NULL',
+    [userId]
+  );
+  return rows[0]?.dept_id ?? null;
+}
+
+/**
  * 检查用户是否有权限查看/编辑指定客户
+ *
+ * [P1-02 2026-10-23] 原实现把经理可管理范围写死为 dept_id IN (1,5,6,7)：
+ * 既与 sys_dept 实际结构脱节（新增部门即失效），也绕过了 sys_data_permission 中
+ * 配置的 dept_and_sub 语义。现统一按 sys_data_permission 的 data_scope 判定，
+ * 缺省无配置时 fail-closed 为 self，与 checkDataPermission 保持一致。
+ *
  * @param {object} pool
  * @param {object} user - { manageAll, roleId, userId }
  * @param {number|null} customerOwnerId
@@ -51,20 +92,53 @@ const SOURCE_PARENT_MAP = {
  */
 async function canManageCustomer(pool, user, customerOwnerId) {
   const ROLES = require('../config/roles');
+  const { getSubDeptIds } = require('../middleware/permission');
+
   if (user.manageAll || user.roleId === ROLES.ADMIN) {
     return true;
   }
-  if (user.roleId === ROLES.MANAGER) {
-    if (customerOwnerId === null || customerOwnerId === undefined) {
-      return true;
-    }
-    const [rows] = await pool.query(
-      'SELECT dept_id FROM sys_user WHERE id = ? AND dept_id IN (1,5,6,7)',
-      [customerOwnerId]
-    );
-    return rows.length > 0;
+  if (customerOwnerId === user.userId) {
+    return true;
   }
-  return customerOwnerId === user.userId;
+
+  const scope = await getCustomerDataScope(pool, user);
+
+  if (customerOwnerId === null || customerOwnerId === undefined) {
+    // 公海/待分配客户不归属任何用户：不是任何人的 "self"。
+    // 是否可维护只看数据范围（dept/dept_and_sub/custom/all），不再看角色 ID。
+    return scope.type !== 'self';
+  }
+  if (scope.type === 'all') {
+    return true;
+  }
+
+  const ownerDeptId = await getUserDeptId(pool, customerOwnerId);
+  if (ownerDeptId === null) {
+    return false;
+  }
+
+  if (scope.type === 'dept' || scope.type === 'dept_and_sub') {
+    const actorDeptId = await getUserDeptId(pool, user.userId);
+    if (actorDeptId === null) {
+      return false;
+    }
+    if (scope.type === 'dept') {
+      return Number(actorDeptId) === Number(ownerDeptId);
+    }
+    const deptIds = (await getSubDeptIds(actorDeptId, pool)).map(Number);
+    return deptIds.includes(Number(ownerDeptId));
+  }
+
+  if (scope.type === 'custom') {
+    const deptIds = String(scope.customDeptIds || '')
+      .split(',')
+      .map(Number)
+      .filter((n) => !Number.isNaN(n));
+    return deptIds.includes(Number(ownerDeptId));
+  }
+
+  // self（含未知范围）：仅本人
+  return false;
 }
 
 /**
@@ -106,6 +180,9 @@ async function addCustomer(pool, data, operatorId) {
   const isAssigned = !!assignedOwner;
   const ownerId = assignedOwner || null;
   const status = isAssigned ? CUSTOMER_STATUS.FOLLOWING : CUSTOMER_STATUS.LEAD;
+  // [P0-12] 必须与 status 同步写入 business_status：表默认 'lead'，
+  // 只写 status='following' 的客户会继续留在线索池，正式客户列表看不到。
+  const businessStatus = customerService.mapStatusToBusinessStatus(status) || BUSINESS_STATUS.LEAD;
 
   const connection = await pool.getConnection();
   await connection.beginTransaction();
@@ -114,8 +191,8 @@ async function addCustomer(pool, data, operatorId) {
   try {
     const [result] = await connection.query(
       `INSERT INTO crm_customer
-        (company_name, address, industry, source, level, owner_id, status, remark)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        (company_name, address, industry, source, level, owner_id, status, business_status, remark)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         company_name,
         address || null,
@@ -124,6 +201,7 @@ async function addCustomer(pool, data, operatorId) {
         level || 'C',
         ownerId,
         status,
+        businessStatus,
         remark || null
       ]
     );
@@ -532,10 +610,15 @@ async function exportCustomers(pool, filters, permission) {
     if (!mappedStatus) {
       throw new AppError(ErrorCodes.VALIDATION_ERROR, '无效的客户状态')
     }
-    whereClause = `WHERE ${permissionClause} AND c.status = ?`;
+    whereClause = `WHERE ${permissionClause} AND c.status = ? AND c.deleted_at IS NULL`;
     params.push(mappedStatus);
   } else {
-    whereClause = `WHERE ${permissionClause} AND c.deleted_at IS NULL`;
+    // [V1.1 §11.3] 未指定 status 时必须与正式客户列表同口径：
+    // 旧实现只加 deleted_at ⇒ 导出把 lead（潜客池）与无主公海客户一并带出，
+    // 与用户当前看到的「正式客户」列表范围不一致（且泄露未认领客户 PII）。
+    const placeholders = FORMAL_EXPORT_STATUSES.map(() => '?').join(',');
+    whereClause = `WHERE ${permissionClause} AND c.status IN (${placeholders}) AND c.owner_id IS NOT NULL AND c.deleted_at IS NULL`;
+    params.push(...FORMAL_EXPORT_STATUSES);
   }
 
   if (owner_id) { whereClause += ' AND c.owner_id = ?'; params.push(owner_id); }

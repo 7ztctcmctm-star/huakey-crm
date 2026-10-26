@@ -282,10 +282,10 @@ onMounted(() => { fetchKeys(); fetchWebhooks(); fetchDocs() })
 .doc-section h3 { font-size: 18px; font-weight: 600; margin: 24px 0 8px; }
 .doc-section h4 { font-size: 15px; font-weight: 600; margin: 16px 0 8px; }
 .doc-section p { font-size: 14px; color: var(--color-text-secondary); margin-bottom: 8px; }
-.code-block { background: #1d1d1f; color: #f5f5f7; padding: 16px; border-radius: 12px; font-family: monospace; font-size: 13px; overflow-x: auto; }
+.code-block { background: var(--color-primary); color: var(--color-bg-secondary); padding: 16px; border-radius: 12px; font-family: monospace; font-size: 13px; overflow-x: auto; }
 .doc-module { margin-bottom: 16px; }
 .doc-endpoint { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--color-border); }
-.doc-method { display: inline-block; width: 50px; text-align: center; font-size: 12px; font-weight: 600; padding: 2px 0; border-radius: 4px; color: #fff; }
+.doc-method { display: inline-block; width: 50px; text-align: center; font-size: 12px; font-weight: 600; padding: 2px 0; border-radius: 4px; color: var(--color-text-on-accent); }
 .doc-method.get { background: var(--color-success); }
 .doc-method.post { background: var(--color-accent); }
 .doc-method.put { background: var(--color-warning); }

@@ -2,7 +2,6 @@
 // 从 routes/cronJobs.js 提取的业务逻辑
 
 const { getRecycleDays, getNearRecycleDays } = require('../utils/config');
-const { POOL_STATUS } = require('../constants/poolStatus');
 const notification = require('../utils/notification');
 const sseManager = require('../utils/sseManager');
 const logger = require('../config/logger');
@@ -58,12 +57,12 @@ async function getNearRecycleCustomers(pool, nearDays) {
             u.real_name as owner_name
      FROM crm_customer c
      LEFT JOIN sys_user u ON c.owner_id = u.id
-     WHERE c.pool_status = ? AND c.deleted_at IS NULL AND c.owner_id IS NOT NULL
+     WHERE c.deleted_at IS NULL AND c.owner_id IS NOT NULL
        AND c.status = 'following'
        AND (c.last_follow_time IS NULL AND c.create_time < NOW() - INTERVAL ? DAY
          OR c.last_follow_time < NOW() - INTERVAL ? DAY)
      ORDER BY overdue_days DESC`,
-    [POOL_STATUS.PRIVATE, threshold, threshold]
+    [threshold, threshold]
   );
   return customers;
 }
@@ -85,10 +84,10 @@ async function notifyPreReleaseCustomers(pool, recycleDays) {
             u.real_name as owner_name
      FROM crm_customer c
      LEFT JOIN sys_user u ON c.owner_id = u.id
-     WHERE c.pool_status = ? AND c.deleted_at IS NULL AND c.owner_id IS NOT NULL
+     WHERE c.deleted_at IS NULL AND c.owner_id IS NOT NULL
        AND c.status = 'following'
        AND DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) = ?`,
-    [POOL_STATUS.PRIVATE, preReleaseDays]
+    [preReleaseDays]
   );
 
   for (const customer of customers) {

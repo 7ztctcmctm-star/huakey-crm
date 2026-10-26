@@ -121,7 +121,11 @@ router.post('/list', authenticateToken, cache(120), checkPermission('product'), 
 // 2. 新增产品
 router.post('/add', authenticateToken, checkPermission('product:add'), validate(productAddSchema), async (req, res, next) => {
   try {
-    const result = await productService.createProduct(pool, req.body);
+    // [P1-09] 受限用户不得写入成本价：字段级脱敏后前端拿不到原值，
+    // 若放行其回传的 0/空值会覆盖真实成本。新增时按 0 落库（与原默认一致）。
+    const payload = { ...req.body };
+    if (req.restrictedFields.includes('cost_price')) delete payload.cost_price;
+    const result = await productService.createProduct(pool, payload);
     res.json({ code: 200, message: '新增产品成功', data: result });
   } catch (error) {
     logger.error('[产品] 操作失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -133,6 +137,9 @@ router.post('/add', authenticateToken, checkPermission('product:add'), validate(
 router.post('/update', authenticateToken, checkPermission('product:edit'), validate(productUpdateSchema), async (req, res, next) => {
   try {
     const { id, ...data } = req.body;
+    // [P1-09] 受限用户不得写入成本价：列表/详情不回传 cost_price，
+    // 编辑表单回填为 0，若不拦截会把真实成本覆盖成 0。
+    if (req.restrictedFields.includes('cost_price')) delete data.cost_price;
     const oldData = await productService.getProductFull(pool, id);
     if (!oldData) return res.status(404).json({ code: 404, message: '产品不存在', data: null });
 
@@ -197,11 +204,10 @@ router.get('/categories', authenticateToken, checkPermission('product'), async (
 //   结论：补 checkPermission('product')，**成本价不随此端点外泄**。
 //   依据：productService.getProductPrices 的 SELECT 列只有 unit_price（售价），
 //         从未 SELECT cost_price；crm_product_price 表也没有成本列。
-//   ⚠️ 真正的成本价敞口在 POST /product/list（productService.listProducts
-//      显式 SELECT cost_price，而 sales/engineer/purchase 均持有 product 码）。
-//      前端 product/index.vue:59 只用 v-if="isAdmin" 隐藏列，响应体仍带 cost_price，
-//      属「UI 隐藏 ≠ 数据受控」。收口需接 checkFieldPermission('product')，
-//      因涉及 sales 是否可见毛利，待确认后另排（见 docs 待办）。
+//   [P1-09 2026-10-23] 成本价敞口已收口：router 级 checkFieldPermission('product')
+//      + /list 的 stripRestrictedFields，非 manageAll 用户响应不含 cost_price；
+//      /add、/update 也会丢弃受限用户回传的 cost_price（防止编辑回填 0 覆盖成本）。
+//      回归：tests/unit/productFieldPermission.test.js。
 router.get('/:id/prices', authenticateToken, checkPermission('product'), async (req, res, next) => {
   try {
     const data = await productService.getProductPrices(pool, req.params.id);
@@ -213,7 +219,9 @@ router.get('/:id/prices', authenticateToken, checkPermission('product'), async (
 });
 
 // 8. 添加产品价格
-router.post('/:id/prices', authenticateToken, checkPermission('product'), validate(productPriceSchema), async (req, res, next) => {
+// [P1-08] 价格写入属产品编辑操作：原挂 checkPermission('product')（查看码）导致
+// sales/engineer 等只读角色可直接改价。现要求 product:edit。
+router.post('/:id/prices', authenticateToken, checkPermission('product:edit'), validate(productPriceSchema), async (req, res, next) => {
   try {
     const productId = req.params.id;
     const { price_type, customer_level, unit_price, min_quantity, currency, valid_from, valid_to } = req.body;
@@ -231,7 +239,7 @@ router.post('/:id/prices', authenticateToken, checkPermission('product'), valida
 });
 
 // 9. 更新产品价格
-router.put('/price/:id', authenticateToken, checkPermission('product'), validate(productPriceUpdateSchema), async (req, res, next) => {
+router.put('/price/:id', authenticateToken, checkPermission('product:edit'), validate(productPriceUpdateSchema), async (req, res, next) => {
   try {
     await productService.updatePrice(pool, req.params.id, req.body);
     res.json({ code: 200, message: '更新成功', data: null });
@@ -242,7 +250,7 @@ router.put('/price/:id', authenticateToken, checkPermission('product'), validate
 });
 
 // 10. 删除产品价格
-router.delete('/price/:id', authenticateToken, checkPermission('product'), validate(idParamSchema, 'params'), async (req, res, next) => {
+router.delete('/price/:id', authenticateToken, checkPermission('product:delete'), validate(idParamSchema, 'params'), async (req, res, next) => {
   try {
     await productService.deletePrice(pool, req.params.id);
     res.json({ code: 200, message: '删除成功', data: null });

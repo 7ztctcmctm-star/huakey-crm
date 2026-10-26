@@ -62,7 +62,7 @@ if [ "$REDIS_HEALTH" != "healthy" ]; then
 fi
 
 # 4. HTTP 健康检查
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 http://localhost:6789/api/v1/health 2>/dev/null)
+HTTP_CODE=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 10 https://127.0.0.1:8443/api/v1/health 2>/dev/null)
 if [ "$HTTP_CODE" != "200" ]; then
   STATUS="CRITICAL"
   ALERT="$ALERT HTTP 健康检查失败"
@@ -70,7 +70,7 @@ if [ "$HTTP_CODE" != "200" ]; then
 fi
 
 # 5. 数据库连接检查
-DB_CHECK=$(curl -s --max-time 10 http://localhost:6789/api/v1/health 2>/dev/null | grep -o '"db":[a-z]*')
+DB_CHECK=$(curl -sk --max-time 10 https://127.0.0.1:8443/api/v1/health 2>/dev/null | grep -o '"db":[a-z]*')
 if [ "$DB_CHECK" != '"db":true' ]; then
   STATUS="CRITICAL"
   ALERT="$ALERT 数据库连接失败"
@@ -78,7 +78,7 @@ if [ "$DB_CHECK" != '"db":true' ]; then
 fi
 
 # 6. Redis 连接检查
-REDIS_CHECK=$(curl -s --max-time 10 http://localhost:6789/api/v1/health 2>/dev/null | grep -o '"redis":[a-z]*')
+REDIS_CHECK=$(curl -sk --max-time 10 https://127.0.0.1:8443/api/v1/health 2>/dev/null | grep -o '"redis":[a-z]*')
 if [ "$REDIS_CHECK" != '"redis":true' ]; then
   STATUS="CRITICAL"
   ALERT="$ALERT Redis 连接失败"
@@ -250,14 +250,14 @@ services:
     logging:
       driver: json-file
       options:
-        max-size: "50m"
+        max-size: "10m"
         max-file: "3"
 
   mysql:
     logging:
       driver: json-file
       options:
-        max-size: "50m"
+        max-size: "10m"
         max-file: "3"
 
   redis:
@@ -277,7 +277,7 @@ services:
 | 检查项 | 命令 | 预期 |
 |--------|------|------|
 | 容器状态 | `docker ps` | 3 容器 Up |
-| 健康检查 | `curl http://localhost:6789/api/v1/health` | 200 OK, db=true, redis=true |
+| 健康检查 | `curl -sk https://127.0.0.1:8443/api/v1/health` | 200 OK, db=true, redis=true |
 | 磁盘空间 | `df -h /volume1` | 剩余 > 10% |
 | 备份状态 | `ls -lt /volume1/docker/crm-backups/db/daily/ \| head -3` | 当日有备份 |
 | 错误日志 | `docker logs huakey-app --tail 50 2>&1 \| grep -i error` | 无 ERROR |

@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../../config/database');
 const { authenticateToken } = require('../../middleware/auth');
-const { checkPermission } = require('../../middleware/permission');
+const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../../middleware/permission');
 const { validate, Joi } = require('../../middleware/validate');
 const customerDetailService = require('../../services/customerDetailService');
 const contactService = require('../../services/contactRouteService');
@@ -47,9 +47,11 @@ const listContactSchema = Joi.object({
 const router = express.Router();
 
 // 查询联系人列表
-router.post('/list', authenticateToken, checkPermission('customer:view'), validate(listContactSchema), async (req, res, next) => {
+router.post('/list', authenticateToken, checkPermission('customer:view'), checkDataPermission('customer', 'owner_id'), validate(listContactSchema), async (req, res, next) => {
   try {
-    const result = await contactService.listContacts(pool, req.body);
+    // [P1-08] 行级数据范围：以客户归属为准，防止跨用户读取联系人
+    const permission = await buildDataPermissionWhere(req.dataPermission, 'c');
+    const result = await contactService.listContacts(pool, req.body, permission);
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {
     next(error);

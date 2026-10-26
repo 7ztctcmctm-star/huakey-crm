@@ -154,6 +154,7 @@
         <el-button type="success" @click="openQuickPay" style="margin-left: auto;">快速录入回款</el-button>
         <el-upload
           :action="importUrl"
+          :http-request="uploadByRequest"
           with-credentials
           :show-file-list="false"
           :on-success="handleImportSuccess"
@@ -236,6 +237,7 @@ import { ElMessage } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import { reportError } from '@/utils/error'
+import { uploadByRequest } from '@/utils/upload'
 import { getMergedPayments, getPaymentSummary, exportPayments, exportPaymentStatement, searchContract, addPayment, getPaymentList } from '@/api/contract'
 
 const router = useRouter()

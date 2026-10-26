@@ -215,7 +215,8 @@ async function listEmails(pool, params, userId) {
  * @param {number} id
  * @returns {object|null}
  */
-async function getEmailDetail(pool, id) {
+async function getEmailDetail(pool, id, userId) {
+  // [P1-08] IDOR 收口：详情只能读取「自己邮箱账号」下的邮件
   const [[email]] = await pool.query(`
     SELECT e.id, e.account_id, e.message_id, e.direction, e.from_address, e.to_addresses, e.cc_addresses,
            e.subject, e.body_text, e.body_html, e.has_attachments, e.attachment_count,
@@ -224,8 +225,8 @@ async function getEmailDetail(pool, id) {
     FROM crm_email e
     LEFT JOIN crm_customer c ON e.customer_id = c.id
     LEFT JOIN crm_contact ct ON e.contact_id = ct.id
-    WHERE e.id = ?
-  `, [id]);
+    WHERE e.id = ? AND e.account_id IN (SELECT id FROM crm_email_account WHERE user_id = ?)
+  `, [id, userId]);
 
   if (!email) return null;
 
@@ -308,8 +309,15 @@ async function sendEmail(pool, params, userId) {
  * @param {object} pool
  * @param {number} id
  */
-async function markAsRead(pool, id) {
-  await pool.query('UPDATE crm_email SET is_read = 1 WHERE id = ?', [id]);
+async function markAsRead(pool, id, userId) {
+  // [P1-08] 只允许修改自己账号下的邮件
+  const [result] = await pool.query(
+    'UPDATE crm_email SET is_read = 1 WHERE id = ? AND account_id IN (SELECT id FROM crm_email_account WHERE user_id = ?)',
+    [id, userId]
+  );
+  if (result.affectedRows === 0) {
+    throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '邮件不存在');
+  }
 }
 
 /**
@@ -318,13 +326,20 @@ async function markAsRead(pool, id) {
  * @param {number} id
  * @returns {{ is_starred: number }}
  */
-async function toggleStar(pool, id) {
-  const [[email]] = await pool.query('SELECT is_starred FROM crm_email WHERE id = ?', [id]);
+async function toggleStar(pool, id, userId) {
+  // [P1-08] 查询与更新都限定账号归属，防止跨用户改星标
+  const [[email]] = await pool.query(
+    'SELECT is_starred FROM crm_email WHERE id = ? AND account_id IN (SELECT id FROM crm_email_account WHERE user_id = ?)',
+    [id, userId]
+  );
   if (!email) {
     throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '邮件不存在')
   }
   const newStarred = email.is_starred ? 0 : 1;
-  await pool.query('UPDATE crm_email SET is_starred = ? WHERE id = ?', [newStarred, id]);
+  await pool.query(
+    'UPDATE crm_email SET is_starred = ? WHERE id = ? AND account_id IN (SELECT id FROM crm_email_account WHERE user_id = ?)',
+    [newStarred, id, userId]
+  );
   return { is_starred: newStarred };
 }
 
@@ -334,12 +349,19 @@ async function toggleStar(pool, id) {
  * @param {number} emailId
  * @param {number} customerId
  */
-async function linkCustomer(pool, emailId, customerId) {
+async function linkCustomer(pool, emailId, customerId, userId) {
   const [customer] = await pool.query('SELECT id FROM crm_customer WHERE id = ?', [customerId]);
   if (customer.length === 0) {
     throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '客户不存在')
   }
-  await pool.query('UPDATE crm_email SET customer_id = ? WHERE id = ?', [customerId, emailId]);
+  // [P1-08] 只能关联自己账号下的邮件
+  const [result] = await pool.query(
+    'UPDATE crm_email SET customer_id = ? WHERE id = ? AND account_id IN (SELECT id FROM crm_email_account WHERE user_id = ?)',
+    [customerId, emailId, userId]
+  );
+  if (result.affectedRows === 0) {
+    throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '邮件不存在');
+  }
 }
 
 /**

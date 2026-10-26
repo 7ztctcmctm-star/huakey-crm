@@ -79,7 +79,7 @@ onMounted(() => { fetchStats() })
 .entry-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
 .entry-card {
   display: flex; align-items: center; gap: 16px; padding: 24px;
-  background: #fff; border-radius: 16px; cursor: pointer;
+  background: var(--color-bg); border-radius: 16px; cursor: pointer;
   transition: transform 0.2s, box-shadow 0.2s;
   box-shadow: 0 2px 12px rgba(0,0,0,0.06);
 }

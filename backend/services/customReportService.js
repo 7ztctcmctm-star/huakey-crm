@@ -100,10 +100,16 @@ function getFields(source) {
 /**
  * 执行自定义报表查询
  */
-async function runReport(pool, id, { page = 1, pageSize = 20, filters = {} }) {
+async function runReport(pool, id, { page = 1, pageSize = 20, filters = {} }, user = {}) {
   const [configs] = await pool.query('SELECT id, name, description, report_type, data_source, columns_config, filter_config, chart_config, is_public, create_by, create_time, update_time, deleted_at FROM crm_report_config WHERE id = ? AND deleted_at IS NULL', [id]);
   if (configs.length === 0) return { error: '报表不存在', status: 404 };
   const config = configs[0];
+
+  // [P1-08] IDOR 收口：与列表口径一致（本人或公开），否则执行任意私有报表会绕过可见性
+  const isOwner = Number(config.create_by) === Number(user.userId);
+  if (!config.is_public && !isOwner && !user.manageAll) {
+    return { error: '无权执行该报表', status: 403 };
+  }
 
   const src = SOURCE_FIELDS[config.data_source];
   if (!src) return { error: '无效的数据来源', status: 400 };

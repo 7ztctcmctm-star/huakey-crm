@@ -40,6 +40,23 @@ const getTokenFromRequest = (req) => {
 };
 
 /**
+ * [P0-06 2026-10-23] 判断 Token 是否签发于密码变更之前
+ *
+ * 改密/管理员重置密码/强制改密都会写 sys_user.password_changed_at。
+ * JWT 自带的 iat 是秒级；密码变更时间按秒比较，避免「同一秒内签发的新 token 被误杀」。
+ *
+ * @param {number} iat - JWT 签发时间（秒）
+ * @param {Date|string|null} passwordChangedAt - sys_user.password_changed_at
+ * @returns {boolean} true=旧 token，必须拒绝
+ */
+const isTokenStaleByPasswordChange = (iat, passwordChangedAt) => {
+  if (!passwordChangedAt) return false;
+  const changedAt = new Date(passwordChangedAt).getTime();
+  if (!Number.isFinite(changedAt)) return false;
+  return Math.floor(changedAt / 1000) > Number(iat || 0);
+};
+
+/**
  * JWT 认证中间件
  *
  * 验证流程：
@@ -91,22 +108,40 @@ const authenticateToken = (req, res, next) => {
       });
     }
 
+    // 缺少 userId 的令牌无法定位账号（历史/伪造 token）——直接拒绝，且不查库
+    if (!user || !user.userId) {
+      return res.status(401).json({
+        code: 401,
+        message: '未登录',
+        data: null
+      });
+    }
+
     // 检查token是否在黑名单中（已登出）+ 查询最新角色权限
     try {
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
-      // 并行：黑名单检查 + 角色权限查询（含 role_code）
-      const [blacklistResult, roleResult, userResult] = await Promise.all([
+      // 并行：黑名单检查 + 按 userId 查询「当前」用户与角色
+      //
+      // [P0-06 2026-10-23] 原实现用 JWT 里的 user.roleId 查角色：
+      //   · 用户被软删除时 user 查询返回空行，status 校验被跳过（旧 token 继续可用）；
+      //   · 角色被调整后，旧 token 仍按旧 roleId 取权限（降权不生效）。
+      // 现统一按 userId 关联当前角色，角色/状态/软删任一变化立即生效。
+      const [blacklistResult, userResult] = await Promise.all([
         pool.query(
           'SELECT 1 as blacklisted FROM sys_token_blacklist WHERE token_hash = ? AND expire_at > NOW() LIMIT 1',
           [tokenHash]
         ),
         pool.query(
-          'SELECT COALESCE(view_all, 0) as view_all, COALESCE(manage_all, 0) as manage_all, code as role_code FROM sys_role WHERE id = ?',
-          [user.roleId]
-        ),
-        pool.query(
-          'SELECT must_change_password, status FROM sys_user WHERE id = ? AND deleted_at IS NULL',
+          `SELECT u.id, u.username, u.role_id, u.status,
+                  u.must_change_password, u.password_changed_at,
+                  r.id AS fresh_role_id, r.code AS role_code,
+                  COALESCE(r.view_all, 0) AS view_all,
+                  COALESCE(r.manage_all, 0) AS manage_all
+             FROM sys_user u
+             LEFT JOIN sys_role r
+               ON u.role_id = r.id AND r.deleted_at IS NULL AND r.status = 1
+            WHERE u.id = ? AND u.deleted_at IS NULL`,
           [user.userId]
         )
       ]);
@@ -120,15 +155,11 @@ const authenticateToken = (req, res, next) => {
         });
       }
 
-      // 从 DB 获取最新权限和状态，不依赖 token 中的过期值
-      const roleRows = Array.isArray(roleResult) && Array.isArray(roleResult[0]) ? roleResult[0] : [];
       const userRows = Array.isArray(userResult) && Array.isArray(userResult[0]) ? userResult[0] : [];
-      const freshRole = roleRows[0] || {};
-      const freshUser = userRows[0] || {};
+      const freshUser = userRows[0];
 
-      // 已被禁用（status=0，含软删除）的用户，已签发 JWT 立即失效。
-      // 仅当 DB 明确返回用户行时校验：mock/测试环境查询无结果时保持放行（与 must_change_password 判断一致）
-      if (freshUser.status !== undefined && freshUser.status !== 1) {
+      // 不存在 / 已软删除 ⇒ 旧 token 立即失效（fail-closed）
+      if (!freshUser) {
         return res.status(401).json({
           code: 401,
           message: '账号不存在或已被禁用，请联系管理员',
@@ -136,16 +167,42 @@ const authenticateToken = (req, res, next) => {
         });
       }
 
-      // roleCode 优先使用 DB 新鲜值，fallback 到 JWT 中的值
-      const roleCode = freshRole.role_code || user.roleCode || '';
+      // 已被禁用（status=0）的用户，已签发 JWT 立即失效
+      if (freshUser.status !== 1) {
+        return res.status(401).json({
+          code: 401,
+          message: '账号不存在或已被禁用，请联系管理员',
+          data: null
+        });
+      }
+
+      // 用户仍挂着一个已删除/停用的角色 ⇒ 拒绝，避免落到「无权限但可访问」的灰区
+      if (freshUser.role_id !== null && freshUser.role_id !== undefined && freshUser.fresh_role_id === null) {
+        return res.status(403).json({
+          code: 403,
+          message: '账号角色已失效，请联系管理员',
+          data: null
+        });
+      }
+
+      // 改密/重置密码后，签发时间早于 password_changed_at 的旧 token 一律失效
+      if (isTokenStaleByPasswordChange(user.iat, freshUser.password_changed_at)) {
+        return res.status(401).json({
+          code: 401,
+          message: '密码已修改，请重新登录',
+          data: null
+        });
+      }
+
+      const roleCode = freshUser.role_code || '';
 
       req.user = {
-        userId: user.userId,
-        username: user.username,
-        roleId: user.roleId,
+        userId: freshUser.id,
+        username: freshUser.username,
+        roleId: freshUser.role_id,
         roleCode: roleCode,
-        viewAll: freshRole.view_all === 1 || ADMIN_ROLE_CODES.has(roleCode),
-        manageAll: freshRole.manage_all === 1 || ADMIN_ROLE_CODES.has(roleCode),
+        viewAll: freshUser.view_all === 1 || ADMIN_ROLE_CODES.has(roleCode),
+        manageAll: freshUser.manage_all === 1 || ADMIN_ROLE_CODES.has(roleCode),
         mustChangePassword: freshUser.must_change_password === 1
       };
 
@@ -200,5 +257,6 @@ const generateToken = (user) => {
 module.exports = {
   authenticateToken,
   generateToken,
-  getTokenFromRequest
+  getTokenFromRequest,
+  isTokenStaleByPasswordChange
 };

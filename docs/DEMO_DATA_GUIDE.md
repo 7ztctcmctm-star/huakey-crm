@@ -88,7 +88,7 @@ cd backend
 npm run seed:demo
 ```
 
-脚本会自动从 `backend/.env` 读取 DB 配置（也可被进程环境变量覆盖），按依赖顺序执行 10 个 seed 文件，并输出汇总验证。
+脚本会自动从项目根目录 `.env` 读取 DB 配置（也可被进程环境变量覆盖），按依赖顺序执行 10 个 seed 文件，并输出汇总验证。
 
 **方式 B：手动执行 SQL**
 
@@ -100,7 +100,7 @@ mysql -u root -p huakey_crm < database/seeds/demo_all.sql
 
 ### 4.3 环境变量
 
-`seed:demo` 脚本读取以下环境变量（默认从 `backend/.env`）：
+`seed:demo` 脚本读取以下环境变量（默认从项目根目录 `.env`）：
 
 | 变量 | 默认值 | 说明 |
 |---|---|---|

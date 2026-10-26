@@ -61,7 +61,7 @@ router.post('/list', authenticateToken, checkPermission('system:user'), validate
 // 2. 添加用户
 router.post('/add', authenticateToken, checkPermission('system:user:add'), validate(userAddSchema), async (req, res, next) => {
   try {
-    const result = await userRouteService.addUser(pool, req.body);
+    const result = await userRouteService.addUser(pool, req.body, req.user);
     res.json({ code: 200, message: '添加用户成功', data: result });
   } catch (error) {
     next(error);
@@ -71,7 +71,7 @@ router.post('/add', authenticateToken, checkPermission('system:user:add'), valid
 // 3. 修改用户
 router.post('/update', authenticateToken, checkPermission('system:user:edit'), validate(userUpdateSchema), async (req, res, next) => {
   try {
-    await userRouteService.updateUser(pool, req.body);
+    await userRouteService.updateUser(pool, req.body, req.user);
     res.json({ code: 200, message: '修改用户成功', data: null });
   } catch (error) {
     next(error);
@@ -81,7 +81,7 @@ router.post('/update', authenticateToken, checkPermission('system:user:edit'), v
 // 4. 删除用户（逻辑删除 + 级联：档案离职、客户入公海、商机释放）
 router.post('/delete', authenticateToken, checkPermission('system:user:delete'), validate(userDeleteSchema), async (req, res, next) => {
   try {
-    const result = await userRouteService.deleteUser(pool, req.body, req.user.userId);
+    const result = await userRouteService.deleteUser(pool, req.body, req.user);
     const msgParts = [`已删除用户「${result.username}」`];
     if (result.customersReleased > 0) msgParts.push(`${result.customersReleased} 个客户已释放到公海池`);
     if (result.opportunitiesReleased > 0) msgParts.push(`${result.opportunitiesReleased} 个商机已转移或释放`);
@@ -106,7 +106,7 @@ router.get('/detail/:id', authenticateToken, checkPermission('system:user'), asy
 router.post('/reset-password', authenticateToken, checkPermission('system:user:edit'), validate(userResetPasswordSchema), async (req, res, next) => {
   const { id, new_password } = req.body;
   try {
-    const result = await userRouteService.resetPassword(pool, id, new_password);
+    const result = await userRouteService.resetPassword(pool, id, new_password, req.user);
     await logAction({
       module: '用户管理',
       action: '重置密码',

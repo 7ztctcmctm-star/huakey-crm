@@ -113,5 +113,5 @@
 ## 十、参考资料
 
 - `docs/API_VERSIONING.md` —— API 版本管理
-- `docs/crm-customer-api-port-map.md` —— 客户域 API 迁移地图
-- `docs/cross-module-write-audit.md` —— 跨模块写入审计
+- `docs/archive/crm-customer-api-port-map.md` —— 客户域 API 迁移地图（已归档）
+- `docs/archive/cross-module-write-audit.md` —— 跨模块写入审计（已归档）

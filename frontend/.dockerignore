@@ -1,0 +1,28 @@
+# canary 前端镜像以 frontend/ 为构建上下文（deploy/docker-compose.canary.yml）。
+# 根 .dockerignore 只对根上下文生效，因此这里必须单独排除依赖产物、测试产物与本地凭证，
+# 否则 `COPY . .` 会把 node_modules / dist / 日志 / 本地 env 一起带进构建层。
+# [P2-08 2026-10-26]
+
+# 依赖与构建产物（镜像内会重新 npm ci + npm run build）
+node_modules
+dist
+coverage
+
+# 测试与运行产物
+test-results
+playwright-report
+e2e
+*.log
+*.exit
+
+# 本地环境与开发令牌：绝不进入镜像。
+# 注意：.env.production 仅含公开的 VITE_API_BASE_URL，构建需要，故不排除；
+#       .env.production.local / .env.local 可能含本地覆盖与凭证，必须排除。
+.env
+.env.local
+.env.*.local
+.dev-token.txt
+
+# 版本控制与本地工具目录
+.git
+.vercel

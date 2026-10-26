@@ -118,6 +118,7 @@ import PageToolbar from '@/components/common/PageToolbar.vue'
 import { reportError } from '@/utils/error'
 
 const platformName = { wechat: '微信', whatsapp: 'WhatsApp', telegram: 'Telegram', email: '邮件', linkedin: 'LinkedIn', facebook: 'Facebook', instagram: 'Instagram' }
+// color-allowlist: 第三方平台品牌色，固定值，不随主题变化
 const platformColor = { wechat: '#07C160', whatsapp: '#25D366', telegram: '#0088cc', email: '#636363', linkedin: '#0A66C2', facebook: '#1877F2', instagram: '#E4405F' }
 
 const loading = ref(true)   // onMounted 无条件取数，初值 true 消除首帧「暂无社交记录」闪现
@@ -191,11 +192,11 @@ onMounted(() => { fetchList(); fetchStats(); fetchCustomers() })
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); }
 .page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); }
 .stat-cards { display: flex; gap: 16px; margin-bottom: var(--space-4); }
-.stat-card { background: #fff; border-radius: 16px; padding: 20px 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); text-align: center; min-width: 120px; }
+.stat-card { background: var(--color-bg); border-radius: 16px; padding: 20px 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); text-align: center; min-width: 120px; }
 .stat-value { font-size: 24px; font-weight: 700; color: var(--color-text); }
 .stat-label { font-size: 12px; color: var(--color-text-tertiary); margin-top: 4px; }
 .search-card { margin-bottom: var(--space-4); }
 .search-card .el-form-item { margin-bottom: 0; }
-.platform-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; color: #fff; font-size: 12px; font-weight: 500; }
+.platform-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; color: var(--color-text-on-accent); font-size: 12px; font-weight: 500; }
 .pagination { display: flex; justify-content: flex-end; margin-top: var(--space-4); }
 </style>

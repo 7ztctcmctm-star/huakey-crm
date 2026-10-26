@@ -68,8 +68,9 @@ describe('cronService', () => {
 
       const result = await cronService.getNearRecycleCustomers(pool, 20);
       expect(result).toHaveLength(1);
-      // 097 迁移后 pool_status 为 VARCHAR('private')，参数首位为 POOL_STATUS.PRIVATE
-      expect(pool.query.mock.calls[0][1]).toEqual(['private', 20, 20]);
+      // [P2-07] 归属判据只看 owner_id，不再读取 pool_status 兼容列
+      expect(pool.query.mock.calls[0][0]).not.toContain('pool_status');
+      expect(pool.query.mock.calls[0][1]).toEqual([20, 20]);
     });
 
     it('未传入阈值时应读取配置', async () => {
@@ -77,7 +78,7 @@ describe('cronService', () => {
       pool.query.mockResolvedValueOnce([[]]);
 
       await cronService.getNearRecycleCustomers(pool);
-      expect(pool.query.mock.calls[0][1]).toEqual(['private', 25, 25]);
+      expect(pool.query.mock.calls[0][1]).toEqual([25, 25]);
     });
   });
 
@@ -98,6 +99,9 @@ describe('cronService', () => {
       const result = await cronService.notifyPreReleaseCustomers(pool, 30);
       expect(result).toBe(1);
       expect(pool.query).toHaveBeenCalledTimes(2);
+      // [P2-07] 只按 owner_id + 逾期天数筛选，不再带 pool_status 参数
+      expect(pool.query.mock.calls[0][0]).not.toContain('pool_status');
+      expect(pool.query.mock.calls[0][1]).toEqual([29]);
     });
 
     it('插入提醒重复错误应被静默捕获', async () => {
@@ -147,10 +151,13 @@ describe('cronService', () => {
 
       const result = await cronService.autoReleaseCustomers(pool, 30);
       expect(result).toBe(1);
-      // 097 迁移后 pool_status 参数化：[POOL_STATUS.SEA, 'sea', ids]
+      // [P2-07] 选客只看 owner_id + 逾期天数；pool_status 仅作为释放时的写入值
+      expect(conn.query.mock.calls[0][0]).not.toContain('pool_status');
+      expect(conn.query.mock.calls[0][1]).toEqual([30, 30]);
+      // 097 迁移后 pool_status 参数化；[P1-03] 同时写 status/business_status
       expect(conn.query).toHaveBeenCalledWith(
-        'UPDATE crm_customer SET pool_status = ?, owner_id = NULL, protect_until = NULL, status = ? WHERE id IN (?)',
-        ['sea', 'sea', [1]]
+        'UPDATE crm_customer SET pool_status = ?, owner_id = NULL, protect_until = NULL, status = ?, business_status = ? WHERE id IN (?)',
+        ['sea', 'sea', 'following', [1]]
       );
       expect(conn.commit).toHaveBeenCalled();
       expect(conn.release).toHaveBeenCalled();

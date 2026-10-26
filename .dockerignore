@@ -1,9 +1,19 @@
+# 依赖与构建产物
 **/node_modules
-.git/
-.env
-*.log
 **/dist
-uploads/
-database/backups/
+.git/
 docker/data/
+database/backups/
+uploads/
 **/logs
+*.log
+
+# [P0-10 2026-10-23] 任何层级的 env / 开发令牌都不得进入构建上下文：
+# 原规则只排除根目录 `.env`，backend/.env.local、backend/.env.production.local、
+# backend/.dev-token.txt 会随 `COPY backend/ .` 被烘进镜像层，凭证随镜像泄露。
+**/.env
+**/.env.*
+**/.dev-token.txt
+
+# 前端构建需要该文件（仅包含 VITE_API_BASE_URL，非密钥）；必须放在排除规则之后才能覆盖
+!frontend/.env.production

@@ -267,11 +267,11 @@ onMounted(() => {
 }
 
 .highlight-price {
-  color: #d32f2f;
+  color: var(--color-danger);
   font-weight: 600;
 }
 
 :deep(.lowest-row) {
-  background-color: #f0fdf4;
+  background-color: var(--el-color-success-light-9);
 }
 </style>

@@ -11,7 +11,7 @@ const ErrorCodes = require('../errors/codes');
  * @param {object} params - { customer_id, page, pageSize }
  * @returns {object} { list, total }
  */
-async function listContacts(pool, params) {
+async function listContacts(pool, params, permission = { clause: '1=1', params: [] }) {
   const { customer_id, page = 1, pageSize = 20 } = params;
 
   if (!customer_id) {
@@ -21,19 +21,29 @@ async function listContacts(pool, params) {
   const safePageSize = Math.min(Math.max(1, parseInt(pageSize) || 20), 200);
   const offset = (Math.max(1, parseInt(page) || 1) - 1) * safePageSize;
 
+  // [P1-08] IDOR 收口：原实现只按 customer_id 查，任意持有 customer:view 的用户
+  // 都能读取任意客户的联系人（电话/微信/邮箱）。现 JOIN crm_customer 并施加
+  // 调用方传入的行级数据范围条件（checkDataPermission + buildDataPermissionWhere）。
+  const scopeClause = permission && permission.clause ? permission.clause : '1=1';
+  const scopeParams = (permission && permission.params) || [];
+
   const [countResult] = await pool.query(
-    'SELECT COUNT(*) as total FROM crm_contact WHERE customer_id = ? AND deleted_at IS NULL',
-    [customer_id]
+    `SELECT COUNT(*) as total FROM crm_contact ct
+     JOIN crm_customer c ON c.id = ct.customer_id AND c.deleted_at IS NULL
+     WHERE ct.customer_id = ? AND ct.deleted_at IS NULL AND ${scopeClause}`,
+    [customer_id, ...scopeParams]
   );
   const total = countResult[0].total;
 
   const [rows] = await pool.query(
-    `SELECT id, customer_id, name, position, phone, email, wechat, is_decision, remark, create_time, update_time, deleted_at
-     FROM crm_contact
-     WHERE customer_id = ? AND deleted_at IS NULL
-     ORDER BY is_primary DESC, is_decision DESC, create_time DESC
+    `SELECT ct.id, ct.customer_id, ct.name, ct.position, ct.phone, ct.email, ct.wechat,
+            ct.is_decision, ct.remark, ct.create_time, ct.update_time, ct.deleted_at
+     FROM crm_contact ct
+     JOIN crm_customer c ON c.id = ct.customer_id AND c.deleted_at IS NULL
+     WHERE ct.customer_id = ? AND ct.deleted_at IS NULL AND ${scopeClause}
+     ORDER BY ct.is_primary DESC, ct.is_decision DESC, ct.create_time DESC
      LIMIT ? OFFSET ?`,
-    [customer_id, safePageSize, offset]
+    [customer_id, ...scopeParams, safePageSize, offset]
   );
 
   return { list: rows, total };

@@ -1,6 +1,7 @@
 const winston = require('winston');
 const DailyRotateFile = require('winston-daily-rotate-file');
 const path = require('path');
+const { maskUrlQuery } = require('../utils/mask');
 
 const isProduction = process.env.NODE_ENV === 'production';
 const logDir = path.resolve(__dirname, '..', 'logs');
@@ -53,6 +54,15 @@ if (isProduction) {
   );
 }
 
+// [P2-09 2026-10-26] 访问日志走 logger.http()；winston npm 级别里 info 高于 http，
+// LOG_LEVEL=info 会静默丢弃访问日志。显式配成 info/warn/error 时启动告警，避免线上误判“没有请求”。
+const configuredLogLevel = process.env.LOG_LEVEL;
+if (configuredLogLevel && ['error', 'warn', 'info'].includes(configuredLogLevel)) {
+  console.warn(
+    `[Logger] LOG_LEVEL=${configuredLogLevel} 会过滤 http 访问日志；如需 API 访问日志请设置 LOG_LEVEL=http`
+  );
+}
+
 const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'http',
   levels: winston.config.npm.levels,
@@ -82,7 +92,8 @@ function extractReqMeta(req) {
     traceId: req.traceId || 'N/A',
     userId: req.user?.userId || req.user?.id || 'anonymous',
     method: req.method,
-    path: req.originalUrl || req.url || 'unknown'
+    // [P1-20] 访问日志同样不落原始查询串：?phone=/email=/token= 一律脱敏
+    path: maskUrlQuery(req.originalUrl || req.url || 'unknown')
   };
 }
 

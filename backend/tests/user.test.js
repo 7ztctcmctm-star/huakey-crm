@@ -57,7 +57,7 @@ describe('用户管理模块', () => {
     it('应该返回400当缺少username字段', async () => {
       const token = generateToken();
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
-      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+      mockPool.query.mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/v1/user/add')
@@ -71,7 +71,7 @@ describe('用户管理模块', () => {
     it('应该返回400当缺少password字段', async () => {
       const token = generateToken();
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
-      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+      mockPool.query.mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/v1/user/add')
@@ -86,8 +86,7 @@ describe('用户管理模块', () => {
       const token = generateToken();
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 99 }]]); // user exists
 
       const res = await request(app)
@@ -103,8 +102,7 @@ describe('用户管理模块', () => {
       const token = generateToken();
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[]])  // username not exists
         .mockResolvedValueOnce([{ insertId: 10 }]);
 
@@ -123,7 +121,7 @@ describe('用户管理模块', () => {
     it('应该返回400当缺少id字段', async () => {
       const token = generateToken();
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
-      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+      mockPool.query.mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/v1/user/update')
@@ -138,8 +136,7 @@ describe('用户管理模块', () => {
       const token = generateToken();
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 2 }]])  // user exists
         .mockResolvedValueOnce([{ affectedRows: 1 }]);
 
@@ -157,7 +154,7 @@ describe('用户管理模块', () => {
     it('应该返回400当缺少id字段', async () => {
       const token = generateToken();
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
-      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+      mockPool.query.mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/v1/user/delete')
@@ -172,7 +169,7 @@ describe('用户管理模块', () => {
       const token = generateToken(1); // userId = 1
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]); // role query
 
       mockConnection.query
         .mockResolvedValueOnce([[{ id: 1, username: 'admin', manager_id: null }]]); // user exists
@@ -190,15 +187,15 @@ describe('用户管理模块', () => {
       const token = generateToken(1); // userId = 1
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 2, manager_id: 3 }]]); // user exists with manager
 
       mockConnection.query
         .mockResolvedValueOnce([[{ id: 3, deleted_at: null, status: 1 }]]) // manager valid
         .mockResolvedValueOnce([{ affectedRows: 1 }]) // UPDATE sys_user
         .mockResolvedValueOnce([{ affectedRows: 1 }]) // UPDATE crm_employee_profile
-        .mockResolvedValueOnce([{ affectedRows: 2 }]) // UPDATE crm_customer
+        .mockResolvedValueOnce([{ affectedRows: 2 }]) // [P1-03] UPDATE crm_customer 非线索转公海态
+        .mockResolvedValueOnce([{ affectedRows: 0 }]) // [P1-03] UPDATE crm_customer 线索仅清归属
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // UPDATE crm_opportunity
 
       const res = await request(app)
@@ -217,7 +214,7 @@ describe('用户管理模块', () => {
     it('应该返回400当新密码不满足密码策略(少于8位)', async () => {
       const token = generateToken();
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
-      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+      mockPool.query.mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/v1/user/reset-password')
@@ -232,8 +229,7 @@ describe('用户管理模块', () => {
       const token = generateToken();
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 2, username: 'targetuser' }]]) // user exists
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // UPDATE password
 

@@ -1,4 +1,5 @@
-FROM node:22-alpine
+# [P2-12] digest 固定于 2026-10-26；升级流程见 docs/image-digests.md
+FROM node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
 
 # 安全基线：刷新 alpine OS 包（OpenSSL 等 CVE 修复）
 RUN apk upgrade --no-cache
@@ -19,7 +20,10 @@ RUN npm ci --omit=dev
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /root/.npm
 
 COPY . .
-RUN addgroup -S nodejs && adduser -S nodejs -G nodejs && chown -R nodejs:nodejs /app
+# [P2-10 2026-10-26] 预建日志目录：具名卷挂载到 /app/logs 时继承 nodejs 属主，
+# 否则 winston 以非 root 创建目录会因父目录只读而失败。
+RUN addgroup -S nodejs && adduser -S nodejs -G nodejs && \
+    mkdir -p /app/logs && chown -R nodejs:nodejs /app
 USER nodejs
 EXPOSE 5000
 CMD ["node", "app.js"]

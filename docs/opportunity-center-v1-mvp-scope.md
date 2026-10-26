@@ -6,6 +6,10 @@
 > 基线约束：[Customer Center v1.0 冻结声明](customer-center-freeze-v1.md)
 > 状态：**已评审通过，作为唯一开发基线**
 > 原则：与 Customer Center Freeze 一致 ｜ 不做全局重构 ｜ 不修改无关模块 ｜ 最小可交付（MVP）
+>
+> **实现勘误（2026-10-26 核对）**：商机创建前置条件在代码中读取 `customer.status`
+> （迁移 110 后为权威字段），而非 `business_status`（仅镜像）；允许集合仍为
+> following/quoted/negotiating/signed。其余规则不变。
 
 ---
 

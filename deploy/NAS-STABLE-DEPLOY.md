@@ -116,8 +116,8 @@ docker logs -f huakey-app --tail 50
 ### 4.1 容器内检查
 
 ```bash
-docker exec huakey-mysql mysql -u root -p${MYSQL_ROOT_PASSWORD} -e "SELECT 1;"
-docker exec huakey-mysql mysqladmin -u root -p${MYSQL_ROOT_PASSWORD} status
+docker exec huakey-mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -u root -e "SELECT 1;"'
+docker exec huakey-mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysqladmin -u root status'
 ```
 
 ### 4.2 健康检查配置说明
@@ -185,8 +185,8 @@ docker compose -f docker-compose.synology.yml --env-file .env up -d
 1. MySQL healthcheck 通过
 2. Redis healthcheck 通过
 3. 启动 `app` 容器
-4. 执行 `CMD`：`node database/migrate.js && node app.js`
-5. `database/migrate.js` 内部已包含 30 次 × 2 秒的数据库连接重试
+4. 执行 `CMD`：`node database/migrations/run_migrations.js && exec node app.js`
+5. `run_migrations.js` 内部已包含 30 次 × 2 秒的数据库连接重试；单文件失败立即退出，不再执行后续迁移
 
 环境变量要求（已在 `.env` 中配置）：
 

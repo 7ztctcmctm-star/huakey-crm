@@ -41,8 +41,7 @@ describe('外部集成模块', () => {
     it('应该返回集成列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // integration list
           { id: 1, type: 'email', name: '邮件服务', status: 'active', config: '{"host":"smtp.qq.com","user":"test@qq.com","pass":"oldpassword","from":"test@qq.com"}' },
           { id: 2, type: 'sms', name: '短信服务', status: 'inactive', config: '{}' }
@@ -63,7 +62,7 @@ describe('外部集成模块', () => {
   describe('POST /api/v1/integration/send-email', () => {
     it('应该返回400当缺少to', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
-      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+      mockPool.query.mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/v1/integration/send-email')
@@ -77,8 +76,7 @@ describe('外部集成模块', () => {
     it('应该返回200当正常发送邮件', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ config: '{"host":"smtp.qq.com","port":465,"user":"test@qq.com","pass":"password","from":"test@qq.com"}' }]]) // email config
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert email log
 
@@ -105,8 +103,7 @@ describe('外部集成模块', () => {
     it('应该返回邮件日志', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[ // list
           { id: 1, to_email: 'client@example.com', subject: '报价单', status: 'sent', sender_name: '张三' }

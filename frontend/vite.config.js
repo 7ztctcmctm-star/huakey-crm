@@ -26,6 +26,11 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:5000',
         changeOrigin: true,
+      },
+      // [P1-11] /uploads 已改为登录+数据范围鉴权，开发环境需与生产同源转发
+      '/uploads': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
       }
     }
   },

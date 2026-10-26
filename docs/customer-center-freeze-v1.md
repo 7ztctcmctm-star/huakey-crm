@@ -3,6 +3,10 @@
 > 冻结时间：2026-08-04
 > 版本：v1.0
 > 状态：**已冻结（FROZEN）**
+>
+> **冻结基线勘误（2026-10-26 核对）**：冻结文件清单中的 `backend/services/leadsService.js`
+> 已于 2026-09-14 阶段 4 删除（线索能力由 `backend/routes/leads.js` + `customerService` 承担）；
+> 冻结的领域边界与业务规则不变。
 
 ---
 
@@ -58,7 +62,8 @@
 ### 4. 客户生命周期
 - 状态流转：lead → following → quoted → negotiating → signed / lost / paused
 - pool_status 流转：private ↔ sea（通过 release/claim）
-- protect_until 保护期机制（认领后 7 天保护）
+- 保护期机制已于 2026-09-10 下线：释放到公海的客户可立即认领；`protect_until` / `pool_type` 仅保留列，不再写入有效保护期
+- 归属判据统一为 `owner_id`（`NULL` = 公海）；`pool_status` 仅为兼容列
 - 自动释放定时任务（cronService.autoReleaseCustomers）
 - 临近回收预警（cronService.getNearRecycleCustomers）
 
@@ -71,7 +76,7 @@
 
 ### 6. API
 - Phase 5 API 独立化：`/customer/*` → `/customers/*`（正式客户）
-- 兼容层：旧 `/customer/*` 端点保留，内部调用相同 controller
+- 旧 `/api/v1/customer/*` 已整树下线（2026-09-14），未挂载；不存在兼容层
 - 独立端点：`/api/v1/leads`、`/api/v1/pool`、`/api/v1/customers`
 - 所有接口均使用 `authenticateToken` + `checkPermission` 双中间件
 
@@ -150,9 +155,10 @@
 | POST | `/api/v1/pool/claim` | `pool:claim` | 认领 |
 | POST | `/api/v1/pool/release` | `customer:release` | 释放到公海 |
 
-### 兼容层（/api/v1/customer/*）
+### 旧树（/api/v1/customer/*）—— 已下线
 
-旧端点保留，内部调用相同 controller，权限码已同步统一。详见后端路由文件。
+2026-09-14 起旧树整树下线（`routes/customer/{module,index,detail}.js` 已删除，未再挂载）。
+客户中心仅保留 `/api/v1/customers`、`/api/v1/leads`、`/api/v1/pool` 三组端点。
 
 ---
 
@@ -201,7 +207,7 @@
 
 1. **`leadsService.js` @deprecated 标注矛盾**：文件头标 @deprecated 但仍被 customerController 活跃调用 7 个方法。需业务确认迁移方向。
 2. **`legacyStatusToCode` 旧数字状态兼容映射**：customerService.js 和 customerDetailService.js 各有一份，用于迁移 070/097 过渡期。旧前端全量切换后可删除。
-3. **`/customer/*` 兼容层端点**：前后端均保留，旧书签/外链过渡期保留。
+3. ~~**`/customer/*` 兼容层端点**~~：已解决——旧树于 2026-09-14 整树下线，不再提供兼容层。
 4. **`customer:assign` 类型冲突**：init_role_permissions.js（button）与 098（api）重复定义，以 button 为准。
 5. **`customer:list` 旧菜单码保留**：098 已映射到 `leads:view` + `customer:view`，未删除。
 6. **未使用的权限码**：`leads:release` / `pool:assign` / `customer:manage` 已定义分配但路由未使用，为未来功能预留。

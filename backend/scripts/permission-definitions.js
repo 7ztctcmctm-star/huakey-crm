@@ -194,12 +194,11 @@ const ROLE_PERMISSIONS = {
     'competitor:view', 'competitor:add', 'competitor:edit', 'competitor:delete',
     'email:send', 'leads:view', 'leads:convert', 'purchase:approve',
     // [C1 2026-10-20] 补登记此前缺失的裸码（路由在用但从未登记 ⇒ 除 manage_all
-    //   外全员 403，功能实际不可用）。授权面 = boss + manager 同龄：
-    //   120 迁移确立「manager 功能权限 == boss 功能权限」不变式
-    //   （migrationGuard.test.js 守护），任何只加一边的改法都会立刻红。
-    //   api_platform 对 manager 开放已经 David 2026-10-20 拍板确认
-    //   （路由本就是 checkPermission + requireManager 配对，语义上就面向管理层）；
-    //   log:delete 随不变式同龄授予，破坏性由 clean-logs 等运维侧兜底约束。
+    //   外全员 403，功能实际不可用）。
+    //   [2026-10-23 审计 P0-04] 旧版 120「manager 功能权限 == boss」不变式已废除：
+    //   经理只拿业务权限，不得持有 system:user* / system:role* / system:backup /
+    //   settings / log:delete 等系统管理与审计权限。migrationGuard.test.js 已改为
+    //   断言 manager 不持有这些码，而不是比较权限数量。
     'log:delete', 'api_platform',
     // [C1 2026-10-20] 发票详情查看 + 定时任务手动触发
     'invoice:view', 'system:cron'
@@ -222,14 +221,11 @@ const ROLE_PERMISSIONS = {
     'search', 'tag', 'contract_template', 'data_quality:check',
     'competitor:view', 'competitor:add', 'competitor:edit', 'competitor:delete',
     'email:send', 'leads:view', 'leads:convert', 'purchase:approve',
-    // [C1 2026-10-20] 与 boss 保持功能码一致 —— 120 迁移确立的不变式
-    //   「manager 功能权限 == boss 功能权限」，差异只在数据权限（dept_and_sub）。
-    //   新增/补登记的 4 个码（log:delete、api_platform、invoice:view、system:cron）
-    //   必须两边同龄，否则 tests/db/migrationGuard.test.js 会立刻红。
-    //   api_platform → David 2026-10-20 拍板「经理可以看」：路由为
-    //   checkPermission('api_platform') + requireManager 配对，manager
-    //   本就过 requireManager，授予后即打通，无需再改路由。
-    'log:delete', 'api_platform', 'invoice:view', 'system:cron'
+    // [C1 2026-10-20] api_platform 对经理开放（路由 checkPermission + requireManager
+    //   配对，语义上就面向管理层）；invoice:view 随财务查看；system:cron 路由仍有
+    //   requireAdmin，经理即使持有该码也进不来，保留仅为与历史矩阵对齐。
+    //   [2026-10-23 审计 P0-04] log:delete 仅 boss 持有：审计日志删除不应下放经理。
+    'api_platform', 'invoice:view', 'system:cron'
   ],
   sales: [
     'dashboard', 'customer', 'customer:list', 'pool', 'pool:view', 'pool:claim', 'followup:calendar', 'followup:template',

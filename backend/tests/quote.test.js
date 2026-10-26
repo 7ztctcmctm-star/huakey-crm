@@ -17,6 +17,8 @@ const mockPool = {
 
 jest.mock('../config/database', () => mockPool);
 
+const { installAuthAwareQuery } = require('./helpers/authMock');
+
 jest.mock('../middleware/logger', () => ({
   logAction: jest.fn().mockResolvedValue(undefined),
   logFieldChanges: jest.fn().mockResolvedValue(undefined),
@@ -40,7 +42,10 @@ const generateToken = () => {
 describe('报价模块', () => {
   const token = generateToken();
 
-  beforeEach(() => { mockPool.query.mockReset(); });
+  beforeEach(() => {
+    mockPool.query.mockReset();
+    installAuthAwareQuery(mockPool);
+  });
 
   describe('POST /api/v1/quote/add', () => {
     it('应该返回400当缺少customer_id', async () => {

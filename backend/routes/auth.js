@@ -3,7 +3,7 @@ const registry = require('../core/ModuleRegistry');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const pool = require('../config/database');
-const { authenticateToken, generateToken, getTokenFromRequest } = require('../middleware/auth');
+const { authenticateToken, generateToken, getTokenFromRequest, isTokenStaleByPasswordChange } = require('../middleware/auth');
 const { validate, Joi } = require('../middleware/validate');
 const { checkPermission } = require('../middleware/permission');
 const { generateCsrfToken, setCsrfCookie } = require('../middleware/csrf');
@@ -321,6 +321,14 @@ router.post('/change-password', authenticateToken, validate(changePasswordSchema
   try {
     const { old_password, new_password } = req.body;
     await authService.changePassword(pool, req.user.userId, old_password, new_password);
+
+    // [P0-06] 改密后清除当前 cookie；其余旧 token 由 password_changed_at 校验兜底
+    res.clearCookie('token', {
+      httpOnly: true,
+      secure: isProduction && req.secure,
+      sameSite: 'lax'
+    });
+
     res.json({ code: 200, message: '密码修改成功，请重新登录', data: null });
   } catch (error) {
     next(error);
@@ -355,12 +363,21 @@ router.post('/refresh', validate(refreshSchema), async (req, res, next) => {
       return res.status(401).json({ code: 401, message: '未提供访问令牌', data: null });
     }
 
-    // 验证 token 签名，允许已过期
+    // 验证 token 签名，允许已过期，但仅限宽限期内的过期 token
+    // [P0-06/P1-16 2026-10-23] 原实现 ignoreExpiration 且无任何时间上限，
+    // 一枚旧 token 可无限续期。现限制过期后最多 7 天（可配），超过必须重新登录。
     let decoded;
     try {
       decoded = jwt.verify(oldToken, JWT_SECRET, { ignoreExpiration: true, algorithms: ['HS256'] });
     } catch (err) {
       return res.status(401).json({ code: 401, message: '无效的访问令牌', data: null });
+    }
+
+    const graceDays = parseInt(process.env.JWT_REFRESH_GRACE_DAYS, 10);
+    const graceMs = (Number.isFinite(graceDays) && graceDays >= 0 ? graceDays : 7) * 24 * 60 * 60 * 1000;
+    const expiresAtMs = Number(decoded.exp) * 1000;
+    if (!Number.isFinite(expiresAtMs) || Date.now() - expiresAtMs > graceMs) {
+      return res.status(401).json({ code: 401, message: '令牌已过期，请重新登录', data: null });
     }
 
     // 检查 token 是否已在黑名单
@@ -373,15 +390,17 @@ router.post('/refresh', validate(refreshSchema), async (req, res, next) => {
       return res.status(401).json({ code: 401, message: '令牌已失效，请重新登录', data: null });
     }
 
-    // 查询用户及最新角色权限
+    // 查询用户及最新角色权限（按 userId，不信任 token 中的 roleId）
     const [users] = await pool.query(
-      `SELECT u.id, u.username, u.role_id,
+      `SELECT u.id, u.username, u.role_id, u.password_changed_at,
+              r.id AS fresh_role_id,
               COALESCE(r.code, '') as role_code,
               COALESCE(r.view_all, 0) as view_all,
               COALESCE(r.manage_all, 0) as manage_all
        FROM sys_user u
-       LEFT JOIN sys_role r ON u.role_id = r.id
-       WHERE u.id = ? AND u.status = 1`,
+       LEFT JOIN sys_role r
+         ON u.role_id = r.id AND r.deleted_at IS NULL AND r.status = 1
+       WHERE u.id = ? AND u.status = 1 AND u.deleted_at IS NULL`,
       [decoded.userId]
     );
 
@@ -391,12 +410,21 @@ router.post('/refresh', validate(refreshSchema), async (req, res, next) => {
 
     const user = users[0];
 
+    if (user.role_id !== null && user.role_id !== undefined && user.fresh_role_id === null) {
+      return res.status(403).json({ code: 403, message: '账号角色已失效，请联系管理员', data: null });
+    }
+
+    // 改密后旧 token 不得再续期
+    if (isTokenStaleByPasswordChange(decoded.iat, user.password_changed_at)) {
+      return res.status(401).json({ code: 401, message: '密码已修改，请重新登录', data: null });
+    }
+
     // 将旧 token 加入黑名单
     await pool.query(
-      `INSERT INTO sys_token_blacklist (token_hash, expire_at)
-       VALUES (?, DATE_ADD(NOW(), INTERVAL 7 DAY))
+      `INSERT INTO sys_token_blacklist (token_hash, user_id, expire_at, reason)
+       VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 7 DAY), 'refresh')
        ON DUPLICATE KEY UPDATE expire_at = VALUES(expire_at)`,
-      [tokenHash]
+      [tokenHash, user.id]
     );
 
     // 签发新 token

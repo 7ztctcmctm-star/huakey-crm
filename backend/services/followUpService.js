@@ -14,18 +14,29 @@ const ErrorCodes = require('../errors/codes');
  * 添加跟进记录
  * @param {object} pool
  * @param {object} params - { customer_id, contact_id, follow_type, content, next_time, next_content, attachment_ids }
- * @param {number} userId - 当前用户ID
+ * @param {object} user - 当前用户 { userId, roleId, manageAll }
+ * @param {function} canManageCustomer - 客户数据范围校验器 (user, ownerId) => Promise<boolean>
  * @returns {{ id: number }}
  */
-async function addFollowUp(pool, params, userId) {
+async function addFollowUp(pool, params, user, canManageCustomer) {
   const { customer_id, contact_id, follow_type, content, next_time, next_content, attachment_ids } = params;
+  const userId = user && typeof user === 'object' ? user.userId : user;
 
   const [customers] = await pool.query(
-    'SELECT id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+    'SELECT id, owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [customer_id]
   );
   if (customers.length === 0) {
     throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '客户不存在');
+  }
+
+  // [P1-08] IDOR 收口：原实现只校验客户存在，任意持 customer:edit 的用户都能给
+  // 他人客户写跟进（并触发 last_follow_time / 状态推进）。现按客户归属做数据范围校验。
+  if (typeof canManageCustomer !== 'function') {
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '缺少客户权限校验器，拒绝写入');
+  }
+  if (!(await canManageCustomer(user, customers[0].owner_id))) {
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权为该客户添加跟进记录');
   }
 
   const [result] = await pool.query(
@@ -94,13 +105,29 @@ async function addFollowUp(pool, params, userId) {
  * @param {number} userId
  * @returns {{ count: number }}
  */
-async function batchAddFollowUp(pool, items, userId) {
+async function batchAddFollowUp(pool, items, user, canManageCustomer) {
+  const userId = user && typeof user === 'object' ? user.userId : user;
+  if (typeof canManageCustomer !== 'function') {
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '缺少客户权限校验器，拒绝写入');
+  }
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
 
     for (const item of items) {
       if (!item.customer_id || !item.content) continue;
+
+      // [P1-08] 逐条校验客户归属：任一条越权即整批回滚，避免部分写入
+      const [customerRows] = await connection.query(
+        'SELECT id, owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+        [item.customer_id]
+      );
+      if (customerRows.length === 0) {
+        throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, `客户 ${item.customer_id} 不存在`);
+      }
+      if (!(await canManageCustomer(user, customerRows[0].owner_id))) {
+        throw new AppError(ErrorCodes.PERMISSION_DENIED, `无权为客户 ${item.customer_id} 添加跟进记录`);
+      }
 
       await connection.query(
         `INSERT INTO crm_follow_up (customer_id, follow_type, content, next_time, create_by)
@@ -431,15 +458,24 @@ async function getCalendar(pool, params, dataPermission) {
  * @param {number} userId
  * @returns {{ id: number }}
  */
-async function addPlan(pool, params, userId) {
+async function addPlan(pool, params, user, canManageCustomer) {
   const { customer_id, contact_id, plan_time, plan_content, follow_type } = params;
+  const userId = user && typeof user === 'object' ? user.userId : user;
 
   const [customers] = await pool.query(
-    'SELECT id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+    'SELECT id, owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [customer_id]
   );
   if (customers.length === 0) {
     throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '客户不存在');
+  }
+
+  // [P1-08] 与 addFollowUp 同一收口：不得为他人客户创建跟进计划
+  if (typeof canManageCustomer !== 'function') {
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '缺少客户权限校验器，拒绝写入');
+  }
+  if (!(await canManageCustomer(user, customers[0].owner_id))) {
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权为该客户创建跟进计划');
   }
 
   const [result] = await pool.query(
@@ -500,7 +536,7 @@ async function listPlans(pool, params, permission) {
  * @param {object} params - { id, content, follow_type }
  * @param {number} userId
  */
-async function completePlan(pool, params) {
+async function completePlan(pool, params, user = {}) {
   const { id, content, follow_type } = params;
 
   const [rows] = await pool.query(
@@ -509,6 +545,11 @@ async function completePlan(pool, params) {
   );
   if (rows.length === 0) {
     throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '跟进计划不存在');
+  }
+
+  // [P1-08] 原实现无任何归属校验：任意持 customer:edit 的用户可完成他人计划
+  if (!user.manageAll && Number(rows[0].create_by) !== Number(user.userId)) {
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权完成该计划');
   }
 
   await pool.query(

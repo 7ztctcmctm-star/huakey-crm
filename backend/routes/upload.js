@@ -12,9 +12,12 @@ async function loadFileType() {
   return fileTypeMod;
 }
 const { authenticateToken } = require('../middleware/auth');
-const { checkPermission } = require('../middleware/permission');
+const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
 const pool = require('../config/database');
 const uploadRouteService = require('../services/uploadRouteService');
+const customerDetailService = require('../services/customerDetailService');
+// [P1-08] 附件删除的客户数据范围校验器，与联系人/跟进共用同一实现
+const canManageCustomer = (user, ownerId) => customerDetailService.canManageCustomer(pool, user, ownerId);
 const logger = require('../config/logger');
 const { validate, Joi } = require('../middleware/validate');
 
@@ -129,9 +132,11 @@ router.post('/', authenticateToken, checkPermission('file:upload'), upload.singl
 router.use(multerErrorHandler);
 
 // 查询附件列表
-router.get('/list', authenticateToken, checkPermission('file'), async (req, res, next) => {
+router.get('/list', authenticateToken, checkPermission('file'), checkDataPermission('customer', 'owner_id'), async (req, res, next) => {
   try {
-    const list = await uploadRouteService.listAttachments(pool, req.query);
+    // [P1-08] 附件按所属业务回溯客户，套用客户行级数据范围；未知业务类型回退为仅本人
+    const permission = await buildDataPermissionWhere(req.dataPermission, 'c');
+    const list = await uploadRouteService.listAttachments(pool, req.query, permission, req.user);
     res.json({ code: 200, message: '查询成功', data: list });
   } catch (error) {
     next(error);
@@ -141,7 +146,7 @@ router.get('/list', authenticateToken, checkPermission('file'), async (req, res,
 // 删除附件
 router.post('/delete', authenticateToken, checkPermission('file'), validate(deleteAttachmentSchema), async (req, res, next) => {
   try {
-    await uploadRouteService.deleteAttachment(pool, req.body.id);
+    await uploadRouteService.deleteAttachment(pool, req.body.id, req.user, canManageCustomer);
     res.json({ code: 200, message: '删除成功', data: null });
   } catch (error) {
     next(error);

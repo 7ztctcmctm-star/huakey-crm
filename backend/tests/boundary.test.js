@@ -23,7 +23,18 @@ const mockPool = {
 const DATA_PERMISSION_GUARD = /SELECT\s+id\s+FROM\s+crm_customer/i;
 function installDefaultQuery() {
   mockPool.query.mockImplementation((sql, params) => {
-    if (DATA_PERMISSION_GUARD.test(String(sql))) {
+    const s = String(sql);
+    // [P0-06] authenticateToken 两次查询：黑名单 + sys_user LEFT JOIN sys_role
+    if (s.includes('sys_token_blacklist')) return Promise.resolve([[]]);
+    if (s.includes('FROM sys_user u')) {
+      const id = (params && params[0]) || 1;
+      return Promise.resolve([[{
+        id, username: 'test_user', role_id: 1, status: 1,
+        must_change_password: 0, password_changed_at: null,
+        fresh_role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1
+      }]]);
+    }
+    if (DATA_PERMISSION_GUARD.test(s)) {
       const id = (params && params[0]) || 1;
       return Promise.resolve([[{ id }]]);
     }
@@ -99,7 +110,9 @@ jest.mock('../services/productService', () => ({
 jest.mock('../middleware/permission', () => ({
   checkPermission: () => (req, res, next) => next(),
   checkDataPermission: () => (req, res, next) => next(),
-  checkFieldPermission: () => (req, res, next) => next(),
+  // 真实 checkFieldPermission 会为每个请求定义 restrictedFields（管理员为 []），
+  // 产品新增/编辑按该契约读取；mock 必须保持同一契约，否则会误报 500。
+  checkFieldPermission: () => (req, res, next) => { req.restrictedFields = []; next(); },
   stripRestrictedFields: (data) => data,
   buildDataPermissionWhere: jest.fn().mockResolvedValue({ clause: '', params: [] })
 }));
@@ -918,7 +931,7 @@ describe('边界测试 - 类型错误场景', () => {
   });
 
   describe('enum 字段传无效值', () => {
-    it('customer/add level 传 Z 应被 Joi 拒绝 (仅允许 A/B/C)', async () => {
+    it('customer/add level 传 Z 应被 Joi 拒绝 (仅允许 A/B/C/D)', async () => {
       const res = await request(app)
         .post('/api/v1/customers/add')
         .set('Authorization', `Bearer ${token}`)

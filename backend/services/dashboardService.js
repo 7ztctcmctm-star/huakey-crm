@@ -16,7 +16,6 @@
 
 const { buildDataPermissionWhere, buildOwnerOverrideFilter, getSubDeptIds } = require('../middleware/permission');
 const { getOverdueDays } = require('../utils/config');
-const { POOL_STATUS } = require('../constants/poolStatus');
 
 /**
  * 按表构造数据范围子句。
@@ -239,8 +238,8 @@ async function getOverdueStats(pool, dataPermission, filters = {}) {
   const ownerClause = owner ? ` AND ${owner.clause}` : '';
   const ownerParams = owner ? owner.params : [];
 
-  const whereClause = `c.pool_status = ?
-    AND c.deleted_at IS NULL
+  // [P2-07] 归属判据只看 owner_id；pool_status 为兼容列，可能滞后/错位
+  const whereClause = `c.deleted_at IS NULL
     AND c.owner_id IS NOT NULL
     AND ((c.last_follow_time IS NULL AND c.create_time < NOW() - INTERVAL ${overdueDays} DAY)
       OR c.last_follow_time < NOW() - INTERVAL ${overdueDays} DAY)
@@ -248,7 +247,7 @@ async function getOverdueStats(pool, dataPermission, filters = {}) {
 
   const [result] = await pool.query(
     `SELECT COUNT(*) as total FROM crm_customer c WHERE ${whereClause}`,
-    [POOL_STATUS.PRIVATE, ...scope.params, ...ownerParams]
+    [...scope.params, ...ownerParams]
   );
 
   return { overdue_count: result[0].total || 0, overdue_days: overdueDays };

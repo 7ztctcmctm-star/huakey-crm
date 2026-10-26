@@ -9,6 +9,10 @@
 const money = require('../utils/money');
 // [步骤 B3 · 时区统一] 编号日期段按北京时间取，禁用 toISOString（UTC 会在 08:00 前跨天）
 const { shortDateCode } = require('../utils/dateCode');
+// [P1-01 2026-10-23] 采购写接口必须按数据范围校验，且收货明细必须属于目标采购单
+const { buildDataPermissionWhere } = require('../middleware/permission');
+const AppError = require('../errors/AppError');
+const ErrorCodes = require('../errors/codes');
 
 // ==================== 采购计划 ====================
 
@@ -481,22 +485,68 @@ async function createPurchase(pool, data, userId) {
   } finally { connection.release(); }
 }
 
-async function updateStatus(pool, id, status, approveRemark = null) {
-  if (status === '已确认') {
-    await pool.query(
-      'UPDATE crm_purchase_order SET status = ?, approve_time = NOW(), approveRemark = ? WHERE id = ?',
-      [status, approveRemark || null, id]
-    );
-  } else {
-    await pool.query('UPDATE crm_purchase_order SET status = ? WHERE id = ?', [status, id]);
-  }
-  return { success: true };
-}
-
-async function addReceipt(pool, data, userId) {
+async function updateStatus(pool, id, status, approveRemark = null, dataPermission = null) {
+  // [P1-01] 写操作必须与列表同口径：先按数据范围锁定采购单，范围外一律 403。
+  const { clause, params } = await buildDataPermissionWhere(dataPermission, 'po');
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
+    const [orders] = await connection.query(
+      `SELECT po.id FROM crm_purchase_order po
+        WHERE po.id = ? AND po.deleted_at IS NULL AND ${clause}
+        FOR UPDATE`,
+      [id, ...params]
+    );
+    if (orders.length === 0) {
+      throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权操作该采购单');
+    }
+
+    if (status === '已确认') {
+      await connection.query(
+        'UPDATE crm_purchase_order SET status = ?, approve_time = NOW(), approveRemark = ? WHERE id = ? AND deleted_at IS NULL',
+        [status, approveRemark || null, id]
+      );
+    } else {
+      await connection.query(
+        'UPDATE crm_purchase_order SET status = ? WHERE id = ? AND deleted_at IS NULL',
+        [status, id]
+      );
+    }
+
+    await connection.commit();
+    return { success: true };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+async function addReceipt(pool, data, userId, dataPermission = null) {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // [P1-01] 采购单必须在当前数据范围内；明细必须属于该采购单，禁止跨单累加库存。
+    const { clause, params } = await buildDataPermissionWhere(dataPermission, 'po');
+    const [orders] = await connection.query(
+      `SELECT po.id FROM crm_purchase_order po
+        WHERE po.id = ? AND po.deleted_at IS NULL AND ${clause}
+        FOR UPDATE`,
+      [data.order_id, ...params]
+    );
+    if (orders.length === 0) {
+      throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权操作该采购单');
+    }
+
+    const [items] = await connection.query(
+      'SELECT id FROM crm_purchase_item WHERE id = ? AND order_id = ? FOR UPDATE',
+      [data.item_id, data.order_id]
+    );
+    if (items.length === 0) {
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '收货明细不属于该采购单');
+    }
 
     const dateStr = shortDateCode();
     const [count] = await connection.query(
@@ -514,8 +564,8 @@ async function addReceipt(pool, data, userId) {
     );
 
     await connection.query(
-      'UPDATE crm_purchase_item SET received_qty = received_qty + ?, quality_status = ? WHERE id = ?',
-      [data.quantity, data.quality_result === '合格' ? '合格' : data.quality_result, data.item_id]
+      'UPDATE crm_purchase_item SET received_qty = received_qty + ?, quality_status = ? WHERE id = ? AND order_id = ?',
+      [data.quantity, data.quality_result === '合格' ? '合格' : data.quality_result, data.item_id, data.order_id]
     );
 
     const [[item]] = await connection.query('SELECT received_qty, quantity FROM crm_purchase_item WHERE id = ?', [data.item_id]);
@@ -570,17 +620,37 @@ async function getStatistics(pool) {
   };
 }
 
-async function addPayment(pool, data, userId) {
-  const [orders] = await pool.query('SELECT id FROM crm_purchase_order WHERE id = ? AND deleted_at IS NULL', [data.order_id]);
-  if (orders.length === 0) return { error: '采购单不存在', code: 404 };
+async function addPayment(pool, data, userId, dataPermission = null) {
+  // [P1-01] 付款登记同样必须命中数据范围，否则可给任意部门的采购单挂付款。
+  const { clause, params } = await buildDataPermissionWhere(dataPermission, 'po');
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
 
-  const [result] = await pool.query(
-    `INSERT INTO crm_purchase_payment (order_id, amount, pay_method, pay_date, remark, payer_id)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [data.order_id, data.amount, data.pay_method || null, data.pay_date || null, data.remark || null, userId]
-  );
+    const [orders] = await connection.query(
+      `SELECT po.id FROM crm_purchase_order po
+        WHERE po.id = ? AND po.deleted_at IS NULL AND ${clause}
+        FOR UPDATE`,
+      [data.order_id, ...params]
+    );
+    if (orders.length === 0) {
+      throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权操作该采购单');
+    }
 
-  return { id: result.insertId };
+    const [result] = await connection.query(
+      `INSERT INTO crm_purchase_payment (order_id, amount, pay_method, pay_date, remark, payer_id)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [data.order_id, data.amount, data.pay_method || null, data.pay_date || null, data.remark || null, userId]
+    );
+
+    await connection.commit();
+    return { id: result.insertId };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 }
 
 module.exports = {

@@ -26,7 +26,7 @@
 |---|---|
 | 前端 | Vue 3 (`<script setup>` Composition API) + Vite 7 + Element Plus 2.5 |
 | 路由 | Vue Router 4 (history mode) |
-| HTTP | axios (封装在 `@/utils/request`，自动注入 token) |
+| HTTP | axios (封装在 `@/utils/request`，自动携带 httpOnly Cookie + CSRF 头) |
 | 后端 | Express 4.x (端口 5000) |
 | 数据库 | MySQL 8.0 via mysql2/promise (连接池 + 可选只读池) |
 | 缓存 | Redis (可选，`REDIS_ENABLED` 控制) |
@@ -94,16 +94,16 @@ huakey-crm/
 │       ├── App.vue                # 根组件 (GlobalErrorBoundary 包裹)
 │       ├── router/index.js        # 路由 + permission/admin 守卫
 │       ├── utils/request.js       # axios 封装 (token注入/401刷新队列/统一错误处理)
-│       ├── api/*.js               # API 函数 (26 modules，对应后端路由)
+│       ├── api/*.js               # API 函数 (30 modules，对应后端路由)
 │       ├── composables/           # useUser(单例)/useTable/useChart/useAssign/...
-│       ├── directives/permission.js # v-permission/v-permission-all/v-permission-disabled
+│       ├── directives/permission.js # v-permission / v-permission:all（disabled 已废弃）
 │       ├── utils/permission.js    # hasPermission/hasAnyPermission/hasAllPermissions
 │       ├── layout/                # Sidebar + HeaderBar (毛玻璃) + AI Chat 侧边栏
 │       ├── views/                 # 40+ 功能页面 (按模块分目录)
 │       ├── components/            # 公共组件 (AiChat/CustomerFilter/CustomerTable...)
 │       └── styles/apple.css       # Apple 设计系统 (CSS 变量 + Element Plus 全覆盖覆写)
 ├── database/
-│   ├── migrations/                # 三位数编号正向迁移 SQL (最新 107，共 105 个)，含对应 _down.sql 回滚脚本
+│   ├── migrations/                # 三位数编号正向迁移 SQL (最新 131，共 129 个)，含对应 _down.sql 回滚脚本
 │   ├── migrations/run_migrations.js # 迁移执行器（维护 schema_migrations 版本表，事务包裹）
 │   ├── seeds/                     # 种子数据 (test_data_modules.sql)
 │   └── backups/                   # 备份目录
@@ -188,9 +188,9 @@ sys_data_permission (数据权限: all/dept_and_sub/dept/self/custom)
 ## 客户生命周期状态机
 
 ```
-线索(5) → 潜客(1) → 正式客户(2) → 流失(3)
-                ↓              ↓
-         公海池(pool_status=1)  删除(0)
+旧数值（仅 old_status_int 历史备份）：线索(5) → 潜客(1) → 正式客户(2) → 流失(3) → 删除(0)
+现行字符串 status（迁移 070 起）：lead → following → quoted → negotiating → signed | lost / paused
+公海：owner_id IS NULL（兼容列 pool_status='sea'，迁移 097 起为 VARCHAR 枚举）
 ```
 
 新版字符串状态 (`customerStatus.js`)：`lead → sea → following → quoted → negotiating → signed | lost`
@@ -202,7 +202,7 @@ sys_data_permission (数据权限: all/dept_and_sub/dept/self/custom)
 - 删除用户时的事务级联 (最新实现，`services/userRouteService.js`)：
   1. `sys_user` → `status=0, deleted_at=NOW()`
   2. `crm_employee_profile` → `leave_date=CURDATE()` (自动离职)
-  3. `crm_customer WHERE owner_id=?` → `owner_id=NULL, pool_status=1` (释放到公海)
+  3. `crm_customer WHERE owner_id=?` → `owner_id=NULL, pool_status='sea'` (释放到公海)
   4. `crm_opportunity WHERE owner_id=?` → `owner_id=manager_id`（直属上级），无可用上级时 `owner_id=NULL`（待分配）
   5. 跟进记录保留不动 (归属客户，不归属用户)
 
@@ -236,12 +236,12 @@ sys_data_permission (数据权限: all/dept_and_sub/dept/self/custom)
 11. **迁移编号**: 三位数字 `NNN_description.sql`，INSERT IGNORE 幂等执行
 12. **模块注册器**: 仅 customer/product/report/data-quality 使用，其余 40+ 路由传统直挂
 13. **用户状态**: composable `useUser.js` 单例模式，`verifyAuth()` 有缓存避免重复 `/auth/me` 调用
-14. **前端状态**: 认证已迁移为后端 `httpOnly` Cookie（sameSite=strict）+ double-submit CSRF（`X-CSRF-Token`）；`userInfo`/permissions 仅存内存（`useUser.js` 单例），**不落任何 storage**。axios 封装 `request.js` 支持透传第三参 config（如 `responseType: 'blob'`）。
+14. **前端状态**: 认证已迁移为后端 `httpOnly` Cookie（sameSite=lax）+ double-submit CSRF（`X-CSRF-Token`）；`userInfo`/permissions 仅存内存（`useUser.js` 单例），**不落任何 storage**。axios 封装 `request.js` 支持透传第三参 config（如 `responseType: 'blob'`）。
 15. **前端权限指令**: `v-permission="'code'"` (任意匹配)、`v-permission:all` (全部匹配)；`v-permission:disabled` 已废弃（零使用，勿再使用）
 
 ## 当前分支
 
-`fix/v1.0.1-security-patch` — 安全补丁（强制改密/CSRF/认证迁移）+ 2026-08-18 全项目审计修复（数据权限补齐、API 契约对齐、状态机修复，见 `docs/archive/audit-report-2026-08-18.md`）
+`main` — 生产分支。历史安全补丁分支 `fix/v1.0.1-security-patch` 已完成合并（强制改密/CSRF/认证迁移 + 2026-08-18 全项目审计修复，见 `docs/archive/audit-report-2026-08-18.md`）。
 
 ---
 
@@ -251,18 +251,19 @@ sys_data_permission (数据权限: all/dept_and_sub/dept/self/custom)
 
 ### 1. 客户状态机迁移说明
 
-当前项目处于新旧状态定义过渡期：
+当前状态定义已统一为字符串状态机（迁移 070 起 `crm_customer.status` 为 `VARCHAR(32)`，旧数值备份在 `old_status_int`）：
 
 | 来源 | 字段/常量 | 说明 | 使用建议 |
 |---|---|---|---|
-| 旧版数值状态 | `constants/customer.js` | `0=删除,1=潜客,2=正式客户,3=流失,5=线索` | 数据库 `crm_customer.status` 当前仍存储数值，兼容查询时可用 |
-| 新版字符串状态机 | `constants/customerStatus.js` | `lead → sea → following → quoted → negotiating → signed \| lost` | 新增业务逻辑优先使用此状态机，避免再扩展旧数值语义 |
+| 现行字符串状态机 | `constants/customerStatus.js` | `lead → sea → following → quoted → negotiating → signed \| lost / paused` | **唯一在用**；新增业务逻辑统一引用此文件 |
+| 旧版数值状态 | `constants/customer.js` | `0=删除,1=潜客,2=正式客户,3=流失,5=线索` | 当前**无任何代码引用**（dead code），仅供理解历史数据；可安排删除 |
 
 **当前策略**：
-- 数据库层保留数值 `status`，新版状态机通过常量映射读写；
+
+- 数据库 `status` 直接存储字符串状态码，不存在“数值映射读写”；
 - 服务端新增代码统一引用 `customerStatus.js`；
-- 旧版 `customer.js` 仅用于兼容历史数据，计划随数据迁移逐步下线；
-- 状态推进触发点：`followUpService.addFollowUp`（`new/sea → following`）、`quoteService.createQuote`（`following → quoted`）。
+- 状态推进只能由客户中心/跟进模块触发：`followUpService.addFollowUp`（`lead / sea / 旧版 new → following`，可用 `advance_status=false` 覆盖）；
+- **报价/商机/合同模块不得自动修改客户状态**（`quoteService.createQuote` 原 `following → quoted` 联动已于 2026-08-04 移除，见 `docs/customer-center-freeze-v1.md` 与 `quoteService.test.js` 守护测试）。
 
 ### 2. 角色权限澄清
 
@@ -284,7 +285,7 @@ sys_data_permission (数据权限: all/dept_and_sub/dept/self/custom)
   - 兼容旧接口和旧报表；
   - 作为冗余索引/缓存，加快部分历史查询；
 - 用户删除级联释放客户时，仍写入 `owner_id=NULL, pool_status='sea'`（迁移 097 后为 VARCHAR 枚举），但业务逻辑以 `owner_id` 为准；
-- 独立公海池页面 `/customer/pool` 已废弃，相关操作统一到客户列表。
+- 公海池**独立路由已回归**（2026-08）：页面 `frontend/src/views/pool/List.vue`、路由 `/pool`、侧边栏菜单、后端 `routes/pool.js`（`pool:view` / `pool:claim`）；旧 `/customer/pool-list`、`/customer/claim-pool`、`/customer/release-to-pool` 已于 2026-09-14 随 `routes/customer/center.js` 移除，`/pool` 是唯一入口。不要按“已废弃”处理。
 
 ### 4. Service 错误处理规范
 
@@ -321,6 +322,10 @@ cd backend && npm run dev   # nodemon，监听 5000 端口
 # 5. 启动前端
 cd frontend && npm run dev  # Vite，默认 5173
 ```
+
+**前端一致性守卫**（已接入 CI `frontend-test`）：
+- `cd frontend && npm run lint:colors` — 禁止组件/视图出现裸十六进制颜色（颜色只能来自 `styles/apple.css` / `utils/chartTheme.js`，第三方品牌色需 `color-allowlist` 豁免）
+- `cd frontend && npm run lint:routes` — 路由表 × 侧边栏双向比对（菜单死链、无入口路由）
 
 **常用命令**：
 - 查看迁移列表：`ls database/migrations | sort`
@@ -487,7 +492,7 @@ ls backend/services/*.js | wc -l
 3. 执行新增数据库迁移（幂等，已执行的会自动跳过）：`cd database/migrations && node run_migrations.js`；
 4. 部署后端：`npm install && pm2 restart app`（或 Docker Compose 重启 app 容器）；
 5. 部署前端：`npm run build`，将 `dist/` 同步到 Nginx 静态目录；
-6. 验证 `/api/health` 健康检查接口。
+6. 验证 `/api/v1/health` 健康检查接口。
 
 #### 15.2 回滚策略
 
@@ -519,15 +524,15 @@ ls backend/services/*.js | wc -l
   - `backend/routes/pool.js`：`POST /pool`（公海列表）、`POST /pool/claim`（认领，`pool:claim`）、`POST /pool/release`（释放）
   - 权限码 `pool:view` / `pool:claim` / `customer:release` 由迁移 098 定义
 - **核心语义**：`owner_id IS NULL` 为公海唯一标准（兼容旧 `pool_status` 字段）；`pool_status` 迁移 097 后为 `VARCHAR(8)` 枚举（`private`/`sea`）
-- 旧端点 `POST /api/v1/customer/pool-list`、`/customer/claim-pool`、`/customer/release-to-pool` 保留兼容，内部调用同一 controller
+- 旧端点 `POST /api/v1/customer/pool-list`、`/customer/claim-pool`、`/customer/release-to-pool` 已于 2026-09-14 移除；当前唯一入口为 `POST /api/v1/pool/*`
 
 #### 17.2 跟进驱动客户状态与自动回收
 
 - **目标**：让跟进记录驱动客户状态变化，并建立逾期未跟进自动提醒/回收规则；
 - **核心触发点（2026-08-18 修复后）**：
   - 跟进创建：`lead / sea / 旧版 new → following`（`followUpService.js`，`advance_status=false` 可手动覆盖）；
-  - 报价创建：`following → quoted`；
   - 每次跟进更新 `last_follow_time`；
+  - 报价/商机/合同**不触发**客户状态变更（见下方领域边界）；
 - **自动化规则**：
   - 下次跟进前 1 天、当天提醒负责人；
   - `following` 状态超过 N 天未跟进进入"即将回收"预警；
@@ -535,7 +540,6 @@ ls backend/services/*.js | wc -l
   - 释放前 1 天通知负责人；
 - **相关文件**：
   - `backend/services/followUpService.js`
-  - `backend/services/quoteService.js`
   - `backend/cron/cronService.js`
   - `database/migrations/072_prompt3_scoring_rule.sql`
 
@@ -543,6 +547,6 @@ ls backend/services/*.js | wc -l
 
 #### 17.3 待补充
 
-- [x] 完成新版字符串状态机与数据库数值的映射（已补充到 CLAUDE.md 13.1）；
+- [x] 完成旧数值（`old_status_int`）→ 字符串状态机的历史映射说明（已补充到 CLAUDE.md 13.1；现行 `status` 已是 VARCHAR，不再做运行时映射）；
 - [ ] 完成客户详情页行动卡（下次跟进时间/逾期天数/最近跟进摘要）；
 - [ ] 完成 `crm_scoring_rule` 表与供应商评分任务的联调。

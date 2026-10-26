@@ -46,7 +46,7 @@
 | 创建时间 | `create_time` | **86** | `created_at` 12 表 |
 | 更新时间 | `update_time` | **47** | `updated_at` 6 表 |
 
-> 先例教训：迁移 116 因使用 `created_at/updated_at`（与主流不符）导致审批规则接口 500，见 `docs/crm-r09-r11-r14-r16-progress-2026-09-17.md` 第 7.1 节。本规范即为杜绝此类问题。
+> 先例教训：迁移 116 因使用 `created_at/updated_at`（与主流不符）导致审批规则接口 500，见 `docs/archive/crm-r09-r11-r14-r16-progress-2026-09-17.md` 第 7.1 节。本规范即为杜绝此类问题。
 
 ## 三、权威命名规范
 
@@ -97,6 +97,6 @@
 
 ## 九、参考资料
 
-- `docs/crm-r09-r11-r14-r16-progress-2026-09-17.md` 第 7.1 节 —— 列名不符致 500 案例
-- `docs/database-schema-audit.md`
+- `docs/archive/crm-r09-r11-r14-r16-progress-2026-09-17.md` 第 7.1 节 —— 列名不符致 500 案例
+- `docs/archive/database-schema-audit.md`
 - 同类日志表命名参照：`crm_opportunity_stage_log`、`crm_assign_log`、`crm_pool_log`

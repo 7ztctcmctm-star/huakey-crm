@@ -1,5 +1,5 @@
 const pool = require('../config/database');
-const { maskLogParams } = require('../utils/mask');
+const { maskLogParams, maskPIIString, maskUrlQuery } = require('../utils/mask');
 const logger = require('../config/logger');
 
 // 统一操作日志表，废弃旧操作日志表双写方案
@@ -31,7 +31,10 @@ function maskFieldValue(fieldName, value) {
 
 async function logAction({ module, action, method, url, params, ipAddress, userId, userName, description, status = 1, errorMsg = null, changedFields = null, oldValue = null, newValue = null }) {
   try {
-    // 脱敏处理
+    // [P1-20] 持久化前统一脱敏：
+    // 1) params 先按字段名脱敏，序列化后再按可识别模式兜底（覆盖数组/自由文本）；
+    // 2) URL 查询串按字段名 + 模式双重脱敏（password/phone/email 等）；
+    // 3) description/errorMsg 可能被调用方拼入原 URL 或用户输入，同样过模式脱敏。
     const maskedParams = params && typeof params === 'object' ? maskLogParams(params) : params;
 
     let paramsStr = null;
@@ -39,19 +42,16 @@ async function logAction({ module, action, method, url, params, ipAddress, userI
       if (typeof maskedParams === 'object') {
         try {
           paramsStr = JSON.stringify(maskedParams);
-          if (paramsStr.length > 2000) {
-            paramsStr = paramsStr.substring(0, 2000) + '...[truncated]';
-          }
         } catch (e) {
           paramsStr = String(maskedParams);
         }
       } else {
         paramsStr = String(maskedParams);
       }
-    }
-
-    if (paramsStr && paramsStr.length > 2000) {
-      paramsStr = paramsStr.substring(0, 2000) + '...[truncated]';
+      paramsStr = maskPIIString(paramsStr);
+      if (paramsStr.length > 2000) {
+        paramsStr = paramsStr.substring(0, 2000) + '...[truncated]';
+      }
     }
 
     // 字段级变更日志脱敏：按字段名对 old/new 值脱敏
@@ -65,14 +65,27 @@ async function logAction({ module, action, method, url, params, ipAddress, userI
     const maskedOldValue = oldValue && typeof oldValue === 'object' ? maskLogParams(oldValue) : oldValue;
     const maskedNewValue = newValue && typeof newValue === 'object' ? maskLogParams(newValue) : newValue;
 
-    const changedFieldsStr = maskedChangedFields ? JSON.stringify(maskedChangedFields).substring(0, 2000) : null;
-    const oldValueStr = maskedOldValue ? JSON.stringify(maskedOldValue).substring(0, 2000) : null;
-    const newValueStr = maskedNewValue ? JSON.stringify(maskedNewValue).substring(0, 2000) : null;
+    const changedFieldsStr = maskedChangedFields ? maskPIIString(JSON.stringify(maskedChangedFields).substring(0, 2000)) : null;
+    const oldValueStr = maskedOldValue ? maskPIIString(JSON.stringify(maskedOldValue).substring(0, 2000)) : null;
+    const newValueStr = maskedNewValue ? maskPIIString(JSON.stringify(maskedNewValue).substring(0, 2000)) : null;
+
+    const safeUrl = maskUrlQuery(url);
+    const safeDescription = description ? maskPIIString(description) : description;
+    let rawErrorMsg = null;
+    if (errorMsg !== null && errorMsg !== undefined) {
+      if (typeof errorMsg === 'string') {
+        rawErrorMsg = errorMsg;
+      } else {
+        try { rawErrorMsg = JSON.stringify(errorMsg); } catch (_) { /* 循环引用等 */ }
+        if (rawErrorMsg === undefined || rawErrorMsg === null) rawErrorMsg = String(errorMsg);
+      }
+    }
+    const safeErrorMsg = rawErrorMsg === null ? null : maskPIIString(rawErrorMsg);
 
     await pool.query(
       `INSERT INTO \`${LOG_TABLE}\` (module, action, method, url, params, ip_address, user_id, user_name, description, status, error_msg, changed_fields, old_value, new_value)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [module, action, method || 'POST', url, paramsStr, ipAddress, userId, userName, description, status, errorMsg, changedFieldsStr, oldValueStr, newValueStr]
+      [module, action, method || 'POST', safeUrl, paramsStr, ipAddress, userId, userName, safeDescription, status, safeErrorMsg, changedFieldsStr, oldValueStr, newValueStr]
     );
   } catch (error) {
     logger.error('记录操作日志失败', { error: error.stack || error.message });
@@ -259,18 +272,24 @@ function globalLogMiddleware(req, res, next) {
 }
 
 function createRouteLogger(moduleName) {
-  return (req, action, description, status, errorMsg) =>
-    logAction({
+  return (req, action, description, status, errorMsg) => {
+    // [X-01] 服务层（invoiceService/importService）会传伪 req `{ user, ip }`，
+    // 没有 method/originalUrl。sys_log.url/method 均 NOT NULL，旧实现直接写 null
+    // 导致 INSERT 失败且被 catch 吞掉——明细操作日志静默丢失。此处做最小兜底：
+    // 缺失 URL 记空串、方法默认 POST，其余字段保持原语义。
+    const safeReq = req || {};
+    return logAction({
       module: moduleName,
       action,
-      method: req.method,
-      url: req.originalUrl,
-      params: req.method === 'GET' ? req.query : req.body,
-      ipAddress: getIpAddress(req),
-      userId: req.user?.userId || req.user?.id || null,
-      userName: req.user?.real_name || req.user?.username || null,
+      method: safeReq.method || 'POST',
+      url: safeReq.originalUrl || safeReq.url || '',
+      params: safeReq.method === 'GET' ? safeReq.query : safeReq.body,
+      ipAddress: getIpAddress(safeReq),
+      userId: safeReq.user?.userId || safeReq.user?.id || null,
+      userName: safeReq.user?.real_name || safeReq.user?.username || null,
       description, status, errorMsg
     });
+  };
 }
 
 module.exports = {

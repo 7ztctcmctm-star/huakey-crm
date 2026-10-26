@@ -18,8 +18,8 @@
 
 **排查**：
 1. 确认后端容器运行中：`docker ps | grep crm-prod-app`
-2. 确认后端端口：`curl http://localhost:5000/api/health`
-3. 检查 Nginx upstream 配置：确认 `proxy_pass` 指向正确端口（6789）
+2. 确认后端端口（prod compose 映射 6789→5000）：`curl http://localhost:6789/api/v1/health`
+3. 检查 Nginx upstream 配置：容器 nginx 的 `proxy_pass` 应为 `http://app:5000`（`6789` 仅是 prod compose 的宿主映射，不是容器内 upstream）
 
 **解决**：重启 app 容器，确认 Nginx reload
 

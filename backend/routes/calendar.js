@@ -50,7 +50,7 @@ const emptySchema = Joi.object({});
 // 日程列表
 router.get('/events', authenticateToken, checkPermission('calendar'), async (req, res, next) => {
   try {
-    const rows = await calendarService.getEvents(pool, req.query);
+    const rows = await calendarService.getEvents(pool, req.query, req.user);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
     logger.error('[日程] 列表查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -61,7 +61,7 @@ router.get('/events', authenticateToken, checkPermission('calendar'), async (req
 // 日程详情
 router.get('/events/:id', authenticateToken, checkPermission('calendar'), async (req, res, next) => {
   try {
-    const row = await calendarService.getEvent(pool, req.params.id);
+    const row = await calendarService.getEvent(pool, req.params.id, req.user);
     if (!row) return res.status(404).json({ code: 404, message: '日程不存在', data: null });
     res.json({ code: 200, message: '查询成功', data: row });
   } catch (error) {
@@ -109,7 +109,8 @@ router.delete('/events/:id', authenticateToken, checkPermission('calendar'), asy
 // 标记完成
 router.post('/events/:id/complete', authenticateToken, checkPermission('calendar'), validate(emptySchema), async (req, res, next) => {
   try {
-    await calendarService.completeEvent(pool, req.params.id);
+    const result = await calendarService.completeEvent(pool, req.params.id, req.user);
+    if (result.error) return res.status(result.status || 500).json({ code: result.status || 500, message: result.error, data: null });
     res.json({ code: 200, message: '已标记完成', data: null });
   } catch (error) {
     logger.error('[日程] 标记完成失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -120,7 +121,7 @@ router.post('/events/:id/complete', authenticateToken, checkPermission('calendar
 // 今日日程
 router.get('/today', authenticateToken, checkPermission('calendar'), async (req, res, next) => {
   try {
-    const rows = await calendarService.getToday(pool);
+    const rows = await calendarService.getToday(pool, req.user);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
     logger.error('[日程] 今日日程查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -131,7 +132,7 @@ router.get('/today', authenticateToken, checkPermission('calendar'), async (req,
 // 未来7天日程
 router.get('/upcoming', authenticateToken, checkPermission('calendar'), async (req, res, next) => {
   try {
-    const rows = await calendarService.getUpcoming(pool);
+    const rows = await calendarService.getUpcoming(pool, req.user);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
     logger.error('[日程] 未来日程查询失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });

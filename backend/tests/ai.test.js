@@ -60,7 +60,7 @@ describe('AI模块', () => {
   describe('POST /api/v1/ai/query', () => {
     it('应该返回400当缺少question', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
-      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+      mockPool.query.mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/v1/ai/query')
@@ -73,7 +73,7 @@ describe('AI模块', () => {
 
     it('应该返回200当正常查询', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
-      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+      mockPool.query.mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]); // role query
 
       chatCompletion
         .mockResolvedValueOnce('SELECT COUNT(*) FROM crm_customer WHERE status != 0') // SQL generation
@@ -106,7 +106,7 @@ describe('AI模块', () => {
     it('P1-2：非全局数据范围账号查询客户表应被拒绝', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0 }]]); // role query
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, view_all: 0, manage_all: 0 }]]); // role query
 
       chatCompletion.mockResolvedValueOnce('SELECT id, company_name FROM crm_customer');
 
@@ -126,7 +126,7 @@ describe('AI模块', () => {
     it('R-09：非全局账号查询白名单外维度(crm_product)应被拒绝并降级', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0 }]]); // role query
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, view_all: 0, manage_all: 0 }]]); // role query
 
       chatCompletion.mockResolvedValueOnce('SELECT COUNT(*) FROM crm_product'); // SQL 生成（维度检查前即被拒）
 
@@ -148,8 +148,7 @@ describe('AI模块', () => {
     it('应该返回建议列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[ // list
           { id: 1, type: 'follow_up', ref_id: 1, suggestion: '建议跟进客户', confidence: 0.85 }
@@ -170,7 +169,7 @@ describe('AI模块', () => {
   describe('GET /api/v1/ai/status', () => {
     it('应该返回AI状态', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
-      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+      mockPool.query.mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .get('/api/v1/ai/status')

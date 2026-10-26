@@ -46,17 +46,18 @@ fi
 BACKUP_FILE="$BACKUP_DIR/huakey_crm_${DATE_DAILY}.sql.gz"
 DUMP_ERR="$BACKUP_DIR/huakey_crm_${DATE_DAILY}.err"
 
-# stderr 写入旁路日志而非丢弃：mysqldump 的「命令行密码」提示属正常，
-# 但真正的失败原因必须留痕，不能再被静默吞掉。
-if ! docker exec "$MYSQL_CONTAINER" mysqldump \
-  -uroot -p"$MYSQL_ROOT_PASSWORD" \
+# [P2-16] 口令不放在宿主机 argv：容器内由 MYSQL_PWD 读取 mysql 容器已有的
+# MYSQL_ROOT_PASSWORD 环境变量，宿主机 `ps` 看不到明文。
+# stderr 写入旁路日志而非丢弃：真正的失败原因必须留痕，不能被静默吞掉。
+if ! docker exec "$MYSQL_CONTAINER" sh -c "MYSQL_PWD=\"\$MYSQL_ROOT_PASSWORD\" exec mysqldump \
+  -uroot \
   --default-character-set=utf8mb4 \
   --single-transaction \
   --quick \
   --routines \
   --triggers \
   --events \
-  "$DB_NAME" 2>"$DUMP_ERR" | gzip > "$BACKUP_FILE"; then
+  \"$DB_NAME\"" 2>"$DUMP_ERR" | gzip > "$BACKUP_FILE"; then
   echo "[ERROR] 备份失败：mysqldump 执行出错（容器：$MYSQL_CONTAINER）"
   echo "        stderr 详见：$DUMP_ERR"
   tail -5 "$DUMP_ERR" 2>/dev/null | sed 's/^/          /'

@@ -68,6 +68,7 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, onMounted, nextTick } from 'vue'
 import { getSupplierRanking, getSupplierCompare } from '@/api/product'
 import echarts from '@/composables/useECharts'
+import { chartColors } from '@/utils/chartTheme'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import { reportError } from '@/utils/error'
@@ -112,7 +113,7 @@ const fetchCompare = async () => {
 const renderRadar = () => {
   if (!radarRef.value || compareData.value.length === 0) return
   const chart = echarts.init(radarRef.value)
-  const colors = ['#0071e3', '#34c759', '#ff9500', '#af52de']
+  const colors = [chartColors.primary, chartColors.secondary, chartColors.tertiary, chartColors.quinary]
 
   chart.setOption({
     tooltip: {},
@@ -151,8 +152,8 @@ onMounted(() => { fetchRanking() })
 .card-title { font-size: 15px; font-weight: 600; }
 .compare-header { display: flex; justify-content: space-between; align-items: center; }
 .chart-container { height: 380px; }
-.rank-badge { display: inline-block; width: 24px; height: 24px; line-height: 24px; text-align: center; border-radius: 50%; font-size: 13px; font-weight: 600; color: var(--color-text-secondary); background: #f5f5f5; }
-.rank-badge.top { color: #fff; background: linear-gradient(135deg, #f5a623, #f7c948); }
+.rank-badge { display: inline-block; width: 24px; height: 24px; line-height: 24px; text-align: center; border-radius: 50%; font-size: 13px; font-weight: 600; color: var(--color-text-secondary); background: var(--color-bg-secondary); }
+.rank-badge.top { color: var(--color-text-on-accent); background: linear-gradient(135deg, var(--color-gold), var(--color-gold-light)); }
 .score-value { font-size: 16px; font-weight: 700; color: var(--color-accent); }
 .link-text { color: var(--color-accent); cursor: pointer; }
 .link-text:hover { text-decoration: underline; }

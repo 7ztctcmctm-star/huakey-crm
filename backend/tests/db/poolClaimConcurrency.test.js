@@ -23,6 +23,7 @@ const DB_NAME = process.env.DB_NAME || 'huakey_crm_test';
 
 const poolService = require('../../services/poolService');
 const customerService = require('../../services/customerService');
+const { buildStorageKey } = require('../../utils/idempotency');
 
 const actor = { roleId: 3, manageAll: false };
 // crm_customer.owner_id 有外键引用 sys_user，认领人必须是真实存在的用户。
@@ -107,8 +108,19 @@ afterEach(async () => {
     } catch { /* 清理失败不掩盖用例结论 */ }
   }
   createdCustomerIds.length = 0;
+  // [P0-07] 存储键是 sha256(biz_type + user + raw key)，按实际参与的业务/用户清理
+  const storageKeys = [];
   for (const k of idemKeys) {
-    try { await pool.query('DELETE FROM crm_idempotency WHERE idempotency_key = ?', [k]); } catch { /* ignore */ }
+    for (const biz of ['pool_claim', 'other_biz']) {
+      for (const uid of [USER_A, USER_B]) {
+        if (uid !== null) storageKeys.push(buildStorageKey(biz, uid, k));
+      }
+    }
+  }
+  if (storageKeys.length > 0) {
+    try {
+      await pool.query('DELETE FROM crm_idempotency WHERE idempotency_key IN (?)', [storageKeys]);
+    } catch { /* ignore */ }
   }
   idemKeys.length = 0;
 });
@@ -201,24 +213,23 @@ describe('B2 · runIdempotent 在真实库上的语义', () => {
 
     const [[row]] = await pool.query(
       'SELECT COUNT(*) AS n FROM crm_idempotency WHERE idempotency_key = ?',
-      [key]
+      [buildStorageKey('pool_claim', USER_A, key)]
     );
     expect(row.n).toBe(0);   // 失败不记账，否则重试会被「缓存的失败」挡住
   }, 60000);
 
-  it('同一幂等键被不同业务复用时互不干扰（biz_type 隔离）', async () => {
+  it('同一幂等键被不同业务复用时互不干扰（biz_type 命名空间隔离）', async () => {
     if (!reachable) return;
     const key = nextKey('shared');
     await pool.query(
       'INSERT INTO crm_idempotency (idempotency_key, biz_type, result_json) VALUES (?, ?, ?)',
-      [key, 'other_biz', JSON.stringify({ marker: 'x' })]
+      [buildStorageKey('other_biz', USER_A, key), 'other_biz', JSON.stringify({ marker: 'x' })]
     );
 
-    // 同 key 走 pool_claim 业务会命中同一行 ⇒ 返回的是「other_biz 的结果」。
-    // 这是既有语义：幂等键是**全局唯一**的业务标识，跨业务复用同一个 key 属于调用方错误。
+    // [P0-07] 存储键按 biz_type + user 哈希，同 raw key 在 pool_claim 下是另一行 ⇒ 业务正常执行
     const id = await createPoolCustomer('shared');
     const out = await poolService.claimCustomer(pool, id, USER_A, actor, key);
-    expect(out).toEqual({ marker: 'x' });
-    expect(await ownerOf(id)).toBeNull(); // 业务未被执行
+    expect(out).toEqual({ company_name: expect.any(String) });
+    expect(await ownerOf(id)).toBe(USER_A);
   }, 60000);
 });

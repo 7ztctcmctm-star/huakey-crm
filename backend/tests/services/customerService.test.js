@@ -6,7 +6,8 @@ const customerService = require('../../services/customerService');
 
 // Mock getOverdueDays
 jest.mock('../../utils/config', () => ({
-  getOverdueDays: jest.fn().mockResolvedValue(7)
+  getOverdueDays: jest.fn().mockResolvedValue(7),
+  getNearRecycleDays: jest.fn().mockResolvedValue(7)
 }));
 
 const mockPool = { query: jest.fn() };
@@ -212,7 +213,125 @@ describe('customerService.claimCustomer', () => {
     const updateCall = conn.query.mock.calls[0];
     expect(updateCall[0]).toContain('owner_id IS NULL');
     expect(updateCall[0]).not.toContain('AND pool_status = ?');
-    expect(updateCall[1]).toEqual(['private', 1, 1]);
+    // [P1-03] 认领必须同步推进 status/business_status（均为 following）
+    expect(updateCall[0]).toContain('status = ?');
+    expect(updateCall[0]).toContain('business_status = ?');
+    expect(updateCall[1]).toEqual(['private', 1, 'following', 'following', 1]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// releaseCustomerToPool（数据范围强校验，P0-05）
+// ---------------------------------------------------------------------------
+describe('customerService.releaseCustomerToPool 数据范围', () => {
+  const createConn = () => ({
+    query: jest.fn(),
+    beginTransaction: jest.fn().mockResolvedValue(undefined),
+    commit: jest.fn().mockResolvedValue(undefined),
+    rollback: jest.fn().mockResolvedValue(undefined),
+    release: jest.fn()
+  });
+
+  it('[P0-05] 销售不得释放他人客户（事务内范围复判失败即回滚）', async () => {
+    mockPool.query.mockResolvedValueOnce([[{
+      id: 1, company_name: '他人客户', business_status: 'following', owner_id: 9, pool_status: 'private'
+    }]]);
+    const conn = createConn();
+    conn.query.mockResolvedValueOnce([[]]); // 加锁查询在范围内查不到
+    mockPool.getConnection = jest.fn().mockResolvedValue(conn);
+
+    await expect(customerService.releaseCustomerToPool(
+      mockPool, 1, 5, null, { type: 'self', userId: 5, ownerColumn: 'owner_id', module: 'customer' }
+    )).rejects.toMatchObject({ code: 403001 });
+
+    expect(conn.rollback).toHaveBeenCalled();
+    expect(conn.commit).not.toHaveBeenCalled();
+    expect(conn.query.mock.calls.some(c => String(c[0]).includes('UPDATE crm_customer'))).toBe(false);
+  });
+
+  it('[P0-05] 缺少数据权限上下文时 fail-closed，不读业务表', async () => {
+    mockPool.getConnection = jest.fn();
+
+    await expect(customerService.releaseCustomerToPool(mockPool, 1, 5))
+      .rejects.toMatchObject({ code: 403001 });
+
+    expect(mockPool.query).not.toHaveBeenCalled();
+    expect(mockPool.getConnection).not.toHaveBeenCalled();
+  });
+
+  it('[P0-05] 范围内释放成功：加锁复判 → 更新 → 写日志 → 提交', async () => {
+    mockPool.query.mockResolvedValueOnce([[{
+      id: 1, company_name: '本人客户', business_status: 'following', owner_id: 5, pool_status: 'private'
+    }]]);
+    const conn = createConn();
+    conn.query
+      .mockResolvedValueOnce([[{ id: 1, company_name: '本人客户', business_status: 'following', owner_id: 5, pool_status: 'private' }]])
+      .mockResolvedValueOnce([{ affectedRows: 1 }])
+      .mockResolvedValueOnce([{ insertId: 1 }]);
+    mockPool.getConnection = jest.fn().mockResolvedValue(conn);
+
+    const result = await customerService.releaseCustomerToPool(
+      mockPool, 1, 5, null, { type: 'self', userId: 5, ownerColumn: 'owner_id', module: 'customer' }
+    );
+
+    expect(result).toEqual({ id: 1, company_name: '本人客户' });
+    expect(conn.query.mock.calls[0][0]).toContain('FOR UPDATE');
+    expect(conn.query.mock.calls[2][0]).toContain('crm_pool_log');
+    expect(conn.commit).toHaveBeenCalled();
+  });
+
+  it('[P2-07] 公海判据看 owner_id：owner_id=NULL 即已在公海（pool_status=private 也不能放行）', async () => {
+    mockPool.query.mockResolvedValueOnce([[{
+      id: 2, company_name: '无主客户', business_status: 'following', owner_id: null, pool_status: 'private'
+    }]]);
+    mockPool.getConnection = jest.fn();
+
+    await expect(customerService.releaseCustomerToPool(
+      mockPool, 2, 5, null, { type: 'self', userId: 5, ownerColumn: 'owner_id', module: 'customer' }
+    )).rejects.toMatchObject({ code: 400005, message: '该客户已在公海中' });
+
+    expect(mockPool.getConnection).not.toHaveBeenCalled();
+  });
+
+  it('[P2-07] pool_status=sea 但仍有 owner_id 的错位行允许释放（归属以 owner_id 为准）', async () => {
+    const row = { id: 3, company_name: '错位客户', business_status: 'following', owner_id: 5, pool_status: 'sea' };
+    mockPool.query.mockResolvedValueOnce([[row]]);
+    const conn = createConn();
+    conn.query
+      .mockResolvedValueOnce([[row]])
+      .mockResolvedValueOnce([{ affectedRows: 1 }])
+      .mockResolvedValueOnce([{ insertId: 1 }]);
+    mockPool.getConnection = jest.fn().mockResolvedValue(conn);
+
+    const result = await customerService.releaseCustomerToPool(
+      mockPool, 3, 5, null, { type: 'self', userId: 5, ownerColumn: 'owner_id', module: 'customer' }
+    );
+
+    expect(result).toEqual({ id: 3, company_name: '错位客户' });
+    expect(conn.query.mock.calls.some(c => String(c[0]).includes('UPDATE crm_customer'))).toBe(true);
+    expect(conn.commit).toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getNearRecycleCustomersList（P2-07：不再依赖 pool_status）
+// ---------------------------------------------------------------------------
+describe('customerService.getNearRecycleCustomersList', () => {
+  it('只按 owner_id + 逾期天数 + 数据权限筛选，不读取 pool_status', async () => {
+    mockPool.query
+      .mockResolvedValueOnce([[{ total: 0 }]])
+      .mockResolvedValueOnce([[]]);
+
+    await customerService.getNearRecycleCustomersList(
+      mockPool, {}, { clause: 'c.owner_id = ?', params: [5] }
+    );
+
+    expect(mockPool.query).toHaveBeenCalledTimes(2);
+    for (const [sql] of mockPool.query.mock.calls) {
+      expect(sql).not.toContain('pool_status');
+    }
+    expect(mockPool.query.mock.calls[0][1]).toEqual([7, 7, 5]);
+    expect(mockPool.query.mock.calls[1][1].slice(0, 3)).toEqual([7, 7, 5]);
   });
 });
 
@@ -240,7 +359,10 @@ describe('customerService.releaseCustomer', () => {
     // 检查 UPDATE 语句（097 迁移后 pool_status 参数化，不再字面量 1）
     const updateCall = mockPool.query.mock.calls[1];
     expect(updateCall[0]).toContain('pool_status = ?');
-    expect(updateCall[1]).toEqual(['sea', 1]);
+    // [P1-03] 释放同步写 status=sea、business_status=following
+    expect(updateCall[0]).toContain('status = ?');
+    expect(updateCall[0]).toContain('business_status = ?');
+    expect(updateCall[1]).toEqual(['sea', 'sea', 'following', 1]);
     // 检查 INSERT 日志
     const logCall = mockPool.query.mock.calls[2];
     expect(logCall[0]).toContain('crm_pool_log');

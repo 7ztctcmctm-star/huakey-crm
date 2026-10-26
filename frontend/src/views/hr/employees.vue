@@ -245,7 +245,7 @@ const fetchStats = async () => {
 }
 
 const fetchDepts = async () => {
-  try { const res = await getDeptList({}); if (res.code === 200) deptOptions.value = res.data.list || [] } catch (e) { /* */ }
+  try { const res = await getDeptList(); if (res.code === 200) deptOptions.value = res.data.list || [] } catch (e) { /* */ }
 }
 
 const handleView = async (row) => {

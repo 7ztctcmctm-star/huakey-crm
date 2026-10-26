@@ -13,6 +13,7 @@
 const pool = require('./database');
 const { readOnlyPool } = require('./database');
 const logger = require('./logger');
+const { maskPIIString, maskSqlParams, maskSqlText } = require('../utils/mask');
 
 const SLOW_QUERY_THRESHOLD = parseInt(process.env.SLOW_QUERY_THRESHOLD_MS, 10) || 1000;
 
@@ -51,11 +52,12 @@ function interceptSlowQuery(targetPool, poolName) {
       const result = await _originalQuery(sql, params);
       const duration = Date.now() - start;
       if (duration >= SLOW_QUERY_THRESHOLD) {
-        const { maskFieldValue } = require('../utils/mask');
+        // [P1-20] 位置参数没有字段名，按可识别模式（手机/邮箱/证件/银行卡/
+        // JWT/bcrypt/长 hex）兜底脱敏；SQL 文本也过一遍，防止内联字面量泄露。
         logger.warn('Slow query detected', {
           pool: poolName,
-          sql: safeSlice(sql),
-          params: safeSlice(maskFieldValue('params', params)),
+          sql: safeSlice(maskSqlText(sql)),
+          params: safeSlice(maskSqlParams(params)),
           durationMs: duration,
           thresholdMs: SLOW_QUERY_THRESHOLD
         });
@@ -67,10 +69,11 @@ function interceptSlowQuery(targetPool, poolName) {
       if (duration >= SLOW_QUERY_THRESHOLD) {
         logger.warn('Slow query failed', {
           pool: poolName,
-          sql: safeSlice(sql),
-          params: safeSlice(params),
+          sql: safeSlice(maskSqlText(sql)),
+          params: safeSlice(maskSqlParams(params)),
           durationMs: duration,
-          error: err.message
+          // MySQL 错误可能回显重复值（如 Duplicate entry 'a@b.com'），同样脱敏
+          error: maskPIIString(err.message)
         });
       }
       throw err;
@@ -83,4 +86,7 @@ if (readOnlyPool && readOnlyPool !== pool) {
   interceptSlowQuery(readOnlyPool, 'readOnlyPool');
 }
 
-module.exports = { enableSlowQueryLog: () => {} }; // 无操作占位，保持接口一致
+module.exports = {
+  enableSlowQueryLog: () => {}, // 无操作占位，保持接口一致
+  interceptSlowQuery // 导出供单测注入假连接池，不影响模块加载时的真实拦截
+};

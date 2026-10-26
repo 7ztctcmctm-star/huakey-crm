@@ -131,8 +131,7 @@ describe('Route 层 sales 用户 (roleId=3, type=self) 行为', () => {
   const salesAuth = () => {
     mockPool.query
       .mockResolvedValueOnce([[]])              // blacklist
-      .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0 }]])
-      .mockResolvedValueOnce([[{ must_change_password: 0 }]])
+      .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, view_all: 0, manage_all: 0 }]])
       .mockResolvedValueOnce([[]]);
   };
 

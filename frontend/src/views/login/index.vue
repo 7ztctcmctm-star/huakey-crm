@@ -76,8 +76,8 @@
               />
               <div
                 class="captcha-svg"
-                @click="refreshCaptcha"
-                @keyup.enter="refreshCaptcha"
+                @click="onCaptchaClick"
+                @keyup.enter="onCaptchaClick"
                 role="button"
                 tabindex="0"
                 title="点击刷新验证码"
@@ -149,17 +149,34 @@ const loginRules = {
   ]
 }
 
+// [P1-21] 不在刷新验证码时清空 apiError：
+// 登录失败后会先写入后端错误信息，再调用本函数换图；若这里清空，
+// 用户永远看不到“用户名或密码错误/验证码错误”，只剩验证码图片变化。
+// 只有用户主动点击验证码图片时才清空旧提示（见 onCaptchaClick）。
 const refreshCaptcha = async () => {
-  apiError.value = ''
   try {
     const res = await getCaptcha()
     if (res.code === 200) {
       captchaSvg.value = res.data.svg
       captchaKey.value = res.data.key
+    } else {
+      // [2026-10-23] 非 200（如限流 429）：必须可见提示。
+      // 验证码 key 一次性使用后即删，刷新失败时页面上还是旧图（旧 key 已失效），
+      // 若静默处理，用户照旧图输入必然报"验证码已过期"，陷入死循环。
+      apiError.value = res.message || '验证码加载失败，请点击图片重试'
     }
-  } catch {
-    reportError('获取验证码失败')
+  } catch (e) {
+    // [2026-10-23] 网络层失败同样必须可见提示（原为静默 console，用户无感知，
+    // 看着"正常的旧图"反复输入错误验证码）。429 时 axios 拦截器已弹过 toast，
+    // 这里补横幅并附上后端 message（如"验证码获取过于频繁，请15分钟后再试"）。
+    reportError('获取验证码失败:', e)
+    apiError.value = e?.response?.data?.message || '验证码加载失败，请点击图片重试'
   }
+}
+
+const onCaptchaClick = () => {
+  apiError.value = ''
+  refreshCaptcha()
 }
 
 const handleLogin = async () => {

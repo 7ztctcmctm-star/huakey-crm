@@ -81,10 +81,12 @@ router.get('/detail/:id', authenticateToken, checkPermission('invoice:view'), ch
 });
 
 // 新增
-router.post('/add', authenticateToken, checkPermission('invoice:add'), validate(addSchema), async (req, res, next) => {
+// [P0-09 2026-10-23] 补数据范围：开票目标（合同/客户）必须落在当前用户可见范围内，
+//   否则销售可给任意他人的合同开票。归属校验在 service 内做。
+router.post('/add', authenticateToken, checkPermission('invoice:add'), checkDataPermission('invoice', 'create_by'), validate(addSchema), async (req, res, next) => {
   try {
     const idempotencyKey = req.headers['idempotency-key'] || req.body.idempotency_key || null;
-    const result = await invoiceService.createInvoice(pool, req.body, req.user.userId, idempotencyKey);
+    const result = await invoiceService.createInvoice(pool, req.body, req.user.userId, idempotencyKey, req.dataPermission);
     res.json({ code: 200, message: '创建发票成功', data: result });
   } catch (error) {
     logger.error('新增发票失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -93,7 +95,8 @@ router.post('/add', authenticateToken, checkPermission('invoice:add'), validate(
 });
 
 // 编辑
-router.post('/update', authenticateToken, checkPermission('invoice:edit'), validate(updateSchema), async (req, res, next) => {
+// [P0-09] 原来只校验功能码 invoice:edit，销售可改任意发票；现补行级范围 + 归属校验。
+router.post('/update', authenticateToken, checkPermission('invoice:edit'), checkDataPermission('invoice', 'create_by'), validate(updateSchema), async (req, res, next) => {
   try {
     await invoiceService.updateInvoice(pool, req.body, req);
     res.json({ code: 200, message: '修改成功', data: null });
@@ -103,7 +106,8 @@ router.post('/update', authenticateToken, checkPermission('invoice:edit'), valid
 });
 
 // 删除（软删除）
-router.post('/delete', authenticateToken, checkPermission('invoice:delete'), validate(deleteSchema), async (req, res, next) => {
+// [P0-09] 同上：删除同样必须受数据范围约束。
+router.post('/delete', authenticateToken, checkPermission('invoice:delete'), checkDataPermission('invoice', 'create_by'), validate(deleteSchema), async (req, res, next) => {
   try {
     await invoiceService.deleteInvoice(pool, req.body, req);
     res.json({ code: 200, message: '删除成功', data: null });

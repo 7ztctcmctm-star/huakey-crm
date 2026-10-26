@@ -17,7 +17,9 @@ const deptAddSchema = Joi.object({
 const deptUpdateSchema = Joi.object({
   id: Joi.number().integer().required(),
   name: Joi.string().max(100).optional(),
-  parent_id: Joi.number().integer().min(0).optional().default(0),
+  // [V1.1 §11.3] 前端编辑根部门时下发 parent_id: null（dept.vue handleEdit → row.parent_id || null），
+  // 旧 schema 未 allow(null)，根部门改名会被 Joi 400 拒绝。service 内 null → 0 归一化。
+  parent_id: Joi.number().integer().min(0).allow(null).optional().default(0),
   sort: Joi.number().integer().min(0).optional().default(0)
 });
 

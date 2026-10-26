@@ -25,6 +25,9 @@ async function getMyReminders(pool, userId, roleId, opts = {}) {
      LEFT JOIN crm_follow_plan fp ON r.follow_plan_id = fp.id
      WHERE r.owner_id = ? AND r.is_dismissed = 0
        AND r.reminder_type IN ('overdue', 'today', 'upcoming')
+       -- [P2-02] upcoming 是「明日待跟进」的前一天预览（reminder_date=次日）。
+       -- 到了 reminder_date 当天仍未清理的历史行不应再显示在「明日」页签。
+       AND NOT (r.reminder_type = 'upcoming' AND r.reminder_date <= CURDATE())
      ORDER BY r.reminder_type, r.create_time DESC`,
     [userId]
   );
@@ -144,8 +147,11 @@ async function getMyReminders(pool, userId, roleId, opts = {}) {
  * @param {object} [permission] - { isBoss, userId }
  */
 async function getOverdueList(pool, params = {}, permission = null) {
-  const { page = 1, pageSize = 20, overdueDays = 30 } = params;
+  const { overdueDays = 30 } = params;
+  const page = Math.max(parseInt(params.page, 10) || 1, 1);
+  const pageSize = Math.max(parseInt(params.pageSize, 10) || 20, 1);
   const { isBoss = false, userId } = permission || {};
+  // [P1-04] 显式 parseInt 后再计算，避免字符串参数参与乘法得到非法 LIMIT/OFFSET
   const offset = (page - 1) * pageSize;
 
   let userFilter = '';
@@ -178,10 +184,12 @@ async function getOverdueList(pool, params = {}, permission = null) {
        ${userFilter}
      ORDER BY overdue_days DESC
      LIMIT ? OFFSET ?`,
-    [...queryParams, overdueDays, parseInt(pageSize), parseInt(offset)]
+    // [P1-04] SQL 占位符只有 INTERVAL ? / 可选 owner_id / LIMIT ? OFFSET ?，
+    // 不能再多传 overdueDays，否则 LIMIT 绑到天数、OFFSET 绑到 pageSize，分页完全错位
+    [...queryParams, pageSize, offset]
   );
 
-  return { list, total: countResult[0].total, page: parseInt(page), pageSize: parseInt(pageSize) };
+  return { list, total: countResult[0].total, page, pageSize };
 }
 
 /**

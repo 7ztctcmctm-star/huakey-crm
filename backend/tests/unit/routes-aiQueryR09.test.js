@@ -62,7 +62,24 @@ const salesToken = () =>
 describe('R-09 /ai/query', () => {
   beforeEach(() => {
     mockPool.query.mockReset();
-    mockPool.query.mockResolvedValue([[]]); // auth/permission 内部查询默认放行
+    // [P0-06] 认证查询需要完整账号+角色行；其余 auth/permission 查询默认空结果
+    mockPool.query.mockImplementation(async (sql, params = []) => {
+      const s = String(sql);
+      if (s.includes('sys_token_blacklist')) return [[]];
+      if (s.includes('FROM sys_user u')) {
+        const id = params[0] === undefined ? 1 : params[0];
+        const isAdmin = id === 1;
+        return [[{
+          id, username: isAdmin ? 'admin' : 'sales1',
+          role_id: isAdmin ? 1 : 2, status: 1,
+          must_change_password: 0, password_changed_at: null,
+          fresh_role_id: isAdmin ? 1 : 2,
+          role_code: isAdmin ? 'super_admin' : 'sales',
+          view_all: isAdmin ? 1 : 0, manage_all: isAdmin ? 1 : 0
+        }]];
+      }
+      return [[]];
+    });
     mockReadOnlyPool.query.mockReset();
     chatCompletion.mockReset();
   });

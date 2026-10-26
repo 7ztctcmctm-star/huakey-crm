@@ -41,7 +41,8 @@ describe('contractPaymentService · 权限闸门 checkContractPermission', () =>
     expect(paymentService.recordPayment).toHaveBeenCalledWith(
       mockPool,
       { contract_id: 1, plan_id: 2, pay_date: '2026-01-01', pay_amount: 100, pay_method: '银行', remark: 'r' },
-      'k1'
+      'k1',
+      7 // [P0-07] 幂等存储键按 user 命名空间隔离，必须带上操作人
     );
   });
 

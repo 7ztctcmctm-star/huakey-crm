@@ -15,7 +15,7 @@
         </el-card>
       </el-col>
       <el-col :span="8">
-        <el-card class="stat-card" @click="router.push('/purchase/request')">
+        <el-card class="stat-card" @click="router.push('/purchase/requests')">
           <div class="stat-body">
             <div class="stat-icon" style="background: var(--color-bg-secondary); color: var(--color-warning)">
               <el-icon :size="28"><Document /></el-icon>
@@ -50,7 +50,7 @@
               <span class="section-title">
                 <el-icon><DocumentChecked /></el-icon> 待审批采购申请
               </span>
-              <el-button type="primary" link @click="router.push('/purchase/request')">查看全部</el-button>
+              <el-button type="primary" link @click="router.push('/purchase/requests')">查看全部</el-button>
             </div>
           </template>
           <el-table :data="pendingRequests" stripe size="small" v-loading="loadingPending">
@@ -72,7 +72,7 @@
               <span class="section-title">
                 <el-icon><ShoppingCart /></el-icon> 最近采购订单
               </span>
-              <el-button type="primary" link @click="router.push('/purchase')">查看全部</el-button>
+              <el-button type="primary" link @click="router.push('/purchase/list')">查看全部</el-button>
             </div>
           </template>
           <el-table :data="recentPurchases" stripe size="small" v-loading="loadingPurchases">

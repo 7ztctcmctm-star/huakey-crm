@@ -20,6 +20,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const customerController = require('../controllers/customerController');
+const { CUSTOMER_LEVEL_CODES } = require('../constants/customerLevel');
 
 // ========== 查询 Schema（原与 customer/center.js 保持一致，该文件已于 2026-09-14 移除） ==========
 
@@ -30,6 +31,9 @@ const leadPoolSchema = Joi.object({
   contact_name: Joi.string().max(200).allow('', null),
   phone: Joi.string().max(20).allow('', null),
   source: Joi.string().max(50).allow('', null),
+  // [V1.1 §11.3] 前端潜客池下发 level=A/B/C/D；旧 schema 只声明 lead_level，
+  // stripUnknown 会把 level 丢掉，等级筛选形同虚设。lead_level 保留兼容旧客户端。
+  level: Joi.string().valid(...CUSTOMER_LEVEL_CODES).allow('', null),
   lead_level: Joi.string().valid('高', '中', '低').allow('', null),
   owner_id: Joi.number().integer().positive().allow(null),
   sort: Joi.string().valid('create_time_desc', 'last_follow_time_asc', 'last_follow_time_desc').allow('', null)

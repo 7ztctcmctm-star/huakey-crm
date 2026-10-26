@@ -64,7 +64,10 @@ echo [5/6] Exporting local database...
 cd /d "%LOCAL%"
 
 REM 导出本地数据库（排除数据量大的日志表）
-mysqldump -u root -p%DB_PASS% --single-transaction --routines --triggers --ignore-table=huakey_crm.sys_log --ignore-table=huakey_crm.crm_follow_up --ignore-table=huakey_crm.crm_email --ignore-table=huakey_crm.crm_email_attachment huakey_crm > "%TEMP%\huakey_crm_dump.sql"
+REM [P2-16] 口令走 MYSQL_PWD，避免出现在 mysqldump 进程命令行
+set "MYSQL_PWD=%DB_PASS%"
+mysqldump -u root --single-transaction --routines --triggers --ignore-table=huakey_crm.sys_log --ignore-table=huakey_crm.crm_follow_up --ignore-table=huakey_crm.crm_email --ignore-table=huakey_crm.crm_email_attachment huakey_crm > "%TEMP%\huakey_crm_dump.sql"
+set "MYSQL_PWD="
 if errorlevel 1 (
     echo ERROR: database export failed
     pause

@@ -22,8 +22,14 @@ function makePool() {
     const s = String(sql || '').toLowerCase();
 
     if (s.includes('sys_token_blacklist')) return [[]];
-    if (s.includes('must_change_password')) return [[{ must_change_password: 0, status: 1 }]];
-    if (s.includes('view_all') || s.includes('manage_all')) return [[{ view_all: 1, manage_all: 1, code: 'super_admin' }]];
+    // [P0-06] 认证查询是一次 LEFT JOIN，必须返回完整账号+角色行
+    if (s.includes('must_change_password') || s.includes('view_all') || s.includes('manage_all')) {
+      return [[{
+        id: 1, username: 'admin', role_id: 1, status: 1,
+        must_change_password: 0, password_changed_at: null,
+        fresh_role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1
+      }]];
+    }
     if (s.includes('dept_id')) return [[{ id: 1, dept_id: 10 }]]; // 部门判定（含 id 供 IN 子查询）
 
     // 工单主表（最优先，避免被 sys_user/crm_customer 误命中）

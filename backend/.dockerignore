@@ -1,0 +1,12 @@
+# canary / 独立后端镜像以 backend/ 为构建上下文（deploy/docker-compose.canary.yml）。
+# 根 .dockerignore 只对根上下文生效，因此这里必须单独排除本地凭证。
+node_modules
+coverage
+logs
+uploads
+*.log
+
+# 本地环境与开发令牌：绝不进入镜像
+.env
+.env.*
+.dev-token.txt

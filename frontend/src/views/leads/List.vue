@@ -72,8 +72,9 @@
             <el-link type="primary" @click="goDetail(row)">{{ row.company_name }}</el-link>
           </template>
         </el-table-column>
-        <el-table-column prop="contact_name" label="联系人" width="100" />
-        <el-table-column prop="phone" label="电话" width="140" />
+        <!-- 后端 /leads 返回主联系人别名为 primary_contact_*（与正式客户列表一致） -->
+        <el-table-column prop="primary_contact_name" label="联系人" width="100" />
+        <el-table-column prop="primary_contact_phone" label="电话" width="140" />
         <el-table-column prop="source" label="来源" width="100" />
         <el-table-column prop="level" label="等级" width="80" align="center">
           <template #default="{ row }">

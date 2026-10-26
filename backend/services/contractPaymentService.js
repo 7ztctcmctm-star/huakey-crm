@@ -38,7 +38,12 @@ async function checkContractPermission(pool, contractId, user, action) {
 async function addPayment(pool, data, user) {
   const { contract_id, plan_id, pay_date, pay_amount, pay_method, remark, idempotency_key } = data;
   await checkContractPermission(pool, contract_id, user, '为该合同登记回款');
-  await paymentService.recordPayment(pool, { contract_id, plan_id, pay_date, pay_amount, pay_method, remark }, idempotency_key);
+  await paymentService.recordPayment(
+    pool,
+    { contract_id, plan_id, pay_date, pay_amount, pay_method, remark },
+    idempotency_key,
+    user && user.userId
+  );
 }
 
 /**

@@ -10,15 +10,45 @@
  * 使用：直接覆盖 backend/services/poolService.js（导出签名不变）
  */
 
-const ROLES = require('../config/roles')
-const { CUSTOMER_STATUS } = require('../constants/customerStatus')
-const { POOL_STATUS, BUSINESS_STATUS } = require('../constants/poolStatus')
+const { BUSINESS_STATUS } = require('../constants/poolStatus')
+// [P1-03] 认领/释放的 SET 片段收敛到单一事实源，避免四条路径各写一套字段
+const {
+  CLAIM_SET_SQL, claimParams, RELEASE_SET_SQL, releaseParams
+} = require('../utils/customerPoolState')
+const { buildDataPermissionWhere } = require('../middleware/permission')
 const AppError = require('../errors/AppError')
 const ErrorCodes = require('../errors/codes')
 // [R-06 边界收敛 2026-09-16] 系统侧公海自动回收迁入本域，需以下依赖
 const { getRecycleDays } = require('../utils/config')
 const sseManager = require('../utils/sseManager')
 const logger = require('../config/logger')
+
+/**
+ * [P0-05 2026-10-23] 释放客户的数据范围校验
+ *
+ * 原实现用 `user.roleId === ADMIN/MANAGER/SALES` 判断“特权”，而销售角色
+ * 本身就是 SALES ⇒ 任意销售可释放任意客户。现改为统一使用
+ * checkDataPermission 注入的数据范围（all/self/dept/dept_and_sub/custom）。
+ *
+ * 返回 false 由调用方决定：单条释放抛 403，批量释放跳过该条。
+ * 缺少 dataPermission 时 fail-closed（绝不退回“仅校验登录”）。
+ */
+async function isWithinReleaseScope(connection, customer, dataPermission) {
+  if (!dataPermission) return false;
+  if (dataPermission.type === 'all') return true;
+  if (dataPermission.type === 'self') {
+    return Number(customer.owner_id) === Number(dataPermission.userId);
+  }
+
+  const { clause, params } = await buildDataPermissionWhere(dataPermission, 'c');
+  const [rows] = await connection.query(
+    `SELECT 1 FROM crm_customer c
+      WHERE c.id = ? AND c.deleted_at IS NULL AND (${clause})
+      LIMIT 1`,
+    [customer.id, ...params]
+  );
+  return rows.length > 0;
+}
 
 // 注：原 canManagePrivatePool() 随「私有池」概念一并下线（2026-09-10 产品决策）。
 // 私有池取消后，认领不再按 pool_type 区分权限，该判定已无调用方。
@@ -114,8 +144,8 @@ async function claimCustomer(pool, customer_id, userId, _user, idempotencyKey) {
   // ⚠️ runIdempotent 必须包在**最外层**：若先做快判，幂等重放会被「已被认领」拦下，
   //     拿不到首次结果 —— 幂等键的语义是「重放即返回首次结果」，不是「重放报错」。
   const { result } = await runIdempotent(pool, idempotencyKey, 'pool_claim', () =>
-    claimCustomerOnce(pool, customer_id, userId)
-  );
+    claimCustomerOnce(pool, customer_id, userId),
+  userId);
   return result;
 }
 
@@ -152,9 +182,9 @@ async function claimCustomerOnce(pool, customer_id, userId) {
     // 认领即开始跟进：status/business_status 必须同步（否则线索认领后 business_status 残留 'lead' 卡在线索池）
     const [claimResult] = await connection.query(
       `UPDATE crm_customer
-          SET pool_status = ?, owner_id = ?, protect_until = NULL, status = ?, business_status = ?, last_follow_time = NOW()
+          SET ${CLAIM_SET_SQL}
         WHERE id = ? AND owner_id IS NULL AND deleted_at IS NULL`,
-      [POOL_STATUS.PRIVATE, userId, CUSTOMER_STATUS.FOLLOWING, BUSINESS_STATUS.FOLLOWING, customer_id]
+      [...claimParams(userId), customer_id]
     );
 
     // affectedRows !== 1 说明在 SELECT 与 UPDATE 之间，该客户已被他人认领（或被删除）
@@ -245,9 +275,9 @@ async function batchClaimCustomers(pool, customer_ids, userId, _user) {
       // 【P0-1】条件必须带 owner_id IS NULL —— 否则并发下会覆盖他人已认领的结果。
       const [claimResult] = await connection.query(
         `UPDATE crm_customer
-            SET pool_status = ?, owner_id = ?, protect_until = NULL, status = ?, business_status = ?, last_follow_time = NOW()
+            SET ${CLAIM_SET_SQL}
           WHERE id = ? AND owner_id IS NULL AND deleted_at IS NULL`,
-        [POOL_STATUS.PRIVATE, userId, CUSTOMER_STATUS.FOLLOWING, BUSINESS_STATUS.FOLLOWING, customerId]
+        [...claimParams(userId), customerId]
       )
 
       // 未命中说明已被他人抢先认领：按「部分成功」语义跳过，不视为错误
@@ -282,7 +312,7 @@ async function batchClaimCustomers(pool, customer_ids, userId, _user) {
  * 现整段纳入事务，并对客户行加 FOR UPDATE —— 释放期间锁住归属，
  * 避免与并发的认领/转移相互穿插。
  */
-async function releaseCustomer(pool, customer_id, userId, user) {
+async function releaseCustomer(pool, customer_id, userId, dataPermission) {
   if (!customer_id) throw new AppError(ErrorCodes.VALIDATION_ERROR, '客户ID不能为空');
 
   const connection = await pool.getConnection()
@@ -290,7 +320,7 @@ async function releaseCustomer(pool, customer_id, userId, user) {
     await connection.beginTransaction()
 
     const [customers] = await connection.query(
-      'SELECT id, owner_id, company_name FROM crm_customer WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
+      'SELECT id, owner_id, company_name, business_status FROM crm_customer WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
       [customer_id]
     )
 
@@ -298,14 +328,20 @@ async function releaseCustomer(pool, customer_id, userId, user) {
 
     const customer = customers[0]
 
-    const isPrivileged = user.roleId === ROLES.ADMIN || user.roleId === ROLES.MANAGER || user.roleId === ROLES.SALES
-    if (!isPrivileged && customer.owner_id !== userId) {
+    // [P1-03] 线索不能走“释放到公海”：那会把 business_status 改写成 following，
+    // 等于把线索静默转成正式客户。与 customerService.releaseCustomerToPool 同一口径。
+    if (customer.business_status === BUSINESS_STATUS.LEAD) {
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '线索客户不能释放到公海，请使用"放弃"操作');
+    }
+
+    // [P0-05] 数据范围校验（行锁内，防校验后归属被并发改动）
+    if (!(await isWithinReleaseScope(connection, customer, dataPermission))) {
       throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权释放该客户');
     }
 
     await connection.query(
-      'UPDATE crm_customer SET pool_status = ?, owner_id = NULL, protect_until = NULL, status = ? WHERE id = ?',
-      [POOL_STATUS.SEA, CUSTOMER_STATUS.SEA, customer_id]
+      `UPDATE crm_customer SET ${RELEASE_SET_SQL} WHERE id = ?`,
+      [...releaseParams(), customer_id]
     )
     await connection.query(
       `INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id) VALUES (?, 'release', ?, NULL)`,
@@ -325,7 +361,7 @@ async function releaseCustomer(pool, customer_id, userId, user) {
 /**
  * 批量释放客户到公海
  */
-async function batchReleaseCustomers(pool, customer_ids, userId, user) {
+async function batchReleaseCustomers(pool, customer_ids, userId, dataPermission) {
   if (!Array.isArray(customer_ids) || customer_ids.length === 0) {
     throw new AppError(ErrorCodes.VALIDATION_ERROR, '请选择要释放的客户');
   }
@@ -341,20 +377,23 @@ async function batchReleaseCustomers(pool, customer_ids, userId, user) {
     for (const customerId of customer_ids) {
       // 【B2 · 2026-10-19】行锁：与单条释放一致，避免释放期间归属被并发改动
       const [customers] = await connection.query(
-        'SELECT id, owner_id, pool_status FROM crm_customer WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
+        'SELECT id, owner_id, pool_status, business_status FROM crm_customer WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
         [customerId]
       )
 
       if (customers.length === 0) continue
       const customer = customers[0]
 
-      const isPrivileged = user.roleId === ROLES.ADMIN || user.roleId === ROLES.MANAGER || user.roleId === ROLES.SALES
-      if (!isPrivileged && customer.owner_id !== userId) continue
+      // [P1-03] 线索释放会把它静默转成正式客户，批量场景静默跳过（与越权跳过一致）
+      if (customer.business_status === BUSINESS_STATUS.LEAD) continue
+
+      // [P0-05] 统一按数据范围判定；越权客户静默跳过，不泄露其存在性
+      if (!(await isWithinReleaseScope(connection, customer, dataPermission))) continue
       if (customer.owner_id === null) continue
 
       await connection.query(
-        'UPDATE crm_customer SET pool_status = ?, owner_id = NULL, protect_until = NULL, status = ? WHERE id = ?',
-        [POOL_STATUS.SEA, CUSTOMER_STATUS.SEA, customerId]
+        `UPDATE crm_customer SET ${RELEASE_SET_SQL} WHERE id = ?`,
+        [...releaseParams(), customerId]
       )
       await connection.query(
         `INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id) VALUES (?, 'release', ?, NULL)`,
@@ -432,13 +471,14 @@ async function autoReleaseCustomers(pool, releaseDays) {
   try {
     await connection.beginTransaction();
 
+    // [P2-07] 归属判据只看 owner_id：pool_status 是兼容列，历史数据可能与其错位。
     const [customers] = await connection.query(
       `SELECT id, company_name, owner_id FROM crm_customer
-       WHERE pool_status = ? AND deleted_at IS NULL AND owner_id IS NOT NULL
+       WHERE deleted_at IS NULL AND owner_id IS NOT NULL
          AND status = 'following'
          AND (last_follow_time IS NULL AND create_time < NOW() - INTERVAL ? DAY
            OR last_follow_time < NOW() - INTERVAL ? DAY)`,
-      [POOL_STATUS.PRIVATE, threshold, threshold]
+      [threshold, threshold]
     );
 
     if (!customers || customers.length === 0) {
@@ -450,8 +490,8 @@ async function autoReleaseCustomers(pool, releaseDays) {
     const logValues = customers.map(c => [c.id, 'auto_release', c.owner_id, null]);
 
     await connection.query(
-      'UPDATE crm_customer SET pool_status = ?, owner_id = NULL, protect_until = NULL, status = ? WHERE id IN (?)',
-      [POOL_STATUS.SEA, 'sea', ids]
+      `UPDATE crm_customer SET ${RELEASE_SET_SQL} WHERE id IN (?)`,
+      [...releaseParams(), ids]
     );
 
     await connection.query(

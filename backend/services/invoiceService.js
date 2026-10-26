@@ -105,25 +105,27 @@ const INVOICE_NO_MAX_ATTEMPTS = 3;
 /**
  * 生成当日下一个发票编号 INV-YYMMDD-NNN
  *
- * 用「当日已用最大序号 + 1」而非 COUNT + 1：中间编号被删除/作废后，
- * COUNT + 1 会重新撞上仍然存在的编号（如 001/002/003 删掉 002 后 COUNT=2 → 生成 003）。
- * FOR UPDATE 对当日编号区间加 next-key lock，串行化并发分配。
+ * [P2-06] 改用 crm_doc_sequence 原子自增（迁移 130，key = invoice:YYMMDD）。
+ * 原实现「当日已用最大序号 + 1」虽不会像 COUNT+1 那样复用被删中间号，
+ * 但编号正确性取决于 `SELECT ... FOR UPDATE` 的区间锁，且重试只在
+ * `uk_invoice_no` 存在（迁移 123）时才有意义——生产未执行 123 时等于无保护。
+ * 序列行锁在事务内串行化并发取号，不再依赖唯一索引；唯一索引仍是最终防线。
  *
  * @param {object} connection - 事务连接
  * @param {string} dateStr - YYMMDD
  * @returns {Promise<string>} 发票编号
  */
 async function nextInvoiceNo(connection, dateStr) {
-  const [rows] = await connection.query(
-    'SELECT invoice_no FROM crm_invoice WHERE invoice_no LIKE ? FOR UPDATE',
-    [`INV-${dateStr}-%`]
+  const [result] = await connection.query(
+    `INSERT INTO crm_doc_sequence (seq_key, current_value) VALUES (?, LAST_INSERT_ID(1))
+     ON DUPLICATE KEY UPDATE current_value = LAST_INSERT_ID(current_value + 1)`,
+    [`invoice:${dateStr}`]
   );
-  let maxSeq = 0;
-  for (const row of rows || []) {
-    const seq = parseInt(String(row.invoice_no).split('-').pop(), 10);
-    if (Number.isFinite(seq) && seq > maxSeq) maxSeq = seq;
+  const seq = Number(result.insertId);
+  if (!Number.isInteger(seq) || seq <= 0) {
+    throw new Error(`发票编号序列返回值异常: ${result.insertId}`);
   }
-  return `INV-${dateStr}-${String(maxSeq + 1).padStart(3, '0')}`;
+  return `INV-${dateStr}-${String(seq).padStart(3, '0')}`;
 }
 
 /**
@@ -169,9 +171,10 @@ function normalizeInvoiceAmounts(amount, tax_rate, tax_amount) {
 /**
  * 新增发票
  *
- * 迁移 123 给 invoice_no 加了唯一键，编号冲突会以 ER_DUP_ENTRY 形式暴露。
- * 并发分配或历史编号空洞导致的偶发冲突在此重算序号重试，
- * 重试耗尽则冒泡 ER_DUP_ENTRY，由 errorHandler 统一映射为 409（不新增 controller 分支）。
+ * [P2-06] 编号由 crm_doc_sequence 原子分配（迁移 130），并发取号不再依赖
+ * `uk_invoice_no`。若该唯一索引已存在（迁移 123），手工写号等残余冲突仍会以
+ * ER_DUP_ENTRY 暴露，此处取下一个序列值重试；重试耗尽则冒泡 ER_DUP_ENTRY，
+ * 由 errorHandler 统一映射为 409（不新增 controller 分支）。
  *
  * @param {object} pool
  * @param {object} payload - { contract_id, customer_id, type, amount, tax_rate, tax_amount, invoice_date, status, remark, idempotency_key? }
@@ -179,15 +182,42 @@ function normalizeInvoiceAmounts(amount, tax_rate, tax_amount) {
  * @param {string} [idempotencyKey] - 幂等键（B2 · 2026-10-19 新增）
  *   双击开票 / 网络重试时，同一 key 重放返回**首次**创建的发票（不会开出第二张票）。
  */
-async function createInvoice(pool, { contract_id, customer_id, type, amount, tax_rate, tax_amount, invoice_date, status, remark }, userId, idempotencyKey) {
+async function createInvoice(pool, { contract_id, customer_id, type, amount, tax_rate, tax_amount, invoice_date, status, remark }, userId, idempotencyKey, dataPermission) {
   // 先校验再开事务：金额自相矛盾时不必占着连接
   const amounts = normalizeInvoiceAmounts(amount, tax_rate, tax_amount);
 
+  // [P0-09] 开票目标必须落在本人数据范围内，且合同与客户确实对应。
+  // 否则销售可给任意他人的合同开票（虚增/污染财务账目）。
+  await assertInvoiceTarget(pool, { contract_id, customer_id }, dataPermission);
+
   const { runIdempotent } = require('../utils/idempotency');
   const { result } = await runIdempotent(pool, idempotencyKey, 'invoice_create', () =>
-    insertInvoiceWithRetry(pool, { contract_id, customer_id, type, invoice_date, status, remark }, amounts, userId)
-  );
+    insertInvoiceWithRetry(pool, { contract_id, customer_id, type, invoice_date, status, remark }, amounts, userId),
+  userId);
   return result;
+}
+
+/**
+ * 校验开票目标：合同存在、在当前用户数据范围内、且发票客户 = 合同客户。
+ * @param {object} pool
+ * @param {{contract_id:number, customer_id:number}} target
+ * @param {object} [dataPermission] - req.dataPermission（缺省为不过滤，供内部/测试调用）
+ */
+async function assertInvoiceTarget(pool, { contract_id, customer_id }, dataPermission) {
+  const { clause, params } = await buildDataPermissionWhere(dataPermission, 'c');
+  const [rows] = await pool.query(
+    `SELECT c.id, c.customer_id
+       FROM crm_contract c
+      WHERE c.id = ? AND c.deleted_at IS NULL AND ${clause}`,
+    [contract_id, ...params]
+  );
+  if (rows.length === 0) {
+    // 不区分「不存在」与「无权」，避免用返回值探测他人合同是否存在
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '关联合同不存在或无权操作');
+  }
+  if (Number(rows[0].customer_id) !== Number(customer_id)) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '发票客户与合同客户不一致');
+  }
 }
 
 async function insertInvoiceWithRetry(pool, { contract_id, customer_id, type, invoice_date, status, remark }, amounts, userId) {
@@ -234,16 +264,31 @@ async function updateInvoice(pool, { id, contract_id, customer_id, type, amount,
   // 与 createInvoice 同一口径：税额必须与「金额 × 税率」一致
   const amounts = normalizeInvoiceAmounts(amount, tax_rate, tax_amount);
 
-  const [oldRows] = await pool.query('SELECT id, invoice_no, contract_id, customer_id, type, amount, tax_rate, tax_amount, invoice_date, status, remark, create_by, create_time, update_time, deleted_at FROM crm_invoice WHERE id = ? AND deleted_at IS NULL', [id]);
+  // [P0-09] 行级数据范围：只能改自己/本部门（按配置）可见的发票，
+  // 越权与不存在统一返回「发票不存在」，避免用错误码差异探测他人数据。
+  const { clause, params } = await buildDataPermissionWhere(req && req.dataPermission, 'i');
+  const [oldRows] = await pool.query(
+    `SELECT i.id, i.invoice_no, i.contract_id, i.customer_id, i.type, i.amount, i.tax_rate, i.tax_amount, i.invoice_date, i.status, i.remark, i.create_by, i.create_time, i.update_time, i.deleted_at
+       FROM crm_invoice i
+      WHERE i.id = ? AND i.deleted_at IS NULL AND ${clause}`,
+    [id, ...params]
+  );
   if (oldRows.length === 0) {
     throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '发票不存在');
   }
   const oldData = oldRows[0];
 
-  await pool.query(
-    `UPDATE crm_invoice SET contract_id=?, customer_id=?, type=?, amount=?, tax_rate=?, tax_amount=?, invoice_date=?, status=?, remark=? WHERE id=?`,
+  // 改挂合同同样要过数据范围 + 合同/客户一致性
+  await assertInvoiceTarget(pool, { contract_id, customer_id }, req && req.dataPermission);
+
+  const [updateResult] = await pool.query(
+    `UPDATE crm_invoice SET contract_id=?, customer_id=?, type=?, amount=?, tax_rate=?, tax_amount=?, invoice_date=?, status=?, remark=? WHERE id=? AND deleted_at IS NULL`,
     [contract_id, customer_id, type, amounts.amount, amounts.tax_rate, amounts.tax_amount, invoice_date || null, status || 1, remark || null, id]
   );
+  if (updateResult.affectedRows === 0) {
+    // 读取与更新之间被并发删除
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '发票不存在');
+  }
 
   await logAction(req, 'update', `修改发票: ID=${id}`);
   await logFieldChanges(req, {
@@ -260,12 +305,23 @@ async function updateInvoice(pool, { id, contract_id, customer_id, type, amount,
  * 删除发票（软删除）
  */
 async function deleteInvoice(pool, { id }, req) {
-  const [rows] = await pool.query('SELECT id FROM crm_invoice WHERE id = ? AND deleted_at IS NULL', [id]);
+  // [P0-09] 与 update 同口径：行级范围收敛 + 并发删除兜底
+  const { clause, params } = await buildDataPermissionWhere(req && req.dataPermission, 'i');
+  const [rows] = await pool.query(
+    `SELECT i.id FROM crm_invoice i WHERE i.id = ? AND i.deleted_at IS NULL AND ${clause}`,
+    [id, ...params]
+  );
   if (rows.length === 0) {
     throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '发票不存在');
   }
 
-  await pool.query('UPDATE crm_invoice SET deleted_at = NOW() WHERE id = ?', [id]);
+  const [result] = await pool.query(
+    'UPDATE crm_invoice SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL',
+    [id]
+  );
+  if (result.affectedRows === 0) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '发票不存在');
+  }
   await logAction(req, 'delete', `删除发票: ID=${id}`);
 }
 

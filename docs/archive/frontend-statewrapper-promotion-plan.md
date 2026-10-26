@@ -1,3 +1,5 @@
+> **归档文档（历史快照）**：本文档已归档至 `docs/archive/`，记录的是当时的状态与结论，可能包含已过时的配置、路径或代码引用。当前事实以实际代码、`AGENTS.md` 与 `docs/fix-ledger-2026-10-23.md` 为准，请勿据此直接执行生产操作。
+
 # StateWrapper 推广（路线图 P0-2）实施计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL：用 `executing-plans` 逐任务执行本计划，步骤用 `- [ ]` 跟踪。

@@ -114,29 +114,36 @@ log "备份文件: ${BACKUP_FILENAME}"
 TMP_STAGING=$(mktemp -d)
 trap "rm -rf $TMP_STAGING" EXIT
 
-# 复制 STACK_DIR 下的配置文件（保留权限）
-cp -p "${STACK_DIR}/.env" "$TMP_STAGING/" 2>/dev/null || true
-
-# .env.secrets 是否入包：取决于能否加密（D3 铁律——明文密钥不落盘）
+# [P1-12] 密钥材料是否入包：仅有加密能力时才允许。
+# .env 实测含 DB_PASSWORD/JWT_SECRET/MYSQL_ROOT_PASSWORD/REDIS_PASSWORD，
+# 因此不能在无口令时只排除 .env.secrets。
 ENC_PASS=""
 if [ -f "$ENC_PASS_FILE" ]; then
   if command -v gpg >/dev/null 2>&1 || command -v openssl >/dev/null 2>&1; then
     ENC_PASS="$ENC_PASS_FILE"
-    cp -p "${STACK_DIR}/.env.secrets" "$TMP_STAGING/"
-    log "本次配置备份包含 .env.secrets，将加密落盘（口令: $ENC_PASS_FILE）"
+    log "本次配置备份包含 .env/.env.secrets/证书，将加密落盘（口令: $ENC_PASS_FILE）"
   else
-    log "WARNING: 有口令文件但无 gpg/openssl，排除 .env.secrets"
+    log "WARNING: 有口令文件但无 gpg/openssl，本次排除全部密钥材料（.env/.env.secrets/证书）"
   fi
 else
-  log "WARNING: 未配置备份加密口令（$ENC_PASS_FILE），本次排除 .env.secrets（防明文密钥落盘）"
+  log "WARNING: 未配置备份加密口令（$ENC_PASS_FILE），本次排除全部密钥材料（.env/.env.secrets/证书）"
   log "WARNING: 修复：bash deploy/backup/setup-backup-encryption.sh 生成口令文件"
+fi
+
+if [ -n "$ENC_PASS" ]; then
+  cp -p "${STACK_DIR}/.env" "$TMP_STAGING/" 2>/dev/null || true
+  cp -p "${STACK_DIR}/.env.secrets" "$TMP_STAGING/"
 fi
 
 cp -p "${STACK_DIR}/docker-compose.synology.yml" "$TMP_STAGING/" 2>/dev/null || true
 
-# 复制 nginx 配置和证书目录
+# 复制 nginx 配置和证书目录（证书含 TLS 私钥，未加密时排除）
 mkdir -p "$TMP_STAGING/nginx"
 cp -rp "${STACK_DIR}/nginx/"* "$TMP_STAGING/nginx/" 2>/dev/null || true
+if [ -z "$ENC_PASS" ]; then
+  rm -rf "$TMP_STAGING/nginx/certs"
+  log "WARNING: 未加密，已排除 nginx/certs（TLS 私钥不落明文备份）"
+fi
 
 # 复制备份脚本目录
 mkdir -p "$TMP_STAGING/deploy/backup"
@@ -231,12 +238,43 @@ if [ "$BACKUP_SIZE" -lt 100 ]; then
   exit 1
 fi
 
-# 完整性校验：tar 列出文件清单
-FILE_LIST=$(tar -tzf "$BACKUP_PATH" 2>/dev/null)
+# 完整性校验：列出文件清单（加密产物必须先解密；直接对 .gpg 跑 tar -tzf 会失败）
+FILE_LIST_FILE=$(mktemp)
+set +e
+case "$BACKUP_PATH" in
+  *.gpg)
+    gpg --batch --quiet --decrypt --passphrase-file "$ENC_PASS" "$BACKUP_PATH" 2>/dev/null \
+      | tar -tzf - > "$FILE_LIST_FILE" 2>/dev/null
+    # PIPESTATUS 会被任意简单命令重置，必须先整体快照再取值（否则 [1] unbound）
+    PIPE_STATUS=("${PIPESTATUS[@]}")
+    VERIFY_EXIT=${PIPE_STATUS[0]:-1}
+    TAR_EXIT=${PIPE_STATUS[1]:-1}
+    ;;
+  *.enc)
+    openssl enc -d -aes-256-cbc -pbkdf2 -in "$BACKUP_PATH" -pass file:"$ENC_PASS" 2>/dev/null \
+      | tar -tzf - > "$FILE_LIST_FILE" 2>/dev/null
+    PIPE_STATUS=("${PIPESTATUS[@]}")
+    VERIFY_EXIT=${PIPE_STATUS[0]:-1}
+    TAR_EXIT=${PIPE_STATUS[1]:-1}
+    ;;
+  *)
+    tar -tzf "$BACKUP_PATH" > "$FILE_LIST_FILE" 2>/dev/null
+    VERIFY_EXIT=$?
+    TAR_EXIT=$?
+    ;;
+esac
+set -e
+if [ "${VERIFY_EXIT:-1}" -ne 0 ] || [ "${TAR_EXIT:-1}" -ne 0 ]; then
+  log "FATAL: 备份完整性校验失败（清单无法读取），删除 ${BACKUP_FILENAME}"
+  rm -f "$FILE_LIST_FILE" "$BACKUP_PATH"
+  exit 1
+fi
+FILE_LIST=$(cat "$FILE_LIST_FILE")
+rm -f "$FILE_LIST_FILE"
 FILE_COUNT=$(echo "$FILE_LIST" | grep -c -v '/$' || echo 0)
 BACKUP_SIZE_HR=$(du -h "$BACKUP_PATH" | cut -f1)
 
-log "备份完成: ${BACKUP_FILENAME} (${BACKUP_SIZE_HR}, ${FILE_COUNT} 个文件)"
+log "备份完成: $(basename "$BACKUP_PATH") (${BACKUP_SIZE_HR}, ${FILE_COUNT} 个文件)"
 log "备份内容清单:"
 echo "$FILE_LIST" | while read -r line; do
   log "  $line"
@@ -257,7 +295,9 @@ log "清理过期备份: 删除 ${DELETED_COUNT} 个文件"
 
 # ---- 当前备份文件列表 ----
 log "当前备份文件:"
-find "$BACKUP_DIR" -maxdepth 1 -type f -name "${BACKUP_PREFIX}_*.tar.gz" -printf "%f %s bytes\n" 2>/dev/null | sort | while read -r line; do
+find "$BACKUP_DIR" -maxdepth 1 -type f \
+  \( -name "${BACKUP_PREFIX}_*.tar.gz" -o -name "${BACKUP_PREFIX}_*.tar.gz.gpg" -o -name "${BACKUP_PREFIX}_*.tar.gz.enc" \) \
+  -printf "%f %s bytes\n" 2>/dev/null | sort | while read -r line; do
   log "  $line"
 done
 

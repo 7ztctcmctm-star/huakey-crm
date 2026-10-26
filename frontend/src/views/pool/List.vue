@@ -79,8 +79,9 @@
             <el-link type="primary" @click="goDetail(row)">{{ row.company_name }}</el-link>
           </template>
         </el-table-column>
-        <el-table-column prop="contact_name" label="联系人" width="100" />
-        <el-table-column prop="phone" label="电话" width="140" />
+        <!-- 后端 /pool 返回主联系人别名为 primary_contact_*（与正式客户列表一致） -->
+        <el-table-column prop="primary_contact_name" label="联系人" width="100" />
+        <el-table-column prop="primary_contact_phone" label="电话" width="140" />
         <el-table-column prop="level" label="等级" width="80" align="center">
           <template #default="{ row }">
             <el-tag :type="levelTagType(row.level)" size="small">{{ row.level || '-' }}</el-tag>
@@ -341,7 +342,7 @@ const goDetail = (row) => {
 const handleClaim = async (row) => {
   try {
     await ElMessageBox.confirm(
-      `确定认领「${row.company_name}」吗？认领后该客户将归您跟进，享有7天保护期。`,
+      `确定认领「${row.company_name}」吗？认领后该客户将归您跟进。`,
       '认领确认',
       { type: 'warning', confirmButtonText: '确定认领', cancelButtonText: '取消' }
     )

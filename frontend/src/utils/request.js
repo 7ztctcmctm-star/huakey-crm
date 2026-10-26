@@ -2,6 +2,7 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import router from '../router'
 import { reportError } from '@/utils/error'
+import { getCsrfToken } from '@/utils/csrf'
 
 // token 续期状态：避免多个 401 请求同时触发续期
 let isRefreshing = false
@@ -13,17 +14,6 @@ let refreshSubscribers = []
 // 冷却窗口内不重复触发——用户本就无权限时，每个 403 都刷会打成 /auth/me 轰炸。
 const PERM_REFRESH_COOLDOWN = 10000
 let lastPermRefreshAt = 0
-
-/**
- * 从 document.cookie 中读取指定名称的 cookie 值
- * @param {string} name
- * @returns {string|null}
- */
-function getCookie(name) {
-  if (typeof document === 'undefined') return null
-  const match = document.cookie.match(new RegExp('(?:^|;\\s*)' + encodeURIComponent(name).replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&') + '=([^;]*)'))
-  return match ? decodeURIComponent(match[1]) : null
-}
 
 function onRefreshed() {
   refreshSubscribers.forEach(sub => sub.resolve())
@@ -58,10 +48,22 @@ request.interceptors.request.use(
     // 非 GET/HEAD/OPTIONS 请求需携带 CSRF Token（double-submit cookie）
     const method = (config.method || 'GET').toUpperCase()
     if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
-      const csrfToken = getCookie('csrf-token')
+      const csrfToken = getCsrfToken()
       if (csrfToken) {
         config.headers = config.headers || {}
         config.headers['X-CSRF-Token'] = csrfToken
+      }
+    }
+
+    // [P1-22] FormData 请求必须交由浏览器生成 multipart boundary。
+    // 实例默认头是 application/json，而 axios 1.x 的 transformRequest 遇到
+    // 「application/json + FormData」会 JSON.stringify（文件变成 {}），
+    // 后端 multer 收不到文件。客户导入预览/确认、el-upload 统一上传均依赖此处。
+    if (typeof FormData !== 'undefined' && config.data instanceof FormData && config.headers) {
+      if (typeof config.headers.delete === 'function') {
+        config.headers.delete('Content-Type')
+      } else {
+        delete config.headers['Content-Type']
       }
     }
 
@@ -92,7 +94,20 @@ request.interceptors.response.use(
     }
 
     if (error.response) {
-      const { status, data } = error.response
+      const { status } = error.response
+      let { data } = error.response
+
+      // [P1-24] responseType:'blob' 的下载接口在失败时同样收到 Blob；
+      // 若后端返回 JSON 错误体（403/500 等），先解析出来，
+      // 否则下面的 data.message 恒为 undefined，用户只能看到笼统提示。
+      if (typeof Blob !== 'undefined' && data instanceof Blob && (data.type || '').includes('application/json')) {
+        try {
+          data = JSON.parse(await data.text())
+        } catch {
+          // 解析失败则保留原始 Blob，走通用的状态码提示
+        }
+      }
+
       const originalConfig = error.config
 
       switch (status) {

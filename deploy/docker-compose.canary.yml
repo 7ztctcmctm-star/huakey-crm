@@ -6,16 +6,19 @@
 services:
 
   mysql:
-    image: mysql:8.0
+    # [P2-12] digest 固定于 2026-10-26；升级流程见 docs/image-digests.md
+    image: mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
     container_name: huakey-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      # fail-fast：缺少任一凭据时 compose 直接报错，避免容器以空密码启动
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?灰度环境必须设置 MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME:-huakey_crm}
       MYSQL_USER: ${DB_USER:-crm_user}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?灰度环境必须设置 DB_PASSWORD}
     volumes:
-      - ./docker/data/mysql:/var/lib/mysql
+      # compose 文件位于 deploy/，相对路径以其所在目录为基准
+      - ../docker/data/mysql:/var/lib/mysql
       - ./init-complete.sql:/docker-entrypoint-initdb.d/00_init.sql:ro
     command:
       - --character-set-server=utf8mb4
@@ -33,11 +36,12 @@ services:
           cpus: '1'
 
   redis:
-    image: redis:7-alpine
+    # [P2-12] digest 固定于 2026-10-26；升级流程见 docs/image-digests.md
+    image: redis:7-alpine@sha256:57e4255cc971b1c8d6f8a6ca283ac01bc3ecdd914273ef6bfaede87aaecd6541
     container_name: huakey-redis
     restart: unless-stopped
     volumes:
-      - ./docker/data/redis:/data
+      - ../docker/data/redis:/data
     command: redis-server --appendonly yes
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -52,7 +56,7 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: ../backend
       dockerfile: Dockerfile
     container_name: huakey-backend
     restart: unless-stopped
@@ -64,9 +68,11 @@ services:
       DB_HOST: mysql
       DB_PORT: 3306
       DB_USER: ${DB_USER:-crm_user}
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PASSWORD: ${DB_PASSWORD:?灰度环境必须设置 DB_PASSWORD}
       DB_NAME: ${DB_NAME:-huakey_crm}
-      JWT_SECRET: ${JWT_SECRET}
+      # NODE_ENV=production 时 app.js 对空 CORS 直接 exit(1)
+      CORS_ORIGIN: ${CORS_ORIGIN:?灰度环境必须设置 CORS_ORIGIN}
+      JWT_SECRET: ${JWT_SECRET:?灰度环境必须设置 JWT_SECRET（128 位 hex）}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -80,7 +86,15 @@ services:
         condition: service_healthy
     command: sh -c "node database/migrations/run_migrations.js && node app.js"
     volumes:
-      - ./database/migrations:/app/database/migrations:ro
+      - ../database/migrations:/app/database/migrations:ro
+      # [P1-14] 上传文件持久化，并与 canary 实例共享
+      - app-uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5000/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     deploy:
       resources:
         limits:
@@ -99,13 +113,17 @@ services:
       DB_HOST: mysql
       DB_PORT: 3306
       DB_USER: ${DB_USER:-crm_user}
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PASSWORD: ${DB_PASSWORD:?灰度环境必须设置 DB_PASSWORD}
       DB_NAME: ${DB_NAME:-huakey_crm}
-      JWT_SECRET: ${JWT_SECRET}
+      # NODE_ENV=production 时 app.js 对空 CORS 直接 exit(1)
+      CORS_ORIGIN: ${CORS_ORIGIN:?灰度环境必须设置 CORS_ORIGIN}
+      JWT_SECRET: ${JWT_SECRET:?灰度环境必须设置 JWT_SECRET（128 位 hex）}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_ENABLED: "false"
+      # [P1-14] 灰度实例不执行定时任务，避免与主实例重复回收/提醒
+      CRON_ENABLED: "false"
       OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
     depends_on:
@@ -113,9 +131,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: sh -c "node database/migrations/run_migrations.js && node app.js"
+      # 等主实例完成迁移并通过健康检查后再启动灰度实例
+      backend:
+        condition: service_healthy
+    # 迁移只由主实例执行，灰度实例仅启动应用
+    command: ["node", "app.js"]
     volumes:
-      - ./database/migrations:/app/database/migrations:ro
+      # [P1-14] 与主实例共享上传目录，灰度期间上传文件互见
+      - app-uploads:/app/uploads
     deploy:
       resources:
         limits:
@@ -123,13 +146,14 @@ services:
           cpus: '0.5'
 
   nginx:
-    image: nginx:alpine
+    # [P2-12] digest 固定于 2026-10-26；升级流程见 docs/image-digests.md
+    image: nginx:alpine@sha256:a3554c0d0b48177b1413c26e01f695334428020d9df01243fbae3e11cfd17417
     container_name: huakey-nginx
     restart: unless-stopped
     ports:
       - "80:80"
     volumes:
-      - ./deploy/nginx-canary.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx-canary.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - backend
       - backend-canary
@@ -141,7 +165,7 @@ services:
 
   frontend:
     build:
-      context: ./frontend
+      context: ../frontend
       dockerfile: Dockerfile
     container_name: huakey-frontend
     restart: unless-stopped
@@ -154,3 +178,7 @@ services:
         limits:
           memory: 64M
           cpus: '0.25'
+
+volumes:
+  # [P1-14] 主实例与灰度实例共享的上传卷（容器重建后文件仍在）
+  app-uploads:

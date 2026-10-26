@@ -291,7 +291,6 @@ async function getSalesTrend(pool, params = {}, dataPermission) {
  */
 async function getOverdueCustomers(pool, params = {}, dataPermission) {
   const { getOverdueDays } = require('../utils/config');
-  const { POOL_STATUS } = require('../constants/poolStatus');
 
   const { page = 1, pageSize = 20 } = params;
   const safePageSize = Math.min(Math.max(1, parseInt(pageSize) || 20), 200);
@@ -302,12 +301,13 @@ async function getOverdueCustomers(pool, params = {}, dataPermission) {
   // 现统一走 dataPermission；dept 范围由 buildDataPermissionWhere 的部门子查询表达
   const scope = await scopeFor(dataPermission, 'owner_id', 'c');
 
-  const whereClause = `WHERE c.pool_status = ? AND c.deleted_at IS NULL AND c.owner_id IS NOT NULL
+  // [P2-07] 归属判据只看 owner_id；pool_status 为兼容列，可能滞后/错位
+  const whereClause = `WHERE c.deleted_at IS NULL AND c.owner_id IS NOT NULL
     AND ((c.last_follow_time IS NULL AND c.create_time < NOW() - INTERVAL ${overdueDays} DAY)
       OR c.last_follow_time < NOW() - INTERVAL ${overdueDays} DAY)
     AND ${scope.clause}`;
 
-  const queryParams = [POOL_STATUS.PRIVATE, ...scope.params];
+  const queryParams = [...scope.params];
 
   const [countResult] = await pool.query(
     `SELECT COUNT(*) as total FROM crm_customer c ${whereClause}`, queryParams

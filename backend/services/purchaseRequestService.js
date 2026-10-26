@@ -143,8 +143,8 @@ async function getRequest(pool, id, user) {
 async function submitRequest(pool, id, user, idempotencyKey) {
   const { runIdempotent } = require('../utils/idempotency');
   const { result } = await runIdempotent(pool, idempotencyKey, 'purchase_request_submit', () =>
-    submitRequestTx(pool, id, user)
-  );
+    submitRequestTx(pool, id, user),
+  user && (user.userId || user.id));
   return result;
 }
 
@@ -216,12 +216,19 @@ async function approveRequest(pool, id, user) {
     throw err;
   }
 
-  await pool.query(
+  // [P1-06] 条件更新防并发：两个审批人同时点“通过/驳回”时只有第一个生效，
+  // 原实现先查后改，后手会静默覆盖前手的审批结果。
+  const [result] = await pool.query(
     `UPDATE crm_purchase_request
      SET status = 'approved', approved_by = ?, approved_at = NOW()
-     WHERE id = ?`,
+     WHERE id = ? AND status = 'pending'`,
     [user.userId, id]
   );
+  if (result.affectedRows !== 1) {
+    const err = new Error('该申请已被其他人处理，请刷新后重试');
+    err.statusCode = 409;
+    throw err;
+  }
 
   return true;
 }
@@ -253,12 +260,18 @@ async function rejectRequest(pool, id, user, reason) {
     throw err;
   }
 
-  await pool.query(
+  // [P1-06] 条件更新防并发，语义同 approveRequest
+  const [result] = await pool.query(
     `UPDATE crm_purchase_request
      SET status = 'rejected', reject_reason = ?, approved_by = ?
-     WHERE id = ?`,
+     WHERE id = ? AND status = 'pending'`,
     [reason || null, user.userId, id]
   );
+  if (result.affectedRows !== 1) {
+    const err = new Error('该申请已被其他人处理，请刷新后重试');
+    err.statusCode = 409;
+    throw err;
+  }
 
   return true;
 }
@@ -291,12 +304,18 @@ async function cancelRequest(pool, id, user, reason) {
     throw err;
   }
 
-  await pool.query(
+  // [P1-06] 条件更新防并发：撤销与审批同时发生时只有一方成功
+  const [result] = await pool.query(
     `UPDATE crm_purchase_request
      SET status = 'cancelled', reject_reason = ?
-     WHERE id = ?`,
-    [reason || null, id]
+     WHERE id = ? AND applicant_id = ? AND status IN ('draft', 'pending')`,
+    [reason || null, id, user.userId]
   );
+  if (result.affectedRows !== 1) {
+    const err = new Error('该申请已被其他人处理，请刷新后重试');
+    err.statusCode = 409;
+    throw err;
+  }
 
   return true;
 }

@@ -107,7 +107,7 @@ const fetchList = async () => {
   loading.value = true
   errorMsg.value = ''
   try {
-    const res = await getDeptList({})
+    const res = await getDeptList()
     if (res.code === 200) {
       tableData.value = buildTree(res.data.list)
       deptOptions.value = res.data.list

@@ -5,7 +5,7 @@ import request from '@/utils/request'
 // 统一销售分析查询接口
 // 数据权限由后端 RBAC 控制: sales=owner / manager=dept / admin=all
 
-/** 销售总览: 商机额/合同额/已收/未收 */
+/** 销售总览: 商机总额（opportunity_amount）；合同额/回款额由下方独立接口返回 */
 export const getAnalyticsOverview = (params) => request.get('/report/analytics/sales/overview', { params })
 
 /** 销售漏斗: stage 分布 + win_rate */

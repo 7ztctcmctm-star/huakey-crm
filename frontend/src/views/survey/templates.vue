@@ -75,7 +75,7 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Delete } from '@element-plus/icons-vue'
-import { getSurveyTemplates, saveSurveyTemplate, deleteSurveyTemplate } from '@/api/tools'
+import { getSurveyTemplates, saveSurveyTemplate, updateSurveyTemplate, deleteSurveyTemplate } from '@/api/tools'
 
 const typeName = { nps: 'NPS', csat: 'CSAT', custom: '自定义' }
 const typeTag = { nps: '', csat: 'success', custom: 'info' }
@@ -128,7 +128,7 @@ const handleSubmit = async () => {
   try {
     const data = { ...form, questions: JSON.stringify(form.questions) }
     let res
-    if (isEdit.value) res = await saveSurveyTemplate({ ...data, id: editId.value })
+    if (isEdit.value) res = await updateSurveyTemplate(editId.value, data)
     else res = await saveSurveyTemplate(data)
     if (res.code === 200) { ElMessage.success(isEdit.value ? '修改成功' : '创建成功'); dialogVisible.value = false; fetchList() }
   } finally { submitLoading.value = false }
@@ -143,7 +143,7 @@ onMounted(() => { fetchList() })
 .page-header h2 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); }
 
 .template-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
-.template-card { background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+.template-card { background: var(--color-bg); border-radius: 16px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
 .template-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .template-name { font-size: 15px; font-weight: 600; color: var(--color-text); }
 .template-desc { font-size: 13px; color: var(--color-text-tertiary); margin-bottom: 8px; }
@@ -159,8 +159,8 @@ onMounted(() => { fetchList() })
 .preview-q-text { font-size: 14px; margin-bottom: 8px; }
 .preview-nps { display: flex; gap: 4px; }
 .nps-num { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-size: 12px; font-weight: 600; }
-.nps-detractor { background: #fee2e2; color: var(--color-danger); }
-.nps-passive { background: #fef3c7; color: var(--color-warning); }
+.nps-detractor { background: var(--el-color-danger-light-9); color: var(--color-danger); }
+.nps-passive { background: var(--el-color-warning-light-9); color: var(--color-warning); }
 .nps-promoter { background: var(--color-success-bg); color: var(--color-success); }
 .preview-rating { display: flex; gap: 4px; }
 </style>

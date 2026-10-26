@@ -83,6 +83,7 @@ import { ref, reactive, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { UploadFilled, Download } from '@element-plus/icons-vue'
 import { getCustomerTemplate, importPreview, importConfirm } from '@/api/customer'
+import { downloadBlob } from '@/utils/download'
 
 const emit = defineEmits(['imported'])
 const visible = defineModel({ type: Boolean, default: false })
@@ -104,12 +105,11 @@ const handleFileRemove = () => { file.value = null }
 const downloadTemplate = async () => {
   try {
     const res = await getCustomerTemplate()
-    const url = URL.createObjectURL(res)
-    const a = document.createElement('a')
-    a.href = url; a.download = 'customer_import_template.xlsx'
-    document.body.appendChild(a); a.click(); a.remove()
-    URL.revokeObjectURL(url)
-  } catch { ElMessage.error('下载模板失败') }
+    await downloadBlob(res, 'customer_import_template.xlsx')
+  } catch (e) {
+    // [P1-24] 后端以 JSON 返回错误时展示其 message；网络错误保持笼统提示（拦截器已弹详情）
+    ElMessage.error(e?.isDownloadError ? e.message : '下载模板失败')
+  }
 }
 
 const cancelUpload = () => { abortController.value?.abort(); loading.value = false }

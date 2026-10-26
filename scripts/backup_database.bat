@@ -41,14 +41,12 @@ echo 开始备份数据库: %DB_NAME%
 echo 备份文件: %BACKUP_FILE%
 echo.
 
-if "%DB_PASSWORD%"=="" (
-    set PASSWORD_PARAM=
-) else (
-    set PASSWORD_PARAM=-p%DB_PASSWORD%
-)
+REM [P2-16] 口令走 MYSQL_PWD，不出现在 mysqldump 进程命令行
+set "MYSQL_PWD=%DB_PASSWORD%"
 
 echo正在执行备份，请稍候...
-"%MYSQLDUMP%" -u%DB_USER% %PASSWORD_PARAM% --single-transaction --quick --lock-tables=false --routines --triggers --events %DB_NAME% > "%BACKUP_FILE%"
+"%MYSQLDUMP%" -u%DB_USER% --single-transaction --quick --lock-tables=false --routines --triggers --events %DB_NAME% > "%BACKUP_FILE%"
+set "MYSQL_PWD="
 
 if %errorlevel% equ 0 (
     echo.

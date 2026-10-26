@@ -17,6 +17,9 @@ VOLUME_NAME="crm-stack_app-uploads"
 APP_CONTAINER="huakey-app"
 BACKUP_PREFIX="uploads"
 
+# [P1-12] 备份加密口令文件（与 config/mysql 共用；缺失时保留明文并告警）
+ENC_PASS_FILE="${BACKUP_ENC_PASS_FILE:-${STACK_DIR}/.backup-enc-pass}"
+
 # 保留策略
 KEEP_DAILY_DAYS=7      # 每日备份保留 7 天
 
@@ -28,6 +31,47 @@ log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
+# ---- [P1-12] 加密与解密回验（优先 gpg，回退 openssl）----
+encrypt_file() {
+  SRC="$1"
+  PASS="$2"
+  if command -v gpg >/dev/null 2>&1; then
+    OUT="${SRC}.gpg"
+    if gpg --batch --yes --quiet --symmetric --cipher-algo AES256 \
+      --passphrase-file "$PASS" -o "$OUT" "$SRC" 2>>"$LOG_FILE"; then
+      echo "$OUT"
+      return 0
+    fi
+    return 1
+  fi
+  if command -v openssl >/dev/null 2>&1; then
+    OUT="${SRC}.enc"
+    if openssl enc -aes-256-cbc -pbkdf2 -salt \
+      -in "$SRC" -out "$OUT" -pass file:"$PASS" 2>>"$LOG_FILE"; then
+      echo "$OUT"
+      return 0
+    fi
+    return 1
+  fi
+  return 1
+}
+
+verify_encrypted_tar() {
+  ENC="$1"
+  PASS="$2"
+  case "$ENC" in
+    *.gpg)
+      gpg --batch --quiet --decrypt --passphrase-file "$PASS" "$ENC" 2>/dev/null | tar -tzf - >/dev/null 2>&1
+      ;;
+    *.enc)
+      openssl enc -d -aes-256-cbc -pbkdf2 -in "$ENC" -pass file:"$PASS" 2>/dev/null | tar -tzf - >/dev/null 2>&1
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 # ---- 创建备份目录 ----
 mkdir -p "$BACKUP_DIR"
 touch "$LOG_FILE"
@@ -35,6 +79,14 @@ touch "$LOG_FILE"
 log "=========================================="
 log "HuakeyCRM 文件备份开始 (app-uploads)"
 log "=========================================="
+
+# [P1-12] 生产默认 fail-closed：口令缺失时拒绝生成明文 uploads 备份
+REQUIRE_ENCRYPTION="${BACKUP_REQUIRE_ENCRYPTION:-true}"
+if [ "$REQUIRE_ENCRYPTION" = "true" ] && [ ! -f "$ENC_PASS_FILE" ]; then
+  log "FATAL: 备份加密口令缺失（${ENC_PASS_FILE}），拒绝生成明文文件备份"
+  log "FATAL: 修复：bash deploy/backup/setup-backup-encryption.sh"
+  exit 1
+fi
 
 # ---- 检查 Docker 可用 ----
 if ! command -v /usr/local/bin/docker >/dev/null 2>&1; then
@@ -116,18 +168,39 @@ fi
 VERIFY_COUNT=$(tar -tzf "$BACKUP_PATH" 2>/dev/null | grep -c -v '/$' || echo 0)
 chmod 600 "$BACKUP_PATH"
 BACKUP_SIZE_HR=$(du -h "$BACKUP_PATH" | cut -f1)
-log "备份完成: ${BACKUP_FILENAME} (${BACKUP_SIZE_HR}, ${VERIFY_COUNT} 个文件, 完整性校验通过, 权限 600)"
+log "打包完成: ${BACKUP_FILENAME} (${BACKUP_SIZE_HR}, ${VERIFY_COUNT} 个文件, 完整性校验通过)"
+
+# ---- [P1-12] 加密落盘（有口令文件时强制）----
+if [ -f "$ENC_PASS_FILE" ]; then
+  ENC_FILE=$(encrypt_file "$BACKUP_PATH" "$ENC_PASS_FILE") || ENC_FILE=""
+  if [ -z "$ENC_FILE" ] || ! verify_encrypted_tar "$ENC_FILE" "$ENC_PASS_FILE"; then
+    log "FATAL: uploads 备份加密或解密回验失败，删除明文与半成品"
+    rm -f "$BACKUP_PATH" "${ENC_FILE:-}"
+    exit 1
+  fi
+  rm -f "$BACKUP_PATH"
+  chmod 600 "$ENC_FILE"
+  log "备份完成（已加密）: $(basename "$ENC_FILE") (${BACKUP_SIZE_HR}, ${VERIFY_COUNT} 个文件, 解密回验通过, 明文已删除)"
+  BACKUP_PATH="$ENC_FILE"
+else
+  log "WARNING: 未配置备份加密口令（${ENC_PASS_FILE}），本次 uploads 备份为明文（权限 600）"
+  log "WARNING: 修复：bash deploy/backup/setup-backup-encryption.sh 生成口令文件"
+  log "备份完成: ${BACKUP_FILENAME} (${BACKUP_SIZE_HR}, ${VERIFY_COUNT} 个文件, 完整性校验通过, 权限 600)"
+fi
 
 # ---- 清理过期备份 ----
 log "清理过期备份（保留 ${KEEP_DAILY_DAYS} 天）..."
 
-DELETED_COUNT=$(find "$BACKUP_DIR" -maxdepth 1 -type f -name "${BACKUP_PREFIX}_*.tar.gz" \
+DELETED_COUNT=$(find "$BACKUP_DIR" -maxdepth 1 -type f \
+  \( -name "${BACKUP_PREFIX}_*.tar.gz" -o -name "${BACKUP_PREFIX}_*.tar.gz.gpg" -o -name "${BACKUP_PREFIX}_*.tar.gz.enc" \) \
   -mtime +"$KEEP_DAILY_DAYS" -delete -print 2>/dev/null | wc -l || echo 0)
 log "清理过期备份: 删除 ${DELETED_COUNT} 个文件"
 
 # ---- 当前备份文件列表 ----
 log "当前备份文件:"
-find "$BACKUP_DIR" -maxdepth 1 -type f -name "${BACKUP_PREFIX}_*.tar.gz" -printf "%f %s bytes\n" 2>/dev/null | sort | while read -r line; do
+find "$BACKUP_DIR" -maxdepth 1 -type f \
+  \( -name "${BACKUP_PREFIX}_*.tar.gz" -o -name "${BACKUP_PREFIX}_*.tar.gz.gpg" -o -name "${BACKUP_PREFIX}_*.tar.gz.enc" \) \
+  -printf "%f %s bytes\n" 2>/dev/null | sort | while read -r line; do
   log "  $line"
 done
 

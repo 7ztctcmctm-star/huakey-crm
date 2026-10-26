@@ -14,12 +14,12 @@
 #   ./scripts/verify-ci-missing-tables.sh <DB_NAME> [HOST] [PORT] [USER] [PASS]
 #
 #   默认:DB_NAME=huakey_crm_test
-#         HOST=127.0.0.1 PORT=3306 USER=root PASS=huakey123
+#         HOST=127.0.0.1 PORT=3306 USER=root PASS=（空，按需经第 5 参传入）
 #
 # CI 内调用形态(.github/workflows/ci.yml):
 #   sed "s/\`huakey_crm\`/\`huakey_crm_test\`/g; s/'huakey_crm'/'huakey_crm_test'/g" \
 #       deploy/ci-missing-tables-verify.sql | \
-#     docker exec -i ci-mysql mysql -u root -ptest_root_pass huakey_crm_test
+#     docker exec -i ci-mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -u root huakey_crm_test'
 #   # CI 自身要把 exit 1 传给 step,做法:捕获输出 grep 'N-05 FAIL' 且 N-05_FAILED != 0
 #   # 推荐用本脚本的 --ci-strict 模式替之。
 # ============================================================
@@ -30,7 +30,7 @@ DB_NAME="${1:-huakey_crm_test}"
 HOST="${2:-127.0.0.1}"
 PORT="${3:-3306}"
 USER="${4:-root}"
-PASS="${5:-huakey123}"
+PASS="${5:-}"
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 VERIFY_SQL="$ROOT_DIR/deploy/ci-missing-tables-verify.sql"
@@ -48,7 +48,8 @@ sed "s/\`huakey_crm\`/\`${DB_NAME}\`/g; s/'huakey_crm'/'${DB_NAME}'/g" \
 
 # 跑 verify (管道模式 mysql EXIT 才能反映 SIGNAL;但这里的设计不需要 SIGNAL,只读 stdout)
 # 用 --batch 模式输出 TSV,便于 awk 解析; table 模式输出有 ASCII 框会乱匹配
-OUT=$(mysql -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" --batch "$DB_NAME" < "$TMP_SQL" 2>&1)
+# [P2-16] 口令走 MYSQL_PWD，不出现在 mysql 进程命令行
+OUT=$(MYSQL_PWD="$PASS" mysql -h "$HOST" -P "$PORT" -u "$USER" --batch "$DB_NAME" < "$TMP_SQL" 2>&1)
 RAW_EXIT=$?
 
 # 输出原样回放 (CI 日志需要)

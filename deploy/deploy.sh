@@ -324,7 +324,7 @@ echo ""
 echo "[8/12] 等待 App 迁移完成并通过健康检查..."
 APP_HEALTH=""
 for i in $(seq 1 60); do
-    # 迁移失败判据优先：容器 CMD 是 `node database/migrate.js && exec node app.js`，
+    # 迁移失败判据优先：容器 CMD 是 `node database/migrations/run_migrations.js && exec node app.js`，
     # 迁移失败则进程退出、容器反复重启，日志里永远等不到健康信号，只能靠关键字识别。
     if docker logs huakey-app 2>&1 | grep -qE "\[迁移\] ❌|\[迁移\] 存在失败的迁移|\[迁移\] 致命错误|执行失败"; then
         rollback_and_exit "数据库迁移失败（详见 docker logs huakey-app）"

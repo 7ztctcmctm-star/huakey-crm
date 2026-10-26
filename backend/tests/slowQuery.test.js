@@ -60,7 +60,7 @@ describe('slowQuery 无参慢查询不崩溃（2026-10-14 审计修复回归）'
     expect(mockWarn).toHaveBeenCalled();
   });
 
-  it('带参查询：params 仍应被脱敏并记录为字符串', async () => {
+  it('带参查询：params 记录为字符串且 PII 已脱敏', async () => {
     mockQuery.mockImplementation(slowImpl(() => [[{ id: 1 }]]));
 
     const result = await pool.query('SELECT * FROM sys_user WHERE phone = ?', ['13800138000']);
@@ -69,7 +69,10 @@ describe('slowQuery 无参慢查询不崩溃（2026-10-14 审计修复回归）'
     expect(mockWarn).toHaveBeenCalled();
     const logged = mockWarn.mock.calls[mockWarn.mock.calls.length - 1][1];
     expect(typeof logged.params).toBe('string');
-    expect(logged.params).toContain('13800138000');
+    // [P1-20 2026-10-23] 慢查询日志原样落手机号属于 PII 泄露，现统一经 maskSqlParams 脱敏。
+    // 断言从「包含原值」改为「包含脱敏值且不包含原值」，防止后续回退成明文。
+    expect(logged.params).toContain('138****8000');
+    expect(logged.params).not.toContain('13800138000');
   });
 
   it('sql 为对象形态（mysql2 options object）时也不应崩溃', async () => {

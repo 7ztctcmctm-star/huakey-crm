@@ -508,6 +508,10 @@ const fetchQuoteDetail = async () => {
     if (res.code === 200) {
       const data = res.data
       formData.customer_id = data.customer_id
+      // [P1-26] 详情必须回填商机/币种/汇率，否则编辑外币报价会把默认 CNY/1 写回，覆盖原值
+      formData.opportunity_id = data.opportunity_id || ''
+      formData.currency = data.currency || 'CNY'
+      formData.exchange_rate = data.exchange_rate != null ? Number(data.exchange_rate) : 1.0000
       formData.valid_days = data.valid_days
       formData.discount = data.discount
       formData.remark = data.remark

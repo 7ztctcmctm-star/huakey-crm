@@ -38,8 +38,21 @@
           <el-table-column prop="create_time" label="创建时间" width="180" />
           <el-table-column label="操作" width="160">
             <template #default="{ row }">
-              <el-button v-if="row.status === 'success'" type="primary" link @click="handleRestore(row)">恢复</el-button>
-              <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+              <el-button
+                v-if="row.status === 'success'"
+                type="primary"
+                link
+                :loading="restoreLoading === row.id"
+                :disabled="restoreLoading !== null && restoreLoading !== row.id"
+                @click="handleRestore(row)"
+              >恢复</el-button>
+              <el-button
+                type="danger"
+                link
+                :loading="deleteLoading === row.id"
+                :disabled="deleteLoading !== null && deleteLoading !== row.id"
+                @click="handleDelete(row)"
+              >删除</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -64,7 +77,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download } from '@element-plus/icons-vue'
-import { getBackupList, createBackup, deleteBackup, restoreBackup } from '@/api/system'
+import { getBackupList, createBackup, deleteBackup, getRestoreConfirmCode, restoreBackup } from '@/api/system'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import { reportError } from '@/utils/error'
@@ -72,6 +85,8 @@ import { reportError } from '@/utils/error'
 const loading = ref(true)   // onMounted 无条件取数，初值 true 消除首帧「暂无备份记录」闪现
 const errorMsg = ref('')
 const createLoading = ref(false)
+const restoreLoading = ref(null) // 正在恢复的备份 id
+const deleteLoading = ref(null)  // 正在删除的备份 id
 const tableData = ref([])
 const page = ref(1)
 const pageSize = ref(20)
@@ -122,18 +137,61 @@ const handleCreate = async () => {
   }
 }
 
-const handleRestore = (row) => {
-  ElMessageBox.confirm(`确定恢复该备份吗？此操作将覆盖当前数据！`, '警告', { type: 'warning' }).then(async () => {
-    const res = await restoreBackup(row.id)
-    if (res.code === 200) ElMessage.success('恢复任务已执行')
-  }).catch(() => {})
+const confirmOrCancel = async (message, title) => {
+  try {
+    await ElMessageBox.confirm(message, title, { type: 'warning' })
+    return true
+  } catch {
+    return false // 用户取消：不是错误，不得弹错误提示
+  }
 }
 
-const handleDelete = (row) => {
-  ElMessageBox.confirm('确定删除该备份文件吗？', '提示', { type: 'warning' }).then(async () => {
+const handleRestore = async (row) => {
+  if (!(await confirmOrCancel('确定恢复该备份吗？此操作将覆盖当前数据！', '警告'))) return
+
+  restoreLoading.value = row.id
+  try {
+    // [P0-13] 后端 restoreBackupSchema 要求 confirm_code；必须先取码再提交。
+    // 原实现只发 { id }，Joi 校验必然 400，且 .catch(() => {}) 把失败当成取消吞掉。
+    const codeRes = await getRestoreConfirmCode(row.id)
+    const confirmCode = codeRes?.data?.confirm_code
+    if (!confirmCode) {
+      ElMessage.error('获取恢复确认码失败，未执行恢复')
+      return
+    }
+    const res = await restoreBackup(row.id, confirmCode)
+    if (res.code === 200) {
+      ElMessage.success('恢复任务已执行')
+      setTimeout(fetchList, 1000)
+    } else {
+      ElMessage.error(res.message || '恢复失败')
+    }
+  } catch (error) {
+    reportError('恢复备份失败:', error)
+    ElMessage.error(error?.response?.data?.message || error?.message || '恢复失败')
+  } finally {
+    restoreLoading.value = null
+  }
+}
+
+const handleDelete = async (row) => {
+  if (!(await confirmOrCancel('确定删除该备份文件吗？', '提示'))) return
+
+  deleteLoading.value = row.id
+  try {
     const res = await deleteBackup(row.id)
-    if (res.code === 200) { ElMessage.success('已删除'); fetchList() }
-  }).catch(() => {})
+    if (res.code === 200) {
+      ElMessage.success('已删除')
+      fetchList()
+    } else {
+      ElMessage.error(res.message || '删除失败')
+    }
+  } catch (error) {
+    reportError('删除备份失败:', error)
+    ElMessage.error(error?.response?.data?.message || error?.message || '删除失败')
+  } finally {
+    deleteLoading.value = null
+  }
 }
 
 onMounted(() => { fetchList() })

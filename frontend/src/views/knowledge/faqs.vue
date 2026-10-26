@@ -140,7 +140,7 @@ onMounted(() => { fetchList(); fetchCategories() })
 .search-card { margin-bottom: var(--space-4); }
 .search-card .el-form-item { margin-bottom: 0; }
 
-.faq-collapse { background: #fff; border-radius: 12px; overflow: hidden; }
+.faq-collapse { background: var(--color-bg); border-radius: 12px; overflow: hidden; }
 .faq-title { display: flex; justify-content: space-between; align-items: center; width: 100%; padding-right: 16px; }
 .faq-question { font-size: 15px; font-weight: 500; color: var(--color-text); }
 .faq-meta { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }

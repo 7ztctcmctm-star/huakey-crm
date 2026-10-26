@@ -8,11 +8,20 @@ const jwt = require('jsonwebtoken');
 const mockPool = {
   query: jest.fn(async (sql, params) => {
     if (sql.includes('sys_token_blacklist')) return [[]];
-    if (sql.includes('FROM sys_role')) {
-      const isAdmin = params && params[0] === 1;
-      return [[{ view_all: 1, manage_all: isAdmin ? 1 : 0, role_code: isAdmin ? 'boss' : 'sales' }]];
+    // [P0-06] 单次 LEFT JOIN：按 token.userId 返回当前账号与角色
+    if (sql.includes('FROM sys_user u')) {
+      const uid = (params && params[0]) || 1;
+      const isAdmin = uid === 1;
+      return [[{
+        id: uid, username: isAdmin ? 'admin' : 'sales01',
+        role_id: isAdmin ? 1 : 3, status: 1,
+        must_change_password: 0, password_changed_at: null,
+        fresh_role_id: isAdmin ? 1 : 3,
+        role_code: isAdmin ? 'admin' : 'sales',
+        view_all: isAdmin ? 1 : 0,
+        manage_all: isAdmin ? 1 : 0
+      }]];
     }
-    if (sql.includes('FROM sys_user')) return [[{ must_change_password: 0, status: 1 }]];
     return [[]];
   })
 };
@@ -108,6 +117,27 @@ describe('线索路由 /api/v1/leads', () => {
       .post('/leads')
       .set('Authorization', `Bearer ${token}`)
       .send({ lead_level: '超高' });
+
+    expect(res.status).toBe(400);
+    expect(customerController.listLeadPool).not.toHaveBeenCalled();
+  });
+
+  // [V1.1 §11.3] 前端潜客页等级下拉是 A/B/C/D，旧 schema 只认 lead_level ⇒ 被丢弃。
+  it('POST /leads 列表：level=A/B/C/D 穿过 stripUnknown', async () => {
+    const res = await request(buildApp({ userId: 7, roleId: 3, roleCode: 'sales', manageAll: false }))
+      .post('/leads')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ level: 'D' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.echoed).toEqual({ level: 'D' });
+  });
+
+  it('POST /leads 列表：level 非法值被 Joi 拒绝（400）', async () => {
+    const res = await request(buildApp({ userId: 7, roleId: 3, roleCode: 'sales', manageAll: false }))
+      .post('/leads')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ level: 'S' });
 
     expect(res.status).toBe(400);
     expect(customerController.listLeadPool).not.toHaveBeenCalled();

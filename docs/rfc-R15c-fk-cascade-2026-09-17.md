@@ -13,7 +13,7 @@
 | 拍板日期 | **2026-09-24**（边界清单 + 硬删除策略） |
 | 数据复核 | 2026-09-24（FK 101；明细/日志 21 处 FK 实测） |
 | 排期 | **v2.0 初** |
-| 关联文档 | RFC-R13、RFC-R10、`docs/deploy/check-fk-details.sql` |
+| 关联文档 | RFC-R13、RFC-R10、`deploy/check-fk-details.sql` |
 
 ## 目录
 
@@ -121,6 +121,6 @@
 ## 十一、参考资料
 
 - `deploy/check-fk-details.sql` —— 外键明细核查脚本
-- `docs/database-schema-audit.md` —— 库结构审计
+- `docs/archive/database-schema-audit.md` —— 库结构审计（已归档）
 - 迁移 091 `fix_hard_cascade_to_set_null`、迁移 059/060 外键补全
 - RFC-R10（日志表 SET NULL）、RFC-R13（命名规范）

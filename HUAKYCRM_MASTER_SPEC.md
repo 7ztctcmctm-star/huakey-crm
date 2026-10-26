@@ -89,7 +89,7 @@ frontend/  (Vue 3 SPA)
   ├── src/views/       # 功能页面（40+）
   ├── src/components/  # 公共组件
   ├── src/composables/ # 组合式函数（useUser/useTable/...）
-  ├── src/api/         # 26 个 API 模块
+  ├── src/api/         # 30 个 API 模块
   ├── src/utils/       # request / permission / error / chartTheme
   └── src/styles/      # apple.css（唯一主题源）
 

@@ -4,8 +4,13 @@
 > **版本**: v1.0.1
 > **编制日期**: 2026-08-06
 > **编制人**: Production Operations Engineer
-> **状态**: 待审批执行
+> **状态**: 待审批执行（历史计划）
 > **基于**: [crm-v1-user-login-readiness-audit.md](archive/crm-v1-user-login-readiness-audit.md)
+>
+> **执行状态（2026-10-26 核对）**：本计划对应的安全补丁已随 `fix/v1.0.1-security-patch`
+> 分支合并到 `main`：用户新增已写入 `must_change_password`（`backend/services/userRouteService.js`），
+> 强制改密、CSRF 与 httpOnly Cookie 认证均已上线。下文代码片段与“当前状态”为 2026-08-06
+> 编制时点，仅作历史依据，**不代表现状**；现行事实以代码与 `docs/fix-ledger-2026-10-23.md` 为准。
 
 ---
 
@@ -147,7 +152,7 @@ export const resetUserPassword = (data) => request.post('/user/reset-password', 
 
 #### 2.3.4 前端按钮
 
-**文件**: `frontend/src/views/system/user/index.vue`
+**文件**: `frontend/src/views/system/user.vue`
 
 新增"重置密码"按钮，弹出密码输入框。
 
@@ -199,7 +204,7 @@ export const resetUserPassword = (data) => request.post('/user/reset-password', 
    - backend/services/authService.js (P1)
    - backend/routes/user.js (P1 + P2)
    - frontend/src/api/system.js (P2)
-   - frontend/src/views/system/user/index.vue (P2)
+   - frontend/src/views/system/user.vue (P2)
 
 3. 单元测试
    npm test -- --testPathPattern="user.security"
@@ -349,7 +354,7 @@ curl -sk https://crm.huakey.local/api/v1/health
 | 2 | `backend/services/authService.js` | 修改 | 1 行 | P1 |
 | 3 | `backend/routes/user.js` | 修改 + 新增 | ~25 行 | P1 + P2 |
 | 4 | `frontend/src/api/system.js` | 新增 | ~3 行 | P2 |
-| 5 | `frontend/src/views/system/user/index.vue` | 新增 | ~15 行 | P2 |
+| 5 | `frontend/src/views/system/user.vue` | 新增 | ~15 行 | P2 |
 | 6 | `backend/package.json` | 修改 | 1 行 | - |
 
 **总计**: 修改 6 个文件，约 65 行代码。

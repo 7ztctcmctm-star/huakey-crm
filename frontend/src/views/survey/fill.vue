@@ -116,42 +116,42 @@ onMounted(() => { fetchCampaign() })
 </script>
 
 <style scoped>
-.fill-page { min-height: 100vh; background: #f5f5f7; display: flex; justify-content: center; padding: 40px 20px; }
+.fill-page { min-height: 100vh; background: var(--color-bg-secondary); display: flex; justify-content: center; padding: 40px 20px; }
 .fill-container { max-width: 640px; width: 100%; }
 .fill-header { text-align: center; margin-bottom: 32px; }
-.fill-header h1 { font-size: 28px; font-weight: 700; color: #1d1d1f; margin-bottom: 8px; }
-.fill-desc { font-size: 15px; color: #86868b; }
-.fill-loading { text-align: center; padding: 60px; color: #86868b; }
-.fill-body { background: #fff; border-radius: 16px; padding: 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
-.fill-error { background: #fff; border-radius: 16px; padding: 60px; text-align: center; }
+.fill-header h1 { font-size: 28px; font-weight: 700; color: var(--color-text); margin-bottom: 8px; }
+.fill-desc { font-size: 15px; color: var(--color-text-secondary); }
+.fill-loading { text-align: center; padding: 60px; color: var(--color-text-secondary); }
+.fill-body { background: var(--color-bg); border-radius: 16px; padding: 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+.fill-error { background: var(--color-bg); border-radius: 16px; padding: 60px; text-align: center; }
 
 .question-block { margin-bottom: 28px; }
-.question-text { font-size: 15px; font-weight: 600; color: #1d1d1f; margin-bottom: 12px; }
+.question-text { font-size: 15px; font-weight: 600; color: var(--color-text); margin-bottom: 12px; }
 
 .nps-selector { }
-.nps-labels { display: flex; justify-content: space-between; font-size: 12px; color: #86868b; margin-bottom: 8px; }
+.nps-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--color-text-secondary); margin-bottom: 8px; }
 .nps-buttons { display: flex; gap: 4px; }
 .nps-btn {
-  flex: 1; height: 40px; border: 2px solid #e5e5e5; border-radius: 8px;
+  flex: 1; height: 40px; border: 2px solid var(--el-border-color-lighter); border-radius: 8px;
   font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;
-  background: #fff;
+  background: var(--color-bg);
 }
 .nps-btn:hover { border-color: var(--color-accent); }
-.nps-btn.active { color: #fff; border-color: transparent; }
-.nps-detractor.active { background: #f56c6c; }
-.nps-passive.active { background: #e6a23c; }
-.nps-promoter.active { background: #67c23a; }
-.nps-detractor { color: #f56c6c; }
-.nps-passive { color: #e6a23c; }
-.nps-promoter { color: #67c23a; }
+.nps-btn.active { color: var(--color-text-on-accent); border-color: transparent; }
+.nps-detractor.active { background: var(--el-color-danger); }
+.nps-passive.active { background: var(--el-color-warning); }
+.nps-promoter.active { background: var(--el-color-success); }
+.nps-detractor { color: var(--el-color-danger); }
+.nps-passive { color: var(--el-color-warning); }
+.nps-promoter { color: var(--el-color-success); }
 
 .rating-selector { display: flex; align-items: center; gap: 12px; }
-.rating-text { font-size: 13px; color: #86868b; }
+.rating-text { font-size: 13px; color: var(--color-text-secondary); }
 
-.contact-section { margin-top: 24px; padding-top: 24px; border-top: 1px solid #e5e5e5; }
+.contact-section { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--el-border-color-lighter); }
 
-.fill-success { text-align: center; background: #fff; border-radius: 16px; padding: 80px 40px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
-.success-icon { width: 64px; height: 64px; border-radius: 50%; background: #67c23a; color: #fff; font-size: 32px; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; }
-.fill-success h2 { font-size: 24px; color: #1d1d1f; margin-bottom: 8px; }
-.fill-success p { font-size: 15px; color: #86868b; }
+.fill-success { text-align: center; background: var(--color-bg); border-radius: 16px; padding: 80px 40px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+.success-icon { width: 64px; height: 64px; border-radius: 50%; background: var(--el-color-success); color: var(--color-text-on-accent); font-size: 32px; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; }
+.fill-success h2 { font-size: 24px; color: var(--color-text); margin-bottom: 8px; }
+.fill-success p { font-size: 15px; color: var(--color-text-secondary); }
 </style>

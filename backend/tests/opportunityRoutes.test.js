@@ -86,8 +86,7 @@ describe('Opportunity 路由 - 数据权限测试', () => {
       // → getOpportunityWithPermission 返回 null
       mockPool.query
         .mockResolvedValueOnce([[]])  // blacklist check (auth middleware)
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])     // user
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role
         .mockResolvedValueOnce([[]]);  // detail query returns empty
 
       const res = await request(app)
@@ -106,8 +105,7 @@ describe('Opportunity 路由 - 数据权限测试', () => {
       };
       mockPool.query
         .mockResolvedValueOnce([[]])
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]])
         .mockResolvedValueOnce([[mockOpp]]);
 
       const res = await request(app)
@@ -130,8 +128,7 @@ describe('Opportunity 路由 - 数据权限测试', () => {
       // 6. getOpportunityWithPermission → 返回 null（非自己负责的）
       mockPool.query
         .mockResolvedValueOnce([[]])                                       // blacklist
-        .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0 }]])        // role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])           // user
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, view_all: 0, manage_all: 0 }]])        // role
         .mockResolvedValueOnce([[]])                                       // data_permissions query（无配置）
         .mockResolvedValueOnce([[]]);                                      // detail query（owner_id 不匹配，返回空）
 
@@ -149,8 +146,7 @@ describe('Opportunity 路由 - 数据权限测试', () => {
       const token = generateAdminToken();
       mockPool.query
         .mockResolvedValueOnce([[]])
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]])
         .mockResolvedValueOnce([[{ id: 1, stage: 3 }]])                  // getOpportunityWithPermission
         .mockResolvedValueOnce([[{                                         // getStageLog
           id: 1, from_stage: 1, to_stage: 3,
@@ -175,8 +171,7 @@ describe('Opportunity 路由 - 数据权限测试', () => {
       const token = generateAdminToken();
       mockPool.query
         .mockResolvedValueOnce([[]])
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]])
         .mockResolvedValueOnce([[]]);  // getOpportunityWithPermission 返回空
 
       const res = await request(app)
@@ -198,8 +193,7 @@ describe('Opportunity 路由 - 数据权限测试', () => {
       ];
       mockPool.query
         .mockResolvedValueOnce([[]])
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]])
         .mockResolvedValueOnce([[{ id: 1, stage: 3 }]])  // getOpportunityWithPermission
         .mockResolvedValueOnce([mockStatsRows]);           // getStageStats
 
@@ -219,8 +213,7 @@ describe('Opportunity 路由 - 数据权限测试', () => {
       const token = generateAdminToken();
       mockPool.query
         .mockResolvedValueOnce([[]])
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]])
         .mockResolvedValueOnce([[]]);  // getOpportunityWithPermission 返回空
 
       const res = await request(app)
@@ -242,8 +235,7 @@ describe('Opportunity 路由 - 数据权限测试', () => {
       // 4. SELECT contracts
       mockPool.query
         .mockResolvedValueOnce([[]])                                       // blacklist
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])        // role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])           // user
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]])        // role
         .mockResolvedValueOnce([[{ id: 1, stage: 3 }]])                   // getOpportunityWithPermission (controller 权限校验)
         .mockResolvedValueOnce([[{ id: 1 }]])                              // getTimeline 内部 SELECT opportunity
         .mockResolvedValueOnce([[{                                         // stage_logs
@@ -268,8 +260,7 @@ describe('Opportunity 路由 - 数据权限测试', () => {
       const token = generateAdminToken();
       mockPool.query
         .mockResolvedValueOnce([[]])
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]])
         .mockResolvedValueOnce([[]]);  // getOpportunityWithPermission 返回空
 
       const res = await request(app)

@@ -53,8 +53,7 @@ const generateToken = (roleCode, manageAll = false, roleId = 2) => {
 const authMocks = (manageAll = false, roleCode = 'sales') => {
   mockPool.query
     .mockResolvedValueOnce([[]]) // 黑名单检查
-    .mockResolvedValueOnce([[{ view_all: manageAll ? 1 : 0, manage_all: manageAll ? 1 : 0, role_code: roleCode }]])
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status; // 角色查询
+    .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, view_all: manageAll ? 1 : 0, manage_all: manageAll ? 1 : 0, role_code: roleCode }]])
 };
 
 describe('字段级权限', () => {

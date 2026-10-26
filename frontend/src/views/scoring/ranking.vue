@@ -106,9 +106,9 @@ onMounted(() => { fetchRanking() })
 .page-desc { margin: var(--space-1) 0 0; font-size: 13px; color: var(--color-text-tertiary); }
 .rank-badge {
   display: inline-block; width: 24px; height: 24px; line-height: 24px; text-align: center;
-  border-radius: 50%; font-size: 13px; font-weight: 600; color: var(--color-text-secondary); background: #f5f5f5;
+  border-radius: 50%; font-size: 13px; font-weight: 600; color: var(--color-text-secondary); background: var(--color-bg-secondary);
 }
-.rank-badge.top { color: #fff; background: linear-gradient(135deg, #f5a623, #f7c948); }
+.rank-badge.top { color: var(--color-text-on-accent); background: linear-gradient(135deg, var(--color-gold), var(--color-gold-light)); }
 .score-value { font-size: 18px; font-weight: 700; color: var(--color-accent); }
 .link-text { color: var(--color-accent); cursor: pointer; }
 .link-text:hover { text-decoration: underline; }

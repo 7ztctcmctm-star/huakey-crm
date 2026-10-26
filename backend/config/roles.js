@@ -44,8 +44,49 @@ const ADMIN_ROLE_CODES = new Set([
   ROLE_CODES.SUPER_ADMIN
 ]);
 
+/**
+ * 角色权限层级（2026-10-23 审计 P0-03）
+ *
+ * 用于用户管理接口的**纵向越权**校验：调用者只能管理/授予不高于自身层级的角色。
+ * 例如 HR(60) 不能创建 boss(90)、不能重置 boss 密码；sales(40) 即使被误授予
+ * system:user 权限，也不能把账号提权为 manager(80)。
+ *
+ * ⚠️ 这是「用户管理域」的授权层级，不是功能权限矩阵，也不替代 checkPermission。
+ *    新增角色必须显式登记；未登记角色 rank=0，除 super_admin 外一律不可管理/授予。
+ *
+ * 注意：`admin` 是历史遗留 code（现库已无），保留 rank 以兼容旧数据。
+ */
+const ROLE_RANKS = Object.freeze({
+  [ROLE_CODES.SUPER_ADMIN]: 100,
+  [ROLE_CODES.BOSS]: 90,
+  [ROLE_CODES.ADMIN]: 90,
+  [ROLE_CODES.MANAGER]: 80,
+  [ROLE_CODES.FINANCE]: 70,
+  [ROLE_CODES.HR]: 60,
+  [ROLE_CODES.PURCHASE]: 50,
+  purchaser: 50,
+  [ROLE_CODES.SALES]: 40,
+  [ROLE_CODES.ENGINEER]: 30
+});
+
+const UNKNOWN_ROLE_RANK = 0;
+
+/**
+ * 取角色层级；未登记角色返回 0（最低，且不可被非超管管理/授予）
+ * @param {string} roleCode - sys_role.code
+ * @returns {number}
+ */
+const getRoleRank = (roleCode) => (
+  Object.prototype.hasOwnProperty.call(ROLE_RANKS, roleCode)
+    ? ROLE_RANKS[roleCode]
+    : UNKNOWN_ROLE_RANK
+);
+
 module.exports = {
   ...ROLES,           // 向后兼容: ROLES.ADMIN, ROLES.MANAGER 等
   ROLE_CODES,
-  ADMIN_ROLE_CODES
+  ADMIN_ROLE_CODES,
+  ROLE_RANKS,
+  UNKNOWN_ROLE_RANK,
+  getRoleRank
 };

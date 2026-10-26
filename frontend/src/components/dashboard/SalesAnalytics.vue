@@ -74,7 +74,7 @@ import { TrendCharts, Document, Wallet } from '@element-plus/icons-vue'
 import { getAnalyticsOverview, getAnalyticsFunnel, getAnalyticsContractRevenue, getAnalyticsPaymentCollection } from '@/api/analytics'
 import { formatAmount } from '@/composables/useFormat'
 import { useChart } from '@/composables/useChart'
-import { chartColors, presetColors, cssVar } from '@/utils/chartTheme'
+import { chartColors, presetColors } from '@/utils/chartTheme'
 import { useDashboardFilters } from '@/composables/useDashboardFilters'
 
 const router = useRouter()
@@ -129,7 +129,7 @@ function renderFunnel() {
         label: {
           show: true,
           position: 'inside',
-          color: cssVar('--color-white', '#ffffff'),
+          color: chartColors.bg,
           formatter: (p) => `${p.name}  ${p.value}`
         },
         itemStyle: { borderColor: chartColors.bg, borderWidth: 2 },

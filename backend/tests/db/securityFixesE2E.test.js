@@ -358,7 +358,7 @@ describe('安全修复真库 E2E（MySQL 实连）', () => {
       if (!reachable) return;
       const customReportService = require('../../services/customReportService');
 
-      const res = await customReportService.runReport(pool, reportId, { page: 1, pageSize: 5 });
+      const res = await customReportService.runReport(pool, reportId, { page: 1, pageSize: 5 }, { userId: 1 });
 
       expect(res.error).toBeUndefined();
       expect(res.list).toBeDefined();
@@ -384,7 +384,7 @@ describe('安全修复真库 E2E（MySQL 实连）', () => {
       await pool.query('UPDATE crm_report_config SET columns_config = ? WHERE id = ?',
         [JSON.stringify([{ field: 'company_name', label: '客户名称' }]), reportId]);
 
-      const res = await customReportService.runReport(pool, reportId, { page: 1, pageSize: 5 });
+      const res = await customReportService.runReport(pool, reportId, { page: 1, pageSize: 5 }, { userId: 1 });
       expect(res.error).toBeUndefined();
       expect(res.list).toBeDefined();
     });
@@ -396,7 +396,7 @@ describe('安全修复真库 E2E（MySQL 实连）', () => {
       for (const evil of ['a`b', 'a;b', 'a b', "a'b", 'a--b']) {
         await pool.query('UPDATE crm_report_config SET columns_config = ? WHERE id = ?',
           [JSON.stringify([{ field: 'company_name', label: evil }]), reportId]);
-        const res = await customReportService.runReport(pool, reportId, { page: 1, pageSize: 5 });
+        const res = await customReportService.runReport(pool, reportId, { page: 1, pageSize: 5 }, { userId: 1 });
         // 关键：每个 payload 都不得让真库报语法错
         expect(res.error).toBeUndefined();
       }

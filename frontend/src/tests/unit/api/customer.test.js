@@ -80,6 +80,7 @@ describe('customer API', () => {
     const { importPreview } = await import('@/api/customer')
     const fd = new FormData()
     await importPreview(fd)
-    expect(request.post).toHaveBeenCalledWith('/customers/import-preview', fd)
+    // importPreview(data, config) 第三参显式透传 config；未传时为 undefined
+    expect(request.post).toHaveBeenCalledWith('/customers/import-preview', fd, undefined)
   })
 })

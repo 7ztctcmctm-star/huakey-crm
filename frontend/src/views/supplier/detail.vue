@@ -121,7 +121,7 @@
             <div v-if="ratings.length > 0" class="rating-list">
               <div v-for="item in ratings" :key="item.id" class="rating-item">
                 <div class="rating-period">{{ item.rating_period }}</div>
-                <el-rate :model-value="item.total_score" disabled show-score text-color="#ff9900" score-template="{value}" />
+                <el-rate :model-value="item.total_score" disabled show-score text-color="var(--color-rate-star)" score-template="{value}" />
                 <div class="rating-scores">
                   质量:{{ item.quality_score }} | 交期:{{ item.delivery_score }} | 服务:{{ item.service_score }}
                 </div>
@@ -149,7 +149,7 @@
               <div class="rating-trend-title">评分趋势</div>
               <div v-for="item in performance.rating_trend" :key="item.rating_period" class="rating-trend-item">
                 <span class="rating-trend-period">{{ item.rating_period }}</span>
-                <el-rate :model-value="item.total_score" disabled show-score text-color="#ff9900" score-template="{value}" />
+                <el-rate :model-value="item.total_score" disabled show-score text-color="var(--color-rate-star)" score-template="{value}" />
               </div>
             </div>
           </el-card>
@@ -192,7 +192,7 @@
           <el-rate v-model="ratingForm.price_score" :max="5" allow-half show-score />
         </el-form-item>
         <el-form-item label="综合分">
-          <el-rate :model-value="ratingTotal" disabled show-score text-color="#ff9900" />
+          <el-rate :model-value="ratingTotal" disabled show-score text-color="var(--color-rate-star)" />
         </el-form-item>
         <el-form-item label="备注">
           <el-input v-model="ratingForm.remark" type="textarea" :rows="2" />

@@ -123,14 +123,14 @@ describe('dashboardService 数据范围', () => {
       expect(poolCall.params).toHaveLength(0);
     });
 
-    it('逾期统计按 c.owner_id 过滤，且保留公海状态条件', async () => {
+    it('逾期统计按 c.owner_id 过滤，不再依赖 pool_status 兼容列', async () => {
       const pool = makePool();
       await dashboardService.getOverdueStats(pool, SELF(42));
 
       const [call] = pool.calls;
       expect(call.sql).toContain('c.owner_id = ?');
-      expect(call.params).toContain(42);
-      expect(call.params[0]).toBe('private'); // POOL_STATUS.PRIVATE
+      expect(call.sql).not.toContain('pool_status');
+      expect(call.params).toEqual([42]);
     });
   });
 

@@ -1,6 +1,6 @@
 const express = require('express');
 const { authenticateToken } = require('../../middleware/auth');
-const { checkPermission } = require('../../middleware/permission');
+const { checkPermission, checkDataPermission } = require('../../middleware/permission');
 const { requireManager } = require('../../middleware/admin');
 const { validate, Joi, idempotencyKeyField } = require('../../middleware/validate');
 const { autoAssignOwner } = require('../../services/assignService');
@@ -131,10 +131,10 @@ router.post('/claim', authenticateToken, checkPermission('pool:claim'), validate
 router.post('/batch-claim', authenticateToken, checkPermission('pool:claim'), validate(batchClaimSchema), customerController.batchClaim);
 
 // 释放客户到公海
-router.post('/release', authenticateToken, checkPermission('customer:release'), validate(releaseSchema), customerController.release);
+router.post('/release', authenticateToken, checkPermission('customer:release'), checkDataPermission('customer', 'owner_id'), validate(releaseSchema), customerController.release);
 
 // 批量释放客户到公海
-router.post('/batch-release', authenticateToken, checkPermission('customer:release'), validate(batchReleaseSchema), customerController.batchRelease);
+router.post('/batch-release', authenticateToken, checkPermission('customer:release'), checkDataPermission('customer', 'owner_id'), validate(batchReleaseSchema), customerController.batchRelease);
 
 // 获取公海操作日志
 router.post('/pool-log', authenticateToken, checkPermission('pool:view'), validate(poolLogSchema), customerController.listPoolLogs);

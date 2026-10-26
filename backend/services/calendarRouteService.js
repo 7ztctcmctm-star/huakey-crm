@@ -4,9 +4,11 @@
 /**
  * 获取日程列表
  */
-async function getEvents(pool, { start_date, end_date, event_type }) {
+async function getEvents(pool, { start_date, end_date, event_type }, user = {}) {
   let where = 'WHERE e.deleted_at IS NULL';
   const params = [];
+  // [P1-08] IDOR 收口：非全量权限用户只能看自己创建的日程（原实现返回全员日程）
+  if (!user.manageAll) { where += ' AND e.create_by = ?'; params.push(user.userId); }
   if (start_date) { where += ' AND e.start_time >= ?'; params.push(start_date); }
   if (end_date) { where += ' AND e.start_time <= ?'; params.push(end_date + ' 23:59:59'); }
   if (event_type) { where += ' AND e.event_type = ?'; params.push(event_type); }
@@ -27,15 +29,18 @@ async function getEvents(pool, { start_date, end_date, event_type }) {
 /**
  * 获取日程详情
  */
-async function getEvent(pool, id) {
+async function getEvent(pool, id, user = {}) {
+  // [P1-08] 详情同样按创建人收口，否则拿到 id 即可跨用户读取
+  const scope = user.manageAll ? '' : ' AND e.create_by = ?';
+  const params = user.manageAll ? [id] : [id, user.userId];
   const [[row]] = await pool.query(`
     SELECT e.id, e.title, e.event_type, e.description, e.start_time, e.end_time, e.all_day, e.location, e.customer_id, e.contact_id, e.related_type, e.related_id, e.attendees, e.reminder_minutes, e.status, e.color, e.create_by, e.create_time, e.update_time, e.deleted_at,
            c.company_name as customer_name, ct.name as contact_name
     FROM crm_calendar_event e
     LEFT JOIN crm_customer c ON e.customer_id = c.id
     LEFT JOIN crm_contact ct ON e.contact_id = ct.id
-    WHERE e.id = ? AND e.deleted_at IS NULL
-  `, [id]);
+    WHERE e.id = ? AND e.deleted_at IS NULL${scope}
+  `, params);
   return row;
 }
 
@@ -103,38 +108,49 @@ async function deleteEvent(pool, id, userId, manageAll) {
 /**
  * 标记日程完成
  */
-async function completeEvent(pool, id) {
-  await pool.query("UPDATE crm_calendar_event SET status = 'completed' WHERE id = ? AND deleted_at IS NULL", [id]);
+async function completeEvent(pool, id, user = {}) {
+  // [P1-08] 完成动作同样校验创建人，防止跨用户改状态
+  const scope = user.manageAll ? '' : ' AND create_by = ?';
+  const params = user.manageAll ? [id] : [id, user.userId];
+  const [result] = await pool.query(
+    `UPDATE crm_calendar_event SET status = 'completed' WHERE id = ? AND deleted_at IS NULL${scope}`,
+    params
+  );
+  if (result.affectedRows !== 1) return { error: '日程不存在或无权操作', status: 404 };
   return { success: true };
 }
 
 /**
  * 获取今日日程
  */
-async function getToday(pool) {
+async function getToday(pool, user = {}) {
+  const scope = user.manageAll ? '' : ' AND e.create_by = ?';
+  const params = user.manageAll ? [] : [user.userId];
   const [rows] = await pool.query(`
     SELECT e.id, e.title, e.event_type, e.description, e.start_time, e.end_time, e.all_day, e.location, e.customer_id, e.contact_id, e.related_type, e.related_id, e.attendees, e.reminder_minutes, e.status, e.color, e.create_by, e.create_time, e.update_time, e.deleted_at,
            c.company_name as customer_name
     FROM crm_calendar_event e
     LEFT JOIN crm_customer c ON e.customer_id = c.id
-    WHERE e.deleted_at IS NULL AND DATE(e.start_time) = CURDATE()
+    WHERE e.deleted_at IS NULL AND DATE(e.start_time) = CURDATE()${scope}
     ORDER BY e.start_time ASC
-  `);
+  `, params);
   return rows;
 }
 
 /**
  * 获取未来7天日程
  */
-async function getUpcoming(pool) {
+async function getUpcoming(pool, user = {}) {
+  const scope = user.manageAll ? '' : ' AND e.create_by = ?';
+  const params = user.manageAll ? [] : [user.userId];
   const [rows] = await pool.query(`
     SELECT e.id, e.title, e.event_type, e.description, e.start_time, e.end_time, e.all_day, e.location, e.customer_id, e.contact_id, e.related_type, e.related_id, e.attendees, e.reminder_minutes, e.status, e.color, e.create_by, e.create_time, e.update_time, e.deleted_at,
            c.company_name as customer_name
     FROM crm_calendar_event e
     LEFT JOIN crm_customer c ON e.customer_id = c.id
-    WHERE e.deleted_at IS NULL AND e.start_time BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 7 DAY)
+    WHERE e.deleted_at IS NULL AND e.start_time BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 7 DAY)${scope}
     ORDER BY e.start_time ASC
-  `);
+  `, params);
   return rows;
 }
 

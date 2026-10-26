@@ -9,12 +9,14 @@ export const deleteUser = (id) => request.post('/user/delete', { id })
 export const resetUserPassword = (data) => request.post('/user/reset-password', data)
 
 // ============ 角色管理 ============
-export const getRoleList = (params) => request.post('/role/list', params)
+// 后端 /role/list 接收空 schema（忽略分页/筛选参数），返回全量角色
+export const getRoleList = () => request.post('/role/list', {})
 export const saveRole = (data, isEdit) => request.post(isEdit ? '/role/update' : '/role/add', data)
 export const deleteRole = (id) => request.post('/role/delete', { id })
 
 // ============ 部门管理 ============
-export const getDeptList = (params) => request.post('/dept/list', params)
+// 后端 /dept/list 接收空 schema（忽略分页/筛选参数），返回全量部门
+export const getDeptList = () => request.post('/dept/list', {})
 export const saveDept = (data, isEdit) => request.post(isEdit ? '/dept/update' : '/dept/add', data)
 export const deleteDept = (id) => request.post('/dept/delete', { id })
 
@@ -28,7 +30,7 @@ export const deletePermissionNode = (id) => request.post('/permission/delete-nod
 
 // ============ 操作日志 ============
 export const getLogList = (params) => request.post('/log/list', params)
-export const exportLog = (params) => request.post('/log/export', params)
+export const exportLog = (params) => request.post('/log/export', params, { responseType: 'blob' })
 export const clearLog = (data) => request.post('/log/clear', data)
 export const getLogModules = () => request.get('/log/modules')
 export const getLogDetail = (id) => request.get(`/log/detail/${id}`)
@@ -37,7 +39,10 @@ export const getLogDetail = (id) => request.get(`/log/detail/${id}`)
 export const getBackupList = () => request.post('/backup/list')
 export const createBackup = () => request.post('/backup/create')
 export const deleteBackup = (id) => request.post('/backup/delete', { id })
-export const restoreBackup = (id) => request.post('/backup/restore', { id })
+// [P0-13] 恢复必须携带后端签发的确认码，否则 Joi 校验直接 400
+export const getRestoreConfirmCode = (id) => request.get(`/backup/confirm-code/${id}`)
+export const restoreBackup = (id, confirmCode) =>
+  request.post('/backup/restore', { id, confirm_code: confirmCode })
 
 // ============ 服务工单 ============
 export const getServiceList = (params) => request.post('/service/list', params)
@@ -99,8 +104,10 @@ export const getTargetList = (params) => request.post('/target/list', params)
 export const batchSetTarget = (data) => request.post('/target/batch-set', data)
 
 // ============ 团队仪表盘 ============
-export const getTeamOverview = () => request.get('/team-dashboard/overview')
-export const getSalesBreakdown = () => request.get('/team-dashboard/sales-breakdown')
+// [V1.1 §11.3] 透传日期范围：TeamDashboard 会传 { startDate, endDate }，
+// 旧实现无参数签名 ⇒ 参数被丢弃、后端只能按当前月统计。
+export const getTeamOverview = (params = {}) => request.get('/team-dashboard/overview', { params })
+export const getSalesBreakdown = (params = {}) => request.get('/team-dashboard/sales-breakdown', { params })
 export const getStuckOpportunities = () => request.get('/team-dashboard/stuck-opportunities')
 export const getPendingApprovals = () => request.get('/team-dashboard/pending-approvals')
 export const getSalesCustomers = (params) => request.post('/team-dashboard/sales-customers', params)

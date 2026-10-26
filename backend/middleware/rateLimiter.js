@@ -12,27 +12,65 @@ class RedisRateLimitStore {
   constructor(windowMs) {
     this.windowMs = windowMs;
     this.prefix = 'ratelimit';
+    // [P1-10] Redis 故障时的进程内降级计数（不跨实例，但不阻断请求）
+    this.fallback = new Map();
+  }
+
+  _fallbackIncrement(key) {
+    const now = Date.now();
+    const record = this.fallback.get(key);
+    if (!record || record.resetTime.getTime() <= now) {
+      const resetTime = new Date(now + this.windowMs);
+      // 存储与返回必须是两个对象：返回的计数快照不能被后续 increment 原地改掉
+      this.fallback.set(key, { totalHits: 1, resetTime });
+      // 防止降级期间 Map 无限增长：超过阈值时清理已过期项
+      if (this.fallback.size > 5000) {
+        for (const [k, v] of this.fallback) {
+          if (v.resetTime.getTime() <= now) this.fallback.delete(k);
+        }
+      }
+      return { totalHits: 1, resetTime };
+    }
+    record.totalHits += 1;
+    // 快照返回，避免 express-rate-limit 持有的 rateLimit 对象随 Map 记录一起变化
+    return { totalHits: record.totalHits, resetTime: new Date(record.resetTime.getTime()) };
   }
 
   async increment(key) {
     const fullKey = `${this.prefix}:${key}`;
-    const pipeline = redis.pipeline();
-    pipeline.incr(fullKey);
-    pipeline.pexpire(fullKey, this.windowMs);
-    const results = await pipeline.exec();
-    const totalHits = results[0][1];
-    const resetTime = new Date(Date.now() + this.windowMs);
-    return { totalHits, resetTime };
+    try {
+      const pipeline = redis.pipeline();
+      pipeline.incr(fullKey);
+      pipeline.pexpire(fullKey, this.windowMs);
+      const results = await pipeline.exec();
+      const totalHits = results?.[0]?.[1];
+      if (typeof totalHits !== 'number') throw new Error('Redis 限流返回值异常');
+      return { totalHits, resetTime: new Date(Date.now() + this.windowMs) };
+    } catch (error) {
+      // [P1-10] Redis 抖动不得放大为全站 500：降级为进程内计数，请求继续
+      if (!this._degradedLoggedAt || Date.now() - this._degradedLoggedAt > 60000) {
+        this._degradedLoggedAt = Date.now();
+        console.warn('[RateLimit] Redis 不可用，已降级为内存计数:', error.message);
+      }
+      return this._fallbackIncrement(key);
+    }
   }
 
   async decrement(key) {
     const fullKey = `${this.prefix}:${key}`;
-    await redis.decr(fullKey);
+    const record = this.fallback.get(key);
+    if (record && record.totalHits > 0) record.totalHits -= 1;
+    try {
+      await redis.decr(fullKey);
+    } catch { /* Redis 不可用：降级计数已回退 */ }
   }
 
   async resetKey(key) {
     const fullKey = `${this.prefix}:${key}`;
-    await redis.del(fullKey);
+    this.fallback.delete(key);
+    try {
+      await redis.del(fullKey);
+    } catch { /* Redis 不可用：忽略 */ }
   }
 }
 
@@ -48,6 +86,9 @@ const createRateLimiter = (options = {}) => {
     },
     standardHeaders: true,
     legacyHeaders: false,
+    // [P1-10] store 抛错时放行请求（配合 RedisRateLimitStore 的降级计数），
+    // 避免 Redis 抖动期间登录/API 全部 500（express-rate-limit v8 默认 false）
+    passOnStoreError: true,
     // X-Forwarded-For: 仅当 TRUST_PROXY=true 时信任代理 IP
     validate: {
       xForwardedForHeader: process.env.TRUST_PROXY === 'true',
@@ -66,10 +107,19 @@ const createRateLimiter = (options = {}) => {
     },
     skip: options.skip || (() => false),
     handler: (req, res) => {
+      // [P2-17] express-rate-limit v8 只在默认 handler 中消费 options.message，
+      // 自定义 handler 读 req.rateLimit.message 恒为 undefined，导致 authLimiter /
+      // survey 等配置的专属文案从未生效（一律显示通用文案）。这里直接使用配置值。
+      const configured = config.message;
+      const message = typeof configured === 'string'
+        ? configured
+        : (configured && configured.message) || '请求过于频繁，请稍后再试';
+      const extraData = (configured && typeof configured === 'object' && configured.data) || {};
       res.status(429).json({
         code: 429,
-        message: req.rateLimit?.message || '请求过于频繁，请稍后再试',
+        message,
         data: {
+          ...extraData,
           retryAfter: Math.ceil(req.rateLimit.resetTime / 1000) - Date.now() / 1000
         }
       });
@@ -147,6 +197,20 @@ const surveyGlobalResponderLimiter = createRateLimiter({
   }
 });
 
+// [P2-17] 公开性能上报专用限流：sendBeacon 无法携带认证/CSRF，仅靠全局
+// apiLimiter（1000 次/15 分钟/IP）对公开写接口过宽。每次页面加载约上报 5 项
+// Web Vitals，生产阈值 300 次/15 分钟（≈60 次页面加载/IP）；超限只丢弃性能样本，
+// 不影响业务功能，因此无需与业务接口共享额度。开发/测试环境维持 1000 避免误伤。
+const metricsLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: isProduction ? 300 : 1000,
+  message: {
+    code: 429,
+    message: '性能指标上报过于频繁，请稍后再试',
+    data: null
+  }
+});
+
 module.exports = {
   createRateLimiter,
   apiLimiter,
@@ -154,5 +218,6 @@ module.exports = {
   authLimiter,
   surveyRespondLimiter,
   surveyGlobalResponderLimiter,
+  metricsLimiter,
   RedisRateLimitStore
 };

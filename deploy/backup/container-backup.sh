@@ -37,6 +37,10 @@ DRILL_SCRIPT="/restore-test.sh"
 DRILL_STATUS="/backups/restore-drill.status"
 # 备份加密口令文件（宿主机 .backup-enc-pass 只读挂载到 /stack/）
 ENC_PASS_FILE="${BACKUP_ENC_PASS_FILE:-/stack/.backup-enc-pass}"
+# [P1-12] 生产备份默认 fail-closed：口令缺失时拒绝生成明文 DB/uploads 备份。
+# config 无口令时仍可安全降级（自动排除 .env/.env.secrets/证书）。
+REQUIRE_ENCRYPTION="${BACKUP_REQUIRE_ENCRYPTION:-true}"
+export BACKUP_REQUIRE_ENCRYPTION="$REQUIRE_ENCRYPTION"
 
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
@@ -45,6 +49,11 @@ log() {
 # ---- 1. MySQL 备份（复用挂载的 database/backup.sh，其内部自带 set -euo pipefail、完整性校验与保留策略）----
 run_mysql() {
   log "---- MySQL 备份开始 ----"
+  # [P1-12] 先于 dump 检查，避免明文 dump 短暂落盘后再删除
+  if [ "$REQUIRE_ENCRYPTION" = "true" ] && [ ! -f "$ENC_PASS_FILE" ]; then
+    log "FATAL: MySQL 备份要求加密，但口令文件缺失: $ENC_PASS_FILE（拒绝生成明文数据库备份）"
+    return 1
+  fi
   if bash /backup.sh >> "$LOG_FILE" 2>&1; then
     log "MySQL 备份成功"
   else
@@ -52,13 +61,19 @@ run_mysql() {
     return 1
   fi
   # dump 含全量业务数据，统一收紧为 600（含 04:00 宿主机任务产生的文件）
-  chmod 600 /backups/huakey_crm_*.sql.gz 2>/dev/null || true
+  chmod 600 /backups/huakey_crm_*.sql.gz* 2>/dev/null || true
 }
 
 # ---- 2. uploads 文件备份（/uploads 为 app-uploads named volume 只读挂载）----
 run_uploads() {
   log "---- uploads 文件备份开始 ----"
   mkdir -p /backups/uploads
+
+  # [P1-12] uploads 含客户合同/证件/工单图片，默认拒绝生成明文备份
+  if [ "$REQUIRE_ENCRYPTION" = "true" ] && [ ! -f "$ENC_PASS_FILE" ]; then
+    log "FATAL: uploads 备份要求加密，但口令文件缺失: $ENC_PASS_FILE（拒绝生成明文文件备份）"
+    return 1
+  fi
 
   FILE="/backups/uploads/uploads_$(date +%Y%m%d).tar.gz"
   if ! tar -czf "$FILE" -C /uploads --exclude='*.tmp' --exclude='*.lock' . >> "$LOG_FILE" 2>&1; then
@@ -83,10 +98,27 @@ run_uploads() {
 
   COUNT=$(tar -tzf "$FILE" 2>/dev/null | grep -c -v '/$' || true)
   chmod 600 "$FILE"
-  log "uploads 备份成功: $(basename "$FILE") (${SIZE} bytes, ${COUNT} 个文件，完整性校验通过)"
 
-  # 保留 7 天
-  find /backups/uploads -maxdepth 1 -type f -name 'uploads_*.tar.gz' -mtime +7 -delete 2>/dev/null
+  # [P1-12] uploads 含客户合同/证件/工单图片，有口令文件时加密落盘
+  if [ -f "$ENC_PASS_FILE" ]; then
+    ENC_FILE=$(encrypt_file "$FILE" "$ENC_PASS_FILE") || ENC_FILE=""
+    if [ -z "$ENC_FILE" ] || ! verify_encrypted_tar "$ENC_FILE" "$ENC_PASS_FILE"; then
+      log "FATAL: uploads 备份加密或解密回验失败，删除明文与半成品"
+      rm -f "$FILE" "${ENC_FILE:-}"
+      return 1
+    fi
+    rm -f "$FILE"
+    chmod 600 "$ENC_FILE"
+    log "uploads 备份成功（已加密）: $(basename "$ENC_FILE") (${SIZE} bytes, ${COUNT} 个文件, 解密回验通过)"
+    FILE="$ENC_FILE"
+  else
+    log "uploads 备份成功（明文，未配置加密口令）: $(basename "$FILE") (${SIZE} bytes, ${COUNT} 个文件，完整性校验通过)"
+  fi
+
+  # 保留 7 天（明文与加密产物一并清理）
+  find /backups/uploads -maxdepth 1 -type f \
+    \( -name 'uploads_*.tar.gz' -o -name 'uploads_*.tar.gz.gpg' -o -name 'uploads_*.tar.gz.enc' \) \
+    -mtime +7 -delete 2>/dev/null
 }
 
 # ---- 3. 配置文件 + 证书备份（/stack 下为宿主机关键文件只读挂载）----
@@ -118,7 +150,7 @@ encrypt_file() {
 }
 
 # 解密回验：加密产物必须能解密且 tar 结构完整，否则视为备份失败
-verify_encrypted() {
+verify_encrypted_tar() {
   ENC="$1"
   PASS="$2"
   case "$ENC" in
@@ -135,6 +167,10 @@ verify_encrypted() {
       ;;
   esac
 }
+# 兼容旧函数名（config 备份调用）
+verify_encrypted() {
+  verify_encrypted_tar "$1" "$2"
+}
 
 run_config() {
   log "---- 配置文件备份开始 ----"
@@ -150,30 +186,37 @@ run_config() {
     return 1
   fi
 
-  cp -p /stack/.env "$STAGE/" 2>/dev/null || log "WARNING: .env 不存在，跳过"
-  cp -p /stack/docker-compose.synology.yml "$STAGE/" 2>/dev/null
-
-  # nginx 配置 + SSL 证书
-  if [ -d /stack/nginx ]; then
-    mkdir -p "$STAGE/nginx"
-    cp -rp /stack/nginx/. "$STAGE/nginx/" 2>/dev/null
-  else
-    log "WARNING: /stack/nginx 不存在，跳过"
-  fi
-
-  # .env.secrets 是否入包：取决于能否加密（D3 铁律——明文密钥不落盘）
+  # [P1-12] 密钥材料是否入包：仅有加密能力时才允许。
+  # .env 同样可能含 DB/JWT/Redis 口令（实测 key 清单），不能只在无口令时排除 .env.secrets。
   ENC_PASS=""
   if [ -f "$ENC_PASS_FILE" ]; then
     if command -v gpg >/dev/null 2>&1 || command -v openssl >/dev/null 2>&1; then
       ENC_PASS="$ENC_PASS_FILE"
-      cp -p /stack/.env.secrets "$STAGE/"
-      log "本次配置备份包含 .env.secrets，将加密落盘（口令: $ENC_PASS_FILE）"
     else
-      log "WARNING: 有口令文件但容器内无 gpg/openssl，排除 .env.secrets"
+      log "WARNING: 有口令文件但容器内无 gpg/openssl，本次排除全部密钥材料（.env/.env.secrets/证书）"
     fi
   else
-    log "WARNING: 未配置备份加密口令（$ENC_PASS_FILE），本次排除 .env.secrets（防明文密钥落盘）"
+    log "WARNING: 未配置备份加密口令（$ENC_PASS_FILE），本次排除全部密钥材料（.env/.env.secrets/证书）"
     log "WARNING: 修复：在 NAS 执行 bash deploy/backup/setup-backup-encryption.sh 后重启备份容器"
+  fi
+
+  if [ -n "$ENC_PASS" ]; then
+    cp -p /stack/.env "$STAGE/" 2>/dev/null || log "WARNING: .env 不存在，跳过"
+    cp -p /stack/.env.secrets "$STAGE/"
+    log "本次配置备份包含 .env/.env.secrets，将加密落盘（口令: $ENC_PASS_FILE）"
+  fi
+  cp -p /stack/docker-compose.synology.yml "$STAGE/" 2>/dev/null
+
+  # nginx 配置 + SSL 证书（证书含 TLS 私钥，未加密时排除）
+  if [ -d /stack/nginx ]; then
+    mkdir -p "$STAGE/nginx"
+    cp -rp /stack/nginx/. "$STAGE/nginx/" 2>/dev/null
+    if [ -z "$ENC_PASS" ]; then
+      rm -rf "$STAGE/nginx/certs"
+      log "WARNING: 未加密，已排除 nginx/certs（TLS 私钥不落明文备份）"
+    fi
+  else
+    log "WARNING: /stack/nginx 不存在，跳过"
   fi
 
   FILE="/backups/config/config_$(date +%Y%m%d).tar.gz"
@@ -291,10 +334,16 @@ mkdir -p /backups
 
 if [ "${1:-}" = "--once" ]; then
   log "===== --once 手动模式开始 ====="
-  run_mysql
-  run_uploads
-  run_config
-  log "===== --once 手动模式结束 ====="
+  # [P1-13] 任一子备份失败必须以非 0 退出，否则运维误判为成功
+  FAILED=0
+  run_mysql || FAILED=1
+  run_uploads || FAILED=1
+  run_config || FAILED=1
+  if [ "$FAILED" -ne 0 ]; then
+    log "===== --once 手动模式结束：存在失败项（exit=1）====="
+    exit 1
+  fi
+  log "===== --once 手动模式结束：全部成功 ====="
   exit 0
 fi
 

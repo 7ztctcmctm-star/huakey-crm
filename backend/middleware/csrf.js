@@ -6,7 +6,7 @@
  * - 服务端设置一个非 httpOnly 的 csrf-token Cookie
  * - 前端在发送非 GET 请求时，从 document.cookie 读取并放入 X-CSRF-Token header
  * - 服务端比对 header 与 cookie 是否一致，不一致则拒绝
- * - sameSite=strict 已能防御大多数 CSRF，本层作为纵深防御
+ * - sameSite=lax（eb34a40：strict 导致 .local 域名不存 cookie），配合 double-submit 作为纵深防御
  */
 
 const crypto = require('crypto');

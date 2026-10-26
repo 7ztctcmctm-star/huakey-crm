@@ -133,8 +133,8 @@ describe('contractService.createContract', () => {
 
     // 客户校验
     conn.query.mockResolvedValueOnce([[{ id: 1, status: 'signed', company_name: 'A' }]]);
-    // COUNT 查询（已有 3 个合同）
-    conn.query.mockResolvedValueOnce([[{ cnt: 3 }]]);
+    // 序列自增（分配 4）
+    conn.query.mockResolvedValueOnce([{ insertId: 4 }]);
     // INSERT
     conn.query.mockResolvedValueOnce([{ insertId: 50 }]);
 
@@ -155,7 +155,7 @@ describe('contractService.createContract', () => {
     mockPool.getConnection.mockResolvedValue(conn);
 
     conn.query.mockResolvedValueOnce([[{ id: 1, status: 'signed', company_name: 'A' }]]);
-    conn.query.mockResolvedValueOnce([[{ cnt: 0 }]]);
+    conn.query.mockResolvedValueOnce([{ insertId: 1 }]);
     conn.query.mockResolvedValueOnce([{ insertId: 51 }]);
     conn.query.mockResolvedValueOnce([{ affectedRows: 2 }]);  // 批量插入 plans
 
@@ -178,10 +178,23 @@ describe('contractService.createContract', () => {
   });
 
   it('幂等键重复提交应直接返回首次结果、不重复建合同（2026-10-15 补，AGENTS.md 7.18）', async () => {
+    const { buildStorageKey } = require('../../utils/idempotency');
     const conn = createMockConnection();
     mockPool.getConnection.mockResolvedValue(conn);
-    // 幂等键已存在（首次请求已成功并记录）
-    mockPool.query.mockResolvedValueOnce([[{ result_json: JSON.stringify({ id: 88, contract_no: 'CON-260101-001' }) }]]);
+
+    // [P0-07] 先占位：INSERT 撞主键 ⇒ 读回首次结果
+    mockPool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.includes('INSERT INTO crm_idempotency')) {
+        const err = new Error('Duplicate entry');
+        err.code = 'ER_DUP_ENTRY';
+        throw err;
+      }
+      if (s.includes('SELECT result_json')) {
+        return [[{ result_json: JSON.stringify({ id: 88, contract_no: 'CON-260101-001' }) }]];
+      }
+      return [[]];
+    });
 
     const result = await contractService.createContract(
       mockPool,
@@ -193,6 +206,9 @@ describe('contractService.createContract', () => {
     expect(result).toEqual({ id: 88, contract_no: 'CON-260101-001' });
     expect(mockPool.getConnection).not.toHaveBeenCalled(); // 不进入建合同事务
     expect(conn.query).not.toHaveBeenCalled();
+    // 读回使用的是 user 命名空间下的哈希键
+    const selectCall = mockPool.query.mock.calls.find(c => String(c[0]).includes('SELECT result_json'));
+    expect(selectCall[1]).toEqual([buildStorageKey('contract', 1, 'idem-contract-001')]);
   });
 
   it('成功时应 commit 事务', async () => {
@@ -200,7 +216,7 @@ describe('contractService.createContract', () => {
     mockPool.getConnection.mockResolvedValue(conn);
 
     conn.query.mockResolvedValueOnce([[{ id: 1, status: 'signed', company_name: 'A' }]]);
-    conn.query.mockResolvedValueOnce([[{ cnt: 0 }]]);
+    conn.query.mockResolvedValueOnce([{ insertId: 1 }]);
     conn.query.mockResolvedValueOnce([{ insertId: 52 }]);
 
     await contractService.createContract(
@@ -212,6 +228,34 @@ describe('contractService.createContract', () => {
     expect(conn.beginTransaction).toHaveBeenCalled();
     expect(conn.commit).toHaveBeenCalled();
     expect(conn.release).toHaveBeenCalled();
+  });
+
+  it('[P2-04] 合同号由序列原子分配；并发撞号（1062）时取下一个号重试', async () => {
+    const conn = createMockConnection();
+    mockPool.getConnection.mockResolvedValue(conn);
+
+    conn.query.mockResolvedValueOnce([[{ id: 1, status: 'signed', company_name: 'A' }]]);
+    conn.query.mockResolvedValueOnce([{ insertId: 7 }]);   // 序列分配 007
+    conn.query.mockRejectedValueOnce(Object.assign(new Error('Duplicate entry'), { code: 'ER_DUP_ENTRY' }));
+    conn.query.mockResolvedValueOnce([{ insertId: 8 }]);   // 重试：序列分配 008
+    conn.query.mockResolvedValueOnce([{ insertId: 90 }]);  // INSERT 成功
+
+    const result = await contractService.createContract(
+      mockPool,
+      { customer_id: 1, amount: 5000 },
+      1
+    );
+
+    const dateStr = require('../../utils/dateCode').shortDateCode();
+    expect(result).toEqual({ id: 90, contract_no: `CON-${dateStr}-008` });
+
+    const seqCalls = conn.query.mock.calls.filter(
+      ([sql]) => String(sql).includes('crm_doc_sequence')
+    );
+    expect(seqCalls).toHaveLength(2);
+    expect(seqCalls[0][0]).toContain('LAST_INSERT_ID(current_value + 1)');
+    expect(seqCalls[0][1]).toEqual([`contract:${dateStr}`]);
+    expect(conn.commit).toHaveBeenCalled();
   });
 
   it('异常时应 rollback 事务', async () => {

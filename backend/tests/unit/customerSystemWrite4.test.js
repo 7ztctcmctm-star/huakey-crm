@@ -18,7 +18,7 @@ function makePool(affectedRows = 1) {
 }
 
 describe('customerService.systemCreateImportedCustomer（原 importService 的 INSERT）', () => {
-  it('列顺序与参数顺序与改动前完全一致，并回传 insertId', async () => {
+  it('写入 business_status，并回传 insertId（P0-12）', async () => {
     const pool = makePool();
     const r = await customerService.systemCreateImportedCustomer(pool, {
       company_name: 'A公司', address: '地址', industry: '汽配', source: '展会',
@@ -26,28 +26,56 @@ describe('customerService.systemCreateImportedCustomer（原 importService 的 I
     });
     expect(pool.calls).toHaveLength(1);
     expect(pool.calls[0].sql).toBe(
-      'INSERT INTO crm_customer (company_name, address, industry, source, level, status, remark, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO crm_customer (company_name, address, industry, source, level, status, business_status, remark, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
     );
-    expect(pool.calls[0].params).toEqual(['A公司', '地址', '汽配', '展会', 'B', 'lead', '备注', 7]);
+    expect(pool.calls[0].params).toEqual(['A公司', '地址', '汽配', '展会', 'B', 'lead', 'lead', '备注', 7]);
     expect(r.insertId).toBe(123);
+  });
+
+  it.each([
+    ['lead', 'lead'],
+    ['following', 'following'],
+    ['signed', 'signed'],
+    ['quoted', 'quoted'],
+    ['lost', 'lost'],
+    ['sea', 'following'],      // business_status 枚举不含 sea，映射为 following
+    ['paused', 'following'],   // 同上
+    [undefined, 'lead']        // 未知/缺失回退 lead，与表默认值一致
+  ])('status=%p 时 business_status=%p（导入后必须进入正确列表）', async (status, expected) => {
+    const pool = makePool();
+    await customerService.systemCreateImportedCustomer(pool, {
+      company_name: 'B公司', status, owner_id: 7
+    });
+    // (company_name, address, industry, source, level, status, business_status, remark, owner_id)
+    expect(pool.calls[0].params[6]).toBe(expected);
   });
 });
 
-describe('customerService.systemReleaseOwnedCustomersOnLeave（原 deleteUser 步骤3）', () => {
-  it('SQL 与参数与改动前一致（含 pool_type=public、update_time=NOW）', async () => {
+describe('customerService.systemReleaseOwnedCustomersOnLeave（原 deleteUser 步骤3，P1-03 已收敛状态）', () => {
+  it('非线索客户：转公海态（status/business_status 同步），保留 pool_type=public', async () => {
     const pool = makePool();
     await customerService.systemReleaseOwnedCustomersOnLeave(pool, 9);
-    expect(pool.calls[0].sql).toBe(
-      "UPDATE crm_customer SET owner_id = NULL, pool_status = ?, pool_type = 'public', protect_until = NULL, update_time = NOW() WHERE owner_id = ? AND deleted_at IS NULL"
-    );
-    expect(pool.calls[0].params).toEqual(['sea', 9]);
+    expect(pool.calls[0].sql).toContain("pool_type = 'public'");
+    expect(pool.calls[0].sql).toContain('status = ?');
+    expect(pool.calls[0].sql).toContain('business_status = ?');
+    expect(pool.calls[0].sql).toContain('business_status <> ?');
+    expect(pool.calls[0].params).toEqual(['sea', 'sea', 'following', 9, 'lead']);
   });
 
-  it('（已知差异，保持不变）不同步 status、不写 crm_pool_log', async () => {
+  it('线索客户：只清归属，保持 lead（不静默转正式客户）', async () => {
+    const pool = makePool();
+    await customerService.systemReleaseOwnedCustomersOnLeave(pool, 9);
+    const leadCall = pool.calls[1];
+    expect(leadCall.sql).toContain('owner_id = NULL, pool_status = ?');
+    expect(leadCall.sql).not.toContain(', status = ?');
+    // [P2-07] 线索池的 pool_status 兼容值恒为 private（原实现误写 sea）
+    expect(leadCall.params).toEqual(['private', 9, 'lead']);
+  });
+
+  it('不写 crm_pool_log（与离职交接原有口径一致）', async () => {
     const pool = makePool();
     await customerService.systemReleaseOwnedCustomersOnLeave(pool, 9);
     const all = pool.calls.map((c) => c.sql).join(' | ');
-    expect(all).not.toMatch(/status = 'sea'/);
     expect(all).not.toMatch(/crm_pool_log/);
   });
 });

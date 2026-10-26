@@ -97,7 +97,11 @@ describe('C-001 · customReportService 列别名防存储型 SQL 注入', () => 
         .mockResolvedValueOnce([[{
           data_source: 'customer',
           columns_config: JSON.stringify(columnsConfig),
-          filter_config: JSON.stringify([])
+          filter_config: JSON.stringify([]),
+          // [P1-08] runReport 增加了报表可见性校验（本人/公开/manageAll）。
+          // 本套件只验证列别名防注入，用公开报表放行，避免 403 导致 dataSql 未生成。
+          is_public: 1,
+          create_by: 1
         }]])
         // 2: count（const [[{ total }]] = await query()）
         .mockImplementationOnce(async (sql) => { captured.countSql = sql; return [[{ total: 0 }]]; })

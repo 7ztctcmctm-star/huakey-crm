@@ -170,6 +170,7 @@
 
 <script setup>
 import { reportError } from '@/utils/error'
+import { downloadBlob } from '@/utils/download'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
@@ -308,13 +309,7 @@ const handleExport = async () => {
       endDate: dateRange.value?.[1] || undefined
     })
 
-    const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `operation_logs_${new Date().toISOString().slice(0, 10)}.xlsx`
-    a.click()
-    URL.revokeObjectURL(url)
+    await downloadBlob(res, `operation_logs_${new Date().toISOString().slice(0, 10)}.xlsx`)
     ElMessage.success('导出成功')
   } catch (error) {
     reportError('导出日志失败:', error)

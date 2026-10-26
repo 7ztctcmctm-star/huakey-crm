@@ -91,12 +91,12 @@ describe('reportAnalyticsService 数据范围', () => {
       expect(pool.calls[0].params).toEqual([42]);
     });
 
-    it('逾期客户列表按 c.owner_id 过滤，且保留公海状态条件', async () => {
+    it('逾期客户列表按 c.owner_id 过滤，不再依赖 pool_status 兼容列', async () => {
       const pool = makePool();
       await svc.getOverdueCustomers(pool, {}, SELF(42));
       expect(pool.calls[0].sql).toContain('c.owner_id = ?');
-      expect(pool.calls[0].params[0]).toBe('private');
-      expect(pool.calls[0].params).toContain(42);
+      expect(pool.calls[0].sql).not.toContain('pool_status');
+      expect(pool.calls[0].params).toEqual([42]);
     });
 
     it('首页组合接口（funnel / collection）把范围透传到下层', async () => {

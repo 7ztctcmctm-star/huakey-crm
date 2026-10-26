@@ -14,7 +14,9 @@ jest.mock('../../middleware/logger', () => ({
   logFieldChanges: jest.fn().mockResolvedValue(),
   getIpAddress: () => '127.0.0.1'
 }));
-jest.mock('../../middleware/permission', () => ({ buildDataPermissionWhere: jest.fn() }));
+jest.mock('../../middleware/permission', () => ({
+  buildDataPermissionWhere: jest.fn(async () => ({ clause: '1=1', params: [] }))
+}));
 jest.mock('../../utils/fieldLog', () => ({ logFieldChanges: jest.fn() }));
 jest.mock('../../utils/notification', () => ({ sendMarkdown: jest.fn() }));
 jest.mock('../../utils/sseManager', () => ({ send: jest.fn() }));
@@ -43,6 +45,42 @@ const makePool = (conn, extra = {}) => ({
   getConnection: jest.fn().mockResolvedValue(conn),
   ...extra
 });
+
+/**
+ * 给 pool 安装内存版 crm_idempotency 表（P0-07 占位协议）：
+ * INSERT 占位 → 业务执行 → UPDATE 回填；重放 INSERT 撞主键后读回结果。
+ */
+function installIdemStore(pool) {
+  const store = new Map();
+  pool.query.mockImplementation(async (sql, params = []) => {
+    const s = String(sql).replace(/\s+/g, ' ');
+    if (s.startsWith('INSERT INTO crm_idempotency')) {
+      if (store.has(params[0])) {
+        throw Object.assign(new Error('Duplicate entry'), { code: 'ER_DUP_ENTRY' });
+      }
+      store.set(params[0], null);
+      return [{ affectedRows: 1 }];
+    }
+    if (s.includes('SELECT result_json FROM crm_idempotency')) {
+      if (!store.has(params[0])) return [[]];
+      return [[{ result_json: store.get(params[0]) }]];
+    }
+    if (s.startsWith('UPDATE crm_idempotency')) {
+      store.set(params[1], params[0]);
+      return [{ affectedRows: 1 }];
+    }
+    if (s.startsWith('DELETE FROM crm_idempotency')) {
+      store.delete(params[0]);
+      return [{ affectedRows: 1 }];
+    }
+    // [P0-09] createInvoice 开事务前校验合同存在且客户一致
+    if (s.includes('FROM crm_contract c')) {
+      return [[{ id: params[0], customer_id: 1 }]];
+    }
+    return [{}];
+  });
+  return store;
+}
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -200,15 +238,7 @@ describe('runIdempotent 接入点', () => {
       if (s.includes('COUNT(*) as cnt FROM crm_contract')) return Promise.resolve([[{ cnt: 0 }]]);
       return Promise.resolve([{ affectedRows: 1, insertId: 77 }]);
     });
-    // 幂等表：首次查不到 → 之后能查到
-    pool.query.mockImplementation((sql, params) => {
-      const s = String(sql);
-      if (s.includes('SELECT result_json FROM crm_idempotency')) {
-        return Promise.resolve(pool.__seen ? [[{ result_json: pool.__cache }]] : [[]]);
-      }
-      if (s.includes('INSERT INTO crm_idempotency')) { pool.__seen = true; pool.__cache = params[2]; return Promise.resolve([{ affectedRows: 1 }]); }
-      return Promise.resolve([{}]);
-    });
+    installIdemStore(pool);
 
     const first = await quoteService.convertToContract(pool, 1, 5, KEY);
     expect(first.contract_id).toBe(77);
@@ -224,16 +254,9 @@ describe('runIdempotent 接入点', () => {
     const conn = makeConn();
     const pool = makePool(conn);
     conn.query
-      .mockResolvedValueOnce([[]])               // SELECT 当日编号
+      .mockResolvedValueOnce([{ insertId: 1 }])   // [P2-06] 序列取号
       .mockResolvedValueOnce([{ insertId: 12 }]); // INSERT
-    pool.query.mockImplementation((sql, params) => {
-      const s = String(sql);
-      if (s.includes('SELECT result_json FROM crm_idempotency')) {
-        return Promise.resolve(pool.__seen ? [[{ result_json: pool.__cache }]] : [[]]);
-      }
-      if (s.includes('INSERT INTO crm_idempotency')) { pool.__seen = true; pool.__cache = params[2]; return Promise.resolve([{ affectedRows: 1 }]); }
-      return Promise.resolve([{}]);
-    });
+    installIdemStore(pool);
 
     const a = await invoiceService.createInvoice(pool, { contract_id: 1, customer_id: 1, type: 1, amount: 100 }, 1, KEY);
     expect(a.id).toBe(12);
@@ -255,14 +278,7 @@ describe('runIdempotent 接入点', () => {
       if (s.includes('JOIN sys_role')) return Promise.resolve([[{ id: 3, real_name: '接' }]]);
       return Promise.resolve([{ affectedRows: 1, insertId: 55 }]);
     });
-    pool.query.mockImplementation((sql, params) => {
-      const s = String(sql);
-      if (s.includes('SELECT result_json FROM crm_idempotency')) {
-        return Promise.resolve(pool.__seen ? [[{ result_json: pool.__cache }]] : [[]]);
-      }
-      if (s.includes('INSERT INTO crm_idempotency')) { pool.__seen = true; pool.__cache = params[2]; return Promise.resolve([{ affectedRows: 1 }]); }
-      return Promise.resolve([{}]);
-    });
+    installIdemStore(pool);
 
     const a = await transferService.createTransfer(pool, { customer_id: 11, to_user_id: 3 }, 2, KEY);
     expect(a.id).toBe(55);
@@ -279,14 +295,7 @@ describe('runIdempotent 接入点', () => {
     conn.query
       .mockResolvedValueOnce([[{ id: 9, applicant_id: 4, status: 'draft' }]])
       .mockResolvedValueOnce([{ affectedRows: 1 }]);
-    pool.query.mockImplementation((sql, params) => {
-      const s = String(sql);
-      if (s.includes('SELECT result_json FROM crm_idempotency')) {
-        return Promise.resolve(pool.__seen ? [[{ result_json: pool.__cache }]] : [[]]);
-      }
-      if (s.includes('INSERT INTO crm_idempotency')) { pool.__seen = true; pool.__cache = params[2]; return Promise.resolve([{ affectedRows: 1 }]); }
-      return Promise.resolve([{}]);
-    });
+    installIdemStore(pool);
 
     const a = await purchaseRequestService.submitRequest(pool, 9, { userId: 4 }, KEY);
     expect(a).toBe(true);

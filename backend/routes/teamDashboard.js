@@ -41,8 +41,9 @@ router.get('/overview', authenticateToken, checkPermission('team-dashboard'), as
 router.get('/sales-breakdown', authenticateToken, checkPermission('team-dashboard'), async (req, res, next) => {
   try {
     const isBoss = req.user.viewAll || req.user.roleCode === ROLE_CODES.BOSS || req.user.roleCode === ROLE_CODES.MANAGER;
+    const { startDate, endDate } = req.query;
     const data = await teamDashboardService.getSalesBreakdown(pool, {
-      userId: req.user.userId, isBoss
+      userId: req.user.userId, isBoss, startDate, endDate
     });
     res.json({ code: 200, message: '查询成功', data });
   } catch (error) {

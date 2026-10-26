@@ -7,7 +7,7 @@
 | 群晖 NAS | DS723+ 或更高 | 需支持 Container Manager |
 | Docker | 24.0+ | 通过 Container Manager 管理 |
 | MySQL | 8.0 | 容器内置 |
-| Redis | 7.x | 容器内置（可选，默认关闭） |
+| Redis | 7.x | 容器内置（Synology compose 默认启用，且为 app 的 healthy 依赖） |
 | Node.js | 20+ | 仅开发环境需要 |
 
 ## 首次部署步骤
@@ -49,14 +49,14 @@ docker compose -f docker-compose.synology.yml up -d --build
 ### 3. 验证部署
 
 ```bash
-# 健康检查
-curl http://localhost:5000/api/health
+# 健康检查（app 未发布宿主端口，进入容器检查）
+docker exec huakey-app wget -qO- http://localhost:5000/api/v1/health
 
 # 验证码
-curl http://localhost:5000/api/auth/captcha
+docker exec huakey-app wget -qO- http://localhost:5000/api/v1/auth/captcha
 
-# 前端页面
-curl -I http://localhost/
+# 前端页面（容器 nginx 发布 8443；DSM nginx 对外 80/443）
+curl -kI https://localhost:8443/
 ```
 
 或运行冒烟测试脚本：
@@ -71,9 +71,9 @@ bash scripts/smoke-test.sh http://localhost
 
 | 端口 | 服务 | 说明 |
 |------|------|------|
-| 80 | Nginx | 前端 + 反向代理，对外暴露 |
-| 443 | Nginx | HTTPS（如配置了 SSL） |
-| 5000 | 后端 API | **不建议对外暴露**，仅容器内部通信 |
+| 80 / 443 | DSM nginx | 群晖自带，SSL 终端，对外暴露（不由本 compose 管理） |
+| 8443 | 容器 nginx (`huakey-nginx`) | `8443:8443`，唯一由本 compose 发布的端口；DSM 反代到 `127.0.0.1:8443` |
+| 5000 | 后端 API (`huakey-app`) | 仅 `expose`，不发布宿主端口 |
 | 3306 | MySQL | **不对外暴露**，仅容器内部通信 |
 | 6379 | Redis | **不对外暴露**，仅容器内部通信 |
 
@@ -84,22 +84,26 @@ bash scripts/smoke-test.sh http://localhost
 | 容器卷 | 宿主路径 | 用途 |
 |--------|---------|------|
 | `mysql-data` | Docker managed volume | MySQL 数据持久化 |
-| `./database/backups` | `/volume1/docker/huakey-crm/database/backups` | 数据库备份 |
-| `./uploads` | `/volume1/docker/huakey-crm/uploads` | 上传文件 |
-| `./logs` | `/volume1/docker/huakey-crm/logs` | 应用日志 |
+| `app-uploads` | Docker managed volume | 上传文件（`/app/uploads`） |
+| `app-logs` | Docker managed volume | 应用日志（`/app/logs`） |
+| `./database/backups` | `/volume1/docker/huakey-crm/database/backups` | 数据库备份（bind mount） |
 
 ### 内存限制
 
-群晖 NAS 资源有限，已在 `docker-compose.synology.yml` 中配置内存限制：
+**群晖 NAS 的 `docker-compose.synology.yml` 不设置 `mem_limit` / `cpus`**：DSM 内核不支持
+cgroup v1 CPU CFS scheduler，声明后会报 `NanoCPUs can not be set`，导致 `docker compose up -d`
+失败；资源上限由 DSM 的容器管理器与 NAS 总内存约束。
 
-| 服务 | 内存上限 |
-|------|---------|
-| MySQL | 256M |
-| Redis | 128M |
-| Backend | 512M |
-| Frontend (Nginx) | 64M |
+其他 Linux / Docker Desktop 环境使用 `deploy/docker-compose.prod.yml`，其中已配置：
 
-如 NAS 内存充足（≥4GB），可适当上调 MySQL 的 `innodb_buffer_pool_size`。
+| 服务 | 内存上限 | CPU |
+|------|---------|-----|
+| MySQL | 512M | 1.0 |
+| Redis | 256M | 0.5 |
+| Backend | 512M | 1.0 |
+
+如 NAS 内存充足（≥4GB），可适当上调 MySQL 的 `innodb_buffer_pool_size`（见
+`deploy/mysql-entrypoint.sh` 的自适应逻辑）。
 
 ### 缓存问题
 
@@ -123,10 +127,11 @@ MySQL 容器已配置 healthcheck，Docker 会自动检测 MySQL 就绪状态。
 docker compose -f docker-compose.synology.yml ps
 
 # 2. 后端健康检查
-curl -s http://localhost:5000/api/health | jq .
+# 群晖栈 app 未映射宿主端口，进入容器内检查
+docker exec huakey-app wget -qO- http://localhost:5000/api/v1/health
 
 # 3. 数据库连接
-docker exec huakey-mysql mysql -u crm_user -p${DB_PASSWORD} -e "SELECT 1"
+docker exec huakey-mysql sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" mysql -u crm_user -e "SELECT 1"'
 
 # 4. Redis 连接（如启用）
 docker exec huakey-redis redis-cli ping
@@ -137,25 +142,26 @@ docker exec huakey-redis redis-cli ping
 ### 数据库备份
 
 ```bash
-# 手动备份
-docker exec huakey-mysql mysqldump -u root -p${MYSQL_ROOT_PASSWORD} huakey_crm > database/backups/backup_$(date +%Y%m%d).sql
+# 手动备份（[P2-16] 口令走 MYSQL_PWD，不进入宿主机进程命令行）
+docker exec huakey-mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump -u root huakey_crm' > database/backups/backup_$(date +%Y%m%d).sql
 
 # 自动备份（添加到群晖任务计划）
 # 控制面板 → 任务计划 → 新增 → 用户定义脚本
 # 脚本内容：
-# docker exec huakey-mysql mysqldump -u root -pYOUR_PASSWORD huakey_crm > /volume1/docker/huakey-crm/database/backups/backup_$(date +%Y%m%d).sql
+# docker exec huakey-mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump -u root huakey_crm' > /volume1/docker/huakey-crm/database/backups/backup_$(date +%Y%m%d).sql
 ```
 
 ### 数据库恢复
 
 ```bash
 # 恢复备份
-docker exec -i huakey-mysql mysql -u root -p${MYSQL_ROOT_PASSWORD} huakey_crm < database/backups/backup_20260101.sql
+docker exec -i huakey-mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -u root huakey_crm' < database/backups/backup_20260101.sql
 ```
 
 ### 文件备份
 
-上传文件存储在 `./uploads/` 目录，定期备份该目录即可。
+上传文件存储在命名卷 `app-uploads`（容器内 `/app/uploads`），请定期备份该卷
+（例如 `docker run --rm -v <project>_app-uploads:/data -v "$PWD":/backup alpine tar czf /backup/app-uploads.tgz -C /data .`）。
 
 ## 鉴权方式说明
 
@@ -164,9 +170,11 @@ docker exec -i huakey-mysql mysql -u root -p${MYSQL_ROOT_PASSWORD} huakey_crm < 
 | 方式 | 适用场景 | 优点 | 注意 |
 |------|---------|------|------|
 | `Authorization: Bearer <token>` | REST API 调用、第三方集成 | 通用标准 | 需要前端手动存储和附加 token |
-| `Cookie: token=<jwt>`（HttpOnly） | 浏览器同源访问 | 自动携带，JS 不可读（防 XSS） | 需配合 `sameSite: 'strict'` |
+| `Cookie: token=<jwt>`（HttpOnly） | 浏览器同源访问 | 自动携带，JS 不可读（防 XSS） | 配合 `sameSite: 'lax'` + double-submit CSRF |
 
-当前前端（Vue 3）使用 Cookie 方式。CSRF 已通过 `sameSite: 'strict'` 防御，无需额外 token。
+当前前端（Vue 3）使用 Cookie 方式。CSRF 防护为 **`sameSite: 'lax'` + double-submit token**：
+后端下发非 HttpOnly 的 CSRF cookie，写请求必须携带与之相同的 `X-CSRF-Token` 请求头，
+缺失或不一致返回 403（见 `backend/middleware/csrf.js`）。
 
 ## API 设计约定
 
@@ -207,7 +215,7 @@ netstat -tlnp | grep 5000
 
 ### Q: 数据库迁移失败？
 
-`migrate.js` 已内置重试逻辑。如仍失败，检查 MySQL 容器是否就绪：
+`run_migrations.js` 已内置重试逻辑。如仍失败，检查 MySQL 容器是否就绪：
 
 ```bash
 docker logs huakey-mysql --tail 20
@@ -215,8 +223,9 @@ docker logs huakey-mysql --tail 20
 
 ### Q: 上传文件丢失？
 
-上传文件存储在 `./uploads/` 目录，确保该目录已正确挂载且权限正确：
+上传文件存储在命名卷 `app-uploads`（容器内 `/app/uploads`），确保卷已挂载且容器可写：
 
 ```bash
-ls -la /volume1/docker/huakey-crm/uploads/
+docker exec huakey-app ls -la /app/uploads/
+docker volume inspect huakey-crm_app-uploads
 ```

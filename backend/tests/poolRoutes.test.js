@@ -6,10 +6,17 @@ const jwt = require('jsonwebtoken');
 
 // authenticateToken 会查库刷新 manage_all/role_code/status，按 SQL+roleId 分流模拟
 const mockPool = {
-  query: jest.fn(async (sql, _params) => {
+  query: jest.fn(async (sql, params) => {
     if (sql.includes('sys_token_blacklist')) return [[]];
-    if (sql.includes('FROM sys_role')) return [[{ view_all: 0, manage_all: 0, role_code: 'sales' }]];
-    if (sql.includes('FROM sys_user')) return [[{ must_change_password: 0, status: 1 }]];
+    // [P0-06] 单次 LEFT JOIN：按 token.userId 返回当前账号与角色
+    if (sql.includes('FROM sys_user u')) {
+      const uid = (params && params[0]) || 1;
+      return [[{
+        id: uid, username: 'sales01', role_id: 3, status: 1,
+        must_change_password: 0, password_changed_at: null,
+        fresh_role_id: 3, role_code: 'sales', view_all: 0, manage_all: 0
+      }]];
+    }
     return [[]];
   })
 };
@@ -68,6 +75,29 @@ describe('公海池路由 /api/v1/pool', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.echoed).toEqual({ page: 2, pageSize: 50, level: 'A', sort: 'create_time_desc' });
     expect(customerController.listPoolNew).toHaveBeenCalledTimes(1);
+  });
+
+  // [V1.1 §11.3] 前端公海页实际下发这三个筛选，旧 schema 会 stripUnknown 静默删除。
+  it('POST /pool 列表：联系人/电话/业务状态筛选穿过 stripUnknown', async () => {
+    const res = await request(app)
+      .post('/pool')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ contact_name: '张三', phone: '13800000000', business_status: 'quoted' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.echoed).toEqual({
+      contact_name: '张三', phone: '13800000000', business_status: 'quoted'
+    });
+  });
+
+  it('POST /pool 列表：business_status 非法值被 Joi 拒绝（400）', async () => {
+    const res = await request(app)
+      .post('/pool')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ business_status: 'not-a-status' });
+
+    expect(res.status).toBe(400);
+    expect(customerController.listPoolNew).not.toHaveBeenCalled();
   });
 
   it('POST /pool 列表：level 非法值被 Joi 拒绝（400）', async () => {

@@ -175,6 +175,30 @@ async function getContract(pool, contractId) {
 }
 
 /**
+ * [P2-04] 原子取下一个合同号（`CON-YYMMDD-NNN`）。
+ *
+ * 使用 crm_doc_sequence 单行原子自增：`LAST_INSERT_ID(expr)` 在 INSERT/UPDATE
+ * 两条路径都返回本次分配到的值，并发事务在序列行上串行等待，不会读到同一序号。
+ * 迁移 129 已按存量合同的最大序号初始化各日期序列，不会与历史编号冲突。
+ *
+ * @param {object} connection - 事务连接
+ * @param {string} dateStr - YYMMDD
+ * @returns {Promise<string>}
+ */
+async function nextContractNo(connection, dateStr) {
+  const [result] = await connection.query(
+    `INSERT INTO crm_doc_sequence (seq_key, current_value) VALUES (?, LAST_INSERT_ID(1))
+     ON DUPLICATE KEY UPDATE current_value = LAST_INSERT_ID(current_value + 1)`,
+    [`contract:${dateStr}`]
+  );
+  const seq = Number(result.insertId);
+  if (!Number.isInteger(seq) || seq <= 0) {
+    throw new Error(`合同编号序列返回值异常: ${result.insertId}`);
+  }
+  return `CON-${dateStr}-${String(seq).padStart(3, '0')}`;
+}
+
+/**
  * 创建合同（事务保护，含回款计划；幂等键防重复提交）
  * @param {object} pool
  * @param {object} data - 合同数据
@@ -218,16 +242,32 @@ async function createContract(pool, data, createBy, idempotencyKey) {
       }
     }
 
-    // 生成合同编号
+    // [P2-04] 生成合同编号：改用 crm_doc_sequence 原子自增（迁移 129）。
+    // 旧实现 `COUNT(*)+1` 在并发下两个事务读到同一计数，后插入者直接 1062；
+    // 且聚合 `FOR UPDATE` 不锁行，起不到串行化作用。
+    // 唯一索引 contract_no 仍是最终防线：若命中历史/手工号冲突，继续取下一个序列值重试。
     const dateStr = shortDateCode();
-    const [count] = await connection.query('SELECT COUNT(*) as cnt FROM crm_contract WHERE contract_no LIKE ? FOR UPDATE', [`CON-${dateStr}-%`]);
-    const seq = String(count[0].cnt + 1).padStart(3, '0');
-    const contractNo = `CON-${dateStr}-${seq}`;
+    const MAX_NO_ATTEMPTS = 5;
+    let contractNo = null;
+    let insertResult = null;
 
-    const [insertResult] = await connection.query(
-      'INSERT INTO crm_contract (contract_no, customer_id, opportunity_id, quote_id, amount, sign_date, delivery_date, payment_terms, remark, create_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [contractNo, customer_id, opportunity_id || null, quote_id || null, amount, sign_date, delivery_date, payment_terms, remark, createBy]
-    );
+    for (let attempt = 1; attempt <= MAX_NO_ATTEMPTS; attempt += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      contractNo = await nextContractNo(connection, dateStr);
+
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        [insertResult] = await connection.query(
+          'INSERT INTO crm_contract (contract_no, customer_id, opportunity_id, quote_id, amount, sign_date, delivery_date, payment_terms, remark, create_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [contractNo, customer_id, opportunity_id || null, quote_id || null, amount, sign_date, delivery_date, payment_terms, remark, createBy]
+        );
+        break;
+      } catch (e) {
+        // 仅编号冲突（ER_DUP_ENTRY）重试；其余错误（字段/外键/长度等）立即失败
+        if (e.code !== 'ER_DUP_ENTRY' || attempt === MAX_NO_ATTEMPTS) throw e;
+        console.warn(`[合同] 合同号 ${contractNo} 冲突，第 ${attempt} 次重试`);
+      }
+    }
 
     const contractId = insertResult.insertId;
 
@@ -256,7 +296,7 @@ async function createContract(pool, data, createBy, idempotencyKey) {
   } finally {
     connection.release();
   }
-  });
+  }, createBy);
   return result;
 }
 

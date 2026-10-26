@@ -300,7 +300,7 @@ async function batchClaim(req, res, next) {
 
 async function release(req, res, next) {
   try {
-    const result = await poolService.releaseCustomer(pool, req.body.customer_id, req.user.userId, req.user)
+    const result = await poolService.releaseCustomer(pool, req.body.customer_id, req.user.userId, req.dataPermission)
     await logAction(req, 'release', `释放客户到公海: ${result.company_name}`)
     res.json({ code: 200, message: '释放客户成功', data: null })
   } catch (error) {
@@ -310,7 +310,7 @@ async function release(req, res, next) {
 
 async function batchRelease(req, res, next) {
   try {
-    const result = await poolService.batchReleaseCustomers(pool, req.body.customer_ids, req.user.userId, req.user)
+    const result = await poolService.batchReleaseCustomers(pool, req.body.customer_ids, req.user.userId, req.dataPermission)
     await logAction(req, 'batch-release', `批量释放 ${result.count} 个客户到公海`)
     res.json({ code: 200, message: `成功释放 ${result.count} 个客户`, data: { count: result.count } })
   } catch (error) {
@@ -405,7 +405,7 @@ async function convertLeadToFormal(req, res, next) {
 
 async function releaseToPool(req, res, next) {
   try {
-    const result = await customerService.releaseCustomerToPool(pool, req.body.id, req.user.userId, req.body.reason)
+    const result = await customerService.releaseCustomerToPool(pool, req.body.id, req.user.userId, req.body.reason, req.dataPermission)
     await logAction(req, 'release-to-pool', `释放客户到公海: ${result.company_name}`)
     await invalidateCache([`customer:list:${req.user.userId}:*`])
     res.json({ code: 200, message: '释放客户到公海成功', data: null })

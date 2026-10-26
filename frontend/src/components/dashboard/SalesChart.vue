@@ -149,6 +149,7 @@ import { formatAmount } from '@/composables/useFormat'
 import { useChart } from '@/composables/useChart'
 import { useDashboardFilters } from '@/composables/useDashboardFilters'
 import { PARENT_SOURCE_COLORS } from '@/constants/source'
+import { chartColors, funnelColors, funnelColorsLight } from '@/utils/chartTheme'
 import {
   getReportPerformance,
   getReportSalesTrend,
@@ -198,8 +199,8 @@ const renderTrendChart = (data) => {
         { offset: 0, color: 'rgba(0, 113, 227, 0.15)' },
         { offset: 1, color: 'rgba(0, 113, 227, 0.03)' }
       ])},
-      lineStyle: { color: 'var(--color-accent)', width: 2 },
-      itemStyle: { color: 'var(--color-accent)' }
+      lineStyle: { color: chartColors.primary, width: 2 },
+      itemStyle: { color: chartColors.primary }
     }]
   })
 }
@@ -217,13 +218,13 @@ const renderSourceChart = (data) => {
     legend: { orient: 'vertical', left: 'left', top: 'center' },
     series: [{
       type: 'pie', radius: ['40%', '70%'], center: ['60%', '50%'], avoidLabelOverlap: false,
-      itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
+      itemStyle: { borderRadius: 10, borderColor: chartColors.bg, borderWidth: 2 },
       label: { show: false, position: 'center' },
       emphasis: { label: { show: true, fontSize: 16, fontWeight: 'bold' } },
       labelLine: { show: false },
       data: data.map((item) => ({
         value: item.count, name: item.source || '未知',
-        itemStyle: { color: PARENT_SOURCE_COLORS[item.source] || '#aeaeb2' }
+        itemStyle: { color: PARENT_SOURCE_COLORS[item.source] || chartColors.textTertiary }
       }))
     }]
   })
@@ -245,13 +246,13 @@ const renderFunnelChart = (data) => {
       min: 0, max: data[0]?.count || 10, minSize: '0%', maxSize: '100%', sort: 'descending', gap: 2,
       label: { show: true, position: 'inside' },
       labelLine: { length: 10, lineStyle: { width: 1, type: 'solid' } },
-      itemStyle: { borderColor: '#fff', borderWidth: 1 },
+      itemStyle: { borderColor: chartColors.bg, borderWidth: 1 },
       emphasis: { label: { fontSize: 14 } },
       data: data.map((item, index) => ({
         value: item.count, name: item.stage,
         itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-          { offset: 0, color: ['#0071e3', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#86868b'][index] },
-          { offset: 1, color: ['#dbeafe', '#bfdbfe', '#93c5fd', '#60a5fa', '#e2e8f0', '#cbd5e1'][index] }
+          { offset: 0, color: funnelColors[index] },
+          { offset: 1, color: funnelColorsLight[index] }
         ])}
       }))
     }]

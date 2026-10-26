@@ -76,7 +76,7 @@ import { useRoute } from 'vue-router'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { getSurveyAnalytics } from '@/api/tools'
 import echarts from '@/composables/useECharts'
-import { chartColors } from '@/utils/chartTheme'
+import { chartColors, semanticColors } from '@/utils/chartTheme'
 
 const route = useRoute()
 const statusName = { draft: '草稿', active: '进行中', closed: '已关闭' }
@@ -123,7 +123,7 @@ const renderCharts = () => {
       series: [{
         type: 'bar', data: npsData.value.distribution.map((v, i) => ({
           value: v,
-          itemStyle: { color: i <= 6 ? '#f56c6c' : i <= 8 ? '#e6a23c' : '#67c23a' }
+          itemStyle: { color: i <= 6 ? semanticColors.danger : i <= 8 ? semanticColors.warning : semanticColors.success }
         }))
       }]
     })
@@ -161,7 +161,7 @@ onMounted(() => { fetchData() })
 
 .big-number { text-align: center; margin-bottom: 20px; }
 .big-value { font-size: 48px; font-weight: 800; }
-.big-value.good { color: #059669; }
+.big-value.good { color: var(--color-success); }
 .big-value.ok { color: var(--color-warning); }
 .big-value.bad { color: var(--color-danger); }
 .big-label { font-size: 13px; color: var(--color-text-tertiary); margin-top: 4px; }
@@ -169,9 +169,9 @@ onMounted(() => { fetchData() })
 .nps-breakdown { margin-top: 16px; }
 .nps-row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 8px; }
 .nps-dot { width: 10px; height: 10px; border-radius: 50%; }
-.nps-dot.green { background: #67c23a; }
-.nps-dot.yellow { background: #e6a23c; }
-.nps-dot.red { background: #f56c6c; }
+.nps-dot.green { background: var(--el-color-success); }
+.nps-dot.yellow { background: var(--el-color-warning); }
+.nps-dot.red { background: var(--el-color-danger); }
 
 .star-breakdown { margin-top: 16px; }
 .star-row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 8px; }

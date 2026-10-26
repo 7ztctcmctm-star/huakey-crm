@@ -6,7 +6,8 @@
 services:
 
   redis:
-    image: redis:7-alpine
+    # [P2-12] digest 固定于 2026-10-26；升级流程见 docs/image-digests.md
+    image: redis:7-alpine@sha256:57e4255cc971b1c8d6f8a6ca283ac01bc3ecdd914273ef6bfaede87aaecd6541
     container_name: crm-test-redis
     restart: unless-stopped
     mem_limit: 128m
@@ -22,7 +23,8 @@ services:
       retries: 5
 
   mysql:
-    image: mysql:8.0
+    # [P2-12] digest 固定于 2026-10-26；升级流程见 docs/image-digests.md
+    image: mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
     container_name: crm-test-mysql
     restart: unless-stopped
     mem_limit: 512m
@@ -33,10 +35,14 @@ services:
         max-size: "10m"
         max-file: "3"
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      # fail-fast：缺少任一凭据时 compose 直接报错，避免容器以空密码启动。
+      # [P2-14 2026-10-26] 测试环境必须使用独立凭据变量，禁止复用生产的
+      # MYSQL_ROOT_PASSWORD / DB_PASSWORD——否则同一份 .env 会让测试库
+      # 直接拿到生产口令，环境隔离失效。
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD_TEST:?测试环境必须单独配置 MYSQL_ROOT_PASSWORD_TEST，禁止与生产共用}
       MYSQL_DATABASE: huakey_crm_test
       MYSQL_USER: crm_user
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_PASSWORD: ${DB_PASSWORD_TEST:?测试环境必须单独配置 DB_PASSWORD_TEST，禁止与生产共用}
     ports:
       - "3308:3306"
     volumes:
@@ -46,7 +52,8 @@ services:
       - --collation-server=utf8mb4_unicode_ci
       - --default-authentication-plugin=mysql_native_password
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      # [P2-14] 口令经 MYSQL_PWD 传入，不出现在 healthcheck 命令行（docker inspect / ps 可见）
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_ROOT_PASSWORD\" mysqladmin ping -h localhost -u root --silent"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -71,8 +78,10 @@ services:
       DB_HOST: mysql
       DB_PORT: 3306
       DB_USER: crm_user
-      DB_PASSWORD: ${MYSQL_PASSWORD}
+      DB_PASSWORD: ${DB_PASSWORD_TEST:?测试环境必须单独配置 DB_PASSWORD_TEST，禁止与生产共用}
       DB_NAME: huakey_crm_test
+      # 测试环境 NODE_ENV 同为 production，缺 CORS 会直接 exit(1)
+      CORS_ORIGIN: ${CORS_ORIGIN_TEST:?测试环境必须设置 CORS_ORIGIN_TEST}
       # 【P0-2】测试环境必须使用独立的 JWT 密钥。
       # 原为 ${JWT_SECRET}，与生产 docker-compose.prod.yml 共用同一变量
       # → 测试环境签发的 token 在生产环境有效，环境隔离形同虚设（违反任务书 §31）。
@@ -100,8 +109,11 @@ services:
       - /volume1/docker/huakey-crm-deploy/test/frontend/dist:/app/frontend/dist
       - /volume1/docker/huakey-crm-deploy/test/database/migrations:/app/database/migrations:ro
       - test-app-uploads:/app/uploads
+      # [P2-10 2026-10-26] 同生产：/app 为 bind mount，日志目录必须单独挂具名卷。
+      - test-app-logs:/app/logs
 
 volumes:
   test-mysql-data:
   test-app-uploads:
   test-redis-data:
+  test-app-logs:
