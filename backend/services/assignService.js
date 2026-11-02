@@ -3,8 +3,7 @@
  * 从 routes/customer/assign.js 提取的业务逻辑
  */
 
-const { CUSTOMER_STATUS } = require('../constants/customerStatus');
-const { POOL_STATUS, BUSINESS_STATUS } = require('../constants/poolStatus');
+const { POOL_STATUS } = require('../constants/poolStatus');
 // [P1-03] 分配/回收同样要同步 status/business_status（与认领/释放共用同一判定）
 const { assignmentStatusFragment } = require('../utils/customerPoolState');
 const AppError = require('../errors/AppError');
