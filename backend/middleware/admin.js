@@ -11,7 +11,11 @@ const { ADMIN_ROLE_CODES, ROLE_CODES } = ROLES;
 
 const requireAdmin = (req, res, next) => {
   const roleId = req.user?.roleId || req.user?.role_id;
-  if (req.user && (ADMIN_ROLE_CODES.has(req.user.roleCode) || roleId === ROLES.ADMIN)) {
+  // [S1 分配权收敛 2026-11-03] 纳入 ROLE_CODES.BOSS：本中间件是「意图仅老板」端点
+  // （如客户分配 /assign、角色管理 /role/add 等）的角色门，仅靠 roleId === ROLES.ADMIN(1)
+  // 在角色 id 重排时会误拦老板。现库 boss 角色 id=1，行为不变；按 roles.js 的
+  // ROLE_CODE 迁移方向，以 roleCode='boss' 识别老板更稳。
+  if (req.user && (ADMIN_ROLE_CODES.has(req.user.roleCode) || req.user.roleCode === ROLE_CODES.BOSS || roleId === ROLES.ADMIN)) {
     return next();
   }
   return res.status(403).json({ code: 403, message: '需要管理员权限', data: null });
