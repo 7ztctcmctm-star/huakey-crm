@@ -121,7 +121,7 @@ async function listAccounts(pool, userId) {
  * @param {number} userId
  */
 async function deleteAccount(pool, id, userId) {
-  const [existing] = await pool.query('SELECT id FROM crm_email_account WHERE id = ? AND user_id = ?', [id, userId]);
+  const [existing] = await pool.query('SELECT id FROM crm_email_account WHERE id = ? AND user_id = ? AND deleted_at IS NULL', [id, userId]);
   if (existing.length === 0) {
     throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '账号不存在')
   }
@@ -137,7 +137,7 @@ async function deleteAccount(pool, id, userId) {
  */
 async function testConnection(pool, id, userId) {
   const [[account]] = await pool.query(
-    'SELECT id, user_id, email, display_name, imap_host, imap_port, smtp_host, smtp_port, password_encrypted, use_ssl, sync_status, last_sync_at, status, created_at, updated_at FROM crm_email_account WHERE id = ? AND user_id = ?',
+    'SELECT id, user_id, email, display_name, imap_host, imap_port, smtp_host, smtp_port, password_encrypted, use_ssl, sync_status, last_sync_at, status, created_at, updated_at FROM crm_email_account WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
     [id, userId]
   );
   if (!account) {
@@ -182,7 +182,7 @@ async function testConnection(pool, id, userId) {
 async function listEmails(pool, params, userId) {
   const { folder = 'inbox', customer_id, keyword, is_starred, page = 1, pageSize = 20 } = params;
   const offset = (parseInt(page) - 1) * parseInt(pageSize);
-  let where = 'WHERE e.account_id IN (SELECT id FROM crm_email_account WHERE user_id = ?)';
+  let where = 'WHERE e.account_id IN (SELECT id FROM crm_email_account WHERE user_id = ? AND deleted_at IS NULL)';
   const queryParams = [userId];
 
   if (folder === 'starred') {
@@ -225,7 +225,7 @@ async function getEmailDetail(pool, id, userId) {
     FROM crm_email e
     LEFT JOIN crm_customer c ON e.customer_id = c.id
     LEFT JOIN crm_contact ct ON e.contact_id = ct.id
-    WHERE e.id = ? AND e.account_id IN (SELECT id FROM crm_email_account WHERE user_id = ?)
+    WHERE e.id = ? AND e.account_id IN (SELECT id FROM crm_email_account WHERE user_id = ? AND deleted_at IS NULL)
   `, [id, userId]);
 
   if (!email) return null;
@@ -249,7 +249,7 @@ async function sendEmail(pool, params, userId) {
   const { account_id, to, cc, subject, body_html, reply_to_id } = params;
 
   const [[account]] = await pool.query(
-    'SELECT id, user_id, email, display_name, imap_host, imap_port, smtp_host, smtp_port, password_encrypted, use_ssl, sync_status, last_sync_at, status, created_at, updated_at FROM crm_email_account WHERE id = ? AND user_id = ?',
+    'SELECT id, user_id, email, display_name, imap_host, imap_port, smtp_host, smtp_port, password_encrypted, use_ssl, sync_status, last_sync_at, status, created_at, updated_at FROM crm_email_account WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
     [account_id, userId]
   );
   if (!account) {
@@ -312,7 +312,7 @@ async function sendEmail(pool, params, userId) {
 async function markAsRead(pool, id, userId) {
   // [P1-08] 只允许修改自己账号下的邮件
   const [result] = await pool.query(
-    'UPDATE crm_email SET is_read = 1 WHERE id = ? AND account_id IN (SELECT id FROM crm_email_account WHERE user_id = ?)',
+    'UPDATE crm_email SET is_read = 1 WHERE id = ? AND account_id IN (SELECT id FROM crm_email_account WHERE user_id = ? AND deleted_at IS NULL)',
     [id, userId]
   );
   if (result.affectedRows === 0) {
@@ -329,7 +329,7 @@ async function markAsRead(pool, id, userId) {
 async function toggleStar(pool, id, userId) {
   // [P1-08] 查询与更新都限定账号归属，防止跨用户改星标
   const [[email]] = await pool.query(
-    'SELECT is_starred FROM crm_email WHERE id = ? AND account_id IN (SELECT id FROM crm_email_account WHERE user_id = ?)',
+    'SELECT is_starred FROM crm_email WHERE id = ? AND account_id IN (SELECT id FROM crm_email_account WHERE user_id = ? AND deleted_at IS NULL)',
     [id, userId]
   );
   if (!email) {
@@ -337,7 +337,7 @@ async function toggleStar(pool, id, userId) {
   }
   const newStarred = email.is_starred ? 0 : 1;
   await pool.query(
-    'UPDATE crm_email SET is_starred = ? WHERE id = ? AND account_id IN (SELECT id FROM crm_email_account WHERE user_id = ?)',
+    'UPDATE crm_email SET is_starred = ? WHERE id = ? AND account_id IN (SELECT id FROM crm_email_account WHERE user_id = ? AND deleted_at IS NULL)',
     [newStarred, id, userId]
   );
   return { is_starred: newStarred };
@@ -350,13 +350,13 @@ async function toggleStar(pool, id, userId) {
  * @param {number} customerId
  */
 async function linkCustomer(pool, emailId, customerId, userId) {
-  const [customer] = await pool.query('SELECT id FROM crm_customer WHERE id = ?', [customerId]);
+  const [customer] = await pool.query('SELECT id FROM crm_customer WHERE id = ? AND deleted_at IS NULL', [customerId]);
   if (customer.length === 0) {
     throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '客户不存在')
   }
   // [P1-08] 只能关联自己账号下的邮件
   const [result] = await pool.query(
-    'UPDATE crm_email SET customer_id = ? WHERE id = ? AND account_id IN (SELECT id FROM crm_email_account WHERE user_id = ?)',
+    'UPDATE crm_email SET customer_id = ? WHERE id = ? AND account_id IN (SELECT id FROM crm_email_account WHERE user_id = ? AND deleted_at IS NULL)',
     [customerId, emailId, userId]
   );
   if (result.affectedRows === 0) {
@@ -382,7 +382,7 @@ async function linkCustomer(pool, emailId, customerId, userId) {
  */
 async function syncEmails(pool, accountId, userId) {
   const [[account]] = await pool.query(
-    'SELECT id, user_id, email, display_name, imap_host, imap_port, smtp_host, smtp_port, password_encrypted, use_ssl, sync_status, last_sync_at, status, created_at, updated_at FROM crm_email_account WHERE id = ? AND user_id = ?',
+    'SELECT id, user_id, email, display_name, imap_host, imap_port, smtp_host, smtp_port, password_encrypted, use_ssl, sync_status, last_sync_at, status, created_at, updated_at FROM crm_email_account WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
     [accountId, userId]
   );
   if (!account) {
@@ -411,23 +411,23 @@ async function syncEmails(pool, accountId, userId) {
  */
 async function getEmailStats(pool, userId) {
   const [[{ total }]] = await pool.query(
-    'SELECT COUNT(*) as total FROM crm_email WHERE account_id IN (SELECT id FROM crm_email_account WHERE user_id = ?)', [userId]
+    'SELECT COUNT(*) as total FROM crm_email WHERE account_id IN (SELECT id FROM crm_email_account WHERE user_id = ? AND deleted_at IS NULL)', [userId]
   );
   const [[{ unread }]] = await pool.query(
-    'SELECT COUNT(*) as unread FROM crm_email WHERE is_read = 0 AND account_id IN (SELECT id FROM crm_email_account WHERE user_id = ?)', [userId]
+    'SELECT COUNT(*) as unread FROM crm_email WHERE is_read = 0 AND account_id IN (SELECT id FROM crm_email_account WHERE user_id = ? AND deleted_at IS NULL)', [userId]
   );
   const [[{ starred }]] = await pool.query(
-    'SELECT COUNT(*) as starred FROM crm_email WHERE is_starred = 1 AND account_id IN (SELECT id FROM crm_email_account WHERE user_id = ?)', [userId]
+    'SELECT COUNT(*) as starred FROM crm_email WHERE is_starred = 1 AND account_id IN (SELECT id FROM crm_email_account WHERE user_id = ? AND deleted_at IS NULL)', [userId]
   );
   const [[{ today_in }]] = await pool.query(
-    'SELECT COUNT(*) as today_in FROM crm_email WHERE direction = "in" AND DATE(received_at) = CURDATE() AND account_id IN (SELECT id FROM crm_email_account WHERE user_id = ?)', [userId]
+    'SELECT COUNT(*) as today_in FROM crm_email WHERE direction = "in" AND DATE(received_at) = CURDATE() AND account_id IN (SELECT id FROM crm_email_account WHERE user_id = ? AND deleted_at IS NULL)', [userId]
   );
   const [[{ today_out }]] = await pool.query(
-    'SELECT COUNT(*) as today_out FROM crm_email WHERE direction = "out" AND DATE(sent_at) = CURDATE() AND account_id IN (SELECT id FROM crm_email_account WHERE user_id = ?)', [userId]
+    'SELECT COUNT(*) as today_out FROM crm_email WHERE direction = "out" AND DATE(sent_at) = CURDATE() AND account_id IN (SELECT id FROM crm_email_account WHERE user_id = ? AND deleted_at IS NULL)', [userId]
   );
 
   const [folders] = await pool.query(
-    'SELECT folder, COUNT(*) as count FROM crm_email WHERE account_id IN (SELECT id FROM crm_email_account WHERE user_id = ?) GROUP BY folder', [userId]
+    'SELECT folder, COUNT(*) as count FROM crm_email WHERE account_id IN (SELECT id FROM crm_email_account WHERE user_id = ? AND deleted_at IS NULL) GROUP BY folder', [userId]
   );
   const folderMap = {};
   folders.forEach(f => { folderMap[f.folder] = f.count; });

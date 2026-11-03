@@ -16,7 +16,7 @@ async function getCustomerTags(pool, customerId) {
   const [tags] = await pool.query(
     `SELECT t.id, t.name, t.color FROM crm_tag t
      JOIN crm_customer_tag ct ON t.id = ct.tag_id
-     WHERE ct.customer_id = ? ORDER BY t.sort`,
+     WHERE ct.customer_id = ? AND t.deleted_at IS NULL ORDER BY t.sort`,
     [customerId]
   );
   return tags;

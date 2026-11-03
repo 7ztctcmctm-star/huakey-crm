@@ -42,7 +42,7 @@ async function getMyReminders(pool, userId, roleId, opts = {}) {
     `SELECT c.id as customer_id, c.company_name, c.contact_name, c.phone, c.last_follow_time,
             DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days
      FROM crm_customer c
-     WHERE c.owner_id = ? AND c.status NOT IN (0, 2, 3)
+     WHERE c.deleted_at IS NULL AND c.owner_id = ? AND c.status NOT IN (0, 2, 3)
        AND DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) >= ?
        AND DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) < ?
        AND c.id NOT IN (
@@ -380,7 +380,7 @@ async function getReminderCenter(pool, userId, roleId) {
     `SELECT fp.id, CONCAT('跟进-', c.company_name) as title, fp.plan_time as create_time,
             CONCAT('/customer/detail/', c.id) as link
      FROM crm_follow_plan fp
-     JOIN crm_customer c ON fp.customer_id = c.id
+     JOIN crm_customer c ON fp.customer_id = c.id AND c.deleted_at IS NULL
      WHERE fp.create_by = ? AND fp.status = 'pending'
        AND DATE(fp.plan_time) = CURDATE()
      ORDER BY fp.plan_time LIMIT 5`, [userId]
@@ -402,7 +402,7 @@ async function getReminderCenter(pool, userId, roleId) {
             pp.plan_date as create_time, '/payment' as link
      FROM crm_payment_plan pp
      JOIN crm_contract c ON pp.contract_id = c.id
-     WHERE pp.plan_date < CURDATE() AND pp.status != 'completed' AND c.deleted_at IS NULL
+     WHERE pp.deleted_at IS NULL AND pp.plan_date < CURDATE() AND pp.status != 'completed' AND c.deleted_at IS NULL
      ORDER BY pp.plan_date LIMIT 5`
   );
 

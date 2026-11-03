@@ -347,7 +347,7 @@ async function listPurchases(pool, params = {}, permission = null) {
     FROM crm_purchase_order po
     LEFT JOIN crm_supplier s ON po.supplier_id = s.id
     LEFT JOIN sys_user u ON po.owner_id = u.id
-    WHERE ${permissionClause}`;
+    WHERE po.deleted_at IS NULL AND ${permissionClause}`;
   const queryParams = [...permParams];
 
   if (keyword) {
@@ -362,7 +362,7 @@ async function listPurchases(pool, params = {}, permission = null) {
   queryParams.push(offset, pageSize);
   const [rows] = await pool.query(sql, queryParams);
 
-  let countSql = `SELECT COUNT(*) as total FROM crm_purchase_order po LEFT JOIN crm_supplier s ON po.supplier_id = s.id WHERE ${permissionClause}`;
+  let countSql = `SELECT COUNT(*) as total FROM crm_purchase_order po LEFT JOIN crm_supplier s ON po.supplier_id = s.id WHERE po.deleted_at IS NULL AND ${permissionClause}`;
   const countParams = [...permParams];
   if (keyword) { countSql += ' AND (po.order_no LIKE ? OR po.title LIKE ? OR s.name LIKE ?)'; countParams.push(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`); }
   if (status) { countSql += ' AND po.status = ?'; countParams.push(status); }
@@ -389,7 +389,7 @@ async function getPurchase(pool, id, permission = null) {
     LEFT JOIN crm_supplier s ON po.supplier_id = s.id
     LEFT JOIN sys_user u ON po.owner_id = u.id
     LEFT JOIN sys_user ub ON po.create_by = ub.id
-    WHERE po.id = ? AND ${permissionClause}
+    WHERE po.id = ? AND po.deleted_at IS NULL AND ${permissionClause}
   `, [id, ...permParams]);
 
   if (!orders.length) return null;
@@ -592,17 +592,17 @@ async function addReceipt(pool, data, userId, dataPermission = null) {
 }
 
 async function getStatistics(pool) {
-  const [[totalOrders]] = await pool.query('SELECT COUNT(*) as cnt FROM crm_purchase_order WHERE status != "已取消"');
-  const [[pendingApprove]] = await pool.query("SELECT COUNT(*) as cnt FROM crm_purchase_order WHERE status = '待审核'");
-  const [[pendingReceive]] = await pool.query("SELECT COUNT(*) as cnt FROM crm_purchase_order WHERE status IN ('已确认', '部分收货')");
-  const [[completedThisMonth]] = await pool.query(`SELECT COUNT(*) as cnt FROM crm_purchase_order WHERE status = '已完成' AND MONTH(create_time) = MONTH(NOW())`);
-  const [[totalAmount]] = await pool.query('SELECT COALESCE(SUM(total_with_tax), 0) as sum FROM crm_purchase_order WHERE status != "已取消"');
+  const [[totalOrders]] = await pool.query('SELECT COUNT(*) as cnt FROM crm_purchase_order WHERE status != "已取消" AND deleted_at IS NULL');
+  const [[pendingApprove]] = await pool.query("SELECT COUNT(*) as cnt FROM crm_purchase_order WHERE status = '待审核' AND deleted_at IS NULL");
+  const [[pendingReceive]] = await pool.query("SELECT COUNT(*) as cnt FROM crm_purchase_order WHERE status IN ('已确认', '部分收货') AND deleted_at IS NULL");
+  const [[completedThisMonth]] = await pool.query(`SELECT COUNT(*) as cnt FROM crm_purchase_order WHERE status = '已完成' AND deleted_at IS NULL AND MONTH(create_time) = MONTH(NOW())`);
+  const [[totalAmount]] = await pool.query('SELECT COALESCE(SUM(total_with_tax), 0) as sum FROM crm_purchase_order WHERE status != "已取消" AND deleted_at IS NULL');
 
   const [[topSuppliers]] = await pool.query(`
     SELECT s.name, COUNT(po.id) as order_count, SUM(po.total_with_tax) as total_spent
     FROM crm_purchase_order po
-    JOIN crm_supplier s ON po.supplier_id = s.id
-    WHERE po.status != '已取消'
+    JOIN crm_supplier s ON po.supplier_id = s.id AND s.deleted_at IS NULL
+    WHERE po.status != '已取消' AND po.deleted_at IS NULL
     GROUP BY s.name
     ORDER BY total_spent DESC
     LIMIT 5

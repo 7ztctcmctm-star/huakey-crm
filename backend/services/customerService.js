@@ -305,7 +305,7 @@ async function listCustomers(pool, params = {}, permission = null) {
       `SELECT ct.customer_id, t.id, t.name, t.color
        FROM crm_customer_tag ct
        JOIN crm_tag t ON ct.tag_id = t.id
-       WHERE ct.customer_id IN (?)`,
+       WHERE ct.customer_id IN (?) AND t.deleted_at IS NULL`,
       [customerIds]
     );
     const tagMap = {};
@@ -369,7 +369,7 @@ async function getCustomer(pool, customerId) {
     const placeholders = followIds.map(() => '?').join(',');
     const [attachments] = await pool.query(
       `SELECT id, business_id as follow_up_id, file_name, file_path, file_size, file_type
-       FROM crm_attachment WHERE business_type = 'follow_up' AND business_id IN (${placeholders})
+       FROM crm_attachment WHERE business_type = 'follow_up' AND business_id IN (${placeholders}) AND deleted_at IS NULL
        ORDER BY create_time ASC`,
       followIds
     );

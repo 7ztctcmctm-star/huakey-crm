@@ -25,7 +25,7 @@ describe('emailService 账号归属隔离（P1-08）', () => {
     const pool = createPool();
     pool.query.mockResolvedValueOnce([{ affectedRows: 0 }]);
     await expect(emailService.markAsRead(pool, 3, 7)).rejects.toMatchObject({ code: 404006 });
-    expect(pool.query.mock.calls[0][0]).toContain('account_id IN (SELECT id FROM crm_email_account WHERE user_id = ?)');
+    expect(pool.query.mock.calls[0][0]).toContain('account_id IN (SELECT id FROM crm_email_account WHERE user_id = ? AND deleted_at IS NULL)');
   });
 
   it('markAsRead：本人邮件更新成功', async () => {
@@ -41,9 +41,9 @@ describe('emailService 账号归属隔离（P1-08）', () => {
       .mockResolvedValueOnce([{ affectedRows: 1 }]);
     const r = await emailService.toggleStar(pool, 3, 7);
     expect(r).toEqual({ is_starred: 1 });
-    expect(pool.query.mock.calls[0][0]).toContain('account_id IN (SELECT id FROM crm_email_account WHERE user_id = ?)');
+    expect(pool.query.mock.calls[0][0]).toContain('account_id IN (SELECT id FROM crm_email_account WHERE user_id = ? AND deleted_at IS NULL)');
     expect(pool.query.mock.calls[0][1]).toEqual([3, 7]);
-    expect(pool.query.mock.calls[1][0]).toContain('account_id IN (SELECT id FROM crm_email_account WHERE user_id = ?)');
+    expect(pool.query.mock.calls[1][0]).toContain('account_id IN (SELECT id FROM crm_email_account WHERE user_id = ? AND deleted_at IS NULL)');
     expect(pool.query.mock.calls[1][1]).toEqual([1, 3, 7]);
   });
 

@@ -32,7 +32,7 @@ async function listTargets(pool, { year, month }) {
   const [actuals] = await pool.query(
     `SELECT create_by as user_id, COALESCE(SUM(amount), 0) as actual_amount
      FROM crm_contract
-     WHERE YEAR(sign_date) = ? AND MONTH(sign_date) = ?
+     WHERE deleted_at IS NULL AND YEAR(sign_date) = ? AND MONTH(sign_date) = ?
      GROUP BY create_by`,
     [y, m]
   );
@@ -42,7 +42,7 @@ async function listTargets(pool, { year, month }) {
     `SELECT c.create_by as user_id, COALESCE(SUM(p.pay_amount), 0) as payment_amount
      FROM crm_payment p
      LEFT JOIN crm_contract c ON p.contract_id = c.id
-     WHERE YEAR(p.pay_date) = ? AND MONTH(p.pay_date) = ?
+     WHERE p.deleted_at IS NULL AND YEAR(p.pay_date) = ? AND MONTH(p.pay_date) = ?
      GROUP BY c.create_by`,
     [y, m]
   );

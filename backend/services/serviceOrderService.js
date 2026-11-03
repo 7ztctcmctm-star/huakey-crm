@@ -200,7 +200,7 @@ async function getServiceOrderDetail(pool, id) {
 
   // 查询附件
   const [attachments] = await pool.query(
-    'SELECT id, file_name, file_path, file_size, file_type, create_time FROM crm_attachment WHERE business_type = ? AND business_id = ? ORDER BY create_time DESC',
+    'SELECT id, file_name, file_path, file_size, file_type, create_time FROM crm_attachment WHERE business_type = ? AND business_id = ? AND deleted_at IS NULL ORDER BY create_time DESC',
     ['service_order', id]
   );
 

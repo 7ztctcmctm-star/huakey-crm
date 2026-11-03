@@ -279,3 +279,73 @@ SELECT COUNT(*) FROM crm_invoice   WHERE invoice_no   NOT REGEXP '^INV-[0-9]{6}-
 - **root 与 Redis 口令仍为该备份中曾明文暴露的现役值**，强烈建议尽快安排轮换专项（本次范围未轮换）。
 - `database/backups` 收紧为 700 后，备份容器（root）写入不受影响；下次定时备份（02:45）产物落地后建议复核一次。
 - 后续只读分类发现：同目录仍存在的 `.env.bak.domain`（`.env` 的明文备份，777）含**现役** `MYSQL_ROOT_PASSWORD`、`REDIS_PASSWORD`、`EMAIL_ENC_KEY` 三个密钥（与运行容器环境值比对确认）及已失效的旧 `JWT_SECRET`、`DB_PASSWORD`，属同级别暴露，待授权后按本节同流程处置。
+
+---
+
+## P2-3 明文备份管道处置记录（2026-11-03 追加）
+
+> 处置对象：NAS 宿主机 `/etc/cron.d/crm-backup`（每日 04:00 root 调 `/usr/local/bin/crm-backup.sh`，产出明文 .sql.gz 绕过 02:00 加密链）。全程未触碰 02:00 容器备份链、root/Redis 密码、其他 cron 条目、应用容器与镜像。
+
+### 两条链差异（取证结论）
+
+| 维度 | 04:00 宿主机链（本次下线） | 02:00 容器链（保留） |
+|---|---|---|
+| dump 参数 | `--single-transaction --routines --triggers --events`，库 `huakey_crm`（与 02:00 完全一致） | 同左 |
+| 落盘形态 | **明文 .sql.gz**，root 密码从 `.env` grep | gpg AES256 加密 `.gpg`（600），口令经 `.backup-enc-pass` |
+| 校验 | 无 | gzip -t + CREATE TABLE 计数 + 明文即删 + 月度恢复演练 |
+| 覆盖范围 | 无任何 02:00 未覆盖的内容 | 全覆盖 |
+
+**结论：04:00 链为纯冗余且全面劣化 → 按约定删除（不改造）。**
+
+### 处置动作（2026-11-03 11:14–11:35）
+
+1. **存量明文清缴（62 份 .sql.gz，2026-10-03 ~ 2026-11-03 两链历史产物）**：每份 gpg AES256 对称加密（口令经 `--passphrase-file` 走 `.backup-enc-pass`，未进命令行/日志）→ 解密回验 md5 逐份一致 → `shred -u -n 3` 原件 → `.gpg` 落盘 chmod 600。60 份 root-600 文件经 huakey-backup 容器内 root 执行（同镜像同口令体系），2 份可读文件宿主机直跑。结果：**OK=62 / FAIL=0；全树明文 .sql.gz=0；.gpg 总数 63（62 新增 + 1 份 11-03 02:00 链既有产物），非 600 计数=0；抽样终验 gzip -t OK、CREATE TABLE=108**。勘误：`pre-tzfix-20261020-093556.sql.gz.gpg` 实为本轮直跑所产，此前误记为既有。
+2. **cron 条目删除 + 脚本归档停用**：`crm-backup` 条目与 `crm-backup.sh` 移至 `/volume1/docker/crm-stack/archive/p23-cron-disabled-20261103/`（均 600 root，归档目录 700），双重保险：即使 crond 未即时重读配置，目标脚本已不存在，物理上无法再产明文。synosched 两个 DSM 系统条目 md5 前后一致；`/etc/crontab` 无 crm-backup 引用；crond 存活。
+3. **权限收紧**（`database/backups/` 下）：backup.log、config-backup.log、container-backup.log、uploads-backup.log、restore-test.log、env_release/nginx_release/uploads_release_*.tar.gz、predeploy-*（.sql/.err）、restore-run-*.log：**777 → 600**；uploads 目录 **777 → 700**；restore-drill.status 777 → 644（状态文件需可读，非敏感）；目录本身 700（前节已收紧）维持。
+
+### 残留风险
+
+- **predeploy-*.sql 6 份明文 dump**（4MB 级，已收紧 600）：超出本次 .sql.gz 范围仅调权限；10-15/10-19/10-22/10-23 对应部署已稳定，建议授权后按同流程加密归档或删除，仅保留最近一份（11-02）度过回滚窗口期。
+- shred 为逻辑覆写，SSD 磨损均衡下不保证物理扇区清除（同前节局限）。
+- crond 对 /etc/cron.d 的重读时机未实证（为避免误伤 DSM crond 未发信号）；建议 **11-04 04:00 后抽查确认无新增 040001 明文**。
+- 明文产物在处置前若已被非授权读取，加密不消除已泄露风险——现役 root/Redis 口令轮换专项仍待执行。
+- `.gpg` 归档与口令文件同存一台 NAS，无异地副本。
+
+## 明文资产收尾处置记录 · 阶段 A（2026-11-03 追加）
+
+> 处置对象：`database/backups/` 下 `predeploy-*.sql` 6 份明文 dump（回滚用临时产物，此前已收紧 600）与 `.env.bak.domain`（`.env` 的明文备份，1506 字节，777，含 3 个现役密钥）。口令全程经宿主机 `.backup-enc-pass`（`--passphrase-file`），未进命令行/日志；未重启容器、未触碰 `.env` / `.env.secrets` 实际值。
+
+### A1 · predeploy-*.sql（保留 1 份，加密归档 5 份）
+
+| 项 | 结果 |
+|---|---|
+| 保留 | `predeploy-20261102-113549.sql`（回滚窗口期内，600 维持） |
+| 加密归档 | 10-15 / 101019-134557 / 101019-135515 / 1022-175803 / 1023-095227 共 5 份 → 各自同名 `.gpg`（gpg AES256，落盘 600）；ENCRYPT_OK=5 / FAIL=0 |
+| 回验 | 每份解密回验 md5 一致后 `shred -u -n 3` 删原件；抽样解密终验 CREATE TABLE 计数=107 |
+| 明文计数 | 处置前 predeploy 明文 6 → 处置后 1（仅回滚保留件）；全树任意深度明文 .sql.gz = 0 |
+
+### A2 · `.env.bak.domain`（与 `.env.secrets.bak.domain` 同流程）
+
+| 步骤 | 动作 | 结果 |
+|---|---|---|
+| 1 | 单文件 tar.gz | 完成 |
+| 2 | gpg AES256 加密（口令走 `.backup-enc-pass`） | 完成 |
+| 3 | 宿主机解密回验 md5 | 逐字节一致 |
+| 4 | 归档至 `database/backups/config/env-bak-domain_20260806.tar.gz.gpg`（root:root 600，与既有 config 归档同规范） | 完成 |
+| 5 | 备份容器内回验：解密→tar 清单→md5 比对 | 一致，临时副本已 shred |
+| 6 | 删除明文原件 `shred -u -n 3` | 完成，remaining=0 |
+| 7 | 权限收紧 | config 目录与归档维持 600/700 语义 |
+
+### A3 · 验证
+
+- 明文清单归零：`predeploy_plain=1`（保留件）、`plain_sql_gz_any_depth=0`、`.env.bak.domain remaining=0`；
+- 新归档抽样解密成功（predeploy 抽样 + env-bak 双回验）；
+- 02:00 加密链未受影响：huakey-backup 容器 `Up 24 hours`，`restore-drill.status` 维持 `RESULT=PASS`（2026-11-01 月度演练）；
+- `.env` / `.env.secrets` md5 指纹处置前后一致。
+
+### 残留风险
+
+- 回滚保留件 `predeploy-20261102-113549.sql` 仍为明文（600）——回滚窗口期结束后应按同流程加密归档；
+- shred 为逻辑覆写，SSD 磨损均衡下不保证物理扇区清除（同前节局限）；
+- `.env.bak.domain` 曾明文暴露的现役 `MYSQL_ROOT_PASSWORD` / `REDIS_PASSWORD` / `EMAIL_ENC_KEY` 轮换专项仍待执行（本次未轮换）；
+- `.gpg` 归档与口令文件同存一台 NAS，无异地副本。

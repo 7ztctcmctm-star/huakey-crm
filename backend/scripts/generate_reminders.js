@@ -47,7 +47,7 @@ async function generateReminders(existingPool) {
       `SELECT c.id as customer_id, c.owner_id, c.company_name,
               DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days
        FROM crm_customer c
-       WHERE c.status NOT IN ('signed', 'lost') AND c.status != '0'
+       WHERE c.deleted_at IS NULL AND c.status NOT IN ('signed', 'lost') AND c.status != '0'
          AND c.owner_id IS NOT NULL
          AND (c.last_follow_time IS NULL
            OR c.last_follow_time < NOW() - INTERVAL ? DAY)`,
@@ -108,7 +108,7 @@ async function generateReminders(existingPool) {
     const [todayItems] = await pool.query(
       `SELECT f.id, f.customer_id, c.owner_id, c.company_name, u.real_name as owner_name
        FROM crm_follow_up f
-       JOIN crm_customer c ON f.customer_id = c.id AND c.status != '0' AND c.owner_id IS NOT NULL
+       JOIN crm_customer c ON f.customer_id = c.id AND c.status != '0' AND c.owner_id IS NOT NULL AND c.deleted_at IS NULL
        LEFT JOIN sys_user u ON c.owner_id = u.id
        WHERE f.deleted_at IS NULL AND f.next_time IS NOT NULL
          AND f.is_plan IN (0, 1)
@@ -173,7 +173,7 @@ async function generateReminders(existingPool) {
     const [tomorrowItems] = await pool.query(
       `SELECT f.id, f.customer_id, c.owner_id, c.company_name, f.next_time, u.real_name as owner_name
        FROM crm_follow_up f
-       JOIN crm_customer c ON f.customer_id = c.id AND c.status != '0' AND c.owner_id IS NOT NULL
+       JOIN crm_customer c ON f.customer_id = c.id AND c.status != '0' AND c.owner_id IS NOT NULL AND c.deleted_at IS NULL
        LEFT JOIN sys_user u ON c.owner_id = u.id
        WHERE f.deleted_at IS NULL AND f.next_time IS NOT NULL
          AND f.is_plan IN (0, 1)

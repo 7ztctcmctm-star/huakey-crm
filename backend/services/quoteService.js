@@ -126,7 +126,7 @@ async function createQuote(pool, data, userId) {
     const validatedItems = [];
     for (const item of items) {
       const [products] = await connection.query(
-        'SELECT id, name, code, price FROM crm_product WHERE id = ? AND status = 1',
+        'SELECT id, name, code, price FROM crm_product WHERE id = ? AND status = 1 AND deleted_at IS NULL',
         [item.product_id]
       );
       if (products.length === 0) throw new AppError(ErrorCodes.BUSINESS_VALIDATION, `产品ID ${item.product_id} 不存在或已禁用`);
@@ -402,7 +402,7 @@ async function updateQuote(pool, data, permission = null) {
       let totalAmount = 0;
       for (const item of items) {
         const [products] = await connection.query(
-          'SELECT id, name, code, price FROM crm_product WHERE id = ? AND status = 1',
+          'SELECT id, name, code, price FROM crm_product WHERE id = ? AND status = 1 AND deleted_at IS NULL',
           [item.product_id]
         );
         if (products.length === 0) throw new AppError(ErrorCodes.BUSINESS_VALIDATION, `产品ID ${item.product_id} 不存在或已禁用`);

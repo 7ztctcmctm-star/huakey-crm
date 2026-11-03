@@ -32,7 +32,7 @@ async function getOverview(pool, { userId, isBoss, startDate, endDate }) {
   const [activeOpps] = await pool.query(
     `SELECT COUNT(*) as count, COALESCE(SUM(expected_amount), 0) as total_amount
      FROM crm_opportunity
-     WHERE stage NOT IN (5, 6) ${isBoss ? '' : ' AND owner_id = ?'}`,
+     WHERE stage NOT IN (5, 6) AND deleted_at IS NULL ${isBoss ? '' : ' AND owner_id = ?'}`,
     isBoss ? [] : [userId]
   );
 
@@ -88,7 +88,7 @@ async function getOverview(pool, { userId, isBoss, startDate, endDate }) {
   const [targetResult] = await pool.query(
     `SELECT COALESCE(SUM(t.target_amount), 0) as target_total
      FROM crm_sales_target t
-     WHERE t.year = ? AND t.month = ? ${targetUserFilter}`,
+     WHERE t.year = ? AND t.month = ? AND t.deleted_at IS NULL ${targetUserFilter}`,
     [targetYear, targetMonth, ...targetParams]
   );
 
@@ -173,7 +173,7 @@ async function getSalesBreakdown(pool, { userId, isBoss, startDate, endDate }) {
     LEFT JOIN (
       SELECT owner_id, COUNT(*) as cnt, COALESCE(SUM(expected_amount), 0) as amount
       FROM crm_opportunity
-      WHERE owner_id IN (${placeholders}) AND stage NOT IN (5, 6)
+      WHERE owner_id IN (${placeholders}) AND stage NOT IN (5, 6) AND deleted_at IS NULL
       GROUP BY owner_id
     ) oc ON oc.owner_id = u.id
     LEFT JOIN (
@@ -213,11 +213,11 @@ async function getSalesBreakdown(pool, { userId, isBoss, startDate, endDate }) {
   const [taskStats] = await pool.query(`
     SELECT user_id, SUM(cnt) as task_count FROM (
       SELECT create_by as user_id, COUNT(*) as cnt FROM crm_follow_up
-      WHERE create_by IN (${placeholders}) AND next_time IS NOT NULL AND DATE(next_time) = CURRENT_DATE
+      WHERE create_by IN (${placeholders}) AND deleted_at IS NULL AND next_time IS NOT NULL AND DATE(next_time) = CURRENT_DATE
       GROUP BY create_by
       UNION ALL
       SELECT assignee_id as user_id, COUNT(*) as cnt FROM crm_service_order
-      WHERE assignee_id IN (${placeholders}) AND status IN (1, 2)
+      WHERE assignee_id IN (${placeholders}) AND deleted_at IS NULL AND status IN (1, 2)
       GROUP BY assignee_id
     ) t GROUP BY user_id`,
     [...userIds, ...userIds]
@@ -226,7 +226,7 @@ async function getSalesBreakdown(pool, { userId, isBoss, startDate, endDate }) {
   const [targetStats] = await pool.query(`
     SELECT user_id, COALESCE(SUM(target_amount), 0) as total
     FROM crm_sales_target t
-    WHERE user_id IN (${placeholders}) ${targetDateClause}
+    WHERE user_id IN (${placeholders}) AND t.deleted_at IS NULL ${targetDateClause}
     GROUP BY user_id`,
     [...userIds, ...targetDateParams]
   );

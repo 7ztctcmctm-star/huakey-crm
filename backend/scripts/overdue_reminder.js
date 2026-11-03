@@ -23,7 +23,7 @@ async function run() {
               COALESCE(c.last_follow_time, c.create_time) as ref_time,
               DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as days
        FROM crm_customer c
-       WHERE c.pool_status = ? AND c.status != 0 AND c.owner_id IS NOT NULL
+       WHERE c.deleted_at IS NULL AND c.pool_status = ? AND c.status != 0 AND c.owner_id IS NOT NULL
          AND ((c.last_follow_time IS NULL AND c.create_time < NOW() - INTERVAL ? DAY)
            OR c.last_follow_time < NOW() - INTERVAL ? DAY)
        ORDER BY days DESC`,

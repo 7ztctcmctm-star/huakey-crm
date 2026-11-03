@@ -101,7 +101,7 @@ async function createRule(pool, data, userId) {
 async function updateRule(pool, id, data) {
   const { name, condition_type, condition_field, condition_operator, condition_value, score, status } = data;
 
-  const [existing] = await pool.query('SELECT id FROM crm_score_rule WHERE id = ?', [id]);
+  const [existing] = await pool.query('SELECT id FROM crm_score_rule WHERE id = ? AND deleted_at IS NULL', [id]);
   if (existing.length === 0) {
     throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '规则不存在');
   }
@@ -141,10 +141,10 @@ async function deleteRule(pool, id) {
 async function getCustomerStats(pool, customerId) {
   const [[stats]] = await pool.query(`
     SELECT
-      (SELECT COUNT(*) FROM crm_follow_up WHERE customer_id = ?) as followup_count,
+      (SELECT COUNT(*) FROM crm_follow_up WHERE customer_id = ? AND deleted_at IS NULL) as followup_count,
       (SELECT COUNT(*) FROM crm_quote WHERE customer_id = ? AND deleted_at IS NULL) as quote_count,
       (SELECT COUNT(*) FROM crm_contract WHERE customer_id = ? AND deleted_at IS NULL) as contract_count,
-      (SELECT DATEDIFF(NOW(), MAX(create_time)) FROM crm_follow_up WHERE customer_id = ?) as last_followup_days
+      (SELECT DATEDIFF(NOW(), MAX(create_time)) FROM crm_follow_up WHERE customer_id = ? AND deleted_at IS NULL) as last_followup_days
   `, [customerId, customerId, customerId, customerId]);
   return stats;
 }
@@ -191,7 +191,7 @@ async function calculateScore(pool, customerId) {
   const stats = await getCustomerStats(pool, customerId);
   const [rules] = await pool.query(
     `SELECT id, name, condition_type, condition_field, condition_operator, condition_value, score, status
-     FROM crm_score_rule WHERE status = 1`
+     FROM crm_score_rule WHERE status = 1 AND deleted_at IS NULL`
   );
 
   const { totalScore, matchedRules } = matchRules(rules, customer, stats);
@@ -217,7 +217,7 @@ async function batchCalculate(pool, customerIds) {
 
   const [rules] = await pool.query(
     `SELECT id, name, condition_type, condition_field, condition_operator, condition_value, score, status
-     FROM crm_score_rule WHERE status = 1`
+     FROM crm_score_rule WHERE status = 1 AND deleted_at IS NULL`
   );
 
   let processed = 0;

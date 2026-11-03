@@ -443,7 +443,7 @@ async function getCustomerDetail(pool, customerId, permission) {
     const placeholders = followIds.map(() => '?').join(',');
     const [attachments] = await pool.query(
       `SELECT id, business_id as follow_up_id, file_name, file_path, file_size, file_type
-       FROM crm_attachment WHERE business_type = 'follow_up' AND business_id IN (${placeholders})
+       FROM crm_attachment WHERE business_type = 'follow_up' AND business_id IN (${placeholders}) AND deleted_at IS NULL
        ORDER BY create_time ASC`,
       followIds
     );

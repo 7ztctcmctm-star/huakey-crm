@@ -367,7 +367,7 @@ async function updateFollowUp(pool, params, user) {
  * @param {object} user - { manageAll, roleId, userId }
  */
 async function deleteFollowUp(pool, id, user) {
-  const [rows] = await pool.query('SELECT id, create_by, customer_id FROM crm_follow_up WHERE id = ?', [id]);
+  const [rows] = await pool.query('SELECT id, create_by, customer_id FROM crm_follow_up WHERE id = ? AND deleted_at IS NULL', [id]);
   if (rows.length === 0) {
     throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '跟进记录不存在');
   }
