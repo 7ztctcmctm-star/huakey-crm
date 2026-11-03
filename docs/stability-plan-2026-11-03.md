@@ -181,6 +181,43 @@
 
 每周节奏：周一看 cross-browser CI 结果 + 证书/演练状态（#7/#8），每天 08:00 后扫一眼告警群——除此之外**不需要每日人肉巡检**，这就是"可持续"的边界。
 
+### 4.3 合并到 main 的执行方案（D-12，已排期待执行；本轮只登记方案，不执行合并）
+
+> 现状（2026-11-03 实测）：全部改动（9 个提交、470 文件，+15679/−2232）挂在 `fix/audit-remediation-2026-10-26`，从未合并 main，生产亦从该分支构建；CI 的 `e2e-test` 仅 push main 触发，因此该分支上的 E2E 门从未生效。铁律已固化至 AGENTS.md 15.4。
+
+**① 前置条件（全部满足才可发起 MR）**
+- 第一周（S1）三件事验收通过：E2E 修复方案 A（D-09，本地 50/50 已达成）、NAS 残留归档清理（D-04，已达成）、补做 11-03 快照（D-08 落地动作，已达成）
+- 工作区干净：`git status` 无未提交改动；**另一任务负责的 `docs/assignment-*.md`、`docs/ux-review-*.md`、`.agents/` 不得混入本次 MR**
+- 远端同步：`git fetch` 后双向核对（本地无未 push 提交、main 无新分叉）
+
+**② 合并方式**
+- 走 **GitHub MR/PR**（`fix/audit-remediation-2026-10-26` → `main`），**禁止本地 merge 后直接 push main**
+- MR 范围 = origin/main..HEAD（当前 9 个提交）；当前 main 无分叉，理论 fast-forward、零冲突
+
+**③ 合并前必做（本地全量，任一红即停）**
+- 后端 `npm test`：209 套件 / 1957 用例全绿
+- 前端 `npm test`：222 用例全绿
+- 双端 lint：0 errors
+- E2E `npx playwright test --project=chromium`：50/50 全绿（先清 `frontend/test-results/`）
+
+**④ 合并后必做**
+- 确认 CI 在 main 上**实跑** e2e-test（chromium）与 backend/frontend 全套并转绿——这是 E2E 门首次对该改动批次真正把关
+- main 合并后 HEAD SHA 留档（并入部署留档三件套）
+- 生产下次部署起**从 main 构建**（部署仍只走 deploy.sh，15.1 铁律不变）
+
+**⑤ 冲突风险与处理**
+- 当前零分叉（HEAD..origin/main = 0），**现在合并零冲突**
+- 窗口期风险：若 main 先合入其他分支（如 assignment / ux-review 系列），共改文件（`AGENTS.md`、`docs/stability-plan-*`、`docs/decisions-*` 等）可能冲突 → 处理：仅 docs 范围的手工解决后**重跑本地全量**再合并；冲突波及代码文件即停下逐文件复核，不批量接受任一侧
+- 470 文件大 MR 的审阅以提交清单 + 决策/方案文档为索引，不逐行人审（每个提交已各自通过本地门禁）
+
+**⑥ 回滚方式**
+- 未部署即发现问题：main 上 `git revert`（合并提交用 `-m 1`）并 push；生产未从新 main 构建前无需动生产
+- 已部署且观察窗/冒烟失败：走 §3.3 既有回滚（`docker tag crm-stack-app:prev ...` + predeploy 快照恢复库），main 侧同步 revert
+- 注意：**代码 revert 不回退数据库迁移**——涉及迁移的回滚先执行 `_down.sql`（或快照恢复）再回代码
+
+**⑦ 后续约定（固化）**
+- 一律「**从 main 拉分支 → 验收 → MR 合并回 main**」；**禁止从长期未合并分支直接部署生产，生产只从 main 构建**（AGENTS.md 15.4）
+
 ---
 
 ## 5. 数据一致性巡检（SQL/判据，供 consistency-check.sh 固化）
