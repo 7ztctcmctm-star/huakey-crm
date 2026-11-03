@@ -258,7 +258,7 @@ SELECT COUNT(*) FROM crm_invoice   WHERE invoice_no   NOT REGEXP '^INV-[0-9]{6}-
 ### 核查结论（只读，未输出任何密钥明文）
 
 - **文件性质**：`.env.secrets` 的明文备份，9 个键与当前文件键集合完全一致；值非占位符，确为明文。
-- **风险判定（高）**：其中 `MYSQL_ROOT_PASSWORD`、`REDIS_PASSWORD`、`ADMIN_INITIAL_PASSWORD`、`EMAIL_ENC_KEY` 四键与当前生效值**完全相同**（经 md5 哈希比对，未比对明文）；`JWT_SECRET`、`DB_PASSWORD` 为 11-02 轮换前旧值（已失效）。文件权限 777（全员可读写，含 ACL），构成真实暴露面。
+- **风险判定（高）**：其中 `MYSQL_ROOT_PASSWORD`、`REDIS_PASSWORD`、`EMAIL_ENC_KEY` 三键经与运行中容器环境值比对（剥离引号后 md5）确认为**现役值**——即该 777 文件长期暴露着当时仍在使用的 root、Redis 口令与邮件加密密钥；`ADMIN_INITIAL_PASSWORD` 与当前 `.env.secrets` 值相同（该值仅用于首次初始化，admin 现密码是否仍为该值未验证）；`JWT_SECRET`、`DB_PASSWORD` 为 11-02 轮换前旧值（已失效）。文件权限 777（全员可读写，含 ACL），构成真实暴露面。
 - **引用核查**：仓库脚本（deploy/、compose、env、nginx、cron）与全部 5 个容器的挂载/环境中对该文件**零引用**（sudo 绝对路径重核，排除假 0）。
 
 ### 处置动作（2026-11-03 09:16）
@@ -278,3 +278,4 @@ SELECT COUNT(*) FROM crm_invoice   WHERE invoice_no   NOT REGEXP '^INV-[0-9]{6}-
 - `shred` 为逻辑覆写，在 DSM 文件系统/SSD 磨损均衡下不保证物理扇区清除；归档加密包与口令文件（`.backup-enc-pass`，600）是唯一恢复途径，口令文件须离线妥善保管。
 - **root 与 Redis 口令仍为该备份中曾明文暴露的现役值**，强烈建议尽快安排轮换专项（本次范围未轮换）。
 - `database/backups` 收紧为 700 后，备份容器（root）写入不受影响；下次定时备份（02:45）产物落地后建议复核一次。
+- 后续只读分类发现：同目录仍存在的 `.env.bak.domain`（`.env` 的明文备份，777）含**现役** `MYSQL_ROOT_PASSWORD`、`REDIS_PASSWORD`、`EMAIL_ENC_KEY` 三个密钥（与运行容器环境值比对确认）及已失效的旧 `JWT_SECRET`、`DB_PASSWORD`，属同级别暴露，待授权后按本节同流程处置。
