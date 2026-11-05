@@ -143,11 +143,14 @@ const buildDataPermissionWhere = async (dataPermission, tableAlias = 't') => {
     }
 
     case 'self':
-      // 公海兜底（owner 为空且 status 为 lead/sea）仅适用于 customer 模块；
+      // customer 模块的无主客户兜底（S3 · 2026-11-03 口径）：
+      //   · status='lead'（客户资源库条目）——共享查阅区，全员可见（只读由功能码保证）；
+      //   · status='sea'（待分配）——**不再**对销售可见：客户回收后原销售不可见
+      //     （B-03），待分配客户仅双 boss 可见可分配（V5.1）。
       // 其他模块（opportunity/quote/contract/report/approval 等）没有该语义，
       // 且部分表没有 status 列（如 crm_opportunity），硬拼会导致 Unknown column 500
       if (dataPermission.module === 'customer') {
-        return { clause: `(${column} = ? OR (${column} IS NULL AND ${tableAlias}.status IN ('lead', 'sea')))`, params: [userId] };
+        return { clause: `(${column} = ? OR (${column} IS NULL AND ${tableAlias}.status = 'lead'))`, params: [userId] };
       }
       return { clause: `${column} = ?`, params: [userId] };
 
