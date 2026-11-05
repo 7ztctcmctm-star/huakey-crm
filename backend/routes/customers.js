@@ -33,6 +33,7 @@ const { checkPermission, checkDataPermission } = require('../middleware/permissi
 const customerController = require('../controllers/customerController');
 const customerDetailService = require('../services/customerDetailService');
 const { CUSTOMER_STATUS_CODES } = require('../constants/customerStatus');
+const { CUSTOMER_LEVEL_CODES } = require('../constants/customerLevel');
 
 // ========== Schema（与 customer/detail.js 保持一致） ==========
 
@@ -43,22 +44,32 @@ const formalSchema = Joi.object({
   contact_name: Joi.string().max(200).allow('', null),
   phone: Joi.string().max(20).allow('', null),
   source: Joi.string().max(50).allow('', null),
-  level: Joi.string().valid('A', 'B', 'C').allow('', null),
+  level: Joi.string().valid(...CUSTOMER_LEVEL_CODES).allow('', null),
+  // [P1-27] 前端正式客户页实际会发这些筛选（List.vue:292-301）。
+  // stripUnknown=true 下未声明即静默丢弃：状态下拉、生命周期、久未跟进、逾期、标签全部不生效。
+  status: Joi.string().valid(...CUSTOMER_STATUS_CODES).allow('', null),
   business_status: Joi.string().valid(...CUSTOMER_STATUS_CODES).allow('', null),
+  lifecycle_status: Joi.string().valid('new', 'nurturing', 'intent', 'active', 'lost', 'inactive', 'lead').allow('', null),
   owner_id: Joi.number().integer().positive().allow(null),
   start_date: Joi.string().isoDate().allow('', null),
   end_date: Joi.string().isoDate().allow('', null),
+  overdue: Joi.boolean().allow(null),
+  overdue_follow: Joi.boolean().allow(null),
+  tag_id: Joi.number().integer().positive().allow(null),
   sort: Joi.string().valid('create_time_desc', 'last_follow_time_asc', 'last_follow_time_desc').allow('', null)
 });
 
 const customerListSchema = Joi.object({
   page: Joi.number().integer().min(1).optional(),
   pageSize: Joi.number().integer().min(1).max(200).optional(),
+  // [V1.1 §11.3] 前端客户选择器/邮箱收件人搜索下发 keyword；旧 schema 未声明，
+  // stripUnknown 直接丢弃，搜索框形同虚设。
+  keyword: Joi.string().max(200).allow('', null),
   company_name: Joi.string().max(200).allow('', null),
   contact_name: Joi.string().max(200).allow('', null),
   phone: Joi.string().max(20).allow('', null),
   source: Joi.string().valid(...customerDetailService.VALID_SOURCES, ...Object.keys(customerDetailService.SOURCE_PARENT_MAP)).allow('', null),
-  level: Joi.string().valid('A', 'B', 'C').allow('', null),
+  level: Joi.string().valid(...CUSTOMER_LEVEL_CODES).allow('', null),
   status: Joi.string().valid(...CUSTOMER_STATUS_CODES, ...[0, 1, 2, 3, 5].map(String)).allow('', null),
   // 业务状态筛选：前端「客户总览 / 公海」页发的是 business_status（views/pool/List.vue:250）。
   // 此前本 schema 缺该字段，配合 validate 的 stripUnknown 会被静默丢弃 → 筛选不生效（2026-09-11 修复）。
@@ -68,6 +79,11 @@ const customerListSchema = Joi.object({
   end_date: Joi.string().isoDate().allow('', null),
   overdue: Joi.boolean().allow(null),
   unassigned: Joi.boolean().allow(null),
+  // 以下字段 listCustomers 已实现过滤，旧 schema 却未声明（静态比对发现）。
+  customer_type: Joi.string().max(50).allow('', null),
+  lifecycle_status: Joi.string().max(50).allow('', null),
+  overdue_follow: Joi.boolean().allow(null),
+  tag_id: Joi.number().integer().positive().allow(null),
   sort: Joi.string().valid('create_time_desc', 'last_follow_time_asc', 'last_follow_time_desc').allow('', null)
 });
 
@@ -90,7 +106,7 @@ const addCustomerSchema = Joi.object({
   address: Joi.string().max(500).allow('', null),
   industry: Joi.string().max(200).allow('', null),
   source: Joi.string().valid(...customerDetailService.VALID_SOURCES).allow('', null),
-  level: Joi.string().valid('A', 'B', 'C').default('C'),
+  level: Joi.string().valid(...CUSTOMER_LEVEL_CODES).default('C'),
   remark: Joi.string().max(2000).allow('', null)
 });
 
@@ -100,7 +116,7 @@ const updateCustomerSchema = Joi.object({
   address: Joi.string().max(500).allow('', null),
   industry: Joi.string().max(200).allow('', null),
   source: Joi.string().valid(...customerDetailService.VALID_SOURCES).allow('', null),
-  level: Joi.string().valid('A', 'B', 'C'),
+  level: Joi.string().valid(...CUSTOMER_LEVEL_CODES),
   status: Joi.string().valid(...CUSTOMER_STATUS_CODES, ...[1, 2, 3, 5].map(String)),
   remark: Joi.string().max(2000).allow('', null)
 });
@@ -123,7 +139,7 @@ const exportSchema = Joi.object({
   contact_name: Joi.string().max(200).allow('', null),
   phone: Joi.string().max(20).allow('', null),
   source: Joi.string().max(50).allow('', null),
-  level: Joi.string().valid('A', 'B', 'C').allow('', null),
+  level: Joi.string().valid(...CUSTOMER_LEVEL_CODES).allow('', null),
   status: Joi.string().valid(...CUSTOMER_STATUS_CODES, ...[0, 1, 2, 3, 5].map(String)).allow('', null),
   owner_id: Joi.number().integer().positive().allow('', null),
   start_date: Joi.string().isoDate().allow('', null),

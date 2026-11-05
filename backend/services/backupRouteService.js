@@ -54,8 +54,9 @@ async function createBackup(pool, userId) {
   const writeStream = fs.createWriteStream(filePath);
   execFile(
     'mysqldump',
-    ['-u', dbUser, `-p${dbPass}`, '-h', dbHost, '-P', dbPort, '--single-transaction', '--routines', '--triggers', dbName],
-    { maxBuffer: 100 * 1024 * 1024 },
+    // [P2-16] 口令走 MYSQL_PWD，不出现在 mysqldump 进程命令行
+    ['-u', dbUser, '-h', dbHost, '-P', dbPort, '--single-transaction', '--routines', '--triggers', dbName],
+    { maxBuffer: 100 * 1024 * 1024, env: { ...process.env, MYSQL_PWD: dbPass } },
     async (error, stdout) => {
       try {
         if (error) {
@@ -153,8 +154,9 @@ async function restoreBackup(pool, id, confirmCode) {
 
   execFile(
     'mysql',
-    ['-u', dbUser, `-p${dbPass}`, '-h', dbHost, '-P', dbPort, dbName],
-    { maxBuffer: 100 * 1024 * 1024 },
+    // [P2-16] 同上：口令不进入 mysql 进程命令行
+    ['-u', dbUser, '-h', dbHost, '-P', dbPort, dbName],
+    { maxBuffer: 100 * 1024 * 1024, env: { ...process.env, MYSQL_PWD: dbPass } },
     async (error) => {
       try {
         if (error) {

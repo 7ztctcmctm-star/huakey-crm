@@ -42,7 +42,7 @@ describe('角色管理模块', () => {
   describe('POST /api/v1/role/add', () => {
     it('应该返回400当缺少name字段', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
-      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+      mockPool.query.mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/v1/role/add')
@@ -55,7 +55,7 @@ describe('角色管理模块', () => {
 
     it('应该返回400当缺少code字段', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
-      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+      mockPool.query.mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/v1/role/add')
@@ -69,8 +69,7 @@ describe('角色管理模块', () => {
     it('应该返回200当正常创建角色', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ insertId: 5 }]);
 
       const res = await request(app)
@@ -87,7 +86,7 @@ describe('角色管理模块', () => {
   describe('POST /api/v1/role/update', () => {
     it('应该返回400当缺少id字段', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
-      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+      mockPool.query.mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/v1/role/update')
@@ -101,8 +100,7 @@ describe('角色管理模块', () => {
     it('应该返回200当正常更新角色', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ affectedRows: 1 }])
         .mockResolvedValueOnce([[{ id: 1 }, { id: 2 }]]); // users with this role
 
@@ -119,7 +117,7 @@ describe('角色管理模块', () => {
   describe('POST /api/v1/role/delete', () => {
     it('应该返回400当缺少id字段', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
-      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+      mockPool.query.mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/v1/role/delete')
@@ -133,8 +131,7 @@ describe('角色管理模块', () => {
     it('应该返回409当角色下有用户时拒绝删除（C3：占用冲突改 409 RESOURCE_IN_USE）', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ cnt: 3 }]]); // users check
 
       const res = await request(app)
@@ -149,8 +146,7 @@ describe('角色管理模块', () => {
     it('应该返回409当角色已配置权限时拒绝删除（C3 新增占用检查项）', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ cnt: 0 }]])  // no users
         .mockResolvedValueOnce([[{ cnt: 37 }]]); // has role-permission rows
 
@@ -166,8 +162,7 @@ describe('角色管理模块', () => {
     it('应该返回200当正常删除角色', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ cnt: 0 }]])  // no users
         .mockResolvedValueOnce([[{ cnt: 0 }]])  // no role-permission rows (C3 新增检查)
         .mockResolvedValueOnce([{ affectedRows: 1 }])

@@ -47,8 +47,8 @@
 | 约束 | 说明 |
 |------|------|
 | 单表模型 | `crm_customer` 单表，禁止拆分为 `crm_lead` / `crm_customer_pool` 等多表 |
-| 双字段状态模型 | `business_status`（销售漏斗阶段）+ `pool_status`（资源归属），禁止回退到单 `status` 字段模型 |
-| API 端点 | `/api/v1/leads`、`/api/v1/customers`、`/api/v1/pool` 三组端点独立，旧 `/api/v1/customer/*` 仅作兼容层 |
+| 状态字段模型 | `status` 为权威生命周期字段；`business_status` 为销售漏斗镜像（随 `status` 同步，迁移 110 对账）；资源归属以 `owner_id IS NULL` 为唯一事实源；`pool_status` 仅作只读兼容列 |
+| API 端点 | `/api/v1/leads`、`/api/v1/customers`、`/api/v1/pool` 三组端点独立；旧 `/api/v1/customer/*` 已于 2026-09-14 整树下线，不存在兼容层 |
 | 权限码 | `leads:*` / `customer:*` / `pool:*` 三组权限码独立，CRUD 统一为 `add/edit/delete` 风格 |
 | 后续模块依赖 | 商机 / 报价 / 合同 / 订单 / 回款 / 服务工单等只能**读取**客户中心数据，不得修改其表结构、权限码、API 契约 |
 

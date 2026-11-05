@@ -102,7 +102,7 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { getSmartReminders, saveSmartReminder, runSmartReminder, getPendingReminders, deleteSmartReminder, markReminderSeen } from '@/api/tools'
+import { getSmartReminders, saveSmartReminder, updateSmartReminder, runSmartReminder, getPendingReminders, deleteSmartReminder, markReminderSeen } from '@/api/tools'
 
 const typeName = { followup_gap: '跟进间隔', contract_expire: '合同到期', payment_due: '回款到期', birthday: '生日', inactive: '沉默客户' }
 const typeTag = { followup_gap: '', contract_expire: 'warning', payment_due: 'danger', birthday: 'success', inactive: 'info' }
@@ -168,7 +168,7 @@ const handleSaveRule = async () => {
   const data = { ...ruleForm, config: JSON.stringify(config) }
   try {
     let res
-    if (isRuleEdit.value) res = await saveSmartReminder({ id: ruleEditId.value, ...data })
+    if (isRuleEdit.value) res = await updateSmartReminder(ruleEditId.value, data)
     else res = await saveSmartReminder(data)
     if (res.code === 200) { ElMessage.success('保存成功'); ruleDialogVisible.value = false; fetchRules() }
   } catch (e) { /* */ }

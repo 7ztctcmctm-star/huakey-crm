@@ -48,6 +48,16 @@ describe('customerService.systemAssignOwner（系统级归属变更）', () => {
     expect(allSql).not.toMatch(/pool_status/);
     expect(allSql).not.toMatch(/crm_assign_log/);
   });
+
+  it('[P1-07] onlyUnassigned=true 时只认领公海（WHERE 带 owner_id IS NULL）', async () => {
+    const pool = makePool();
+    const r = await customerService.systemAssignOwner(pool, 100, 7, { onlyUnassigned: true });
+    expect(pool.calls[0].sql).toBe(
+      'UPDATE crm_customer SET owner_id = ? WHERE id = ? AND owner_id IS NULL AND deleted_at IS NULL'
+    );
+    expect(pool.calls[0].params).toEqual([7, 100]);
+    expect(r.affectedRows).toBe(1);
+  });
 });
 
 describe('customerService.systemUpdateField（系统级字段更新）', () => {

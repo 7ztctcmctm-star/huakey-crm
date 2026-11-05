@@ -27,7 +27,8 @@ async function main() {
   for (let i = 0; i < 30; i++) {
     try {
       execSync(
-        'docker compose -f docker-compose.ci.yml exec -T mysql mysqladmin ping -h localhost -u root --password=test_root_pass --silent',
+        // [P2-16] 口令取自容器已有的 MYSQL_ROOT_PASSWORD，不进 docker/ps 命令行
+        'docker compose -f docker-compose.ci.yml exec -T mysql sh -c \'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysqladmin ping -h localhost -u root --silent\'',
         { cwd: ROOT, stdio: 'pipe', timeout: 5000 }
       );
       console.log('  MySQL is ready.');

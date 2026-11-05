@@ -187,6 +187,7 @@
           <el-upload
             ref="uploadRef"
             :action="uploadUrl"
+            :http-request="uploadByRequest"
             with-credentials
             :data="{ business_type: 'service_order' }"
             :on-success="handleUploadSuccess"
@@ -374,6 +375,7 @@ import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import PageToolbar from '@/components/common/PageToolbar.vue'
 import { reportError } from '@/utils/error'
+import { uploadByRequest } from '@/utils/upload'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'

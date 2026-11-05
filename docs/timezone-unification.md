@@ -60,15 +60,15 @@
 | `services/customerDetailService.js` | 客户导出「最后跟进 / 创建时间」 | 08:00 前导出成前一天 |
 | `services/contractExportService.js` | 付款日期导入 | xlsx 日期单元格是本地午夜 `Date`，`toISOString` 会退一天 |
 | `utils/qualification-reminder.js` | 资质到期扫描（今天 / +90天 / +N天） | 同上 |
-| `scripts/generate_reminders.js` | 今日 / 明日跟进提醒 | 同上 |
-| `scripts/audit-domain-boundary.js` | 基线 `review_by` 过期判定 | 同上 |
+| `backend/scripts/generate_reminders.js` | 今日 / 明日跟进提醒 | 同上 |
+| `backend/scripts/audit-domain-boundary.js` | 基线 `review_by` 过期判定 | 同上 |
 | `utils/paymentPlan.js` | `toPlanDateKey` | 改为复用 `dateCode.dateKey`，消除第二套本地取值实现 |
 
 ### 刻意**不**改的项
 
 - 日志 / 告警 / Webhook 里的 `new Date().toISOString()`（`app.js`、`utils/alert.js`、`utils/notification.js`、
-  `services/notificationService.js`、`webhookDispatcher.js`、`scripts/auto_release.js`、
-  `scripts/overdue_reminder.js`、`services/backupRouteService.js`）：
+  `services/notificationService.js`、`webhookDispatcher.js`、`backend/scripts/auto_release.js`、
+  `backend/scripts/overdue_reminder.js`、`services/backupRouteService.js`）：
   这些是**时刻（instant）**而非"业务日期"，ISO-8601 带 Z 是可跨时区无歧义交换的正确写法，改成 +08:00 反而丢信息。
 - `services/analysisService.js` 之外的纯展示格式化：未发现 UTC 截取。
 
@@ -106,7 +106,7 @@ WHERE TABLE_SCHEMA='huakey_crm' AND DATA_TYPE='timestamp';
 
 > 任务书描述为「11 张 timestamp 表」，**实测为 8 张表 / 15 列**
 > （`deploy/init-complete.sql` 基线里 7 张，第 8 张 `schema_migrations` 由
-> `backend/database/migrations/run_migrations.js` 自建）。差异以实测为准。
+> `database/migrations/run_migrations.js` 自建）。差异以实测为准。
 
 | # | 表 | 列 | 可空 | 默认值 | 当前行数 | 风险评估 | 建议 |
 |---|---|---|---|---|---|---|---|

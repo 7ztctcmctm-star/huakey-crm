@@ -75,7 +75,8 @@ router.post('/auto-release', ...cronGuards, async (req, res, next) => {
     const released = await autoReleaseCustomers(pool, AUTO_RELEASE_DAYS);
     res.json({
       code: 200,
-      message: `公海回收完成，已释放 ${released} 个客户（超过 ${AUTO_RELEASE_DAYS} 天未跟进）`
+      // [S3 2026-11-05] 术语统一（V5.1/B6）：「公海回收/释放」→「收回到待分配」
+      message: `自动回收完成，已收回 ${released} 个客户到待分配（超过 ${AUTO_RELEASE_DAYS} 天未跟进）`
     });
   } catch (error) {
     logger.error('[Cron] 公海回收失败:', { error: error.message, traceId: req.traceId || 'N/A' });

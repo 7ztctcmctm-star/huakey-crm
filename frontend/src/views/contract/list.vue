@@ -133,7 +133,7 @@
           <el-table-column label="计划日期" width="150"><template #default="{row}"><el-date-picker v-model="row.plan_date" type="date" placeholder="日期" value-format="YYYY-MM-DD" size="small" /></template></el-table-column>
           <el-table-column label="金额" width="150"><template #default="{row}"><el-input-number v-model="row.plan_amount" :min="0" :precision="2" size="small" controls-position="right" /></template></el-table-column>
           <el-table-column label="备注"><template #default="{row}"><el-input v-model="row.remark" size="small" placeholder="备注" /></template></el-table-column>
-          <el-table-column label="操作" width="70"><template #default="{$index}"><el-button type="danger" link size="small" @click="form.plans.splice($index,1)">删除</el-button></template></el-table-column>
+          <el-table-column label="操作" width="70"><template #default="{$index}"><el-button type="danger" link size="small" @click="removePlan($index)">删除</el-button></template></el-table-column>
         </el-table>
         <el-form-item label="备注"><el-input v-model="form.remark" type="textarea" :rows="2" /></el-form-item>
       </el-form>
@@ -196,6 +196,9 @@ const formVisible = ref(false), isEdit = ref(false), saveLoading = ref(false), f
 const customerOptions = ref([]), opportunityOptions = ref([])
 const templateOptions = ref([]), selectedTemplate = ref(null)
 const form = reactive({ customer_id: null, opportunity_id: null, amount: 0, sign_date: '', delivery_date: '', payment_terms: '', status: 1, remark: '', plans: [] })
+// [P1-25] 记录编辑时被删除的已有计划 id，随保存下发 delete_plan_ids；
+// 只 splice 前端数组会导致已删除计划在保存后“复活”。
+const deletedPlanIds = ref([])
 const rules = {
   customer_id: [{ required: true, message: '请选择客户', trigger: 'change' }],
   amount: [{ required: true, message: '请输入合同金额', trigger: 'blur' }],
@@ -305,10 +308,10 @@ const applyTemplate = (templateId) => {
   form.delivery_date = t.delivery_days ? new Date(Date.now() + t.delivery_days * 86400000).toISOString().split('T')[0] : ''
   form.remark = t.remark || ''
 }
-const handleCreate = () => { isEdit.value = false; editId.value = null; selectedTemplate.value = null; resetForm(); formVisible.value = true; fetchTemplates() }
+const handleCreate = () => { isEdit.value = false; editId.value = null; selectedTemplate.value = null; deletedPlanIds.value = []; resetForm(); formVisible.value = true; fetchTemplates() }
 
 const handleEdit = async (row) => {
-  isEdit.value = true; editId.value = row.id
+  isEdit.value = true; editId.value = row.id; deletedPlanIds.value = []
   try {
     const r = await getContractDetail(row.id)
     if (r.code === 200) {
@@ -327,6 +330,10 @@ const handleDelete = (row) => {
 }
 
 const addPlan = () => { form.plans.push({ plan_date: '', plan_amount: 0, remark: '' }) }
+const removePlan = (index) => {
+  const [removed] = form.plans.splice(index, 1)
+  if (removed?.id) deletedPlanIds.value.push(removed.id)
+}
 const resetForm = () => { Object.assign(form, { customer_id: null, opportunity_id: null, amount: 0, sign_date: '', delivery_date: '', payment_terms: '', status: 1, remark: '', plans: [] }) }
 
 const submitForm = async () => {
@@ -336,7 +343,10 @@ const submitForm = async () => {
     saveLoading.value = true
     try {
       const data = { ...form, plans: form.plans.filter(p => p.plan_date && p.plan_amount > 0) }
-      if (isEdit.value) data.id = editId.value
+      if (isEdit.value) {
+        data.id = editId.value
+        data.delete_plan_ids = deletedPlanIds.value
+      }
       const r = isEdit.value ? await updateContract(data) : await addContract(data)
       if (r.code === 200) { ElMessage.success(isEdit.value ? '修改成功' : '创建成功'); formVisible.value = false; fetchList() }
       else { ElMessage.error(r.message||'保存失败') }

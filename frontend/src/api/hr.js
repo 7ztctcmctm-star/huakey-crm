@@ -25,5 +25,6 @@ export const getReconciliationList = (params) => request.get('/finance/reconcili
 export const getSupplierReconciliation = (params) => request.get('/finance/reconciliation/supplier', { params })
 export const getCustomerReconciliation = (params) => request.get('/finance/reconciliation/customer', { params })
 export const saveReconciliation = (data) => request.post('/finance/reconciliation/save', data)
-export const getFinanceAnalysis = () => request.get('/finance/analysis')
+/** 财务分析（后端读取 start_date / end_date 查询参数） */
+export const getFinanceAnalysis = (params) => request.get('/finance/analysis', { params })
 export const acknowledgeReminder = (id) => request.put(`/finance/reminders/${id}/acknowledge`)

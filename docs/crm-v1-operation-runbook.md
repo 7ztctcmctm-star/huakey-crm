@@ -20,7 +20,7 @@ crm.huakey.local（DNS 解析）
 DSM Nginx 反向代理（443, HTTPS）
    ↓ 127.0.0.1:8443
 Docker CRM Nginx（8443, HTTPS）
-   ↓ 127.0.0.1:5000
+   ↓ app:5000（容器网络）
 Docker CRM App（Express 4.22.2）
    ↓
 MySQL 8.0.46 + Redis
@@ -30,7 +30,7 @@ MySQL 8.0.46 + Redis
 
 | 容器 | 镜像 | 端口 | 用途 |
 |------|------|------|------|
-| huakey-app | node:18-alpine | 5000 | Express 后端 |
+| huakey-app | node:22-alpine | 5000（仅容器内） | Express 后端 |
 | huakey-nginx | nginx:alpine | 8443 | Docker Nginx |
 | huakey-mysql | mysql:8.0 | 3306 | 数据库 |
 | huakey-redis | redis:alpine | 6379 | 缓存 |
@@ -42,7 +42,7 @@ MySQL 8.0.46 + Redis
    ↓ HTTP/HTTPS
 NAS (192.168.0.200)
 ├── DSM Nginx (443) ← crm.huakey.local 证书
-├── Docker Network (huakey-net)
+├── Docker Network (crm-network)
 │   ├── huakey-nginx (8443) ← server.crt
 │   ├── huakey-app (5000)
 │   ├── huakey-mysql (3306)
@@ -243,7 +243,7 @@ ssh nas-crm "sudo nginx -t && sudo nginx -s reload"
 ```bash
 ssh nas-crm
 source /volume1/docker/crm-stack/.env.secrets
-echo "SELECT id, username, status, must_change_password FROM sys_user WHERE username='<用户名>';" | docker exec -i huakey-mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" huakey_crm
+echo "SELECT id, username, status, must_change_password FROM sys_user WHERE username='<用户名>';" | docker exec -i huakey-mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot huakey_crm'
 ```
 
 **预期**: `status=1`（已激活）
@@ -268,7 +268,7 @@ echo "SELECT id, username, status, must_change_password FROM sys_user WHERE user
 
 ```bash
 # 检查用户角色
-echo "SELECT u.username, r.code, r.name FROM sys_user u JOIN sys_role r ON u.role_id=r.id WHERE u.username='<用户名>';" | docker exec -i huakey-mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" huakey_crm
+echo "SELECT u.username, r.code, r.name FROM sys_user u JOIN sys_role r ON u.role_id=r.id WHERE u.username='<用户名>';" | docker exec -i huakey-mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot huakey_crm'
 ```
 
 **步骤 5: 登录限流检查**
@@ -321,7 +321,7 @@ source /volume1/docker/crm-stack/.env.secrets
 HASH=$(docker exec huakey-app node -e "console.log(require('bcryptjs').hashSync('TempPass123', 10))")
 
 # 更新密码 + 强制改密
-echo "UPDATE sys_user SET password='$HASH', must_change_password=1 WHERE id=<user_id>;" | docker exec -i huakey-mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" huakey_crm
+echo "UPDATE sys_user SET password='$HASH', must_change_password=1 WHERE id=<user_id>;" | docker exec -i huakey-mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot huakey_crm'
 ```
 
 **注意**: PowerShell 会吞掉 `$` 字符，必须通过文件执行，不能内联。
@@ -336,7 +336,7 @@ echo "UPDATE sys_user SET password='$HASH', must_change_password=1 WHERE id=<use
 
 | 备份类型 | 频率 | 脚本 | 保留 |
 |----------|------|------|------|
-| MySQL | 每日 02:00 | mysql-backup.sh | 7 天 + 4 周 |
+| MySQL | 每日 02:00 | mysql-backup.sh | 30 天 + 4 周（`BACKUP_KEEP_DAYS` 可覆盖） |
 | Uploads | 每日 02:30 | uploads-backup.sh | 7 天 |
 | Config | 每日 02:45 | config-backup.sh | 7 天 |
 | 验证 | 每日 03:00 | restore-test.sh | - |
@@ -352,10 +352,10 @@ RESTORE_DATE="20260806"
 BACKUP_FILE="/volume1/docker/crm-stack/database/backups/huakey_crm_${RESTORE_DATE}.sql.gz"
 
 source /volume1/docker/crm-stack/.env.secrets
-gunzip -c "$BACKUP_FILE" | docker exec -i huakey-mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" huakey_crm
+gunzip -c "$BACKUP_FILE" | docker exec -i huakey-mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot huakey_crm'
 
 # 3. 验证
-echo "SELECT COUNT(*) FROM crm_customer WHERE deleted_at IS NULL;" | docker exec -i huakey-mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" huakey_crm
+echo "SELECT COUNT(*) FROM crm_customer WHERE deleted_at IS NULL;" | docker exec -i huakey-mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot huakey_crm'
 ```
 
 ### 4.3 Uploads 恢复

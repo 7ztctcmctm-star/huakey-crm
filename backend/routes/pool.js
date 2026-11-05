@@ -5,9 +5,12 @@
  * 权限码: pool:view / pool:claim / customer:release（Phase 4 迁移 098 定义）
  *
  * 端点:
- *   POST /          - 公海列表（status='sea'）            [pool:view]
- *   POST /claim     - 认领公海客户（sea→following, 7天保护期） [pool:claim]
- *   POST /release   - 释放客户到公海（following→sea）       [customer:release]
+ *   POST /          - 公海列表（owner_id IS NULL）        [pool:view]
+ *   POST /claim     - 认领公海客户（owner_id→当前用户）    [pool:claim]
+ *   POST /release   - 释放客户到公海（owner_id=NULL）      [customer:release]
+ *
+ * [2026-10-26] 「7 天保护期」已于 2026-09-10 下线（poolService.claimPoolCustomer
+ * 不再写 protect_until），注释同步修正，避免误导调用方。
  *
  * [2026-09-14 阶段2] 旧兼容端点 POST /api/v1/customer/pool-list、/customer/claim-pool、
  *           /customer/release-to-pool 已随 routes/customer/center.js 一并移除；本文件为公海池的唯一端口。
@@ -22,6 +25,8 @@ const { checkPermission, checkDataPermission } = require('../middleware/permissi
 const { validate, Joi, idempotencyKeyField } = require('../middleware/validate');
 const customerController = require('../controllers/customerController');
 const transferController = require('../controllers/transferController');
+const { CUSTOMER_LEVEL_CODES } = require('../constants/customerLevel');
+const { BUSINESS_STATUS_CODES } = require('../constants/poolStatus');
 
 // ========== 查询 Schema（原与 customer/center.js 保持一致，该文件已于 2026-09-14 移除） ==========
 
@@ -29,9 +34,14 @@ const poolListSchema = Joi.object({
   page: Joi.number().integer().min(1).optional(),
   pageSize: Joi.number().integer().min(1).max(200).optional(),
   company_name: Joi.string().max(200).allow('', null),
+  // [V1.1 §11.3] 前端公海页实际下发的联系人/电话/业务状态筛选：
+  // 旧 schema 未声明 ⇒ stripUnknown 静默丢弃，用户点搜索无任何效果。
+  contact_name: Joi.string().max(200).allow('', null),
+  phone: Joi.string().max(20).allow('', null),
   industry: Joi.string().max(50).allow('', null),
   source: Joi.string().max(50).allow('', null),
-  level: Joi.string().valid('A', 'B', 'C').allow('', null),
+  level: Joi.string().valid(...CUSTOMER_LEVEL_CODES).allow('', null),
+  business_status: Joi.string().valid(...BUSINESS_STATUS_CODES).allow('', null),
   sort: Joi.string().valid('create_time_desc', 'last_follow_time_asc', 'last_follow_time_desc').allow('', null)
 });
 
@@ -56,7 +66,7 @@ router.post('/',
   customerController.listPoolNew
 );
 
-// 认领公海客户（sea → following，设 7 天保护期）
+// 认领公海客户（owner_id=NULL → 当前用户；7 天保护期已下线）
 router.post('/claim',
   authenticateToken,
   checkPermission('pool:claim'),
@@ -68,6 +78,7 @@ router.post('/claim',
 router.post('/release',
   authenticateToken,
   checkPermission('customer:release'),
+  checkDataPermission('customer', 'owner_id'),
   validate(releaseSchema),
   customerController.releaseToPool
 );

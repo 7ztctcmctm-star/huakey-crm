@@ -134,7 +134,7 @@ router.get('/list', authenticateToken, checkPermission('email'), async (req, res
 // 6. 邮件详情
 router.get('/:id', authenticateToken, checkPermission('email'), async (req, res, next) => {
   try {
-    const email = await emailService.getEmailDetail(pool, req.params.id);
+    const email = await emailService.getEmailDetail(pool, req.params.id, req.user.userId);
     if (!email) return res.status(404).json({ code: 404, message: '邮件不存在', data: null });
     res.json({ code: 200, message: '查询成功', data: email });
   } catch (error) {
@@ -162,7 +162,7 @@ router.post('/send', authenticateToken, checkPermission('email:send'), validate(
 router.post('/reply/:id', authenticateToken, checkPermission('email:send'), validate(replySchema), async (req, res, next) => {
   try {
     const { body_html, account_id } = req.body;
-    const email = await emailService.getEmailDetail(pool, req.params.id);
+    const email = await emailService.getEmailDetail(pool, req.params.id, req.user.userId);
     if (!email) return res.status(404).json({ code: 404, message: '原邮件不存在', data: null });
 
     const to = email.direction === 'in' ? email.from_address : JSON.parse(email.to_addresses || '[]')[0];
@@ -186,7 +186,7 @@ router.post('/reply/:id', authenticateToken, checkPermission('email:send'), vali
 // 9. 标记已读
 router.put('/:id/read', authenticateToken, checkPermission('email'), validate(emptySchema), async (req, res, next) => {
   try {
-    await emailService.markAsRead(pool, req.params.id);
+    await emailService.markAsRead(pool, req.params.id, req.user.userId);
     res.json({ code: 200, message: '已标记已读', data: null });
   } catch (error) {
     logger.error('[邮件] 标记已读失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -197,7 +197,7 @@ router.put('/:id/read', authenticateToken, checkPermission('email'), validate(em
 // 10. 标记星标
 router.put('/:id/star', authenticateToken, checkPermission('email'), validate(emptySchema), async (req, res, next) => {
   try {
-    const result = await emailService.toggleStar(pool, req.params.id);
+    const result = await emailService.toggleStar(pool, req.params.id, req.user.userId);
     res.json({ code: 200, message: result.is_starred ? '已星标' : '已取消星标', data: result });
   } catch (error) {
     logger.error('[邮件] 星标操作失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -211,7 +211,7 @@ router.post('/:id/link-customer', authenticateToken, checkPermission('email'), v
     const { customer_id } = req.body;
     if (!customer_id) return res.status(400).json({ code: 400, message: '客户ID不能为空', data: null });
 
-    await emailService.linkCustomer(pool, req.params.id, customer_id);
+    await emailService.linkCustomer(pool, req.params.id, customer_id, req.user.userId);
     res.json({ code: 200, message: '关联成功', data: null });
   } catch (error) {
     logger.error('[邮件] 关联客户失败:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });

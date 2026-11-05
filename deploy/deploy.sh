@@ -324,7 +324,7 @@ echo ""
 echo "[8/12] 等待 App 迁移完成并通过健康检查..."
 APP_HEALTH=""
 for i in $(seq 1 60); do
-    # 迁移失败判据优先：容器 CMD 是 `node database/migrate.js && exec node app.js`，
+    # 迁移失败判据优先：容器 CMD 是 `node database/migrations/run_migrations.js && exec node app.js`，
     # 迁移失败则进程退出、容器反复重启，日志里永远等不到健康信号，只能靠关键字识别。
     if docker logs huakey-app 2>&1 | grep -qE "\[迁移\] ❌|\[迁移\] 存在失败的迁移|\[迁移\] 致命错误|执行失败"; then
         rollback_and_exit "数据库迁移失败（详见 docker logs huakey-app）"
@@ -360,7 +360,14 @@ if docker logs huakey-app 2>&1 | grep -qE "\[迁移\] ❌|\[迁移\] 存在失�
     docker logs huakey-app 2>&1 | grep -E "\[迁移\]" | tail -15
     rollback_and_exit "数据库迁移失败"
 fi
-MIGRATE_LOG=$(docker logs huakey-app 2>&1 | grep "\[迁移\] 完成" | tail -1 || echo "")
+# P0-5 匹配两代迁移器的成功输出（2026-11-02 修）：
+#   旧迁移器：[迁移] 完成
+#   新迁移器（database/migrations/run_migrations.js）：
+#     - 执行了 ≥1 个：本次执行了 N 个迁移
+#     - 无待执行（重部署常见）：所有迁移均已执行，无需操作
+# 失败样例（执行失败/❌）已被上方 [9/12] 硬门禁拦截，此处只做成功信号的正向确认，
+# 三种成功信号都未出现才算 P0-5 失败——不放水也不误报。
+MIGRATE_LOG=$(docker logs huakey-app 2>&1 | grep -E "\[迁移\] 完成|本次执行了 [0-9]+ 个迁移|所有迁移均已执行，无需操作" | tail -1 || echo "")
 if [ -z "$MIGRATE_LOG" ]; then
     echo "  ✗ [P0-5] 未找到迁移完成日志，无法确认迁移已成功"
     echo "      排查：docker logs huakey-app | grep 迁移"

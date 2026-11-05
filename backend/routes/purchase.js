@@ -348,10 +348,10 @@ router.post('/add', authenticateToken, checkPermission('purchase:add'), validate
   }
 });
 
-router.post('/update-status', authenticateToken, checkPermission('purchase:add'), validate(updateOrderStatusSchema), async (req, res, next) => {
+router.post('/update-status', authenticateToken, checkPermission('purchase:add'), checkDataPermission('purchase', 'owner_id'), validate(updateOrderStatusSchema), async (req, res, next) => {
   try {
     const { id, status, approveRemark } = req.body;
-    await purchaseService.updateStatus(pool, id, status, approveRemark);
+    await purchaseService.updateStatus(pool, id, status, approveRemark, req.dataPermission);
     await logAction(req, 'update-status', `更新采购单状态: ID=${id} → ${status}`);
     res.json({ code: 200, message: '状态更新成功', data: null });
   } catch (error) {
@@ -360,9 +360,9 @@ router.post('/update-status', authenticateToken, checkPermission('purchase:add')
   }
 });
 
-router.post('/receipt/add', authenticateToken, checkPermission('purchase:add'), validate(addReceiptSchema), async (req, res, next) => {
+router.post('/receipt/add', authenticateToken, checkPermission('purchase:add'), checkDataPermission('purchase', 'owner_id'), validate(addReceiptSchema), async (req, res, next) => {
   try {
-    const result = await purchaseService.addReceipt(pool, req.body, req.user.userId);
+    const result = await purchaseService.addReceipt(pool, req.body, req.user.userId, req.dataPermission);
     await logAction(req, 'receipt', `入库记录: ${result.receipt_no}, 数量=${req.body.quantity}`);
     res.json({ code: 200, message: '入库记录成功', data: result });
   } catch (error) {
@@ -381,14 +381,13 @@ router.get('/statistics', authenticateToken, checkPermission('purchase'), async 
   }
 });
 
-router.post('/payment/add', authenticateToken, checkPermission('purchase:add'), validate(addPaymentSchema), async (req, res, next) => {
+router.post('/payment/add', authenticateToken, checkPermission('purchase:add'), checkDataPermission('purchase', 'owner_id'), validate(addPaymentSchema), async (req, res, next) => {
   try {
     const { order_id, amount } = req.body;
     if (!order_id || !amount) {
       return res.status(400).json({ code: 400, message: '订单ID和金额不能为空', data: null });
     }
-    const result = await purchaseService.addPayment(pool, req.body, req.user.userId);
-    if (result.error) return res.status(result.code).json({ code: result.code, message: result.error, data: null });
+    const result = await purchaseService.addPayment(pool, req.body, req.user.userId, req.dataPermission);
     res.json({ code: 200, message: '付款登记成功', data: result });
   } catch (error) {
     logger.error('[采购] 添加付款错误:', { error: error.message, traceId: req.traceId || 'N/A' });

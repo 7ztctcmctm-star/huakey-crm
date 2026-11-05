@@ -11,6 +11,8 @@ const mockPool = {
 
 jest.mock('../config/database', () => mockPool);
 
+const { installAuthAwareQuery } = require('./helpers/authMock');
+
 const app = express();
 app.use(express.json());
 
@@ -31,6 +33,7 @@ describe('客户模块 - 参数验证', () => {
 
   beforeEach(() => {
     mockPool.query.mockReset();
+    installAuthAwareQuery(mockPool);
   });
 
   describe('POST /api/v1/customers/add', () => {

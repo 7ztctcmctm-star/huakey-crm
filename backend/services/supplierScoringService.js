@@ -64,7 +64,7 @@ async function calculateQualityScore(pool, supplierId, rules) {
        FROM crm_purchase_receipt pr
        JOIN crm_purchase_item pi ON pr.item_id = pi.id
        JOIN crm_purchase_order po ON pi.order_id = po.id
-       WHERE po.supplier_id = ? AND pr.receive_time >= NOW() - INTERVAL 90 DAY`,
+       WHERE po.supplier_id = ? AND po.deleted_at IS NULL AND pr.receive_time >= NOW() - INTERVAL 90 DAY`,
       [supplierId]
     );
 
@@ -84,7 +84,7 @@ async function calculateDeliveryScore(pool, supplierId, rules) {
       `SELECT COUNT(*) as total,
               SUM(CASE WHEN actual_date IS NOT NULL AND actual_date <= expected_date THEN 1 ELSE 0 END) as on_time
        FROM crm_purchase_order
-       WHERE supplier_id = ? AND status IN ('已完成', '部分收货')
+       WHERE supplier_id = ? AND status IN ('已完成', '部分收货') AND deleted_at IS NULL
          AND expected_date IS NOT NULL
          AND create_time >= NOW() - INTERVAL 180 DAY`,
       [supplierId]
@@ -126,7 +126,7 @@ async function calculatePriceScore(pool, supplierId) {
       `SELECT AVG(pi.unit_price) as avg_price
        FROM crm_purchase_item pi
        JOIN crm_purchase_order po ON pi.order_id = po.id
-       WHERE po.supplier_id = ? AND po.create_time >= NOW() - INTERVAL 180 DAY`,
+       WHERE po.supplier_id = ? AND po.deleted_at IS NULL AND po.create_time >= NOW() - INTERVAL 180 DAY`,
       [supplierId]
     );
 
@@ -136,7 +136,7 @@ async function calculatePriceScore(pool, supplierId) {
       `SELECT AVG(pi.unit_price) as market_avg
        FROM crm_purchase_item pi
        JOIN crm_purchase_order po ON pi.order_id = po.id
-       WHERE po.create_time >= NOW() - INTERVAL 180 DAY`
+       WHERE po.deleted_at IS NULL AND po.create_time >= NOW() - INTERVAL 180 DAY`
     );
 
     if (!marketAvg || !marketAvg.market_avg) return 3.5;
@@ -241,7 +241,7 @@ async function calculateSupplierScore(pool, supplierId) {
  */
 async function checkAllSuppliersScores(pool) {
   try {
-    const [suppliers] = await pool.query('SELECT id FROM crm_supplier WHERE status = 1');
+    const [suppliers] = await pool.query('SELECT id FROM crm_supplier WHERE status = 1 AND deleted_at IS NULL');
     console.log(`[SupplierScoring] 开始评分，共 ${suppliers.length} 个供应商...`);
 
     const results = [];

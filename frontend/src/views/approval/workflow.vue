@@ -186,7 +186,7 @@ const fetchUsersAndRoles = async () => {
   try {
     const [uRes, rRes] = await Promise.all([
       getSalesUsers(),
-      getRoleList({ page: 1, pageSize: 100 })
+      getRoleList()
     ])
     if (uRes.code === 200) userList.value = uRes.data
     if (rRes.code === 200) roleList.value = rRes.data.list || []

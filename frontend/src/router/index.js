@@ -60,7 +60,8 @@ const router = createRouter({
           path: 'leads',
           name: 'LeadsPool',
           component: () => import('../views/leads/List.vue'),
-          meta: { title: '潜客池', permission: 'leads:view' }
+          // [S3 2026-11-05] 术语统一（V5.1）：「潜客池」→「客户资源库」
+          meta: { title: '客户资源库', permission: 'leads:view' }
         },
         {
           path: 'customer/list',
@@ -73,7 +74,9 @@ const router = createRouter({
           name: 'PublicPool',
           component: () => import('../views/pool/List.vue'),
           // 【2026-09-10】按产品决策由「公海池」改名为「客户总览」：
-          // 同一页面承载两半 —— 待认领（原公海池语义）+ 全部客户（含负责人）。
+          // 同一页面承载两半 —— 待分配（原公海池语义）+ 全部客户（含负责人）。
+          // [S3 2026-11-05] 术语统一（V5.1）：「待认领」视图改称「待分配」；
+          // 「认领」操作随权限回收下线（销售不可抢），boss 侧对应动作为「分配」（assign）。
           // path 与权限码保持 pool:* 不变（改名会波及已发通知中的链接与权限数据）。
           meta: { title: '客户总览', permission: 'pool:view' }
         },
@@ -253,13 +256,15 @@ const router = createRouter({
           path: 'inventory',
           name: 'Inventory',
           component: () => import('../views/inventory/index.vue'),
-          meta: { title: '库存管理', permission: 'product' }
+          // [V1.1 §11.3] 与 backend/routes/inventory.js 的 checkPermission('purchase') 对齐；
+          // 原 product 权限会在进入页面后所有接口 403。
+          meta: { title: '库存管理', permission: 'purchase' }
         },
         {
           path: 'inventory/movements',
           name: 'InventoryMovements',
           component: () => import('../views/inventory/movements.vue'),
-          meta: { title: '库存变动', permission: 'product' }
+          meta: { title: '库存变动', permission: 'purchase' }
         },
         {
           path: 'supplier/ranking',
@@ -355,7 +360,9 @@ const router = createRouter({
           path: 'settings/api-platform',
           name: 'ApiPlatform',
           component: () => import('../views/settings/api-platform.vue'),
-          meta: { title: 'API开放平台', permission: 'system:user', admin: true }
+          // [V1.1 §11.3] 后端守卫为 checkPermission('api_platform') + requireManager；
+          // 原 'system:user' 让持有 api_platform 的经理被路由守卫挡在页面外。
+          meta: { title: 'API开放平台', permission: 'api_platform', admin: true }
         },
         {
           path: 'competitor',

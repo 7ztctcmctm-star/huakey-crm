@@ -4,6 +4,8 @@ const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
+const { installAuthAwareQuery } = require('./helpers/authMock');
+
 const mockPool = { query: jest.fn() };
 jest.mock('../config/database', () => mockPool);
 jest.mock('../utils/sseManager', () => ({ send: jest.fn() }));
@@ -36,7 +38,10 @@ describe('通知 REST API', () => {
   });
 
   it('GET /notification/unread-count 返回未读数', async () => {
-    mockPool.query.mockResolvedValue([[{ count: 3 }]]);
+    installAuthAwareQuery(mockPool, async (sql) => {
+      if (String(sql).includes('COUNT(*) as count')) return [[{ count: 3 }]];
+      return [[]];
+    });
 
     const res = await request(app)
       .get('/notification/unread-count')
@@ -49,7 +54,7 @@ describe('通知 REST API', () => {
 
   it('GET /notification/list 返回分页列表与未读数', async () => {
     const row = { id: 1, type: 'system', title: 'T', content: 'C', link_url: null, business_type: 'quote', business_id: null, is_read: 0, created_at: new Date().toISOString() };
-    mockPool.query.mockImplementation(async (sql) => {
+    installAuthAwareQuery(mockPool, async (sql) => {
       if (sql.includes('COUNT(*) as total')) return [[{ total: 1 }]];
       if (sql.includes('LIMIT ? OFFSET ?')) return [[row]];
       if (sql.includes('COUNT(*) as count')) return [[{ count: 1 }]];
@@ -70,7 +75,7 @@ describe('通知 REST API', () => {
   });
 
   it('POST /notification/read/:id 标记单条已读', async () => {
-    mockPool.query.mockResolvedValue([{ affectedRows: 1 }]);
+    installAuthAwareQuery(mockPool, async () => [{ affectedRows: 1 }]);
 
     const res = await request(app)
       .post('/notification/read/1')
@@ -85,7 +90,7 @@ describe('通知 REST API', () => {
   });
 
   it('POST /notification/read-all 全部已读', async () => {
-    mockPool.query.mockResolvedValue([{ affectedRows: 5 }]);
+    installAuthAwareQuery(mockPool, async () => [{ affectedRows: 5 }]);
 
     const res = await request(app)
       .post('/notification/read-all')

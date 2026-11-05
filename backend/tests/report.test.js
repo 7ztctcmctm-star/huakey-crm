@@ -51,8 +51,7 @@ describe('报表中心模块', () => {
     it('应该返回概览数据', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         // Promise.all with 7 parallel queries
         .mockResolvedValueOnce([[{ amount: 500000 }]]) // monthSales
         .mockResolvedValueOnce([[{ count: 10 }]]) // monthCustomers
@@ -78,8 +77,7 @@ describe('报表中心模块', () => {
     it('应该返回销售漏斗', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // funnel data
           { stage: 1, count: 20, amount: '500000' },
           { stage: 2, count: 15, amount: '400000' },
@@ -101,8 +99,7 @@ describe('报表中心模块', () => {
     it('应该返回客户报表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ count: 15 }]]) // monthCount
         .mockResolvedValueOnce([[ // sourceDist
           { source: '网络', count: 8 },
@@ -134,8 +131,7 @@ describe('报表中心模块', () => {
     it('应该返回今日任务', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // follow list
           { id: 1, follow_type: '电话', content: '回访客户', company_name: '测试公司' }
         ]])
@@ -160,8 +156,7 @@ describe('报表中心模块', () => {
     it('应该返回200当正常导出报表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ '销售姓名': '张三', '成交金额': 100000, '回款金额': 80000 }]]) // perfRows
         .mockResolvedValueOnce([[{ '阶段编码': 1, '商机数量': 10, '预期金额': 300000 }]]) // funnelRows
         .mockResolvedValueOnce([[{ '客户来源': '展会', '客户数量': 5 }]]) // sourceRows

@@ -85,8 +85,14 @@ function installPool() {
     }
     if (s.includes('dept_id from sys_user')) return [[{ dept_id: DEPT_ID }]];
 
-    if (s.includes('view_all') || s.includes('manage_all')) return [[roleRow]];
-    if (s.includes('must_change_password')) return [[{ must_change_password: 0, status: 1 }]];
+    // [P0-06] 认证查询是一次 LEFT JOIN，必须返回完整账号+角色行
+    if (s.includes('view_all') || s.includes('manage_all') || s.includes('must_change_password')) {
+      return [[{
+        id: USER_ID, username: 'engineer1', role_id: 3, status: 1,
+        must_change_password: 0, password_changed_at: null,
+        fresh_role_id: 3, ...roleRow
+      }]];
+    }
 
     return [[]];
   });
@@ -276,8 +282,14 @@ describe('工单数据权限 —— 标准实现（P0-2）', () => {
           return [[]];
         }
         if (s.includes('dept_id from sys_user')) return [[{ dept_id: DEPT_ID }]];
-        if (s.includes('view_all') || s.includes('manage_all')) return [[{ view_all: 0, manage_all: 0, role_code: 'engineer' }]];
-        if (s.includes('must_change_password')) return [[{ must_change_password: 0, status: 1 }]];
+        // [P0-06] 认证查询是一次 LEFT JOIN，必须返回完整账号+角色行
+        if (s.includes('view_all') || s.includes('manage_all') || s.includes('must_change_password')) {
+          return [[{
+            id: USER_ID, username: 'engineer1', role_id: 3, status: 1,
+            must_change_password: 0, password_changed_at: null,
+            fresh_role_id: 3, view_all: 0, manage_all: 0, role_code: 'engineer'
+          }]];
+        }
         return [[]];
       });
       mockGetUserPermissions.mockResolvedValue(['service', 'service:edit']);
@@ -308,8 +320,14 @@ describe('工单数据权限 —— 标准实现（P0-2）', () => {
           return [[]];
         }
         if (s.includes('dept_id from sys_user')) return [[{ dept_id: DEPT_ID }]];
-        if (s.includes('view_all') || s.includes('manage_all')) return [[{ view_all: 0, manage_all: 0, role_code: 'engineer' }]];
-        if (s.includes('must_change_password')) return [[{ must_change_password: 0, status: 1 }]];
+        // [P0-06] 认证查询是一次 LEFT JOIN，必须返回完整账号+角色行
+        if (s.includes('view_all') || s.includes('manage_all') || s.includes('must_change_password')) {
+          return [[{
+            id: USER_ID, username: 'engineer1', role_id: 3, status: 1,
+            must_change_password: 0, password_changed_at: null,
+            fresh_role_id: 3, view_all: 0, manage_all: 0, role_code: 'engineer'
+          }]];
+        }
         return [[]];
       });
       mockGetUserPermissions.mockResolvedValue(['service', 'service:edit']);

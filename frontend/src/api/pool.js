@@ -18,7 +18,8 @@ import { withIdempotencyKey } from '@/utils/idempotency'
 
 /**
  * 客户总览列表（默认 owner_id 为空 = 待认领视图）
- * @param {Object} params - { page, page_size, keyword, source, ... }
+ * @param {Object} params - { page, pageSize, company_name, contact_name, phone,
+ *   industry, source, level, business_status, sort }
  */
 export const getPoolList = (params) => request.post('/pool', params)
 
@@ -42,9 +43,9 @@ export const releaseToPool = (id, reason = '') => request.post('/pool/release', 
 // 规则：销售发起 → 接收人同意才生效；不可撤回；超 3 天自动回流。
 
 /**
- * 发起转移申请
+ * 发起转移申请（单客户）
  * 【幂等】带 Idempotency-Key：双击/重试不会创建第二条转移申请
- * @param {Object} data - { customer_ids:[], target_user_id, reason? }
+ * @param {Object} data - { customer_id, to_user_id, reason? }
  */
 export const createTransfer = (data) =>
   request.post('/pool/transfer', data, withIdempotencyKey({}, 'transfer'))

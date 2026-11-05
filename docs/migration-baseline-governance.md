@@ -16,14 +16,14 @@
 ## 二、三层结构
 
 ```
-空库 ──000──▶ 初始结构 ──001..123──▶ 生产权威终态
+空库 ──000──▶ 初始结构 ──001..131──▶ 生产权威终态
         （下界）        （迁移链）        （= init-complete.sql 上界）
 ```
 
 | 层 | 文件 | 性质 |
 |---|---|---|
 | 下界 | `database/migrations/000_real_baseline.sql` | **生成物，禁止手工编辑**；幂等建表（只 `CREATE TABLE IF NOT EXISTS`，绝无 DROP/TRUNCATE——它会跑在存有生产数据的库上） |
-| 迁移链 | `database/migrations/001..123_*.sql` + `_down.sql` 成对 | 三位数递增；已提交禁改，只允许新增 |
+| 迁移链 | `database/migrations/001..131_*.sql` + `_down.sql` 成对 | 三位数递增；已提交禁改，只允许新增 |
 | 上界 | `deploy/init-complete.sql` | **生成物**，全新环境自举（含视图/事件），必须等价于「000 + 迁移链终态」 |
 
 **权威源 = 生产库实测结构**，快照落在 `database/baseline/prod-schema-snapshot.sql`。

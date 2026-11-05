@@ -150,6 +150,6 @@
 ## 十一、参考资料
 
 - `docs/contract-status-definition.md` —— 合同状态权威定义
-- `docs/contract-center-audit-report.md`
+- `docs/archive/contract-center-audit-report.md`
 - RFC-R13（命名规范）、RFC-R12（客户状态收敛）、RFC-R15c（FK 口径）
 - 同构实现：`crm_opportunity_stage_log`、`crm_assign_log`、`crm_pool_log`

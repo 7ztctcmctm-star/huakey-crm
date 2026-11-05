@@ -35,11 +35,14 @@ const request = axios.create({
 `backend/app.js`：
 
 ```js
+// 所有模块路由（含 survey）由 ModuleRegistry 注册后统一挂载到 apiRouter
 app.use('/api/v1', apiRouter);
-app.use('/api/v1/survey', responseFormat, surveyRoutes);
 
 // 不再提供 /api 旧前缀兼容，所有请求必须使用 /api/v1
 ```
+
+> survey 自 2026-09-24 起通过 `ModuleRegistry` 自动挂载为 `/api/v1/survey`，
+> 不再有 `app.use('/api/v1/survey', ...)` 的显式挂载行。
 
 ## 测试路径
 

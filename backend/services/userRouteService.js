@@ -5,11 +5,85 @@
 const bcrypt = require('bcryptjs');
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
+const { ADMIN_ROLE_CODES, getRoleRank } = require('../config/roles');
 const { clearPermissionCache } = require('./permissionService');
 const sseManager = require('../utils/sseManager');
 const logger = require('../config/logger');
 // [R-06 边界收敛 2026-09-17] 本模块属非 Customer 域，写客户表须经客户域受控入口
 const customerService = require('./customerService');
+
+/**
+ * [P0-03 2026-10-23] 用户管理纵向越权防护
+ *
+ * 背景：routes/user.js 只校验 system:user:* 功能权限。HR 持有这些权限，
+ * 原实现允许 HR 创建 role_id=1(boss) 的账号、重置 boss 密码、把任意账号
+ * 改成 super_admin —— 等同于直接提权。
+ *
+ * 规则（后端强制，前端菜单隐藏不参与授权）：
+ *   · 调用者必须已登录且角色层级已登记；
+ *   · 非 super_admin 只能管理「角色层级 ≤ 自身」的用户；
+ *   · 非 super_admin 只能授予「角色层级 ≤ 自身」的角色；
+ *   · 未登记角色 rank=0，除 super_admin 外不可管理/授予（防自定义高权限角色绕过）；
+ *   · 无角色（role_id=NULL）用户无任何权限，可被正常管理。
+ */
+function isSuperAdmin(actor) {
+  return Boolean(actor && ADMIN_ROLE_CODES.has(actor.roleCode));
+}
+
+function assertActor(actor) {
+  if (!actor || !actor.userId || !actor.roleCode) {
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '登录状态无效，无法执行用户管理操作');
+  }
+  if (!isSuperAdmin(actor) && getRoleRank(actor.roleCode) <= 0) {
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '当前角色无权执行用户管理操作');
+  }
+}
+
+function assertCanManageUser(actor, targetRoleCode) {
+  assertActor(actor);
+  if (isSuperAdmin(actor)) return;
+  // 无角色账号没有任何权限，管理它不会造成提权
+  if (targetRoleCode === null || targetRoleCode === undefined) return;
+
+  const actorRank = getRoleRank(actor.roleCode);
+  const targetRank = getRoleRank(targetRoleCode);
+  if (targetRank <= 0 || targetRank > actorRank) {
+    throw new AppError(
+      ErrorCodes.PERMISSION_DENIED,
+      '无权管理该用户：目标账号的角色权限高于当前账号'
+    );
+  }
+}
+
+async function loadActiveRole(pool, roleId) {
+  const [rows] = await pool.query(
+    'SELECT id, code, name, status, deleted_at FROM sys_role WHERE id = ?',
+    [roleId]
+  );
+  const role = rows[0];
+  if (!role || role.deleted_at || role.status !== 1) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '角色不存在或已停用');
+  }
+  return role;
+}
+
+async function assertAssignableRole(pool, roleId, actor) {
+  assertActor(actor);
+  if (roleId === null || roleId === undefined) return null;
+
+  const role = await loadActiveRole(pool, roleId);
+  if (isSuperAdmin(actor)) return role;
+
+  const actorRank = getRoleRank(actor.roleCode);
+  const targetRank = getRoleRank(role.code);
+  if (targetRank <= 0 || targetRank > actorRank) {
+    throw new AppError(
+      ErrorCodes.PERMISSION_DENIED,
+      '无权授予该角色：目标角色权限高于当前账号'
+    );
+  }
+  return role;
+}
 
 /**
  * 获取用户列表
@@ -60,7 +134,9 @@ async function listUsers(pool, { page = 1, pageSize = 10, username, realName }) 
 /**
  * 添加用户
  */
-async function addUser(pool, { username, password, real_name, phone, email, dept_id, role_id }) {
+async function addUser(pool, { username, password, real_name, phone, email, dept_id, role_id }, actor) {
+  await assertAssignableRole(pool, role_id, actor);
+
   const [existingUsers] = await pool.query(
     'SELECT id FROM sys_user WHERE username = ? AND deleted_at IS NULL',
     [username]
@@ -90,14 +166,21 @@ async function addUser(pool, { username, password, real_name, phone, email, dept
  * @param {string} newPassword - 新密码（已通过 Joi 校验）
  * @returns {{ id: number, username: string }}
  */
-async function resetPassword(pool, id, newPassword) {
+async function resetPassword(pool, id, newPassword, actor) {
+  assertActor(actor);
+
   const [users] = await pool.query(
-    'SELECT id, username FROM sys_user WHERE id = ? AND deleted_at IS NULL',
+    `SELECT u.id, u.username, u.role_id, r.code AS role_code
+       FROM sys_user u
+       LEFT JOIN sys_role r ON r.id = u.role_id
+      WHERE u.id = ? AND u.deleted_at IS NULL`,
     [id]
   );
   if (users.length === 0) {
     throw new AppError(ErrorCodes.USER_NOT_FOUND, '用户不存在或已删除');
   }
+
+  assertCanManageUser(actor, users[0].role_code);
 
   const hashedPassword = await bcrypt.hash(newPassword, 10);
   await pool.query(
@@ -115,14 +198,31 @@ async function resetPassword(pool, id, newPassword) {
 /**
  * 修改用户
  */
-async function updateUser(pool, { id, real_name, phone, email, dept_id, role_id, status }) {
+async function updateUser(pool, { id, real_name, phone, email, dept_id, role_id, status }, actor) {
+  assertActor(actor);
+
   const [users] = await pool.query(
-    'SELECT id FROM sys_user WHERE id = ?',
+    `SELECT u.id, u.username, u.role_id, r.code AS role_code
+       FROM sys_user u
+       LEFT JOIN sys_role r ON r.id = u.role_id
+      WHERE u.id = ? AND u.deleted_at IS NULL`,
     [id]
   );
 
   if (users.length === 0) {
     throw new AppError(ErrorCodes.USER_NOT_FOUND, '用户不存在');
+  }
+
+  assertCanManageUser(actor, users[0].role_code);
+
+  // 防止管理员通过「修改自己」把账号提权/停用；改密走 /auth/change-password
+  if (Number(id) === Number(actor.userId) && (role_id !== undefined || status !== undefined)) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '不能修改自己的角色或账号状态');
+  }
+
+  // 目标角色必须存在、启用，且不得高于调用者层级
+  if (role_id !== undefined && role_id !== null) {
+    await assertAssignableRole(pool, role_id, actor);
   }
 
   const updates = [];
@@ -142,7 +242,7 @@ async function updateUser(pool, { id, real_name, phone, email, dept_id, role_id,
   params.push(id);
 
   await pool.query(
-    `UPDATE sys_user SET ${updates.join(', ')} WHERE id = ?`,
+    `UPDATE sys_user SET ${updates.join(', ')} WHERE id = ? AND deleted_at IS NULL`,
     params
   );
 
@@ -171,22 +271,28 @@ async function updateUser(pool, { id, real_name, phone, email, dept_id, role_id,
  *   4. 名下商机 → 优先转移给直属上级 manager_id；无可用上级时 owner_id=NULL（待分配）
  *   5. 跟进记录 → 保留不动（归属客户，不归属用户）
  */
-async function deleteUser(pool, { id }, currentUserId) {
+async function deleteUser(pool, { id }, actor) {
+  assertActor(actor);
+
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
 
-    // 验证用户存在并读取直属上级
+    // 验证用户存在并读取直属上级 / 角色（用于纵向越权校验）
     const [users] = await connection.query(
-      'SELECT id, username, manager_id FROM sys_user WHERE id = ? AND deleted_at IS NULL',
+      `SELECT u.id, u.username, u.manager_id, u.role_id, r.code AS role_code
+         FROM sys_user u
+         LEFT JOIN sys_role r ON r.id = u.role_id
+        WHERE u.id = ? AND u.deleted_at IS NULL`,
       [id]
     );
     if (users.length === 0) {
       throw new AppError(ErrorCodes.USER_NOT_FOUND, '用户不存在或已删除');
     }
-    if (id == currentUserId) {
+    if (Number(id) === Number(actor.userId)) {
       throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '不能删除当前登录用户');
     }
+    assertCanManageUser(actor, users[0].role_code);
 
     // 校验直属上级是否可用
     let managerId = users[0].manager_id;
@@ -252,7 +358,7 @@ async function getUserDetail(pool, id) {
     FROM sys_user u
     LEFT JOIN sys_dept d ON u.dept_id = d.id
     LEFT JOIN sys_role r ON u.role_id = r.id
-    WHERE u.id = ?`,
+    WHERE u.id = ? AND u.deleted_at IS NULL`,
     [id]
   );
 

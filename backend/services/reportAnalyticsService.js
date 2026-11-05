@@ -105,8 +105,8 @@ async function getPerformance(pool, params = {}, dataPermission) {
       COALESCE(SUM(c.amount), 0) as contract_amount,
       COALESCE(SUM(p.pay_amount), 0) as payment_amount
     FROM sys_user u
-    LEFT JOIN crm_contract c ON u.id = c.create_by ${dateFilter}
-    LEFT JOIN crm_payment p ON c.id = p.contract_id
+    LEFT JOIN crm_contract c ON u.id = c.create_by AND c.deleted_at IS NULL ${dateFilter}
+    LEFT JOIN crm_payment p ON c.id = p.contract_id AND p.deleted_at IS NULL
     WHERE u.status = 1 AND ${contractScope.clause}
     GROUP BY u.id, u.real_name
     ORDER BY contract_amount DESC
@@ -136,7 +136,7 @@ async function getCustomerStats(pool, params = {}, dataPermission) {
 
   const [monthCount] = await pool.query(`
     SELECT COUNT(*) as count FROM crm_customer c
-    WHERE 1=1 ${dateFilter || `AND c.create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND c.create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH`}
+    WHERE c.deleted_at IS NULL ${dateFilter || `AND c.create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND c.create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH`}
       AND ${customerScope.clause}
   `, baseParams);
 
@@ -167,7 +167,7 @@ async function getCustomerStats(pool, params = {}, dataPermission) {
   const [levelDist] = await pool.query(`
     SELECT level, COUNT(*) as count
     FROM crm_customer c
-    WHERE 1=1 ${dateFilter} AND ${customerScope.clause}
+    WHERE c.deleted_at IS NULL ${dateFilter} AND ${customerScope.clause}
     GROUP BY level
     ORDER BY CASE level WHEN 'A' THEN 1 WHEN 'B' THEN 2 WHEN 'C' THEN 3 WHEN 'D' THEN 4 ELSE 5 END
   `, baseParams);
@@ -213,14 +213,14 @@ async function getPaymentStats(pool, params = {}, dataPermission) {
     SELECT COALESCE(SUM(pp.plan_amount), 0) as amount
     FROM crm_payment_plan pp
     LEFT JOIN crm_contract c ON c.id = pp.contract_id
-    WHERE ${planDateFilter} AND ${cScope.clause}
+    WHERE pp.deleted_at IS NULL AND ${planDateFilter} AND ${cScope.clause}
   `, [...planParams, ...cScope.params]);
 
   const [payAmount] = await pool.query(`
     SELECT COALESCE(SUM(p.pay_amount), 0) as amount
     FROM crm_payment p
     LEFT JOIN crm_contract c ON c.id = p.contract_id
-    WHERE ${payDateFilter} AND ${cScope.clause}
+    WHERE p.deleted_at IS NULL AND ${payDateFilter} AND ${cScope.clause}
   `, [...payParams, ...cScope.params]);
 
   const [overdueRows] = await pool.query(`
@@ -231,10 +231,10 @@ async function getPaymentStats(pool, params = {}, dataPermission) {
     LEFT JOIN crm_contract c ON c.id = pp.contract_id
     LEFT JOIN (
       SELECT plan_id, SUM(pay_amount) as total
-      FROM crm_payment
+      FROM crm_payment WHERE deleted_at IS NULL
       GROUP BY plan_id
     ) paid ON pp.id = paid.plan_id
-    WHERE pp.plan_date < CURRENT_DATE AND ${cScope.clause}
+    WHERE pp.deleted_at IS NULL AND pp.plan_date < CURRENT_DATE AND ${cScope.clause}
   `, [...cScope.params]);
 
   // 【P1-1】toFixed 走的是浮点舍入，边界值（X.XX5）会少进 1 分；先精确取整再格式化
@@ -273,7 +273,7 @@ async function getSalesTrend(pool, params = {}, dataPermission) {
       COUNT(c.id) as contract_count,
       COALESCE(SUM(c.amount), 0) as amount
     FROM crm_contract c
-    WHERE ${dateFilter} AND ${contractScope.clause}
+    WHERE c.deleted_at IS NULL AND ${dateFilter} AND ${contractScope.clause}
     GROUP BY DATE_FORMAT(c.sign_date, '%Y-%m')
     ORDER BY month
   `, [...queryParams, ...contractScope.params]);
@@ -291,7 +291,6 @@ async function getSalesTrend(pool, params = {}, dataPermission) {
  */
 async function getOverdueCustomers(pool, params = {}, dataPermission) {
   const { getOverdueDays } = require('../utils/config');
-  const { POOL_STATUS } = require('../constants/poolStatus');
 
   const { page = 1, pageSize = 20 } = params;
   const safePageSize = Math.min(Math.max(1, parseInt(pageSize) || 20), 200);
@@ -302,12 +301,13 @@ async function getOverdueCustomers(pool, params = {}, dataPermission) {
   // 现统一走 dataPermission；dept 范围由 buildDataPermissionWhere 的部门子查询表达
   const scope = await scopeFor(dataPermission, 'owner_id', 'c');
 
-  const whereClause = `WHERE c.pool_status = ? AND c.deleted_at IS NULL AND c.owner_id IS NOT NULL
+  // [P2-07] 归属判据只看 owner_id；pool_status 为兼容列，可能滞后/错位
+  const whereClause = `WHERE c.deleted_at IS NULL AND c.owner_id IS NOT NULL
     AND ((c.last_follow_time IS NULL AND c.create_time < NOW() - INTERVAL ${overdueDays} DAY)
       OR c.last_follow_time < NOW() - INTERVAL ${overdueDays} DAY)
     AND ${scope.clause}`;
 
-  const queryParams = [POOL_STATUS.PRIVATE, ...scope.params];
+  const queryParams = [...scope.params];
 
   const [countResult] = await pool.query(
     `SELECT COUNT(*) as total FROM crm_customer c ${whereClause}`, queryParams
@@ -426,8 +426,8 @@ async function exportReport(pool, params = {}, dataPermission) {
       COALESCE(SUM(c.amount), 0) as '成交金额',
       COALESCE(SUM(p.pay_amount), 0) as '回款金额'
     FROM sys_user u
-    LEFT JOIN crm_contract c ON u.id = c.create_by ${perfDateFilter}
-    LEFT JOIN crm_payment p ON c.id = p.contract_id
+    LEFT JOIN crm_contract c ON u.id = c.create_by AND c.deleted_at IS NULL ${perfDateFilter}
+    LEFT JOIN crm_payment p ON c.id = p.contract_id AND p.deleted_at IS NULL
     WHERE u.status = 1 AND ${us.clause} AND ${cs.clause}
     GROUP BY u.id, u.real_name
     ORDER BY '成交金额' DESC
@@ -444,7 +444,7 @@ async function exportReport(pool, params = {}, dataPermission) {
   }
   const [funnelRows] = await pool.query(`
     SELECT so.stage as '阶段编码', COUNT(so.id) as '商机数量', COALESCE(SUM(so.expected_amount), 0) as '预期金额'
-    FROM crm_opportunity so ${funnelDateFilter ? `${funnelDateFilter} AND ${os.clause}` : `WHERE ${os.clause}`}
+    FROM crm_opportunity so ${funnelDateFilter ? `${funnelDateFilter} AND so.deleted_at IS NULL AND ${os.clause}` : `WHERE so.deleted_at IS NULL AND ${os.clause}`}
     GROUP BY so.stage ORDER BY so.stage
   `, [...funnelParams, ...os.params]);
   const stageNames = { 1: '询盘', 2: '需求确认', 3: '方案报价', 4: '谈判', 5: '成交', 6: '失败' };

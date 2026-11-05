@@ -29,14 +29,16 @@
         <template #title>通知中心</template>
       </el-menu-item>
 
-      <el-sub-menu index="/customer" v-if="hasAnyMenuPermission(['leads:view', 'customer:view', 'pool:view', 'followup:calendar', 'followup:template'])">
+      <el-sub-menu index="/customer" v-if="hasAnyMenuPermission(['leads:view', 'customer:view', 'pool:view', 'customer:assign', 'followup:calendar', 'followup:template'])">
         <template #title>
           <el-icon><UserFilled /></el-icon>
           <span>客户管理</span>
         </template>
-        <el-menu-item index="/leads" v-if="hasMenuPermission('leads:view')">潜客池</el-menu-item>
+        <!-- [S3 2026-11-05] 术语统一（V5.1）：潜客池→客户资源库；公海池→客户总览（页面自 2026-09-10 即为客户总览） -->
+        <el-menu-item index="/leads" v-if="hasMenuPermission('leads:view')">客户资源库</el-menu-item>
         <el-menu-item index="/customer/list" v-if="hasMenuPermission('customer:view')">正式客户</el-menu-item>
-        <el-menu-item index="/pool" v-if="hasMenuPermission('pool:view')">公海池</el-menu-item>
+        <el-menu-item index="/pool" v-if="hasMenuPermission('pool:view')">客户总览</el-menu-item>
+        <el-menu-item index="/customer/assign-rules" v-if="hasMenuPermission('customer:assign')">分配规则</el-menu-item>
         <el-menu-item index="/followup/calendar" v-if="hasMenuPermission('followup:calendar')">跟进日历</el-menu-item>
         <el-menu-item index="/followup/template" v-if="hasMenuPermission('followup:template')">跟进模板</el-menu-item>
       </el-sub-menu>
@@ -102,9 +104,15 @@
           <span>采购管理</span>
         </template>
         <el-menu-item index="/purchase/list" v-if="hasMenuPermission('purchase')">采购单</el-menu-item>
+        <!-- [V1.1 §11.3] 以下页面路由/后端均已存在，此前侧边栏缺入口只能手输 URL -->
+        <el-menu-item index="/purchase/requests" v-if="hasMenuPermission('purchase:request')">采购申请</el-menu-item>
+        <el-menu-item index="/purchase/approvals" v-if="hasMenuPermission('purchase:request')">采购审批</el-menu-item>
+        <el-menu-item index="/purchase/comparisons" v-if="hasMenuPermission('purchase:comparison')">采购比价</el-menu-item>
         <el-menu-item index="/procurement/plan" v-if="hasMenuPermission('purchase')">采购计划</el-menu-item>
-        <el-menu-item index="/inventory" v-if="hasMenuPermission('product')">库存管理</el-menu-item>
-        <el-menu-item index="/inventory/movements" v-if="hasMenuPermission('product')">库存变动</el-menu-item>
+        <!-- 库存接口后端要求 purchase / purchase:add（routes/inventory.js），
+             旧前端却用 product 权限 ⇒ 有 product 无 purchase 的角色点进去全 403 -->
+        <el-menu-item index="/inventory" v-if="hasMenuPermission('purchase')">库存管理</el-menu-item>
+        <el-menu-item index="/inventory/movements" v-if="hasMenuPermission('purchase')">库存变动</el-menu-item>
       </el-sub-menu>
 
       <el-menu-item index="/service" v-if="hasMenuPermission('service')">
@@ -188,6 +196,12 @@
         <template #title>我的审批</template>
       </el-menu-item>
 
+      <!-- [V1.1 §11.3] 页面/路由已存在但侧边栏无入口 -->
+      <el-menu-item index="/approval/completed" v-if="hasMenuPermission('approval')">
+        <el-icon><DocumentChecked /></el-icon>
+        <template #title>已办结</template>
+      </el-menu-item>
+
       <el-sub-menu index="/knowledge" v-if="hasMenuPermission('knowledge')">
         <template #title>
           <el-icon><Notebook /></el-icon>
@@ -205,7 +219,16 @@
         <template #title>销售目标</template>
       </el-menu-item>
 
-      <el-sub-menu index="/system" v-if="hasMenuPermission('system')">
+      <!-- 父菜单原本只认 'system'：HR 持有 system:user/dept/log 却看不到整个菜单。
+           改为任一子项权限即可显示，子项仍各自按权限码兜底。 -->
+      <el-sub-menu
+        index="/system"
+        v-if="hasAnyMenuPermission([
+          'system', 'system:user', 'system:role', 'system:dept',
+          'system:log', 'system:permission', 'tag', 'backup:add',
+          'approval', 'api_platform', 'system:currency'
+        ])"
+      >
         <template #title>
           <el-icon><Setting /></el-icon>
           <span>系统管理</span>
@@ -218,8 +241,12 @@
         <el-menu-item index="/system/backup" v-if="hasMenuPermission('backup:add')">数据备份</el-menu-item>
         <el-menu-item index="/system/permission" v-if="hasMenuPermission('system:permission')">权限管理</el-menu-item>
         <el-menu-item index="/approval/workflow" v-if="hasMenuPermission('approval')">审批流程</el-menu-item>
+        <el-menu-item index="/approval/rule-config" v-if="hasMenuPermission('approval')">审批规则配置</el-menu-item>
+        <el-menu-item index="/system/currency" v-if="hasMenuPermission('system:currency')">币种管理</el-menu-item>
         <el-menu-item index="/system/integration" v-if="hasMenuPermission('system')">集成管理</el-menu-item>
-        <el-menu-item index="/settings/api-platform" v-if="hasMenuPermission('system')">API开放平台</el-menu-item>
+        <!-- 后端 /api-platform/* 的守卫是 checkPermission('api_platform') + requireManager；
+             旧菜单要求 'system'，经理持有 api_platform 却根本看不到入口 -->
+        <el-menu-item index="/settings/api-platform" v-if="hasMenuPermission('api_platform')">API开放平台</el-menu-item>
       </el-sub-menu>
 
       <el-menu-item index="/settings" v-if="hasMenuPermission('system')">

@@ -1,12 +1,16 @@
 /**
- * 发票编号生成（迁移 123 uk_invoice_no 的配套修复）
+ * 发票编号生成（[P2-06] 改用 crm_doc_sequence 原子序列）
  *
- * 原实现用 COUNT(*)+1：中间编号被删除/作废后会重新撞上仍然存在的编号（001/002/003 删掉 002
- * → COUNT=2 → 生成 003）。改为「当日已用最大序号 + 1」，并对残留并发冲突做有限重试。
+ * 历史实现依次为 COUNT(*)+1 → 当日最大号+1（依赖 FOR UPDATE 区间锁）。
+ * 两者在迁移 123 的 uk_invoice_no 未执行时都缺少最终防线。现改为与合同号
+ * 相同的序列原子自增（key = invoice:YYMMDD），编号正确性不再依赖唯一索引；
+ * ER_DUP_ENTRY 重试保留，用于唯一索引存在时的手工写号等残余冲突。
  */
 
 jest.mock('../../middleware/logger', () => ({ createRouteLogger: () => jest.fn().mockResolvedValue() }));
-jest.mock('../../middleware/permission', () => ({ buildDataPermissionWhere: jest.fn() }));
+jest.mock('../../middleware/permission', () => ({
+  buildDataPermissionWhere: jest.fn(async () => ({ clause: '1=1', params: [] }))
+}));
 jest.mock('../../utils/fieldLog', () => ({ logFieldChanges: jest.fn() }));
 
 const invoiceService = require('../../services/invoiceService');
@@ -30,25 +34,38 @@ describe('invoiceService.createInvoice 编号生成', () => {
 
   it('当日无发票时应生成 001', async () => {
     const conn = createMockConn();
-    const pool = { getConnection: jest.fn().mockResolvedValue(conn) };
+    const pool = {
+      getConnection: jest.fn().mockResolvedValue(conn),
+      // [P0-09] 开事务前先校验合同存在且客户一致
+      query: jest.fn().mockResolvedValue([[{ id: 1, customer_id: 1 }]])
+    };
     conn.query
-      .mockResolvedValueOnce([[]])                 // SELECT 当日编号
+      .mockResolvedValueOnce([{ insertId: 1 }])    // [P2-06] 序列取号
       .mockResolvedValueOnce([{ insertId: 7 }]);   // INSERT
 
     const result = await invoiceService.createInvoice(pool, { contract_id: 1, customer_id: 1, type: 1, amount: 100 }, 1);
 
     expect(result.invoice_no).toBe(`INV-${dateStr()}-001`);
     expect(result.id).toBe(7);
+
+    const seqCall = conn.query.mock.calls[0];
+    expect(seqCall[0]).toContain('crm_doc_sequence');
+    expect(seqCall[0]).toContain('LAST_INSERT_ID(current_value + 1)');
+    expect(seqCall[1]).toEqual([`invoice:${dateStr()}`]);
     expect(conn.commit).toHaveBeenCalled();
     expect(conn.release).toHaveBeenCalled();
   });
 
-  it('中间编号被删除后应按最大序号递增，而非 COUNT+1（避免撞已存在的编号）', async () => {
+  it('中间编号被删除后水位不回退，不会复用已存在的编号', async () => {
     const conn = createMockConn();
-    const pool = { getConnection: jest.fn().mockResolvedValue(conn) };
-    // 库里只剩 001 和 003（002 已被删除/作废）：COUNT+1 会得到 003（撞号），MAX+1 应为 004
+    const pool = {
+      getConnection: jest.fn().mockResolvedValue(conn),
+      // [P0-09] 开事务前先校验合同存在且客户一致
+      query: jest.fn().mockResolvedValue([[{ id: 1, customer_id: 1 }]])
+    };
+    // 001/002/003 中 002 已删除，序列水位仍为 3 → 下一号必须是 004
     conn.query
-      .mockResolvedValueOnce([[{ invoice_no: `INV-${dateStr()}-001` }, { invoice_no: `INV-${dateStr()}-003` }]])
+      .mockResolvedValueOnce([{ insertId: 4 }])
       .mockResolvedValueOnce([{ insertId: 8 }]);
 
     const result = await invoiceService.createInvoice(pool, { contract_id: 1, customer_id: 1, type: 1, amount: 100 }, 1);
@@ -56,14 +73,18 @@ describe('invoiceService.createInvoice 编号生成', () => {
     expect(result.invoice_no).toBe(`INV-${dateStr()}-004`);
   });
 
-  it('编号冲突时应重算序号重试，成功后只提交一次', async () => {
+  it('唯一索引存在且撞号（1062）时取下一个序列值重试，成功后只提交一次', async () => {
     const conn = createMockConn();
-    const pool = { getConnection: jest.fn().mockResolvedValue(conn) };
+    const pool = {
+      getConnection: jest.fn().mockResolvedValue(conn),
+      // [P0-09] 开事务前先校验合同存在且客户一致
+      query: jest.fn().mockResolvedValue([[{ id: 1, customer_id: 1 }]])
+    };
     conn.query
-      .mockResolvedValueOnce([[{ invoice_no: `INV-${dateStr()}-001` }]])  // 第 1 次：算得 002
-      .mockRejectedValueOnce(dupErr())                                    // 撞 002
-      .mockResolvedValueOnce([[{ invoice_no: `INV-${dateStr()}-002` }]])  // 第 2 次：重算得 003
-      .mockResolvedValueOnce([{ insertId: 9 }]);                          // 成功
+      .mockResolvedValueOnce([{ insertId: 2 }])   // 第 1 次：序列 002
+      .mockRejectedValueOnce(dupErr())             // 撞手工/历史 002
+      .mockResolvedValueOnce([{ insertId: 3 }])   // 第 2 次：序列 003
+      .mockResolvedValueOnce([{ insertId: 9 }]);  // 成功
 
     const result = await invoiceService.createInvoice(pool, { contract_id: 1, customer_id: 1, type: 1, amount: 100 }, 1);
 
@@ -76,9 +97,14 @@ describe('invoiceService.createInvoice 编号生成', () => {
 
   it('重试耗尽后应冒泡 ER_DUP_ENTRY（由 errorHandler 统一映射为 409）', async () => {
     const conn = createMockConn();
-    const pool = { getConnection: jest.fn().mockResolvedValue(conn) };
+    const pool = {
+      getConnection: jest.fn().mockResolvedValue(conn),
+      // [P0-09] 开事务前先校验合同存在且客户一致
+      query: jest.fn().mockResolvedValue([[{ id: 1, customer_id: 1 }]])
+    };
+    let seq = 0;
     conn.query.mockImplementation(async (sql) => {
-      if (String(sql).includes('SELECT invoice_no')) return [[]];
+      if (String(sql).includes('crm_doc_sequence')) return [{ insertId: ++seq }];
       throw dupErr();
     });
 
@@ -93,10 +119,14 @@ describe('invoiceService.createInvoice 编号生成', () => {
 
   it('非编号冲突的错误应立刻抛出，不重试', async () => {
     const conn = createMockConn();
-    const pool = { getConnection: jest.fn().mockResolvedValue(conn) };
+    const pool = {
+      getConnection: jest.fn().mockResolvedValue(conn),
+      // [P0-09] 开事务前先校验合同存在且客户一致
+      query: jest.fn().mockResolvedValue([[{ id: 1, customer_id: 1 }]])
+    };
     const fkErr = Object.assign(new Error('fk fail'), { code: 'ER_NO_REFERENCED_ROW_2' });
     conn.query
-      .mockResolvedValueOnce([[]])
+      .mockResolvedValueOnce([{ insertId: 1 }])
       .mockRejectedValueOnce(fkErr);
 
     await expect(

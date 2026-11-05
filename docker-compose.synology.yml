@@ -16,7 +16,8 @@ services:
 
   # ---- 数据库 ----
   mysql:
-    image: mysql:8.0
+    # [P2-12] digest 固定于 2026-10-26；升级流程见 docs/image-digests.md
+    image: mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
     container_name: huakey-mysql
     restart: unless-stopped
     init: true
@@ -26,10 +27,11 @@ services:
         max-size: "10m"
         max-file: "3"
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      # fail-fast：缺少凭据时 compose 直接报错，避免 MySQL 以空密码初始化
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?生产环境必须设置 MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME:-huakey_crm}
       MYSQL_USER: ${DB_USER:-crm_user}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?生产环境必须设置 DB_PASSWORD}
       # [步骤 B3 · 时区统一] 容器时区（配合下方 --default-time-zone 双保险）
       TZ: ${TZ:-Asia/Shanghai}
     volumes:
@@ -44,7 +46,8 @@ services:
     #       官方 docker-entrypoint.sh 的首启初始化逻辑不受影响。
     entrypoint: ["/usr/local/bin/mysql-entrypoint.sh"]
     healthcheck:
-      test: ["CMD-SHELL", "mysql -h localhost -u root -p$$MYSQL_ROOT_PASSWORD -e 'SELECT 1' > /dev/null 2>&1 || exit 1"]
+      # [P2-16] 口令走 MYSQL_PWD，不出现在 healthcheck 命令行
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_ROOT_PASSWORD\" mysql -h localhost -u root -e 'SELECT 1' > /dev/null 2>&1 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -54,7 +57,8 @@ services:
 
   # ---- 缓存 ----
   redis:
-    image: redis:7-alpine
+    # [P2-12] digest 固定于 2026-10-26；升级流程见 docs/image-digests.md
+    image: redis:7-alpine@sha256:57e4255cc971b1c8d6f8a6ca283ac01bc3ecdd914273ef6bfaede87aaecd6541
     container_name: huakey-redis
     restart: unless-stopped
     init: true
@@ -63,6 +67,10 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      # [P0-11] 健康检查需要同一口令；容器内通过 REDISCLI_AUTH 读取，避免把明文写进 healthcheck
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     command:
       - redis-server
       - --requirepass
@@ -74,7 +82,9 @@ services:
       - --save
       - ""
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      # [P0-11] 原为裸 `redis-cli ping`：设置了 requirepass 时返回 NOAUTH，容器永远 unhealthy，
+      # 依赖 service_healthy 的 app 无法启动。有口令走 REDISCLI_AUTH，无口令保持裸 ping。
+      test: ["CMD-SHELL", "if [ -n \"$$REDIS_PASSWORD\" ]; then REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping; else redis-cli ping; fi | grep -q PONG"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -101,16 +111,17 @@ services:
       DB_HOST: mysql
       DB_PORT: 3306
       DB_USER: ${DB_USER:-crm_user}
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PASSWORD: ${DB_PASSWORD:?生产环境必须设置 DB_PASSWORD}
       DB_NAME: ${DB_NAME:-huakey_crm}
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET:?生产环境必须设置 JWT_SECRET（128 位 hex）}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       REDIS_ENABLED: "true"
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       AUTO_RELEASE_DAYS: ${AUTO_RELEASE_DAYS:-30}
-      CORS_ORIGIN: ${CORS_ORIGIN:-}
+      # 生产 NODE_ENV=production 时 app.js 对空 CORS 直接 exit(1)，改为 compose 层 fail-fast
+      CORS_ORIGIN: ${CORS_ORIGIN:?生产环境必须设置 CORS_ORIGIN}
       SKIP_CAPTCHA: ${SKIP_CAPTCHA:-false}
       # Swagger 文档（生产环境必须为 false）
       ENABLE_SWAGGER: ${ENABLE_SWAGGER:-false}
@@ -120,9 +131,11 @@ services:
       # 邮箱加密密钥（可选，用于集成邮箱凭证加密）
       EMAIL_ENC_KEY: ${EMAIL_ENC_KEY:-}
       TZ: ${TZ:-Asia/Shanghai}
-      ALERT_ENABLED: ${ALERT_ENABLED:-false}
+      # [P2-11] 默认开启告警；显式 false 仍可关闭，但启动会打印警告
+      ALERT_ENABLED: ${ALERT_ENABLED:-true}
       WECHAT_WEBHOOK_URL: ${WECHAT_WEBHOOK_URL:-}
-      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # [P2-09] 访问日志走 logger.http()，默认 info 会把它过滤掉
+      LOG_LEVEL: ${LOG_LEVEL:-http}
     expose:
       - "5000"
     depends_on:
@@ -150,7 +163,8 @@ services:
   # 宿主机 /etc/cron.d/crm-backup 每日 04:00 另有一份 MySQL 备份兜底（双保险）。
   # 手动验证：docker exec huakey-backup sh /container-backup.sh --once
   backup:
-    image: mysql:8.0
+    # [P2-12] digest 固定于 2026-10-26；升级流程见 docs/image-digests.md
+    image: mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
     container_name: huakey-backup
     restart: unless-stopped
     # [D3] 日志轮转：与 mysql/redis/app 对齐（10m×3），防止容器日志无限增长吃满系统盘
@@ -183,6 +197,10 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       DATABASE: ${DB_NAME:-huakey_crm}
       TZ: ${TZ:-Asia/Shanghai}
+      # [P1-12] 生产 fail-closed：口令文件缺失时拒绝生成明文 DB/uploads 备份
+      BACKUP_REQUIRE_ENCRYPTION: "true"
+      # [P2-15] 与宿主机 mysql-backup.sh 共用同一保留期，避免 7 天/30 天两套口径
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-30}
     depends_on:
       mysql:
         condition: service_healthy
@@ -194,7 +212,8 @@ services:
   # DSM nginx 做 SSL 终端 (crm.huakey.local)，容器 nginx 在 8443 做二级反代
   # 主机 80/443 由 DSM 自带 nginx 占用，禁止在此声明 80:80 / 443:443
   nginx:
-    image: nginx:alpine
+    # [P2-12] digest 固定于 2026-10-26；升级流程见 docs/image-digests.md
+    image: nginx:alpine@sha256:a3554c0d0b48177b1413c26e01f695334428020d9df01243fbae3e11cfd17417
     container_name: huakey-nginx
     restart: unless-stopped
     # [D3] 日志轮转：与 mysql/redis/app 对齐（10m×3）

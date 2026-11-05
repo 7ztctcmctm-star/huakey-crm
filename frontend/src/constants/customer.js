@@ -46,7 +46,8 @@ export const PIPELINE = Object.freeze([
  */
 export const STATUS_META = Object.freeze({
   [CustomerStatus.LEAD]:       { label: '线索',     tagType: '',          group: 'pre'  },
-  [CustomerStatus.SEA]:        { label: '公海',     tagType: 'info',      group: 'pre'  },
+  // [S3 2026-11-05] 术语统一（V5.1）：枚举键 SEA 不动（D5），显示名「公海」→「待分配」
+  [CustomerStatus.SEA]:        { label: '待分配',   tagType: 'info',      group: 'pre'  },
   [CustomerStatus.FOLLOWING]:  { label: '跟进中',   tagType: 'warning',   group: 'active' },
   [CustomerStatus.QUOTED]:     { label: '已报价',   tagType: '',          group: 'active' },
   [CustomerStatus.NEGOTIATING]:{ label: '谈判中',   tagType: 'primary',   group: 'active' },

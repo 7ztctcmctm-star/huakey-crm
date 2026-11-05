@@ -12,6 +12,36 @@ const webhookDispatcher = require('./webhookDispatcher');
 const { assertUniquePlanDates } = require('../utils/paymentPlan');
 
 /**
+ * [P2-05] 回款金额兜底校验（服务层强制，不依赖路由 Joi）。
+ *
+ * 路由 schema 原来只有 `min(0)`：0 元回款可入库；也没有上限，超过
+ * `DECIMAL(15,2)` 范围的值会在 MySQL 侧被截断或报错。此处统一要求：
+ *   - 有限数字且 > 0
+ *   - ≤ DECIMAL(15,2) 上限
+ *   - 最多 2 位小数（多于 2 位直接拒绝，不做静默舍入）
+ *
+ * @param {number|string} value
+ * @returns {number} 归一化到 2 位小数后的金额
+ */
+function assertValidPaymentAmount(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '回款金额必须是有效数字');
+  }
+  if (amount <= 0) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '回款金额必须大于 0');
+  }
+  if (amount > money.MAX_AMOUNT) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, `回款金额不能超过 ${money.MAX_AMOUNT}`);
+  }
+  const rounded = money.round2(amount);
+  if (Math.abs(rounded - amount) > 1e-6) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '回款金额最多保留两位小数');
+  }
+  return rounded;
+}
+
+/**
  * 重新计算回款计划的 paid_amount / status / overdue_days
  * @param {object} pool
  * @param {number} planId
@@ -90,7 +120,13 @@ async function createPaymentPlans(pool, contractId, plans) {
  * @param {number} planId
  */
 async function recalculatePlanStatusWithConn(conn, planId) {
-  const [plans] = await conn.query('SELECT plan_amount, plan_date FROM crm_payment_plan WHERE id = ?', [planId]);
+  // [P0-08] 行锁 + 当前读：并发回款（登记/修改/删除）必须串行化到同一计划，
+  // 否则两笔回款各自 SUM 到「不含对方」的金额，后写者用偏小的 paid_amount 覆盖先写者（丢更新）。
+  // FOR UPDATE 是锁定读，绕过 REPEATABLE READ 快照，等待期间对方已提交的金额可见。
+  const [plans] = await conn.query(
+    'SELECT plan_amount, plan_date FROM crm_payment_plan WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
+    [planId]
+  );
   if (!plans.length) return;
 
   const plan = plans[0];
@@ -135,25 +171,45 @@ async function recalculatePlanStatusWithConn(conn, planId) {
  *        重复 key 直接返回首次结果，不重复落库；无 key 时行为不变
  * @returns {Promise<{id: number}>}
  */
-async function recordPayment(pool, data, idempotencyKey) {
+async function recordPayment(pool, data, idempotencyKey, operatorId) {
+  // [P2-05] 金额校验放在幂等占位之前：无效请求不写 crm_idempotency、不进事务
+  const payAmount = assertValidPaymentAmount(data.pay_amount);
   const { runIdempotent } = require('../utils/idempotency');
   const { result } = await runIdempotent(pool, idempotencyKey, 'payment', async () => {
-    const { contract_id, plan_id, pay_date, pay_amount, pay_method, remark } = data;
+    const { contract_id, plan_id, pay_date, pay_method, remark } = data;
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
 
+      // 锁定读：既防止合同在登记过程中被删/改，也确保本事务的第一次一致性读
+      // 发生在拿到计划行锁之后（否则 REPEATABLE READ 快照会早于并发事务的提交）。
       const [contracts] = await conn.query(
-        'SELECT id, status FROM crm_contract WHERE id = ? AND deleted_at IS NULL',
+        'SELECT id, status FROM crm_contract WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
         [contract_id]
       );
       if (!contracts.length) {
         throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '所属合同不存在')
       }
 
+      // [P0-08] 计划必须存在且属于本合同，否则回款会挂到别家合同上（金额/状态全错）。
+      // 同时用 FOR UPDATE 锁住计划行：并发登记同一计划时在此排队，
+      // 后到事务的重算一定能看到先到事务已提交的回款。
+      if (plan_id) {
+        const [plans] = await conn.query(
+          'SELECT id, contract_id FROM crm_payment_plan WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
+          [plan_id]
+        );
+        if (!plans.length) {
+          throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '回款计划不存在')
+        }
+        if (Number(plans[0].contract_id) !== Number(contract_id)) {
+          throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '回款计划不属于该合同')
+        }
+      }
+
       const [insertResult] = await conn.query(
         'INSERT INTO crm_payment (contract_id, plan_id, pay_date, pay_amount, pay_method, remark) VALUES (?, ?, ?, ?, ?, ?)',
-        [contract_id, plan_id || null, pay_date, pay_amount, pay_method || null, remark || null]
+        [contract_id, plan_id || null, pay_date, payAmount, pay_method || null, remark || null]
       );
 
       await conn.query('UPDATE crm_contract SET status = 2 WHERE id = ? AND status = 1', [contract_id]);
@@ -168,7 +224,7 @@ async function recordPayment(pool, data, idempotencyKey) {
       // 幂等命中时不会重新进入本函数，webhook 天然不会重复派发
       webhookDispatcher.dispatch(pool, 'payment.received', {
         payment_id: insertResult.insertId, contract_id, plan_id: plan_id || null,
-        pay_amount, pay_date, pay_method: pay_method || null
+        pay_amount: payAmount, pay_date, pay_method: pay_method || null
       }).catch(() => { /* 派发器内部已记日志，此处仅兜底吞异常 */ });
 
       return { id: insertResult.insertId };
@@ -178,7 +234,7 @@ async function recordPayment(pool, data, idempotencyKey) {
     } finally {
       conn.release();
     }
-  });
+  }, operatorId);
   return result;
 }
 
@@ -188,22 +244,41 @@ async function recordPayment(pool, data, idempotencyKey) {
  * @param {object} data - { id, pay_date, pay_amount, pay_method, remark }
  */
 async function updatePayment(pool, data) {
-  const { id, pay_date, pay_amount, pay_method, remark } = data;
+  const { id, pay_date, pay_method, remark } = data;
+  // [P2-05] 修改回款同样校验金额，避免绕过新增接口把金额改成 0/超限
+  const payAmount = assertValidPaymentAmount(data.pay_amount);
 
-  // 查找旧 plan_id 用于刷新
-  const [oldPayment] = await pool.query('SELECT plan_id, contract_id FROM crm_payment WHERE id = ? AND deleted_at IS NULL', [id]);
-  if (!oldPayment.length) {
-    throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '回款记录不存在')
-  }
+  // [P0-08] 改金额 + 重算计划必须在同一事务内：原实现事务外重算，
+  // 中途失败会留下「回款已改、计划 paid_amount/status 仍是旧值」的半套数据。
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
 
-  await pool.query(
-    'UPDATE crm_payment SET pay_date = ?, pay_amount = ?, pay_method = ?, remark = ? WHERE id = ?',
-    [pay_date, pay_amount, pay_method, remark, id]
-  );
+    // 查找旧 plan_id 用于刷新；FOR UPDATE 防止并发修改/删除同一笔回款
+    const [oldPayment] = await conn.query(
+      'SELECT plan_id, contract_id FROM crm_payment WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
+      [id]
+    );
+    if (!oldPayment.length) {
+      throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '回款记录不存在')
+    }
 
-  // 刷新回款计划状态
-  if (oldPayment[0].plan_id) {
-    await recalculatePlanStatus(pool, oldPayment[0].plan_id);
+    await conn.query(
+      'UPDATE crm_payment SET pay_date = ?, pay_amount = ?, pay_method = ?, remark = ? WHERE id = ? AND deleted_at IS NULL',
+      [pay_date, payAmount, pay_method, remark, id]
+    );
+
+    // 刷新回款计划状态（同事务、锁计划行）
+    if (oldPayment[0].plan_id) {
+      await recalculatePlanStatusWithConn(conn, oldPayment[0].plan_id);
+    }
+
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
   }
 }
 
@@ -213,19 +288,36 @@ async function updatePayment(pool, data) {
  * @param {number} paymentId
  */
 async function deletePayment(pool, paymentId) {
-  const [payments] = await pool.query(
-    'SELECT contract_id, plan_id FROM crm_payment WHERE id = ? AND deleted_at IS NULL',
-    [paymentId]
-  );
-  if (!payments.length) {
-    throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '回款记录不存在')
-  }
+  // [P0-08] 软删 + 重算计划同事务；FOR UPDATE 保证并发双击只删一次、
+  // 且后到事务的重算能看到先到事务已提交的删除结果。
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
 
-  await pool.query('UPDATE crm_payment SET deleted_at = NOW() WHERE id = ?', [paymentId]);
+    const [payments] = await conn.query(
+      'SELECT contract_id, plan_id FROM crm_payment WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
+      [paymentId]
+    );
+    if (!payments.length) {
+      throw new AppError(ErrorCodes.RECORD_NOT_FOUND, '回款记录不存在')
+    }
 
-  // 刷新回款计划状态
-  if (payments[0].plan_id) {
-    await recalculatePlanStatus(pool, payments[0].plan_id);
+    await conn.query(
+      'UPDATE crm_payment SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL',
+      [paymentId]
+    );
+
+    // 刷新回款计划状态（同事务、锁计划行）
+    if (payments[0].plan_id) {
+      await recalculatePlanStatusWithConn(conn, payments[0].plan_id);
+    }
+
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
   }
 }
 

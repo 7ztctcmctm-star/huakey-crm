@@ -158,7 +158,7 @@ const fetchList = async () => {
 
 const fetchMeta = async () => {
   try {
-    const [uRes, rRes] = await Promise.all([getSalesUsers(), getRoleList({ page: 1, pageSize: 100 })])
+    const [uRes, rRes] = await Promise.all([getSalesUsers(), getRoleList()])
     if (uRes.code === 200) userList.value = uRes.data
     if (rRes.code === 200) roleList.value = rRes.data.list || []
   } catch (e) { reportError('[ruleConfig] 获取元数据失败:', e) }

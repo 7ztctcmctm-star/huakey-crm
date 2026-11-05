@@ -514,7 +514,7 @@ Joi 参数校验中间件。
 
 #### 模块概述
 
-Double-submit cookie 模式 CSRF 防护，作为 `sameSite=strict` 之外的纵深防御层。
+Double-submit cookie 模式 CSRF 防护，与 `sameSite=lax` 共同构成 CSRF 防线（lax 不再单独提供跨站写保护）。
 
 ##### 工作流程
 
@@ -1093,10 +1093,11 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 | 分类 | 条件 |
 |------|------|
 | 线索池 | `business_status = 'lead'`（不论 `pool_status`） |
-| 正式客户 | `business_status IN (following/quoted/negotiating/signed)` 且 `pool_status = 'private'` |
-| 公海池 | `pool_status = 'sea'` 且 `business_status != 'lead'` |
+| 正式客户 | `status IN (following/quoted/negotiating/signed/lost/paused)` 且 `owner_id IS NOT NULL`（迁移 110 起 `status` 为权威字段） |
+| 公海池 | `owner_id IS NULL` 且 `business_status != 'lead'` |
 
-> **注意**: lead 客户即使 `owner_id IS NULL`，`pool_status` 仍为 `'private'`（不属于公海）。
+> **注意**: 判据以 `owner_id` 为唯一事实源；`pool_status` 仅为兼容列（097 起 private/sea）。
+> lead 客户即使 `owner_id IS NULL`，也不属于公海。
 
 ---
 
@@ -1323,9 +1324,10 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 
 认领公海客户（Phase 1 版本）。
 
-**逻辑**: 校验 `pool_status='sea'` → 检查保护期 → 设置 `pool_status='private'`、`owner_id`、7 天保护期 → 写入 `crm_pool_log`。
+**逻辑**: 校验 `owner_id IS NULL`（公海唯一判据）→ 设置 `owner_id`、`pool_status='private'`、状态推进到 `following` → 写入 `crm_pool_log`。
+（2026-09-10 起「7 天保护期」已下线，不再写入 `protect_until`，释放到公海的客户可被立即认领。）
 
-**抛出**: `CUSTOMER_NOT_FOUND` / `BUSINESS_VALIDATION`（不在公海 / 保护期内）
+**抛出**: `CUSTOMER_NOT_FOUND` / `BUSINESS_VALIDATION`（客户不存在 / 不在公海）
 
 #### `releaseCustomer(pool, customerId, userId)`
 
@@ -1366,7 +1368,7 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 
 #### `listFormalCustomers(pool, params, permission)`
 
-查询正式客户列表（`business_status IN (following/quoted/negotiating/signed)` 且 `pool_status='private'`）。
+查询正式客户列表（`status IN (following/quoted/negotiating/signed/lost/paused)` 且 `owner_id IS NOT NULL`；迁移 110 起 `status` 为权威字段）。
 
 **额外筛选**: `business_status`、`level`、`start_date`/`end_date`
 
@@ -1374,7 +1376,7 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 
 #### `listPoolCustomersNew(pool, params, permission)`
 
-查询公海池列表（`pool_status='sea'` 且 `business_status!='lead'`）。
+查询公海池列表（`owner_id IS NULL` 且 `business_status!='lead'`；`pool_status` 不再作为判据）。
 
 **子查询**: 释放时间、释放人（`crm_pool_log` 最近一条 release/auto_release）
 
@@ -1393,9 +1395,9 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 
 领取公海客户（Phase 2 增强版，事务保护）。
 
-**校验**: 在公海、非 lead 客户、保护期已过  
-**副作用**: 7 天保护期、写入 `crm_pool_log`（action='claim'）  
-**返回**: `{ id, company_name, protect_until }`
+**校验**: 在公海（`owner_id IS NULL`）、非 lead 客户；不再有保护期检查  
+**副作用**: 设置 `owner_id`、`pool_status='private'`、`status/business_status='following'`，写入 `crm_pool_log`（action='claim'）  
+**返回**: `{ company_name }`（保护期已下线，不再回传 `protect_until`）
 
 ---
 
@@ -1969,7 +1971,7 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 | 函数 | 说明 |
 |------|------|
 | `listPoolCustomers` | 公海客户分页列表 |
-| `claimCustomer` | 认领（7天保护期） |
+| `claimCustomer` | 认领（owner_id IS NULL → 当前用户；无保护期） |
 | `batchClaimCustomers` | 批量认领（上限20） |
 | `releaseCustomer` | 释放到公海 |
 | `batchReleaseCustomers` | 批量释放（上限100） |
@@ -2596,16 +2598,16 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 
 | 方法 | 路径 | 中间件 | 说明 |
 |------|------|--------|------|
-| GET | `/api/auth/captcha` | — | 获取 SVG 验证码 |
-| POST | `/api/auth/login` | `authLimiter`, `validate(loginSchema)` | 用户登录 |
-| POST | `/api/auth/logout` | `validate(logoutSchema)` | 用户登出 |
-| GET | `/api/auth/me` | `authenticateToken` | 获取当前用户信息 |
-| POST | `/api/auth/register` | `authenticateToken`, `checkPermission('system:user:add')`, `validate(registerSchema)` | 注册新用户（仅管理员） |
-| GET | `/api/auth/profile` | `authenticateToken` | 获取个人信息 |
-| POST | `/api/auth/update-profile` | `authenticateToken`, `validate(updateProfileSchema)` | 修改个人信息 |
-| POST | `/api/auth/change-password` | `authenticateToken`, `validate(changePasswordSchema)` | 修改密码 |
-| POST | `/api/auth/force-change-password` | `authenticateToken`, `validate(forceChangePasswordSchema)` | 强制修改密码 |
-| POST | `/api/auth/refresh` | `validate(refreshSchema)` | 刷新 JWT Token |
+| GET | `/api/v1/auth/captcha` | — | 获取 SVG 验证码 |
+| POST | `/api/v1/auth/login` | `authLimiter`, `validate(loginSchema)` | 用户登录 |
+| POST | `/api/v1/auth/logout` | `validate(logoutSchema)` | 用户登出 |
+| GET | `/api/v1/auth/me` | `authenticateToken` | 获取当前用户信息 |
+| POST | `/api/v1/auth/register` | `authenticateToken`, `checkPermission('system:user:add')`, `validate(registerSchema)` | 注册新用户（仅管理员） |
+| GET | `/api/v1/auth/profile` | `authenticateToken` | 获取个人信息 |
+| POST | `/api/v1/auth/update-profile` | `authenticateToken`, `validate(updateProfileSchema)` | 修改个人信息 |
+| POST | `/api/v1/auth/change-password` | `authenticateToken`, `validate(changePasswordSchema)` | 修改密码 |
+| POST | `/api/v1/auth/force-change-password` | `authenticateToken`, `validate(forceChangePasswordSchema)` | 强制修改密码 |
+| POST | `/api/v1/auth/refresh` | `validate(refreshSchema)` | 刷新 JWT Token |
 
 #### 登录流程
 
@@ -2645,8 +2647,8 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 | POST | `/export` | `customer:view` | 同上 | 导出客户列表 |
 
 **业务规则**:
-- 正式客户 = `business_status IN ('following','quoted','negotiating','signed') AND pool_status='private'`
-- 线索客户（`business_status='lead'`）不在此页面展示
+- 正式客户 = `status IN ('following','quoted','negotiating','signed','lost','paused') AND owner_id IS NOT NULL`
+- 线索池客户（`business_status='lead'`）不在此页面展示；正式集合以 `status` 为准（迁移 110）
 - **[2026-09-14 阶段4] 旧端点 `/api/v1/customer/*` 已整树下线**，本命名空间为唯一入口
 
 **阶段3 补充（2026-09-14「只扩不收」）**: `/api/v1/customers` 除本文件外，还通过
@@ -2663,7 +2665,7 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 > `routes/customer/index.js`、`routes/customer/detail.js` 删除，`app.js` 移除模块注册。
 > 上述 4 个能力子路由现在**只**挂在 `/customers/*`。前端早已全量切至 `/customers/*`。
 > 路由无冲突：本文件无通配 `/:id`，不会吞掉 `/assign`、`/template` 等。
-> 详见 `docs/crm-customer-api-port-map.md` §3.4 / §十。
+> 详见 `docs/archive/crm-customer-api-port-map.md` §3.4 / §十（已归档）。
 
 #### 10.2.2 线索路由 leads.js
 
@@ -2684,8 +2686,8 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 
 | 方法 | 路径 | 权限码 | 说明 |
 |------|------|--------|------|
-| POST | `/` | `pool:view` | 公海列表（`pool_status='sea' AND business_status!='lead'`，含 released_at/released_by） |
-| POST | `/claim` | `pool:claim` | 公海认领（设 `pool_status='private'`，7天保护期 `protect_until`） |
+| POST | `/` | `pool:view` | 公海列表（`owner_id IS NULL AND business_status!='lead'`，含 released_at/released_by） |
+| POST | `/claim` | `pool:claim` | 公海认领（`owner_id`→当前用户、`pool_status='private'`；无保护期） |
 | POST | `/release` | `customer:release` | 释放客户到公海（含 reason，线索客户禁止释放） |
 
 **旧端点**: `/customer/pool-list`、`/customer/claim-pool`、`/customer/release-to-pool` 已于 2026-09-14（阶段2）移除（原挂载于 `routes/customer/center.js`）。
@@ -2773,7 +2775,7 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 |------|------|------|------|
 | POST | `/approve` | `requireManager` + 控制器层 `roleId IN (1,2)` | 审批合同（approval_status 2=通过/3=驳回，含 approval_remark） |
 
-**纵深防御**: 路由层 `requireManager` 允许 `manageAll=true` 或 `roleId=ADMIN(1)`，控制器层进一步校验 `manageAll || roleId IN (1, 2)`。
+**纵深防御**: 路由层 `requireManager` 允许 `manageAll=true`、`ADMIN_ROLE_CODES`、`roleId=ADMIN(1)` 或 `roleCode='manager'`；控制器层进一步校验 `manageAll || roleId IN (1, 2)`。
 
 #### 10.5.3 合同回款 (payment.js)
 
@@ -3174,7 +3176,7 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 
 #### teamDashboard.js（~160行，/api/v1/team-dashboard）
 
-7个端点：总览/销售实况/逾期客户下钻/客户下钻/催办(防同日重复)/待审批/卡住商机。isBoss判断(viewAll+ADMIN_ROLE_CODES)。催办duplicate错误码。
+7个端点：总览/销售实况/逾期客户下钻/客户下钻/催办(防同日重复)/待审批/卡住商机。isBoss判断(`viewAll` 或 roleCode ∈ {boss, manager})。催办duplicate错误码。
 
 #### upload.js（~130行，/api/v1/upload）
 
@@ -3192,7 +3194,7 @@ LEAD → SEA → FOLLOWING → QUOTED → NEGOTIATING → SIGNED
 
 原 6 个池化视图旧端点：leads-pool / formal / pool-list / convert-lead / release-to-pool / claim-pool。
 零测试引用、零前端调用，能力由 `/api/v1/leads`、`/api/v1/pool`、`/api/v1/customers` 完整承接
-（底层复用同一批 customerController 方法）。详见 `docs/crm-customer-api-port-map.md`。
+（底层复用同一批 customerController 方法）。详见 `docs/archive/crm-customer-api-port-map.md`（已归档）。
 
 ---
 
@@ -3467,7 +3469,7 @@ ModuleRegistry.register('report', {routes, permissions})。1个权限点：repor
 
 **职责**: 客户全生命周期管理，涵盖客户 CRUD、联系人、跟进记录、商机、分配规则、导入预览与客户评分
 
-**关键设计**: 双轨制端点——新 `/customers/*` 为核心 CRUD 与**能力型端点的权威命名空间**（阶段3 起 assign/contact/import/360/逾期等亦复挂于此），旧 `/customer/*` 保留兼容层至 v2；跟进记录与商机管理内聚于同一模块形成"客户→跟进→商机"业务闭环；导入流程拆分为 preview + confirm 两步。
+**关键设计**: `/customers/*` 为核心 CRUD 与**能力型端点的权威命名空间**（阶段3 起 assign/contact/import/360/逾期等亦复挂于此）；旧 `/customer/*` 已于 2026-09-14 整树下线，不存在兼容层；跟进记录与商机管理内聚于同一模块形成"客户→跟进→商机"业务闭环；导入流程拆分为 preview + confirm 两步。
 
 **核心函数**: getCustomerList/getFormalCustomers/getCustomerDetail/addCustomer/updateCustomer/deleteCustomer/assignCustomer/batchAssignCustomer/forwardCustomer/backwardCustomer/exportCustomers/addContact/updateContact/deleteContact/getSalesUsers/getMySubordinates/getCustomer360/releaseCustomer/getAssignRules/createAssignRule/updateAssignRule/deleteAssignRule/getCustomerTemplate/importPreview/importConfirm/calculateCustomerScore/getFollowUpList/addFollowUp/updateFollowUp/deleteFollowUp/getFollowupTemplates/saveFollowupTemplate/deleteFollowupTemplate/getFollowUpCalendar/getTodayReminders/getTomorrowTasks/getFollowUpPlans/addFollowUpPlan/completeFollowUpPlan/cancelFollowUpPlan/batchAddFollowUp/getFollowUpTaskStats/getOverdueCustomers/getNearRecycleCustomers/getOpportunityList/addOpportunity/updateOpportunity/deleteOpportunity/updateOpportunityStage/getSalesFunnel/getOpportunityDetail/getOpportunityStageLog
 
@@ -3522,7 +3524,7 @@ ModuleRegistry.register('report', {routes, permissions})。1个权限点：repor
 | competitor.js | ~15 | 12 | 竞品信息/接触事件/情报 CRUD + 分析概览 | 主资源+子资源 RESTful 嵌套设计 |
 | email.js | ~15 | 13 | 邮件收发/邮箱账户管理/同步/标记/星标/客户关联 | 邮件与 CRM 客户关联绑定 |
 | survey.js | ~16 | 13 | 调查模板/活动/答卷回收/分析 | 模板→活动→答卷三级层次 |
-| pool.js | ~20 | 3 | 公海池列表/认领/释放（Phase 5 独立端点） | 认领自动设 7 天保护期 |
+| pool.js | ~20 | 3 | 公海池列表/认领/释放（Phase 5 独立端点） | 认领设 owner_id + following；无保护期 |
 | leads.js | ~16 | 2 | 潜客池列表/转正式（Phase 5 独立端点） | 单向状态流转 lead→following |
 | opportunity.js | ~13 | 4 | 商机时间轴/详情/阶段日志/阶段统计 | 纯只读分析模块 |
 | reminder.js | ~9 | 6 | 通知列表/已读标记/提醒中心/逾期付款 | 全局视角与个人视角互补 |
@@ -3589,7 +3591,7 @@ ModuleRegistry.register('report', {routes, permissions})。1个权限点：repor
 
 **职责**: 注册 Vue 自定义指令实现模板级权限控制
 
-**关键设计**: 三种指令——`v-permission`（任一权限即显示）、`v-permission:all`（全部权限才显示）、`v-permission:disabled`（无权限时禁用而非移除）。
+**关键设计**: 两种已注册指令——`v-permission`（任一权限即显示）、`v-permission:all`（全部权限才显示）。`v-permission:disabled` 已废弃且全库零使用，不再注册（见 `frontend/src/directives/permission.js` 注释）。
 
 #### sanitize.js（~12行，directives）
 
@@ -3634,6 +3636,17 @@ ModuleRegistry.register('report', {routes, permissions})。1个权限点：repor
 | useFormat.js | ~20 | 时间/金额格式化+逾期判断 | 纯函数无 Vue 依赖；原生 toLocaleString 中文格式化 |
 | useLevel.js | ~15 | 客户等级 A/B/C/D 映射 | Object.entries 派生 OPTIONS 保证一致性 |
 | useRecentVisit.js | ~70 | 基于 localStorage 的最近访问记录 | 去重+最多 10 条+30 天过期惰性清理 |
+
+#### 前端一致性守卫（scripts/）
+
+- **check-hardcoded-colors.mjs**（`npm run lint:colors`）：禁止组件/视图出现裸十六进制颜色。
+  颜色只能来自 `styles/apple.css`（CSS token）与 `utils/chartTheme.js`（canvas token）；
+  第三方品牌色需在行尾或上一行标注 `color-allowlist`；测试目录豁免。
+- **check-sidebar-routes.mjs**（`npm run lint:routes`）：路由表 × 侧边栏双向比对。
+  菜单项必须有路由（防死链）；静态路由必须有菜单入口或登记在 `HIDDEN_ROUTES`
+  （详情页/顶栏入口/跳板页需写明入口位置）；动态路由不参与「必须有菜单」检查。
+
+两个脚本均已接入 CI `frontend-test` job（`eslint` 之后执行）。
 
 ---
 

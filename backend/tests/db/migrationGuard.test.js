@@ -140,18 +140,57 @@ describe('迁移链完整性守卫', () => {
     expect(rows.length).toBe(2);
   });
 
-  it('120: manager 权限数应追平 boss（120 迁移目标）', async () => {
+  it('125: 12 个路由必需权限码应全部落库', async () => {
     if (!reachable) return;
-    // 2026-10-15：改按 roleCode（原硬编码 role_id IN (1,2) —— 角色 id 跨环境不可靠，
-    // 本项目铁律「一律 roleCode」。本机 boss=1/manager=2 巧合蒙对，但 finance 在
-    // 测试库是 31、生产库当年是 6，同类硬编码已让 121 的授权静默丢失过一次）。
+    // 2026-10-23 审计 P0-02：这些码此前只存在于 permission-definitions.js，
+    // 数据库中没有 ⇒ 除 boss/manageAll 外相关端点全部 403。
+    const required = [
+      'file', 'file:upload', 'invoice:view', 'payment:edit', 'quotation:view',
+      'quotation:approve', 'purchase:request', 'purchase:comparison', 'email:send',
+      'recycle_bin:view', 'data:restore', 'system:cron'
+    ];
     const [rows] = await pool.query(
-      `SELECT r.code, COUNT(*) AS n FROM sys_role_permission rp
-         JOIN sys_role r ON r.id = rp.role_id
-        WHERE r.code IN ('boss','manager') GROUP BY r.code`
+      'SELECT code FROM sys_permission WHERE code IN (?)', [required]
     );
-    const map = new Map(rows.map(r => [r.code, Number(r.n)]));
-    expect(map.get('manager')).toBe(map.get('boss'));
+    const got = new Set(rows.map(r => r.code));
+    expect(required.filter(c => !got.has(c))).toEqual([]);
+  });
+
+  it('125: manager 不得持有系统管理/灾备权限（旧版 120 越权回收）', async () => {
+    if (!reachable) return;
+    // 2026-10-23 审计 P0-04：旧版 120 复制 boss 全部权限，经理可建 boss/重置密码。
+    // 125 按岗位矩阵授权并删除这些系统管理码；此断言防止旧 120 被重新放回。
+    const forbidden = [
+      'system:user', 'system:user:add', 'system:user:edit', 'system:user:delete',
+      'system:role', 'system:role:add', 'system:role:edit', 'system:role:delete',
+      'system:role:permission', 'system:backup', 'backup:add', 'backup:restore',
+      'system:permission', 'settings'
+    ];
+    const [rows] = await pool.query(
+      `SELECT p.code FROM sys_role_permission rp
+         JOIN sys_role r ON r.id = rp.role_id
+         JOIN sys_permission p ON p.id = rp.permission_id
+        WHERE r.code = 'manager' AND p.code IN (?)`,
+      [forbidden]
+    );
+    expect(rows.map(r => r.code)).toEqual([]);
+  });
+
+  it('125: manager 应持有经理岗位必需的报价审批/回款/采购权限', async () => {
+    if (!reachable) return;
+    const required = [
+      'quotation:view', 'quotation:approve', 'payment:edit',
+      'purchase:request', 'purchase:comparison', 'invoice:view', 'file:upload'
+    ];
+    const [rows] = await pool.query(
+      `SELECT p.code FROM sys_role_permission rp
+         JOIN sys_role r ON r.id = rp.role_id
+         JOIN sys_permission p ON p.id = rp.permission_id
+        WHERE r.code = 'manager' AND p.code IN (?)`,
+      [required]
+    );
+    const got = new Set(rows.map(r => r.code));
+    expect(required.filter(c => !got.has(c))).toEqual([]);
   });
 
   it('121: finance 应持有 quotation 权限码', async () => {
@@ -206,7 +245,7 @@ describe('迁移链完整性守卫', () => {
 
   it('123: crm_invoice.invoice_no 应有唯一约束（防重号发票）', async () => {
     if (!reachable) return;
-    // 实测依据：invoiceService.createInvoice 按当日已用最大序号 +1 生成编号，唯一键用于兜底偶发冲突
+    // [P2-06] 编号已改由 crm_doc_sequence 原子分配；唯一键仍是最终防线（手工写号等冲突）
     const [rows] = await pool.query(
       `SELECT NON_UNIQUE FROM information_schema.STATISTICS
         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_invoice'

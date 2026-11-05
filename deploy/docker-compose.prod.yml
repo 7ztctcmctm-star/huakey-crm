@@ -6,7 +6,8 @@
 services:
 
   mysql:
-    image: mysql:8.0
+    # [P2-12] digest 固定于 2026-10-26；升级流程见 docs/image-digests.md
+    image: mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
     container_name: crm-prod-mysql
     restart: unless-stopped
     mem_limit: 512m
@@ -17,10 +18,12 @@ services:
         max-size: "10m"
         max-file: "3"
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      # fail-fast：缺少任一凭据时 compose 直接报错，避免容器以空密码启动
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?生产环境必须设置 MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: huakey_crm
       MYSQL_USER: crm_user
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      # 与 synology/base 栈统一：应用账号口令统一取 DB_PASSWORD
+      MYSQL_PASSWORD: ${DB_PASSWORD:?生产环境必须设置 DB_PASSWORD}
       TZ: Asia/Shanghai
     # MySQL 端口仅容器内网访问，不暴露到宿主机
     # 如需本地直连调试，取消下行注释:
@@ -39,14 +42,16 @@ services:
       - --skip-name-resolve
       - --explicit_defaults_for_timestamp=1
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      # [P2-16] 口令经 MYSQL_PWD 传入，不出现在 healthcheck 命令行（docker inspect / ps 可见）
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_ROOT_PASSWORD\" mysqladmin ping -h localhost -u root --silent"]
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 30s
 
   redis:
-    image: redis:7-alpine
+    # [P2-12] digest 固定于 2026-10-26；升级流程见 docs/image-digests.md
+    image: redis:7-alpine@sha256:57e4255cc971b1c8d6f8a6ca283ac01bc3ecdd914273ef6bfaede87aaecd6541
     container_name: crm-prod-redis
     restart: unless-stopped
     mem_limit: 256m
@@ -92,9 +97,11 @@ services:
       DB_HOST: mysql
       DB_PORT: 3306
       DB_USER: crm_user
-      DB_PASSWORD: ${MYSQL_PASSWORD}
+      DB_PASSWORD: ${DB_PASSWORD:?生产环境必须设置 DB_PASSWORD}
       DB_NAME: huakey_crm
-      JWT_SECRET: ${JWT_SECRET}
+      # 生产 NODE_ENV=production 时 app.js 对空 CORS 直接 exit(1)
+      CORS_ORIGIN: ${CORS_ORIGIN:?生产环境必须设置 CORS_ORIGIN}
+      JWT_SECRET: ${JWT_SECRET:?生产环境必须设置 JWT_SECRET（128 位 hex）}
       JWT_EXPIRES_IN: 7d
       REDIS_ENABLED: "true"
       REDIS_HOST: redis
@@ -124,7 +131,11 @@ services:
       - /volume1/docker/huakey-crm-deploy/prod/frontend/dist:/app/frontend/dist
       - /volume1/docker/huakey-crm-deploy/prod/database/migrations:/app/database/migrations:ro
       - prod-app-uploads:/app/uploads
+      # [P2-10 2026-10-26] /app 被 bind mount 覆盖，镜像内的 logs 目录与属主不生效；
+      # 具名卷初始化时继承镜像中 /app/logs 的 nodejs 属主，避免日志写入 EACCES。
+      - prod-app-logs:/app/logs
 
 volumes:
   prod-mysql-data:
   prod-app-uploads:
+  prod-app-logs:

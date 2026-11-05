@@ -26,7 +26,7 @@ GitHub main → CI green → Docker build → DB backup → migration dry-run
 | 4 | □ DB backup | Phase 0 快照（tar.gz + sha256） | |
 | 5 | □ Migration dry-run | 只读预演（见 §3） | |
 | 6 | □ Deploy | `git pull` → `docker compose up -d app` | |
-| 7 | □ Health check | `/api/health` → 200 | |
+| 7 | □ Health check | `/api/v1/health` → 200 | |
 | 8 | □ Rollback point 记录 | commit + 镜像 sha + tag | |
 
 ---
@@ -53,9 +53,9 @@ GitHub main → CI green → Docker build → DB backup → migration dry-run
 
 | 环境 | 谁执行 | 位置 |
 |------|--------|------|
-| 开发 | 开发者 | `node database/migrate.js` |
+| 开发 | 开发者 | `node database/migrations/run_migrations.js` |
 | CI | GitHub Actions integration-test | 自动 |
-| 生产 | 容器启动自动（`node database/migrate.js && node app.js`） | 自动 |
+| 生产 | 容器启动自动（`node database/migrations/run_migrations.js && exec node app.js`） | 自动 |
 
 ### 3.2 开发流程
 ```
@@ -104,10 +104,10 @@ APP_IMAGE=crm-stack-app:v1.x.x docker compose -f docker-compose.synology.yml up 
 - 废除裸 `latest` 作为唯一标识（保留为默认回退）
 
 ### 4.3 已废弃（不再使用）
-- ~~`docker-compose.yml`~~（旧版，已删除）
-- ~~`backend/Dockerfile`~~（旧备用，已删除）
-- ~~`fix-tests*.py`~~（一次性调试脚本，已删除）
-- ~~`_https_deploy.sh` / `_scan*.sh`~~（历史部署脚本，已清理）
+- ~~`docker-compose.yml`~~（旧版，**文件仍存在**，不再作为生产部署入口）
+- ~~`backend/Dockerfile`~~（旧备用，**文件仍存在**，生产镜像使用 `Dockerfile.synology`）
+- ~~`fix-tests*.py`~~（一次性调试脚本，**文件仍存在**，待后续清理）
+- ~~`_https_deploy.sh` / `_scan*.sh`~~（历史部署脚本；`deploy/_https_deploy.sh` 仍存在，`_scan*.sh` 已清理）
 - ~~`docker-compose.synology.yml.bak.*`~~（历史备份，已清理）
 
 ---

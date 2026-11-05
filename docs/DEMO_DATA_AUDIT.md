@@ -55,7 +55,7 @@ id=2  code=MANAGER      (部门经理)
 id=3  code=SALES        (销售)
 id=11 code=super_admin  (超级管理员)
 ```
-⚠️ 缺少 HR/PURCHASE/FINANCE/ENGINEER/BOSS。`backend/config/roles.js` 的 `ROLE_CODES` 定义了完整 8 种角色 code（super_admin/admin/boss/sales/hr/purchase/finance/engineer），Demo seed 需补齐。
+⚠️ 缺少 HR/PURCHASE/FINANCE/ENGINEER/BOSS。`backend/config/roles.js` 的 `ROLE_CODES` 共定义 9 种角色 code（super_admin/admin/boss/manager/sales/hr/purchase/finance/engineer，前两者为遗留 code），Demo seed 需补齐。
 
 ### 2.3 客户表 `crm_customer`
 
@@ -68,7 +68,7 @@ id=11 code=super_admin  (超级管理员)
 | owner_id | int FK→sys_user | 负责人（NULL=公海） |
 | status | varchar(32) | **状态机**：lead/sea/following/quoted/negotiating/signed/lost/paused |
 | customer_type | varchar(20) | prospect/... |
-| pool_status | tinyint | 公海缓存（以 owner_id IS NULL 为准） |
+| pool_status | varchar(8) | 公海兼容列（097 起 private/sea；归属以 owner_id IS NULL 为准） |
 | last_follow_time | datetime | 最后跟进时间 |
 | original_lead_id | int | 线索来源 |
 | deleted_at | datetime | 软删除 |

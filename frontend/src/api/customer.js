@@ -1,25 +1,29 @@
 import request from '@/utils/request'
 
 // ============ 客户管理（Phase 5 + 阶段3：统一走 /customers 命名空间） ============
-// [2026-09-14 阶段3] 全部客户端点——CRUD 与「能力型」端点（分配/批量分配/联系人/360/
-// 分配规则/导入模板与预览确认/逾期/临回收/销售用户/下属）——已统一到 /customers/*。
-// 旧 /customer/* 仅作后端兼容层保留至 v2（公开 API 契约），前端不再引用。
+// [2026-09-14 阶段4] 老树 /api/v1/customer/* 已整体下线（不再挂载），/customers/* 是唯一命名空间。
+// CRUD 由 routes/customers.js 承载，能力型端点（分配/批量分配/联系人/360/分配规则/
+// 导入模板与预览确认/逾期/临回收/销售用户/下属）由 customer/{assign,contact,import,detailExtras}.js 挂载到同一前缀。
 
 /**
  * 全量客户列表（分页 + 筛选 + 排序 + 数据权限自动追加）
- * @param {Object} params - { page, page_size, keyword, status, owner_id, ... }
+ * @param {Object} params - { page, pageSize, keyword, company_name, contact_name,
+ *   phone, source, level, status, business_status, owner_id, start_date, end_date,
+ *   overdue, unassigned, customer_type, lifecycle_status, overdue_follow, tag_id, sort }
  * @returns {Promise<{code:number, data:{list:Array, total:number}}>}
  */
 export const getCustomerList = (params) => request.post('/customers/list', params)
 
-/** 正式客户列表（status IN following/quoted/negotiating/signed） */
+/** 正式客户列表（status IN following/quoted/negotiating/signed/lost/paused，且 owner_id IS NOT NULL） */
 export const getFormalCustomers = (params) => request.post('/customers', params)
 
 export const getCustomerDetail = (id) => request.get(`/customers/detail/${id}`)
 
 /**
  * 新增客户
- * @param {Object} data - 最少需要 name, 可选 source/status/owner_id/contacts[]
+ * @param {Object} data - 后端 schema 必填：company_name + contacts（至少 1 个联系人）
+ *   可选：address/industry/source/level/remark；联系人为
+ *   { name(必填), position?, phone?, email?, wechat?, is_decision?, remark? }
  */
 export const addCustomer = (data) => request.post('/customers/add', data)
 
@@ -29,7 +33,8 @@ export const deleteCustomer = (id) => request.post('/customers/delete', { id })
 
 /**
  * 分配客户给销售（owner_id 变更 + 写 crm_customer_transfer 日志）
- * @param {Object} data - { customer_ids:[], new_owner_id, reason? }
+ * @param {Object} data - 单条分配：{ customer_id, to_user_id|null, remark? }
+ *   （批量分配请用 batchAssignCustomer，字段为 { customer_ids:[], to_user_id }）
  */
 export const assignCustomer = (data) => request.post('/customers/assign', data)
 
@@ -65,14 +70,14 @@ export const createAssignRule = (data) => request.post('/customers/assign-rules/
 export const updateAssignRule = (data) => request.post('/customers/assign-rules/update', data)
 export const deleteAssignRule = (id) => request.post('/customers/assign-rules/delete', { id })
 
-/** 客户导入模板下载（xlsx） */
-export const getCustomerTemplate = () => request.get('/customers/template')
+/** 客户导入模板下载（xlsx，必须按 blob 接收，否则 xlsx 会被当文本解析） */
+export const getCustomerTemplate = () => request.get('/customers/template', { responseType: 'blob' })
 
-/** 导入预览（不写 DB，仅解析 + 返回错误行 + 统计） */
-export const importPreview = (data) => request.post('/customers/import-preview', data)
+/** 导入预览（不写 DB，仅解析 + 返回错误行 + 统计；config 透传取消/进度） */
+export const importPreview = (data, config) => request.post('/customers/import-preview', data, config)
 
-/** 导入确认（校验通过后批量 INSERT，事务保护） */
-export const importConfirm = (data) => request.post('/customers/import-confirm', data)
+/** 导入确认（校验通过后批量 INSERT，事务保护；config 透传取消/进度） */
+export const importConfirm = (data, config) => request.post('/customers/import-confirm', data, config)
 
 /** 触发单个客户的 AI 评分（scoring_rule 表驱动） */
 export const calculateCustomerScore = (id) => request.post(`/scoring/calculate/${id}`)
@@ -84,7 +89,7 @@ export const getFollowUpList = (customerId, params = {}) => request.post('/follo
 
 /**
  * 新增跟进 — **唯一会驱动客户状态变化的端点**（lead/sea→following）
- * @param {Object} data - { customer_id, content, next_follow_time?, follow_type? }
+ * @param {Object} data - { customer_id, content, next_time?, next_content?, follow_type? }
  * @param {boolean} [data.advance_status=true] - 是否自动推进客户状态
  */
 export const addFollowUp = (data) => request.post('/follow-up/add', data)
@@ -94,9 +99,11 @@ export const deleteFollowUp = (id) => request.post('/follow-up/delete', { id })
 
 export const getFollowupTemplates = () => request.get('/followup-templates')
 export const saveFollowupTemplate = (data) => request.post('/followup-templates', data)
+/** 编辑跟进模板（PUT /:id；POST 为新建，编辑误用 POST 会重复创建） */
+export const updateFollowupTemplate = (id, data) => request.put(`/followup-templates/${id}`, data)
 export const deleteFollowupTemplate = (id) => request.delete(`/followup-templates/${id}`)
 
-/** 跟进日历视图（返回日程数组，前端渲染为月/周视图） */
+/** 跟进日历视图（返回 { list, total }，前端按 list 渲染月/周视图） */
 export const getFollowUpCalendar = (params) => request.post('/follow-up/calendar', params)
 
 /** 今天的待办跟进（含逾期） */
@@ -114,7 +121,7 @@ export const getFollowUpTaskStats = () => request.get('/follow-up/task-stats')
 
 /**
  * 逾期客户列表（超过 overdue_days 未跟进，默认 15 天，sys_config 可配）
- * 默认筛选 business_status IN ('lead','sea','following')
+ * 默认筛选：status NOT IN ('signed','lost') 且 owner_id IS NOT NULL
  */
 export const getOverdueCustomers = (params) => request.get('/customers/overdue', { params })
 

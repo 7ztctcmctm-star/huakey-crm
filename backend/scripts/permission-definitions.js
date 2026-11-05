@@ -13,7 +13,7 @@ const MENU_PERMISSIONS = [
   { code: 'dashboard', name: '首页', path: '/dashboard', icon: 'HomeFilled', sort: 1 },
   { code: 'customer', name: '客户管理', icon: 'UserFilled', sort: 2 },
   { code: 'customer:list', name: '客户列表', path: '/customer/list', sort: 1 },
-  { code: 'pool', name: '公海池', path: '/pool', sort: 2 },
+  { code: 'pool', name: '客户总览', path: '/pool', sort: 2 },
   { code: 'followup:calendar', name: '跟进日历', path: '/followup/calendar', sort: 4 },
   { code: 'followup:template', name: '跟进模板', path: '/followup/template', sort: 5 },
   { code: 'opportunity', name: '商机管理', path: '/opportunity', icon: 'TrendCharts', sort: 3 },
@@ -73,9 +73,10 @@ const BUTTON_PERMISSIONS = [
   { code: 'customer:import', name: '导入客户', parent: 'customer' },
   { code: 'customer:export', name: '导出客户', parent: 'customer' },
   { code: 'customer:list', name: '客户列表查看', parent: 'customer' },
-  { code: 'pool:view', name: '查看公海', parent: 'pool' },
-  { code: 'pool:claim', name: '认领公海', parent: 'pool' },
-  { code: 'customer:release', name: '释放到公海', parent: 'customer' },
+  // [S3 2026-11-05] 术语统一（V5.4 C1）：对外口径「客户资源库 / 转为客户 / 待分配」，码不动（D5）
+  { code: 'pool:view', name: '查看待分配', parent: 'pool' },
+  { code: 'pool:claim', name: '分配待分配客户至本人', parent: 'pool' },
+  { code: 'customer:release', name: '收回到待分配', parent: 'customer' },
   { code: 'opportunity:add', name: '新增商机', parent: 'opportunity' },
   { code: 'opportunity:edit', name: '编辑商机', parent: 'opportunity' },
   { code: 'opportunity:delete', name: '删除商机', parent: 'opportunity' },
@@ -130,8 +131,8 @@ const BUTTON_PERMISSIONS = [
   { code: 'competitor:edit', name: '编辑竞品', parent: 'competitor' },
   { code: 'competitor:delete', name: '删除竞品', parent: 'competitor' },
   { code: 'email:send', name: '发送邮件', parent: 'email' },
-  { code: 'leads:view', name: '查看潜客', parent: 'customer' },
-  { code: 'leads:convert', name: '转化潜客', parent: 'customer' },
+  { code: 'leads:view', name: '查看客户资源库', parent: 'customer' },
+  { code: 'leads:convert', name: '转为客户', parent: 'customer' },
   { code: 'finance', name: '财务增强', parent: 'report' },
   { code: 'recycle_bin:view', name: '查看回收站', parent: 'system' },
   { code: 'data:restore', name: '数据恢复', parent: 'system' },
@@ -194,12 +195,11 @@ const ROLE_PERMISSIONS = {
     'competitor:view', 'competitor:add', 'competitor:edit', 'competitor:delete',
     'email:send', 'leads:view', 'leads:convert', 'purchase:approve',
     // [C1 2026-10-20] 补登记此前缺失的裸码（路由在用但从未登记 ⇒ 除 manage_all
-    //   外全员 403，功能实际不可用）。授权面 = boss + manager 同龄：
-    //   120 迁移确立「manager 功能权限 == boss 功能权限」不变式
-    //   （migrationGuard.test.js 守护），任何只加一边的改法都会立刻红。
-    //   api_platform 对 manager 开放已经 David 2026-10-20 拍板确认
-    //   （路由本就是 checkPermission + requireManager 配对，语义上就面向管理层）；
-    //   log:delete 随不变式同龄授予，破坏性由 clean-logs 等运维侧兜底约束。
+    //   外全员 403，功能实际不可用）。
+    //   [2026-10-23 审计 P0-04] 旧版 120「manager 功能权限 == boss」不变式已废除：
+    //   经理只拿业务权限，不得持有 system:user* / system:role* / system:backup /
+    //   settings / log:delete 等系统管理与审计权限。migrationGuard.test.js 已改为
+    //   断言 manager 不持有这些码，而不是比较权限数量。
     'log:delete', 'api_platform',
     // [C1 2026-10-20] 发票详情查看 + 定时任务手动触发
     'invoice:view', 'system:cron'
@@ -209,7 +209,9 @@ const ROLE_PERMISSIONS = {
     'opportunity', 'product', 'quotation', 'contract', 'payment', 'payment:view', 'payment:edit',
     'supplier', 'purchase', 'service', 'survey', 'calendar', 'social', 'competitor', 'analysis',
     'report', 'scoring', 'ai', 'approval', 'knowledge', 'email', 'notification', 'target', 'team-dashboard',
-    'customer:add', 'customer:edit', 'customer:transfer', 'customer:view', 'customer:delete', 'customer:assign', 'customer:import', 'customer:export', 'customer:list',
+    'customer:add', 'customer:edit', 'customer:transfer', 'customer:view', 'customer:delete', 'customer:import', 'customer:export', 'customer:list',
+    // [S3 2026-11-05] 分配权收敛（B-04）：customer:assign 只保留给 boss / super_admin，
+    //   manager 收回（配套迁移 132 + assign.js requireAdmin 双保险）。
     'opportunity:add', 'opportunity:edit', 'opportunity:delete', 'opportunity:view',
     'quotation:add', 'quotation:edit', 'quotation:delete', 'quotation:view', 'quotation:approve',
     'contract:add', 'contract:edit', 'contract:delete',
@@ -222,17 +224,17 @@ const ROLE_PERMISSIONS = {
     'search', 'tag', 'contract_template', 'data_quality:check',
     'competitor:view', 'competitor:add', 'competitor:edit', 'competitor:delete',
     'email:send', 'leads:view', 'leads:convert', 'purchase:approve',
-    // [C1 2026-10-20] 与 boss 保持功能码一致 —— 120 迁移确立的不变式
-    //   「manager 功能权限 == boss 功能权限」，差异只在数据权限（dept_and_sub）。
-    //   新增/补登记的 4 个码（log:delete、api_platform、invoice:view、system:cron）
-    //   必须两边同龄，否则 tests/db/migrationGuard.test.js 会立刻红。
-    //   api_platform → David 2026-10-20 拍板「经理可以看」：路由为
-    //   checkPermission('api_platform') + requireManager 配对，manager
-    //   本就过 requireManager，授予后即打通，无需再改路由。
-    'log:delete', 'api_platform', 'invoice:view', 'system:cron'
+    // [C1 2026-10-20] api_platform 对经理开放（路由 checkPermission + requireManager
+    //   配对，语义上就面向管理层）；invoice:view 随财务查看；system:cron 路由仍有
+    //   requireAdmin，经理即使持有该码也进不来，保留仅为与历史矩阵对齐。
+    //   [2026-10-23 审计 P0-04] log:delete 仅 boss 持有：审计日志删除不应下放经理。
+    'api_platform', 'invoice:view', 'system:cron'
   ],
   sales: [
-    'dashboard', 'customer', 'customer:list', 'pool', 'pool:view', 'pool:claim', 'followup:calendar', 'followup:template',
+    // [S3 2026-11-05] 待分配（sea）客户对销售不可见不可抢（B-03/V5.1）：
+    //   pool / pool:view / pool:claim 三码收回（配套迁移 132），sidebar「客户总览」
+    //   项随 pool:view 失效自动隐藏；数据层由 permission.js self 兜底去 'sea' 强制。
+    'dashboard', 'customer', 'customer:list', 'followup:calendar', 'followup:template',
     'opportunity', 'product', 'quotation', 'contract', 'calendar', 'social', 'scoring', 'ai',
     'approval', 'knowledge', 'email', 'notification', 'survey', 'schedule:view',
     'customer:add', 'customer:edit', 'customer:transfer', 'customer:view', 'customer:delete', 'customer:import', 'customer:export', 'customer:list',
@@ -244,6 +246,8 @@ const ROLE_PERMISSIONS = {
     'search', 'tag', 'email:send', 'leads:view', 'leads:convert'
   ],
   hr: [
+    // [S3 2026-11-05] 资源库可见范围补齐（V5.3 S3 验收③）：只读查看客户资源库
+    'leads', 'leads:view',
     'dashboard', 'hr', 'calendar', 'knowledge', 'email', 'notification', 'survey',
     'system:user', 'system:dept', 'system:log',
     'system:user:add', 'system:user:edit', 'system:user:delete',
@@ -251,6 +255,8 @@ const ROLE_PERMISSIONS = {
     'search', 'tag', 'email:send'
   ],
   purchase: [
+    // [S3 2026-11-05] 资源库只读查看（生产库已持 leads:view，此处对齐注册表）
+    'leads:view',
     'dashboard', 'supplier', 'purchase', 'product', 'calendar', 'knowledge', 'email', 'notification', 'survey',
     'supplier:add', 'supplier:edit', 'supplier:delete',
     'purchase:add', 'purchase:edit', 'purchase:delete', 'purchase:request', 'purchase:comparison',
@@ -259,6 +265,8 @@ const ROLE_PERMISSIONS = {
     'search', 'tag', 'email:send', 'purchase:approve'
   ],
   finance: [
+    // [S3 2026-11-05] 资源库可见范围补齐（V5.3 S3 验收③）：只读查看客户资源库
+    'leads', 'leads:view',
     'dashboard', 'contract', 'payment', 'payment:view', 'payment:edit', 'invoice', 'report', 'calendar', 'knowledge',
     'email', 'notification', 'survey',
     'contract:view', 'contract:edit',

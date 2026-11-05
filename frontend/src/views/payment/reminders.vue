@@ -146,8 +146,8 @@ onMounted(() => { fetchList(); fetchSummary() })
 .stat-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: var(--space-4); }
 
 .stat-value { font-size: 28px; font-weight: 700; color: var(--color-text); }
-.stat-value.warning { color: #e6a23c; }
-.stat-value.danger { color: #f56c6c; }
+.stat-value.warning { color: var(--el-color-warning); }
+.stat-value.danger { color: var(--el-color-danger); }
 .stat-label { font-size: 13px; color: var(--color-text-tertiary); margin-top: 4px; }
 .status-tabs { display: flex; gap: 8px; margin-bottom: var(--space-4); }
 .pagination { display: flex; justify-content: flex-end; margin-top: var(--space-4); }

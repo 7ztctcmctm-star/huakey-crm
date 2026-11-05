@@ -53,7 +53,7 @@ describe('采购申请模块', () => {
   describe('POST /api/v1/purchase/request/create', () => {
     it('应该返回400当缺少title', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist
-      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role
+      mockPool.query.mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]); // role
 
       const res = await request(app)
         .post('/api/v1/purchase/request/create')
@@ -67,8 +67,7 @@ describe('采购申请模块', () => {
     it('应该返回201当正常创建', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role
         .mockResolvedValueOnce([[{ cnt: 0 }]]) // count
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
@@ -87,8 +86,7 @@ describe('采购申请模块', () => {
     it('应该返回采购申请列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[{ id: 1, title: '6月办公用品采购', status: 'draft', applicant_name: '管理员' }]]); // list
 
@@ -107,8 +105,7 @@ describe('采购申请模块', () => {
     it('应该返回400当非草稿状态提交', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]); // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role
       // 事务内 SELECT（带 FOR UPDATE）：该申请已是 pending
       mockConn.query.mockResolvedValueOnce([[{ id: 1, applicant_id: 1, status: 'pending' }]]);
 
@@ -131,8 +128,7 @@ describe('采购申请模块', () => {
     it('【B2】UPDATE 必须带 status=draft 原子守卫，期间被改变则不得静默成功', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]); // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role
       mockConn.query
         .mockResolvedValueOnce([[{ id: 1, applicant_id: 1, status: 'draft' }]]) // SELECT 通过
         .mockResolvedValueOnce([{ affectedRows: 0 }]); // UPDATE 未命中 ⇒ 已被并发处理
@@ -157,7 +153,7 @@ describe('采购申请模块', () => {
       const salesToken = generateToken(2, 'sales', false);
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
-        .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0 }]]); // role
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, view_all: 0, manage_all: 0 }]]); // role
 
       const res = await request(app)
         .post('/api/v1/purchase/request/approve/1')
@@ -173,8 +169,7 @@ describe('采购申请模块', () => {
     it('应该返回200当正常驳回', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role
         .mockResolvedValueOnce([[{ status: 'pending' }]]) // request
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
 
@@ -192,8 +187,7 @@ describe('采购申请模块', () => {
     it('应该返回200当正常撤销', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role
         .mockResolvedValueOnce([[{ applicant_id: 1, status: 'draft' }]]) // request
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
 

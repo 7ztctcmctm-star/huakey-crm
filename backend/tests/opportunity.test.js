@@ -11,6 +11,8 @@ const mockPool = {
 
 jest.mock('../config/database', () => mockPool);
 
+const { installAuthAwareQuery } = require('./helpers/authMock');
+
 jest.mock('../middleware/logger', () => ({
   logAction: jest.fn().mockResolvedValue(undefined),
   logFieldChanges: jest.fn().mockResolvedValue(undefined),
@@ -34,14 +36,16 @@ const generateToken = () => {
 describe('商机模块', () => {
   const token = generateToken();
 
-  beforeEach(() => { mockPool.query.mockReset(); });
+  beforeEach(() => {
+    mockPool.query.mockReset();
+    installAuthAwareQuery(mockPool);
+  });
 
   describe('POST /api/v1/opportunity/list', () => {
     it('应该返回200和商机列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]])  // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 1 }]])
         .mockResolvedValueOnce([[{ id: 1, name: '测试商机', stage: 1 }]]);
 

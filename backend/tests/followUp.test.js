@@ -11,6 +11,8 @@ const mockPool = {
 
 jest.mock('../config/database', () => mockPool);
 
+const { installAuthAwareQuery } = require('./helpers/authMock');
+
 jest.mock('../middleware/logger', () => ({
   logAction: jest.fn().mockResolvedValue(undefined),
   logFieldChanges: jest.fn().mockResolvedValue(undefined),
@@ -34,7 +36,10 @@ const generateToken = () => {
 describe('跟进模块', () => {
   const token = generateToken();
 
-  beforeEach(() => { mockPool.query.mockReset(); });
+  beforeEach(() => {
+    mockPool.query.mockReset();
+    installAuthAwareQuery(mockPool);
+  });
 
   describe('POST /api/v1/follow-up/add', () => {
     it('应该返回400当缺少customer_id', async () => {
@@ -60,8 +65,7 @@ describe('跟进模块', () => {
     it('应该返回200当创建成功', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]])  // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1, company_name: '测试公司' }]])
         .mockResolvedValueOnce([{ insertId: 1 }]);
       // 兜底：addFollowUp 在 INSERT 之后还会执行 UPDATE last_follow_time / UPDATE reminder / SELECT status 等查询

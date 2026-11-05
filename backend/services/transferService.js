@@ -53,8 +53,8 @@ async function createTransfer(pool, data, fromUserId, idempotencyKey) {
 
   const { runIdempotent } = require('../utils/idempotency');
   const { result } = await runIdempotent(pool, idempotencyKey, 'customer_transfer_create', () =>
-    createTransferTx(pool, customerId, toUserId, data, fromUserId)
-  );
+    createTransferTx(pool, customerId, toUserId, data, fromUserId),
+  fromUserId);
   return result;
 }
 
@@ -141,8 +141,8 @@ async function createTransferTx(pool, customerId, toUserId, data, fromUserId) {
 async function acceptTransfer(pool, transferId, userId, idempotencyKey) {
   const { runIdempotent } = require('../utils/idempotency');
   const { result } = await runIdempotent(pool, idempotencyKey, 'customer_transfer_accept', () =>
-    acceptTransferTx(pool, transferId, userId)
-  );
+    acceptTransferTx(pool, transferId, userId),
+  userId);
   return result;
 }
 
@@ -234,8 +234,8 @@ async function acceptTransferTx(pool, transferId, userId) {
 async function rejectTransfer(pool, transferId, userId, remark, idempotencyKey) {
   const { runIdempotent } = require('../utils/idempotency');
   const { result } = await runIdempotent(pool, idempotencyKey, 'customer_transfer_reject', () =>
-    rejectTransferTx(pool, transferId, userId, remark)
-  );
+    rejectTransferTx(pool, transferId, userId, remark),
+  userId);
   return result;
 }
 

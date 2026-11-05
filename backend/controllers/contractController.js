@@ -146,8 +146,17 @@ async function deleteContract(req, res, next) {
 
 async function getOpportunityList(req, res, next) {
   try {
+    const { customer_id: customerIdRaw } = req.query;
+    let customerId = null;
+    if (customerIdRaw !== undefined && customerIdRaw !== '') {
+      customerId = Number(customerIdRaw);
+      if (!Number.isInteger(customerId) || customerId <= 0) {
+        return res.status(400).json({ code: 400, message: 'customer_id 无效', data: null });
+      }
+    }
+
     const { clause: permissionClause, params: permParams } = await buildDataPermissionWhere(req.dataPermission, 'o');
-    const rows = await contractCrudService.getOpportunityList(pool, { clause: permissionClause, params: permParams });
+    const rows = await contractCrudService.getOpportunityList(pool, { clause: permissionClause, params: permParams }, customerId);
     res.json({ code: 200, message: '查询成功', data: rows });
   } catch (error) {
     logger.error('[合同] 商机列表错误:', { error: error.message, traceId: req.traceId || 'N/A' });
@@ -228,7 +237,13 @@ async function approveContract(req, res, next) {
 
 async function addPayment(req, res, next) {
   try {
-    await contractPaymentService.addPayment(pool, req.body, req.user);
+    // [P0-07] 幂等键优先请求头 Idempotency-Key（前端统一走请求头），兼容 body.idempotency_key。
+    const idempotencyKey = req.headers['idempotency-key'] || req.body.idempotency_key || null;
+    await contractPaymentService.addPayment(
+      pool,
+      { ...req.body, idempotency_key: idempotencyKey },
+      req.user
+    );
     await logAction(req, 'add', `登记回款: 合同ID=${req.body.contract_id}, 金额=${req.body.pay_amount}`);
     res.json({ code: 200, message: '登记回款成功', data: null });
   } catch (error) {

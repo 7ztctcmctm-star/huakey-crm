@@ -136,4 +136,57 @@ describe('客户列表 —— 查询参数契约', () => {
     expect(lastParams()).not.toHaveProperty('business_status')
     w.unmount()
   })
+
+  /**
+   * [P1-27] 状态下拉与状态 tab 是同一维度：两个不同状态取交集必为空。
+   * 后操作的一方生效，另一方必须被清掉，否则用户会看到“永远空”的列表。
+   */
+  it('状态下拉与状态 tab 互斥，后操作的一方生效', async () => {
+    getFormalCustomers.mockResolvedValue({ code: 200, data: { list: [], total: 0 } })
+    const w = mountPage()
+    await flushPromises()
+    const filter = w.findComponent({ name: 'CustomerFilter' })
+
+    // 先选下拉，再点 tab ⇒ tab 生效，下拉值撤下
+    filter.props('searchForm').status = 'lost'
+    filter.vm.$emit('tab-change', 'signed')
+    await flushPromises()
+    expect(lastParams()).toHaveProperty('business_status', 'signed')
+    expect(lastParams()).not.toHaveProperty('status')
+
+    // 再选下拉并搜索 ⇒ 下拉生效，tab 参数撤下
+    filter.props('searchForm').status = 'paused'
+    filter.vm.$emit('search')
+    await flushPromises()
+    expect(lastParams()).toHaveProperty('status', 'paused')
+    expect(lastParams()).not.toHaveProperty('business_status')
+    w.unmount()
+  })
+
+  /**
+   * [P1-27] 标签/生命周期筛选此前只存在于表单，从未随请求下发；
+   * 后端 formalSchema 也没有声明这两个字段（stripUnknown 会静默丢弃）。
+   */
+  it('标签 / 生命周期筛选应随请求下发，重置后清空', async () => {
+    getFormalCustomers.mockResolvedValue({ code: 200, data: { list: [], total: 0 } })
+    const w = mountPage()
+    await flushPromises()
+
+    const filter = w.findComponent({ name: 'CustomerFilter' })
+    // props.searchForm 就是父级同一个 reactive 对象（stub 不再克隆）
+    filter.props('searchForm').tag_id = 12
+    filter.props('searchForm').lifecycle_status = 'active'
+    filter.vm.$emit('search')
+    await flushPromises()
+
+    expect(lastParams()).toMatchObject({ tag_id: 12, lifecycle_status: 'active' })
+
+    filter.vm.$emit('reset')
+    await flushPromises()
+
+    const afterReset = lastParams()
+    expect(afterReset).not.toHaveProperty('tag_id')
+    expect(afterReset).not.toHaveProperty('lifecycle_status')
+    w.unmount()
+  })
 })

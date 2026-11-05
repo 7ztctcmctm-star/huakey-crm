@@ -83,8 +83,7 @@ describe('定时任务模块', () => {
   function mockAuth(roleId = ROLE_IDS.BOSS) {
     mockPool.query
       .mockResolvedValueOnce([[]])
-      .mockResolvedValueOnce([[{ view_all: roleId === ROLE_IDS.BOSS ? 1 : 0, manage_all: roleId === ROLE_IDS.BOSS ? 1 : 0, role_code: roleId === ROLE_IDS.BOSS ? 'boss' : 'sales' }]])
-      .mockResolvedValueOnce([[{ must_change_password: 0 }]]);
+      .mockResolvedValueOnce([[{ id: 1, username: 'test_user', role_id: roleId, status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: roleId, view_all: roleId === ROLE_IDS.BOSS ? 1 : 0, manage_all: roleId === ROLE_IDS.BOSS ? 1 : 0, role_code: roleId === ROLE_IDS.BOSS ? 'boss' : 'sales' }]])
   }
 
   describe('POST /api/v1/cron/daily-scoring', () => {
@@ -138,14 +137,15 @@ describe('定时任务模块', () => {
         .set('Authorization', adminToken);
 
       expect(res.status).toBe(200);
-      expect(res.body.message).toMatch(/已释放 2 个客户/);
+      expect(res.body.message).toMatch(/已收回 2 个客户到待分配/);
       expect(mockConnection.query).toHaveBeenCalledTimes(3); // 1 SELECT + 1 UPDATE + 1 INSERT
 
       const updateCall = mockConnection.query.mock.calls[1];
       // 097 迁移后 pool_status 参数化（VARCHAR），不再是字面量 1
       expect(updateCall[0]).toMatch(/UPDATE crm_customer SET pool_status = \?/);
       expect(updateCall[0]).toMatch(/WHERE id IN \(\?\)/);
-      expect(updateCall[1]).toEqual(['sea', 'sea', [1, 2]]);
+      // [P1-03] 回收必须同步 status/business_status 为公海态
+      expect(updateCall[1]).toEqual(['sea', 'sea', 'following', [1, 2]]);
 
       const insertCall = mockConnection.query.mock.calls[2];
       expect(insertCall[0]).toMatch(/INSERT INTO crm_pool_log/);

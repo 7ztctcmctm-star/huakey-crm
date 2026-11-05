@@ -273,8 +273,8 @@ const addQuoteSchema = Joi.object({
   discount: Joi.number().min(0).max(1).optional(),
   valid_days: Joi.number().integer().min(1).optional(),
   remark: Joi.string().max(2000).allow('', null),
-  currency: Joi.string().max(10).optional(),
-  exchange_rate: Joi.number().min(0).optional(),
+  currency: Joi.string().trim().uppercase().max(10).optional(),
+  exchange_rate: Joi.number().positive().max(99999).optional(),
   advance_status: Joi.boolean().optional()
 });
 
@@ -290,11 +290,15 @@ const listQuoteSchema = Joi.object({
 const updateQuoteSchema = Joi.object({
   id: Joi.number().integer().positive().required(),
   customer_id: Joi.number().integer().positive().optional(),
+  // [P1-26] stripUnknown 会丢弃未声明字段：前端编辑提交的商机/币种/汇率必须在此登记
+  opportunity_id: Joi.number().integer().positive().allow(null),
   items: Joi.array().items(quoteItemSchema).min(1).optional(),
   discount: Joi.number().min(0).max(1).optional(),
   valid_days: Joi.number().integer().min(1).optional(),
   remark: Joi.string().max(2000).allow('', null),
-  status: Joi.number().integer().valid(1, 2, 3, 4).optional()
+  status: Joi.number().integer().valid(1, 2, 3, 4).optional(),
+  currency: Joi.string().trim().uppercase().max(10).optional(),
+  exchange_rate: Joi.number().positive().max(99999).optional()
 });
 
 const idOnlySchema = Joi.object({

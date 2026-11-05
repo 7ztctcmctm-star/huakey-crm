@@ -6,7 +6,7 @@ export const getReportSalesFunnel = (params) => request.get('/report/sales-funne
 export const getReportPayment = (params) => request.get('/report/payment', { params })
 export const getReportPerformance = (params) => request.get('/report/performance', { params })
 export const getReportCustomerAnalysis = (params) => request.get('/report/customer', { params })
-// R-05 顶栏筛选：overview / quick-stats / overdue-stats 支持 { startDate, endDate, ownerId }
+// R-05 顶栏筛选：overview 支持 { startDate, endDate, ownerId }；quick-stats / overdue-stats 仅读取 ownerId
 export const getReportOverview = (params) => request.get('/report/overview', { params })
 export const getReportBusiness = (params) => request.get('/report/business', { params })
 export const getReportFinance = (params) => request.get('/report/finance', { params })

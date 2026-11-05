@@ -83,6 +83,8 @@ jobs:
           key: ${{ runner.os }}-node${{ steps.setup-node.outputs.node-version }}-frontend-deps-${{ hashFiles('frontend/package-lock.json') }}
       - run: cd frontend && npm ci --legacy-peer-deps
       - run: cd frontend && npm run lint
+      - run: cd frontend && npm run lint:colors
+      - run: cd frontend && npm run lint:routes
       - run: cd frontend && npm test
 
   frontend-build:

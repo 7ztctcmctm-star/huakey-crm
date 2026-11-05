@@ -21,6 +21,8 @@ function createMockPool() {
   return { query: jest.fn(), getConnection: jest.fn() };
 }
 
+const ALLOW = async () => true;
+
 function createMockConn() {
   return {
     beginTransaction: jest.fn().mockResolvedValue(),
@@ -41,7 +43,7 @@ describe('followUpService', () => {
       const pool = createMockPool();
       pool.query.mockResolvedValueOnce([[]]);
 
-      await expect(followUpService.addFollowUp(pool, { customer_id: 1 }, 1)).rejects.toThrow('客户不存在');
+      await expect(followUpService.addFollowUp(pool, { customer_id: 1 }, { userId: 1 }, ALLOW)).rejects.toThrow('客户不存在');
     });
 
     it('应添加跟进并更新客户状态', async () => {
@@ -56,7 +58,7 @@ describe('followUpService', () => {
 
       const result = await followUpService.addFollowUp(pool, {
         customer_id: 1, contact_id: 2, follow_type: '电话', content: 'c', next_time: '2026-08-01', next_content: 'nc', attachment_ids: [1, 2]
-      }, 1);
+      }, { userId: 1 }, ALLOW);
       expect(result.id).toBe(100);
     });
 
@@ -68,7 +70,7 @@ describe('followUpService', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }])
         .mockResolvedValueOnce([{ affectedRows: 1 }]);
 
-      await followUpService.addFollowUp(pool, { customer_id: 1, content: 'c', advance_status: false }, 1);
+      await followUpService.addFollowUp(pool, { customer_id: 1, content: 'c', advance_status: false }, { userId: 1 }, ALLOW);
       const customerService = require('../../services/customerService');
       expect(customerService.transitionStatus).not.toHaveBeenCalled();
     });
@@ -84,8 +86,70 @@ describe('followUpService', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }])
         .mockResolvedValueOnce([[{ status: 'new' }]]);
 
-      const result = await followUpService.addFollowUp(pool, { customer_id: 1, content: 'c' }, 1);
+      const result = await followUpService.addFollowUp(pool, { customer_id: 1, content: 'c' }, { userId: 1 }, ALLOW);
       expect(result.id).toBe(100);
+    });
+  });
+
+  describe('客户归属校验（P1-08）', () => {
+    it('addFollowUp：越权客户 → 403 且不写任何记录', async () => {
+      const pool = createMockPool();
+      pool.query.mockResolvedValueOnce([[{ id: 1, owner_id: 9 }]]);
+      const DENY = async () => false;
+
+      await expect(
+        followUpService.addFollowUp(pool, { customer_id: 1, content: 'c' }, { userId: 7 }, DENY)
+      ).rejects.toMatchObject({ code: 403001 });
+      expect(pool.query).toHaveBeenCalledTimes(1);
+    });
+
+    it('addFollowUp：校验器返回 true 时正常写入 create_by=当前用户', async () => {
+      const pool = createMockPool();
+      pool.query
+        .mockResolvedValueOnce([[{ id: 1, owner_id: 7 }]])
+        .mockResolvedValueOnce([{ insertId: 100 }])
+        .mockResolvedValueOnce([{ affectedRows: 1 }])
+        .mockResolvedValueOnce([{ affectedRows: 1 }]);
+
+      await followUpService.addFollowUp(
+        pool, { customer_id: 1, content: 'c', advance_status: false }, { userId: 7 }, async () => true);
+      const insertCall = pool.query.mock.calls.find(c => /INSERT INTO crm_follow_up/.test(c[0]));
+      expect(insertCall[1][insertCall[1].length - 1]).toBe(7);
+    });
+
+    it('addFollowUp：缺少校验器 → fail-closed 403', async () => {
+      const pool = createMockPool();
+      pool.query.mockResolvedValueOnce([[{ id: 1, owner_id: 7 }]]);
+      await expect(
+        followUpService.addFollowUp(pool, { customer_id: 1, content: 'c' }, { userId: 7 })
+      ).rejects.toMatchObject({ code: 403001 });
+    });
+
+    it('batchAddFollowUp：任一客户越权 → 整批回滚且不插入', async () => {
+      const pool = createMockPool();
+      const conn = createMockConn();
+      conn.query.mockImplementation(async (sql) =>
+        /^SELECT/.test(sql) ? [[{ id: 1, owner_id: 9 }]] : [{ affectedRows: 1 }]);
+      pool.getConnection.mockResolvedValue(conn);
+
+      await expect(
+        followUpService.batchAddFollowUp(pool, [{ customer_id: 1, content: 'a' }], { userId: 7 }, async () => false)
+      ).rejects.toMatchObject({ code: 403001 });
+      expect(conn.rollback).toHaveBeenCalled();
+      expect(conn.query.mock.calls.some(c => /INSERT INTO crm_follow_up/.test(c[0]))).toBe(false);
+    });
+
+    it('batchAddFollowUp：客户不存在 → 404 整批回滚', async () => {
+      const pool = createMockPool();
+      const conn = createMockConn();
+      conn.query.mockImplementation(async (sql) =>
+        /^SELECT/.test(sql) ? [[]] : [{ affectedRows: 1 }]);
+      pool.getConnection.mockResolvedValue(conn);
+
+      await expect(
+        followUpService.batchAddFollowUp(pool, [{ customer_id: 88, content: 'a' }], { userId: 7 }, ALLOW)
+      ).rejects.toMatchObject({ code: 404002 });
+      expect(conn.rollback).toHaveBeenCalled();
     });
   });
 
@@ -93,14 +157,15 @@ describe('followUpService', () => {
     it('应跳过无效项并提交', async () => {
       const pool = createMockPool();
       const conn = createMockConn();
-      conn.query.mockResolvedValue([{ affectedRows: 1 }]);
+      conn.query.mockImplementation(async (sql) =>
+        /^SELECT/.test(sql) ? [[{ id: 1, owner_id: 1 }]] : [{ affectedRows: 1 }]);
       pool.getConnection.mockResolvedValue(conn);
 
       const result = await followUpService.batchAddFollowUp(pool, [
         { customer_id: 1, content: 'a' },
         { customer_id: null, content: 'b' },
         { customer_id: 2, content: 'c' }
-      ], 1);
+      ], { userId: 1 }, ALLOW);
       expect(result.count).toBe(3);
       expect(conn.commit).toHaveBeenCalled();
     });
@@ -111,7 +176,7 @@ describe('followUpService', () => {
       conn.query.mockRejectedValueOnce(new Error('db'));
       pool.getConnection.mockResolvedValue(conn);
 
-      await expect(followUpService.batchAddFollowUp(pool, [{ customer_id: 1, content: 'a' }], 1)).rejects.toThrow('db');
+      await expect(followUpService.batchAddFollowUp(pool, [{ customer_id: 1, content: 'a' }], { userId: 1 }, ALLOW)).rejects.toThrow('db');
       expect(conn.rollback).toHaveBeenCalled();
     });
   });
@@ -290,7 +355,7 @@ describe('followUpService', () => {
     it('客户不存在应抛 404', async () => {
       const pool = createMockPool();
       pool.query.mockResolvedValueOnce([[]]);
-      await expect(followUpService.addPlan(pool, { customer_id: 1 }, 1)).rejects.toThrow('客户不存在');
+      await expect(followUpService.addPlan(pool, { customer_id: 1 }, { userId: 1 }, ALLOW)).rejects.toThrow('客户不存在');
     });
 
     it('应添加计划', async () => {
@@ -298,8 +363,18 @@ describe('followUpService', () => {
       pool.query
         .mockResolvedValueOnce([[{ id: 1 }]])
         .mockResolvedValueOnce([{ insertId: 200 }]);
-      const result = await followUpService.addPlan(pool, { customer_id: 1, contact_id: 2, plan_time: '2026-08-01', plan_content: 'p' }, 1);
+      const result = await followUpService.addPlan(pool, { customer_id: 1, contact_id: 2, plan_time: '2026-08-01', plan_content: 'p' }, { userId: 1 }, ALLOW);
       expect(result.id).toBe(200);
+    });
+
+    it('为他人客户建计划 → 403 且不插入', async () => {
+      const pool = createMockPool();
+      pool.query.mockResolvedValueOnce([[{ id: 1, owner_id: 9 }]]);
+
+      await expect(
+        followUpService.addPlan(pool, { customer_id: 1, plan_content: 'p' }, { userId: 7 }, async () => false)
+      ).rejects.toMatchObject({ code: 403001 });
+      expect(pool.query).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -324,7 +399,7 @@ describe('followUpService', () => {
     it('计划不存在应抛 404', async () => {
       const pool = createMockPool();
       pool.query.mockResolvedValueOnce([[]]);
-      await expect(followUpService.completePlan(pool, { id: 1 })).rejects.toThrow('跟进计划不存在');
+      await expect(followUpService.completePlan(pool, { id: 1 }, { userId: 1 })).rejects.toThrow('跟进计划不存在');
     });
 
     it('应完成计划', async () => {
@@ -335,8 +410,29 @@ describe('followUpService', () => {
         .mockResolvedValueOnce([{ affectedRows: 1 }])
         .mockResolvedValueOnce([{ affectedRows: 1 }]);
 
-      const result = await followUpService.completePlan(pool, { id: 1, content: 'done', follow_type: '电话' });
+      const result = await followUpService.completePlan(pool, { id: 1, content: 'done', follow_type: '电话' }, { userId: 1 });
       expect(result.id).toBe(1);
+    });
+
+    it('完成他人计划 → 403 且不更新', async () => {
+      const pool = createMockPool();
+      pool.query.mockResolvedValueOnce([[{ id: 1, customer_id: 5, create_by: 1 }]]);
+
+      await expect(
+        followUpService.completePlan(pool, { id: 1, content: 'x' }, { userId: 7 })
+      ).rejects.toMatchObject({ code: 403001 });
+      expect(pool.query).toHaveBeenCalledTimes(1);
+    });
+
+    it('manageAll 可完成他人计划', async () => {
+      const pool = createMockPool();
+      pool.query
+        .mockResolvedValueOnce([[{ id: 1, customer_id: 5, create_by: 1 }]])
+        .mockResolvedValueOnce([{ affectedRows: 1 }])
+        .mockResolvedValueOnce([{ affectedRows: 1 }])
+        .mockResolvedValueOnce([{ affectedRows: 1 }]);
+      const r = await followUpService.completePlan(pool, { id: 1, content: 'x' }, { userId: 9, manageAll: true });
+      expect(r.id).toBe(1);
     });
   });
 

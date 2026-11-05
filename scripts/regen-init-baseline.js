@@ -104,7 +104,6 @@ function main() {
     '-h', DB_HOST,
     '-P', DB_PORT,
     '-u', DB_USER,
-    `-p${DB_PASSWORD}`,
     '--no-data',            // 只导结构，不导数据（默认带 DROP TABLE IF EXISTS，与原基线一致）
     '--single-transaction',
     // 事件 / 存储过程 / 函数：历史上**未导出**，`evt_archive_sys_log`（日志归档事件）
@@ -126,7 +125,9 @@ function main() {
     raw = execFileSync(MYSQLDUMP, args, {
       encoding: 'utf8',
       maxBuffer: 256 * 1024 * 1024,
-      stdio: ['ignore', 'pipe', 'pipe']
+      stdio: ['ignore', 'pipe', 'pipe'],
+      // [P2-16] 口令走 MYSQL_PWD，不出现在 mysqldump 进程命令行
+      env: { ...process.env, MYSQL_PWD: DB_PASSWORD }
     });
   } catch (e) {
     console.error('mysqldump 执行失败:', e.message);

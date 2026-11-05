@@ -9,7 +9,8 @@ $bytes = $utf8NoBom.GetBytes($sql)
 
 $psi = New-Object System.Diagnostics.ProcessStartInfo
 $psi.FileName = "ssh"
-$psi.Arguments = '-o BatchMode=yes nas-crm "export PATH=/usr/local/bin:/usr/bin:/bin; source /volume1/docker/crm-stack/.env.secrets; docker exec -i huakey-mysql mysql -uroot -p`$MYSQL_ROOT_PASSWORD huakey_crm"'
+# [P2-16] 口令不进入远端 argv：容器内 sh 从 MYSQL_ROOT_PASSWORD 读入 MYSQL_PWD
+$psi.Arguments = '-o BatchMode=yes nas-crm "export PATH=/usr/local/bin:/usr/bin:/bin; source /volume1/docker/crm-stack/.env.secrets; docker exec -i huakey-mysql sh -c ''MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot huakey_crm''"'
 $psi.RedirectStandardInput = $true
 $psi.RedirectStandardOutput = $true
 $psi.RedirectStandardError = $true

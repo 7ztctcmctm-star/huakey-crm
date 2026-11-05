@@ -52,8 +52,7 @@ describe('回收站模块', () => {
       // 8 module stats queries (one per TABLE_CONFIG entry)
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ cnt: 5 }]]) // customer
         .mockResolvedValueOnce([[{ cnt: 2 }]]) // opportunity
         .mockResolvedValueOnce([[{ cnt: 1 }]]) // contract
@@ -78,7 +77,7 @@ describe('回收站模块', () => {
   describe('POST /api/v1/recycle/restore', () => {
     it('应该返回200当正常恢复记录', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
-      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+      mockPool.query.mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/v1/recycle/restore')
@@ -93,7 +92,7 @@ describe('回收站模块', () => {
   describe('POST /api/v1/recycle/permanent-delete', () => {
     it('应该返回200当正常永久删除', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
-      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+      mockPool.query.mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/v1/recycle/permanent-delete')

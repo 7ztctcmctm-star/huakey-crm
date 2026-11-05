@@ -268,6 +268,29 @@ async function deleteAssignRule(pool, id) {
 }
 
 /**
+ * [P2-03] 批量读取客户，消除 applyAssignRule 的 N+1 查询。
+ * IN 列表按 500 分片，避免一次绑定过多占位符触碰 max_allowed_packet / 参数上限。
+ * @returns {Map<number, object>} id → customer
+ */
+async function loadCustomersByIds(pool, ids) {
+  const uniqueIds = [...new Set(ids)];
+  const byId = new Map();
+  const CHUNK_SIZE = 500;
+
+  for (let i = 0; i < uniqueIds.length; i += CHUNK_SIZE) {
+    const chunk = uniqueIds.slice(i, i + CHUNK_SIZE);
+    // eslint-disable-next-line no-await-in-loop
+    const [rows] = await pool.query(
+      'SELECT id, company_name, status, owner_id, source, level, industry, address, last_follow_time, create_time, deleted_at FROM crm_customer WHERE id IN (?) AND deleted_at IS NULL',
+      [chunk]
+    );
+    for (const row of rows) byId.set(row.id, row);
+  }
+
+  return byId;
+}
+
+/**
  * 执行自动分配
  */
 async function applyAssignRule(pool, { customer_id, customer_ids }) {
@@ -275,14 +298,16 @@ async function applyAssignRule(pool, { customer_id, customer_ids }) {
   if (ids.length === 0) return [];
 
   const [rules] = await pool.query('SELECT id, rule_name, assign_type, source_value, region_value, user_ids, last_assigned_index, priority, is_active, create_time, update_time FROM crm_assign_rule WHERE is_active = 1 ORDER BY priority DESC');
+  const customersById = await loadCustomersByIds(pool, ids);
   const results = [];
 
   for (const cid of ids) {
-    const [[customer]] = await pool.query(
-      'SELECT id, company_name, status, owner_id, source, level, industry, address, last_follow_time, create_time, deleted_at FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
-      [cid]
-    );
+    // 归属仍以 systemAssignOwner 的 onlyUnassigned 条件为准（并发安全），
+    // 这里的快照只用于规则匹配与 not_found / already_owned 判定。
+    const customer = customersById.get(cid);
     if (!customer) { results.push({ id: cid, result: 'not_found' }); continue; }
+    // [P1-07] 自动分配规则只处理公海客户：已归属客户不得被规则改走
+    if (customer.owner_id !== null) { results.push({ id: cid, result: 'already_owned' }); continue; }
 
     let assigned = false;
     for (const rule of rules) {
@@ -297,8 +322,13 @@ async function applyAssignRule(pool, { customer_id, customer_ids }) {
         if (userIds.length > 0) {
           const idx = (rule.last_assigned_index || 0) % userIds.length;
           const selectedUser = userIds[idx];
-          // 经客户域受控入口（R-06）
-          await customerService.systemAssignOwner(pool, cid, selectedUser);
+          // 经客户域受控入口（R-06）；[P1-07] 只允许抢公海，防止并发下覆盖他人归属
+          const { affectedRows } = await customerService.systemAssignOwner(pool, cid, selectedUser, { onlyUnassigned: true });
+          if (affectedRows !== 1) {
+            results.push({ id: cid, result: 'already_owned' });
+            assigned = true;
+            break;
+          }
           await pool.query('UPDATE crm_assign_rule SET last_assigned_index = ? WHERE id = ?', [idx + 1, rule.id]);
           results.push({ id: cid, rule: rule.rule_name, user_id: selectedUser });
           assigned = true;

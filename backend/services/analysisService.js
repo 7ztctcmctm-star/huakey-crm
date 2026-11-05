@@ -154,14 +154,14 @@ async function getAnomaly(pool, dataPermission) {
 async function getCustomerScore(pool, id, dataPermission) {
   const scFollow = await scopeFor(dataPermission, 'create_by', 'crm_follow_up');
   const [followResult] = await pool.query(
-    `SELECT COUNT(*) as cnt FROM crm_follow_up WHERE customer_id = ? AND create_time >= NOW() - INTERVAL 90 DAY
+    `SELECT COUNT(*) as cnt FROM crm_follow_up WHERE customer_id = ? AND deleted_at IS NULL AND create_time >= NOW() - INTERVAL 90 DAY
        AND ${scFollow.clause}`,
     [id, ...scFollow.params]
   );
 
   const scOpp = await scopeFor(dataPermission, 'owner_id', 'crm_opportunity');
   const [oppResult] = await pool.query(
-    `SELECT COUNT(*) as cnt, COALESCE(SUM(expected_amount), 0) as amount FROM crm_opportunity WHERE customer_id = ? AND stage NOT IN (5, 6)
+    `SELECT COUNT(*) as cnt, COALESCE(SUM(expected_amount), 0) as amount FROM crm_opportunity WHERE customer_id = ? AND stage NOT IN (5, 6) AND deleted_at IS NULL
        AND ${scOpp.clause}`,
     [id, ...scOpp.params]
   );
@@ -206,7 +206,7 @@ async function getWinRate(pool, dataPermission) {
   const [rows] = await pool.query(`
     SELECT stage, COUNT(*) as count
     FROM crm_opportunity
-    WHERE ${sc.clause}
+    WHERE deleted_at IS NULL AND ${sc.clause}
     GROUP BY stage
     ORDER BY stage ASC
   `, [...sc.params]);
@@ -239,7 +239,7 @@ async function getFunnel(pool, dataPermission) {
   const [rows] = await pool.query(`
     SELECT stage, COUNT(*) as count, COALESCE(SUM(expected_amount), 0) as amount
     FROM crm_opportunity
-    WHERE ${sc.clause}
+    WHERE deleted_at IS NULL AND ${sc.clause}
     GROUP BY stage ORDER BY stage
   `, [...sc.params]);
 
@@ -270,7 +270,7 @@ async function getRFM(pool, dataPermission) {
     LEFT JOIN (
       SELECT customer_id, COUNT(*) as frequency
       FROM crm_follow_up
-      WHERE create_time >= NOW() - INTERVAL 90 DAY
+      WHERE deleted_at IS NULL AND create_time >= NOW() - INTERVAL 90 DAY
       GROUP BY customer_id
     ) f ON f.customer_id = c.id
     LEFT JOIN (
@@ -319,7 +319,7 @@ async function getRanking(pool, dataPermission) {
       COUNT(DISTINCT CASE WHEN o.stage = 5 THEN o.id END) as win_count
     FROM sys_user u
     LEFT JOIN crm_customer c ON c.owner_id = u.id AND c.deleted_at IS NULL
-    LEFT JOIN crm_opportunity o ON o.owner_id = u.id
+    LEFT JOIN crm_opportunity o ON o.owner_id = u.id AND o.deleted_at IS NULL
     WHERE u.status = 1
       AND ${sc.clause}
     GROUP BY u.id, u.real_name

@@ -101,7 +101,7 @@ router.get('/custom/fields/:source', authenticateToken, checkPermission('report'
 // 执行自定义报表
 router.post('/custom/:id/run', authenticateToken, checkPermission('report'), validate(customReportRunSchema), async (req, res, next) => {
   try {
-    const result = await reportService.runReport(pool, req.params.id, req.body);
+    const result = await reportService.runReport(pool, req.params.id, req.body, req.user);
     if (result.error) return res.status(result.status || 500).json({ code: result.status || 500, message: result.error, data: null });
     res.json({ code: 200, message: '查询成功', data: result });
   } catch (error) {

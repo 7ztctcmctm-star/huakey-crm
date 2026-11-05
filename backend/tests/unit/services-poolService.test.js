@@ -91,8 +91,8 @@ describe('poolService', () => {
     });
   });
 
-  describe('releaseCustomer 保持阶段', () => {
-    it('释放到公海只改资源字段，business_status 保留业务阶段', async () => {
+  describe('releaseCustomer 状态同步（P1-03）', () => {
+    it('释放到公海应同时写 status=sea 与 business_status=following', async () => {
       const pool = createMockPool();
       const conn = createMockConn();
       pool.getConnection.mockResolvedValue(conn);
@@ -100,7 +100,7 @@ describe('poolService', () => {
       conn.query.mockResolvedValueOnce([[{ id: 20, owner_id: 5, company_name: 'D公司' }]]);
       conn.query.mockResolvedValue([{ affectedRows: 1 }]);
 
-      await poolService.releaseCustomer(pool, 20, 5, { roleId: ROLES.SALES });
+      await poolService.releaseCustomer(pool, 20, 5, { type: 'self', userId: 5, ownerColumn: 'owner_id', module: 'customer' });
 
       expect(conn.beginTransaction).toHaveBeenCalledTimes(1);
       expect(conn.commit).toHaveBeenCalledTimes(1);
@@ -112,8 +112,28 @@ describe('poolService', () => {
 
       const updateCall = conn.query.mock.calls.find(c => c[0].includes('UPDATE crm_customer'));
       expect(updateCall[0]).toContain('status = ?');
-      expect(updateCall[0]).not.toContain('business_status');
+      expect(updateCall[0]).toContain('business_status = ?');
+      // [P1-03] status='sea' 与 business_status='following' 必须同一句写入，
+      // 否则释放后的客户仍被报表按原阶段统计
       expect(updateCall[1]).toContain('sea');
+      expect(updateCall[1]).toContain('following');
+      expect(updateCall[1]).toContain(20);
+    });
+
+    it('[P1-03] 线索客户不得释放到公海（否则被静默转成正式客户）', async () => {
+      const pool = createMockPool();
+      const conn = createMockConn();
+      pool.getConnection.mockResolvedValue(conn);
+      conn.query.mockResolvedValueOnce([[
+        { id: 21, owner_id: 5, company_name: '线索公司', business_status: 'lead' }
+      ]]);
+
+      await expect(
+        poolService.releaseCustomer(pool, 21, 5, { type: 'self', userId: 5, ownerColumn: 'owner_id', module: 'customer' })
+      ).rejects.toMatchObject({ code: 400005 });
+
+      expect(conn.query.mock.calls.some(c => String(c[0]).includes('UPDATE crm_customer'))).toBe(false);
+      expect(conn.rollback).toHaveBeenCalled();
     });
 
     it('【B2】释放写入 pool_log 失败应整体回滚，不留「归属已改但日志缺失」', async () => {
@@ -126,12 +146,38 @@ describe('poolService', () => {
         .mockRejectedValueOnce(new Error('pool_log 写入失败'));
 
       await expect(
-        poolService.releaseCustomer(pool, 20, 5, { roleId: ROLES.SALES })
+        poolService.releaseCustomer(pool, 20, 5, { type: 'self', userId: 5, ownerColumn: 'owner_id', module: 'customer' })
       ).rejects.toThrow('pool_log 写入失败');
 
       expect(conn.rollback).toHaveBeenCalled();
       expect(conn.commit).not.toHaveBeenCalled();
       expect(conn.release).toHaveBeenCalled();
+    });
+
+    it('[P0-05] 销售不得释放他人客户（self 范围）', async () => {
+      const pool = createMockPool();
+      const conn = createMockConn();
+      pool.getConnection.mockResolvedValue(conn);
+      conn.query.mockResolvedValueOnce([[{ id: 20, owner_id: 9, company_name: '他人客户' }]]);
+
+      await expect(
+        poolService.releaseCustomer(pool, 20, 5, { type: 'self', userId: 5, ownerColumn: 'owner_id', module: 'customer' })
+      ).rejects.toMatchObject({ code: 403001 });
+
+      expect(conn.commit).not.toHaveBeenCalled();
+      expect(conn.rollback).toHaveBeenCalled();
+      expect(conn.query.mock.calls.some(c => String(c[0]).includes('UPDATE crm_customer'))).toBe(false);
+    });
+
+    it('[P0-05] 缺少数据权限上下文时 fail-closed', async () => {
+      const pool = createMockPool();
+      const conn = createMockConn();
+      pool.getConnection.mockResolvedValue(conn);
+      conn.query.mockResolvedValueOnce([[{ id: 20, owner_id: 5, company_name: 'D公司' }]]);
+
+      await expect(poolService.releaseCustomer(pool, 20, 5))
+        .rejects.toMatchObject({ code: 403001 });
+      expect(conn.rollback).toHaveBeenCalled();
     });
   });
 });

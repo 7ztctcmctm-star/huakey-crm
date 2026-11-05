@@ -25,6 +25,11 @@
 
 /** 内部标度：6 位小数 */
 const SCALE = 6;
+/**
+ * 金额列 `DECIMAL(15,2)` 可表示的最大值。
+ * 路由 Joi 与服务层共用，避免超过列精度时 MySQL 截断/报错。
+ */
+const MAX_AMOUNT = 9999999999999.99;
 const SCALE_FACTOR = 10n ** BigInt(SCALE); // 1e6
 /** 乘积标度为 1e12，换算到「分」需除以 1e10 */
 const PRODUCT_TO_CENTS = 10n ** 10n;
@@ -161,6 +166,7 @@ function sum(values) {
 }
 
 module.exports = {
+  MAX_AMOUNT,
   round2,
   add,
   sub,

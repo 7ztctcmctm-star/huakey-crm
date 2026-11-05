@@ -7,6 +7,11 @@
 > 设计原则：基于现有代码与文档，不重新设计已存在功能，不修改 Customer 模块
 > 状态：**已被 [Opportunity Center v1 MVP Scope](opportunity-center-v1-mvp-scope.md) 取代为开发基线**
 > ⚠️ 本文档为完整设计草稿（Design Draft），保留作为参考。实际开发以 MVP Scope 为准。
+> **现状提示（2026-10-26 核对）**：文中 `backend/services/leadsService.js`、
+> `backend/constants/opportunityStatus.js`、`backend/routes/opportunities.js` 等为 2026-08-04
+> 设计时的规划/既有路径，部分未落地或已删除；商机创建前置条件在代码中读取
+> `customer.status`（迁移 110 后为权威字段），而非 `business_status`。实现以 MVP Scope
+> 与当前代码为准。
 
 ---
 

@@ -14,7 +14,7 @@ const checkQualificationExpiry = async () => {
               s.name as supplier_name
        FROM crm_supplier_qualification q
        JOIN crm_supplier s ON q.supplier_id = s.id
-       WHERE q.status = 1
+       WHERE q.status = 1 AND q.deleted_at IS NULL AND s.deleted_at IS NULL
          AND q.expire_date BETWEEN ? AND ?
          AND q.expire_date >= ?
        ORDER BY q.expire_date ASC`,
@@ -67,7 +67,7 @@ const getPendingReminders = async () => {
     const [reminders] = await pool.query(
       `SELECT r.id, r.qualification_id, r.supplier_id, r.cert_name, r.expire_date, r.days_before, r.reminder_type, r.is_notified, r.notified_at, s.name as supplier_name
        FROM crm_qualification_reminder r
-       JOIN crm_supplier s ON r.supplier_id = s.id
+       JOIN crm_supplier s ON r.supplier_id = s.id AND s.deleted_at IS NULL
        WHERE r.is_notified = 0
        ORDER BY r.expire_date ASC`
     );
@@ -100,7 +100,7 @@ const getExpiringSoonList = async (days = 30) => {
       `SELECT q.id, q.supplier_id, q.cert_type, q.cert_name, q.cert_no, q.issue_date, q.expire_date, q.issuing_authority, q.file_path, q.status, q.remark, q.create_by, q.create_time, q.update_time, q.deleted_at, s.name as supplier_name, (q.expire_date - CURRENT_DATE) as days_left
        FROM crm_supplier_qualification q
        JOIN crm_supplier s ON q.supplier_id = s.id
-       WHERE q.status = 1 AND q.expire_date <= ? AND q.expire_date > CURRENT_DATE
+       WHERE q.status = 1 AND q.deleted_at IS NULL AND s.deleted_at IS NULL AND q.expire_date <= ? AND q.expire_date > CURRENT_DATE
        ORDER BY q.expire_date ASC`,
       [targetDate]
     );
@@ -117,7 +117,7 @@ const getExpiredList = async () => {
       `SELECT q.id, q.supplier_id, q.cert_type, q.cert_name, q.cert_no, q.issue_date, q.expire_date, q.issuing_authority, q.file_path, q.status, q.remark, q.create_by, q.create_time, q.update_time, q.deleted_at, s.name as supplier_name, (CURRENT_DATE - q.expire_date) as days_expired
        FROM crm_supplier_qualification q
        JOIN crm_supplier s ON q.supplier_id = s.id
-       WHERE q.status = 1 AND q.expire_date < CURRENT_DATE
+       WHERE q.status = 1 AND q.deleted_at IS NULL AND s.deleted_at IS NULL AND q.expire_date < CURRENT_DATE
        ORDER BY q.expire_date ASC`
     );
     return list;

@@ -4,7 +4,8 @@
 # ============================================
 
 # ---- 第一阶段：构建前端 ----
-FROM node:22-alpine AS frontend-build
+# [P2-12] digest 固定于 2026-10-26；升级流程见 docs/image-digests.md
+FROM node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS frontend-build
 
 WORKDIR /build
 COPY frontend/ .
@@ -14,7 +15,8 @@ RUN rm -rf node_modules /root/.npm /tmp/npm-cache && \
     npm run build
 
 # ---- 第二阶段：运行后端（同时托管前端） ----
-FROM node:22-alpine
+# [P2-12] digest 固定于 2026-10-26；升级流程见 docs/image-digests.md
+FROM node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
 
 WORKDIR /app
 
@@ -32,7 +34,7 @@ RUN rm -rf /root/.npm /tmp/npm-cache && \
 
 # 运行时仅需 node：移除 npm 工具链，消除其捆绑依赖的 CVE 暴露面
 # （npm 12.0.2 的 tar/ip-address/brace-expansion 仍带 CRITICAL CVE，官方尚未修复；
-#   应用启动为 node database/migrate.js && node app.js，不依赖 npm/npx）
+#   应用启动为 node database/migrations/run_migrations.js && node app.js，不依赖 npm/npx）
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /root/.npm /tmp/npm-cache
 
 # 复制后端代码
@@ -44,8 +46,11 @@ COPY --from=frontend-build /build/dist /app/frontend/dist
 # 创建非 root 用户
 RUN addgroup -S nodejs && adduser -S nodejs -G nodejs
 
-# 创建上传目录并设置权限
-RUN mkdir -p /app/uploads && chown -R nodejs:nodejs /app
+# 创建上传/日志目录并设置权限
+# [P2-10 2026-10-26] prod/test compose 以 bind mount 覆盖 /app，镜像内的 /app 权限不生效；
+# 因此这两套 compose 必须再挂一个具名卷到 /app/logs。此处预建目录并 chown，
+# 具名卷首次初始化时才会继承 nodejs 属主，避免 winston 以非 root 写日志时 EACCES。
+RUN mkdir -p /app/uploads /app/logs && chown -R nodejs:nodejs /app
 USER nodejs
 
 # 复制数据库迁移文件
@@ -58,5 +63,8 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget -qO- http://localhost:5000/api/v1/health || exit 1
 
 # 先运行数据库迁移，再启动应用
+# [P1-19 2026-10-23] 改用严格执行器 run_migrations.js：单文件失败立即退出，
+# 不再执行后续迁移（旧 migrate.js 失败后继续，可能留下半套 schema）。
+# 该文件随下方 `COPY database/migrations` 一并进入镜像。
 # exec 确保 node app.js 成为 PID 1 直接接收 SIGTERM，优雅停机代码得以执行
-CMD ["sh", "-c", "node database/migrate.js && exec node app.js"]
+CMD ["sh", "-c", "node database/migrations/run_migrations.js && exec node app.js"]

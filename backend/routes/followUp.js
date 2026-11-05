@@ -5,6 +5,9 @@ const { authenticateToken } = require('../middleware/auth');
 const { checkPermission, checkDataPermission, buildDataPermissionWhere } = require('../middleware/permission');
 const { validate, Joi } = require('../middleware/validate');
 const followUpService = require('../services/followUpService');
+// [P1-08] 客户行级数据范围校验器：与联系人模块共用同一实现，避免两套口径
+const customerDetailService = require('../services/customerDetailService');
+const canManageCustomer = (user, ownerId) => customerDetailService.canManageCustomer(pool, user, ownerId);
 const logger = require('../config/logger');
 
 const router = express.Router();
@@ -83,7 +86,7 @@ const followPlanCancelSchema = Joi.object({
 // 1. 添加跟进记录
 router.post('/add', authenticateToken, checkPermission('customer:edit'), validate(followUpAddSchema), async (req, res, next) => {
   try {
-    const result = await followUpService.addFollowUp(pool, req.body, req.user.userId);
+    const result = await followUpService.addFollowUp(pool, req.body, req.user, canManageCustomer);
     res.json({ code: 200, message: '添加跟进记录成功', data: result });
   } catch (error) {
     logger.error('添加跟进记录错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -102,7 +105,7 @@ router.post('/batch-add', authenticateToken, checkPermission('customer:edit'), v
       return res.status(400).json({ code: 400, message: '单次批量跟进不超过20条', data: null });
     }
 
-    const result = await followUpService.batchAddFollowUp(pool, items, req.user.userId);
+    const result = await followUpService.batchAddFollowUp(pool, items, req.user, canManageCustomer);
     res.json({ code: 200, message: `成功录入 ${result.count} 条跟进记录`, data: result });
   } catch (error) {
     logger.error('批量跟进错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -216,7 +219,7 @@ router.post('/calendar', authenticateToken, checkPermission('followup:calendar')
 // 7. 创建跟进计划
 router.post('/plan/add', authenticateToken, checkPermission('customer:edit'), validate(followPlanAddSchema), async (req, res, next) => {
   try {
-    const result = await followUpService.addPlan(pool, req.body, req.user.userId);
+    const result = await followUpService.addPlan(pool, req.body, req.user, canManageCustomer);
     res.json({ code: 200, message: '创建跟进计划成功', data: { id: result.id } });
   } catch (error) {
     logger.error('创建跟进计划错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });
@@ -239,7 +242,7 @@ router.post('/plan/list', authenticateToken, checkPermission('customer:edit'), c
 // 9. 完成跟进计划（is_plan 置 0 + 填充完成时间）
 router.post('/plan/complete', authenticateToken, checkPermission('customer:edit'), validate(followPlanCompleteSchema), async (req, res, next) => {
   try {
-    await followUpService.completePlan(pool, req.body);
+    await followUpService.completePlan(pool, req.body, req.user);
     res.json({ code: 200, message: '跟进计划已完成', data: null });
   } catch (error) {
     logger.error('完成跟进计划错误:', { error: error.stack || error.message, traceId: req.traceId || 'N/A' });

@@ -44,8 +44,7 @@ describe('提醒系统模块', () => {
     it('应该返回200和提醒列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[]]) // all reminders
         .mockResolvedValueOnce([[]]) // pre-warning
         .mockResolvedValueOnce([[]]) // notifications
@@ -70,8 +69,7 @@ describe('提醒系统模块', () => {
     it('应返回待处理的客户转移申请', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[]]) // all reminders
         .mockResolvedValueOnce([[]]) // pre-warning
         .mockResolvedValueOnce([[]]) // notifications
@@ -104,8 +102,7 @@ describe('提醒系统模块', () => {
     it('待办中应包含客户转移分组', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[]]) // approvals
         .mockResolvedValueOnce([[]]) // followups
         .mockResolvedValueOnce([[]]) // stock alerts
@@ -138,8 +135,7 @@ describe('提醒系统模块', () => {
     it('应该返回200和逾期列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 5 }]]) // count
         .mockResolvedValueOnce([[{ id: 1, company_name: '测试公司', overdue_days: 10 }]]); // list
 
@@ -158,7 +154,7 @@ describe('提醒系统模块', () => {
   describe('POST /api/v1/reminder/mark-read', () => {
     it('应该返回400当缺少reminder_id', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
-      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+      mockPool.query.mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/v1/reminder/mark-read')
@@ -172,8 +168,7 @@ describe('提醒系统模块', () => {
     it('应该返回200当正常标记已读', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ affectedRows: 1 }]);
 
       const res = await request(app)
@@ -190,8 +185,7 @@ describe('提醒系统模块', () => {
     it('应该返回200当全部标记已读', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ affectedRows: 3 }]) // reminders
         .mockResolvedValueOnce([{ affectedRows: 5 }]); // notifications
 
@@ -208,8 +202,7 @@ describe('提醒系统模块', () => {
     it('应该返回200当正常忽略提醒', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([{ affectedRows: 1 }]);
 
       const res = await request(app)
@@ -226,8 +219,7 @@ describe('提醒系统模块', () => {
     it('应该返回200和回款逾期列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1, plan_date: '2025-01-01', plan_amount: 10000, paid_amount: 5000 }]]) // overdue
         .mockResolvedValueOnce([[{ id: 2, plan_date: '2025-06-25', plan_amount: 8000, paid_amount: 0 }]]); // upcoming
 
@@ -246,8 +238,7 @@ describe('提醒系统模块', () => {
     it('应该返回200和通知列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ total: 10 }]]) // count
         .mockResolvedValueOnce([[{ id: 1, title: '测试通知', is_read: 0 }]]); // list
 

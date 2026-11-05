@@ -111,7 +111,7 @@ import { useUser } from '@/composables/useUser'
 
 const router = useRouter()
 const route = useRoute()
-const { userInfo } = useUser()
+const { userInfo, isBoss, isManager } = useUser()
 const overdueMode = ref(route.query.overdue === 'true')
 
 const activeTab = ref('all')
@@ -119,7 +119,10 @@ const handleTabChange = (tab) => {
   // 状态 tab 是**业务状态**筛选（business_status），与快捷 tab（我的/全部客户）正交。
   // 历史缺陷：此处只翻页不落参数，用户点「已签约」列表毫无变化（2026-09-12 修复）。
   // 「全部」= 不传该参数（由后端按正式客户集合兜底），其余按 business_status 过滤。
+  // [P1-27] 状态下拉与状态 tab 是同一维度的两种入口。两个不同状态取交集必为空，
+  // 因此 tab 生效时清掉下拉值，避免「看起来选了两个条件、结果永远为空」。
   activeTab.value = tab
+  searchForm.status = ''
   searchForm.business_status = tab === 'all' ? '' : tab
   searchForm.page = 1
   fetchList()
@@ -137,11 +140,8 @@ const switchViewMode = () => {
   fetchList()
 }
 
-// 统一使用 manageAll/roleCode，禁止依赖固定数字 roleId
-// super_admin/boss 由 sys_role.manage_all=1 标记 → manageAll=true
-const isBoss = computed(() => userInfo.value?.manageAll === true)
-// 部门经理 code 现为 'manager'（'admin' 为历史遗留 code，保留兼容）
-const isManager = computed(() => ['manager', 'admin'].includes(userInfo.value?.roleCode || ''))
+// [V1.1 §11.3] 统一复用 useUser 的 isBoss/isManager（与后端 requireManager 同口径），
+// 不再在本页重复定义 roleCode 判断，避免两处逻辑漂移。
 const selectedRows = ref([])
 const batchNewOwnerId = ref('')
 const salesUsers = ref([])
@@ -215,6 +215,8 @@ const searchForm = reactive({
   status: '',
   // 业务状态筛选（状态 tab）：'' = 不传，后端按正式客户集合兜底
   business_status: '',
+  lifecycle_status: '',
+  tag_id: '',
   dateRange: [],
   sort: '',
   page: 1,
@@ -293,6 +295,8 @@ const fetchList = async () => {
     // 状态 tab（业务状态）→ business_status。空串不下发（由后端按正式客户集合兜底）。
     if (searchForm.business_status) params.business_status = searchForm.business_status
     if (searchForm.lifecycle_status) params.lifecycle_status = searchForm.lifecycle_status
+    // [P1-27] 标签筛选此前只存在于表单草稿，从未随请求下发（后端 schema 也无此字段）。
+    if (searchForm.tag_id) params.tag_id = searchForm.tag_id
     if (searchForm.dateRange && searchForm.dateRange.length === 2) {
       params.start_date = searchForm.dateRange[0]
       params.end_date = searchForm.dateRange[1]
@@ -328,6 +332,11 @@ const fetchList = async () => {
 }
 
 const handleSearch = () => {
+  // [P1-27] 下拉框显式选了状态时以它为准，并撤下状态 tab（同维度，交集必空）。
+  if (searchForm.status) {
+    searchForm.business_status = ''
+    activeTab.value = 'all'
+  }
   searchForm.page = 1
   fetchList()
 }
@@ -347,6 +356,8 @@ const handleReset = () => {
   searchForm.source = ''
   searchForm.level = ''
   searchForm.status = ''
+  searchForm.lifecycle_status = ''
+  searchForm.tag_id = ''
   searchForm.dateRange = []
   searchForm.sort = ''
   searchForm.page = 1

@@ -47,7 +47,7 @@ async function generateReminders(existingPool) {
       `SELECT c.id as customer_id, c.owner_id, c.company_name,
               DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days
        FROM crm_customer c
-       WHERE c.status NOT IN ('signed', 'lost') AND c.status != '0'
+       WHERE c.deleted_at IS NULL AND c.status NOT IN ('signed', 'lost') AND c.status != '0'
          AND c.owner_id IS NOT NULL
          AND (c.last_follow_time IS NULL
            OR c.last_follow_time < NOW() - INTERVAL ? DAY)`,
@@ -55,6 +55,7 @@ async function generateReminders(existingPool) {
     );
 
     let inserted = 0;
+    let overdueSkipped = 0;
     for (const customer of overdueCustomers) {
       const [managers] = await pool.query(
         `SELECT u.id, u.manager_id, u.real_name FROM sys_user u WHERE u.id = ? AND u.status = 1`,
@@ -91,17 +92,23 @@ async function generateReminders(existingPool) {
           console.error('发送逾期通知失败:', e.message);
         }
       } catch (e) {
-        if (!e.message.includes('Duplicate')) console.error('插入overdue提醒失败:', e.message);
+        if (e.message.includes('Duplicate')) {
+          // 同类型同日已生成（脚本重跑）；notifications 已在首次生成时发送
+          overdueSkipped++;
+        } else {
+          console.error('插入overdue提醒失败:', e.message);
+        }
       }
     }
-    console.log(`[提醒生成] 逾期: 生成${inserted}条, 跳过${overdueCustomers.length - inserted}条`);
+    console.log(`[提醒生成] 逾期: 生成${inserted}条, 已存在跳过${overdueSkipped}条`);
 
     // ====== 2. 今日待跟进提醒（统一来源：crm_follow_up，is_plan IN (0,1)） ======
     let todayInserted = 0;
+    let todaySkipped = 0;
     const [todayItems] = await pool.query(
       `SELECT f.id, f.customer_id, c.owner_id, c.company_name, u.real_name as owner_name
        FROM crm_follow_up f
-       JOIN crm_customer c ON f.customer_id = c.id AND c.status != '0' AND c.owner_id IS NOT NULL
+       JOIN crm_customer c ON f.customer_id = c.id AND c.status != '0' AND c.owner_id IS NOT NULL AND c.deleted_at IS NULL
        LEFT JOIN sys_user u ON c.owner_id = u.id
        WHERE f.deleted_at IS NULL AND f.next_time IS NOT NULL
          AND f.is_plan IN (0, 1)
@@ -117,6 +124,20 @@ async function generateReminders(existingPool) {
           [item.customer_id, item.owner_id, today]
         );
         todayInserted++;
+
+        // [P2-02] 昨日生成的「明日待跟进」预览（reminder_date=今日）已完成使命：
+        // 今日提醒已落库，若继续保留会让同一客户同时出现在「今日」「明日」两个页签。
+        // 清理失败不影响主流程（提醒已生成，最多多一条预览）。
+        try {
+          await pool.query(
+            `UPDATE crm_follow_up_reminder SET is_dismissed = 1
+              WHERE customer_id = ? AND reminder_type = 'upcoming'
+                AND reminder_date = ? AND is_dismissed = 0`,
+            [item.customer_id, today]
+          );
+        } catch (e) {
+          console.error('清理过期upcoming提醒失败:', e.message);
+        }
 
         try {
           await notification.sendFollowupReminder({
@@ -135,19 +156,24 @@ async function generateReminders(existingPool) {
           console.error('发送今日跟进通知失败:', e.message);
         }
       } catch (e) {
-        if (!e.message.includes('Duplicate')) console.error('插入today提醒失败:', e.message);
+        if (e.message.includes('Duplicate')) {
+          todaySkipped++;
+        } else {
+          console.error('插入today提醒失败:', e.message);
+        }
       }
     }
-    console.log(`[提醒生成] 今日待跟进: 生成${todayInserted}条`);
+    console.log(`[提醒生成] 今日待跟进: 生成${todayInserted}条, 已存在跳过${todaySkipped}条`);
 
     // ====== 3. 明日待跟进提醒（统一来源：crm_follow_up，is_plan IN (0,1)） ======
     const tomorrowStr = addDaysKey(1);
 
     let upcomingInserted = 0;
+    let upcomingSkipped = 0;
     const [tomorrowItems] = await pool.query(
       `SELECT f.id, f.customer_id, c.owner_id, c.company_name, f.next_time, u.real_name as owner_name
        FROM crm_follow_up f
-       JOIN crm_customer c ON f.customer_id = c.id AND c.status != '0' AND c.owner_id IS NOT NULL
+       JOIN crm_customer c ON f.customer_id = c.id AND c.status != '0' AND c.owner_id IS NOT NULL AND c.deleted_at IS NULL
        LEFT JOIN sys_user u ON c.owner_id = u.id
        WHERE f.deleted_at IS NULL AND f.next_time IS NOT NULL
          AND f.is_plan IN (0, 1)
@@ -183,10 +209,14 @@ async function generateReminders(existingPool) {
           console.error('发送明日跟进通知失败:', e.message);
         }
       } catch (e) {
-        if (!e.message.includes('Duplicate')) console.error('插入upcoming提醒失败:', e.message);
+        if (e.message.includes('Duplicate')) {
+          upcomingSkipped++;
+        } else {
+          console.error('插入upcoming提醒失败:', e.message);
+        }
       }
     }
-    console.log(`[提醒生成] 明日待跟进: 生成${upcomingInserted}条`);
+    console.log(`[提醒生成] 明日待跟进: 生成${upcomingInserted}条, 已存在跳过${upcomingSkipped}条`);
 
     return { overdue: inserted, today: todayInserted, upcoming: upcomingInserted };
   } catch (error) {

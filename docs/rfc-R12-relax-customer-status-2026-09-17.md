@@ -144,5 +144,5 @@
 ## 十、参考资料
 
 - `docs/sales-lifecycle-business-rules.md`
-- `docs/customer-domain-audit.md`、`docs/customer-permission-standard.md`
+- `docs/archive/customer-domain-audit.md`、`docs/customer-permission-standard.md`
 - RFC-R13（命名规范）、RFC-R10（合同状态）

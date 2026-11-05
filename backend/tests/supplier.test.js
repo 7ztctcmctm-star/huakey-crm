@@ -16,6 +16,8 @@ const mockPool = {
 
 jest.mock('../config/database', () => mockPool);
 
+const { installAuthAwareQuery } = require('./helpers/authMock');
+
 const app = express();
 app.use(express.json());
 
@@ -30,7 +32,10 @@ const generateToken = () => {
 describe('供应商模块 - 参数验证', () => {
   const token = generateToken();
 
-  beforeEach(() => { mockPool.query.mockReset(); });
+  beforeEach(() => {
+    mockPool.query.mockReset();
+    installAuthAwareQuery(mockPool);
+  });
 
   describe('POST /api/v1/supplier/add', () => {
     it('应该返回400当缺少供应商名称', async () => {

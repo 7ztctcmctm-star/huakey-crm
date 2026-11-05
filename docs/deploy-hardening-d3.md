@@ -273,4 +273,4 @@ v3 的三个缺陷（导入 `2>/dev/null` 不检查退出码、gunzip 前无 `gz
 3. 备份加密口令 `.backup-enc-pass` 首次由 deploy.sh 生成——**生成后请离线
    保管**，丢失后历史加密 config 备份不可恢复。
 4. DSM 层 nginx 反代配置不在任何备份范围内（容器外），恢复方式见
-   `docs/crm-v1-internal-domain-deployment.md`。
+   `docs/archive/crm-v1-internal-domain-deployment.md`（已归档）。

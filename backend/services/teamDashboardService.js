@@ -32,7 +32,7 @@ async function getOverview(pool, { userId, isBoss, startDate, endDate }) {
   const [activeOpps] = await pool.query(
     `SELECT COUNT(*) as count, COALESCE(SUM(expected_amount), 0) as total_amount
      FROM crm_opportunity
-     WHERE stage NOT IN (5, 6) ${isBoss ? '' : ' AND owner_id = ?'}`,
+     WHERE stage NOT IN (5, 6) AND deleted_at IS NULL ${isBoss ? '' : ' AND owner_id = ?'}`,
     isBoss ? [] : [userId]
   );
 
@@ -88,7 +88,7 @@ async function getOverview(pool, { userId, isBoss, startDate, endDate }) {
   const [targetResult] = await pool.query(
     `SELECT COALESCE(SUM(t.target_amount), 0) as target_total
      FROM crm_sales_target t
-     WHERE t.year = ? AND t.month = ? ${targetUserFilter}`,
+     WHERE t.year = ? AND t.month = ? AND t.deleted_at IS NULL ${targetUserFilter}`,
     [targetYear, targetMonth, ...targetParams]
   );
 
@@ -113,9 +113,30 @@ async function getOverview(pool, { userId, isBoss, startDate, endDate }) {
 /**
  * 每个销售的实况卡片（聚合查询替代N+1）
  */
-async function getSalesBreakdown(pool, { userId, isBoss }) {
+async function getSalesBreakdown(pool, { userId, isBoss, startDate, endDate }) {
   const userFilter = isBoss ? '' : 'AND u.id = ?';
   const userParams = isBoss ? [] : [userId];
+  // [V1.1 §11.3] 团队看板日期范围此前在前端 API 层被丢掉、后端也未读取；
+  // 合同/回款/目标统一按所选区间过滤，未选区间时保持「当前月」旧口径。
+  const dateFilter = Boolean(startDate && endDate);
+  const endDateInclusive = dateFilter ? `${endDate} 23:59:59` : null;
+  const contractDateClause = dateFilter
+    ? 'AND ct.create_time >= ? AND ct.create_time < ?'
+    : "AND ct.create_time >= DATE_FORMAT(NOW(), '%Y-%m-01') AND ct.create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH";
+  const paymentDateClause = dateFilter
+    ? 'AND p.pay_date >= ? AND p.pay_date < ?'
+    : "AND p.pay_date >= DATE_FORMAT(NOW(), '%Y-%m-01') AND p.pay_date < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH";
+  const dateParams = dateFilter ? [startDate, endDateInclusive] : [];
+  let targetDateClause = 'AND t.year = YEAR(NOW()) AND t.month = MONTH(NOW())';
+  const targetDateParams = [];
+  if (dateFilter) {
+    const startYm = Number(String(startDate).slice(0, 7).replace('-', ''));
+    const endYm = Number(String(endDate).slice(0, 7).replace('-', ''));
+    if (Number.isFinite(startYm) && Number.isFinite(endYm)) {
+      targetDateClause = 'AND (t.year * 100 + t.month) BETWEEN ? AND ?';
+      targetDateParams.push(startYm, endYm);
+    }
+  }
 
   const [salesUsers] = await pool.query(
     `SELECT u.id, u.real_name, u.username, d.name as dept_name
@@ -152,7 +173,7 @@ async function getSalesBreakdown(pool, { userId, isBoss }) {
     LEFT JOIN (
       SELECT owner_id, COUNT(*) as cnt, COALESCE(SUM(expected_amount), 0) as amount
       FROM crm_opportunity
-      WHERE owner_id IN (${placeholders}) AND stage NOT IN (5, 6)
+      WHERE owner_id IN (${placeholders}) AND stage NOT IN (5, 6) AND deleted_at IS NULL
       GROUP BY owner_id
     ) oc ON oc.owner_id = u.id
     LEFT JOIN (
@@ -160,8 +181,7 @@ async function getSalesBreakdown(pool, { userId, isBoss }) {
       FROM crm_contract ct
       LEFT JOIN crm_opportunity o ON ct.opportunity_id = o.id
       WHERE ct.deleted_at IS NULL AND o.owner_id IN (${placeholders})
-        AND ct.create_time >= DATE_FORMAT(NOW(), '%Y-%m-01')
-        AND ct.create_time < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH
+        ${contractDateClause}
       GROUP BY o.owner_id
     ) ca ON ca.owner_id = u.id
     LEFT JOIN (
@@ -170,8 +190,7 @@ async function getSalesBreakdown(pool, { userId, isBoss }) {
       LEFT JOIN crm_contract ct ON p.contract_id = ct.id
       LEFT JOIN crm_opportunity o ON ct.opportunity_id = o.id
       WHERE p.deleted_at IS NULL AND o.owner_id IN (${placeholders})
-        AND p.pay_date >= DATE_FORMAT(NOW(), '%Y-%m-01')
-        AND p.pay_date < DATE_FORMAT(NOW(), '%Y-%m-01') + INTERVAL 1 MONTH
+        ${paymentDateClause}
       GROUP BY o.owner_id
     ) pa ON pa.owner_id = u.id
     LEFT JOIN (
@@ -181,17 +200,24 @@ async function getSalesBreakdown(pool, { userId, isBoss }) {
       GROUP BY owner_id
     ) nf ON nf.owner_id = u.id
     WHERE u.id IN (${placeholders})`,
-    [...userIds, ...userIds, ...userIds, ...userIds, ...userIds, overdueDays, ...userIds]
+    [
+      ...userIds, // cc
+      ...userIds, // oc
+      ...userIds, ...dateParams, // ca
+      ...userIds, ...dateParams, // pa
+      ...userIds, overdueDays, // nf
+      ...userIds // final WHERE
+    ]
   );
 
   const [taskStats] = await pool.query(`
     SELECT user_id, SUM(cnt) as task_count FROM (
       SELECT create_by as user_id, COUNT(*) as cnt FROM crm_follow_up
-      WHERE create_by IN (${placeholders}) AND next_time IS NOT NULL AND DATE(next_time) = CURRENT_DATE
+      WHERE create_by IN (${placeholders}) AND deleted_at IS NULL AND next_time IS NOT NULL AND DATE(next_time) = CURRENT_DATE
       GROUP BY create_by
       UNION ALL
       SELECT assignee_id as user_id, COUNT(*) as cnt FROM crm_service_order
-      WHERE assignee_id IN (${placeholders}) AND status IN (1, 2)
+      WHERE assignee_id IN (${placeholders}) AND deleted_at IS NULL AND status IN (1, 2)
       GROUP BY assignee_id
     ) t GROUP BY user_id`,
     [...userIds, ...userIds]
@@ -199,10 +225,10 @@ async function getSalesBreakdown(pool, { userId, isBoss }) {
 
   const [targetStats] = await pool.query(`
     SELECT user_id, COALESCE(SUM(target_amount), 0) as total
-    FROM crm_sales_target
-    WHERE user_id IN (${placeholders}) AND year = YEAR(NOW()) AND month = MONTH(NOW())
+    FROM crm_sales_target t
+    WHERE user_id IN (${placeholders}) AND t.deleted_at IS NULL ${targetDateClause}
     GROUP BY user_id`,
-    userIds
+    [...userIds, ...targetDateParams]
   );
 
   const statsMap = new Map(aggStats.map(s => [s.user_id, s]));

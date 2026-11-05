@@ -84,6 +84,29 @@ describe('写接口应发送 Idempotency-Key', () => {
     expect(config.headers['Idempotency-Key']).toMatch(/^pr-submit-/)
   })
 
+  it('addContract / addPayment 均带幂等键（P0-07：重复提交不得建两份合同/两条回款）', async () => {
+    const { addContract, addPayment } = await import('@/api/contract')
+
+    await addContract({ customer_id: 1, items: [] })
+    await addPayment({ contract_id: 2, pay_amount: 100 })
+
+    expect(request.post).toHaveBeenCalledWith(
+      '/contract/add',
+      { customer_id: 1, items: [] },
+      expect.objectContaining({ headers: expect.objectContaining({ 'Idempotency-Key': expect.any(String) }) })
+    )
+    expect(request.post).toHaveBeenCalledWith(
+      '/contract/payment/add',
+      { contract_id: 2, pay_amount: 100 },
+      expect.objectContaining({ headers: expect.objectContaining({ 'Idempotency-Key': expect.any(String) }) })
+    )
+
+    const keys = [headerOf(0), headerOf(1)]
+    expect(keys[0]).toMatch(/^contract-create-/)
+    expect(keys[1]).toMatch(/^payment-add-/)
+    expect(keys[0]).not.toBe(keys[1])
+  })
+
   it('只读/非幂等写接口不应被误加幂等键（避免无意义膨胀 crm_idempotency）', async () => {
     const pool = await import('@/api/pool')
     await pool.getPoolList({ page: 1 })

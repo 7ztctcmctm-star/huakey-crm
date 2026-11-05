@@ -121,7 +121,7 @@ const fetchList = async () => {
   loading.value = true
   errorMsg.value = ''
   try {
-    const res = await getRoleList({})
+    const res = await getRoleList()
     if (res.code === 200) {
       tableData.value = res.data.list
     } else {

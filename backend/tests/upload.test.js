@@ -49,8 +49,7 @@ describe('文件上传模块', () => {
     it('应该返回文件列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // list
           { id: 1, file_name: '合同扫描件.pdf', file_path: '/uploads/attachments/abc123.pdf', file_size: 102400 },
           { id: 2, file_name: '报价单.xlsx', file_path: '/uploads/attachments/def456.xlsx', file_size: 51200 }
@@ -71,8 +70,7 @@ describe('文件上传模块', () => {
     it('应该返回200当正常删除附件', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1, file_name: '合同扫描件.pdf', file_path: '/uploads/attachments/abc123.pdf' }]]) // existence check
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // soft delete
 
@@ -89,7 +87,7 @@ describe('文件上传模块', () => {
   describe('POST /api/v1/upload/file', () => {
     it('应该返回400当没有选择文件', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist check
-      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+      mockPool.query.mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]); // role query
 
       const res = await request(app)
         .post('/api/v1/upload/file')

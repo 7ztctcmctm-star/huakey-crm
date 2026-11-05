@@ -13,6 +13,10 @@ jest.mock('../../services/customerService', () => {
     mapStatusToBusinessStatus: actual.mapStatusToBusinessStatus
   };
 });
+jest.mock('../../services/assignService', () => ({ autoAssignOwner: jest.fn() }));
+jest.mock('../../config/redis', () => ({ clearByPrefix: jest.fn() }));
+
+const { autoAssignOwner } = require('../../services/assignService');
 
 const customerDetailService = require('../../services/customerDetailService');
 
@@ -21,6 +25,53 @@ function createMockPool() {
 }
 
 const mockUser = { userId: 1, username: 'admin', roleCode: 'super_admin', manageAll: true };
+
+describe('customerDetailService.addCustomer（P0-12）', () => {
+  function makeAddPool() {
+    const conn = {
+      query: jest.fn().mockResolvedValue([{ insertId: 42 }]),
+      beginTransaction: jest.fn().mockResolvedValue(),
+      commit: jest.fn().mockResolvedValue(),
+      rollback: jest.fn().mockResolvedValue(),
+      release: jest.fn()
+    };
+    const pool = {
+      query: jest.fn().mockResolvedValue([[]]), // 重复检测
+      getConnection: jest.fn().mockResolvedValue(conn)
+    };
+    return { pool, conn };
+  }
+
+  const insertParams = (conn) => {
+    const call = conn.query.mock.calls.find((c) => String(c[0]).includes('INSERT INTO crm_customer'));
+    return call[1];
+  };
+
+  it('自动分配负责人时：status=following 且 business_status=following（不能落在线索池）', async () => {
+    autoAssignOwner.mockResolvedValue(9);
+    const { pool, conn } = makeAddPool();
+
+    await customerDetailService.addCustomer(pool, { company_name: 'A公司', contacts: [{ name: '张三' }] }, 1);
+
+    const p = insertParams(conn);
+    expect(p[5]).toBe(9);                 // owner_id
+    expect(p[6]).toBe(CUSTOMER_STATUS.FOLLOWING);
+    expect(p[7]).toBe(BUSINESS_STATUS.FOLLOWING);
+    expect(conn.commit).toHaveBeenCalled();
+  });
+
+  it('未自动分配时：status=lead 且 business_status=lead（进入线索池）', async () => {
+    autoAssignOwner.mockResolvedValue(null);
+    const { pool, conn } = makeAddPool();
+
+    await customerDetailService.addCustomer(pool, { company_name: 'B公司', contacts: [{ name: '李四' }] }, 1);
+
+    const p = insertParams(conn);
+    expect(p[5]).toBeNull();
+    expect(p[6]).toBe(CUSTOMER_STATUS.LEAD);
+    expect(p[7]).toBe(BUSINESS_STATUS.LEAD);
+  });
+});
 
 describe('customerDetailService.updateCustomer', () => {
   beforeEach(() => {

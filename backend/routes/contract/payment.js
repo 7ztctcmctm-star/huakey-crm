@@ -4,6 +4,7 @@ const { authenticateToken } = require('../../middleware/auth');
 const { checkPermission, checkDataPermission } = require('../../middleware/permission');
 const { validate, Joi } = require('../../middleware/validate');
 const contractController = require('../../controllers/contractController');
+const money = require('../../utils/money');
 
 // --- Joi schemas ---
 
@@ -11,7 +12,8 @@ const paymentAddSchema = Joi.object({
   contract_id: Joi.number().integer().positive().required(),
   plan_id: Joi.number().integer().positive().allow(null),
   pay_date: Joi.date().iso().required(),
-  pay_amount: Joi.number().precision(2).min(0).required(),
+  // [P2-05] 回款金额必须 > 0 且不超过 DECIMAL(15,2) 上限
+  pay_amount: Joi.number().precision(2).min(0.01).max(money.MAX_AMOUNT).required(),
   pay_method: Joi.string().max(50).allow('', null),
   remark: Joi.string().max(500).allow('', null),
   idempotency_key: Joi.string().max(64).allow('', null)
@@ -20,7 +22,8 @@ const paymentAddSchema = Joi.object({
 const paymentUpdateSchema = Joi.object({
   id: Joi.number().integer().positive().required(),
   pay_date: Joi.date().iso().required(),
-  pay_amount: Joi.number().precision(2).min(0).required(),
+  // [P2-05] 修改回款同样不允许 0 元或超 DECIMAL(15,2) 上限
+  pay_amount: Joi.number().precision(2).min(0.01).max(money.MAX_AMOUNT).required(),
   pay_method: Joi.string().max(50).allow('', null),
   remark: Joi.string().max(500).allow('', null)
 });

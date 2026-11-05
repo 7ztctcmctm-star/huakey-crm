@@ -3,8 +3,9 @@
  * 从 routes/customer/assign.js 提取的业务逻辑
  */
 
-const { CUSTOMER_STATUS } = require('../constants/customerStatus');
-const { POOL_STATUS, BUSINESS_STATUS } = require('../constants/poolStatus');
+const { POOL_STATUS } = require('../constants/poolStatus');
+// [P1-03] 分配/回收同样要同步 status/business_status（与认领/释放共用同一判定）
+const { assignmentStatusFragment } = require('../utils/customerPoolState');
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
 
@@ -99,7 +100,7 @@ async function applyRule(pool, operatorId) {
     // `AND (protect_until IS NULL OR protect_until < NOW())` 在 protect_until 恒为 NULL
     // 后恒真，属无效条件，故移除（行为不变）。
     const [customers] = await connection.query(
-      `SELECT id, owner_id FROM crm_customer
+      `SELECT id, owner_id, status, business_status FROM crm_customer
        WHERE deleted_at IS NULL AND owner_id IS NULL
        ORDER BY create_time ASC
        LIMIT 500`
@@ -128,10 +129,17 @@ async function applyRule(pool, operatorId) {
       const customer = customers[i];
       const targetUser = salesUsers[i % salesUsers.length];
 
-      await connection.query(
-        'UPDATE crm_customer SET owner_id = ?, pool_status = ?, protect_until = NULL WHERE id = ?',
-        [targetUser.id, POOL_STATUS.PRIVATE, customer.id]
+      // [P1-03] 自动分配同样把公海客户带出 'sea'（线索保持 lead，不强行转正式）
+      const statusFragment = assignmentStatusFragment(customer, targetUser.id);
+      // [P1-07] 条件更新防并发：SELECT 与 UPDATE 之间客户可能已被他人认领/分配，
+      // 原实现 WHERE id = ? 会把已归属客户直接改走。带 owner_id IS NULL 后，
+      // 抢输的一方 0 行，跳过且不写分配日志。
+      const [updateResult] = await connection.query(
+        `UPDATE crm_customer SET owner_id = ?, pool_status = ?, protect_until = NULL${statusFragment.sql}
+         WHERE id = ? AND owner_id IS NULL AND deleted_at IS NULL`,
+        [targetUser.id, POOL_STATUS.PRIVATE, ...statusFragment.params, customer.id]
       );
+      if (updateResult.affectedRows !== 1) continue;
 
       await connection.query(
         `INSERT INTO crm_assign_log (customer_id, from_user_id, to_user_id, operator_id, remark)
@@ -214,7 +222,7 @@ async function manualAssign(pool, customerId, toUserId, operatorId, remark, oper
   await validateTargetUser(pool, toUserId);
 
   const [customers] = await pool.query(
-    'SELECT id, owner_id, company_name FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+    'SELECT id, owner_id, company_name, status, business_status FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [customerId]
   );
 
@@ -233,21 +241,23 @@ async function manualAssign(pool, customerId, toUserId, operatorId, remark, oper
   }
 
   // 更新负责人（to_user_id 为 null 表示回收为无负责人）
-  // 回收时同步 pool_status='sea' 和 status=sea，分配时 pool_status='private'
+  // [P1-03] status/business_status 统一由 customerPoolState 判定：
+  // 回收 → 公海态；从公海分配给用户 → following；已归属客户转移不改阶段；线索保持 lead。
   const toUserIdValue = toUserId || null;
   const poolStatus = toUserIdValue ? POOL_STATUS.PRIVATE : POOL_STATUS.SEA;
 
-  let updateSql = 'UPDATE crm_customer SET owner_id = ?, pool_status = ?, protect_until = NULL';
-  const updateParams = [toUserIdValue, poolStatus];
-  if (!toUserIdValue) {
-    // 回收至公海：status='sea' 映射为 business_status='following'（business_status 枚举不含 sea）
-    updateSql += ', status = ?, business_status = ?';
-    updateParams.push(CUSTOMER_STATUS.SEA, BUSINESS_STATUS.FOLLOWING);
-  }
-  updateSql += ' WHERE id = ?';
-  updateParams.push(customerId);
+  const statusFragment = assignmentStatusFragment(customer, toUserIdValue);
+  let updateSql = `UPDATE crm_customer SET owner_id = ?, pool_status = ?, protect_until = NULL${statusFragment.sql}`;
+  const updateParams = [toUserIdValue, poolStatus, ...statusFragment.params];
+  // [P1-07] 乐观锁：WHERE 带上读取时的原负责人（NULL 安全比较），
+  // 两人同时分配/认领同一客户时后手 0 行，不会静默覆盖先手归属。
+  updateSql += ' WHERE id = ? AND owner_id <=> ? AND deleted_at IS NULL';
+  updateParams.push(customerId, fromUserId);
 
-  await pool.query(updateSql, updateParams);
+  const [updateResult] = await pool.query(updateSql, updateParams);
+  if (updateResult.affectedRows !== 1) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '客户归属已被其他人修改，请刷新后重试');
+  }
 
   // 记录分配日志
   await pool.query(
@@ -272,7 +282,7 @@ async function batchAssign(pool, customerIds, toUserId, operatorId, remark, oper
     let successCount = 0;
     for (const customerId of customerIds) {
       const [customers] = await connection.query(
-        'SELECT id, company_name, owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+        'SELECT id, company_name, owner_id, status, business_status FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
         [customerId]
       );
 
@@ -285,17 +295,16 @@ async function batchAssign(pool, customerIds, toUserId, operatorId, remark, oper
       }
 
       const poolStatus = toUserId ? POOL_STATUS.PRIVATE : POOL_STATUS.SEA;
-      let updateSql = 'UPDATE crm_customer SET owner_id = ?, pool_status = ?, protect_until = NULL';
-      const updateParams = [toUserId, poolStatus];
-      if (!toUserId) {
-        // 回收至公海：status='sea' 映射为 business_status='following'
-        updateSql += ', status = ?, business_status = ?';
-        updateParams.push(CUSTOMER_STATUS.SEA, BUSINESS_STATUS.FOLLOWING);
-      }
-      updateSql += ' WHERE id = ?';
-      updateParams.push(customerId);
+      // [P1-03] 与单条分配共用同一状态判定
+      const statusFragment = assignmentStatusFragment(customer, toUserId);
+      let updateSql = `UPDATE crm_customer SET owner_id = ?, pool_status = ?, protect_until = NULL${statusFragment.sql}`;
+      const updateParams = [toUserId, poolStatus, ...statusFragment.params];
+      // [P1-07] 与单条分配相同：原负责人作为乐观锁条件，被他人改过的客户跳过
+      updateSql += ' WHERE id = ? AND owner_id <=> ? AND deleted_at IS NULL';
+      updateParams.push(customerId, customer.owner_id);
 
-      await connection.query(updateSql, updateParams);
+      const [updateResult] = await connection.query(updateSql, updateParams);
+      if (updateResult.affectedRows !== 1) continue;
 
       await connection.query(
         `INSERT INTO crm_assign_log (customer_id, from_user_id, to_user_id, operator_id, remark)

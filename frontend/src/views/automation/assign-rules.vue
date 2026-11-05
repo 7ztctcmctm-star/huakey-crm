@@ -91,7 +91,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { getAutomationAssignRules, saveAutomationAssignRule, applyAutomationAssignRule, deleteAutomationAssignRule } from '@/api/tools'
+import { getAutomationAssignRules, saveAutomationAssignRule, updateAutomationAssignRule, applyAutomationAssignRule, deleteAutomationAssignRule } from '@/api/tools'
 import { getSalesUsers, getCustomerList } from '@/api/customer'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
@@ -167,7 +167,7 @@ const handleSave = async () => {
   try {
     const data = { ...form, user_ids: JSON.stringify(form.user_ids) }
     let res
-    if (isEdit.value) res = await saveAutomationAssignRule({ id: editId.value, ...data })
+    if (isEdit.value) res = await updateAutomationAssignRule(editId.value, data)
     else res = await saveAutomationAssignRule(data)
     if (res.code === 200) { ElMessage.success('保存成功'); dialogVisible.value = false; fetchList() }
   } finally { saveLoading.value = false }

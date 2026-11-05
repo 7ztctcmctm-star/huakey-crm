@@ -34,10 +34,11 @@
 
       <template #filter-actions>
         <el-form-item label="查看范围" class="page-toolbar__scope">
-          <!-- 客户总览：一个页面两半 —— 「待认领」即原公海池（owner_id 为空），
-               「全部客户」用于老板看清客户在谁手上、进行到哪个阶段 -->
+          <!-- 客户总览：一个页面两半 —— 「待分配」（owner_id 为空，原公海池语义），
+               「全部客户」用于老板看清客户在谁手上、进行到哪个阶段。
+               [S3 2026-11-05] 术语统一（V5.1）：「待认领」→「待分配」 -->
           <el-radio-group v-model="scope" @change="handleScopeChange">
-            <el-radio-button value="pending">待认领</el-radio-button>
+            <el-radio-button value="pending">待分配</el-radio-button>
             <el-radio-button value="all">全部客户</el-radio-button>
           </el-radio-group>
         </el-form-item>
@@ -52,7 +53,7 @@
         <div class="card-header">
           <span>客户总览（共 {{ total }} 条）</span>
           <el-button link disabled v-if="total === 0">
-            {{ scope === 'pending' ? '暂无待认领客户' : '暂无客户' }}
+            {{ scope === 'pending' ? '暂无待分配客户' : '暂无客户' }}
           </el-button>
         </div>
       </template>
@@ -61,7 +62,7 @@
         :loading="loading"
         :error="errorMsg"
         :empty="!loading && tableData.length === 0"
-        :empty-text="scope === 'pending' ? '暂无待认领客户' : '暂无客户'"
+        :empty-text="scope === 'pending' ? '暂无待分配客户' : '暂无客户'"
         @retry="fetchList"
       >
         <template #loading>
@@ -79,8 +80,9 @@
             <el-link type="primary" @click="goDetail(row)">{{ row.company_name }}</el-link>
           </template>
         </el-table-column>
-        <el-table-column prop="contact_name" label="联系人" width="100" />
-        <el-table-column prop="phone" label="电话" width="140" />
+        <!-- 后端 /pool 返回主联系人别名为 primary_contact_*（与正式客户列表一致） -->
+        <el-table-column prop="primary_contact_name" label="联系人" width="100" />
+        <el-table-column prop="primary_contact_phone" label="电话" width="140" />
         <el-table-column prop="level" label="等级" width="80" align="center">
           <template #default="{ row }">
             <el-tag :type="levelTagType(row.level)" size="small">{{ row.level || '-' }}</el-tag>
@@ -95,24 +97,19 @@
         <el-table-column prop="owner_name" label="负责人" width="110" align="center">
           <template #default="{ row }">
             <span v-if="row.owner_name">{{ row.owner_name }}</span>
-            <el-tag v-else type="warning" size="small">待认领</el-tag>
+            <!-- [S3 2026-11-05] 术语统一（V5.1）：无主客户口径为「待分配」 -->
+            <el-tag v-else type="warning" size="small">待分配</el-tag>
           </template>
         </el-table-column>
-        <!-- 释放人 / 释放时间仅「待认领」视图有意义 -->
+        <!-- 释放人 / 释放时间仅「待分配」视图有意义 -->
         <el-table-column v-if="scope === 'pending'" prop="released_by_name" label="释放人" width="100" />
         <el-table-column v-if="scope === 'pending'" prop="released_at" label="释放时间" width="160" />
         <el-table-column label="操作" width="170" fixed="right">
           <template #default="{ row }">
+            <!-- [S3 2026-11-05] 「认领」按钮随权限回收下线（A5：销售端随 pool:claim/pool:view
+                 收回整组消失；boss 侧对应动作为「分配」，走 customer:assign 通道） -->
             <el-button
-              v-if="!row.owner_id"
-              type="success"
-              link
-              size="small"
-              @click="handleClaim(row)"
-              v-permission="'pool:claim'"
-            >认领</el-button>
-            <el-button
-              v-else
+              v-if="row.owner_id"
               type="primary"
               link
               size="small"
@@ -178,11 +175,12 @@
 import { reportError, reportWarn } from '@/utils/error'
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import PageToolbar from '@/components/common/PageToolbar.vue'
-import { getPoolList, claimPoolCustomer, createTransfer, getTransferCandidates } from '@/api/pool'
+// [S3 2026-11-05] claimPoolCustomer 随「认领」按钮下线（A5）一并移除引用
+import { getPoolList, createTransfer, getTransferCandidates } from '@/api/pool'
 import { getCustomerList } from '@/api/customer'
 import { getStatusLabel, getStatusTagType } from '@/constants/customer'
 
@@ -222,7 +220,8 @@ const levelTagType = (level) => {
 // 业务状态标签统一走常量（R-01）：本地 statusLabel/statusTagType 已删除
 const fetchList = async () => {
   // 两种视图的业务用语不同，错误文案跟随当前查看范围
-  const label = scope.value === 'pending' ? '待认领客户' : '客户'
+  // [S3 2026-11-05] 术语统一（V5.1）：「待认领客户」→「待分配客户」
+  const label = scope.value === 'pending' ? '待分配客户' : '客户'
   loading.value = true
   errorMsg.value = ''
   try {
@@ -338,24 +337,9 @@ const goDetail = (row) => {
   router.push(`/customer/detail/${row.id}`)
 }
 
-const handleClaim = async (row) => {
-  try {
-    await ElMessageBox.confirm(
-      `确定认领「${row.company_name}」吗？认领后该客户将归您跟进，享有7天保护期。`,
-      '认领确认',
-      { type: 'warning', confirmButtonText: '确定认领', cancelButtonText: '取消' }
-    )
-    const res = await claimPoolCustomer(row.id)
-    if (res.code === 200) {
-      ElMessage.success('认领成功，该客户已归您跟进')
-      fetchList()
-    } else {
-      ElMessage.error(res.message || '认领失败')
-    }
-  } catch (e) {
-    if (e !== 'cancel') ElMessage.error('认领失败')
-  }
-}
+// [S3 2026-11-05] 「认领」功能下线（A5）：handleClaim 与确认/成功/失败文案随按钮一并移除。
+//   待分配客户的归属由 boss 走「分配」通道（customer:assign）决定；销售已无 pool:claim/pool:view，
+//   无法进入本页；boss/经理保留 pool:view 仅作只读查看。
 
 onMounted(() => {
   fetchList()

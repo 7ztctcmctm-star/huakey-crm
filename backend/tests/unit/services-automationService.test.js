@@ -357,7 +357,7 @@ describe('automationService', () => {
       const pool = createMockPool();
       pool.query
         .mockResolvedValueOnce([[{ id: 1, assign_type: 'round_robin', user_ids: '[10,20]', last_assigned_index: 0, rule_name: 'r' }]])
-        .mockResolvedValueOnce([[{ id: 5, source: 'web', address: 'bj' }]]);
+        .mockResolvedValueOnce([[{ id: 5, source: 'web', address: 'bj', owner_id: null }]]);
       pool.query.mockResolvedValue([{ affectedRows: 1 }]);
 
       const result = await automationService.applyAssignRule(pool, { customer_id: 5 });
@@ -368,7 +368,7 @@ describe('automationService', () => {
       const pool = createMockPool();
       pool.query
         .mockResolvedValueOnce([[{ id: 1, assign_type: 'by_source', source_value: 'web', user_ids: '[30]', last_assigned_index: 0, rule_name: 'r' }]])
-        .mockResolvedValueOnce([[{ id: 5, source: 'web' }]]);
+        .mockResolvedValueOnce([[{ id: 5, source: 'web', owner_id: null }]]);
       pool.query.mockResolvedValue([{ affectedRows: 1 }]);
 
       const result = await automationService.applyAssignRule(pool, { customer_id: 5 });
@@ -379,7 +379,7 @@ describe('automationService', () => {
       const pool = createMockPool();
       pool.query
         .mockResolvedValueOnce([[{ id: 1, assign_type: 'by_region', region_value: '上海', user_ids: '[40]', last_assigned_index: 0, rule_name: 'r' }]])
-        .mockResolvedValueOnce([[{ id: 5, source: 'web', address: '上海市' }]]);
+        .mockResolvedValueOnce([[{ id: 5, source: 'web', address: '上海市', owner_id: null }]]);
       pool.query.mockResolvedValue([{ affectedRows: 1 }]);
 
       const result = await automationService.applyAssignRule(pool, { customer_id: 5 });
@@ -390,20 +390,60 @@ describe('automationService', () => {
       const pool = createMockPool();
       pool.query
         .mockResolvedValueOnce([[{ id: 1, assign_type: 'by_source', source_value: 'offline', user_ids: '[40]', last_assigned_index: 0, rule_name: 'r' }]])
-        .mockResolvedValueOnce([[{ id: 5, source: 'web' }]]);
+        .mockResolvedValueOnce([[{ id: 5, source: 'web', owner_id: null }]]);
 
       const result = await automationService.applyAssignRule(pool, { customer_id: 5 });
       expect(result[0].result).toBe('no_match');
+    });
+
+    it('[P1-07] 已归属客户不得被自动规则改走', async () => {
+      const pool = createMockPool();
+      pool.query
+        .mockResolvedValueOnce([[{ id: 1, assign_type: 'round_robin', user_ids: '[10]', last_assigned_index: 0, rule_name: 'r' }]])
+        .mockResolvedValueOnce([[{ id: 5, source: 'web', owner_id: 99 }]]);
+
+      const result = await automationService.applyAssignRule(pool, { customer_id: 5 });
+      expect(result[0].result).toBe('already_owned');
+      // 不得发生归属写入
+      expect(pool.query.mock.calls.some(c => String(c[0]).includes('UPDATE crm_customer'))).toBe(false);
     });
 
     it('applyAssignRule 客户不存在返回 not_found', async () => {
       const pool = createMockPool();
       pool.query
         .mockResolvedValueOnce([[{ id: 1, assign_type: 'round_robin', user_ids: '[10]', last_assigned_index: 0, rule_name: 'r' }]])
-        .mockResolvedValueOnce([[undefined]]);
+        .mockResolvedValueOnce([[]]);
 
       const result = await automationService.applyAssignRule(pool, { customer_id: 5 });
       expect(result[0].result).toBe('not_found');
+    });
+
+    it('[P2-03] 批量分配只查询一次客户表（N+1 → 1 次 IN 查询）', async () => {
+      const pool = createMockPool();
+      pool.query
+        .mockResolvedValueOnce([[{ id: 1, assign_type: 'round_robin', user_ids: '[10]', last_assigned_index: 0, rule_name: 'r' }]])
+        .mockResolvedValueOnce([[
+          { id: 5, source: 'web', owner_id: null },
+          { id: 6, source: 'web', owner_id: null }
+        ]]);
+      pool.query.mockResolvedValue([{ affectedRows: 1 }]);
+
+      const result = await automationService.applyAssignRule(pool, { customer_ids: [5, 6, 7] });
+
+      const customerSelects = pool.query.mock.calls.filter(
+        ([sql]) => String(sql).includes('FROM crm_customer WHERE id IN')
+      );
+      expect(customerSelects).toHaveLength(1);
+      expect(customerSelects[0][1]).toEqual([[5, 6, 7]]);
+      expect(result).toEqual([
+        { id: 5, rule: 'r', user_id: 10 },
+        { id: 6, rule: 'r', user_id: 10 },
+        { id: 7, result: 'not_found' }
+      ]);
+      // 不允许再出现按单个 id 查询客户的旧路径
+      expect(pool.query.mock.calls.some(
+        ([sql]) => String(sql).includes('FROM crm_customer WHERE id = ?')
+      )).toBe(false);
     });
   });
 

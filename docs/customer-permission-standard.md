@@ -2,6 +2,12 @@
 
 > 生成时间：2026-08-04
 > 范围：客户中心（潜客池 / 正式客户 / 公海池）权限码统一规范
+>
+> **历史变更记录（2026-08-04 ~ 2026-09-14）**：本文记录权限码迁移过程。文中
+> `backend/routes/customer/center.js`、`module.js`、`detail.js` 已于 2026-09-14 阶段 2/4 移除；
+> 现行路由为 `backend/routes/customers.js`、`leads.js`、`pool.js` 与
+> `backend/routes/customer/{assign,contact,detailExtras,import}.js`。权限码口径仍有效，
+> 文件清单仅作历史证据。
 
 ---
 
@@ -212,7 +218,7 @@ pool（公海池 - 菜单）
 
 **安全性依据**：098 已保证「拥有旧码 `customer:list` 的角色自动获得 `customer:view`」，且其矩阵已把 `customer:view` 授予 sales/manager；boss 由 `manage_all=1` 绕过 → 无角色受影响。
 **未改**：`detail.js` 缓存键 `customer:list:${userId}:*`（属操作命名空间，`customerController.test.js` 有断言依赖）。
-详见 `docs/crm-customer-api-port-map.md`。
+详见 `docs/archive/crm-customer-api-port-map.md`（已归档）。
 
 ---
 

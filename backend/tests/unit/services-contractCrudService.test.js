@@ -121,6 +121,7 @@ describe('contractCrudService', () => {
       pool.query.mockResolvedValueOnce([[{ amount: 100 }]]);
       const conn = createMockConn();
       conn.query
+        .mockResolvedValueOnce([[{ id: 10 }, { id: 1 }]])                // [P1-25] 归属校验：待删 10 + 待改 1 均属于合同 1
         .mockResolvedValueOnce([{ affectedRows: 1 }])                    // UPDATE 合同
         .mockResolvedValueOnce([{ affectedRows: 1 }])                    // DELETE 计划 10
         .mockResolvedValueOnce([[{ id: 2, plan_date: '2026-05-01' }]])   // SELECT 现存计划（判重用）
@@ -191,10 +192,11 @@ describe('contractCrudService', () => {
       pool.query.mockResolvedValueOnce([[{ amount: 100 }]]);
       const conn = createMockConn();
       conn.query
-        .mockResolvedValueOnce([{ affectedRows: 1 }])  // UPDATE 合同
-        .mockResolvedValueOnce([{ affectedRows: 1 }])  // DELETE 计划 10
-        .mockResolvedValueOnce([[]])                   // 删除后库里无计划
-        .mockResolvedValueOnce([{ affectedRows: 1 }]); // INSERT 复用该日期
+        .mockResolvedValueOnce([[{ id: 10 }]])          // [P1-25] 归属校验：计划 10 属于合同 1
+        .mockResolvedValueOnce([{ affectedRows: 1 }])   // UPDATE 合同
+        .mockResolvedValueOnce([{ affectedRows: 1 }])   // DELETE 计划 10
+        .mockResolvedValueOnce([[]])                    // 删除后库里无计划
+        .mockResolvedValueOnce([{ affectedRows: 1 }]);  // INSERT 复用该日期
       pool.getConnection.mockResolvedValue(conn);
 
       const oldData = await contractCrudService.updateContract(pool, {
@@ -205,6 +207,75 @@ describe('contractCrudService', () => {
 
       expect(oldData.amount).toBe(100);
       expect(conn.commit).toHaveBeenCalled();
+    });
+
+    it('[P1-25] 待删计划 id 不属于当前合同时应抛 400 并回滚，不得删除他人计划', async () => {
+      const pool = createMockPool();
+      pool.query.mockResolvedValueOnce([[{ amount: 100 }]]);
+      const conn = createMockConn();
+      conn.query.mockResolvedValueOnce([[]]); // 归属校验：库里查不到 999（属于别的合同或已删除）
+      pool.getConnection.mockResolvedValue(conn);
+
+      await expect(
+        contractCrudService.updateContract(pool, {
+          id: 1, customer_id: 2, amount: 200, sign_date: '', delivery_date: '', payment_terms: '', status: 1, remark: '',
+          delete_plan_ids: [999],
+          plans: []
+        })
+      ).rejects.toMatchObject({ code: 400005, message: '回款计划不属于当前合同' });
+
+      expect(conn.rollback).toHaveBeenCalled();
+      expect(conn.commit).not.toHaveBeenCalled();
+      expect(conn.release).toHaveBeenCalled();
+      // 只执行了归属校验这一条，任何 DELETE/UPDATE 都不得下发
+      expect(conn.query).toHaveBeenCalledTimes(1);
+    });
+
+    it('[P1-25] 待改计划 id 属于其他合同时应抛 400', async () => {
+      const pool = createMockPool();
+      pool.query.mockResolvedValueOnce([[{ amount: 100 }]]);
+      const conn = createMockConn();
+      conn.query.mockResolvedValueOnce([[{ id: 1 }]]); // 只返回属于本合同的 1，2 属于别家
+      pool.getConnection.mockResolvedValue(conn);
+
+      await expect(
+        contractCrudService.updateContract(pool, {
+          id: 1, customer_id: 2, amount: 200, sign_date: '', delivery_date: '', payment_terms: '', status: 1, remark: '',
+          plans: [{ id: 1, plan_date: '2026-03-01', plan_amount: 100 }, { id: 2, plan_date: '2026-04-01', plan_amount: 100 }]
+        })
+      ).rejects.toMatchObject({ code: 400005, message: '回款计划不属于当前合同' });
+
+      expect(conn.rollback).toHaveBeenCalled();
+    });
+
+    it('[P1-25] 删除与更新 SQL 都必须带 contract_id 限定', async () => {
+      const pool = createMockPool();
+      pool.query.mockResolvedValueOnce([[{ amount: 100 }]]);
+      const conn = createMockConn();
+      conn.query
+        .mockResolvedValueOnce([[{ id: 10 }, { id: 1 }]])  // 归属校验
+        .mockResolvedValueOnce([{ affectedRows: 1 }])      // UPDATE 合同
+        .mockResolvedValueOnce([{ affectedRows: 1 }])      // DELETE 计划 10
+        .mockResolvedValueOnce([[]])                       // SELECT 现存计划
+        .mockResolvedValueOnce([{ affectedRows: 1 }]);     // UPDATE 计划 1
+      pool.getConnection.mockResolvedValue(conn);
+
+      await contractCrudService.updateContract(pool, {
+        id: 1, customer_id: 2, amount: 200, sign_date: '', delivery_date: '', payment_terms: '', status: 1, remark: '',
+        delete_plan_ids: [10],
+        plans: [{ id: 1, plan_date: '2026-03-01', plan_amount: 100 }]
+      });
+
+      const sqls = conn.query.mock.calls.map((call) => call[0]);
+      const deleteSql = sqls.find((sql) => sql.startsWith('DELETE FROM crm_payment_plan'));
+      const updatePlanSql = sqls.find((sql) => sql.startsWith('UPDATE crm_payment_plan'));
+      expect(deleteSql).toContain('contract_id = ?');
+      expect(updatePlanSql).toContain('contract_id=?');
+      // 参数顺序：合同 id 在前，计划 id 在后
+      const deleteCall = conn.query.mock.calls.find((call) => call[0].startsWith('DELETE FROM crm_payment_plan'));
+      expect(deleteCall[1]).toEqual([1, 10]);
+      const updateCall = conn.query.mock.calls.find((call) => call[0].startsWith('UPDATE crm_payment_plan'));
+      expect(updateCall[1].slice(-2)).toEqual([1, 1]);
     });
 
     it('旧数据不存在时应抛 CONTRACT_NOT_FOUND（数据权限修复：越权/不存在不可更新）', async () => {
@@ -228,55 +299,87 @@ describe('contractCrudService', () => {
   });
 
   describe('deleteContract', () => {
-    it('manageAll 用户可删除', async () => {
+    function preparedPool(rows = []) {
       const pool = createMockPool();
-      pool.query
-        .mockResolvedValueOnce([[{ status: 1, create_by: 2 }]])
+      const conn = createMockConn();
+      conn.query.mockResolvedValueOnce([rows, []]); // 事务内加锁 SELECT → [rows, fields]
+      pool.getConnection.mockResolvedValue(conn);
+      return { pool, conn };
+    }
+
+    it('manageAll 用户可删除，且三条软删在同一事务内并提交', async () => {
+      const { pool, conn } = preparedPool([{ status: 1, create_by: 2 }]);
+      conn.query
         .mockResolvedValueOnce([{ affectedRows: 1 }])
         .mockResolvedValueOnce([{ affectedRows: 1 }])
         .mockResolvedValueOnce([{ affectedRows: 1 }]);
 
       const result = await contractCrudService.deleteContract(pool, 1, { manageAll: true, roleId: ROLES.SALES, userId: 3 });
       expect(result.message).toBe('删除合同成功');
+      expect(conn.query.mock.calls[0][0]).toContain('FOR UPDATE');
+      const updates = conn.query.mock.calls.slice(1).map(c => String(c[0]));
+      expect(updates).toHaveLength(3);
+      expect(updates[0]).toContain('UPDATE crm_contract');
+      expect(updates[1]).toContain('UPDATE crm_payment');
+      expect(updates[2]).toContain('UPDATE crm_payment_plan');
+      expect(conn.commit).toHaveBeenCalled();
+      expect(conn.release).toHaveBeenCalled();
     });
 
     it('创建者可删除自己合同', async () => {
-      const pool = createMockPool();
-      pool.query
-        .mockResolvedValueOnce([[{ status: 1, create_by: 3 }]])
-        .mockResolvedValueOnce([{ affectedRows: 1 }]);
+      const { pool, conn } = preparedPool([{ status: 1, create_by: 3 }]);
+      conn.query.mockResolvedValue([{ affectedRows: 1 }]);
 
       await contractCrudService.deleteContract(pool, 1, { manageAll: false, roleId: ROLES.SALES, userId: 3 });
+      expect(conn.commit).toHaveBeenCalled();
     });
 
     it('MANAGER 可删除', async () => {
-      const pool = createMockPool();
-      pool.query
-        .mockResolvedValueOnce([[{ status: 1, create_by: 2 }]])
-        .mockResolvedValueOnce([{ affectedRows: 1 }]);
+      const { pool, conn } = preparedPool([{ status: 1, create_by: 2 }]);
+      conn.query.mockResolvedValue([{ affectedRows: 1 }]);
 
       await contractCrudService.deleteContract(pool, 1, { manageAll: false, roleId: ROLES.MANAGER, userId: 3 });
+      expect(conn.commit).toHaveBeenCalled();
     });
 
-    it('不存在时应抛 CONTRACT_NOT_FOUND', async () => {
-      const pool = createMockPool();
-      pool.query.mockResolvedValueOnce([[]]);
+    it('不存在时应抛 CONTRACT_NOT_FOUND 并回滚释放', async () => {
+      const { pool, conn } = preparedPool([]);
 
       await expect(contractCrudService.deleteContract(pool, 1, {})).rejects.toThrow(AppError);
+      expect(conn.rollback).toHaveBeenCalled();
+      expect(conn.release).toHaveBeenCalled();
     });
 
     it('已完成合同不能删除', async () => {
-      const pool = createMockPool();
-      pool.query.mockResolvedValueOnce([[{ status: 3, create_by: 1 }]]);
+      const { pool, conn } = preparedPool([{ status: 3, create_by: 1 }]);
 
       await expect(contractCrudService.deleteContract(pool, 1, { userId: 1 })).rejects.toThrow('已完成的合同不能删除');
+      expect(conn.rollback).toHaveBeenCalled();
+      expect(conn.commit).not.toHaveBeenCalled();
     });
 
     it('无权限时应抛 PERMISSION_DENIED', async () => {
-      const pool = createMockPool();
-      pool.query.mockResolvedValueOnce([[{ status: 1, create_by: 1 }]]);
+      const { pool, conn } = preparedPool([{ status: 1, create_by: 1 }]);
 
       await expect(contractCrudService.deleteContract(pool, 1, { manageAll: false, roleId: ROLES.SALES, userId: 2 })).rejects.toThrow('无权删除该合同');
+      expect(conn.rollback).toHaveBeenCalled();
+    });
+
+    it('[P1-05] 回款软删失败时整体回滚（不留半条数据）', async () => {
+      const { pool, conn } = preparedPool([{ status: 1, create_by: 1 }]);
+      conn.query
+        .mockResolvedValueOnce([{ affectedRows: 1 }])       // UPDATE 合同
+        .mockRejectedValueOnce(new Error('deadlock'))        // UPDATE crm_payment
+        .mockResolvedValueOnce([{ affectedRows: 0 }]);       // 不应执行
+
+      await expect(
+        contractCrudService.deleteContract(pool, 1, { manageAll: true, roleId: ROLES.ADMIN, userId: 1 })
+      ).rejects.toThrow('deadlock');
+      expect(conn.rollback).toHaveBeenCalled();
+      expect(conn.commit).not.toHaveBeenCalled();
+      // 1 次加锁 SELECT + 合同 UPDATE + 回款 UPDATE（失败）后终止，计划表 UPDATE 不应执行
+      expect(conn.query).toHaveBeenCalledTimes(3);
+      expect(conn.query.mock.calls.some(c => String(c[0]).includes('crm_payment_plan'))).toBe(false);
     });
   });
 

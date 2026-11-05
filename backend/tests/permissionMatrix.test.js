@@ -166,18 +166,29 @@ const generateExpiredToken = () => {
 /**
  * 设置 mockPool.query 的调用序列（非 ADMIN 角色）
  *
- * authenticateToken 消耗 2 次调用：
+ * authenticateToken 消耗 2 次调用（[P0-06] 起按 userId 关联当前角色，不再信任 JWT roleId）：
  *   1. blacklist check → [[]]（未被拉黑）
- *   2. role query → [[{ view_all, manage_all }]]
+ *   2. user + role join → [[{ ...userRow, role_code, view_all, manage_all }]]
  *
- * checkPermission 消耗 1 次调用：
- *   3. getUserPermissions 查询 → 用户权限列表
+ * checkPermission 调用的是被 mock 的 getUserPermissions，不额外消耗 pool.query。
  */
+const authUserRow = (roleId) => ({
+  id: 100 + roleId,
+  username: `user_${roleId}`,
+  role_id: roleId,
+  status: 1,
+  must_change_password: 0,
+  password_changed_at: null,
+  fresh_role_id: roleId,
+  role_code: roleCodeMap[roleId] || 'unknown',
+  view_all: 0,
+  manage_all: 0
+});
+
 const setupAuthMocks = (roleId, permissionCodes = []) => {
   mockPool.query
-    .mockResolvedValueOnce([[]])                                                    // blacklist check
-    .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0 }]])                     // role query
-    .mockResolvedValueOnce([[{ id: 1, permission_id: 1 }]]);                       // getUserPermissions inner query
+    .mockResolvedValueOnce([[]])                          // blacklist check
+    .mockResolvedValueOnce([[authUserRow(roleId)]]);      // fresh user + role
   getUserPermissions.mockResolvedValue(permissionCodes);
 };
 
@@ -188,8 +199,19 @@ const setupAuthMocks = (roleId, permissionCodes = []) => {
  */
 const setupAdminMocks = () => {
   mockPool.query
-    .mockResolvedValueOnce([[]])                                       // blacklist check
-    .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]);       // role query
+    .mockResolvedValueOnce([[]])                          // blacklist check
+    .mockResolvedValueOnce([[{
+      id: 101,
+      username: 'super_admin',
+      role_id: 1,
+      status: 1,
+      must_change_password: 0,
+      password_changed_at: null,
+      fresh_role_id: 1,
+      role_code: ROLE_CODES.SUPER_ADMIN,
+      view_all: 1,
+      manage_all: 1
+    }]]);
 };
 
 // ============ 测试用例 ============

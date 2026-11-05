@@ -63,8 +63,7 @@ describe('审批流程模块', () => {
     it('应该返回待审批列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[]]); // pending list (empty)
 
       const res = await request(app)
@@ -81,8 +80,7 @@ describe('审批流程模块', () => {
     it('应该返回已提交列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[ // quotes
           { business_type: 'quote', business_id: 1, business_title: 'Q-001', approval_status: 1, create_time: '2026-06-23' }
         ]])
@@ -103,8 +101,7 @@ describe('审批流程模块', () => {
     it('应该返回200当正常提交审批', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role query
         .mockResolvedValueOnce([[{ id: 1, approval_status: 0 }]]) // business record check
         .mockResolvedValueOnce([[{ id: 1 }]]) // workflow lookup
         .mockResolvedValueOnce([[{ id: 1, step_order: 1, approver_type: 'manager', approver_id: null }]]) // first step
@@ -129,7 +126,7 @@ describe('审批流程模块', () => {
     it('应该返回200当正常通过审批', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]); // role query
 
       mockConnection.query
         .mockResolvedValueOnce([[{ id: 1, workflow_id: 1, business_type: 'quote', business_id: 1, step_id: 1, step_order: 1, approver_id: 1, status: 'pending' }]]) // SELECT FOR UPDATE
@@ -151,7 +148,7 @@ describe('审批流程模块', () => {
     it('应该返回404当审批记录已被处理（TOCTOU并发竞态）', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]); // role query
 
       mockConnection.query
         .mockResolvedValueOnce([[]]); // SELECT FOR UPDATE 返回空（已被其他请求处理）
@@ -172,7 +169,7 @@ describe('审批流程模块', () => {
     it('应该返回200当正常驳回审批', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role query
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]); // role query
 
       mockConnection.query
         .mockResolvedValueOnce([[{ id: 1, workflow_id: 1, business_type: 'quote', business_id: 1, step_id: 1, step_order: 1, approver_id: 1, status: 'pending' }]]) // SELECT FOR UPDATE

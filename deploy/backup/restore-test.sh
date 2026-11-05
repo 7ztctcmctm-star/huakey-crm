@@ -1,6 +1,6 @@
 #!/bin/sh
 # ============================================================
-# HuakeyCRM 恢复演练脚本（v4 · D3 双模式 + 失败不静默）
+# HuakeyCRM 恢复演练脚本（v5 · D3 双模式 + P1-12 加密备份 + 失败不静默）
 #
 # 执行方式：
 #   a) 宿主机（有 docker 权限）：bash deploy/backup/restore-test.sh
@@ -34,11 +34,17 @@ LOG_FILE="${BACKUP_DIR}/restore-test.log"
 STATUS_FILE="${BACKUP_DIR}/restore-drill.status"
 LOCK_DIR="${BACKUP_DIR}/.restore-drill.lock"
 MYSQL_CONTAINER="huakey-mysql"
+# [P1-12] 直连模式主机/端口可覆盖（本地演练：DRILL_MYSQL_HOST=127.0.0.1）
+MYSQL_HOST="${DRILL_MYSQL_HOST:-mysql}"
+MYSQL_PORT="${DRILL_MYSQL_PORT:-3306}"
 TEST_DB="huakey_crm_restore_test"
 PROD_DB="huakey_crm"
 DOCKER="${DOCKER:-docker}"
+# [P1-12] 备份加密口令（容器内 /stack/.backup-enc-pass）
+ENC_PASS_FILE="${BACKUP_ENC_PASS_FILE:-${STACK_DIR}/.backup-enc-pass}"
 DRILL_MODE=""
 TMP_SQL=""
+TMP_GZ=""
 BACKUP_NAME=""
 RESTORED_TABLES=0
 PROD_TABLES=0
@@ -89,7 +95,7 @@ if ! mkdir "$LOCK_DIR" 2>/dev/null; then
   fi
 fi
 cleanup() {
-  rm -rf "$LOCK_DIR" "$TMP_SQL" 2>/dev/null
+  rm -rf "$LOCK_DIR" "$TMP_SQL" "$TMP_GZ" 2>/dev/null
   # 临时库必须清理（即使演练失败也不留库）
   if [ -n "${DRILL_MODE:-}" ]; then
     mysql_admin "DROP DATABASE IF EXISTS ${TEST_DB};" >/dev/null 2>&1 || true
@@ -129,13 +135,13 @@ if "$DOCKER" ps >/dev/null 2>&1; then
   mysql_import() {
     "$DOCKER" exec -i -e MYSQL_PWD="$PW" "$MYSQL_CONTAINER" mysql -u root "$1"
   }
-elif command -v mysql >/dev/null 2>&1 && MYSQL_PWD="$PW" mysql -h mysql -u root -e "SELECT 1" >/dev/null 2>&1; then
+elif command -v mysql >/dev/null 2>&1 && MYSQL_PWD="$PW" mysql -h "$MYSQL_HOST" -P "$MYSQL_PORT" -u root -e "SELECT 1" >/dev/null 2>&1; then
   DRILL_MODE="direct"
   mysql_admin() {
-    echo "$1" | MYSQL_PWD="$PW" mysql -h mysql -u root -s -N 2>/dev/null
+    echo "$1" | MYSQL_PWD="$PW" mysql -h "$MYSQL_HOST" -P "$MYSQL_PORT" -u root -s -N 2>/dev/null
   }
   mysql_import() {
-    MYSQL_PWD="$PW" mysql -h mysql -u root "$1"
+    MYSQL_PWD="$PW" mysql -h "$MYSQL_HOST" -P "$MYSQL_PORT" -u root "$1"
   }
 else
   log "FATAL: 既无可用 docker CLI，也无法直连 mysql 主机——请在宿主机或备份容器内执行"
@@ -146,13 +152,32 @@ log "执行模式: ${DRILL_MODE}"
 START_TS=$(date +%s)
 
 log "=========================================="
-log "HuakeyCRM 恢复演练开始 (v4)"
+log "HuakeyCRM 恢复演练开始 (v5)"
 log "=========================================="
 
-# ---- 1. 定位最新备份并做 gzip 完整性校验 ----
-LATEST=$(ls -t "${BACKUP_DIR}"/huakey_crm_*.sql.gz 2>/dev/null | head -1)
+# [P1-12] 统一解密入口：*.gpg / *.enc 需口令文件，明文原样输出
+decrypt_to_stdout() {
+  case "$1" in
+    *.gpg)
+      [ -f "$ENC_PASS_FILE" ] || return 1
+      gpg --batch --quiet --decrypt --passphrase-file "$ENC_PASS_FILE" "$1" 2>/dev/null
+      ;;
+    *.enc)
+      [ -f "$ENC_PASS_FILE" ] || return 1
+      openssl enc -d -aes-256-cbc -pbkdf2 -in "$1" -pass file:"$ENC_PASS_FILE" 2>/dev/null
+      ;;
+    *)
+      cat "$1"
+      ;;
+  esac
+}
+
+# ---- 1. 定位最新备份并做 gzip 完整性校验（含加密产物）----
+LATEST=$(ls -t "${BACKUP_DIR}"/huakey_crm_*.sql.gz \
+  "${BACKUP_DIR}"/huakey_crm_*.sql.gz.gpg \
+  "${BACKUP_DIR}"/huakey_crm_*.sql.gz.enc 2>/dev/null | head -1)
 if [ -z "$LATEST" ]; then
-  fail "未找到任何 MySQL 备份文件（${BACKUP_DIR}/huakey_crm_*.sql.gz）"
+  fail "未找到任何 MySQL 备份文件（${BACKUP_DIR}/huakey_crm_*.sql.gz[.gpg|.enc]）"
   write_status
   exit 1
 fi
@@ -160,8 +185,17 @@ BACKUP_NAME=$(basename "$LATEST")
 BACKUP_SIZE=$(stat -c%s "$LATEST" 2>/dev/null || echo 0)
 log "备份文件: ${BACKUP_NAME} (${BACKUP_SIZE} bytes)"
 
-if ! gzip -t "$LATEST" 2>/dev/null; then
+# 先解密到临时 gz（避免对密文直接 gzip -t），再做完整性校验
+TMP_GZ="${BACKUP_DIR}/.restore_drill_$(date +%s).sql.gz"
+if ! decrypt_to_stdout "$LATEST" > "$TMP_GZ" 2>>"$LOG_FILE"; then
+  fail "备份解密失败: ${BACKUP_NAME}（口令文件: ${ENC_PASS_FILE}）"
+  rm -f "$TMP_GZ"
+  write_status
+  exit 1
+fi
+if ! gzip -t "$TMP_GZ" 2>/dev/null; then
   fail "备份 gzip 完整性校验失败: ${BACKUP_NAME}"
+  rm -f "$TMP_GZ"
   write_status
   exit 1
 fi
@@ -185,9 +219,9 @@ log "临时库已重建"
 # ---- 3. 解压 + 导入（每一步检查退出码）----
 log "=== 步骤 3: 解压并导入备份 ==="
 TMP_SQL="${BACKUP_DIR}/.restore_drill_$(date +%s).sql"
-if ! gunzip -c "$LATEST" > "$TMP_SQL" 2>>"$LOG_FILE"; then
+if ! gunzip -c "$TMP_GZ" > "$TMP_SQL" 2>>"$LOG_FILE"; then
   fail "gunzip 解压失败"
-  rm -f "$TMP_SQL"
+  rm -f "$TMP_SQL" "$TMP_GZ"
   write_status
   exit 1
 fi
@@ -196,11 +230,11 @@ log "解压完成: ${SQL_SIZE} bytes"
 
 if ! mysql_import "$TEST_DB" < "$TMP_SQL"; then
   fail "导入临时库失败（mysql 退出码非 0）——备份可能不可用或结构不兼容"
-  rm -f "$TMP_SQL"
+  rm -f "$TMP_SQL" "$TMP_GZ"
   write_status
   exit 1
 fi
-rm -f "$TMP_SQL"
+rm -f "$TMP_SQL" "$TMP_GZ"
 log "导入完成"
 
 # ---- 4. 表数量与结构比对 ----
@@ -226,47 +260,64 @@ for TABLE in crm_customer crm_opportunity crm_quote crm_contract; do
   fi
 done
 
-SAMPLE=$(mysql_admin "SELECT CONCAT('id=', id, ' name=', name) FROM ${TEST_DB}.crm_customer LIMIT 1;" 2>/dev/null || echo "无数据")
-log "  crm_customer 抽样: ${SAMPLE}"
+# 注意：crm_customer 无 name 列（实名列为 company_name），查询失败必须与「表为空」区分
+SAMPLE=$(mysql_admin "SELECT CONCAT('id=', id, ' company=', company_name) FROM ${TEST_DB}.crm_customer ORDER BY id LIMIT 1;" 2>/dev/null || true)
+if [ -n "$SAMPLE" ]; then
+  log "  crm_customer 抽样: ${SAMPLE}"
+else
+  SAMPLE_COUNT=$(mysql_admin "SELECT COUNT(*) FROM ${TEST_DB}.crm_customer;" 2>/dev/null || echo "N/A")
+  if [ "$SAMPLE_COUNT" = "0" ]; then
+    log "  crm_customer 抽样: 表为空（0 行）"
+  else
+    fail "crm_customer 抽样查询失败（COUNT=${SAMPLE_COUNT}，疑似表结构异常）"
+  fi
+fi
 
-# ---- 6. uploads / config 备份附带校验（存在才查）----
-log "=== 步骤 6: uploads 与 config 备份附带校验 ==="
-UPLOADS_LATEST=$(ls -t "${BACKUP_DIR}"/uploads/uploads_*.tar.gz 2>/dev/null | head -1)
+# ---- 6. uploads / config 备份校验（存在才查；失败即 FAIL，不再只 WARN）----
+log "=== 步骤 6: uploads 与 config 备份校验 ==="
+
+# 加密 tar 的解密回验（非加密直接 tar -tzf）
+verify_tar_maybe_encrypted() {
+  FILE="$1"
+  case "$FILE" in
+    *.gpg)
+      [ -f "$ENC_PASS_FILE" ] || return 1
+      gpg --batch --quiet --decrypt --passphrase-file "$ENC_PASS_FILE" "$FILE" 2>/dev/null | tar -tzf - >/dev/null 2>&1
+      ;;
+    *.enc)
+      [ -f "$ENC_PASS_FILE" ] || return 1
+      openssl enc -d -aes-256-cbc -pbkdf2 -in "$FILE" -pass file:"$ENC_PASS_FILE" 2>/dev/null | tar -tzf - >/dev/null 2>&1
+      ;;
+    *)
+      tar -tzf "$FILE" >/dev/null 2>&1
+      ;;
+  esac
+}
+
+UPLOADS_LATEST=$(ls -t "${BACKUP_DIR}"/uploads/uploads_*.tar.gz \
+  "${BACKUP_DIR}"/uploads/uploads_*.tar.gz.gpg \
+  "${BACKUP_DIR}"/uploads/uploads_*.tar.gz.enc 2>/dev/null | head -1)
 if [ -n "$UPLOADS_LATEST" ]; then
-  if tar -tzf "$UPLOADS_LATEST" >/dev/null 2>&1; then
+  if verify_tar_maybe_encrypted "$UPLOADS_LATEST"; then
     log "uploads 备份完整性: PASS ($(basename "$UPLOADS_LATEST"))"
   else
-    warn "uploads 备份完整性失败: $(basename "$UPLOADS_LATEST")"
+    fail "uploads 备份完整性失败: $(basename "$UPLOADS_LATEST")（口令文件: ${ENC_PASS_FILE}）"
   fi
 else
   log "uploads 备份: 无（跳过）"
 fi
 
-CONFIG_ENC=$(ls -t "${BACKUP_DIR}"/config/config_*.tar.gz.gpg "${BACKUP_DIR}"/config/config_*.tar.gz.enc 2>/dev/null | head -1)
-if [ -n "$CONFIG_ENC" ]; then
-  ENC_PASS_FILE="${BACKUP_ENC_PASS_FILE:-${STACK_DIR}/.backup-enc-pass}"
-  if [ -f "$ENC_PASS_FILE" ]; then
-    case "$CONFIG_ENC" in
-      *.gpg)
-        if gpg --batch --quiet --decrypt --passphrase-file "$ENC_PASS_FILE" "$CONFIG_ENC" 2>/dev/null | tar -tzf - >/dev/null 2>&1; then
-          log "config 加密备份解密回验: PASS ($(basename "$CONFIG_ENC"))"
-        else
-          warn "config 加密备份解密回验失败: $(basename "$CONFIG_ENC")"
-        fi
-        ;;
-      *.enc)
-        if openssl enc -d -aes-256-cbc -pbkdf2 -in "$CONFIG_ENC" -pass file:"$ENC_PASS_FILE" 2>/dev/null | tar -tzf - >/dev/null 2>&1; then
-          log "config 加密备份解密回验: PASS ($(basename "$CONFIG_ENC"))"
-        else
-          warn "config 加密备份解密回验失败: $(basename "$CONFIG_ENC")"
-        fi
-        ;;
-    esac
+CONFIG_LATEST=$(ls -t "${BACKUP_DIR}"/config/config_*.tar.gz \
+  "${BACKUP_DIR}"/config/config_*.tar.gz.gpg \
+  "${BACKUP_DIR}"/config/config_*.tar.gz.enc 2>/dev/null | head -1)
+if [ -n "$CONFIG_LATEST" ]; then
+  if verify_tar_maybe_encrypted "$CONFIG_LATEST"; then
+    log "config 备份完整性/解密回验: PASS ($(basename "$CONFIG_LATEST"))"
   else
-    log "config 加密备份: 口令文件缺失（$ENC_PASS_FILE），跳过解密回验"
+    fail "config 备份完整性/解密回验失败: $(basename "$CONFIG_LATEST")（口令文件: ${ENC_PASS_FILE}）"
   fi
 else
-  log "config 加密备份: 无（跳过）"
+  log "config 备份: 无（跳过）"
 fi
 
 # ---- 7. 收尾 ----

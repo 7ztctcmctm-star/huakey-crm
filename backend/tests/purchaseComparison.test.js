@@ -49,7 +49,7 @@ describe('采购比价模块', () => {
   describe('POST /api/v1/purchase/comparison/create', () => {
     it('应该返回400当缺少title', async () => {
       mockPool.query.mockResolvedValueOnce([[]]); // blacklist
-      mockPool.query.mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]); // role
+      mockPool.query.mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]); // role
 
       const res = await request(app)
         .post('/api/v1/purchase/comparison/create')
@@ -63,8 +63,7 @@ describe('采购比价模块', () => {
     it('应该返回201当正常创建', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role
         .mockResolvedValueOnce([[{ cnt: 0 }]]) // count
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert
 
@@ -83,8 +82,7 @@ describe('采购比价模块', () => {
     it('应该返回比价单列表', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role
         .mockResolvedValueOnce([[{ total: 1 }]]) // count
         .mockResolvedValueOnce([[{ id: 1, title: '螺丝比价', status: 'draft', supplier_count: 0 }]]); // list
 
@@ -103,8 +101,7 @@ describe('采购比价模块', () => {
     it('应该返回404当比价单不存在', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role
         .mockResolvedValueOnce([[undefined]]); // comparison not found
 
       const res = await request(app)
@@ -120,8 +117,7 @@ describe('采购比价模块', () => {
     it('应该返回200当正常添加报价', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role
         .mockResolvedValueOnce([[{ id: 1 }]]) // comparison exists
         .mockResolvedValueOnce([[undefined]]) // no duplicate
         .mockResolvedValueOnce([{ insertId: 1 }]); // insert quote
@@ -140,8 +136,7 @@ describe('采购比价模块', () => {
     it('应该返回200当选择供应商', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role
         .mockResolvedValueOnce([[{ status: 'draft' }]]) // comparison
         .mockResolvedValueOnce([[{ id: 1 }]]) // valid supplier
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
@@ -160,8 +155,7 @@ describe('采购比价模块', () => {
     it('应该返回200当取消比价单', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
+        .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // role
         .mockResolvedValueOnce([[{ status: 'draft' }]]) // comparison
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // update
 

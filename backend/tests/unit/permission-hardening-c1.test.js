@@ -113,7 +113,11 @@ const GATED = [
   { file: 'target', method: 'POST', path: '/list', code: 'target', why: '全员目标+实际成交/回款=绩效看板' },
   { file: 'integration', method: 'GET', path: '/email-log', code: 'system', why: '外发邮件审计记录' },
   { file: 'product', method: 'GET', path: '/:id/prices', code: 'product', why: '产品价格表（不含成本价）' },
-  { file: 'product', method: 'GET', path: '/:id/price', code: 'product', why: '报价取价入口（不含成本价）' }
+  { file: 'product', method: 'GET', path: '/:id/price', code: 'product', why: '报价取价入口（不含成本价）' },
+  // [P1-08] 价格写入不得复用查看码：原三条写接口只挂 product，sales/engineer 可改价
+  { file: 'product', method: 'POST', path: '/:id/prices', code: 'product:edit', why: '新增产品价格（写）' },
+  { file: 'product', method: 'PUT', path: '/price/:id', code: 'product:edit', why: '修改产品价格（写）' },
+  { file: 'product', method: 'DELETE', path: '/price/:id', code: 'product:delete', why: '删除产品价格（写）' }
 ];
 
 // 评估后**刻意保持公开**的字典类端点（只允许 authenticateToken，不挂功能码）
@@ -228,12 +232,12 @@ describe('C1 · 403/200 双向验证（经过真实中间件链）', () => {
     // authenticateToken 依次查询：黑名单 → 角色 → 账号状态
     mockPool.query
       .mockResolvedValueOnce([[]])
-      .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0, role_code: 'sales' }]])
-      .mockResolvedValueOnce([[{ must_change_password: 0 }]]);
+      .mockResolvedValueOnce([[{ id: 1, username: 'test_user', status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, view_all: 0, manage_all: 0, role_code: 'sales' }]])
 
     // 路由定义里的 :id 要换成具体值，否则路径字面量 ':id' 不会匹配任何路由 ⇒ 404
     const url = `/api/v1${p.replace(/:id/g, '1')}`;
-    const req = method === 'GET' ? request(app).get(url) : request(app).post(url);
+    // 按用例声明的 HTTP 方法发起请求（PUT/DELETE 价格写接口需要真实方法匹配路由）
+    const req = request(app)[String(method).toLowerCase()](url);
     return req.set('Authorization', token).send({});
   };
 

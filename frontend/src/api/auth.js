@@ -7,7 +7,8 @@
  *   { code: 200, message: '...', data: {...} }
  * 前端调用后请用 `res.code === 200` 判断成功，`res.data` 取业务数据。
  *
- * 认证方式：httpOnly Cookie（后端设置 sameSite=strict），前端不持久化 token。
+ * 认证方式：httpOnly Cookie（后端设置 sameSite=lax）+ double-submit CSRF（X-CSRF-Token），
+ * 前端不持久化 token。
  * 刷新策略：axios 封装在 request.js 中统一处理 401 → 尝试 refresh → 重放原请求。
  */
 import request from '@/utils/request'
@@ -17,8 +18,9 @@ import request from '@/utils/request'
  * @param {Object} data
  * @param {string} data.username
  * @param {string} data.password
- * @param {string} [data.captcha]   验证码（SKIP_CAPTCHA=true 时可省略）
- * @returns {Promise<{code:number, message:string, data:{user:{id:number, username:string, role_code:string}}}>}
+ * @param {string} data.captcha    验证码（Joi schema 必填，长度 4；SKIP_CAPTCHA 只跳过校验，不跳过传参）
+ * @param {string} data.captchaKey 验证码 key（POST /auth/captcha 返回）
+ * @returns {Promise<{code:number, message:string, data:{mustChangePassword:boolean, userInfo:{id:number, username:string, roleId:number}}}>}
  */
 export const login = (data) => request.post('/auth/login', data)
 

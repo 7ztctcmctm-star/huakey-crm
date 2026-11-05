@@ -1,3 +1,5 @@
+> **归档文档（历史快照）**：本文档已归档至 `docs/archive/`，记录的是当时的状态与结论，可能包含已过时的配置、路径或代码引用。当前事实以实际代码、`AGENTS.md` 与 `docs/fix-ledger-2026-10-23.md` 为准，请勿据此直接执行生产操作。
+
 # CRM Core v1 — Database Schema Audit
 
 > **审计类型**: 数据库完整性检查

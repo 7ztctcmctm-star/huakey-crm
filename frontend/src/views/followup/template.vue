@@ -82,7 +82,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, View } from '@element-plus/icons-vue'
-import { getFollowupTemplates, saveFollowupTemplate, deleteFollowupTemplate } from '@/api/customer'
+import { getFollowupTemplates, saveFollowupTemplate, updateFollowupTemplate, deleteFollowupTemplate } from '@/api/customer'
 import StateWrapper from '@/components/common/StateWrapper.vue'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import { reportError } from '@/utils/error'
@@ -160,7 +160,7 @@ const handleSubmit = async () => {
     try {
       let res
       if (isEdit.value) {
-        res = await saveFollowupTemplate({ id: editId.value, name: form.name, type: form.type, content: form.content })
+        res = await updateFollowupTemplate(editId.value, { name: form.name, type: form.type, content: form.content })
       } else {
         res = await saveFollowupTemplate({ name: form.name, type: form.type, content: form.content })
       }

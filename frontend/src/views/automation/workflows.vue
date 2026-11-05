@@ -100,7 +100,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Delete } from '@element-plus/icons-vue'
-import { getWorkflows, saveWorkflow, executeWorkflow, getWorkflowLogs, toggleWorkflow, deleteWorkflow } from '@/api/tools'
+import { getWorkflows, saveWorkflow, updateWorkflow, executeWorkflow, getWorkflowLogs, toggleWorkflow, deleteWorkflow } from '@/api/tools'
 
 const eventName = { customer_created: '新客户创建', contract_expiring: '合同即将到期', followup_overdue: '跟进超期', payment_overdue: '回款逾期', opportunity_stale: '商机停滞' }
 const eventTag = { customer_created: '', contract_expiring: 'warning', followup_overdue: 'danger', payment_overdue: '', opportunity_stale: 'info' }
@@ -163,7 +163,7 @@ const handleSave = async () => {
     const actions = form.actions.map(a => ({ type: a.type, params: JSON.parse(a.params_str || '{}') }))
     const data = { ...form, actions, conditions: form.conditions.filter(c => c.field) }
     let res
-    if (isEdit.value) res = await saveWorkflow({ id: editId.value, ...data })
+    if (isEdit.value) res = await updateWorkflow(editId.value, data)
     else res = await saveWorkflow(data)
     if (res.code === 200) { ElMessage.success('保存成功'); dialogVisible.value = false; fetchList() }
   } catch (e) { ElMessage.error('参数格式错误') }

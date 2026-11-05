@@ -126,13 +126,13 @@ test.describe('客户管理 CRUD', () => {
     const companyName = uniqueCompanyName()
     await ensureDesktopViewport(page)
 
-    // 潜客池（/leads）提供"新增潜客"，提交后无分配规则时新客户为 lead 留在潜客池
+    // 客户资源库（/leads）提供"新增资源"，提交后无分配规则时新客户为 lead 留在资源库
     await page.goto('/leads')
     await page.locator('.leads-pool').waitFor({ state: 'visible', timeout: 10000 })
     await disableAnimations(page)
 
-    // 打开新增弹窗（潜客池复用 CustomerFormDialog，弹窗标题为"新增客户"）
-    await page.locator('.leads-pool button:has-text("新增潜客")').click()
+    // 打开新增弹窗（客户资源库复用 CustomerFormDialog，弹窗标题为"新增客户"）
+    await page.locator('.leads-pool button:has-text("新增资源")').click()
     await expect(page.locator('.el-dialog:has-text("新增客户")')).toBeVisible({ timeout: 5000 })
 
     // 填写表单（按 label 定位）
@@ -239,12 +239,13 @@ test.describe('客户管理 CRUD', () => {
  * R-03 客户三类型 CRUD 矩阵 + 跨类型流转（Week 4）
  *
  * 三类型（Customer Center 拆分设计）：
- *   潜客池 /leads        → business_status='lead'（已有用例覆盖 CRUD）
+ *   客户资源库 /leads       → business_status='lead'（已有用例覆盖 CRUD）
  *   正式客户 /customer/list → pool_status='private' 且 business_status∈(following/quoted/negotiating/signed)
- *   公海池 /pool          → pool_status='sea' 且 owner_id IS NULL
+ *   待分配 /pool            → pool_status='sea' 且 owner_id IS NULL
  *
- * 流转链：lead --代转化(admin)--> sea --认领--> private --释放--> sea
- * （归属规则 2026-09-11 产品决策：admin 代转化 → 置公海；认领 → private+owner）
+ * 流转链：lead --代转化(admin)--> sea --分配至本人--> private --收回到待分配--> sea
+ * （归属规则 2026-09-11 产品决策：admin 代转化 → 置待分配；分配 → private+owner。
+ *  S3 2026-11-05：UI「认领」按钮下线，用例改走 API 分配至本人；boss 生产口径走 customer:assign）
  */
 test.describe('R-03 客户三类型 CRUD 矩阵与跨类型流转', () => {
   const skipMobile = (testInfo) =>
@@ -257,7 +258,7 @@ test.describe('R-03 客户三类型 CRUD 矩阵与跨类型流转', () => {
 
   /**
    * 准备一个「正式客户」（pool_status='private'、owner=当前 admin）
-   * 链路：建客户(lead) → admin 代转化(→sea) → admin 认领(→private)
+   * 链路：建客户(lead) → admin 代转化(→sea) → admin 分配至本人(→private)
    */
   async function setupFormalCustomer(request) {
     const { csrfToken, userId } = await loginAsAdmin(request)
@@ -271,7 +272,7 @@ test.describe('R-03 客户三类型 CRUD 矩阵与跨类型流转', () => {
     expect(convRes.code).toBe(200)
 
     const claimRes = await claimPoolCustomer(request, csrfToken, customerId)
-    expect(claimRes.code, `admin 认领应成功，实际: ${JSON.stringify(claimRes)}`).toBe(200)
+    expect(claimRes.code, `admin 分配至本人应成功，实际: ${JSON.stringify(claimRes)}`).toBe(200)
 
     return { csrfToken, userId, companyName, customerId }
   }
@@ -319,50 +320,47 @@ test.describe('R-03 客户三类型 CRUD 矩阵与跨类型流转', () => {
     }
   })
 
-  test('公海池：待认领搜索 + UI 认领 + 全部客户视图显示负责人', async ({ authenticatedPage: page, request }, testInfo) => {
+  test('客户总览：待分配搜索 + API 分配至本人 + 全部客户视图显示负责人', async ({ authenticatedPage: page, request }, testInfo) => {
     skipMobile(testInfo)
     test.setTimeout(60000)
     await ensureDesktopViewport(page)
 
     const { csrfToken, userId } = await loginAsAdmin(request)
-    const companyName = uniqueCompanyName('E2E公海客户')
+    const companyName = uniqueCompanyName('E2E待分配客户')
     const createRes = await createCustomer(request, csrfToken, { companyName })
     expect(createRes.code).toBe(200)
     const customerId = createRes.data?.id
     expect(customerId).toBeTruthy()
 
-    // admin 代转化 → 置入公海（sea + owner=NULL）
+    // admin 代转化 → 置入待分配（sea + owner=NULL）
     const convRes = await convertLeadToFormal(request, csrfToken, customerId)
     expect(convRes.code).toBe(200)
 
     try {
-      // 1. 公海「待认领」视图（默认 scope）搜索可见，且显示「待认领」标识
+      // 1. 客户总览「待分配」视图（默认 scope）搜索可见，且显示「待分配」标识
       await page.goto('/pool')
       await page.locator('.pool-list').waitFor({ state: 'visible', timeout: 10000 })
       await disableAnimations(page)
       await searchCustomer(page, companyName, '.pool-list')
       const row = page.locator('.pool-list .el-table__row').filter({ hasText: companyName })
       await expect(row).toBeVisible()
-      await expect(row.locator('.el-tag:has-text("待认领")')).toBeVisible()
+      await expect(row.locator('.el-tag:has-text("待分配")')).toBeVisible()
 
-      // 2. UI 认领：点「认领」→ 确认框「确定认领」
-      await row.locator('button:has-text("认领")').click({ force: true })
-      const claimConfirm = page.locator('.el-message-box__btns .el-button--primary:has-text("确定认领")')
-      await claimConfirm.waitFor({ state: 'visible', timeout: 5000 })
-      await claimConfirm.click({ force: true })
-      await page.waitForTimeout(1500)
+      // 2. 分配至本人（S3 后 UI「认领」按钮已下线，归属走 API；boss 生产口径走 customer:assign 通道）
+      const claimRes = await claimPoolCustomer(request, csrfToken, customerId)
+      expect(claimRes.code, `admin 分配至本人应成功，实际: ${JSON.stringify(claimRes)}`).toBe(200)
 
-      // 3. 认领成功 → 待认领视图不再出现该客户
+      // 3. 分配成功 → 待分配视图不再出现该客户
       await searchCustomer(page, companyName, '.pool-list')
       await expect(page.locator('.pool-list .el-table__row').filter({ hasText: companyName })).toHaveCount(0)
 
-      // 4. 切「全部客户」视图 → 可见且负责人列不再显示「待认领」
+      // 4. 切「全部客户」视图 → 可见且负责人列不再显示「待分配」
       await page.locator('.pool-list .el-radio-button:has-text("全部客户")').click()
       await page.waitForTimeout(1200)
       await searchCustomer(page, companyName, '.pool-list')
       const allRow = page.locator('.pool-list .el-table__row').filter({ hasText: companyName })
       await expect(allRow).toBeVisible()
-      await expect(allRow.locator('.el-tag:has-text("待认领")')).toHaveCount(0)
+      await expect(allRow.locator('.el-tag:has-text("待分配")')).toHaveCount(0)
 
       // 5. API 复核归属：owner=admin、pool_status='private'
       const detail = await getCustomerDetail(request, csrfToken, customerId)
@@ -377,7 +375,7 @@ test.describe('R-03 客户三类型 CRUD 矩阵与跨类型流转', () => {
     }
   })
 
-  test('跨类型全链路：lead→公海→认领→正式客户→释放回公海', async ({ authenticatedPage: page, request }, testInfo) => {
+  test('跨类型全链路：lead→待分配→分配至本人→正式客户→收回到待分配', async ({ authenticatedPage: page, request }, testInfo) => {
     skipMobile(testInfo)
     test.setTimeout(90000)
     await ensureDesktopViewport(page)
@@ -397,7 +395,7 @@ test.describe('R-03 客户三类型 CRUD 矩阵与跨类型流转', () => {
       await searchCustomer(page, companyName, '.leads-pool')
       await expect(page.locator('.leads-pool .el-table__row').filter({ hasText: companyName })).toBeVisible()
 
-      // ── 阶段 2：admin 代转化 → 公海待认领可见 ──
+      // ── 阶段 2：admin 代转化 → 待分配视图可见 ──
       const convRes = await convertLeadToFormal(request, csrfToken, customerId)
       expect(convRes.code).toBe(200)
       await page.goto('/pool')
@@ -406,32 +404,29 @@ test.describe('R-03 客户三类型 CRUD 矩阵与跨类型流转', () => {
       const poolRow = page.locator('.pool-list .el-table__row').filter({ hasText: companyName })
       await expect(poolRow).toBeVisible()
 
-      // ── 阶段 3：UI 认领 → 正式客户列表可见 ──
-      await poolRow.locator('button:has-text("认领")').click({ force: true })
-      const claimConfirm = page.locator('.el-message-box__btns .el-button--primary:has-text("确定认领")')
-      await claimConfirm.waitFor({ state: 'visible', timeout: 5000 })
-      await claimConfirm.click({ force: true })
-      await page.waitForTimeout(1500)
+      // ── 阶段 3：API 分配至本人（S3 后 UI「认领」按钮已下线）→ 正式客户列表可见 ──
+      const claimRes = await claimPoolCustomer(request, csrfToken, customerId)
+      expect(claimRes.code, `admin 分配至本人应成功，实际: ${JSON.stringify(claimRes)}`).toBe(200)
 
       await page.goto('/customer/list')
       await page.locator('.customer-list').waitFor({ state: 'visible', timeout: 10000 })
       await searchCustomer(page, companyName)
       await expect(page.locator('.customer-list .el-table__row').filter({ hasText: companyName })).toBeVisible()
 
-      // ── 阶段 4：详情页「释放公海」（R-03 修复回归：原 pool_status===0 恒 false，按钮永不渲染）──
+      // ── 阶段 4：详情页「收回到待分配」（R-03 修复回归：原 pool_status===0 恒 false，按钮永不渲染）──
       await page.goto(`/customer/detail/${customerId}`)
-      const releaseBtn = page.locator('button:has-text("释放公海")')
-      await expect(releaseBtn, '私有客户详情页应显示「释放公海」按钮').toBeVisible({ timeout: 10000 })
+      const releaseBtn = page.locator('button:has-text("收回到待分配")')
+      await expect(releaseBtn, '私有客户详情页应显示「收回到待分配」按钮').toBeVisible({ timeout: 10000 })
       await releaseBtn.click({ force: true })
       const releaseConfirm = page.locator('.el-message-box__btns .el-button--primary').first()
       await releaseConfirm.waitFor({ state: 'visible', timeout: 5000 })
       await releaseConfirm.click({ force: true })
       await page.waitForTimeout(2000)
 
-      // 释放后详情页 hero-tags 出现「公海客户」标识（R-03 修复的第二个回归点）
-      await expect(page.locator('.customer-360 .el-tag:has-text("公海客户")')).toBeVisible({ timeout: 10000 })
+      // 收回后详情页 hero-tags 出现「待分配」标识（R-03 修复的第二个回归点）
+      await expect(page.locator('.customer-360 .el-tag:has-text("待分配")')).toBeVisible({ timeout: 10000 })
 
-      // ── 阶段 5：API 复核释放效果（sea + owner=NULL + status='sea'）──
+      // ── 阶段 5：API 复核收回效果（sea + owner=NULL + status='sea'）──
       const detail = await getCustomerDetail(request, csrfToken, customerId)
       expect(detail.code).toBe(200)
       const c = detail.data?.customer
@@ -439,7 +434,7 @@ test.describe('R-03 客户三类型 CRUD 矩阵与跨类型流转', () => {
       expect(c?.pool_status).toBe('sea')
       expect(c?.status).toBe('sea')
 
-      // ── 阶段 6：公海待认领再次可见（流转闭环）──
+      // ── 阶段 6：客户总览待分配视图再次可见（流转闭环）──
       await page.goto('/pool')
       await page.locator('.pool-list').waitFor({ state: 'visible', timeout: 10000 })
       await searchCustomer(page, companyName, '.pool-list')

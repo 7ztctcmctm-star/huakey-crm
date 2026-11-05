@@ -117,7 +117,7 @@ describe('CSRF 防护中间件', () => {
     expect(patchRes.status).toBe(403);
   });
 
-  it('生产环境 HTTPS 请求下 CSRF cookie 应标记 secure', async () => {
+  it('生产环境 HTTPS 请求下 CSRF cookie 应标记 secure + SameSite=Lax', async () => {
     process.env.NODE_ENV = 'production';
     const app = express();
     app.set('trust proxy', 1);
@@ -132,7 +132,8 @@ describe('CSRF 防护中间件', () => {
     const csrfCookie = res.headers['set-cookie']
       .find(c => c.startsWith(`${CSRF_COOKIE_NAME}=`));
     expect(csrfCookie).toContain('Secure');
-    expect(csrfCookie).toContain('SameSite=Strict');
+    // eb34a40：SameSite strict→lax，修复 .local 域名下 cookie 不存的问题
+    expect(csrfCookie).toContain('SameSite=Lax');
   });
 
   it('生产环境 HTTP 请求下 CSRF cookie 不应标记 secure（兼容 NAS HTTP 部署）', async () => {

@@ -25,6 +25,9 @@ async function getMyReminders(pool, userId, roleId, opts = {}) {
      LEFT JOIN crm_follow_plan fp ON r.follow_plan_id = fp.id
      WHERE r.owner_id = ? AND r.is_dismissed = 0
        AND r.reminder_type IN ('overdue', 'today', 'upcoming')
+       -- [P2-02] upcoming 是「明日待跟进」的前一天预览（reminder_date=次日）。
+       -- 到了 reminder_date 当天仍未清理的历史行不应再显示在「明日」页签。
+       AND NOT (r.reminder_type = 'upcoming' AND r.reminder_date <= CURDATE())
      ORDER BY r.reminder_type, r.create_time DESC`,
     [userId]
   );
@@ -39,7 +42,7 @@ async function getMyReminders(pool, userId, roleId, opts = {}) {
     `SELECT c.id as customer_id, c.company_name, c.contact_name, c.phone, c.last_follow_time,
             DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) as overdue_days
      FROM crm_customer c
-     WHERE c.owner_id = ? AND c.status NOT IN (0, 2, 3)
+     WHERE c.deleted_at IS NULL AND c.owner_id = ? AND c.status NOT IN (0, 2, 3)
        AND DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) >= ?
        AND DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) < ?
        AND c.id NOT IN (
@@ -144,8 +147,11 @@ async function getMyReminders(pool, userId, roleId, opts = {}) {
  * @param {object} [permission] - { isBoss, userId }
  */
 async function getOverdueList(pool, params = {}, permission = null) {
-  const { page = 1, pageSize = 20, overdueDays = 30 } = params;
+  const { overdueDays = 30 } = params;
+  const page = Math.max(parseInt(params.page, 10) || 1, 1);
+  const pageSize = Math.max(parseInt(params.pageSize, 10) || 20, 1);
   const { isBoss = false, userId } = permission || {};
+  // [P1-04] 显式 parseInt 后再计算，避免字符串参数参与乘法得到非法 LIMIT/OFFSET
   const offset = (page - 1) * pageSize;
 
   let userFilter = '';
@@ -178,10 +184,12 @@ async function getOverdueList(pool, params = {}, permission = null) {
        ${userFilter}
      ORDER BY overdue_days DESC
      LIMIT ? OFFSET ?`,
-    [...queryParams, overdueDays, parseInt(pageSize), parseInt(offset)]
+    // [P1-04] SQL 占位符只有 INTERVAL ? / 可选 owner_id / LIMIT ? OFFSET ?，
+    // 不能再多传 overdueDays，否则 LIMIT 绑到天数、OFFSET 绑到 pageSize，分页完全错位
+    [...queryParams, pageSize, offset]
   );
 
-  return { list, total: countResult[0].total, page: parseInt(page), pageSize: parseInt(pageSize) };
+  return { list, total: countResult[0].total, page, pageSize };
 }
 
 /**
@@ -372,7 +380,7 @@ async function getReminderCenter(pool, userId, roleId) {
     `SELECT fp.id, CONCAT('跟进-', c.company_name) as title, fp.plan_time as create_time,
             CONCAT('/customer/detail/', c.id) as link
      FROM crm_follow_plan fp
-     JOIN crm_customer c ON fp.customer_id = c.id
+     JOIN crm_customer c ON fp.customer_id = c.id AND c.deleted_at IS NULL
      WHERE fp.create_by = ? AND fp.status = 'pending'
        AND DATE(fp.plan_time) = CURDATE()
      ORDER BY fp.plan_time LIMIT 5`, [userId]
@@ -394,7 +402,7 @@ async function getReminderCenter(pool, userId, roleId) {
             pp.plan_date as create_time, '/payment' as link
      FROM crm_payment_plan pp
      JOIN crm_contract c ON pp.contract_id = c.id
-     WHERE pp.plan_date < CURDATE() AND pp.status != 'completed' AND c.deleted_at IS NULL
+     WHERE pp.deleted_at IS NULL AND pp.plan_date < CURDATE() AND pp.status != 'completed' AND c.deleted_at IS NULL
      ORDER BY pp.plan_date LIMIT 5`
   );
 

@@ -10,12 +10,16 @@ const {
 const {
   POOL_STATUS,
   BUSINESS_STATUS,
-  FORMAL_BUSINESS_STATUSES,
   isValidBusinessStatus
 } = require('../constants/poolStatus');
 const { paginatedQuery } = require('../utils/pagination');
+// [P1-03] 认领/释放 SET 片段的唯一事实源（与 poolService / assignService 共用）
+const {
+  CLAIM_SET_SQL, claimParams, RELEASE_SET_SQL, releaseParams, assignmentStatusFragment
+} = require('../utils/customerPoolState');
 const AppError = require('../errors/AppError');
 const ErrorCodes = require('../errors/codes');
+const { buildDataPermissionWhere } = require('../middleware/permission');
 // [M-001] 状态配置/流转规则缓存改用 node-cache 设 TTL，管理员修改规则后 5 分钟内自动生效，
 // 不再需要重启服务。原模块级永久缓存（statusConfigCache/statusTransitionCache）已移除。
 const NodeCache = require('node-cache');
@@ -33,6 +37,34 @@ const SORT_MAP = {
   'last_follow_time_asc': 'c.last_follow_time IS NULL ASC, c.last_follow_time ASC',
   'last_follow_time_desc': 'c.last_follow_time DESC'
 };
+
+/**
+ * 取日期边界（只保留 YYYY-MM-DD）。
+ * Joi.string().isoDate() 在 convert=true 时会把 '2026-01-01' 归一化成
+ * '2026-01-01T00:00:00.000Z'；直接拼 ' 23:59:59' 会得到非法 DATETIME，
+ * 导致结束日期筛选报错或恒不命中。service 层统一按日期部分处理。
+ */
+function toDateOnly(value) {
+  return String(value).slice(0, 10);
+}
+
+/**
+ * 正式客户列表的状态集合（status 为权威字段，见迁移 110）。
+ * 有主 + 已进入正式流程 = following/quoted/negotiating/signed/lost/paused。
+ *
+ * [P1-27] 旧集合是 business_status IN (following/quoted/negotiating/signed)：
+ *   · 不含 lost ⇒ 「已流失」tab 恒空；
+ *   · business_status 枚举没有 paused ⇒ 「暂停跟进」tab 的过滤值被
+ *     isValidBusinessStatus 判为非法后**整条丢弃**，反而返回全部正式客户。
+ */
+const FORMAL_CUSTOMER_STATUSES = [
+  CUSTOMER_STATUS.FOLLOWING,
+  CUSTOMER_STATUS.QUOTED,
+  CUSTOMER_STATUS.NEGOTIATING,
+  CUSTOMER_STATUS.SIGNED,
+  CUSTOMER_STATUS.LOST,
+  CUSTOMER_STATUS.PAUSED
+];
 
 // [M-001] 状态配置/流转规则缓存已迁移至 node-cache（statusCache），TTL 300s 自动过期
 
@@ -111,6 +143,7 @@ async function listCustomers(pool, params = {}, permission = null) {
   const {
     page = 1,
     pageSize = 10,
+    keyword,
     company_name,
     contact_name,
     phone,
@@ -158,6 +191,12 @@ async function listCustomers(pool, params = {}, permission = null) {
   }
 
   // 筛选条件
+  // [V1.1 §11.3] 客户选择器/邮箱收件人搜索的 keyword：公司名/联系人/电话任一命中。
+  if (keyword) {
+    whereClause += ' AND (c.company_name LIKE ? OR pc.name LIKE ? OR pc.phone LIKE ?)';
+    const like = `%${keyword}%`;
+    queryParams.push(like, like, like);
+  }
   if (owner_id) {
     whereClause += ' AND c.owner_id = ?';
     queryParams.push(owner_id);
@@ -206,11 +245,11 @@ async function listCustomers(pool, params = {}, permission = null) {
   }
   if (start_date) {
     whereClause += ' AND c.create_time >= ?';
-    queryParams.push(start_date);
+    queryParams.push(toDateOnly(start_date));
   }
   if (end_date) {
     whereClause += ' AND c.create_time < ?';
-    queryParams.push(end_date + ' 23:59:59');
+    queryParams.push(toDateOnly(end_date) + ' 23:59:59');
   }
   if (overdue) {
     const { getOverdueDays } = require('../utils/config');
@@ -266,7 +305,7 @@ async function listCustomers(pool, params = {}, permission = null) {
       `SELECT ct.customer_id, t.id, t.name, t.color
        FROM crm_customer_tag ct
        JOIN crm_tag t ON ct.tag_id = t.id
-       WHERE ct.customer_id IN (?)`,
+       WHERE ct.customer_id IN (?) AND t.deleted_at IS NULL`,
       [customerIds]
     );
     const tagMap = {};
@@ -330,7 +369,7 @@ async function getCustomer(pool, customerId) {
     const placeholders = followIds.map(() => '?').join(',');
     const [attachments] = await pool.query(
       `SELECT id, business_id as follow_up_id, file_name, file_path, file_size, file_type
-       FROM crm_attachment WHERE business_type = 'follow_up' AND business_id IN (${placeholders})
+       FROM crm_attachment WHERE business_type = 'follow_up' AND business_id IN (${placeholders}) AND deleted_at IS NULL
        ORDER BY create_time ASC`,
       followIds
     );
@@ -463,7 +502,7 @@ async function backwardStatus(pool, customerId, operatorId, reason, permission =
  */
 async function assignCustomer(pool, customerId, toUserId, operatorId, remark) {
   const [customers] = await pool.query(
-    'SELECT id, owner_id, company_name FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+    'SELECT id, owner_id, company_name, status, business_status FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [customerId]
   );
   if (customers.length === 0) {
@@ -472,9 +511,13 @@ async function assignCustomer(pool, customerId, toUserId, operatorId, remark) {
 
   const fromUserId = customers[0].owner_id;
 
+  // [P1-03] 回收为待分配时 pool_status 必须是 SEA（原实现恒写 PRIVATE，
+  // 与 owner_id=NULL 冲突）；把公海客户分配给人时同步推进 status/business_status。
+  const toUserIdValue = toUserId || null;
+  const statusFragment = assignmentStatusFragment(customers[0], toUserIdValue);
   await pool.query(
-    'UPDATE crm_customer SET owner_id = ?, pool_status = ?, protect_until = NULL WHERE id = ?',
-    [toUserId || null, POOL_STATUS.PRIVATE, customerId]
+    `UPDATE crm_customer SET owner_id = ?, pool_status = ?, protect_until = NULL${statusFragment.sql} WHERE id = ?`,
+    [toUserIdValue, toUserIdValue ? POOL_STATUS.PRIVATE : POOL_STATUS.SEA, ...statusFragment.params, customerId]
   );
 
   await pool.query(
@@ -520,9 +563,9 @@ async function claimCustomer(pool, customerId, userId) {
     // 否则数据错位时守卫放行、UPDATE 却 0 行（「已被他人认领」误报）。
     const [claimResult] = await connection.query(
       `UPDATE crm_customer
-          SET pool_status = ?, owner_id = ?, protect_until = NULL, last_follow_time = NOW()
+          SET ${CLAIM_SET_SQL}
         WHERE id = ? AND owner_id IS NULL AND deleted_at IS NULL`,
-      [POOL_STATUS.PRIVATE, userId, customerId]
+      [...claimParams(userId), customerId]
     );
     if (claimResult.affectedRows !== 1) {
       throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已被他人认领，请刷新后重试');
@@ -551,16 +594,20 @@ async function claimCustomer(pool, customerId, userId) {
  */
 async function releaseCustomer(pool, customerId, userId) {
   const [customers] = await pool.query(
-    'SELECT id, owner_id, company_name FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+    'SELECT id, owner_id, company_name, business_status FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [customerId]
   );
   if (customers.length === 0) {
     throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);
   }
+  // [P1-03] 线索不可释放为公海（否则会被静默改写为正式客户），与其它释放路径统一
+  if (customers[0].business_status === BUSINESS_STATUS.LEAD) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '线索客户不能释放到公海，请使用"放弃"操作');
+  }
 
   await pool.query(
-    'UPDATE crm_customer SET pool_status = ?, owner_id = NULL, protect_until = NULL WHERE id = ?',
-    [POOL_STATUS.SEA, customerId]
+    `UPDATE crm_customer SET ${RELEASE_SET_SQL} WHERE id = ?`,
+    [...releaseParams(), customerId]
   );
 
   await pool.query(
@@ -646,14 +693,15 @@ async function getNearRecycleCustomersList(pool, params = {}, permission = null)
     permParams = permission.params || [];
   }
 
+  // [P2-07] 归属判据只看 owner_id（pool_status 为兼容列，可能滞后/错位）
   const [countResult] = await pool.query(
     `SELECT COUNT(*) as total FROM crm_customer c
-     WHERE c.pool_status = ? AND c.deleted_at IS NULL AND c.owner_id IS NOT NULL
+     WHERE c.deleted_at IS NULL AND c.owner_id IS NOT NULL
        AND c.status = 'following'
        AND (c.last_follow_time IS NULL AND c.create_time < NOW() - INTERVAL ? DAY
          OR c.last_follow_time < NOW() - INTERVAL ? DAY)
        AND ${permissionWhere}`,
-    [POOL_STATUS.PRIVATE, nearDays, nearDays, ...permParams]
+    [nearDays, nearDays, ...permParams]
   );
 
   const [list] = await pool.query(
@@ -663,14 +711,14 @@ async function getNearRecycleCustomersList(pool, params = {}, permission = null)
             u.real_name as owner_name
      FROM crm_customer c
      LEFT JOIN sys_user u ON c.owner_id = u.id
-     WHERE c.pool_status = ? AND c.deleted_at IS NULL AND c.owner_id IS NOT NULL
+     WHERE c.deleted_at IS NULL AND c.owner_id IS NOT NULL
        AND c.status = 'following'
        AND (c.last_follow_time IS NULL AND c.create_time < NOW() - INTERVAL ? DAY
          OR c.last_follow_time < NOW() - INTERVAL ? DAY)
        AND ${permissionWhere}
      ORDER BY overdue_days DESC
      LIMIT ? OFFSET ?`,
-    [POOL_STATUS.PRIVATE, nearDays, nearDays, ...permParams, pageSize, offset]
+    [nearDays, nearDays, ...permParams, pageSize, offset]
   );
 
   return {
@@ -688,14 +736,14 @@ async function getNearRecycleCustomersList(pool, params = {}, permission = null)
 /**
  * 查询潜客池列表（business_status='lead'）
  * @param {object} pool
- * @param {object} params - { page, pageSize, company_name, contact_name, phone, source, lead_level, owner_id, sort }
+ * @param {object} params - { page, pageSize, company_name, contact_name, phone, source, level, lead_level, owner_id, sort }
  * @param {object} [permission] - { clause, params } 数据权限片段
  * @returns {{ list: Array, total: number }}
  */
 async function listLeads(pool, params = {}, permission = null) {
   const {
     page = 1, pageSize = 10,
-    company_name, contact_name, phone, source, lead_level, owner_id, sort
+    company_name, contact_name, phone, source, level, lead_level, owner_id, sort
   } = params;
 
   const queryParams = [];
@@ -737,6 +785,13 @@ async function listLeads(pool, params = {}, permission = null) {
       queryParams.push(source);
     }
   }
+  // [V1.1 §11.3] 前端潜客池的等级下拉是 A/B/C/D（crm_customer.level），
+  // 旧实现只认 lead_level（高/中/低）⇒ 用户选等级后筛选无效。两者并存：
+  // level 用于新枚举，lead_level 仅兼容仍在调用旧字段的客户端。
+  if (level) {
+    whereClause += ' AND c.level = ?';
+    queryParams.push(level);
+  }
   if (lead_level) {
     whereClause += ' AND c.lead_level = ?';
     queryParams.push(lead_level);
@@ -771,18 +826,23 @@ async function listLeads(pool, params = {}, permission = null) {
 }
 
 /**
- * 查询正式客户列表（business_status IN following/quoted/negotiating/signed 且 **owner_id IS NOT NULL**）
+ * 查询正式客户列表（status IN following/quoted/negotiating/signed/lost/paused 且 **owner_id IS NOT NULL**）
  * [2026-10-15 P0-2] 与 listPoolCustomersNew 同步收敛到 owner_id 判据（详见函数内注释）。
+ * [P1-27] 状态集合从 business_status 切换为权威字段 status（迁移 110：status 是权威，
+ *   business_status 只是镜像），并把前端正式页实际下发的筛选全部落到 SQL：
+ *   status / business_status / lifecycle_status / overdue / overdue_follow / tag_id。
  * @param {object} pool
- * @param {object} params - { page, pageSize, company_name, contact_name, phone, source, level, business_status, owner_id, start_date, end_date, sort }
+ * @param {object} params - { page, pageSize, company_name, contact_name, phone, source, level, status, business_status, lifecycle_status, owner_id, start_date, end_date, overdue, overdue_follow, tag_id, sort }
  * @param {object} [permission] - { clause, params }
  * @returns {{ list: Array, total: number }}
  */
 async function listFormalCustomers(pool, params = {}, permission = null) {
   const {
     page = 1, pageSize = 10,
-    company_name, contact_name, phone, source, level, business_status, owner_id,
-    start_date, end_date, sort
+    company_name, contact_name, phone, source, level,
+    status, business_status, lifecycle_status,
+    owner_id, start_date, end_date,
+    overdue, overdue_follow, tag_id, sort
   } = params;
 
   const queryParams = [];
@@ -799,9 +859,9 @@ async function listFormalCustomers(pool, params = {}, permission = null) {
   // 在数据错位时会把有主客户挡在正式列表外（实测唯一有主客户 pool_status='0' ⇒ 不显示），
   // 同时把无主客户放进来 —— 三页面互相矛盾。改为 owner_id IS NOT NULL 后三页互斥且穷尽：
   // 正式=有主非lead / 公海=无主非lead / 潜客=lead。
-  const formalPlaceholders = FORMAL_BUSINESS_STATUSES.map(() => '?').join(',');
-  let whereClause = `WHERE ${permissionWhere} AND c.business_status IN (${formalPlaceholders}) AND c.owner_id IS NOT NULL AND c.deleted_at IS NULL`;
-  queryParams.push(...FORMAL_BUSINESS_STATUSES);
+  const formalPlaceholders = FORMAL_CUSTOMER_STATUSES.map(() => '?').join(',');
+  let whereClause = `WHERE ${permissionWhere} AND c.status IN (${formalPlaceholders}) AND c.owner_id IS NOT NULL AND c.deleted_at IS NULL`;
+  queryParams.push(...FORMAL_CUSTOMER_STATUSES);
 
   if (owner_id) {
     whereClause += ' AND c.owner_id = ?';
@@ -833,17 +893,43 @@ async function listFormalCustomers(pool, params = {}, permission = null) {
     whereClause += ' AND c.level = ?';
     queryParams.push(level);
   }
-  if (business_status && isValidBusinessStatus(business_status)) {
-    whereClause += ' AND c.business_status = ?';
-    queryParams.push(business_status);
+  // [P1-27] status 下拉与 business_status 状态 tab 都按权威字段 status 过滤：
+  //   · business_status 枚举不含 paused，按旧字段过滤时「暂停跟进」无法表达；
+  //   · 迁移 110 后业务阶段两个字段一致，按 status 过滤语义不变且能区分 paused。
+  // 非法值显式报错，不再像旧实现那样静默忽略后返回全量。
+  for (const requestedStatus of [status, business_status]) {
+    if (requestedStatus === undefined || requestedStatus === null || requestedStatus === '') continue;
+    if (!isValidCustomerStatus(requestedStatus)) {
+      throw new AppError(ErrorCodes.VALIDATION_ERROR, '无效的客户状态');
+    }
+    whereClause += ' AND c.status = ?';
+    queryParams.push(requestedStatus);
+  }
+  if (lifecycle_status) {
+    whereClause += ' AND c.lifecycle_status = ?';
+    queryParams.push(lifecycle_status);
   }
   if (start_date) {
     whereClause += ' AND c.create_time >= ?';
-    queryParams.push(start_date);
+    queryParams.push(toDateOnly(start_date));
   }
   if (end_date) {
     whereClause += ' AND c.create_time < ?';
-    queryParams.push(end_date + ' 23:59:59');
+    queryParams.push(toDateOnly(end_date) + ' 23:59:59');
+  }
+  // [P1-27] 逾期 / 久未跟进 / 标签：与 listCustomers 同口径。
+  if (overdue) {
+    const { getOverdueDays } = require('../utils/config');
+    const overdueDays = await getOverdueDays();
+    whereClause += ' AND DATEDIFF(NOW(), COALESCE(c.last_follow_time, c.create_time)) >= ?';
+    queryParams.push(overdueDays);
+  }
+  if (overdue_follow) {
+    whereClause += ' AND c.last_follow_time IS NOT NULL AND DATEDIFF(NOW(), c.last_follow_time) > 7';
+  }
+  if (tag_id) {
+    whereClause += ' AND EXISTS (SELECT 1 FROM crm_customer_tag ct WHERE ct.customer_id = c.id AND ct.tag_id = ?)';
+    queryParams.push(tag_id);
   }
 
   const orderBy = SORT_MAP[sort] || 'c.create_time DESC';
@@ -853,7 +939,7 @@ async function listFormalCustomers(pool, params = {}, permission = null) {
       c.id, c.company_name,
       pc.name as primary_contact_name, pc.phone as primary_contact_phone, pc.email as primary_contact_email,
       c.address, c.industry, c.source, c.level,
-      c.owner_id, c.business_status, c.pool_status, c.remark,
+      c.owner_id, c.status, c.business_status, c.lifecycle_status, c.pool_status, c.remark,
       c.create_time, c.update_time, c.last_follow_time, c.converted_at,
       (SELECT COUNT(*) FROM crm_opportunity o WHERE o.customer_id = c.id AND o.deleted_at IS NULL) as opportunity_count,
       (SELECT COUNT(*) FROM crm_contract ct WHERE ct.customer_id = c.id AND ct.deleted_at IS NULL) as contract_count,
@@ -881,14 +967,14 @@ async function listFormalCustomers(pool, params = {}, permission = null) {
  * [2026-10-15 P0-2] 判据权威 = owner_id（MASTER_SPEC §3.3、poolService.js:33 同）；
  * pool_status 降级为只读兼容字段（由 assign/release/claim 写入时同步维护）。
  * @param {object} pool
- * @param {object} params - { page, pageSize, company_name, industry, source, level, sort }
+ * @param {object} params - { page, pageSize, company_name, contact_name, phone, industry, source, level, business_status, sort }
  * @param {object} [permission] - { clause, params }
  * @returns {{ list: Array, total: number }}
  */
 async function listPoolCustomersNew(pool, params = {}, permission = null) {
   const {
     page = 1, pageSize = 10,
-    company_name, industry, source, level, sort
+    company_name, contact_name, phone, industry, source, level, business_status, sort
   } = params;
 
   const queryParams = [];
@@ -912,6 +998,15 @@ async function listPoolCustomersNew(pool, params = {}, permission = null) {
     whereClause += ' AND c.company_name LIKE ?';
     queryParams.push(`%${company_name}%`);
   }
+  // [V1.1 §11.3] 公海页前端下发的联系人/电话筛选：原样落到主联系人。
+  if (contact_name) {
+    whereClause += ' AND pc.name LIKE ?';
+    queryParams.push(`%${contact_name}%`);
+  }
+  if (phone) {
+    whereClause += ' AND pc.phone LIKE ?';
+    queryParams.push(`%${phone}%`);
+  }
   if (industry) {
     whereClause += ' AND c.industry = ?';
     queryParams.push(industry);
@@ -929,6 +1024,12 @@ async function listPoolCustomersNew(pool, params = {}, permission = null) {
   if (level) {
     whereClause += ' AND c.level = ?';
     queryParams.push(level);
+  }
+  // [V1.1 §11.3] 公海页「业务状态」下拉原被 stripUnknown 丢弃；按权威 status 过滤，
+  // 与 listFormalCustomers 的 P1-27 口径一致（迁移 110 后 status/business_status 同值）。
+  if (business_status) {
+    whereClause += ' AND c.status = ?';
+    queryParams.push(business_status);
   }
 
   const orderBy = SORT_MAP[sort] || 'c.create_time DESC';
@@ -958,6 +1059,7 @@ async function listPoolCustomersNew(pool, params = {}, permission = null) {
     ${whereClause}`,
     countQuery: `SELECT COUNT(DISTINCT c.id) as total
       FROM crm_customer c
+      LEFT JOIN crm_contact pc ON pc.customer_id = c.id AND pc.is_primary = 1 AND pc.deleted_at IS NULL
       ${whereClause}`,
     params: queryParams,
     page, pageSize, orderBy
@@ -1052,36 +1154,67 @@ async function convertLeadToCustomer(pool, customerId, operatorId, options = {})
  * @param {string} [reason]
  * @returns {{ id: number, company_name: string }}
  */
-async function releaseCustomerToPool(pool, customerId, operatorId, _reason) {
+async function releaseCustomerToPool(pool, customerId, operatorId, _reason, dataPermission) {
+  if (!dataPermission) {
+    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权释放该客户');
+  }
+
   const [rows] = await pool.query(
-    'SELECT id, company_name, business_status, owner_id, pool_status FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
+    'SELECT id, company_name, business_status, owner_id FROM crm_customer WHERE id = ? AND deleted_at IS NULL',
     [customerId]
   );
   if (rows.length === 0) {
     throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);
   }
   const customer = rows[0];
+  // [S3 2026-11-05] 术语统一（V5.1）：资源库条目（线索）不走收回，请用「放弃」（与 poolService 同口径）
   if (customer.business_status === BUSINESS_STATUS.LEAD) {
-    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '线索客户不能释放到公海，请使用"放弃"操作');
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '资源条目不能收回到待分配，请使用"放弃"操作');
   }
-  if (customer.pool_status === POOL_STATUS.SEA) {
-    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已在公海中');
+  // [P2-07] 公海判据只看 owner_id；pool_status 仅为兼容列，不能作为归属事实源
+  if (customer.owner_id === null || customer.owner_id === undefined) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已在待分配中');
   }
+
+  // [P0-05] 事务内按数据范围加锁复判，防止“校验时归自己、更新时已归他人”
+  const { clause, params } = await buildDataPermissionWhere(dataPermission, 'c');
 
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
+
+    const [lockedRows] = await connection.query(
+      `SELECT c.id, c.company_name, c.business_status, c.owner_id
+         FROM crm_customer c
+        WHERE c.id = ? AND c.deleted_at IS NULL AND (${clause})
+        FOR UPDATE`,
+      [customerId, ...params]
+    );
+    if (lockedRows.length === 0) {
+      throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权释放该客户');
+    }
+
+    const locked = lockedRows[0];
+    if (locked.business_status === BUSINESS_STATUS.LEAD) {
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '资源条目不能收回到待分配，请使用"放弃"操作');
+    }
+    if (locked.owner_id === null || locked.owner_id === undefined) {
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已在待分配中');
+    }
+
+    // [P1-03] status/business_status 同步为公海态；此前只清 owner，导致
+    // 「owner 为空但 status=following/quoted」的矛盾行，报表与列表各自读到不同结论。
     await connection.query(
-      'UPDATE crm_customer SET pool_status = ?, owner_id = NULL, protect_until = NULL, update_time = NOW() WHERE id = ?',
-      [POOL_STATUS.SEA, customerId]
+      `UPDATE crm_customer SET ${RELEASE_SET_SQL}, update_time = NOW() WHERE id = ?`,
+      [...releaseParams(), customerId]
     );
     await connection.query(
       `INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id)
        VALUES (?, 'release', ?, NULL)`,
-      [customerId, customer.owner_id || operatorId]
+      [customerId, locked.owner_id || operatorId]
     );
     await connection.commit();
-    return { id: customerId, company_name: customer.company_name };
+    return { id: customerId, company_name: locked.company_name };
   } catch (error) {
     await connection.rollback();
     throw error;
@@ -1097,12 +1230,12 @@ async function releaseCustomerToPool(pool, customerId, operatorId, _reason) {
  * 【B2 · 2026-10-19】行锁收敛（与 poolService.claimCustomer 同构，勿两处各改一半）。
  *
  * 采用「外部快判 + 事务内加锁复判」两层结构，刻意如此：
- *   · 外部快判（快照读，不占连接）：不存在 → 404002；已有人负责 → 「该客户不在公海中」；
- *     线索客户 → 「线索客户请到潜客池认领」
+ *   · 外部快判（快照读，不占连接）：不存在 → 404002；已有人负责 → 「该客户不在待分配中」；
+ *     资源库条目 → 「资源条目请到客户资源库转为客户」
  *   · 事务内 `SELECT ... FOR UPDATE`：拿到行锁后重读归属，
- *     若期间已被他人抢走 → 「该客户已被他人认领，请刷新后重试」
+ *     若期间已被他人抢走 → 「该客户已被他人分配，请刷新后重试」
  *
- * 只做「事务内一次加锁读」会让并发落败方看到「该客户不在公海中」——
+ * 只做「事务内一次加锁读」会让并发落败方看到「该客户不在待分配中」——
  * 用户是从公海列表点进来的，读到这里会一头雾水，两种口径必须区分开。
  *
  * ⚠️ 并发正确性的最后防线仍是 UPDATE 自带的 `owner_id IS NULL` 守卫，不是行锁。
@@ -1118,8 +1251,8 @@ async function claimPoolCustomer(pool, customerId, userId, idempotencyKey) {
   // ⚠️ runIdempotent 必须在最外层：若先做快判，幂等重放会被「不在公海」拦下，
   //     拿不到首次结果（与 poolService.claimCustomer 同构）
   const { result } = await runIdempotent(pool, idempotencyKey, 'pool_claim', () =>
-    claimPoolCustomerTx(pool, customerId, userId)
-  );
+    claimPoolCustomerTx(pool, customerId, userId),
+  userId);
   return result;
 }
 
@@ -1135,11 +1268,12 @@ async function claimPoolCustomerTx(pool, customerId, userId) {
   const pre = preRows[0];
   // [2026-10-15 P0-2] 判据从 pool_status='sea' 收敛为 owner_id IS NULL：
   // 实测 423 条无主客户 pool_status 全非 'sea'，旧守卫把它们误判为「不在公海」。
+  // [S3 2026-11-05] 术语统一（V5.1）：无主客户对外口径为「待分配」；资源库条目走「转为客户」
   if (pre.owner_id !== null) {
-    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户不在公海中');
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户不在待分配中');
   }
   if (pre.business_status === BUSINESS_STATUS.LEAD) {
-    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '线索客户请到潜客池认领');
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '资源条目请到客户资源库转为客户');
   }
   // 【产品决策 2026-09-10】保护期已下线：释放到公海的客户可被立即认领。
 
@@ -1158,21 +1292,23 @@ async function claimPoolCustomerTx(pool, customerId, userId) {
     const customer = rows[0];
     // 拿到行锁后仍有人负责 ⇒ 这一瞬间被抢走的
     if (customer.owner_id !== null) {
-      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已被他人认领，请刷新后重试');
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已被他人分配，请刷新后重试');
     }
     // 【P0-1 补齐】条件必须带 `owner_id IS NULL`（判据权威）。
     // 原实现为 `WHERE id = ?`，仅靠事务无法防并发：REPEATABLE READ 下第二个事务的
     // UPDATE 会在行锁释放后依据最新版本重新匹配 id = ?，仍会覆盖前者的认领结果。
     // [2026-10-15] 一并去掉 `AND pool_status = 'sea'` —— 与守卫同步收敛到 owner_id，
     // 否则数据错位时守卫放行、UPDATE 却 0 行（「已被他人认领」误报）。
+    // [P1-03] 认领必须同时推进 status/business_status：原实现只改归属，
+    // 从公海释放的客户被认领后 status 仍是 'sea'（有负责人却显示公海）。
     const [claimResult] = await connection.query(
       `UPDATE crm_customer
-         SET pool_status = ?, owner_id = ?, protect_until = NULL, last_follow_time = NOW(), update_time = NOW()
+         SET ${CLAIM_SET_SQL}, update_time = NOW()
        WHERE id = ? AND owner_id IS NULL AND deleted_at IS NULL`,
-      [POOL_STATUS.PRIVATE, userId, customerId]
+      [...claimParams(userId), customerId]
     );
     if (claimResult.affectedRows !== 1) {
-      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已被他人认领，请刷新后重试');
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已被他人分配，请刷新后重试');
     }
     await connection.query(
       `INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id)
@@ -1205,9 +1341,12 @@ async function claimPoolCustomerTx(pool, customerId, userId) {
  */
 
 /** 系统级归属变更（原 automationService 的 assign / 轮询分配写点行为） */
-async function systemAssignOwner(pool, customerId, toUserId) {
+async function systemAssignOwner(pool, customerId, toUserId, options = {}) {
+  // [P1-07] 自动分配等「只能抢公海」的调用方传 { onlyUnassigned: true }，
+  // 条件更新保证绝不覆盖已有负责人；默认行为与旧版逐字一致（显式转移）。
+  const onlyUnassigned = options.onlyUnassigned === true;
   const [result] = await pool.query(
-    'UPDATE crm_customer SET owner_id = ? WHERE id = ?',
+    `UPDATE crm_customer SET owner_id = ? WHERE id = ?${onlyUnassigned ? ' AND owner_id IS NULL AND deleted_at IS NULL' : ''}`,
     [toUserId, customerId]
   );
   return { affectedRows: result.affectedRows };
@@ -1313,12 +1452,16 @@ async function systemSetLastFollowTime(pool, customerId, at) {
  * @returns {Promise<object>} mysql 结果（调用方需要 insertId 继续创建主联系人）
  */
 async function systemCreateImportedCustomer(pool, fields) {
+  // [P0-12] business_status 才是线索池/正式客户列表的分类依据；表默认值是 'lead'，
+  // 只写 status 会让导入进来的正式客户全部落在线索池（列表/报表/回收规则全部失准）。
+  // 未知 status 回退 'lead'，与改动前的库默认值一致。
+  const businessStatus = mapStatusToBusinessStatus(fields.status) ?? BUSINESS_STATUS.LEAD;
   const [result] = await pool.query(
-    `INSERT INTO crm_customer (company_name, address, industry, source, level, status, remark, owner_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO crm_customer (company_name, address, industry, source, level, status, business_status, remark, owner_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       fields.company_name, fields.address, fields.industry, fields.source,
-      fields.level, fields.status, fields.remark, fields.owner_id
+      fields.level, fields.status, businessStatus, fields.remark, fields.owner_id
     ]
   );
   return result;
@@ -1326,18 +1469,31 @@ async function systemCreateImportedCustomer(pool, fields) {
 
 /**
  * 【客户域受控写入口】离职交接：把某用户名下客户整体释放到公海
- * ⚠️ 与原 `userRouteService.deleteUser` 的 SQL **逐字一致**（含 `pool_type='public'`）：
- *    **不同步 `status='sea'`、不写 `crm_pool_log`** —— 这两点与客户域其它释放路径（poolService 单条/批量、
- *    公海自动回收）不一致，属**已知差异**；是否统一需产品确认，本次收敛刻意保持原行为。
+ *
+ * [P1-03 2026-10-23] 原实现只清归属、不改 status/business_status，与客户域其它释放路径
+ * （poolService 单条/批量、公海自动回收）口径不一致，留下「owner 为空但 status=following」
+ * 的矛盾行。现收敛为：
+ *   · 非线索客户 → 公海态（status='sea'，business_status='following'）
+ *   · 线索客户   → 仅清归属，继续留在线索池（business_status='lead'）
+ * 仍与原实现一致的部分：pool_type='public'、不写 crm_pool_log。
  */
 async function systemReleaseOwnedCustomersOnLeave(pool, userId) {
-  const [result] = await pool.query(
+  const [nonLead] = await pool.query(
     `UPDATE crm_customer
-       SET owner_id = NULL, pool_status = ?, pool_type = 'public', protect_until = NULL, update_time = NOW()
-     WHERE owner_id = ? AND deleted_at IS NULL`,
-    [POOL_STATUS.SEA, userId]
+        SET ${RELEASE_SET_SQL}, pool_type = 'public', update_time = NOW()
+      WHERE owner_id = ? AND deleted_at IS NULL
+        AND (business_status IS NULL OR business_status <> ?)`,
+    [...releaseParams(), userId, BUSINESS_STATUS.LEAD]
   );
-  return { affectedRows: result.affectedRows };
+  // [P2-07] 线索池客户的 pool_status 兼容值恒为 private（见 constants/poolStatus.js），
+  // 原实现写 'sea' 与语义相反；归属仍按 owner_id=NULL 判断，不依赖该列。
+  const [lead] = await pool.query(
+    `UPDATE crm_customer
+        SET owner_id = NULL, pool_status = ?, pool_type = 'public', protect_until = NULL, update_time = NOW()
+      WHERE owner_id = ? AND deleted_at IS NULL AND business_status = ?`,
+    [POOL_STATUS.PRIVATE, userId, BUSINESS_STATUS.LEAD]
+  );
+  return { affectedRows: (nonLead.affectedRows || 0) + (lead.affectedRows || 0) };
 }
 
 module.exports = {

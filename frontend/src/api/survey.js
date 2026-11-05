@@ -4,6 +4,8 @@ import request from '@/utils/request'
 // ============ 满意度调查 ============
 export const getSurveyTemplates = () => request.get('/survey/templates')
 export const saveSurveyTemplate = (data) => request.post('/survey/templates', data)
+/** 编辑模板（POST 为新建；编辑走 PUT，避免 id 被 create schema 丢弃后重复插入） */
+export const updateSurveyTemplate = (id, data) => request.put(`/survey/templates/${id}`, data)
 export const deleteSurveyTemplate = (id) => request.delete(`/survey/templates/${id}`)
 export const getSurveyCampaigns = () => request.get('/survey/campaigns')
 export const saveSurveyCampaign = (data) => request.post('/survey/campaigns', data)

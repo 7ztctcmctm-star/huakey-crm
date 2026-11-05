@@ -55,7 +55,8 @@ function getCtx() {
   const m = {
     '/dashboard': '仪表盘页面，可看到销售数据、客户统计、业绩排行',
     '/customer/list': '客户列表，管理正式成交客户',
-    '/customer/list?tab=sea': '公海客户，无负责人的客户（在客户列表页切到公海标签）'
+    // [S3 2026-11-05] 术语统一（V5.1）：无主客户口径为「待分配」
+    '/customer/list?tab=sea': '待分配客户，无负责人的客户（在客户列表页切到待分配标签）'
   }
   return m[route.path] || '铧旗CRM系统'
 }

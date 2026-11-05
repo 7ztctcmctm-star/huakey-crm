@@ -109,7 +109,7 @@ describe('contractService.createContract 计划日期判重', () => {
     mockPool.getConnection.mockResolvedValue(conn);
     conn.query
       .mockResolvedValueOnce([[{ id: 1, status: 'signed', company_name: 'A' }]]) // 客户校验
-      .mockResolvedValueOnce([[{ cnt: 0 }]])                                       // 编号 COUNT
+      .mockResolvedValueOnce([{ insertId: 1 }])                                    // [P2-04] 序列取号
       .mockResolvedValueOnce([{ insertId: 60 }]);                                  // INSERT 合同
 
     await expect(
@@ -132,7 +132,7 @@ describe('contractService.createContract 计划日期判重', () => {
     mockPool.getConnection.mockResolvedValue(conn);
     conn.query
       .mockResolvedValueOnce([[{ id: 1, status: 'signed', company_name: 'A' }]])
-      .mockResolvedValueOnce([[{ cnt: 0 }]])
+      .mockResolvedValueOnce([{ insertId: 1 }])   // [P2-04] 序列取号
       .mockResolvedValueOnce([{ insertId: 61 }])
       .mockResolvedValueOnce([{ affectedRows: 2 }]);
 

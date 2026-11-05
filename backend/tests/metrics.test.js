@@ -18,8 +18,11 @@ const metricsRoutes = require('../routes/metrics');
 const app = express();
 app.use(express.json());
 
-// metrics 仅 authenticateToken：不注入 req.user，走真实 JWT 校验
+// metrics/client 为公开 beacon 接口（sendBeacon 无法携带认证信息），不挂 authenticateToken
 app.use('/metrics', metricsRoutes);
+app.use((err, _req, res, _next) => {
+  res.status(err.httpStatus || err.statusCode || 500).json({ code: err.code || 500, message: err.message });
+});
 
 const token = jwt.sign(
   { userId: 7, username: 'sales01', roleId: 3, roleCode: 'sales', manageAll: false },
@@ -48,13 +51,13 @@ describe('客户端性能指标路由 /api/v1/metrics', () => {
     );
   });
 
-  it('POST /metrics/client 未登录返回 401', async () => {
+  it('POST /metrics/client 未登录也可上报（公开 beacon，返回 204）', async () => {
     const res = await request(app)
       .post('/metrics/client')
       .send({ metric_type: 'CLS', value: 0.12 });
 
-    expect(res.status).toBe(401);
-    expect(mockPool.query).not.toHaveBeenCalledWith(
+    expect(res.status).toBe(204);
+    expect(mockPool.query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO sys_client_perf'), expect.anything()
     );
   });

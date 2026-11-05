@@ -53,10 +53,12 @@ for pair in "mysql:$MYSQL_BIN" "mysqldump:$DUMP_BIN"; do
 done
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PWF=""
-[ -n "$DB_PASSWORD" ] && PWF="-p${DB_PASSWORD}"
+# [P2-16] 口令走 MYSQL_PWD，不出现在 mysql/mysqldump 的进程命令行
+if [ -n "$DB_PASSWORD" ]; then
+  export MYSQL_PWD="$DB_PASSWORD"
+fi
 
-my() { "$MYSQL_BIN" -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" $PWF "$@" 2>/dev/null; }
+my() { "$MYSQL_BIN" -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" "$@" 2>/dev/null; }
 mydb() { my "$TMP_DB" "$@"; }
 
 FAIL=0
@@ -84,7 +86,7 @@ echo ""
 echo "=== 一、建临时库并导入结构 ==="
 my -e "DROP DATABASE IF EXISTS \`$TMP_DB\`; CREATE DATABASE \`$TMP_DB\` DEFAULT CHARACTER SET utf8mb4;"
 DUMP="${ROOT}/.tmp-seed-verify-schema.sql"
-if ! "$DUMP_BIN" -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" $PWF \
+if ! "$DUMP_BIN" -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" \
       --no-data --skip-triggers --skip-add-drop-table "$SOURCE_DB" > "$DUMP" 2>"${DUMP}.err"; then
   echo "❌ mysqldump 失败："
   grep -v "Using a password" "${DUMP}.err" | head -5 | sed 's/^/     /'
@@ -116,7 +118,7 @@ echo "ℹ️  执行前 sys_dept 行数 = $DEPT_BEFORE（应为 0，即结构空
 for f in database/seeds/seed_test_data.sql database/seeds/test_data_modules.sql; do
   [ -f "$ROOT/$f" ] || { echo "⚠️  跳过（不存在）: $f"; continue; }
   echo "── 执行 $f"
-  OUT=$("$MYSQL_BIN" -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" $PWF "$TMP_DB" < "$ROOT/$f" 2>&1 \
+  OUT=$("$MYSQL_BIN" -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" "$TMP_DB" < "$ROOT/$f" 2>&1 \
         | grep -v "Using a password")
   RC=$?
   if echo "$OUT" | grep -qE "^ERROR"; then

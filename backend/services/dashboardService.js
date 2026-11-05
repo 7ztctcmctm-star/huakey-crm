@@ -16,7 +16,6 @@
 
 const { buildDataPermissionWhere, buildOwnerOverrideFilter, getSubDeptIds } = require('../middleware/permission');
 const { getOverdueDays } = require('../utils/config');
-const { POOL_STATUS } = require('../constants/poolStatus');
 
 /**
  * 按表构造数据范围子句。
@@ -169,6 +168,7 @@ async function getTodayTasks(pool, dataPermission) {
     FROM crm_service_order so
     LEFT JOIN crm_customer cu ON so.customer_id = cu.id
     WHERE ${serviceScope.clause}
+      AND so.deleted_at IS NULL
       AND so.status IN (1, 2, 3)
     ORDER BY
       CASE so.priority
@@ -182,6 +182,7 @@ async function getTodayTasks(pool, dataPermission) {
     SELECT COUNT(*) as total
     FROM crm_service_order so
     WHERE ${serviceScope.clause}
+      AND so.deleted_at IS NULL
       AND so.status IN (1, 2, 3)
   `, serviceScope.params);
 
@@ -217,9 +218,9 @@ async function getQuickStats(pool, dataPermission, filters = {}) {
     SELECT COUNT(*) as count
     FROM crm_payment_plan pp
     LEFT JOIN crm_contract c ON pp.contract_id = c.id
-    WHERE pp.plan_date <= CURRENT_DATE
+    WHERE pp.deleted_at IS NULL AND pp.plan_date <= CURRENT_DATE
       AND pp.id NOT IN (
-        SELECT COALESCE(plan_id, 0) FROM crm_payment WHERE plan_id IS NOT NULL
+        SELECT COALESCE(plan_id, 0) FROM crm_payment WHERE plan_id IS NOT NULL AND deleted_at IS NULL
       )
       AND ${contractScope.clause}${ownerClause}
   `, [...contractScope.params, ...ownerParams]);
@@ -239,8 +240,8 @@ async function getOverdueStats(pool, dataPermission, filters = {}) {
   const ownerClause = owner ? ` AND ${owner.clause}` : '';
   const ownerParams = owner ? owner.params : [];
 
-  const whereClause = `c.pool_status = ?
-    AND c.deleted_at IS NULL
+  // [P2-07] 归属判据只看 owner_id；pool_status 为兼容列，可能滞后/错位
+  const whereClause = `c.deleted_at IS NULL
     AND c.owner_id IS NOT NULL
     AND ((c.last_follow_time IS NULL AND c.create_time < NOW() - INTERVAL ${overdueDays} DAY)
       OR c.last_follow_time < NOW() - INTERVAL ${overdueDays} DAY)
@@ -248,7 +249,7 @@ async function getOverdueStats(pool, dataPermission, filters = {}) {
 
   const [result] = await pool.query(
     `SELECT COUNT(*) as total FROM crm_customer c WHERE ${whereClause}`,
-    [POOL_STATUS.PRIVATE, ...scope.params, ...ownerParams]
+    [...scope.params, ...ownerParams]
   );
 
   return { overdue_count: result[0].total || 0, overdue_days: overdueDays };

@@ -5,7 +5,8 @@
  *
  * 业务规则（见 HUAKYCRM_MASTER_SPEC.md §9）：
  *   - 商机 owner 离职时自动转移给直属上级（无上级则 NULL 待分配）
- *   - 商机可以关联合同（1:1），合同创建后商机状态自动更新
+ *   - 合同通过 opportunity_id 关联商机；创建合同**不会**自动推进商机阶段
+ *     （报价审批通过时会推进商机，见 quoteService）
  *   - 商机 **不能** 反向驱动 crm_customer.business_status（领域边界）
  */
 import request from '@/utils/request'
@@ -21,7 +22,7 @@ export const deleteOpportunity = (id) => request.post('/opportunity/delete', { i
 /**
  * 推进商机阶段
  * @param {number} id
- * @param {string} stage - 目标阶段码（lead/qualified/proposal/negotiation/signed/lost）
+ * @param {number} stage - 目标阶段（后端只接受 1-6；5/6 为签约/丢单终态）
  * @param {string} [changeReason=''] - 阶段变更原因，记录到 opportunity_stage_log
  */
 export const updateOpportunityStage = (id, stage, changeReason = '') => request.post('/opportunity/update-stage', { id, stage, change_reason: changeReason })

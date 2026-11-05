@@ -66,4 +66,34 @@ describe('Login 组件', () => {
     const res = await login({ username: 'admin', password: '123456' })
     expect(res.code).toBe(200)
   })
+
+  it('[P1-21] 登录失败后刷新验证码不应清空错误提示', async () => {
+    const { login } = await import('@/api/auth')
+    login.mockRejectedValue({ response: { data: { message: '用户名或密码错误' } } })
+
+    const wrapper = mount(Login, {
+      global: {
+        stubs: {
+          ...globalStubs.global.stubs,
+          // handleLogin 会先 await loginFormRef.validate()，stub 需提供该方法
+          'el-form': {
+            template: '<form><slot /></form>',
+            methods: { validate: () => Promise.resolve(true) }
+          }
+        }
+      }
+    })
+    await new Promise(r => setTimeout(r, 0))
+
+    const state = wrapper.vm.$.setupState
+    state.loginForm.username = 'admin'
+    state.loginForm.password = '123456'
+    state.loginForm.captcha = 'abcd'
+
+    await state.handleLogin()
+    // 失败分支会触发 refreshCaptcha（异步换图），等它完成后错误横幅仍应在
+    await new Promise(r => setTimeout(r, 0))
+
+    expect(wrapper.text()).toContain('用户名或密码错误')
+  })
 })

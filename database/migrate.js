@@ -129,8 +129,12 @@ async function migrate() {
         console.log(`[迁移] ✅ ${file}`);
         success++;
       } catch (error) {
+        // [P1-19 2026-10-23] 严格模式：单文件失败立即终止，不再继续执行后续迁移。
+        // 原实现 failed++ 后继续，后续迁移可能建立在半套 schema 上，最终才 exit(1)。
         console.error(`[迁移] ❌ ${file}: ${error.message}`);
+        console.error('[迁移] 终止启动：单文件失败后不再继续后续迁移');
         failed++;
+        process.exit(1);
       }
     }
 

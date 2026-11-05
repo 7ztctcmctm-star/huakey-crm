@@ -25,6 +25,7 @@ jest.mock('../../services/contractCrudService', () => ({
   createContractNotification: jest.fn().mockResolvedValue(undefined)
 }));
 
+const { installAuthAwareQuery } = require('../helpers/authMock');
 const mockPool = { query: jest.fn() };
 jest.mock('../../config/database', () => mockPool);
 jest.mock('../../config/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn() }));
@@ -46,6 +47,7 @@ describe('合同取消工作流', () => {
     mockAdvanceStage.mockReset();
     mockCancelContract.mockReset();
     mockPool.query.mockReset();
+    installAuthAwareQuery(mockPool);
   });
 
   const baseCancel = { id: 500, cancel_reason: '客户需求变更' };

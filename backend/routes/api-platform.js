@@ -272,7 +272,11 @@ router.get('/docs', authenticateToken, (req, res) => {
 
 
 // ModuleRegistry 注册（2026-09-21 迁移）
-registry.register('api-platform', {
+// [P1-23 2026-10-26] 模块名即挂载前缀（ModuleRegistry 生成 `/${name}`）。
+// 原名 'api-platform' 导致实际路径为 /api/v1/api-platform，而前端 api/system.js、
+// docs/CODE_DOCUMENTATION.md 与 API 平台页面统一使用 /api/v1/platform，线上全部 404。
+// 以 'platform' 注册，使注册表、前端与文档三方一致。
+registry.register('platform', {
   routes: router,
   permissions: ['api_platform','api_platform:view','api_platform:add','api_platform:edit','api_platform:delete']
 });

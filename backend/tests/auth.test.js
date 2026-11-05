@@ -37,12 +37,46 @@ app.use(express.json());
 const authRoutes = require('../routes/auth');
 app.use('/api/v1/auth', authRoutes);
 
+// [P0-06] 回显 req.user，用于验证认证中间件取的是 DB 当前角色而非 JWT 旧值
+const { authenticateToken } = require('../middleware/auth');
+const echoRouter = express.Router();
+echoRouter.get('/whoami', authenticateToken, (req, res) => {
+  res.json({ code: 200, message: 'ok', data: req.user });
+});
+app.use('/api/v1/echo', echoRouter);
+
 const { appErrorHandler, globalErrorHandler } = require('../middleware/errorHandler');
 app.use(appErrorHandler);
 app.use(globalErrorHandler);
 
 const generateToken = (user = { userId: 1, username: 'admin', roleId: 1, roleCode: 'super_admin', manageAll: true }) => {
   return jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '1h' });
+};
+
+/**
+ * [P0-06] authenticateToken 现在固定执行两次查询：
+ *   1. 黑名单检查
+ *   2. 按 userId 关联「当前」用户与角色（soft delete / status / role / 改密时间）
+ * 返回值必须包含 status=1，否则会被 fail-closed 判为禁用。
+ */
+const authRow = (overrides = {}) => ({
+  id: 1,
+  username: 'admin',
+  role_id: 1,
+  status: 1,
+  must_change_password: 0,
+  password_changed_at: null,
+  fresh_role_id: 1,
+  role_code: 'super_admin',
+  view_all: 1,
+  manage_all: 1,
+  ...overrides
+});
+
+const setupAuth = (row = authRow()) => {
+  mockPool.query
+    .mockResolvedValueOnce([[]])      // blacklist check
+    .mockResolvedValueOnce([[row]]);  // fresh user + role
 };
 
 describe('认证模块', () => {
@@ -71,8 +105,9 @@ describe('认证模块', () => {
   describe('GET /api/v1/auth/me', () => {
     it('应该返回200和用户信息当token有效', async () => {
       const token = generateToken();
-      mockPool.query.mockResolvedValue([[
-        { id: 1, username: 'admin', real_name: '管理员', phone: '13800138000', email: 'admin@test.com', dept_id: 1, role_id: 1, status: 1, view_all: 1, manage_all: 1 }
+      setupAuth();
+      mockPool.query.mockResolvedValueOnce([[
+        { id: 1, username: 'admin', real_name: '管理员', phone: '13800138000', email: 'admin@test.com', dept_id: 1, role_id: 1, status: 1, view_all: 1, manage_all: 1, must_change_password: 0, role_code: 'super_admin' }
       ]]);
 
       const res = await request(app)
@@ -95,11 +130,8 @@ describe('认证模块', () => {
     it('应该返回400当旧密码错误', async () => {
       const token = generateToken();
       const hashedPassword = await bcrypt.hash('CorrectOldPass1', 10);
-      mockPool.query
-        .mockResolvedValueOnce([[]])  // blacklist check (empty = not blacklisted)
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
-        .mockResolvedValueOnce([[{ password: hashedPassword }]]); // get user password
+      setupAuth();
+      mockPool.query.mockResolvedValueOnce([[{ password: hashedPassword }]]); // get user password
 
       const res = await request(app)
         .post('/api/v1/auth/change-password')
@@ -112,6 +144,7 @@ describe('认证模块', () => {
 
     it('应该返回400当缺少旧密码或新密码', async () => {
       const token = generateToken();
+      setupAuth();
 
       const res = await request(app)
         .post('/api/v1/auth/change-password')
@@ -124,12 +157,10 @@ describe('认证模块', () => {
     it('应该返回200当密码修改成功', async () => {
       const token = generateToken();
       const hashedPassword = await bcrypt.hash('CorrectOldPass1', 10);
+      setupAuth();
       mockPool.query
-        .mockResolvedValueOnce([[]])  // blacklist check (empty = not blacklisted)
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]) // user status
         .mockResolvedValueOnce([[{ password: hashedPassword }]])  // get user password
-        .mockResolvedValueOnce([{ affectedRows: 1 }]);  // update password
+        .mockResolvedValueOnce([{ affectedRows: 1 }]);            // update password
 
       const res = await request(app)
         .post('/api/v1/auth/change-password')
@@ -138,6 +169,10 @@ describe('认证模块', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe(200);
+      // [P0-06] 改密后当前 cookie 必须被清除
+      expect(res.headers['set-cookie']).toEqual(
+        expect.arrayContaining([expect.stringContaining('token=;')])
+      );
     });
   });
 
@@ -153,10 +188,7 @@ describe('认证模块', () => {
 
     it('应该返回400当账号无需强制改密', async () => {
       const token = generateToken();
-      mockPool.query
-        .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1, role_code: 'super_admin' }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]); // user status
+      setupAuth();
       mockPool.getConnection.mockResolvedValueOnce({
         ...createMockConnection(),
         query: jest.fn().mockResolvedValueOnce([[{ must_change_password: 0 }]])
@@ -173,10 +205,7 @@ describe('认证模块', () => {
 
     it('应该返回400当新密码不符合强度要求', async () => {
       const token = generateToken();
-      mockPool.query
-        .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1, role_code: 'super_admin' }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]); // user status
+      setupAuth();
 
       const res = await request(app)
         .post('/api/v1/auth/force-change-password')
@@ -189,10 +218,7 @@ describe('认证模块', () => {
 
     it('应该返回200当强制改密成功并清除token cookie', async () => {
       const token = generateToken();
-      mockPool.query
-        .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1, role_code: 'super_admin' }]]) // role query
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]); // user status
+      setupAuth();
       mockPool.getConnection.mockResolvedValueOnce({
         ...createMockConnection(),
         query: jest.fn()
@@ -230,7 +256,7 @@ describe('认证模块', () => {
       const token = generateToken();
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ id: 1, username: 'admin', role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // user query
+        .mockResolvedValueOnce([[authRow({ fresh_role_id: 1 })]]) // user query
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // insert blacklist
 
       const res = await request(app)
@@ -255,7 +281,7 @@ describe('认证模块', () => {
 
       mockPool.query
         .mockResolvedValueOnce([[]]) // blacklist check
-        .mockResolvedValueOnce([[{ id: 1, username: 'admin', role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // user query
+        .mockResolvedValueOnce([[authRow({ fresh_role_id: 1 })]]) // user query
         .mockResolvedValueOnce([{ affectedRows: 1 }]); // insert blacklist
 
       const res = await request(app)
@@ -313,6 +339,141 @@ describe('认证模块', () => {
       expect(res.status).toBe(401);
       expect(res.body.code).toBe(401);
       expect(res.body.message).toBe('用户不存在或已禁用');
+    });
+
+    it('[P0-06] 应该返回401当过期令牌超出宽限期', async () => {
+      const longExpiredToken = jwt.sign(
+        {
+          userId: 1,
+          username: 'admin',
+          roleId: 1,
+          roleCode: 'super_admin',
+          exp: Math.floor(Date.now() / 1000) - 8 * 24 * 60 * 60
+        },
+        process.env.JWT_SECRET
+      );
+
+      const res = await request(app)
+        .post('/api/v1/auth/refresh')
+        .set('Authorization', `Bearer ${longExpiredToken}`);
+
+      expect(res.status).toBe(401);
+      expect(res.body.message).toContain('令牌已过期');
+      // 宽限期外不得访问数据库续期
+      expect(mockPool.query).not.toHaveBeenCalled();
+    });
+
+    it('[P0-06] 应该返回401当密码在 token 签发后被修改', async () => {
+      const token = generateToken();
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[authRow({ password_changed_at: new Date(Date.now() + 60 * 60 * 1000) })]]);
+
+      const res = await request(app)
+        .post('/api/v1/auth/refresh')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(401);
+      expect(res.body.message).toBe('密码已修改，请重新登录');
+    });
+
+    it('[P0-06] 应按 DB 当前角色签发新 token（而非 JWT 中的旧角色）', async () => {
+      const token = generateToken({ userId: 1, username: 'admin', roleId: 3, roleCode: 'sales', manageAll: false });
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist check
+        .mockResolvedValueOnce([[authRow({
+          role_id: 2,
+          fresh_role_id: 2,
+          role_code: 'manager',
+          view_all: 1,
+          manage_all: 0
+        })]])
+        .mockResolvedValueOnce([{ affectedRows: 1 }]); // insert blacklist
+
+      const res = await request(app)
+        .post('/api/v1/auth/refresh')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      const tokenCookie = res.headers['set-cookie'].find(c => c.startsWith('token='));
+      const issued = jwt.verify(tokenCookie.split(';')[0].slice('token='.length), process.env.JWT_SECRET);
+      expect(issued.roleCode).toBe('manager');
+      expect(issued.roleId).toBe(2);
+    });
+  });
+
+  // ─────────────────────────────────────────
+  // [P0-06] Token 生命周期：软删/禁用/角色失效/改密实时生效
+  // ─────────────────────────────────────────
+  describe('[P0-06] token 生命周期实时校验', () => {
+    const whoami = (token) => request(app)
+      .get('/api/v1/echo/whoami')
+      .set('Authorization', `Bearer ${token}`);
+
+    it('用户被软删除（查询为空）后旧 token 立即失效', async () => {
+      mockPool.query
+        .mockResolvedValueOnce([[]]) // blacklist
+        .mockResolvedValueOnce([[]]); // user query empty
+
+      const res = await whoami(generateToken());
+      expect(res.status).toBe(401);
+      expect(res.body.message).toContain('不存在或已被禁用');
+    });
+
+    it('用户被禁用（status=0）后旧 token 立即失效', async () => {
+      setupAuth(authRow({ status: 0 }));
+
+      const res = await whoami(generateToken());
+      expect(res.status).toBe(401);
+    });
+
+    it('用户角色被删除/停用后返回 403', async () => {
+      setupAuth(authRow({ fresh_role_id: null, role_code: null, view_all: 0, manage_all: 0 }));
+
+      const res = await whoami(generateToken());
+      expect(res.status).toBe(403);
+      expect(res.body.message).toContain('角色已失效');
+    });
+
+    it('密码在 token 签发后被修改 → 旧 token 401', async () => {
+      setupAuth(authRow({ password_changed_at: new Date(Date.now() + 60 * 60 * 1000) }));
+
+      const res = await whoami(generateToken());
+      expect(res.status).toBe(401);
+      expect(res.body.message).toBe('密码已修改，请重新登录');
+    });
+
+    it('认证取 DB 当前角色与权限，而非 JWT 中的过期值', async () => {
+      setupAuth(authRow({
+        role_id: 2,
+        fresh_role_id: 2,
+        role_code: 'manager',
+        view_all: 1,
+        manage_all: 0
+      }));
+
+      const res = await whoami(generateToken({
+        userId: 1,
+        username: 'admin',
+        roleId: 3,
+        roleCode: 'sales',
+        viewAll: false,
+        manageAll: true
+      }));
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.roleCode).toBe('manager');
+      expect(res.body.data.roleId).toBe(2);
+      expect(res.body.data.viewAll).toBe(true);
+      expect(res.body.data.manageAll).toBe(false);
+    });
+
+    it('isTokenStaleByPasswordChange 对空值/无 iat 保持宽容', () => {
+      const { isTokenStaleByPasswordChange } = require('../middleware/auth');
+      expect(isTokenStaleByPasswordChange(undefined, null)).toBe(false);
+      expect(isTokenStaleByPasswordChange(undefined, 'not-a-date')).toBe(false);
+      expect(isTokenStaleByPasswordChange(100, '1970-01-01T00:01:00Z')).toBe(false);
+      expect(isTokenStaleByPasswordChange(59, '1970-01-01T00:01:00Z')).toBe(true);
     });
   });
 });

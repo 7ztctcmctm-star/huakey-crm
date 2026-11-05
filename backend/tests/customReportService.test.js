@@ -18,7 +18,9 @@ function makePool({ filterConfig, columnsConfig = [{ field: 'company_name' }] })
         [{
           data_source: 'customer',
           columns_config: JSON.stringify(columnsConfig),
-          filter_config: JSON.stringify(filterConfig)
+          filter_config: JSON.stringify(filterConfig),
+          create_by: 1,
+          is_public: 0
         }]
       ])
       .mockImplementationOnce(async (sql, params) => {
@@ -43,7 +45,7 @@ describe('customReportService.runReport SQL 注入防护', () => {
       page: 1,
       pageSize: 20,
       filters: { [maliciousField]: 'x' }
-    });
+    }, { userId: 1 });
 
     const countSql = pool.calls[0].sql;
     const dataSql = pool.calls[1].sql;
@@ -64,7 +66,7 @@ describe('customReportService.runReport SQL 注入防护', () => {
       page: 1,
       pageSize: 20,
       filters: { [maliciousField]: 'x' }
-    });
+    }, { userId: 1 });
 
     expect(pool.calls[0].sql).not.toContain('--');
   });
@@ -78,7 +80,7 @@ describe('customReportService.runReport SQL 注入防护', () => {
       page: 1,
       pageSize: 20,
       filters: { level: 'A' }
-    });
+    }, { userId: 1 });
 
     expect(pool.calls[0].sql).toContain('t.level = ?');
   });
@@ -91,13 +93,15 @@ describe('customReportService.runReport SQL 注入防护', () => {
         .mockImplementationOnce(async () => [[{
           data_source: 'customer',
           columns_config: JSON.stringify([{ field: 'company_name' }]),
-          filter_config: '{invalid json'
+          filter_config: '{invalid json',
+          create_by: 1,
+          is_public: 0
         }]])
         .mockImplementationOnce(async (sql) => { pool.calls.push({ sql }); return [[{ total: 0 }]]; })
         .mockImplementationOnce(async (sql) => { pool.calls.push({ sql }); return [[]]; })
     };
 
-    await customReportService.runReport(pool, 1, { page: 1, pageSize: 20, filters: {} });
+    await customReportService.runReport(pool, 1, { page: 1, pageSize: 20, filters: {} }, { userId: 1 });
 
     expect(pool.calls[0].sql).toContain('t.deleted_at IS NULL');
   });

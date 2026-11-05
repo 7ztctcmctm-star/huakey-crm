@@ -170,6 +170,23 @@ async function updateContract(pool, data, permission = null) {
 
     await connection.beginTransaction();
 
+    // [P1-25] 提交的已有计划 id（待删 + 待改）必须属于当前合同，
+    // 防止通过构造 id 删除或改写其他合同的回款计划。
+    const referencedPlanIds = [...new Set([
+      ...(delete_plan_ids || []),
+      ...((plans || []).filter((p) => p.id).map((p) => p.id))
+    ].map(Number))];
+    if (referencedPlanIds.length > 0) {
+      const [ownedRows] = await connection.query(
+        'SELECT id FROM crm_payment_plan WHERE contract_id = ? AND id IN (?)',
+        [id, referencedPlanIds]
+      );
+      const ownedIds = new Set((ownedRows || []).map((row) => Number(row.id)));
+      if (referencedPlanIds.some((planId) => !ownedIds.has(planId))) {
+        throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '回款计划不属于当前合同');
+      }
+    }
+
     await connection.query(
       'UPDATE crm_contract SET customer_id=?, opportunity_id=?, amount=?, sign_date=?, delivery_date=?, payment_terms=?, status=?, remark=? WHERE id=?',
       [customer_id, opportunity_id || null, amount, sign_date, delivery_date, payment_terms, status, remark, id]
@@ -177,7 +194,10 @@ async function updateContract(pool, data, permission = null) {
 
     if (delete_plan_ids && delete_plan_ids.length > 0) {
       const phs = delete_plan_ids.map(() => '?').join(', ');
-      await connection.query(`DELETE FROM crm_payment_plan WHERE id IN (${phs})`, delete_plan_ids);
+      await connection.query(
+        `DELETE FROM crm_payment_plan WHERE contract_id = ? AND id IN (${phs})`,
+        [id, ...delete_plan_ids]
+      );
     }
 
     if (plans && plans.length > 0) {
@@ -198,8 +218,8 @@ async function updateContract(pool, data, permission = null) {
       for (const plan of plans) {
         if (plan.id) {
           await connection.query(
-            'UPDATE crm_payment_plan SET plan_date=?, plan_amount=?, remark=? WHERE id=?',
-            [plan.plan_date, plan.plan_amount, plan.remark || null, plan.id]
+            'UPDATE crm_payment_plan SET plan_date=?, plan_amount=?, remark=? WHERE id=? AND contract_id=?',
+            [plan.plan_date, plan.plan_amount, plan.remark || null, plan.id, id]
           );
         } else {
           await connection.query(
@@ -235,27 +255,42 @@ async function deleteContract(pool, id, user, permission = null) {
     whereParts.push(permission.clause);
     whereParams.push(...(permission.params || []));
   }
-  const [contract] = await pool.query(
-    `SELECT c.status, c.create_by FROM crm_contract c WHERE ${whereParts.join(' AND ')}`,
-    whereParams
-  );
-  if (!contract.length) {
-    throw new AppError(ErrorCodes.CONTRACT_NOT_FOUND);
-  }
-  if (contract[0].status === 3) {
-    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '已完成的合同不能删除');
-  }
 
-  const { manageAll, roleId, userId } = user;
-  if (!manageAll && ![ROLES.ADMIN, ROLES.MANAGER].includes(roleId) && contract[0].create_by !== userId) {
-    throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权删除该合同');
+  // [P1-05] 合同 + 回款 + 回款计划必须同一事务软删：原实现依次发三条独立 UPDATE，
+  // 中途失败会留下「合同已删、回款还在」或「回款已删、合同还在」的半条数据。
+  // 行锁放在事务内，避免状态校验与删除之间被其他会话改状态。
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [contract] = await connection.query(
+      `SELECT c.status, c.create_by FROM crm_contract c WHERE ${whereParts.join(' AND ')} FOR UPDATE`,
+      whereParams
+    );
+    if (!contract.length) {
+      throw new AppError(ErrorCodes.CONTRACT_NOT_FOUND);
+    }
+    if (contract[0].status === 3) {
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '已完成的合同不能删除');
+    }
+
+    const { manageAll, roleId, userId } = user;
+    if (!manageAll && ![ROLES.ADMIN, ROLES.MANAGER].includes(roleId) && contract[0].create_by !== userId) {
+      throw new AppError(ErrorCodes.PERMISSION_DENIED, '无权删除该合同');
+    }
+
+    await connection.query('UPDATE crm_contract SET deleted_at = NOW() WHERE id=? AND deleted_at IS NULL', [id]);
+    await connection.query('UPDATE crm_payment SET deleted_at = NOW() WHERE contract_id=? AND deleted_at IS NULL', [id]);
+    await connection.query('UPDATE crm_payment_plan SET deleted_at = NOW() WHERE contract_id=? AND deleted_at IS NULL', [id]);
+
+    await connection.commit();
+    return { message: '删除合同成功' };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
   }
-
-  await pool.query('UPDATE crm_contract SET deleted_at = NOW() WHERE id=?', [id]);
-  await pool.query('UPDATE crm_payment SET deleted_at = NOW() WHERE contract_id=? AND deleted_at IS NULL', [id]);
-  await pool.query('UPDATE crm_payment_plan SET deleted_at = NOW() WHERE contract_id=? AND deleted_at IS NULL', [id]);
-
-  return { message: '删除合同成功' };
 }
 
 /**
@@ -293,7 +328,7 @@ async function searchContracts(pool, keyword, permission = null) {
  * @param {object} [permission] - { clause, params }
  * @returns {Array}
  */
-async function getOpportunityList(pool, permission = null) {
+async function getOpportunityList(pool, permission = null, customerId = null) {
   let permissionClause = '1=1';
   let permParams = [];
   if (permission && permission.clause) {
@@ -301,9 +336,18 @@ async function getOpportunityList(pool, permission = null) {
     permParams = permission.params || [];
   }
 
+  // [2026-10-26] customer_id 过滤：合同创建页切换客户后只应看到该客户的商机。
+  // 旧实现忽略该参数（前端传了但后端不读），下拉会混入其他客户的商机。
+  let customerClause = '';
+  const queryParams = [...permParams];
+  if (customerId) {
+    customerClause = ' AND o.customer_id = ?';
+    queryParams.push(customerId);
+  }
+
   const [rows] = await pool.query(
-    `SELECT o.id, o.name FROM crm_opportunity o WHERE ${permissionClause} AND o.stage != 5 AND o.stage != 6 AND o.deleted_at IS NULL ORDER BY o.name`,
-    permParams
+    `SELECT o.id, o.name FROM crm_opportunity o WHERE ${permissionClause} AND o.stage != 5 AND o.stage != 6 AND o.deleted_at IS NULL${customerClause} ORDER BY o.name`,
+    queryParams
   );
   return rows;
 }

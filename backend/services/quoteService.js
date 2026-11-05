@@ -59,6 +59,42 @@ async function generateQuoteNo(connection) {
   return `QUO-${dateStr}-${seq}`;
 }
 
+/**
+ * [P1-26] 解析并校验报价币种/汇率。
+ *
+ * 存储口径：`crm_quote.amount/final_amount` 是**报价币种口径**的金额，不做人民币换算；
+ * `exchange_rate` 是该币种对人民币的汇率，用于展示/折算（前端 `¥ = final_amount × rate`）。
+ * 因此：
+ *  - CNY 的汇率恒为 1.0000（拒绝历史脏值/伪造值继续扩散）；
+ *  - 外币必须存在于 `crm_currency` 且启用，未显式传汇率时取字典当前汇率，
+ *    显式传入则按调用方给定值冻结（报价需要锁定当时汇率，不能每次按字典重算）。
+ *
+ * @param {object} connection 事务连接
+ * @param {string} [currency] 币种代码
+ * @param {number|string} [exchangeRate] 汇率；undefined 表示取字典值/沿用原值
+ * @returns {Promise<{code: string, exchangeRate: number}>}
+ */
+async function resolveQuoteCurrency(connection, currency, exchangeRate) {
+  const code = String(currency || 'CNY').trim().toUpperCase();
+  if (code === 'CNY') return { code, exchangeRate: 1.0000 };
+
+  const [rows] = await connection.query(
+    'SELECT code, exchange_rate FROM crm_currency WHERE code = ? AND status = 1 AND deleted_at IS NULL',
+    [code]
+  );
+  if (rows.length === 0) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, `币种 ${code} 不存在或已停用`);
+  }
+
+  const rate = exchangeRate !== undefined && exchangeRate !== null
+    ? Number(exchangeRate)
+    : Number(rows[0].exchange_rate);
+  if (!Number.isFinite(rate) || rate <= 0) {
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '汇率必须大于 0');
+  }
+  return { code, exchangeRate: rate };
+}
+
 async function createQuote(pool, data, userId) {
   const connection = await pool.getConnection();
   try {
@@ -90,7 +126,7 @@ async function createQuote(pool, data, userId) {
     const validatedItems = [];
     for (const item of items) {
       const [products] = await connection.query(
-        'SELECT id, name, code, price FROM crm_product WHERE id = ? AND status = 1',
+        'SELECT id, name, code, price FROM crm_product WHERE id = ? AND status = 1 AND deleted_at IS NULL',
         [item.product_id]
       );
       if (products.length === 0) throw new AppError(ErrorCodes.BUSINESS_VALIDATION, `产品ID ${item.product_id} 不存在或已禁用`);
@@ -118,8 +154,10 @@ async function createQuote(pool, data, userId) {
     // 会因 `1 - 0.15` 的浮点表示偏小而少算 1 分（实测 1.50 → 1.27，应为 1.28）
     const finalAmount = money.applyDiscount(totalAmount, disc);
     const quoteNo = await generateQuoteNo(connection);
-    const currency = data.currency || 'CNY';
-    const exchangeRate = data.exchange_rate || 1.0000;
+    // [P1-26] 币种/汇率统一校验：外币必须已登记，CNY 汇率恒为 1
+    const { code: currency, exchangeRate } = await resolveQuoteCurrency(
+      connection, data.currency, data.exchange_rate
+    );
 
     const [quoteResult] = await connection.query(
       `INSERT INTO crm_quote
@@ -252,7 +290,8 @@ async function getQuote(pool, id, permission = null) {
 
   const [quote] = await pool.query(
     `SELECT
-      q.id, q.quote_no, q.customer_id, q.amount, q.discount, q.final_amount,
+      q.id, q.quote_no, q.customer_id, q.opportunity_id, q.amount, q.discount, q.final_amount,
+      q.currency, q.exchange_rate,
       q.valid_days, q.remark, q.status, q.approval_status, q.create_by, q.create_time,
       c.company_name as customer_name, c.contact_name, c.phone,
       u.real_name as create_name
@@ -282,7 +321,9 @@ async function updateQuote(pool, data, permission = null) {
   try {
     await connection.beginTransaction();
 
-    const { id, customer_id, items, discount, valid_days, remark, status } = data;
+    // [P1-26] 币种/汇率/商机此前未解构也未写回：前端提交后被 stripUnknown 丢弃，
+    // 编辑外币报价后币种与汇率静默丢失（金额仍按旧口径），用户却看到“修改成功”。
+    const { id, customer_id, opportunity_id, items, discount, valid_days, remark, status, currency, exchange_rate } = data;
 
     // 数据权限过滤：仅允许修改数据范围内（含归属人）的报价单
     const whereParts = ['q.id = ?', 'q.deleted_at IS NULL'];
@@ -294,7 +335,7 @@ async function updateQuote(pool, data, permission = null) {
 
     const [quotes] = await connection.query(
       `SELECT q.id, q.quote_no, q.customer_id, q.amount, q.discount, q.final_amount, q.valid_days, q.remark, q.status, q.approval_status,
-        q.opportunity_id, q.create_by, q.create_time, q.deleted_at
+        q.opportunity_id, q.currency, q.exchange_rate, q.create_by, q.create_time, q.deleted_at
        FROM crm_quote q WHERE ${whereParts.join(' AND ')}`,
       whereParams
     );
@@ -315,6 +356,41 @@ async function updateQuote(pool, data, permission = null) {
       updateParams.push(customer_id);
     }
 
+    // [P1-26] 商机关联：显式传入时校验存在且与最终客户一致；
+    // 未传入但改了客户时，也要复判原商机，避免库里留下“商机不属于该客户”的矛盾行。
+    const finalCustomerId = customer_id !== undefined ? customer_id : existingQuote.customer_id;
+    const finalOpportunityId = opportunity_id !== undefined ? opportunity_id : existingQuote.opportunity_id;
+    if (finalOpportunityId !== undefined && finalOpportunityId !== null) {
+      const [opps] = await connection.query(
+        'SELECT id, customer_id FROM crm_opportunity WHERE id = ? AND deleted_at IS NULL',
+        [finalOpportunityId]
+      );
+      if (opps.length === 0) {
+        throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '关联的商机不存在');
+      }
+      if (Number(opps[0].customer_id) !== Number(finalCustomerId)) {
+        throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '商机与客户不匹配，无法关联');
+      }
+    }
+    if (opportunity_id !== undefined) {
+      updates.push('opportunity_id = ?');
+      updateParams.push(opportunity_id);
+    }
+
+    // [P1-26] 币种/汇率：仅在调用方提交时更新；换币种未给汇率则取字典当前汇率，
+    // 未换币种未给汇率则沿用原汇率（报价需冻结当时汇率）；CNY 恒为 1。
+    if (currency !== undefined || exchange_rate !== undefined) {
+      const currentCurrency = String(existingQuote.currency || 'CNY').toUpperCase();
+      const nextCurrency = currency !== undefined ? currency : currentCurrency;
+      const currencyChanged = String(nextCurrency).trim().toUpperCase() !== currentCurrency;
+      const rateInput = exchange_rate !== undefined
+        ? exchange_rate
+        : (currencyChanged ? undefined : existingQuote.exchange_rate);
+      const resolved = await resolveQuoteCurrency(connection, nextCurrency, rateInput);
+      updates.push('currency = ?', 'exchange_rate = ?');
+      updateParams.push(resolved.code, resolved.exchangeRate);
+    }
+
     if (discount !== undefined) { updates.push('discount = ?'); updateParams.push(discount); }
     if (valid_days !== undefined) { updates.push('valid_days = ?'); updateParams.push(valid_days); }
     if (remark !== undefined) { updates.push('remark = ?'); updateParams.push(remark); }
@@ -326,7 +402,7 @@ async function updateQuote(pool, data, permission = null) {
       let totalAmount = 0;
       for (const item of items) {
         const [products] = await connection.query(
-          'SELECT id, name, code, price FROM crm_product WHERE id = ? AND status = 1',
+          'SELECT id, name, code, price FROM crm_product WHERE id = ? AND status = 1 AND deleted_at IS NULL',
           [item.product_id]
         );
         if (products.length === 0) throw new AppError(ErrorCodes.BUSINESS_VALIDATION, `产品ID ${item.product_id} 不存在或已禁用`);
@@ -455,8 +531,8 @@ async function approveQuote(pool, id, approvalStatus, approvalRemark, userId) {
 async function convertToContract(pool, quoteId, userId, idempotencyKey) {
   const { runIdempotent } = require('../utils/idempotency');
   const { result } = await runIdempotent(pool, idempotencyKey, 'quote_convert', () =>
-    convertToContractTx(pool, quoteId, userId)
-  );
+    convertToContractTx(pool, quoteId, userId),
+  userId);
   return result;
 }
 

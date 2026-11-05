@@ -4,7 +4,9 @@ const http = require('http');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
-jest.mock('../config/database', () => ({ query: jest.fn() }));
+const { installAuthAwareQuery } = require('./helpers/authMock');
+const mockPool = { query: jest.fn() };
+jest.mock('../config/database', () => mockPool);
 jest.mock('../services/permissionService', () => ({
   getUserPermissions: jest.fn().mockResolvedValue([]),
   getMenuPermissions: jest.fn().mockResolvedValue([]),
@@ -64,6 +66,8 @@ function sseGet(path, authHeader) {
 describe('SSE 路由 /api/v1/sse', () => {
   beforeEach(() => {
     sseManager.add.mockClear();
+    mockPool.query.mockReset();
+    installAuthAwareQuery(mockPool);
   });
 
   it('GET /sse/notifications 未登录返回 401', async () => {

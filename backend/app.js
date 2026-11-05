@@ -265,6 +265,7 @@ require('./routes/calendar');
 // social 通过 ModuleRegistry 注册（2026-09-24 迁移）
 require('./routes/social');
 // api-platform 通过 ModuleRegistry 注册（2026-09-21 迁移）
+// [P1-23] 注册名为 platform，实际挂载路径 /api/v1/platform（与前端 api/system.js 一致）
 require('./routes/api-platform');
 // competitor 通过 ModuleRegistry 注册（2026-09-21 迁移）
 require('./routes/competitor');
@@ -420,7 +421,7 @@ for (const { prefix, router } of registry.getAllRoutes()) {
 // automation 已通过 ModuleRegistry 自动挂载
 // calendar 已通过 ModuleRegistry 自动挂载
 // social 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
-// api-platform 已通过 ModuleRegistry 自动挂载
+// api-platform 已通过 ModuleRegistry 自动挂载为 /api/v1/platform（注册名 platform）
 // competitor 已通过 ModuleRegistry 自动挂载
 // currency 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 // email 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
@@ -528,6 +529,19 @@ app.use('/api/v1', apiRouter);
 // survey 通过 ModuleRegistry 自动挂载（2026-09-24 迁移）
 // （公开回复端点 POST /respond/:campaign_id 无 token，已由路由本身不加 authenticateToken 处理）
 
+const path = require('path');
+const fs = require('fs');
+
+// [P1-11] 本地 /uploads 不再公开静态：
+//   /uploads/attachments 需登录 + 客户数据范围（附件记录回溯所属业务），
+//   /uploads/knowledge 需登录 + knowledge 权限码。
+// 必须挂载在错误处理中间件之前，否则鉴权中间件抛出的 AppError 无人捕获。
+const uploadsDir = path.join(__dirname, 'uploads');
+if (fs.existsSync(uploadsDir)) {
+  const { mountSecureUploads } = require('./middleware/secureUploads');
+  mountSecureUploads(app, { pool: require('./config/database'), uploadsDir });
+}
+
 // 统一业务错误处理（AppError + Joi 校验错误）
 app.use(appErrorHandler);
 
@@ -535,15 +549,6 @@ app.use(appErrorHandler);
 app.use(globalErrorHandler);
 
 // 生产环境：直接托管前端静态文件
-const path = require('path');
-const fs = require('fs');
-
-// 文件上传：生产环境由 Supabase Storage 提供，本地开发保留 /uploads 静态服务
-const uploadsDir = path.join(__dirname, 'uploads');
-if (fs.existsSync(uploadsDir)) {
-  app.use('/uploads', express.static(uploadsDir));
-}
-
 const distPath = fs.existsSync(path.join(__dirname, 'frontend', 'dist'))
   ? path.join(__dirname, 'frontend', 'dist')
   : path.join(__dirname, '..', 'frontend', 'dist');
@@ -568,9 +573,15 @@ const pool = require('./config/database');
 
 // Vercel Serverless 环境：跳过 node-cron 和 app.listen（由平台处理）
 if (!process.env.VERCEL) {
-  // 启动定时任务（已抽取到 cron/scheduler.js，带失败重试和执行日志）
-  const { startAllCronJobs } = require('./cron/scheduler');
-  startAllCronJobs(pool);
+  // [P1-14] 多实例/灰度部署只允许一个进程执行定时任务：
+  // backend-canary 通过 CRON_ENABLED=false 关闭，避免回收/提醒等任务重复执行。
+  if (process.env.CRON_ENABLED === 'false') {
+    logger.info('[定时任务] CRON_ENABLED=false，本进程跳过 node-cron');
+  } else {
+    // 启动定时任务（已抽取到 cron/scheduler.js，带失败重试和执行日志）
+    const { startAllCronJobs } = require('./cron/scheduler');
+    startAllCronJobs(pool);
+  }
 
   // 启动数据库连接池指标采集（每15秒）
   startPoolMetricsCollection(pool);

@@ -219,6 +219,117 @@ function maskLogParams(obj) {
   return result;
 }
 
+// ============ 日志文本脱敏（审计 2026-10-23 · P1-20） ============
+// 慢查询参数与操作日志 URL 是位置化的字符串/查询串，拿不到字段名，
+// 只能按“可识别模式”兜底脱敏。目标是避免手机号/邮箱/身份证/银行卡/
+// JWT/bcrypt 哈希/长 hex 口令进入持久化日志，同时保留排查所需的形态。
+const PII_PATTERNS = {
+  // local part 允许 *：让已脱敏的 a***e@example.com 整体命中并原样返回，
+  // 避免二次脱敏把尾部 e 再当成一个 local part（a******@example.com）。
+  email: /[A-Za-z0-9._%+*-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g,
+  jwt: /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g,
+  bcrypt: /\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}/g,
+  idCard: /(?<!\d)\d{17}[\dXx](?!\d)/g,
+  mobile: /(?<!\d)1[3-9]\d{9}(?!\d)/g,
+  bankCard: /(?<!\d)\d{16,19}(?!\d)/g,
+  longHex: /(?<![A-Za-z0-9])[a-fA-F0-9]{32,}(?![A-Za-z0-9])/g
+};
+
+/**
+ * 对任意文本中的可识别敏感值脱敏。
+ * 非字符串按 String() 处理，null/undefined 原样返回。
+ */
+function maskPIIString(value) {
+  if (value === null || value === undefined) return value;
+  let str = String(value);
+  str = str.replace(PII_PATTERNS.email, (m) => (m.includes('*') ? m : maskEmail(m)));
+  str = str.replace(PII_PATTERNS.jwt, '[JWT]');
+  str = str.replace(PII_PATTERNS.bcrypt, '[bcrypt]');
+  str = str.replace(PII_PATTERNS.idCard, (m) => maskIdCard(m));
+  str = str.replace(PII_PATTERNS.mobile, (m) => maskPhone(m));
+  str = str.replace(PII_PATTERNS.bankCard, (m) => maskBankCard(m));
+  str = str.replace(PII_PATTERNS.longHex, '[redacted]');
+  return str;
+}
+
+/**
+ * 对 URL 查询串按字段名脱敏，再对值做模式兜底。
+ * 例：/list?phone=13800138000&email=a%40b.com&keyword=联系我
+ *  →  /list?phone=138****8000&email=a***%40b.com&keyword=联系我
+ */
+function maskUrlQuery(url) {
+  if (typeof url !== 'string' || url === '') return url;
+  const qIndex = url.indexOf('?');
+  if (qIndex === -1) return maskPIIString(url);
+
+  const base = url.slice(0, qIndex);
+  const hashIndex = url.indexOf('#', qIndex);
+  const query = url.slice(qIndex + 1, hashIndex === -1 ? undefined : hashIndex);
+  const hash = hashIndex === -1 ? '' : url.slice(hashIndex);
+
+  const maskedQuery = query.split('&').map((pair) => {
+    if (pair === '') return pair;
+    const eq = pair.indexOf('=');
+    const rawKey = eq === -1 ? pair : pair.slice(0, eq);
+    const rawValue = eq === -1 ? '' : pair.slice(eq + 1);
+
+    let key = rawKey;
+    let value = rawValue;
+    try { key = decodeURIComponent(rawKey.replace(/\+/g, ' ')); } catch (_) { /* 保留原串 */ }
+    try { value = decodeURIComponent(rawValue.replace(/\+/g, ' ')); } catch (_) { /* 保留原串 */ }
+
+    // 兼容 phone[]=... 这类数组参数：按去掉 [] 的字段名判断敏感性
+    const lookupKey = key.toLowerCase().replace(/\[\]$/, '');
+    const keyIsSensitive = lookupKey in SENSITIVE_FIELDS || MASK_FIELDS.includes(lookupKey);
+    // 已知敏感字段按字段规则脱敏后不再二次处理；未知字段按 PII 模式兜底。
+    const maskedValue = keyIsSensitive
+      ? String(maskFieldValue(lookupKey, value))
+      : maskPIIString(value);
+    return `${encodeURIComponent(maskPIIString(key))}=${encodeURIComponent(maskedValue)}`;
+  }).join('&');
+
+  return `${base}?${maskedQuery}${hash}`;
+}
+
+/**
+ * 慢查询参数脱敏。
+ * - 数组（mysql2 位置参数）：逐项脱敏，数字手机号也处理；
+ * - 对象：按字段名脱敏；
+ * - 字符串：按可识别模式脱敏。
+ */
+function maskSqlParams(params) {
+  if (params === null || params === undefined) return params;
+  if (Array.isArray(params)) return params.map(maskSqlParam);
+  if (typeof params === 'object') return maskLogParams(params);
+  return maskSqlParam(params);
+}
+
+function maskSqlParam(param) {
+  if (typeof param === 'string') return maskPIIString(param);
+  if (typeof param === 'number' && Number.isInteger(param) && /^1[3-9]\d{9}$/.test(String(param))) {
+    return maskPhone(String(param));
+  }
+  if (param && typeof param === 'object' && !(param instanceof Date) && !Buffer.isBuffer(param)) {
+    return maskLogParams(param);
+  }
+  return param;
+}
+
+/**
+ * SQL 文本脱敏：兼容 mysql2 的 string 与 { sql, values } 两种入参。
+ */
+function maskSqlText(sql) {
+  if (typeof sql === 'string') return maskPIIString(sql);
+  if (sql && typeof sql === 'object') {
+    try {
+      return maskPIIString(JSON.stringify(maskLogParams(sql)));
+    } catch (_) {
+      return '[unserializable SQL]';
+    }
+  }
+  return maskPIIString(String(sql));
+}
+
 module.exports = {
   maskPhone,
   maskEmail,
@@ -230,5 +341,9 @@ module.exports = {
   maskName,
   maskSensitiveData,
   maskFieldValue,
-  maskLogParams
+  maskLogParams,
+  maskPIIString,
+  maskUrlQuery,
+  maskSqlParams,
+  maskSqlText
 };

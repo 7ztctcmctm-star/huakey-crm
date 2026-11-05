@@ -151,9 +151,12 @@ const PASSWORD_MESSAGE = '密码至少8位，需包含大写字母、小写字�
 | 配置项 | 值 | 说明 |
 |--------|-----|------|
 | httpOnly | true | 防止 XSS 读取 |
-| secure | true (HTTPS) | 仅 HTTPS 传输 |
-| sameSite | strict | 防 CSRF |
+| secure | true（生产且 HTTPS） | 仅 HTTPS 传输 |
+| sameSite | lax | 跨站写请求不携带；CSRF 另由 double-submit token 强制 |
 | maxAge | 7 天 | Token 有效期 |
+
+> 2026-10-26 更新：`sameSite` 已由 `strict` 调整为 `lax`（`.local` 域名登录场景需要），
+> 写请求必须携带与 CSRF cookie 一致的 `X-CSRF-Token` 头。
 
 ---
 
@@ -386,7 +389,7 @@ Content-Type: application/json
 | 基线项 | 要求 |
 |--------|------|
 | 密码哈希 | bcrypt $2b$10$ |
-| Cookie | httpOnly + secure + sameSite=strict |
+| Cookie | httpOnly + secure（生产 HTTPS） + sameSite=lax + double-submit CSRF |
 | Token 有效期 | 7 天 |
 | 登录限流 | Redis 存储 |
 | 验证码 | 必须（生产环境） |

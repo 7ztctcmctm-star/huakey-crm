@@ -178,8 +178,8 @@ const fetchList = async () => {
   } finally { loading.value = false }
 }
 
-const fetchDepts = async () => { try { const res = await getDeptList({}); if (res.code === 200) depts.value = res.data.list } catch (e) { /* */ } }
-const fetchRoles = async () => { try { const res = await getRoleList({}); if (res.code === 200) roles.value = res.data.list } catch (e) { /* */ } }
+const fetchDepts = async () => { try { const res = await getDeptList(); if (res.code === 200) depts.value = res.data.list } catch (e) { /* */ } }
+const fetchRoles = async () => { try { const res = await getRoleList(); if (res.code === 200) roles.value = res.data.list } catch (e) { /* */ } }
 
 const handleAdd = () => { isEdit.value = false; editId.value = null; Object.assign(form, { username: '', password: '', real_name: '', phone: '', email: '', dept_id: null, role_id: null }); dialogVisible.value = true }
 

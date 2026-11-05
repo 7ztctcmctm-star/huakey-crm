@@ -1,7 +1,7 @@
 const express = require('express');
 const { authenticateToken } = require('../../middleware/auth');
-const { checkPermission } = require('../../middleware/permission');
-const { requireManager } = require('../../middleware/admin');
+const { checkPermission, checkDataPermission } = require('../../middleware/permission');
+const { requireAdmin, requireManager } = require('../../middleware/admin');
 const { validate, Joi, idempotencyKeyField } = require('../../middleware/validate');
 const { autoAssignOwner } = require('../../services/assignService');
 const customerController = require('../../controllers/customerController');
@@ -53,12 +53,18 @@ const deleteAssignRuleSchema = Joi.object({
 
 const autoAssignSchema = Joi.object({});
 
+// ========== 分配权收敛（S1 · 2026-11-03 业务拍板） ==========
+// 分配（单个/批量/轮询）与分配规则**写**操作仅限 boss 账号（lvcongming/admin）及超管发起：
+// manager 即使持有 customer:assign 码也不再放行 —— 由 requireAdmin 在权限码之上强制。
+// 读端点（/assign-log、/sales-users、GET /assign-rules、/my-subordinates）暂维持现状，
+// 待后续权限迁移（收回 manager 的 customer:assign）后随权限码自然收敛为 403。
+
 // 分配/回收客户负责人（支持设为"无负责人"）
 // to_user_id 可以为 null，表示回收为无负责人状态
-router.post('/assign', authenticateToken, checkPermission('customer:assign'), requireManager, validate(assignSchema), customerController.assign);
+router.post('/assign', authenticateToken, checkPermission('customer:assign'), requireAdmin, validate(assignSchema), customerController.assign);
 
 // 批量分配客户负责人
-router.post('/batch-assign', authenticateToken, checkPermission('customer:assign'), requireManager, validate(batchAssignSchema), customerController.batchAssign);
+router.post('/batch-assign', authenticateToken, checkPermission('customer:assign'), requireAdmin, validate(batchAssignSchema), customerController.batchAssign);
 
 // 查询分配日志
 router.post('/assign-log', authenticateToken, checkPermission('customer:assign'), validate(assignLogSchema), customerController.listAssignLogs);
@@ -76,28 +82,29 @@ router.get('/sales-users', authenticateToken, checkPermission('customer:assign')
 //   3. 它不返回任何业务数据（客户/金额/跟进记录），只是人员字典，
 //      用于「分配给谁」下拉框。
 //   对比：同文件 /assign、/batch-assign 等**写**端点均已配
-//   checkPermission('customer:assign') + requireManager，读写分治。
+//   checkPermission('customer:assign') + requireAdmin（2026-11-03 S1 收敛后），读写分治。
 router.get('/my-subordinates', authenticateToken, customerController.getMySubordinates);
 
 // ========== 分配规则管理 ==========
-// [2026-09-20] 4 个规则端点原仅 requireManager（无功能码）。requireManager 语义修正后
-//   会把它们放宽给**所有**经理；此处配对 checkPermission('customer:assign')，
-//   与同文件 /assign、/batch-assign、/auto-assign 同级 —— manager 持有该码，属有意放宽。
+// [2026-09-20] 4 个规则端点原仅 requireManager（无功能码），后配对 checkPermission('customer:assign')。
+// [2026-11-03 S1 分配权收敛] 规则**写**端点与分配端点一致改配 requireAdmin：分配规则
+//   决定客户归属，属分配权的一部分，manager 持码也不再放行；列表（读）暂维持 requireManager，
+//   待后续权限迁移（收回 manager 的 customer:assign）后随权限码自然收敛。
 
 // 获取分配规则列表
 router.get('/assign-rules', authenticateToken, checkPermission('customer:assign'), requireManager, customerController.getAssignRules);
 
 // 添加分配规则
-router.post('/assign-rules/add', authenticateToken, checkPermission('customer:assign'), requireManager, validate(assignRuleSchema), customerController.createAssignRule);
+router.post('/assign-rules/add', authenticateToken, checkPermission('customer:assign'), requireAdmin, validate(assignRuleSchema), customerController.createAssignRule);
 
 // 更新分配规则
-router.post('/assign-rules/update', authenticateToken, checkPermission('customer:assign'), requireManager, validate(updateAssignRuleSchema), customerController.updateAssignRule);
+router.post('/assign-rules/update', authenticateToken, checkPermission('customer:assign'), requireAdmin, validate(updateAssignRuleSchema), customerController.updateAssignRule);
 
 // 删除分配规则
-router.post('/assign-rules/delete', authenticateToken, checkPermission('customer:assign'), requireManager, validate(deleteAssignRuleSchema), customerController.deleteAssignRule);
+router.post('/assign-rules/delete', authenticateToken, checkPermission('customer:assign'), requireAdmin, validate(deleteAssignRuleSchema), customerController.deleteAssignRule);
 
 // 轮询自动分配：将公海客户均匀分配给销售团队
-router.post('/auto-assign', authenticateToken, checkPermission('customer:assign'), requireManager, validate(autoAssignSchema), customerController.autoAssign);
+router.post('/auto-assign', authenticateToken, checkPermission('customer:assign'), requireAdmin, validate(autoAssignSchema), customerController.autoAssign);
 
 // ========== 公海认领/释放（从 pool.js 迁移，避免废弃路由继续暴露）==========
 
@@ -131,10 +138,10 @@ router.post('/claim', authenticateToken, checkPermission('pool:claim'), validate
 router.post('/batch-claim', authenticateToken, checkPermission('pool:claim'), validate(batchClaimSchema), customerController.batchClaim);
 
 // 释放客户到公海
-router.post('/release', authenticateToken, checkPermission('customer:release'), validate(releaseSchema), customerController.release);
+router.post('/release', authenticateToken, checkPermission('customer:release'), checkDataPermission('customer', 'owner_id'), validate(releaseSchema), customerController.release);
 
 // 批量释放客户到公海
-router.post('/batch-release', authenticateToken, checkPermission('customer:release'), validate(batchReleaseSchema), customerController.batchRelease);
+router.post('/batch-release', authenticateToken, checkPermission('customer:release'), checkDataPermission('customer', 'owner_id'), validate(batchReleaseSchema), customerController.batchRelease);
 
 // 获取公海操作日志
 router.post('/pool-log', authenticateToken, checkPermission('pool:view'), validate(poolLogSchema), customerController.listPoolLogs);

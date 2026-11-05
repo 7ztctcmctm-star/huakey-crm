@@ -1,25 +1,25 @@
 -- =============================================================================
 -- 120_manager_full_permissions.sql
--- 2026-09-29 · Phase 20 权限矩阵验证修复
--- 2026-10-15 · 改按 roleCode 定位角色（原硬编码 role_id=1/2）
---   背景：本项目铁律「role_id 映射三方冲突，一律 roleCode」——本机测试库
---   boss=1/manager=2 恰好蒙对，但角色 id 跨环境并不可靠（如 finance 在测试库是 31、
---   生产库当年是 6，121 的硬编码就因此只在 production 生效）。改为按 sys_role.code 定位，
---   任何环境行为一致。生产库 2026-09-30 已按旧版执行过（manager=112），本改动不影响生产终态。
+-- 2026-09-29 · Phase 20 权限矩阵验证修复（原始版本）
+-- 2026-10-23 · 审计修复：**本迁移不再复制 boss 全部权限**
 -- =============================================================================
--- 根因：manager 当前只有 20 条权限码，boss 有 111 条 — 差 92 条。
---       Phase 20 权限矩阵实测大量 manager 端点 403
--- 目标：让 manager 功能权限 = boss（全部权限码），数据权限保持 dept_and_sub
--- 设计：INSERT IGNORE 从 boss 复制到 manager — 幂等可重跑
+-- 原实现：
+--   INSERT IGNORE ... SELECT boss 的全部 sys_role_permission → manager
+-- 问题（审计 P0-04）：
+--   boss 持有 system:user:* / system:role:* / system:backup / settings 等
+--   系统管理权限。复制给 manager 后，经理可创建 boss、重置老板密码、
+--   恢复备份，直接把 P0-03 的用户管理提权链扩大到经理角色。
+--   同时该迁移还会把 invoice:*、log:export、data:restore 等仅限老板/
+--   财务的资金与审计权限一并授予经理，违反最小权限原则。
+--
+-- 修复策略：
+--   1. 本文件保留为**显式空操作**，保证已部署环境按原编号执行时不会再扩大授权；
+--   2. 经理需要的业务权限由 125_permission_sync.sql 按岗位矩阵逐条授予；
+--   3. 若生产环境曾执行旧版 120（已复制全部 boss 权限），125 会删除
+--      system:user* / system:role* / system:backup / settings 等管理权限，
+--      保留业务权限。旧版 120 的授权残留必须由 125 清理，不能仅靠改本文件。
+--
+-- 回滚：本迁移无数据库变更，无需回滚。
 -- =============================================================================
 
--- Step 1: 功能权限 — manager 继承 boss 全部权限码（INSERT IGNORE 保证幂等）
-INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
-SELECT mr.id, br_rp.permission_id
-FROM sys_role_permission br_rp
-JOIN sys_role br ON br.id = br_rp.role_id AND br.code = 'boss'
-CROSS JOIN (SELECT id FROM sys_role WHERE code = 'manager') mr;
-
--- Step 2: 验证
-SELECT COUNT(*) as manager_perms FROM sys_role_permission rp
-JOIN sys_role r ON r.id = rp.role_id WHERE r.code = 'manager';
+SELECT '120_manager_full_permissions: superseded by 125_permission_sync.sql' AS migration_note;

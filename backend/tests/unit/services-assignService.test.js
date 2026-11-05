@@ -137,6 +137,27 @@ describe('assignService', () => {
       expect(conn.commit).toHaveBeenCalled();
     });
 
+    it('[P1-07] 已被他人抢走的客户条件更新 0 行：跳过且不写分配日志', async () => {
+      const pool = createMockPool();
+      const conn = createMockConn();
+      conn.query
+        .mockResolvedValueOnce([[{ id: 1, owner_id: null }, { id: 2, owner_id: null }]]) // 公海快照
+        .mockResolvedValueOnce([[{ id: 10 }, { id: 11 }]])                            // 销售
+        .mockResolvedValueOnce([{ affectedRows: 1 }])                                 // 客户1 抢到
+        .mockResolvedValueOnce([{ insertId: 100 }])                                   // 客户1 日志
+        .mockResolvedValueOnce([{ affectedRows: 0 }])                                 // 客户2 已被抢走
+        .mockResolvedValueOnce([{ insertId: 101 }]);                                  // 不应出现的日志
+      pool.getConnection.mockResolvedValue(conn);
+
+      const result = await assignService.applyRule(pool, 1);
+      expect(result.count).toBe(1);
+      const updateCalls = conn.query.mock.calls.filter(c => String(c[0]).includes('UPDATE crm_customer'));
+      expect(updateCalls[0][0]).toContain('AND owner_id IS NULL');
+      const logCalls = conn.query.mock.calls.filter(c => String(c[0]).includes('INSERT INTO crm_assign_log'));
+      expect(logCalls).toHaveLength(1);
+      expect(conn.commit).toHaveBeenCalled();
+    });
+
     it('异常时应回滚', async () => {
       const pool = createMockPool();
       const conn = createMockConn();
@@ -216,7 +237,7 @@ describe('assignService', () => {
       expect(result.code).toBe(404);
     });
 
-    it('分配时应更新 pool_status=0', async () => {
+    it('公海分配时应更新 pool_status=private 并推进为 following', async () => {
       const pool = createRoutedPool([
         { match: 'FROM sys_user', result: VALID_TARGET_USER },
         { match: 'FROM crm_customer', result: [[{ id: 1, owner_id: null, company_name: 'A' }]] },
@@ -228,7 +249,28 @@ describe('assignService', () => {
       expect(result.code).toBe(200);
       expect(result.message).toBe('分配成功');
       const updateCall = pool.query.mock.calls.find(c => String(c[0]).includes('UPDATE crm_customer'));
+      // [P1-03] 无主客户分配给用户必须带出公海态：status/business_status 同步为 following
+      expect(updateCall[0]).toContain('status = ?');
+      expect(updateCall[0]).toContain('business_status = ?');
+      // [P1-07] 乐观锁：WHERE 带读取时的原负责人（NULL 安全比较）
+      expect(updateCall[0]).toContain('owner_id <=> ?');
+      expect(updateCall[1]).toEqual([2, 'private', 'following', 'following', 1, null]);
+    });
+
+    it('[P1-03] 已归属客户转移时不改变业务阶段', async () => {
+      const pool = createRoutedPool([
+        { match: 'FROM sys_user', result: VALID_TARGET_USER },
+        { match: 'FROM crm_customer', result: [[{ id: 1, owner_id: 2, company_name: 'A', status: 'quoted', business_status: 'quoted' }]] },
+        { match: 'UPDATE crm_customer', result: [{ affectedRows: 1 }] },
+        { match: 'INSERT INTO crm_assign_log', result: [{ insertId: 1 }] }
+      ]);
+
+      await assignService.manualAssign(pool, 1, 2, 3, 'r');
+      const updateCall = pool.query.mock.calls.find(c => String(c[0]).includes('UPDATE crm_customer'));
       expect(updateCall[0]).not.toContain(', status = ?');
+      expect(updateCall[0]).not.toContain('business_status = ?');
+      expect(updateCall[0]).toContain('owner_id <=> ?');
+      expect(updateCall[1]).toEqual([2, 'private', 1, 2]);
     });
 
     it('回收时(pool_status=1)应更新状态为 sea 并同步 business_status=following', async () => {

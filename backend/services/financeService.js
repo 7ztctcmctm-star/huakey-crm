@@ -17,13 +17,16 @@ async function getReminders(pool, { status, page, pageSize }) {
   const params = [];
   if (status) { where += ' AND r.status = ?'; params.push(status); }
 
-  const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total FROM crm_payment_reminder r ${where}`, params);
+  const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total FROM crm_payment_reminder r
+    JOIN crm_contract c ON r.contract_id = c.id AND c.deleted_at IS NULL
+    JOIN crm_customer cu ON r.customer_id = cu.id AND cu.deleted_at IS NULL
+    ${where}`, params);
   const [rows] = await pool.query(`
     SELECT r.id, r.contract_id, r.plan_id, r.customer_id, r.remind_date, r.remind_type, r.remind_days, r.amount, r.status, r.remark, r.create_time,
            c.contract_no, cu.company_name as customer_name
     FROM crm_payment_reminder r
-    JOIN crm_contract c ON r.contract_id = c.id
-    JOIN crm_customer cu ON r.customer_id = cu.id
+    JOIN crm_contract c ON r.contract_id = c.id AND c.deleted_at IS NULL
+    JOIN crm_customer cu ON r.customer_id = cu.id AND cu.deleted_at IS NULL
     ${where} ORDER BY r.remind_date ASC LIMIT ? OFFSET ?
   `, [...params, parseInt(pageSize), offset]);
 
