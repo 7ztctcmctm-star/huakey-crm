@@ -143,7 +143,7 @@ describe('P0-1 公海认领原子性', () => {
       await expect(claimCustomer(pool, 101, 46, actor)).rejects.toMatchObject({
         code: 400005
       });
-      await expect(claimCustomer(pool, 101, 46, actor)).rejects.toThrow(/已被他人认领/);
+      await expect(claimCustomer(pool, 101, 46, actor)).rejects.toThrow(/已被他人分配/);
 
       // 失败必须回滚并释放连接，且不得提交
       expect(pool.__conn.rollback).toHaveBeenCalled();
@@ -160,7 +160,7 @@ describe('P0-1 公海认领原子性', () => {
     test('客户已有人负责时在**事务外**快判拒绝，不占用连接', async () => {
       const pool = makePool(poolCustomer({ owner_id: 7 }));
 
-      await expect(claimCustomer(pool, 101, 46, actor)).rejects.toThrow('该客户不在公海中');
+      await expect(claimCustomer(pool, 101, 46, actor)).rejects.toThrow('该客户不在待分配中');
       // 【B2】已知有人负责 ⇒ 快照读阶段就拒绝，不必取连接
       expect(pool.getConnection).not.toHaveBeenCalled();
       expect(pool.__conn.query).not.toHaveBeenCalled();
@@ -173,7 +173,7 @@ describe('P0-1 公海认领原子性', () => {
       expect(pool.getConnection).not.toHaveBeenCalled();
     });
 
-    test('【B2】事务内加锁复判发现已被抢走，须用「已被他人认领」口径', async () => {
+    test('【B2】事务内加锁复判发现已被抢走，须用「已被他人分配」口径', async () => {
       // 快照读看到无主（并发窗口），但拿到行锁后已是他人所有
       const pool = makePool(poolCustomer());
       pool.query.mockResolvedValue([[poolCustomer({ owner_id: null })]]);       // 外：无主
@@ -186,7 +186,7 @@ describe('P0-1 公海认领原子性', () => {
         return Promise.resolve([{ insertId: 1 }]);
       });
 
-      await expect(claimCustomer(pool, 101, 46, actor)).rejects.toThrow('已被他人认领');
+      await expect(claimCustomer(pool, 101, 46, actor)).rejects.toThrow('已被他人分配');
       expect(pool.__conn.rollback).toHaveBeenCalled();
       expect(pool.__conn.commit).not.toHaveBeenCalled();
     });
@@ -228,7 +228,7 @@ describe('P0-1 公海认领原子性', () => {
 
       expect(result.claimed).toBe(0);
       expect(result.skipped).toHaveLength(1);
-      expect(result.skipped[0]).toMatch(/已被他人认领/);
+      expect(result.skipped[0]).toMatch(/已被他人分配/);
       expect(conn.commit).toHaveBeenCalled();
 
       // 未认领成功不得写日志

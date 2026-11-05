@@ -280,8 +280,9 @@ async function claim(req, res, next) {
     // （必须在 Joi schema 显式声明，否则会被 validate 的 stripUnknown 剥离）
     const idempotencyKey = req.headers['idempotency-key'] || req.body.idempotency_key || null;
     const result = await poolService.claimCustomer(pool, req.body.customer_id, req.user.userId, req.user, idempotencyKey)
-    await logAction(req, 'claim', `认领客户: ${result.company_name}`)
-    res.json({ code: 200, message: '认领客户成功', data: { protect_until: result.protect_until } })
+    // [S3 2026-11-05] 「认领」功能随权限回收下线（销售不可抢）；boss 侧对应动作口径为「分配」
+    await logAction(req, 'claim', `分配客户至本人: ${result.company_name}`)
+    res.json({ code: 200, message: '分配客户至本人成功', data: { protect_until: result.protect_until } })
   } catch (error) {
     next(error)
   }
@@ -290,8 +291,9 @@ async function claim(req, res, next) {
 async function batchClaim(req, res, next) {
   try {
     const result = await poolService.batchClaimCustomers(pool, req.body.customer_ids, req.user.userId, req.user)
-    await logAction(req, 'batch-claim', `批量认领 ${result.claimed} 个客户`)
-    const msg = `成功认领 ${result.claimed} 个客户` + (result.skipped.length > 0 ? `，跳过: ${result.skipped.join('; ')}` : '')
+    // [S3 2026-11-05] 「认领」功能随权限回收下线（销售不可抢）；boss 侧对应动作口径为「分配」
+    await logAction(req, 'batch-claim', `批量分配至本人 ${result.claimed} 个客户`)
+    const msg = `成功分配至本人 ${result.claimed} 个客户` + (result.skipped.length > 0 ? `，跳过: ${result.skipped.join('; ')}` : '')
     res.json({ code: 200, message: msg, data: { claimed: result.claimed, skipped: result.skipped.length > 0 ? result.skipped : null } })
   } catch (error) {
     next(error)
@@ -301,8 +303,9 @@ async function batchClaim(req, res, next) {
 async function release(req, res, next) {
   try {
     const result = await poolService.releaseCustomer(pool, req.body.customer_id, req.user.userId, req.dataPermission)
-    await logAction(req, 'release', `释放客户到公海: ${result.company_name}`)
-    res.json({ code: 200, message: '释放客户成功', data: null })
+    // [S3 2026-11-05] 术语统一（V5.1）：「释放到公海」→「收回到待分配」
+    await logAction(req, 'release', `收回到待分配: ${result.company_name}`)
+    res.json({ code: 200, message: '收回到待分配成功', data: null })
   } catch (error) {
     next(error)
   }
@@ -311,8 +314,9 @@ async function release(req, res, next) {
 async function batchRelease(req, res, next) {
   try {
     const result = await poolService.batchReleaseCustomers(pool, req.body.customer_ids, req.user.userId, req.dataPermission)
-    await logAction(req, 'batch-release', `批量释放 ${result.count} 个客户到公海`)
-    res.json({ code: 200, message: `成功释放 ${result.count} 个客户`, data: { count: result.count } })
+    // [S3 2026-11-05] 术语统一（V5.1）：「释放到公海」→「收回到待分配」
+    await logAction(req, 'batch-release', `批量收回 ${result.count} 个客户到待分配`)
+    res.json({ code: 200, message: `成功收回 ${result.count} 个客户到待分配`, data: { count: result.count } })
   } catch (error) {
     next(error)
   }
@@ -359,7 +363,8 @@ async function listLeadPool(req, res, next) {
   try {
     const { clause, params } = await buildDataPermissionWhere(req.dataPermission, 'c')
     const result = await customerService.listLeads(pool, req.body, { clause, params })
-    res.json({ code: 200, message: '获取潜客池列表成功', data: result })
+    // [S3 2026-11-05] 术语统一（V5.1）：「潜客池」→「客户资源库」
+    res.json({ code: 200, message: '获取客户资源库列表成功', data: result })
   } catch (error) {
     next(error)
   }
@@ -379,7 +384,8 @@ async function listPoolNew(req, res, next) {
   try {
     const { clause, params } = await buildDataPermissionWhere(req.dataPermission, 'c')
     const result = await customerService.listPoolCustomersNew(pool, req.body, { clause, params })
-    res.json({ code: 200, message: '获取公海池列表成功', data: result })
+    // [S3 2026-11-05] 术语统一（V5.1）：页面自 2026-09-10 起为「客户总览」（承接原公海池语义）
+    res.json({ code: 200, message: '获取客户总览列表成功', data: result })
   } catch (error) {
     next(error)
   }
@@ -406,9 +412,10 @@ async function convertLeadToFormal(req, res, next) {
 async function releaseToPool(req, res, next) {
   try {
     const result = await customerService.releaseCustomerToPool(pool, req.body.id, req.user.userId, req.body.reason, req.dataPermission)
-    await logAction(req, 'release-to-pool', `释放客户到公海: ${result.company_name}`)
+    // [S3 2026-11-05] 术语统一（V5.1）：「释放到公海」→「收回到待分配」
+    await logAction(req, 'release-to-pool', `收回到待分配: ${result.company_name}`)
     await invalidateCache([`customer:list:${req.user.userId}:*`])
-    res.json({ code: 200, message: '释放客户到公海成功', data: null })
+    res.json({ code: 200, message: '收回到待分配成功', data: null })
   } catch (error) {
     next(error)
   }
@@ -418,9 +425,10 @@ async function claimPool(req, res, next) {
   try {
     const idempotencyKey = req.headers['idempotency-key'] || req.body.idempotency_key || null;
     const result = await customerService.claimPoolCustomer(pool, req.body.id, req.user.userId, idempotencyKey)
-    await logAction(req, 'claim-pool', `领取公海客户: ${result.company_name}`)
+    // [S3 2026-11-05] 「领取/认领」功能随权限回收下线（销售不可抢）；boss 侧对应动作口径为「分配」
+    await logAction(req, 'claim-pool', `分配待分配客户至本人: ${result.company_name}`)
     await invalidateCache([`customer:list:${req.user.userId}:*`])
-    res.json({ code: 200, message: '领取公海客户成功', data: { protect_until: result.protect_until } })
+    res.json({ code: 200, message: '分配待分配客户至本人成功', data: { protect_until: result.protect_until } })
   } catch (error) {
     next(error)
   }

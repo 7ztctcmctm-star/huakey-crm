@@ -118,13 +118,13 @@ async function listPoolCustomers(pool, { page = 1, pageSize = 10, company_name, 
  * 【B2 · 2026-10-19】行锁收敛。
  *
  * 采用「外部快判 + 事务内加锁复判」两层结构，这是刻意的：
- *   · 外部快判（快照读，不占连接）：客户不存在 → 404002；已有人负责 → 「该客户不在公海中」
+ *   · 外部快判（快照读，不占连接）：客户不存在 → 404002；已有人负责 → 「该客户不在待分配中」
  *   · 事务内 `SELECT ... FOR UPDATE`：拿到行锁后重读归属，
- *     若期间已被他人抢先 → 「该客户已被他人认领，请刷新后重试」
+ *     若期间已被他人抢先 → 「该客户已被他人分配，请刷新后重试」
  *
  * 为什么不做成「只保留事务内一次加锁读」：那样并发落败方看到的会是
- * 「该客户不在公海中」——用户明明是从公海列表点进来的，读到这里会一头雾水。
- * 两种口径必须区分开。同理，快判留在事务外也让「已被认领」这类常见拒绝不必占用连接。
+ * 「该客户不在待分配中」——用户明明是从待分配列表点进来的，读到这里会一头雾水。
+ * 两种口径必须区分开。同理，快判留在事务外也让「已被分配」这类常见拒绝不必占用连接。
  *
  * ⚠️ 并发正确性的**最后防线仍是 UPDATE 自带的 owner_id IS NULL 守卫**，不是行锁：
  *    即便有 FOR UPDATE，也必须由 UPDATE 的条件做最终裁决（见下方 P0-1 说明）。
@@ -156,7 +156,8 @@ async function claimCustomerOnce(pool, customer_id, userId) {
     [customer_id]
   );
   if (preRows.length === 0) throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '客户不存在');
-  if (preRows[0].owner_id !== null) throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户不在公海中');
+  // [S3 2026-11-05] 术语统一（V5.1）：无主客户对外口径为「待分配」
+  if (preRows[0].owner_id !== null) throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户不在待分配中');
 
   // ② 事务内加锁复判：区分「一直有人负责」与「这一瞬间被别人抢走」
   return withClaimLock(pool, customer_id, async (customer, connection) => {
@@ -187,9 +188,9 @@ async function claimCustomerOnce(pool, customer_id, userId) {
       [...claimParams(userId), customer_id]
     );
 
-    // affectedRows !== 1 说明在 SELECT 与 UPDATE 之间，该客户已被他人认领（或被删除）
+    // affectedRows !== 1 说明在 SELECT 与 UPDATE 之间，该客户已被他人分配（或被删除）
     if (claimResult.affectedRows !== 1) {
-      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已被他人认领，请刷新后重试');
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已被他人分配，请刷新后重试');
     }
 
     await connection.query(
@@ -221,9 +222,9 @@ async function withClaimLock(pool, customer_id, fn) {
     if (customers.length === 0) throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, '客户不存在');
     const customer = customers[0];
 
-    // 拿到行锁后仍有人负责 ⇒ 是这一瞬间被抢走的，用「已被他人认领」口径
+    // 拿到行锁后仍有人负责 ⇒ 是这一瞬间被抢走的，用「已被他人分配」口径
     if (customer.owner_id !== null) {
-      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已被他人认领，请刷新后重试');
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已被他人分配，请刷新后重试');
     }
 
     const result = await fn(customer, connection);
@@ -244,10 +245,10 @@ async function withClaimLock(pool, customer_id, fn) {
 // 同上：第 4 参保留以维持调用签名，私有池下线后不再使用。
 async function batchClaimCustomers(pool, customer_ids, userId, _user) {
   if (!Array.isArray(customer_ids) || customer_ids.length === 0) {
-    throw new AppError(ErrorCodes.VALIDATION_ERROR, '请选择要认领的客户');
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '请选择客户');
   }
   if (customer_ids.length > 20) {
-    throw new AppError(ErrorCodes.VALIDATION_ERROR, '单次批量认领不能超过20条');
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, '单次批量操作不能超过20条');
   }
 
   const connection = await pool.getConnection()
@@ -268,7 +269,7 @@ async function batchClaimCustomers(pool, customer_ids, userId, _user) {
       if (customers.length === 0) { skipped.push(`${customerId}(不存在)`); continue }
       const customer = customers[0]
 
-      if (customer.owner_id !== null) { skipped.push(`${customer.company_name}(不在公海)`); continue }
+      if (customer.owner_id !== null) { skipped.push(`${customer.company_name}(不在待分配)`); continue }
       // 【产品决策 2026-09-10】私有池与保护期均已下线，批量认领不再做这两项检查。
 
       // 与单条认领保持一致：status/business_status 同步。
@@ -280,9 +281,9 @@ async function batchClaimCustomers(pool, customer_ids, userId, _user) {
         [...claimParams(userId), customerId]
       )
 
-      // 未命中说明已被他人抢先认领：按「部分成功」语义跳过，不视为错误
+      // 未命中说明已被他人抢先分配：按「部分成功」语义跳过，不视为错误
       if (claimResult.affectedRows !== 1) {
-        skipped.push(`${customer.company_name}(已被他人认领)`)
+        skipped.push(`${customer.company_name}(已被他人分配)`)
         continue
       }
 
@@ -331,7 +332,8 @@ async function releaseCustomer(pool, customer_id, userId, dataPermission) {
     // [P1-03] 线索不能走“释放到公海”：那会把 business_status 改写成 following，
     // 等于把线索静默转成正式客户。与 customerService.releaseCustomerToPool 同一口径。
     if (customer.business_status === BUSINESS_STATUS.LEAD) {
-      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '线索客户不能释放到公海，请使用"放弃"操作');
+      // [S3 2026-11-05] 术语统一（V5.1）：资源库条目（线索）不走收回，请用「放弃」
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '资源条目不能收回到待分配，请使用"放弃"操作');
     }
 
     // [P0-05] 数据范围校验（行锁内，防校验后归属被并发改动）
@@ -508,7 +510,8 @@ async function autoReleaseCustomers(pool, releaseDays) {
           type: 'customer_released',
           customer_id: customer.id,
           customer_name: customer.company_name,
-          message: `客户 ${customer.company_name} 因超期未跟进已自动释放到公海`
+          // [S3 2026-11-05] 术语统一（V5.1/B2）：「自动释放到公海」→「自动收回到待分配」
+          message: `客户 ${customer.company_name} 因超期未跟进已自动收回到待分配`
         });
       } catch (e) {
         logger.error('[公海回收] SSE通知失败:', e.message);

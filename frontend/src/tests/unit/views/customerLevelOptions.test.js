@@ -20,8 +20,9 @@ describe('[P1-28] 客户等级 A/B/C/D', () => {
   it.each([
     ['客户列表', ['views', 'customer', 'List.vue']],
     ['客户详情', ['views', 'customer', 'Detail.vue']],
-    ['潜客池', ['views', 'leads', 'List.vue']],
-    ['公海池', ['views', 'pool', 'List.vue']]
+    // [S3 2026-11-05] 术语统一（V5.1）：菜单名同步改口（断言对象是 D 级选项，不受改名影响）
+    ['客户资源库', ['views', 'leads', 'List.vue']],
+    ['客户总览', ['views', 'pool', 'List.vue']]
   ])('%s 提供 D 级选项', (_name, parts) => {
     const source = read(...parts)
     // 列表页用对象字面量 value: 'D'，详情页用模板属性 value="D"

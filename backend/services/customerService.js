@@ -1167,12 +1167,13 @@ async function releaseCustomerToPool(pool, customerId, operatorId, _reason, data
     throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND);
   }
   const customer = rows[0];
+  // [S3 2026-11-05] 术语统一（V5.1）：资源库条目（线索）不走收回，请用「放弃」（与 poolService 同口径）
   if (customer.business_status === BUSINESS_STATUS.LEAD) {
-    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '线索客户不能释放到公海，请使用"放弃"操作');
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '资源条目不能收回到待分配，请使用"放弃"操作');
   }
   // [P2-07] 公海判据只看 owner_id；pool_status 仅为兼容列，不能作为归属事实源
   if (customer.owner_id === null || customer.owner_id === undefined) {
-    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已在公海中');
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已在待分配中');
   }
 
   // [P0-05] 事务内按数据范围加锁复判，防止“校验时归自己、更新时已归他人”
@@ -1195,10 +1196,10 @@ async function releaseCustomerToPool(pool, customerId, operatorId, _reason, data
 
     const locked = lockedRows[0];
     if (locked.business_status === BUSINESS_STATUS.LEAD) {
-      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '线索客户不能释放到公海，请使用"放弃"操作');
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '资源条目不能收回到待分配，请使用"放弃"操作');
     }
     if (locked.owner_id === null || locked.owner_id === undefined) {
-      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已在公海中');
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已在待分配中');
     }
 
     // [P1-03] status/business_status 同步为公海态；此前只清 owner，导致
@@ -1229,12 +1230,12 @@ async function releaseCustomerToPool(pool, customerId, operatorId, _reason, data
  * 【B2 · 2026-10-19】行锁收敛（与 poolService.claimCustomer 同构，勿两处各改一半）。
  *
  * 采用「外部快判 + 事务内加锁复判」两层结构，刻意如此：
- *   · 外部快判（快照读，不占连接）：不存在 → 404002；已有人负责 → 「该客户不在公海中」；
- *     线索客户 → 「线索客户请到潜客池认领」
+ *   · 外部快判（快照读，不占连接）：不存在 → 404002；已有人负责 → 「该客户不在待分配中」；
+ *     资源库条目 → 「资源条目请到客户资源库转为客户」
  *   · 事务内 `SELECT ... FOR UPDATE`：拿到行锁后重读归属，
- *     若期间已被他人抢走 → 「该客户已被他人认领，请刷新后重试」
+ *     若期间已被他人抢走 → 「该客户已被他人分配，请刷新后重试」
  *
- * 只做「事务内一次加锁读」会让并发落败方看到「该客户不在公海中」——
+ * 只做「事务内一次加锁读」会让并发落败方看到「该客户不在待分配中」——
  * 用户是从公海列表点进来的，读到这里会一头雾水，两种口径必须区分开。
  *
  * ⚠️ 并发正确性的最后防线仍是 UPDATE 自带的 `owner_id IS NULL` 守卫，不是行锁。
@@ -1267,11 +1268,12 @@ async function claimPoolCustomerTx(pool, customerId, userId) {
   const pre = preRows[0];
   // [2026-10-15 P0-2] 判据从 pool_status='sea' 收敛为 owner_id IS NULL：
   // 实测 423 条无主客户 pool_status 全非 'sea'，旧守卫把它们误判为「不在公海」。
+  // [S3 2026-11-05] 术语统一（V5.1）：无主客户对外口径为「待分配」；资源库条目走「转为客户」
   if (pre.owner_id !== null) {
-    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户不在公海中');
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户不在待分配中');
   }
   if (pre.business_status === BUSINESS_STATUS.LEAD) {
-    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '线索客户请到潜客池认领');
+    throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '资源条目请到客户资源库转为客户');
   }
   // 【产品决策 2026-09-10】保护期已下线：释放到公海的客户可被立即认领。
 
@@ -1290,7 +1292,7 @@ async function claimPoolCustomerTx(pool, customerId, userId) {
     const customer = rows[0];
     // 拿到行锁后仍有人负责 ⇒ 这一瞬间被抢走的
     if (customer.owner_id !== null) {
-      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已被他人认领，请刷新后重试');
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已被他人分配，请刷新后重试');
     }
     // 【P0-1 补齐】条件必须带 `owner_id IS NULL`（判据权威）。
     // 原实现为 `WHERE id = ?`，仅靠事务无法防并发：REPEATABLE READ 下第二个事务的
@@ -1306,7 +1308,7 @@ async function claimPoolCustomerTx(pool, customerId, userId) {
       [...claimParams(userId), customerId]
     );
     if (claimResult.affectedRows !== 1) {
-      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已被他人认领，请刷新后重试');
+      throw new AppError(ErrorCodes.BUSINESS_VALIDATION, '该客户已被他人分配，请刷新后重试');
     }
     await connection.query(
       `INSERT INTO crm_pool_log (customer_id, action, from_user_id, to_user_id)

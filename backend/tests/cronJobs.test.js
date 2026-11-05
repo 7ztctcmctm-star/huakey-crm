@@ -137,7 +137,7 @@ describe('定时任务模块', () => {
         .set('Authorization', adminToken);
 
       expect(res.status).toBe(200);
-      expect(res.body.message).toMatch(/已释放 2 个客户/);
+      expect(res.body.message).toMatch(/已收回 2 个客户到待分配/);
       expect(mockConnection.query).toHaveBeenCalledTimes(3); // 1 SELECT + 1 UPDATE + 1 INSERT
 
       const updateCall = mockConnection.query.mock.calls[1];

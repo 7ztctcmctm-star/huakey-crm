@@ -156,7 +156,7 @@ describe('B2 · 公海认领并发（真实 MySQL）', () => {
     expect(logs[0].to_user_id).toBe(owner);
   }, 60000);
 
-  it('并发落败方收到的是「已被他人认领」而非「不在公海」', async () => {
+  it('并发落败方收到的是「已被他人分配」而非「不在待分配」', async () => {
     if (!reachable) return;
     const id = await createPoolCustomer('msg');
 
@@ -166,9 +166,9 @@ describe('B2 · 公海认领并发（真实 MySQL）', () => {
     ]);
     const failed = results.find(r => r.status === 'rejected');
     expect(failed).toBeDefined();
-    // 口径必须是「已被他人认领」—— 用户是从公海列表点进来的，
-    // 报「不在公海」会让人以为列表数据错了，而不是被人抢走了。
-    expect(failed.reason.message).toMatch(/已被他人认领/);
+    // 口径必须是「已被他人分配」—— 用户是从待分配列表点进来的，
+    // 报「不在待分配」会让人以为列表数据错了，而不是被人抢走了。
+    expect(failed.reason.message).toMatch(/已被他人分配/);
   }, 60000);
 
   it('同一幂等键连发两次：返回首次结果且不重复写 pool_log', async () => {

@@ -34,9 +34,10 @@
           <el-icon><UserFilled /></el-icon>
           <span>客户管理</span>
         </template>
-        <el-menu-item index="/leads" v-if="hasMenuPermission('leads:view')">潜客池</el-menu-item>
+        <!-- [S3 2026-11-05] 术语统一（V5.1）：潜客池→客户资源库；公海池→客户总览（页面自 2026-09-10 即为客户总览） -->
+        <el-menu-item index="/leads" v-if="hasMenuPermission('leads:view')">客户资源库</el-menu-item>
         <el-menu-item index="/customer/list" v-if="hasMenuPermission('customer:view')">正式客户</el-menu-item>
-        <el-menu-item index="/pool" v-if="hasMenuPermission('pool:view')">公海池</el-menu-item>
+        <el-menu-item index="/pool" v-if="hasMenuPermission('pool:view')">客户总览</el-menu-item>
         <el-menu-item index="/customer/assign-rules" v-if="hasMenuPermission('customer:assign')">分配规则</el-menu-item>
         <el-menu-item index="/followup/calendar" v-if="hasMenuPermission('followup:calendar')">跟进日历</el-menu-item>
         <el-menu-item index="/followup/template" v-if="hasMenuPermission('followup:template')">跟进模板</el-menu-item>

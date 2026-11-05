@@ -288,7 +288,7 @@ describe('customerService.releaseCustomerToPool 数据范围', () => {
 
     await expect(customerService.releaseCustomerToPool(
       mockPool, 2, 5, null, { type: 'self', userId: 5, ownerColumn: 'owner_id', module: 'customer' }
-    )).rejects.toMatchObject({ code: 400005, message: '该客户已在公海中' });
+    )).rejects.toMatchObject({ code: 400005, message: '该客户已在待分配中' });
 
     expect(mockPool.getConnection).not.toHaveBeenCalled();
   });

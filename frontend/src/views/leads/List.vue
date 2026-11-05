@@ -35,7 +35,8 @@
       </template>
 
       <template #actions>
-        <el-button type="primary" @click="handleAdd" v-permission="'customer:add'">新增潜客</el-button>
+        <!-- [S3 2026-11-05] 术语统一（V5.1）：「潜客」→「资源」 -->
+        <el-button type="primary" @click="handleAdd" v-permission="'customer:add'">新增资源</el-button>
       </template>
     </PageToolbar>
 
@@ -43,7 +44,8 @@
     <el-card class="table-card">
       <template #header>
         <div class="card-header">
-          <span>潜客池（共 {{ total }} 条）</span>
+          <!-- [S3 2026-11-05] 术语统一（V5.1）：「潜客池」→「客户资源库」 -->
+          <span>客户资源库（共 {{ total }} 条）</span>
         </div>
       </template>
 
@@ -51,14 +53,14 @@
         :loading="loading"
         :error="errorMsg"
         :empty="!loading && tableData.length === 0"
-        empty-text="暂无潜客"
+        empty-text="暂无资源"
         @retry="fetchList"
       >
         <template #loading>
           <TableSkeleton :rows="8" :cols="7" />
         </template>
         <template #empty-action>
-          <el-button type="primary" size="small" @click="handleAdd" v-permission="'customer:add'">新增潜客</el-button>
+          <el-button type="primary" size="small" @click="handleAdd" v-permission="'customer:add'">新增资源</el-button>
         </template>
 
       <el-table
@@ -195,13 +197,14 @@ const fetchList = async () => {
       total.value = res.data.total
     } else {
       // 业务码非 200：若只 reportError，界面会停在空表，用户无法区分「无数据」与「加载失败」
-      errorMsg.value = res.message || '加载潜客列表失败，请稍后重试'
-      reportError('获取潜客列表失败:', res.message)
+      // [S3 2026-11-05] 术语统一（V5.1）：「潜客」→「客户资源库」
+      errorMsg.value = res.message || '加载客户资源库列表失败，请稍后重试'
+      reportError('获取客户资源库列表失败:', res.message)
     }
   } catch (error) {
-    errorMsg.value = error?.response?.data?.message || '加载潜客列表失败，请稍后重试'
-    ElMessage.error('加载潜客列表失败')
-    reportError('获取潜客列表失败:', error)
+    errorMsg.value = error?.response?.data?.message || '加载客户资源库列表失败，请稍后重试'
+    ElMessage.error('加载客户资源库列表失败')
+    reportError('获取客户资源库列表失败:', error)
   } finally {
     loading.value = false
   }

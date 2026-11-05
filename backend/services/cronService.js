@@ -105,8 +105,9 @@ async function notifyPreReleaseCustomers(pool, recycleDays) {
     }
 
     try {
-      const title = '⚠️ 客户即将被释放到公海';
-      const content = `客户 ${customer.company_name} 已 ${customer.overdue_days} 天未跟进，将于明天自动释放到公海\n> 请及时跟进或申请保护期`;
+      // [S3 2026-11-05] 术语统一（V5.1/B3）：「释放到公海」→「收回到待分配」
+      const title = '⚠️ 客户即将被收回到待分配';
+      const content = `客户 ${customer.company_name} 已 ${customer.overdue_days} 天未跟进，将于明天自动收回到待分配\n> 请及时跟进或申请保护期`;
       await notification.sendMarkdown(`## ${title}\n${content}\n> 负责人: @${customer.owner_name || ''}`);
       sseManager.send(customer.owner_id, {
         type: 'followup_reminder',
@@ -114,7 +115,7 @@ async function notifyPreReleaseCustomers(pool, recycleDays) {
         customer_id: customer.id,
         customer_name: customer.company_name,
         overdue_days: customer.overdue_days,
-        message: `客户 ${customer.company_name} 即将被释放到公海`
+        message: `客户 ${customer.company_name} 即将被收回到待分配`
       });
     } catch (e) {
       logger.error('[公海回收] 发送释放前通知失败:', e.message);

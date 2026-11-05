@@ -19,7 +19,8 @@
         <el-button v-if="canBackward(customer.status)" type="info" :icon="ArrowLeft" @click="openBackwardDialog">回退</el-button>
         <el-button type="primary" :icon="EditPen" @click="handleEdit">编辑</el-button>
         <!-- [P2-07] 归属/公海判据只看 owner_id + business_status；pool_status 为兼容列，不再参与判断 -->
-        <el-button v-if="customer.owner_id && customer.business_status !== 'lead'" :icon="Share" @click="handleRelease">释放公海</el-button>
+        <!-- [S3 2026-11-05] 术语统一（V5.1）：「释放公海」→「收回到待分配」 -->
+        <el-button v-if="customer.owner_id && customer.business_status !== 'lead'" :icon="Share" @click="handleRelease">收回到待分配</el-button>
       </div>
     </div>
 
@@ -66,7 +67,8 @@
             <el-icon><Location /></el-icon> {{ customer.address }}
           </div>
           <div class="hero-tags">
-            <el-tag v-if="!customer.owner_id && customer.business_status !== 'lead'" type="warning" effect="dark">公海客户</el-tag>
+            <!-- [S3 2026-11-05] 术语统一（V5.1）：无主客户口径为「待分配」 -->
+            <el-tag v-if="!customer.owner_id && customer.business_status !== 'lead'" type="warning" effect="dark">待分配</el-tag>
             <el-tag v-else-if="isProtected()" type="success">保护期至 {{ formatTime(customer.protect_until) }}</el-tag>
             <el-tag :type="levelTagType(customer.level)" effect="dark">{{ customer.level }}级客户</el-tag>
             <el-tag :type="getStatusTagType(customer.status)">{{ getStatusLabel(customer.status) }}</el-tag>
@@ -501,7 +503,8 @@
           <el-col :span="12">
             <el-form-item label="客户状态">
               <el-select v-model="editForm.status" placeholder="请选择状态" style="width: 100%">
-                <el-option label="公海客户" value="sea" />
+                <!-- [S3 2026-11-05] 术语统一（V5.1）：枚举值 sea 不动（D5），仅显示名改口 -->
+                <el-option label="待分配" value="sea" />
                 <el-option label="跟进中" value="following" />
                 <el-option label="已报价" value="quoted" />
                 <el-option label="谈判中" value="negotiating" />
@@ -736,11 +739,12 @@ const goCreateOpportunity = () => {
 const isProtected = () => customer.protect_until && new Date(customer.protect_until) > new Date()
 
 const handleRelease = () => {
-  ElMessageBox.confirm(`确定要将"${customer.company_name}"释放到公海吗？`, '释放确认', { type: 'warning' }).then(async () => {
+  // [S3 2026-11-05] 术语统一（V5.1）：「释放到公海」→「收回到待分配」
+  ElMessageBox.confirm(`确定要将"${customer.company_name}"收回到待分配吗？`, '收回确认', { type: 'warning' }).then(async () => {
     try {
       const res = await releaseCustomer(customer.id)
-      if (res.code === 200) { ElMessage.success('已释放到公海'); fetchDetail() }
-    } catch (e) { reportError('释放失败:', e) }
+      if (res.code === 200) { ElMessage.success('已收回到待分配'); fetchDetail() }
+    } catch (e) { reportError('收回失败:', e) }
   }).catch(() => {})
 }
 
