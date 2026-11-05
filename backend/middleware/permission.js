@@ -152,6 +152,23 @@ const buildDataPermissionWhere = async (dataPermission, tableAlias = 't') => {
       if (dataPermission.module === 'customer') {
         return { clause: `(${column} = ? OR (${column} IS NULL AND ${tableAlias}.status = 'lead'))`, params: [userId] };
       }
+      // [S3 收口 · B-03] 跟进可见性以「客户归属」为权威（/list /remind /tomorrow /overdue /plan/list）：
+      //   · 名下客户的全部历史跟进可见（含他人创建 → 满足"新负责人可见历史"）；
+      //   · 自己创建且客户已不存在（客户已软删 / 无客户的计划）的记录仍可见（防呆兜底）；
+      //   · 已回收（owner_id IS NULL）或已归他人的客户跟进对原销售不可见
+      //     （回收前 create_by=? 的旧子句会放行历史记录，违背 B-03，2026-11-05 修复）。
+      if (dataPermission.module === 'followup') {
+        return {
+          clause: `(
+            EXISTS (SELECT 1 FROM crm_customer c WHERE c.id = ${tableAlias}.customer_id AND c.deleted_at IS NULL AND c.owner_id = ?)
+            OR (
+              ${column} = ?
+              AND NOT EXISTS (SELECT 1 FROM crm_customer c2 WHERE c2.id = ${tableAlias}.customer_id AND c2.deleted_at IS NULL)
+            )
+          )`,
+          params: [userId, userId]
+        };
+      }
       return { clause: `${column} = ?`, params: [userId] };
 
     case 'custom':

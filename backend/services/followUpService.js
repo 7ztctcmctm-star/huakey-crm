@@ -309,7 +309,10 @@ async function getTaskStats(pool, dataPermission) {
       permParams.push(...deptIds, ...deptIds);
     }
   } else {
-    permClause = '(create_by = ? OR customer_owner = ?)';
+    // [S3 收口 · B-03] 与 permission.js followup self 分支同语义：客户归属权威。
+    //   create_by 支仅在客户已不存在（软删/无客户）时放行，
+    //   防止回收/转派后原销售仍从统计口径看到历史跟进。
+    permClause = '(customer_owner = ? OR (create_by = ? AND NOT EXISTS (SELECT 1 FROM crm_customer c2 WHERE c2.id = t.customer_id AND c2.deleted_at IS NULL)))';
     permParams.push(dp.userId, dp.userId);
   }
 
@@ -319,7 +322,7 @@ async function getTaskStats(pool, dataPermission) {
       SUM(CASE WHEN DATE(next_time) = DATE_ADD(CURRENT_DATE, INTERVAL 1 DAY) THEN 1 ELSE 0 END) as tomorrow_count,
       SUM(CASE WHEN DATE(next_time) < CURRENT_DATE THEN 1 ELSE 0 END) as overdue_count
     FROM (
-      SELECT f.next_time, f.create_by, cu.owner_id as customer_owner
+      SELECT f.next_time, f.create_by, f.customer_id, cu.owner_id as customer_owner
       FROM crm_follow_up f
       LEFT JOIN crm_customer cu ON f.customer_id = cu.id AND cu.deleted_at IS NULL
       WHERE f.deleted_at IS NULL AND f.next_time IS NOT NULL
@@ -426,7 +429,9 @@ async function getCalendar(pool, params, dataPermission) {
       permExtraParams.push(...deptIds, ...deptIds);
     }
   } else {
-    permClause = '(f.create_by = ? OR cu.owner_id = ?)';
+    // [S3 收口 · B-03] 与 permission.js followup self 分支同语义：客户归属权威
+    //   （getTaskStats 注释同，此处不重复展开）。
+    permClause = '(cu.owner_id = ? OR (f.create_by = ? AND NOT EXISTS (SELECT 1 FROM crm_customer c2 WHERE c2.id = f.customer_id AND c2.deleted_at IS NULL)))';
     permExtraParams.push(dp.userId, dp.userId);
   }
 
