@@ -344,7 +344,7 @@ test.describe('R-03 客户三类型 CRUD 矩阵与跨类型流转', () => {
       await searchCustomer(page, companyName, '.pool-list')
       const row = page.locator('.pool-list .el-table__row').filter({ hasText: companyName })
       await expect(row).toBeVisible()
-      await expect(row.locator('.el-tag:has-text("待分配")')).toBeVisible()
+      await expect(row.locator('[data-testid="tag-unassigned"]')).toBeVisible()
 
       // 2. 分配至本人（S3 后 UI「认领」按钮已下线，归属走 API；boss 生产口径走 customer:assign 通道）
       const claimRes = await claimPoolCustomer(request, csrfToken, customerId)
@@ -360,7 +360,7 @@ test.describe('R-03 客户三类型 CRUD 矩阵与跨类型流转', () => {
       await searchCustomer(page, companyName, '.pool-list')
       const allRow = page.locator('.pool-list .el-table__row').filter({ hasText: companyName })
       await expect(allRow).toBeVisible()
-      await expect(allRow.locator('.el-tag:has-text("待分配")')).toHaveCount(0)
+      await expect(allRow.locator('[data-testid="tag-unassigned"]')).toHaveCount(0)
 
       // 5. API 复核归属：owner=admin、pool_status='private'
       const detail = await getCustomerDetail(request, csrfToken, customerId)
@@ -423,8 +423,10 @@ test.describe('R-03 客户三类型 CRUD 矩阵与跨类型流转', () => {
       await releaseConfirm.click({ force: true })
       await page.waitForTimeout(2000)
 
-      // 收回后详情页 hero-tags 出现「待分配」标识（R-03 修复的第二个回归点）
-      await expect(page.locator('.customer-360 .el-tag:has-text("待分配")')).toBeVisible({ timeout: 10000 })
+      // 收回后详情页 hero-tags 出现「待分配」归属标识（R-03 修复的第二个回归点）
+      // [S3 术语统一后] 状态 tag 在 sea 态同显「待分配」，文案选择器会命中 2 元素（strict mode 崩溃），
+      // 改用 Detail.vue 归属 tag 上的 data-testid 精确定位
+      await expect(page.locator('.customer-360 [data-testid="tag-unassigned"]')).toBeVisible({ timeout: 10000 })
 
       // ── 阶段 5：API 复核收回效果（sea + owner=NULL + status='sea'）──
       const detail = await getCustomerDetail(request, csrfToken, customerId)

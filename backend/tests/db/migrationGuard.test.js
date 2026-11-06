@@ -316,6 +316,11 @@ const KNOWN_BASELINE_EXCEPTIONS = {
   // 迁移追踪表：形状由 001 / run_migrations.js 兜底创建。
   // 它记录「本库跑过哪些迁移」，把它固化进基线会让新库一出生就带着别人的账目。
   'schema_migrations': '迁移追踪表，由 001 / run_migrations.js 创建，不应固化进 000',
+  // 迁移新增的应用结构表（000 快照尚未包含的）：init-complete.sql 是
+  // 「000 + 迁移链终态」的上界，天然包含迁移链新增的表；000 下界快照生成于
+  // 该迁移入库之前，未含此表属快照滞后，非结构漂移。
+  // 跟进：下次 dump-prod-schema.sh 刷新 000 快照后该条应移除。
+  'crm_doc_sequence': '129 引入的单据编号序列表（P2-04 原子取号），迁移链新增结构，000 快照滞后未含',
 };
 
 const CORE_TABLES = [

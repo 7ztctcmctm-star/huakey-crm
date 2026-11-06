@@ -68,7 +68,8 @@
           </div>
           <div class="hero-tags">
             <!-- [S3 2026-11-05] 术语统一（V5.1）：无主客户口径为「待分配」 -->
-            <el-tag v-if="!customer.owner_id && customer.business_status !== 'lead'" type="warning" effect="dark">待分配</el-tag>
+            <!-- data-testid 供 E2E 精确定位（状态 tag 在 sea 态同显「待分配」，文案选择器会撞车） -->
+            <el-tag v-if="!customer.owner_id && customer.business_status !== 'lead'" type="warning" effect="dark" data-testid="tag-unassigned">待分配</el-tag>
             <el-tag v-else-if="isProtected()" type="success">保护期至 {{ formatTime(customer.protect_until) }}</el-tag>
             <el-tag :type="levelTagType(customer.level)" effect="dark">{{ customer.level }}级客户</el-tag>
             <el-tag :type="getStatusTagType(customer.status)">{{ getStatusLabel(customer.status) }}</el-tag>

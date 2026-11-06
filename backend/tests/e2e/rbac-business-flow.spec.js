@@ -82,12 +82,17 @@ const makeToken = (overrides) => jwt.sign({
   manageAll: overrides.manageAll || false
 }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
-// Mock role/user queries in auth middleware (3 parallel queries)
+// Mock auth middleware（[P0-06 2026-10-23 重构后]：blacklist + 按 userId 单查
+// sys_user LEFT JOIN sys_role，Promise.all 依序发出 → Once 序列：blacklist → 合并查询）
 const mockAuth = (viewAll = 0, manageAll = 0, roleCode = 'sales') => {
   mockPool.query
     .mockResolvedValueOnce([[]])                                            // 1: blacklist
-    .mockResolvedValueOnce([[{ view_all: viewAll, manage_all: manageAll, role_code: roleCode }]]) // 2: role
-    .mockResolvedValueOnce([[{ must_change_password: 0 }]]);               // 3: user
+    .mockResolvedValueOnce([[{                                              // 2: user+role 合并行
+      id: 10, username: 'user', role_id: 5, status: 1,
+      must_change_password: 0, password_changed_at: null,
+      fresh_role_id: 5, role_code: roleCode,
+      view_all: viewAll, manage_all: manageAll
+    }]]);
 };
 
 // ============================================================================

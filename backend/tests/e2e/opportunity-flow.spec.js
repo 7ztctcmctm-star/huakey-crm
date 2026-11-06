@@ -115,10 +115,10 @@ const generateSalesToken = (userId = 10, username = 'sales01') => jwt.sign(
 // ============================================================================
 
 /**
- * mockAuthChain: 模拟 authenticateToken 中间件的 3 次查询
+ * [P0-06 2026-10-23 重构后] authenticateToken 的 2 次查询（Promise.all 依序发出）：
  *  1. token 黑名单检查 → []
- *  2. 查 sys_role → [{ view_all, manage_all }]
- *  3. 查 sys_user must_change_password → [{ must_change_password: 0 }]
+ *  2. 按 userId 单查 sys_user LEFT JOIN sys_role → 完整行
+ *     （status=1 必须，role_code 决定 checkPermission 是否绕过，id 成为 req.user.userId）
  */
 // ============================================================================
 // Test Data Factories
@@ -166,13 +166,12 @@ describe('Opportunity Center v1 — 业务链集成测试', () => {
       // → controller: [H-005] 数据权限校验 + SELECT customer + generateOpportunityNo COUNT + INSERT
       mockPool.query
         .mockResolvedValueOnce([[]])                                  // 1: blacklist
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])   // 2: role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])       // 3: user
+        .mockResolvedValueOnce([[{ id: 1, username: 'admin', role_id: 1, status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // 2: user+role 合并行
       // super_admin → ADMIN_ROLE_CODES.has → bypass checkPermission (无 DB 查询)
-        .mockResolvedValueOnce([[{ id: 100 }]])                       // 4: [H-005] customer 数据权限校验
-        .mockResolvedValueOnce([[{ id: 100, status: 'following' }]])  // 5: SELECT customer
-        .mockResolvedValueOnce([[{ cnt: 0 }]])                        // 6: generateOpportunityNo COUNT
-        .mockResolvedValueOnce([{ insertId: 200 }]);                  // 7: INSERT opportunity
+        .mockResolvedValueOnce([[{ id: 100 }]])                       // 3: [H-005] customer 数据权限校验
+        .mockResolvedValueOnce([[{ id: 100, status: 'following' }]])  // 4: SELECT customer
+        .mockResolvedValueOnce([[{ cnt: 0 }]])                        // 5: generateOpportunityNo COUNT
+        .mockResolvedValueOnce([{ insertId: 200 }]);                  // 6: INSERT opportunity
 
       const res = await request(app)
         .post('/api/v1/opportunity/add')
@@ -200,12 +199,11 @@ describe('Opportunity Center v1 — 业务链集成测试', () => {
     it('1.2 推进商机阶段：应写入 stage_log 含 change_reason', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]])                                                 // 1: blacklist
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])                 // 2: role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])                     // 3: user
+        .mockResolvedValueOnce([[{ id: 1, username: 'admin', role_id: 1, status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // 2: user+role 合并行
         // super_admin → bypass checkPermission (无 DB 查询)
         // checkDataPermission → buildDataPermissionWhere
         // controller: getOpportunityWithPermission
-        .mockResolvedValueOnce([[{ id: 200, name: '集成测试商机', stage: 1, owner_id: 1 }]]); // 4: verify ownership
+        .mockResolvedValueOnce([[{ id: 200, name: '集成测试商机', stage: 1, owner_id: 1 }]]); // 3: verify ownership
       // 【B2】advanceStage 的三步写已纳入事务 ⇒ 走事务连接，不再走 pool
       mockConn.query
         .mockResolvedValueOnce([[{ id: 200, stage: 1 }]])                           // 5: SELECT opportunity
@@ -242,13 +240,12 @@ describe('Opportunity Center v1 — 业务链集成测试', () => {
       // pool.query for auth + [H-003] 权限校验 + notification (notification 在 try/catch 中，不阻塞)
       mockPool.query
         .mockResolvedValueOnce([[]])                                     // 1: blacklist
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])      // 2: role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])          // 3: user
+        .mockResolvedValueOnce([[{ id: 1, username: 'admin', role_id: 1, status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // 2: user+role 合并行
       // super_admin → bypass checkPermission
-        .mockResolvedValueOnce([[{ id: 100 }]])                          // 4: [H-003] customer 数据权限校验
-        .mockResolvedValueOnce([[{ company_name: '集成测试客户' }]])      // 5: notification SELECT customer_name
-        .mockResolvedValueOnce([[{ real_name: '管理员' }]])              // 6: notification SELECT user
-        .mockResolvedValueOnce([{ affectedRows: 0 }]);                   // 7: notification INSERT
+        .mockResolvedValueOnce([[{ id: 100 }]])                          // 3: [H-003] customer 数据权限校验
+        .mockResolvedValueOnce([[{ company_name: '集成测试客户' }]])      // 4: notification SELECT customer_name
+        .mockResolvedValueOnce([[{ real_name: '管理员' }]])              // 5: notification SELECT user
+        .mockResolvedValueOnce([{ affectedRows: 0 }]);                   // 6: notification INSERT
 
       const res = await request(app)
         .post('/api/v1/quote/add')
@@ -280,9 +277,8 @@ describe('Opportunity Center v1 — 业务链集成测试', () => {
 
       mockPool.query
         .mockResolvedValueOnce([[]])                                     // 1: blacklist
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])      // 2: role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])          // 3: user
-        .mockResolvedValueOnce([[{ id: 999 }]]);                         // 4: [H-003] customer 数据权限校验（999 可见）
+        .mockResolvedValueOnce([[{ id: 1, username: 'admin', role_id: 1, status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // 2: user+role 合并行
+        .mockResolvedValueOnce([[{ id: 999 }]]);                         // 3: [H-003] customer 数据权限校验（999 可见）
       // super_admin → bypass checkPermission, enter controller
       // → createQuote with opportunity_id=200, customer_id=999
       // → opportunity belongs to customer 100 → 校验失败
@@ -311,8 +307,7 @@ describe('Opportunity Center v1 — 业务链集成测试', () => {
     it('2.1 销售A可以查看自己负责的商机', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]])                                   // auth: blacklist
-        .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0 }]])    // auth: role (no manage_all)
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])       // auth: user
+        .mockResolvedValueOnce([[{ id: 10, username: 'sales_a', role_id: 5, status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 5, role_code: 'sales', view_all: 0, manage_all: 0 }]]) // auth: user+role 合并行
         // 路由链: authenticateToken → checkPermission('opportunity:view') → checkDataPermission → controller
         // 本文件未 mock permissionService，checkPermission 会**真查库**取权限码
         // （getUserPermissions 返回 rows.map(r => r.code)，见 services/permissionService.js）
@@ -335,8 +330,7 @@ describe('Opportunity Center v1 — 业务链集成测试', () => {
     it('2.2 销售B不能查看销售A的商机 (dataScope=self)', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]])                                   // auth: blacklist
-        .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0 }]])    // auth: role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])       // auth: user
+        .mockResolvedValueOnce([[{ id: 20, username: 'sales_b', role_id: 5, status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 5, role_code: 'sales', view_all: 0, manage_all: 0 }]]) // auth: user+role 合并行
         .mockResolvedValueOnce([[{ code: 'opportunity:view' }]])      // checkPermission: 权限码
         .mockResolvedValueOnce([[]])                                   // data_permission → type='self'
         .mockResolvedValueOnce([[]]);                                   // detail query → empty (owner_id=10 ≠ 20)
@@ -352,8 +346,7 @@ describe('Opportunity Center v1 — 业务链集成测试', () => {
     it('2.3 销售B不能推进销售A的商机阶段', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]])                                   // auth: blacklist
-        .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0 }]])    // auth: role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])       // auth: user
+        .mockResolvedValueOnce([[{ id: 20, username: 'sales_b', role_id: 5, status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 5, role_code: 'sales', view_all: 0, manage_all: 0 }]]) // auth: user+role 合并行
         .mockResolvedValueOnce([[{ code: 'opportunity:edit' }]])      // checkPermission (has)
         .mockResolvedValueOnce([[]])                                   // data_permission → type='self'
         .mockResolvedValueOnce([[]]);                                   // getOpportunityWithPermission → empty
@@ -382,8 +375,7 @@ describe('Opportunity Center v1 — 业务链集成测试', () => {
       };
       mockPool.query
         .mockResolvedValueOnce([[]])
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])
+        .mockResolvedValueOnce([[{ id: 1, username: 'admin', role_id: 1, status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // user+role 合并行
         .mockResolvedValueOnce([[mockDetail]]);  // getOpportunityWithPermission
 
       const res = await request(app)
@@ -405,8 +397,7 @@ describe('Opportunity Center v1 — 业务链集成测试', () => {
     it('3.2 阶段日志接口应返回 from_stage_name / to_stage_name', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]])
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])
+        .mockResolvedValueOnce([[{ id: 1, username: 'admin', role_id: 1, status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // user+role 合并行
         .mockResolvedValueOnce([[{ id: 200, stage: 2, owner_id: 1 }]])  // getOpportunityWithPermission
         .mockResolvedValueOnce([TEST_STAGE_LOGS]);                       // getStageLog
 
@@ -425,8 +416,7 @@ describe('Opportunity Center v1 — 业务链集成测试', () => {
     it('3.3 时间轴接口应聚合 stage_log + quote + contract', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]])
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])
+        .mockResolvedValueOnce([[{ id: 1, username: 'admin', role_id: 1, status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // user+role 合并行
         // getOpportunityWithPermission (controller)
         .mockResolvedValueOnce([[{ id: 200, stage: 2, owner_id: 1 }]])
         // getTimeline: SELECT opportunity
@@ -466,8 +456,7 @@ describe('Opportunity Center v1 — 业务链集成测试', () => {
     it('3.4 商机不存在时详情应返回 404', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]])
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])
+        .mockResolvedValueOnce([[{ id: 1, username: 'admin', role_id: 1, status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // user+role 合并行
         .mockResolvedValueOnce([[]]);  // getOpportunityWithPermission returns empty
 
       const res = await request(app)
@@ -487,8 +476,7 @@ describe('Opportunity Center v1 — 业务链集成测试', () => {
     it('已成交商机 (stage=5) 不可再推进', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]])
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])
+        .mockResolvedValueOnce([[{ id: 1, username: 'admin', role_id: 1, status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]) // user+role 合并行
         .mockResolvedValueOnce([[{ code: 'opportunity:edit' }]])
         .mockResolvedValueOnce([[{ id: 200, name: '已成交商机', stage: 5, owner_id: 1 }]]);
       mockConn.query
