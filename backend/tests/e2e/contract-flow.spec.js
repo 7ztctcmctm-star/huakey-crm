@@ -44,6 +44,8 @@ jest.mock('../../config/roles', () => ({
 }));
 jest.mock('../../utils/pagination', () => ({ paginatedQuery: jest.fn().mockResolvedValue({ list: [], total: 0, page: 1, pageSize: 10 }) }));
 jest.mock('../../utils/fieldLog', () => ({ logFieldChanges: jest.fn().mockResolvedValue(undefined) }));
+// webhook 派发非阻塞异步查 pool，会与通知 mock 竞争消费顺序 → 测试中固定为 no-op
+jest.mock('../../services/webhookDispatcher', () => ({ dispatch: jest.fn().mockResolvedValue([]) }));
 jest.mock('../../middleware/logger', () => ({
   logAction: jest.fn().mockResolvedValue(undefined),
   logFieldChanges: jest.fn().mockResolvedValue(undefined),
@@ -105,11 +107,10 @@ describe('Contract Center v1 — 业务链集成测试', () => {
       // customer 状态不是 'signed'
       conn.query.mockResolvedValueOnce([[{ id: 1, status: 'following', company_name: 'A' }]]); // 客户校验 → 不是 signed
 
-      // auth queries
+      // auth queries（[P0-06] blacklist + user/role 合并查询，Promise.all 依序）
       mockPool.query
         .mockResolvedValueOnce([[]])                                     // 1: blacklist
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])     // 2: role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]);        // 3: user
+        .mockResolvedValueOnce([[{ id: 1, username: 'admin', role_id: 1, status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]); // 2: user+role 合并行
       // super_admin → bypass checkPermission
 
       const res = await request(app)
@@ -136,8 +137,7 @@ describe('Contract Center v1 — 业务链集成测试', () => {
 
       mockPool.query
         .mockResolvedValueOnce([[]])
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]]);
+        .mockResolvedValueOnce([[{ id: 1, username: 'admin', role_id: 1, status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]);
 
       const res = await request(app)
         .post('/api/v1/contract/add')
@@ -157,13 +157,13 @@ describe('Contract Center v1 — 业务链集成测试', () => {
       conn.query.mockReset();
 
       conn.query.mockResolvedValueOnce([[{ id: 100, status: 'signed', company_name: '客户A' }]]);  // 客户
-      conn.query.mockResolvedValueOnce([[{ cnt: 5 }]]);                                              // COUNT → seq=6
+      // [P2-04] 编号改 crm_doc_sequence 原子自增：INSERT ... ON DUPLICATE KEY 读 insertId（seq=6）
+      conn.query.mockResolvedValueOnce([{ insertId: 6 }]);
       conn.query.mockResolvedValueOnce([{ insertId: 500 }]);                                          // INSERT
 
       mockPool.query
         .mockResolvedValueOnce([[]])
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])
+        .mockResolvedValueOnce([[{ id: 1, username: 'admin', role_id: 1, status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]])
         // notification SELECT customer_name
         .mockResolvedValueOnce([[{ company_name: '客户A' }]])
         // notification SELECT user
@@ -209,13 +209,12 @@ describe('Contract Center v1 — 业务链集成测试', () => {
       // 合同创建流程（无 opportunity_id，有 quote_id）
       conn.query.mockResolvedValueOnce([[{ id: 100, status: 'signed', company_name: '客户A' }]]);  // 客户
       // 无 opportunity_id → 跳过商机校验
-      conn.query.mockResolvedValueOnce([[{ cnt: 0 }]]);                                              // COUNT
+      conn.query.mockResolvedValueOnce([{ insertId: 1 }]);                                           // [P2-04] crm_doc_sequence 取号
       conn.query.mockResolvedValueOnce([{ insertId: 501 }]);                                          // INSERT
 
       mockPool.query
         .mockResolvedValueOnce([[]])
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])
+        .mockResolvedValueOnce([[{ id: 1, username: 'admin', role_id: 1, status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]])
         .mockResolvedValueOnce([[{ company_name: '客户A' }]])
         .mockResolvedValueOnce([[{ real_name: '管理员' }]])
         .mockResolvedValueOnce([{ affectedRows: 0 }]);
@@ -251,8 +250,7 @@ describe('Contract Center v1 — 业务链集成测试', () => {
       // 合同已完成 (status=3，终态)，sales 尝试 update
       mockPool.query
         .mockResolvedValueOnce([[]])
-        .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0 }]])
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])
+        .mockResolvedValueOnce([[{ id: 10, username: 'sales01', role_id: 5, status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 5, role_code: 'sales', view_all: 0, manage_all: 0 }]])
         .mockResolvedValueOnce([[{ code: 'contract:edit' }]]);  // checkPermission
 
       // 即便有 edit 权限，数据权限会阻止
@@ -265,15 +263,17 @@ describe('Contract Center v1 — 业务链集成测试', () => {
     });
 
     it('3.1 sales 不能删除他人创建的合同', async () => {
+      // [P1-05] deleteContract 事务化：SELECT ... FOR UPDATE + 3×UPDATE 均走 connection
+      const conn = await mockPool.getConnection();
+      conn.query.mockReset();
+      conn.query.mockResolvedValueOnce([[{ status: 1, create_by: 1 }]]);  // SELECT FOR UPDATE → admin 创建的合同
+
       mockPool.query
         .mockResolvedValueOnce([[]])                                     // auth: blacklist
-        .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0 }]])     // auth: role
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])         // auth: user
+        .mockResolvedValueOnce([[{ id: 10, username: 'sales01', role_id: 5, status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 5, role_code: 'sales', view_all: 0, manage_all: 0 }]]) // auth: user+role 合并行
         .mockResolvedValueOnce([[{ code: 'contract:delete' }]])          // checkPermission
         // checkDataPermission: getDataPermissions → 无配置（type=self，不查库即可构建 WHERE）
-        .mockResolvedValueOnce([[]])
-        // deleteContract: SELECT contract → create_by=1 (admin创建的合同，不是sales的)
-        .mockResolvedValueOnce([[{ id: 500, status: 1, create_by: 1 }]]);
+        .mockResolvedValueOnce([[]]);
 
       const res = await request(app)
         .post('/api/v1/contract/delete')
@@ -286,19 +286,19 @@ describe('Contract Center v1 — 业务链集成测试', () => {
 
     it('3.2 admin 可以删除非终止状态的合同', async () => {
       const adminToken = generateSuperAdminToken();
+      // [P1-05] deleteContract 事务化：SELECT ... FOR UPDATE + 3×UPDATE 均走 connection
+      const conn = await mockPool.getConnection();
+      conn.query.mockReset();
+      conn.query
+        .mockResolvedValueOnce([[{ status: 1, create_by: 10 }]])  // SELECT FOR UPDATE（sales 创建）
+        .mockResolvedValueOnce([{ affectedRows: 1 }])             // UPDATE crm_contract 软删
+        .mockResolvedValueOnce([{ affectedRows: 0 }])             // UPDATE crm_payment 软删
+        .mockResolvedValueOnce([{ affectedRows: 0 }]);            // UPDATE crm_payment_plan 软删
+
       mockPool.query
         .mockResolvedValueOnce([[]])
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])
-        // super_admin → bypass checkPermission, bypass deleteContract ownership check (manageAll=true)
-        // deleteContract: SELECT contract
-        .mockResolvedValueOnce([[{ id: 500, status: 1, create_by: 10 }]])
-        // soft delete crm_contract
-        .mockResolvedValueOnce([{ affectedRows: 1 }])
-        // soft delete crm_payment
-        .mockResolvedValueOnce([{ affectedRows: 0 }])
-        // soft delete crm_payment_plan
-        .mockResolvedValueOnce([{ affectedRows: 0 }]);
+        .mockResolvedValueOnce([[{ id: 1, username: 'admin', role_id: 1, status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]);
+      // super_admin → bypass checkPermission, bypass deleteContract ownership check (manageAll=true)
 
       const res = await request(app)
         .post('/api/v1/contract/delete')
@@ -317,13 +317,15 @@ describe('Contract Center v1 — 业务链集成测试', () => {
     const adminToken = generateSuperAdminToken();
 
     it('已完成合同 (status=3) 不能删除', async () => {
+      // [P1-05] deleteContract 事务化：SELECT ... FOR UPDATE 走 connection
+      const conn = await mockPool.getConnection();
+      conn.query.mockReset();
+      conn.query.mockResolvedValueOnce([[{ status: 3, create_by: 1 }]]);  // SELECT FOR UPDATE → status=3 终态
+
       mockPool.query
         .mockResolvedValueOnce([[]])
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])
-        // super_admin bypass checkPermission
-        // deleteContract: SELECT → status=3
-        .mockResolvedValueOnce([[{ id: 500, status: 3, create_by: 1 }]]);
+        .mockResolvedValueOnce([[{ id: 1, username: 'admin', role_id: 1, status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]);
+      // super_admin bypass checkPermission
 
       const res = await request(app)
         .post('/api/v1/contract/delete')
@@ -338,8 +340,7 @@ describe('Contract Center v1 — 业务链集成测试', () => {
     it('合同不存在时应返回 404', async () => {
       mockPool.query
         .mockResolvedValueOnce([[]])
-        .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])
-        .mockResolvedValueOnce([[{ must_change_password: 0 }]])
+        .mockResolvedValueOnce([[{ id: 1, username: 'admin', role_id: 1, status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]])
         // checkDataPermission + detail query
         .mockResolvedValueOnce([[]]);  // no contract found
 

@@ -103,18 +103,17 @@ const managerToken = () => jwt.sign(
   process.env.JWT_SECRET, { expiresIn: '1h' }
 );
 
-// super_admin auth（绕过 checkPermission，仅 3 次 DB 查询）
+// super_admin auth（[P0-06 2026-10-23 重构后]绕过 checkPermission，仅 2 次 DB 查询：
+// blacklist + 按 userId 单查 sys_user LEFT JOIN sys_role，Promise.all 依序）
 const mockAuthAdmin = () => {
   mockPool.query
-    .mockResolvedValueOnce([[]])                                     // blacklist
-    .mockResolvedValueOnce([[{ view_all: 1, manage_all: 1 }]])      // role
-    .mockResolvedValueOnce([[{ must_change_password: 0 }]]);        // user
+    .mockResolvedValueOnce([[]])                                     // 1: blacklist
+    .mockResolvedValueOnce([[{ id: 1, username: 'admin', role_id: 1, status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 1, role_code: 'super_admin', view_all: 1, manage_all: 1 }]]); // 2: user+role 合并行
 };
 const mockAuthSales = () => {
   mockPool.query
     .mockResolvedValueOnce([[]])
-    .mockResolvedValueOnce([[{ view_all: 0, manage_all: 0, role_code: 'sales' }]])
-    .mockResolvedValueOnce([[{ must_change_password: 0 }]]);
+    .mockResolvedValueOnce([[{ id: 10, username: 'sales01', role_id: 5, status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 5, role_code: 'sales', view_all: 0, manage_all: 0 }]]);
 };
 
 // ============================================================================
@@ -212,10 +211,9 @@ describe('HuakeyCRM v1 Release Smoke Test', () => {
       .mockResolvedValueOnce([[{ id: 200, customer_id: 100 }]]);       // opportunity 属于 100，非 999
 
     // [H-003] 创建报价前用 pool.query 校验 customer 数据权限（admin → clause 1=1，客户查得到）
-    mockPool.query.mockReset();
-    mockPool.query.mockResolvedValueOnce([[{ id: 999 }]]);
-
+    // mock 追加顺序必须与实际查询顺序一致：auth(blacklist+合并行) 先于 H-003 校验
     mockAuthAdmin();
+    mockPool.query.mockResolvedValueOnce([[{ id: 999 }]]);
 
     const res = await request(app)
       .post('/api/v1/quote/add')
@@ -233,7 +231,8 @@ describe('HuakeyCRM v1 Release Smoke Test', () => {
     conn.query
       .mockResolvedValueOnce([[{ id: 100, status: 'signed', company_name: 'A汽车灯具' }]])  // 客户校验 ✅
       .mockResolvedValueOnce([[{ id: 200, customer_id: 100 }]])        // 商机校验 ✅
-      .mockResolvedValueOnce([[{ cnt: 0 }]])                            // generateContractNo
+      // [P2-04] 合同编号改 crm_doc_sequence 原子自增：INSERT ... ON DUPLICATE KEY 读 insertId
+      .mockResolvedValueOnce([{ insertId: 1 }])
       .mockResolvedValueOnce([{ insertId: 500 }])                       // INSERT contract
       .mockResolvedValueOnce([{ affectedRows: 1 }]);                    // INSERT plan
 
@@ -251,12 +250,11 @@ describe('HuakeyCRM v1 Release Smoke Test', () => {
   // 6. 审批合同（manager manageAll=true）
   it('6. manager 审批合同通过', async () => {
     mockPool.query
-      .mockResolvedValueOnce([[]])                                     // blacklist
-      .mockResolvedValueOnce([[{ view_all: 0, manage_all: 1, role_code: 'admin' }]])  // role
-      .mockResolvedValueOnce([[{ must_change_password: 0 }]])          // user
-      .mockResolvedValueOnce([[{ id: 500, approval_status: 1 }]])      // SELECT contract
-      .mockResolvedValueOnce([{ affectedRows: 1 }])                    // UPDATE approval_status=2
-      .mockResolvedValueOnce([{ affectedRows: 1 }]);                   // dismiss notification
+      .mockResolvedValueOnce([[]])                                     // 1: blacklist
+      .mockResolvedValueOnce([[{ id: 2, username: 'manager', role_id: 2, status: 1, must_change_password: 0, password_changed_at: null, fresh_role_id: 2, role_code: 'admin', view_all: 0, manage_all: 1 }]]) // 2: user+role 合并行
+      .mockResolvedValueOnce([[{ id: 500, approval_status: 1 }]])      // 3: SELECT contract
+      .mockResolvedValueOnce([{ affectedRows: 1 }])                    // 4: UPDATE approval_status=2
+      .mockResolvedValueOnce([{ affectedRows: 1 }]);                   // 5: dismiss notification
 
     const res = await request(app)
       .post('/api/v1/contract/approve')
