@@ -98,7 +98,8 @@
           <template #default="{ row }">
             <span v-if="row.owner_name">{{ row.owner_name }}</span>
             <!-- [S3 2026-11-05] 术语统一（V5.1）：无主客户口径为「待分配」 -->
-            <el-tag v-else type="warning" size="small">待分配</el-tag>
+            <!-- data-testid 供 E2E 精确定位（避免与状态列文案撞车） -->
+            <el-tag v-else type="warning" size="small" data-testid="tag-unassigned">待分配</el-tag>
           </template>
         </el-table-column>
         <!-- 释放人 / 释放时间仅「待分配」视图有意义 -->
