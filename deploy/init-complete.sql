@@ -784,6 +784,21 @@ CREATE TABLE `crm_customer_transfer` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `crm_doc_sequence`
+--
+
+DROP TABLE IF EXISTS `crm_doc_sequence`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `crm_doc_sequence` (
+  `seq_key` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '序列键：业务:日期（如 contract:261026）',
+  `current_value` int NOT NULL DEFAULT '0' COMMENT '已分配的最大序号',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后分配时间',
+  PRIMARY KEY (`seq_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='单据编号原子序列';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `crm_email`
 --
 
@@ -1012,7 +1027,7 @@ CREATE TABLE `crm_follow_up_reminder` (
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_customer_date` (`customer_id`,`reminder_date`),
+  UNIQUE KEY `uk_customer_type_date` (`customer_id`,`reminder_type`,`reminder_date`),
   KEY `idx_reminder_owner` (`owner_id`),
   KEY `idx_reminder_is_read` (`is_read`),
   KEY `idx_reminder_create_time` (`create_time`),
@@ -2509,8 +2524,8 @@ DROP TABLE IF EXISTS `schema_migrations`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `schema_migrations` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `version` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `version` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `executed_at` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_version` (`version`)
@@ -3021,7 +3036,7 @@ DELIMITER ;;
 /*!50003 SET sql_mode              = 'IGNORE_SPACE,ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;;
 /*!50003 SET @saved_time_zone      = @@time_zone */ ;;
 /*!50003 SET time_zone             = 'SYSTEM' */ ;;
-/*!50106 CREATE*/ /*!50117 */ /*!50106 EVENT `evt_archive_sys_log` ON SCHEDULE EVERY 1 MONTH STARTS '2026-11-20 12:02:58' ON COMPLETION NOT PRESERVE ENABLE DO BEGIN
+/*!50106 CREATE*/ /*!50117 */ /*!50106 EVENT `evt_archive_sys_log` ON SCHEDULE EVERY 1 MONTH STARTS '2026-12-05 10:27:57' ON COMPLETION NOT PRESERVE ENABLE DO BEGIN
   INSERT INTO sys_log_archive SELECT * FROM sys_log WHERE create_time < DATE_SUB(NOW(), INTERVAL 30 DAY);
   DELETE FROM sys_log WHERE create_time < DATE_SUB(NOW(), INTERVAL 30 DAY);
 END */ ;;
